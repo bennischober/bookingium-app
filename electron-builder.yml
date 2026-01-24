@@ -11,6 +11,11 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+extraResources:
+  from: src/main/db/migrations
+  to: migrations
+  filter:
+    - '**/*'
 win:
   executableName: bookingum-app
 nsis:

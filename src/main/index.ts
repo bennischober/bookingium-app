@@ -5,6 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
+import { runMigrations } from './db/migrate'
 
 function createWindow(): void {
   // Create the browser window.
@@ -53,6 +54,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  runMigrations()
 
   createWindow()
 
