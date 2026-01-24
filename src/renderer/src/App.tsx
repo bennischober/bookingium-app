@@ -1,22 +1,22 @@
+import { trpcReact } from './main'
 import Versions from './components/Versions'
 import { Button } from './components/ui/button'
 
 function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  const hello = trpcReact.greeting.useQuery({ name: 'Electron' }, { enabled: false })
 
   return (
     <main className="w-full h-full bg-background">
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <h1 className="text-2xl font-bold">Hello Electron + Shadcn</h1>
-          <Button
-            variant="outline"
-            onClick={() => {
-              console.log('Click')
-              ipcHandle()
-            }}
-          >
-            Shadcn Button
+          <h1 className="text-2xl font-bold">tRPC Test</h1>
+
+          <div className="border p-4 rounded bg-secondary">
+            {hello.isFetching ? 'Loading...' : (hello.data?.text ?? 'Click button to fetch')}
+          </div>
+
+          <Button variant="outline" onClick={() => hello.refetch()}>
+            Fetch Greeting
           </Button>
         </div>
       </div>

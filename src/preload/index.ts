@@ -1,8 +1,13 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { exposeElectronTRPC } from 'electron-trpc/main'
 
 // Custom APIs for renderer
 const api = {}
+
+process.once('loaded', () => {
+  exposeElectronTRPC()
+})
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
