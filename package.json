@@ -23,15 +23,23 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-form": "^1.27.7",
     "@tanstack/react-query": "^5.90.20",
     "@tanstack/react-router": "^1.157.2",
     "@tanstack/react-table": "^8.21.3",
     "better-sqlite3": "^12.6.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
     "electron-trpc": "^0.7.1",
+    "lucide-react": "^0.563.0",
     "reflect-metadata": "^0.2.2",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18",
     "tsyringe": "^4.10.0",
+    "tw-animate-css": "^1.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
