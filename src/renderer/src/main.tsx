@@ -1,12 +1,12 @@
 import './assets/index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
-
 import { createTRPCReact } from '@trpc/react-query'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from '@tanstack/react-router'
 import { ipcLink } from 'electron-trpc/renderer'
 import type { AppRouter } from '../../main/api/router'
+import { router } from './router'
 
 export const trpcReact = createTRPCReact<AppRouter>()
 
@@ -20,7 +20,7 @@ function AppRoot() {
     <React.StrictMode>
       <trpcReact.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <App />
+          <RouterProvider router={router} />
         </QueryClientProvider>
       </trpcReact.Provider>
     </React.StrictMode>
