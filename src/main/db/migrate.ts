@@ -4,16 +4,15 @@ import { join } from 'path'
 import { app } from 'electron'
 
 export function runMigrations() {
-  // if in dev mode, skip migrations
-  if (!app.isPackaged) {
-    console.log('Skipping migrations in development mode')
-    return
-  }
+  let migrationsFolder: string
 
-  // In production, migrations are in resources folder
-  const migrationsFolder = app.isPackaged
-    ? join(process.resourcesPath, 'migrations')
-    : join(__dirname, 'migrations')
+  if (app.isPackaged) {
+    // Production: migrations are copied to resources folder
+    migrationsFolder = join(process.resourcesPath, 'migrations')
+  } else {
+    // Development: resolve from app root
+    migrationsFolder = join(app.getAppPath(), 'src/main/db/migrations')
+  }
 
   console.log('Running migrations from:', migrationsFolder)
 

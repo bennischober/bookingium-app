@@ -12,10 +12,10 @@ files:
 asarUnpack:
   - resources/**
 extraResources:
-  from: src/main/db/migrations
-  to: migrations
-  filter:
-    - '**/*'
+  - from: src/main/db/migrations
+    to: migrations
+    filter:
+      - '**/*'
 win:
   executableName: bookingum-app
 nsis:
