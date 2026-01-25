@@ -3,12 +3,17 @@ import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table'
+import { FormSheet } from '@/components/form-sheet'
+import { BandForm } from '@/components/forms/BandForm'
+import { useFormSheet } from '@/hooks/useFormSheet'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 export default function BandPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+
+  const sheet = useFormSheet<BandDto>()
 
   const bands = trpcReact.band.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,
@@ -21,6 +26,14 @@ export default function BandPage() {
   const createBand = trpcReact.band.create.useMutation({
     onSuccess: () => {
       utils.band.getAllPaginated.invalidate()
+      sheet.close()
+    }
+  })
+
+  const updateBand = trpcReact.band.update.useMutation({
+    onSuccess: () => {
+      utils.band.getAllPaginated.invalidate()
+      sheet.close()
     }
   })
 
@@ -36,10 +49,12 @@ export default function BandPage() {
     }
   }
 
-  const handleEdit = (band: BandDto) => {
-    // TODO: Open edit dialog/sheet
-    console.log('Edit band:', band)
-    alert('Edit functionality - coming soon!')
+  const handleFormSubmit = (data: any) => {
+    if (sheet.mode === 'edit') {
+      updateBand.mutate(data)
+    } else {
+      createBand.mutate(data)
+    }
   }
 
   // Define table columns
@@ -78,7 +93,7 @@ export default function BandPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleEdit(band)}
+              onClick={() => sheet.openEdit(band)}
               className="h-8 px-2"
             >
               <Pencil className="h-4 w-4" />
@@ -119,19 +134,31 @@ export default function BandPage() {
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
         actionButton={
-          <Button
-            onClick={() =>
-              createBand.mutate({
-                name: 'New Band',
-                genre: 'Rock',
-                companyId: 1
-              })
-            }
-          >
+          <Button onClick={() => sheet.openCreate()}>
             + Add New Band
           </Button>
         }
       />
+
+      <FormSheet
+        isOpen={sheet.isOpen}
+        onClose={sheet.close}
+        mode={sheet.mode}
+        title={sheet.mode === 'create' ? 'Create New Band' : 'Edit Band'}
+        description={
+          sheet.mode === 'create'
+            ? 'Fill in the details to create a new band.'
+            : 'Make changes to the band profile below.'
+        }
+      >
+        <BandForm
+          mode={sheet.mode}
+          initialData={sheet.selectedItem}
+          onSubmit={handleFormSubmit}
+          onCancel={sheet.close}
+          isSubmitting={createBand.isPending || updateBand.isPending}
+        />
+      </FormSheet>
     </div>
   )
 }
