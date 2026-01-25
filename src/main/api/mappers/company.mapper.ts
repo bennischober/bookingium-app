@@ -1,25 +1,42 @@
 import { CompanyDto, CompanyListItemDto } from '../schemas/company.schema'
-import { company } from '../../db/schema'
+import {
+  company,
+  address as addressTable,
+  contact as contactTable,
+  bank as bankTable
+} from '../../db/schema'
+import { AddressMapper } from './address.mapper'
+import { ContactMapper } from './contact.mapper'
+import { BankMapper } from './bank.mapper'
 
 type CompanyEntity = typeof company.$inferSelect
+type AddressEntity = typeof addressTable.$inferSelect
+type ContactEntity = typeof contactTable.$inferSelect
+type BankEntity = typeof bankTable.$inferSelect
+
+type CompanyWithRelations = CompanyEntity & {
+  address?: AddressEntity | null
+  contact?: ContactEntity | null
+  bank?: BankEntity | null
+}
 
 export class CompanyMapper {
-  static toDto(entity: CompanyEntity): CompanyDto {
+  static toDto(entity: CompanyWithRelations): CompanyDto {
     return {
       id: entity.id,
       name: entity.name,
       notes: entity.notes,
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,
-      bankId: entity.bank_id,
-      addressId: entity.address_id,
-      contactId: entity.contact_id,
+      address: AddressMapper.toDto(entity.address),
+      contact: ContactMapper.toDto(entity.contact),
+      bank: entity.bank ? BankMapper.toDto(entity.bank) : null,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }
   }
 
-  static toDtoList(entities: CompanyEntity[]): CompanyDto[] {
+  static toDtoList(entities: CompanyWithRelations[]): CompanyDto[] {
     return entities.map(this.toDto)
   }
 

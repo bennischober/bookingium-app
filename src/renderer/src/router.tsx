@@ -3,6 +3,9 @@ import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
 import App from '@/App'
 import BandPage from '@/pages/BandPage'
+import PersonPage from '@/pages/PersonPage'
+import CompanyPage from '@/pages/CompanyPage'
+import BankPage from '@/pages/BankPage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
@@ -23,7 +26,25 @@ const bandRoute = createRoute({
   component: BandPage
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, bandRoute])
+const personRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.persons.path,
+  component: PersonPage
+})
+
+const companyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.companies.path,
+  component: CompanyPage
+})
+
+const bankRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.banks.path,
+  component: BankPage
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, bandRoute, personRoute, companyRoute, bankRoute])
 
 export const router = createRouter({
   routeTree,

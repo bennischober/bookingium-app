@@ -61,6 +61,24 @@ export const ROUTES = {
     title: '🏨 Hotels',
     group: 'Directory',
     breadcrumb: 'Hotels'
+  },
+  persons: {
+    path: '/persons',
+    title: '👤 Persons',
+    group: 'Master Data',
+    breadcrumb: 'Persons'
+  },
+  companies: {
+    path: '/companies',
+    title: '🏢 Companies',
+    group: 'Master Data',
+    breadcrumb: 'Companies'
+  },
+  banks: {
+    path: '/banks',
+    title: '🏦 Banks',
+    group: 'Master Data',
+    breadcrumb: 'Banks'
   }
 } as const
 

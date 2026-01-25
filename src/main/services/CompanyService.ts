@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe'
 import { CompanyRepository } from '../repositories/CompanyRepository'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
+import { PaginationInput } from '../api/schemas/base.schema'
 
 @injectable()
 export class CompanyService {
@@ -11,6 +12,10 @@ export class CompanyService {
 
   async getAllCompanies() {
     return await this.companyRepository.getAll()
+  }
+
+  async getAllCompaniesPaginated(pagination: PaginationInput) {
+    return await this.companyRepository.getAllPaginated(pagination)
   }
 
   async getCompanyById(id: number) {

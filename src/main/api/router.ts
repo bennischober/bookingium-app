@@ -3,6 +3,8 @@ import { initTRPC } from '@trpc/server'
 import { EventEmitter } from 'events'
 import { bandRouter } from './routers/band.router'
 import { companyRouter } from './routers/company.router'
+import { personRouter } from './routers/person.router'
+import { bankRouter } from './routers/bank.router'
 
 const ee = new EventEmitter()
 
@@ -18,7 +20,9 @@ export const router = t.router({
     }
   }),
   band: bandRouter,
-  company: companyRouter
+  company: companyRouter,
+  person: personRouter,
+  bank: bankRouter
 })
 
 export type AppRouter = typeof router

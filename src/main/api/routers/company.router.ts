@@ -1,12 +1,12 @@
-import { initTRPC, TRPCError } from '@trpc/server'
+import { z } from 'zod'
+import { initTRPC } from '@trpc/server'
 import { container } from 'tsyringe'
 import { CompanyService } from '../../services/CompanyService'
 import { CompanyMapper } from '../mappers/company.mapper'
 import { CreateCompanyInput, UpdateCompanyInput } from '../schemas/company.schema'
-import z from 'zod'
+import { PaginationInput } from '../schemas/base.schema'
 
 const t = initTRPC.create()
-
 const companyService = container.resolve(CompanyService)
 
 export const companyRouter = t.router({
@@ -21,10 +21,18 @@ export const companyRouter = t.router({
     return CompanyMapper.toListItemList(companies)
   }),
 
-  getById: t.procedure.input(z.number()).query(async ({ input }) => {
-    const company = await companyService.getCompanyById(input)
-    if (!company) throw new TRPCError({ code: 'NOT_FOUND' })
-    return CompanyMapper.toDto(company)
+  getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
+    const result = await companyService.getAllCompaniesPaginated(input)
+
+    return {
+      ...result,
+      items: CompanyMapper.toDtoList(result.items)
+    }
+  }),
+
+  getById: t.procedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+    const company = await companyService.getCompanyById(input.id)
+    return company ? CompanyMapper.toDto(company) : null
   }),
 
   create: t.procedure.input(CreateCompanyInput).mutation(async ({ input }) => {
@@ -37,9 +45,7 @@ export const companyRouter = t.router({
     return CompanyMapper.toDto(company)
   }),
 
-  delete: t.procedure.input(z.number()).mutation(async ({ input }) => {
-    const company = await companyService.deleteCompany(input)
-    if (!company) throw new TRPCError({ code: 'NOT_FOUND' })
-    return CompanyMapper.toDto(company)
+  delete: t.procedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    await companyService.deleteCompany(input.id)
   })
 })

@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
+import { AddressDto, AddressInput } from './address.schema'
+import { ContactDto, ContactInput } from './contact.schema'
+import { BankDto } from './bank.schema'
 
-// Output DTO - what the frontend receives
+// Output DTO - what the frontend receives (with embedded relations)
 export const CompanyDto = z
   .object({
     id: z.number(),
@@ -9,9 +12,9 @@ export const CompanyDto = z
     notes: z.string(),
     vatNumber: z.string(),
     ustNumber: z.string(),
-    bankId: z.number().nullable(),
-    addressId: z.number().nullable(),
-    contactId: z.number().nullable()
+    address: AddressDto.nullable(),
+    contact: ContactDto.nullable(),
+    bank: BankDto.nullable()
   })
   .extend(TimestampFields.shape)
 
@@ -24,12 +27,15 @@ export const CompanyListItemDto = z.object({
 // Paginated company response
 export const PaginatedCompanyResponse = createPaginatedResponse(CompanyDto)
 
-// Input DTO - for creating/updating
+// Input DTO - for creating/updating (with embedded relations)
 export const CreateCompanyInput = z.object({
   name: z.string().min(1, 'Name is required'),
   notes: z.string().optional().default(''),
   vatNumber: z.string().optional().default(''),
-  ustNumber: z.string().optional().default('')
+  ustNumber: z.string().optional().default(''),
+  address: AddressInput.optional(),
+  contact: ContactInput.optional(),
+  bankId: z.number().nullable().optional()
 })
 
 export const UpdateCompanyInput = CreateCompanyInput.partial().extend({
