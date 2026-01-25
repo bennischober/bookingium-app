@@ -38,5 +38,11 @@ export const bandRouter = t.router({
   update: t.procedure.input(UpdateBandInput).mutation(async ({ input }) => {
     const band = await bandService.updateBand(input)
     return BandMapper.toDto(band)
+  }),
+
+  delete: t.procedure.input(z.number()).mutation(async ({ input }) => {
+    const band = await bandService.deleteBand(input)
+    if (!band) throw new TRPCError({ code: 'NOT_FOUND' })
+    return BandMapper.toDto(band)
   })
 })

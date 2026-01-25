@@ -29,4 +29,8 @@ export class BandService {
   async updateBand(data: UpdateBandInput) {
     return await this.bandRepository.update(data)
   }
+
+  async deleteBand(id: number) {
+    return await this.bandRepository.delete(id)
+  }
 }

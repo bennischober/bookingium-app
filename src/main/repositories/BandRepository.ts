@@ -81,4 +81,12 @@ export class BandRepository {
       .returning()
     return result[0]
   }
+
+  async delete(id: number) {
+    const result = await db
+      .delete(schema.band)
+      .where(eq(schema.band.id, id))
+      .returning()
+    return result[0]
+  }
 }

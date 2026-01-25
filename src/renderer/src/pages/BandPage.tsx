@@ -1,21 +1,17 @@
 import { trpcReact } from '@/main'
 import { useState } from 'react'
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  type ColumnDef
-} from '@tanstack/react-table'
+import { type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { DataTable } from '@/components/data-table'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 export default function BandPage() {
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 10 })
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
 
   const bands = trpcReact.band.getAllPaginated.useQuery({
-    page: pagination.page,
+    page: pagination.pageIndex + 1,
     pageSize: pagination.pageSize,
     search: search || undefined
   })
@@ -28,12 +24,30 @@ export default function BandPage() {
     }
   })
 
+  const deleteBand = trpcReact.band.delete.useMutation({
+    onSuccess: () => {
+      utils.band.getAllPaginated.invalidate()
+    }
+  })
+
+  const handleDelete = (id: number, name: string) => {
+    if (confirm(`Are you sure you want to delete "${name}"?`)) {
+      deleteBand.mutate(id)
+    }
+  }
+
+  const handleEdit = (band: BandDto) => {
+    // TODO: Open edit dialog/sheet
+    console.log('Edit band:', band)
+    alert('Edit functionality - coming soon!')
+  }
+
   // Define table columns
   const columns: ColumnDef<BandDto>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
-      cell: (info) => info.getValue()
+      cell: (info) => <span className="font-medium">{info.getValue() as string}</span>
     },
     {
       accessorKey: 'genre',
@@ -52,32 +66,36 @@ export default function BandPage() {
         const value = info.getValue() as string
         return value ? (value.length > 50 ? value.substring(0, 50) + '...' : value) : '-'
       }
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const band = row.original
+
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEdit(band)}
+              className="h-8 px-2"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(band.id, band.name)}
+              className="h-8 px-2 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )
+      }
     }
   ]
-
-  const table = useReactTable({
-    data: bands.data?.items ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    pageCount: bands.data?.totalPages ?? 0,
-    state: {
-      pagination: {
-        pageIndex: pagination.page - 1,
-        pageSize: pagination.pageSize
-      }
-    },
-    onPaginationChange: (updater) => {
-      const newPagination =
-        typeof updater === 'function'
-          ? updater({ pageIndex: pagination.page - 1, pageSize: pagination.pageSize })
-          : updater
-      setPagination({
-        page: newPagination.pageIndex + 1,
-        pageSize: newPagination.pageSize
-      })
-    }
-  })
 
   return (
     <div className="flex flex-col w-full h-full p-6">
@@ -86,106 +104,34 @@ export default function BandPage() {
         <p className="text-sm text-muted-foreground">Manage your artists and contacts.</p>
       </div>
 
-      {/* Filter and Add Button */}
-      <div className="flex items-center justify-between mb-4">
-        <Input
-          placeholder="Filter names..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPagination((prev) => ({ ...prev, page: 1 }))
-          }}
-          className="max-w-sm"
-        />
-        <Button
-          onClick={() =>
-            createBand.mutate({
-              name: 'New Band',
-              genre: 'Rock',
-              companyId: 1
-            })
-          }
-        >
-          + Add New Band
-        </Button>
-      </div>
-
-      {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-3 text-left text-sm font-medium">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {bands.isLoading ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
-                  Loading...
-                </td>
-              </tr>
-            ) : table.getRowModel().rows.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
-                  No bands found.
-                </td>
-              </tr>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-t hover:bg-muted/50">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-sm">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-sm text-muted-foreground">
-          {bands.data && (
-            <>
-              Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
-              {Math.min(pagination.page * pagination.pageSize, bands.data.total)} of {bands.data.total} results
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+      <DataTable
+        columns={columns}
+        data={bands.data?.items ?? []}
+        pageCount={bands.data?.totalPages ?? 0}
+        pagination={pagination}
+        onPaginationChange={setPagination}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+        }}
+        searchPlaceholder="Filter bands..."
+        isLoading={bands.isLoading}
+        total={bands.data?.total ?? 0}
+        actionButton={
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={() =>
+              createBand.mutate({
+                name: 'New Band',
+                genre: 'Rock',
+                companyId: 1
+              })
+            }
           >
-            &lt; Previous
+            + Add New Band
           </Button>
-          <span className="text-sm">
-            Page {pagination.page} of {bands.data?.totalPages ?? 1}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next &gt;
-          </Button>
-        </div>
-      </div>
+        }
+      />
     </div>
   )
 }

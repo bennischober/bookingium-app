@@ -1,0 +1,148 @@
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type PaginationState,
+  type OnChangeFn
+} from '@tanstack/react-table'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+interface DataTableProps<TData> {
+  columns: ColumnDef<TData>[]
+  data: TData[]
+  pageCount: number
+  pagination: PaginationState
+  onPaginationChange: OnChangeFn<PaginationState>
+  search?: string
+  onSearchChange?: (search: string) => void
+  searchPlaceholder?: string
+  isLoading?: boolean
+  total?: number
+  actionButton?: React.ReactNode
+}
+
+export function DataTable<TData>({
+  columns,
+  data,
+  pageCount,
+  pagination,
+  onPaginationChange,
+  search = '',
+  onSearchChange,
+  searchPlaceholder = 'Search...',
+  isLoading = false,
+  total = 0,
+  actionButton
+}: DataTableProps<TData>) {
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    pageCount,
+    state: {
+      pagination
+    },
+    onPaginationChange
+  })
+
+  return (
+    <div className="flex flex-col w-full">
+      {/* Search and Action Button */}
+      {(onSearchChange || actionButton) && (
+        <div className="flex items-center justify-between mb-4">
+          {onSearchChange ? (
+            <Input
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="max-w-sm"
+            />
+          ) : (
+            <div />
+          )}
+          {actionButton}
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} className="px-4 py-3 text-left text-sm font-medium">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
+                  Loading...
+                </td>
+              </tr>
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
+                  No results found.
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="border-t hover:bg-muted/50">
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3 text-sm">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-muted-foreground">
+          {total > 0 && (
+            <>
+              Showing {pagination.pageIndex * pagination.pageSize + 1} to{' '}
+              {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} of {total} results
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            &lt; Previous
+          </Button>
+          <span className="text-sm">
+            Page {pagination.pageIndex + 1} of {pageCount || 1}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next &gt;
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
