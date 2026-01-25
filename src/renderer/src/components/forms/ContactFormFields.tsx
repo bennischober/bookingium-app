@@ -9,7 +9,6 @@ export function ContactFormFields({ form }: ContactFormFieldsProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Contact Information</h3>
-
       <form.Field name="contact.email">
         {(field) => (
           <div className="space-y-2">
@@ -29,37 +28,39 @@ export function ContactFormFields({ form }: ContactFormFieldsProps) {
         )}
       </form.Field>
 
-      <form.Field name="contact.phone">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="contact.phone">Phone</Label>
-            <Input
-              id="contact.phone"
-              type="tel"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="+1 234 567 8900"
-            />
-          </div>
-        )}
-      </form.Field>
+      <div className="grid grid-cols-2 gap-4">
+        <form.Field name="contact.phone">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="contact.phone">Phone</Label>
+              <Input
+                id="contact.phone"
+                type="tel"
+                value={field.state.value || ''}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                placeholder="+1 234 567 8900"
+              />
+            </div>
+          )}
+        </form.Field>
 
-      <form.Field name="contact.mobilePhone">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="contact.mobilePhone">Mobile Phone</Label>
-            <Input
-              id="contact.mobilePhone"
-              type="tel"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="+1 234 567 8900"
-            />
-          </div>
-        )}
-      </form.Field>
+        <form.Field name="contact.mobilePhone">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="contact.mobilePhone">Mobile Phone</Label>
+              <Input
+                id="contact.mobilePhone"
+                type="tel"
+                value={field.state.value || ''}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                placeholder="+1 234 567 8900"
+              />
+            </div>
+          )}
+        </form.Field>
+      </div>
 
       <form.Field name="contact.homepage">
         {(field) => (
