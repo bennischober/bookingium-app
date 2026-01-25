@@ -46,9 +46,5 @@ export const personRouter = t.router({
 
   delete: t.procedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
     await personService.deletePerson(input.id)
-  }),
-
-  getRelations: t.procedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
-    return await personService.getPersonRelations(input.id)
   })
 })

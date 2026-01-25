@@ -1,8 +1,9 @@
 import { trpcReact } from '@/main'
+import { useNavigate } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 
 interface PersonRelationsProps {
   personId: number
@@ -10,27 +11,33 @@ interface PersonRelationsProps {
 }
 
 export function PersonRelations({ personId, personName }: PersonRelationsProps) {
-  const relations = trpcReact.person.getRelations.useQuery({ id: personId })
+  const navigate = useNavigate()
+  const relations = trpcReact.relation.getPersonRelations.useQuery({ personId })
 
   if (relations.isLoading) return <div>Loading relations...</div>
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Relations for {personName}</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          View and manage this person's relationships with bands, companies, and venues.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Relations for {personName}</h2>
+          <p className="text-sm text-muted-foreground">
+            Quick overview of this person's relationships.
+          </p>
+        </div>
+        <Button
+          onClick={() => navigate({ to: `/persons/${personId}/relations` })}
+          variant="default"
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Manage Relations
+        </Button>
       </div>
 
       {/* Band Memberships */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Band Memberships</CardTitle>
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add to Band
-          </Button>
         </CardHeader>
         <CardContent>
           {relations.data?.bands.length === 0 ? (
@@ -38,22 +45,16 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.bands.map((membership) => (
-                <div
-                  key={membership.id}
-                  className="flex items-center justify-between p-3 border rounded"
-                >
+                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <p className="font-medium">{membership.bandName}</p>
                     <div className="flex gap-2 mt-1">
-                      <Badge variant="secondary">{membership.role || 'No role'}</Badge>
+                      <Badge variant="secondary">{membership.role}</Badge>
                     </div>
                     {membership.notes && (
                       <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
                     )}
                   </div>
-                  <Button variant="ghost" size="sm">
-                    Edit
-                  </Button>
                 </div>
               ))}
             </div>
@@ -63,12 +64,8 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
 
       {/* Company Memberships */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Company Affiliations</CardTitle>
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add to Company
-          </Button>
         </CardHeader>
         <CardContent>
           {relations.data?.companies.length === 0 ? (
@@ -76,22 +73,16 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.companies.map((membership) => (
-                <div
-                  key={membership.id}
-                  className="flex items-center justify-between p-3 border rounded"
-                >
+                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <p className="font-medium">{membership.companyName}</p>
                     <div className="flex gap-2 mt-1">
-                      <Badge variant="secondary">{membership.role || 'No role'}</Badge>
+                      <Badge variant="secondary">{membership.role}</Badge>
                     </div>
                     {membership.notes && (
                       <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
                     )}
                   </div>
-                  <Button variant="ghost" size="sm">
-                    Edit
-                  </Button>
                 </div>
               ))}
             </div>
@@ -101,12 +92,8 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
 
       {/* Venue Affiliations */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Venue Affiliations</CardTitle>
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add to Venue
-          </Button>
         </CardHeader>
         <CardContent>
           {relations.data?.venues.length === 0 ? (
@@ -114,19 +101,16 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.venues.map((membership) => (
-                <div
-                  key={membership.id}
-                  className="flex items-center justify-between p-3 border rounded"
-                >
+                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <p className="font-medium">{membership.venueName}</p>
-                    <Badge variant="secondary" className="mt-1">
-                      {membership.role || 'No role'}
-                    </Badge>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant="secondary">{membership.role}</Badge>
+                    </div>
+                    {membership.notes && (
+                      <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
+                    )}
                   </div>
-                  <Button variant="ghost" size="sm">
-                    Edit
-                  </Button>
                 </div>
               ))}
             </div>

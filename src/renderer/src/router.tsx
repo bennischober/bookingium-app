@@ -6,6 +6,7 @@ import BandPage from '@/pages/BandPage'
 import PersonPage from '@/pages/PersonPage'
 import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
+import { PersonRelationsPage } from '@/pages/PersonRelationsPage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
@@ -32,6 +33,12 @@ const personRoute = createRoute({
   component: PersonPage
 })
 
+const personRelationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/persons/$personId/relations',
+  component: PersonRelationsPage
+})
+
 const companyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTES.companies.path,
@@ -44,7 +51,14 @@ const bankRoute = createRoute({
   component: BankPage
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, bandRoute, personRoute, companyRoute, bankRoute])
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  bandRoute,
+  personRoute,
+  personRelationsRoute,
+  companyRoute,
+  bankRoute
+])
 
 export const router = createRouter({
   routeTree,

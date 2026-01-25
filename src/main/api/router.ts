@@ -5,6 +5,8 @@ import { bandRouter } from './routers/band.router'
 import { companyRouter } from './routers/company.router'
 import { personRouter } from './routers/person.router'
 import { bankRouter } from './routers/bank.router'
+import { venueRouter } from './routers/venue.router'
+import { relationRouter } from './routers/relation.router'
 
 const ee = new EventEmitter()
 
@@ -22,7 +24,9 @@ export const router = t.router({
   band: bandRouter,
   company: companyRouter,
   person: personRouter,
-  bank: bankRouter
+  bank: bankRouter,
+  venue: venueRouter,
+  relation: relationRouter
 })
 
 export type AppRouter = typeof router
