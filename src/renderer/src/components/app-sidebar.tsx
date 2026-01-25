@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import {
   Sidebar,
   SidebarContent,
@@ -12,65 +12,12 @@ import {
   SidebarMenuItem,
   SidebarRail
 } from '@/components/ui/sidebar'
-
-const data = {
-  navMain: [
-    {
-      title: 'Main Menu',
-      url: '#',
-      items: [
-        {
-          title: '📊 Dashboard',
-          url: '/',
-          isActive: true
-        },
-        {
-          title: '📅 Calendar',
-          url: '/calendar'
-        }
-      ]
-    },
-    {
-      title: 'Production',
-      url: '#',
-      items: [
-        {
-          title: '🎸 Events',
-          url: '/events'
-        },
-        {
-          title: '📄 Invoices',
-          url: '/invoices'
-        }
-      ]
-    },
-    {
-      title: 'Directory',
-      url: '#',
-      items: [
-        {
-          title: '🥁 Bands',
-          url: '/bands'
-        },
-        {
-          title: '📍 Venues',
-          url: '/venues'
-        },
-        {
-          title: '🏨 Hotels',
-          url: '/hotels'
-        }
-      ]
-    }
-  ]
-}
+import { getGroupedRoutes } from '@/lib/routing'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [activeItem, setActiveItem] = React.useState<string>('📊 Dashboard')
-
-  const itemClick = (itemTitle: string) => {
-    setActiveItem(itemTitle)
-  }
+  const routerState = useRouterState()
+  const currentPath = routerState.location.pathname
+  const navGroups = getGroupedRoutes()
 
   return (
     <Sidebar variant="sidebar" {...props}>
@@ -78,22 +25,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <h1 className="text-lg font-bold">BOOKINGIUM</h1>
       </SidebarHeader>
       <SidebarContent>
-        {data.navMain.map((item) => (
-          <SidebarGroup key={item.title}>
-            <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {item.items?.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.title === activeItem}>
-                      <Link
-                        to={item.url}
-                        onClick={() => {
-                          itemClick(item.title)
-                        }}
-                      >
-                        {item.title}
-                      </Link>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild isActive={currentPath === item.path}>
+                      <Link to={item.path}>{item.title}</Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

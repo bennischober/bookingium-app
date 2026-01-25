@@ -1,7 +1,9 @@
 import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
-import RootLayout from './components/root-layout'
-import App from './App'
+import RootLayout from '@/components/root-layout'
+import App from '@/App'
+import BandPage from '@/pages/BandPage'
+import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
 
@@ -11,17 +13,17 @@ const rootRoute = createRootRoute({
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/',
+  path: ROUTES.dashboard.path,
   component: App
 })
 
-const aboutRoute = createRoute({
+const bandRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/about',
-  component: () => <div className="p-4">About Page</div>
+  path: ROUTES.bands.path,
+  component: BandPage
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute])
+const routeTree = rootRoute.addChildren([indexRoute, bandRoute])
 
 export const router = createRouter({
   routeTree,
