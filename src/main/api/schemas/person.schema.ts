@@ -12,8 +12,7 @@ export const PersonDto = z
     firstName: z.string(),
     lastName: z.string(),
     birthday: z.string().nullable(),
-    role: z.string(),
-    notes: z.string(),
+    notes: z.string().nullable(),
     address: AddressDto.nullable(),
     contact: ContactDto.nullable()
   })
@@ -25,8 +24,7 @@ export const PersonDto = z
 export const PersonListItemDto = z.object({
   id: z.number(),
   firstName: z.string(),
-  lastName: z.string(),
-  role: z.string()
+  lastName: z.string()
 })
 
 export const PaginatedPersonResponse = createPaginatedResponse(PersonDto)
@@ -38,8 +36,7 @@ export const CreatePersonInput = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   birthday: z.string().nullable().default(null),
-  role: z.string().default(''),
-  notes: z.string().default(''),
+  notes: z.string().nullable(),
   address: AddressInput.optional(),
   contact: ContactInput.optional()
 })
@@ -52,8 +49,7 @@ export const UpdatePersonInput = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   birthday: z.string().nullable().default(null),
-  role: z.string().default(''),
-  notes: z.string().default(''),
+  notes: z.string().nullable(),
   address: AddressInput.optional(),
   contact: ContactInput.optional()
 })

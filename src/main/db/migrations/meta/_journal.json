@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1769286497698,
-      "tag": "0000_typical_whirlwind",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1769365761772,
-      "tag": "0001_familiar_whirlwind",
+      "when": 1769367964579,
+      "tag": "0000_dizzy_ozymandias",
       "breakpoints": true
     }
   ]

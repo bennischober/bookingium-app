@@ -12,7 +12,7 @@ export const address = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     street: text('street').default('').notNull(),
     street_number: text('street_number').default('').notNull(),
-    address_suffix: text('address_suffix').default('').notNull(),
+    address_suffix: text('address_suffix').default(''),
     zip_code: text('zip_code').default('').notNull(),
     city: text('city').default('').notNull(),
     state: text('state').default('').notNull(),
@@ -31,9 +31,9 @@ export const contact = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     email: text('email').default('').notNull(),
-    phone: text('phone').default('').notNull(),
-    mobile_phone: text('mobile_phone').default('').notNull(),
-    homepage: text('homepage').default('').notNull()
+    phone: text('phone'),
+    mobile_phone: text('mobile_phone'),
+    homepage: text('homepage')
   },
   (table) => [index('contact_email_idx').on(table.email)]
 )
@@ -63,16 +63,13 @@ export const person = sqliteTable(
     first_name: text('first_name').notNull(),
     last_name: text('last_name').notNull(),
     birthday: text('birthday'), // ISO 8601 format: YYYY-MM-DD
-    role: text('role').default('').notNull(),
-    notes: text('notes').default('').notNull(),
+    notes: text('notes'),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [index('person_name_idx').on(table.first_name, table.last_name)]
 )
@@ -83,7 +80,7 @@ export const company = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
-    notes: text('notes').default('').notNull(),
+    notes: text('notes'),
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
     vat_number: text('vat_number').default('').notNull(),
     ust_number: text('ust_number').default('').notNull(),
@@ -93,8 +90,6 @@ export const company = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [index('company_name_idx').on(table.name)]
 )
@@ -109,7 +104,9 @@ export const company_member = sqliteTable(
       .references(() => company.id, { onDelete: 'cascade' }),
     person_id: integer('person_id')
       .notNull()
-      .references(() => person.id, { onDelete: 'cascade' })
+      .references(() => person.id, { onDelete: 'cascade' }),
+    role: text('role'),
+    notes: text('notes')
   },
   (table) => [
     index('company_member_company_idx').on(table.company_id),
@@ -150,7 +147,9 @@ export const band_member = sqliteTable(
       .references(() => band.id, { onDelete: 'cascade' }),
     person_id: integer('person_id')
       .notNull()
-      .references(() => person.id, { onDelete: 'cascade' })
+      .references(() => person.id, { onDelete: 'cascade' }),
+    role: text('role'),
+    notes: text('notes')
   },
   (table) => [
     index('band_member_band_idx').on(table.band_id),
@@ -174,8 +173,6 @@ export const venue = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [
     index('venue_name_idx').on(table.name),
@@ -194,7 +191,8 @@ export const venue_member = sqliteTable(
     person_id: integer('person_id')
       .notNull()
       .references(() => person.id, { onDelete: 'cascade' }),
-    identifier: text('identifier').default('').notNull() // e.g., "Stage Manager", "Technical Director"
+    role: text('role'),
+    notes: text('notes')
   },
   (table) => [
     index('venue_member_venue_idx').on(table.venue_id),
@@ -208,15 +206,13 @@ export const hotel = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
-    notes: text('notes').default('').notNull(),
+    notes: text('notes'),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [index('hotel_name_idx').on(table.name)]
 )
@@ -253,8 +249,6 @@ export const deal_memo = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [
     index('deal_memo_date_idx').on(table.date),
@@ -294,8 +288,6 @@ export const itinerary = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
-      .default(sql`(datetime('now'))`)
-      .notNull()
   },
   (table) => [
     uniqueIndex('itinerary_deal_memo_idx').on(table.deal_memo_id), // One itinerary per deal memo

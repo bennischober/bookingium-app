@@ -20,7 +20,6 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
       firstName: person?.firstName || '',
       lastName: person?.lastName || '',
       birthday: person?.birthday || null,
-      role: person?.role || '',
       notes: person?.notes || '',
       address: {
         street: person?.address?.street || '',
@@ -103,21 +102,6 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
                   value={field.state.value || ''}
                   onChange={(e) => field.handleChange(e.target.value || null)}
                   onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="role">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Input
-                  id="role"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="e.g., Manager, Artist, etc."
                 />
               </div>
             )}

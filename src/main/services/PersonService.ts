@@ -30,4 +30,8 @@ export class PersonService {
   async deletePerson(id: number) {
     await this.personRepository.delete(id)
   }
+
+  async getPersonRelations(id: number) {
+    return await this.personRepository.getPersonRelations(id)
+  }
 }

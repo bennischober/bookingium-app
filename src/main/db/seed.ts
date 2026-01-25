@@ -12,7 +12,7 @@ import {
   venue_member,
   hotel,
   deal_memo,
-  itinerary,
+  itinerary
 } from './schema'
 
 export async function seedDatabase() {
@@ -26,6 +26,9 @@ export async function seedDatabase() {
 
     console.log('Seeding database with sample data...')
 
+    // ========================================
+    // Create Addresses
+    // ========================================
     const [hotelAddress1] = await db
       .insert(address)
       .values({
@@ -35,7 +38,7 @@ export async function seedDatabase() {
         city: 'Berlin',
         state: 'Berlin',
         country: 'Germany',
-        country_code: 'DE',
+        country_code: 'DE'
       })
       .returning()
 
@@ -48,7 +51,7 @@ export async function seedDatabase() {
         city: 'Nashville',
         state: 'Tennessee',
         country: 'United States',
-        country_code: 'US',
+        country_code: 'US'
       })
       .returning()
 
@@ -61,7 +64,7 @@ export async function seedDatabase() {
         city: 'Berlin',
         state: 'Berlin',
         country: 'Germany',
-        country_code: 'DE',
+        country_code: 'DE'
       })
       .returning()
 
@@ -74,7 +77,20 @@ export async function seedDatabase() {
         city: 'London',
         state: 'England',
         country: 'United Kingdom',
-        country_code: 'GB',
+        country_code: 'GB'
+      })
+      .returning()
+
+    const [personAddress2] = await db
+      .insert(address)
+      .values({
+        street: 'Sunset Boulevard',
+        street_number: '8901',
+        zip_code: '90069',
+        city: 'Los Angeles',
+        state: 'California',
+        country: 'United States',
+        country_code: 'US'
       })
       .returning()
 
@@ -89,7 +105,7 @@ export async function seedDatabase() {
         email: 'reservations@hotel-adlon.de',
         phone: '+49-30-22610',
         mobile_phone: '',
-        homepage: 'https://www.hotel-adlon.de',
+        homepage: 'https://www.hotel-adlon.de'
       })
       .returning()
 
@@ -99,7 +115,7 @@ export async function seedDatabase() {
         email: 'contact@soundwaverecords.com',
         phone: '+1-615-244-3900',
         mobile_phone: '+1-615-555-0300',
-        homepage: 'https://www.soundwaverecords.com',
+        homepage: 'https://www.soundwaverecords.com'
       })
       .returning()
 
@@ -109,7 +125,7 @@ export async function seedDatabase() {
         email: 'info@livemusic-berlin.de',
         phone: '+49-30-555-1234',
         mobile_phone: '+49-172-555-0400',
-        homepage: 'https://www.livemusic-berlin.de',
+        homepage: 'https://www.livemusic-berlin.de'
       })
       .returning()
 
@@ -119,7 +135,7 @@ export async function seedDatabase() {
         email: 'john.rockstar@music.com',
         phone: '+44-20-7946-0958',
         mobile_phone: '+44-7700-900123',
-        homepage: '',
+        homepage: ''
       })
       .returning()
 
@@ -129,7 +145,7 @@ export async function seedDatabase() {
         email: 'sarah.drums@music.com',
         phone: '',
         mobile_phone: '+44-7700-900456',
-        homepage: '',
+        homepage: ''
       })
       .returning()
 
@@ -139,7 +155,27 @@ export async function seedDatabase() {
         email: 'mike.bass@music.com',
         phone: '',
         mobile_phone: '+1-213-555-0789',
-        homepage: '',
+        homepage: ''
+      })
+      .returning()
+
+    const [personContact4] = await db
+      .insert(contact)
+      .values({
+        email: 'lisa.keys@music.com',
+        phone: '',
+        mobile_phone: '+1-213-555-0456',
+        homepage: ''
+      })
+      .returning()
+
+    const [personContact5] = await db
+      .insert(contact)
+      .values({
+        email: 'tom.manager@soundwave.com',
+        phone: '+1-615-555-0100',
+        mobile_phone: '+1-615-555-0200',
+        homepage: ''
       })
       .returning()
 
@@ -153,7 +189,7 @@ export async function seedDatabase() {
         bank_name: 'Deutsche Bank',
         account_holder: 'Live Music Berlin GmbH',
         iban: 'DE89370400440532013000',
-        bic: 'COBADEFFXXX',
+        bic: 'COBADEFFXXX'
       })
       .returning()
 
@@ -163,7 +199,7 @@ export async function seedDatabase() {
         bank_name: 'Bank of America',
         account_holder: 'Soundwave Records LLC',
         iban: 'US89370400440532013000',
-        bic: 'BOFAUS3N',
+        bic: 'BOFAUS3N'
       })
       .returning()
 
@@ -177,10 +213,9 @@ export async function seedDatabase() {
         first_name: 'John',
         last_name: 'Rockstar',
         birthday: '1985-03-15',
-        role: 'Lead Vocalist',
         notes: 'Charismatic frontman with powerful vocals',
         contact_id: personContact1.id,
-        address_id: personAddress1.id,
+        address_id: personAddress1.id
       })
       .returning()
 
@@ -190,10 +225,9 @@ export async function seedDatabase() {
         first_name: 'Sarah',
         last_name: 'Drummer',
         birthday: '1988-07-22',
-        role: 'Drummer',
         notes: 'Energetic drummer with perfect timing',
         contact_id: personContact2.id,
-        address_id: personAddress1.id,
+        address_id: personAddress1.id
       })
       .returning()
 
@@ -203,10 +237,9 @@ export async function seedDatabase() {
         first_name: 'Mike',
         last_name: 'Bassline',
         birthday: '1987-11-08',
-        role: 'Bass Guitarist',
         notes: 'Groove master on bass',
         contact_id: personContact3.id,
-        address_id: personAddress1.id,
+        address_id: personAddress2.id
       })
       .returning()
 
@@ -216,10 +249,9 @@ export async function seedDatabase() {
         first_name: 'Lisa',
         last_name: 'Keys',
         birthday: '1990-02-14',
-        role: 'Keyboardist',
         notes: 'Classical training meets modern sound',
-        contact_id: personContact1.id,
-        address_id: companyAddress1.id,
+        contact_id: personContact4.id,
+        address_id: personAddress2.id
       })
       .returning()
 
@@ -229,10 +261,9 @@ export async function seedDatabase() {
         first_name: 'Tom',
         last_name: 'Manager',
         birthday: '1975-05-10',
-        role: 'Band Manager',
-        notes: 'Experienced tour manager',
-        contact_id: companyContact1.id,
-        address_id: companyAddress1.id,
+        notes: 'Experienced tour manager with 20+ years in the industry',
+        contact_id: personContact5.id,
+        address_id: companyAddress1.id
       })
       .returning()
 
@@ -249,7 +280,7 @@ export async function seedDatabase() {
         vat_number: 'US123456789',
         ust_number: 'UST-98765',
         address_id: companyAddress1.id,
-        contact_id: companyContact1.id,
+        contact_id: companyContact1.id
       })
       .returning()
 
@@ -262,14 +293,24 @@ export async function seedDatabase() {
         vat_number: 'DE987654321',
         ust_number: 'DE123456789',
         address_id: companyAddress2.id,
-        contact_id: companyContact2.id,
+        contact_id: companyContact2.id
       })
       .returning()
 
-    // Create company members
+    // Create company members with roles
     await db.insert(company_member).values([
-      { company_id: company1.id, person_id: person5.id },
-      { company_id: company2.id, person_id: person5.id },
+      {
+        company_id: company1.id,
+        person_id: person5.id,
+        role: 'Tour Manager',
+        notes: 'Manages all touring operations and logistics'
+      },
+      {
+        company_id: company2.id,
+        person_id: person5.id,
+        role: 'Booking Agent',
+        notes: 'Handles venue bookings and contracts'
+      }
     ])
 
     // ========================================
@@ -283,7 +324,7 @@ export async function seedDatabase() {
         genre: 'Alternative Rock',
         founded: '2015-06-20',
         notes: 'High-energy rock band with three studio albums',
-        company_id: company1.id,
+        company_id: company1.id
       })
       .returning()
 
@@ -294,16 +335,42 @@ export async function seedDatabase() {
         genre: 'Electronic/Indie',
         founded: '2018-09-15',
         notes: 'Electronic fusion with indie sensibilities',
-        company_id: company1.id,
+        company_id: company1.id
       })
       .returning()
 
-    // Create band members
+    // Create band members with specific roles for each band
     await db.insert(band_member).values([
-      { band_id: band1.id, person_id: person1.id },
-      { band_id: band1.id, person_id: person2.id },
-      { band_id: band1.id, person_id: person3.id },
-      { band_id: band2.id, person_id: person4.id },
+      {
+        band_id: band1.id,
+        person_id: person1.id,
+        role: 'Lead Vocalist',
+        notes: 'Founding member and primary songwriter'
+      },
+      {
+        band_id: band1.id,
+        person_id: person2.id,
+        role: 'Drummer',
+        notes: 'Joined in 2016, brings technical precision'
+      },
+      {
+        band_id: band1.id,
+        person_id: person3.id,
+        role: 'Bass Guitarist',
+        notes: 'Original member, handles backing vocals'
+      },
+      {
+        band_id: band2.id,
+        person_id: person4.id,
+        role: 'Keyboardist / Producer',
+        notes: 'Band founder, handles electronic production'
+      },
+      {
+        band_id: band2.id,
+        person_id: person1.id,
+        role: 'Vocalist / Synthesizer',
+        notes: 'Collaborates on electronic arrangements'
+      }
     ])
 
     // ========================================
@@ -316,7 +383,7 @@ export async function seedDatabase() {
         name: 'The Whisky a Go Go',
         capacity: 500,
         notes: 'Legendary rock venue on the Sunset Strip',
-        company_id: company2.id,
+        company_id: company2.id
       })
       .returning()
 
@@ -326,17 +393,24 @@ export async function seedDatabase() {
         name: 'Berghain',
         capacity: 1500,
         notes: 'World-renowned techno club and concert venue',
-        company_id: company2.id,
+        company_id: company2.id
       })
       .returning()
 
-    // Create venue members (technical staff)
+    // Create venue members with roles
     await db.insert(venue_member).values([
       {
         venue_id: venue1.id,
         person_id: person5.id,
-        identifier: 'Stage Manager',
+        role: 'Production Manager',
+        notes: 'Oversees all technical aspects and stage management'
       },
+      {
+        venue_id: venue2.id,
+        person_id: person5.id,
+        role: 'Stage Manager',
+        notes: 'Coordinates load-in and performance schedules'
+      }
     ])
 
     // ========================================
@@ -349,7 +423,7 @@ export async function seedDatabase() {
         name: 'Hotel Adlon Kempinski',
         notes: 'Luxury 5-star hotel near Brandenburg Gate',
         contact_id: hotelContact1.id,
-        address_id: hotelAddress1.id,
+        address_id: hotelAddress1.id
       })
       .returning()
 
@@ -376,7 +450,7 @@ export async function seedDatabase() {
         lopro_company_id: company2.id,
         band_id: band1.id,
         venue_id: venue2.id,
-        hotel_id: hotel1.id,
+        hotel_id: hotel1.id
       })
       .returning()
 
@@ -399,7 +473,7 @@ export async function seedDatabase() {
         lopro_company_id: company1.id,
         band_id: band2.id,
         venue_id: venue1.id,
-        hotel_id: null,
+        hotel_id: null
       })
       .returning()
 
@@ -423,7 +497,7 @@ export async function seedDatabase() {
         show_time_support: '20:15',
         curfew_stage: '23:00',
         curfew_venue: '23:30',
-        show_length: '90',
+        show_length: '90'
       },
       {
         notes: 'Electronic setup with DJ booth',
@@ -440,8 +514,8 @@ export async function seedDatabase() {
         show_time_support: '',
         curfew_stage: '22:30',
         curfew_venue: '23:00',
-        show_length: '75',
-      },
+        show_length: '75'
+      }
     ])
 
     console.log('Database seeded successfully!')

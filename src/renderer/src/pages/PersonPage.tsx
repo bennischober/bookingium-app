@@ -1,4 +1,7 @@
+import { Users } from 'lucide-react'
 import { useState } from 'react'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { PersonRelations } from '@/components/PersonRelations'
 import { trpcReact } from '@/main'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -13,6 +16,8 @@ import { PersonDto } from 'src/main/api/schemas/person.schema'
 export function PersonPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+  const [relationsSheetOpen, setRelationsSheetOpen] = useState(false)
+  const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(null)
 
   const formSheet = useFormSheet<PersonDto>()
   const utils = trpcReact.useUtils()
@@ -86,10 +91,6 @@ export function PersonPage() {
       header: 'Last Name'
     },
     {
-      accessorKey: 'role',
-      header: 'Role'
-    },
-    {
       accessorKey: 'contact',
       header: 'Email',
       cell: ({ row }) => row.original.contact?.email || '-'
@@ -104,6 +105,17 @@ export function PersonPage() {
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setSelectedPersonForRelations(row.original)
+              setRelationsSheetOpen(true)
+            }}
+            title="View Relations"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -168,6 +180,20 @@ export function PersonPage() {
           onCancel={formSheet.close}
         />
       </FormSheet>
+
+      <Sheet open={relationsSheetOpen} onOpenChange={setRelationsSheetOpen}>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Person Relations</SheetTitle>
+          </SheetHeader>
+          {selectedPersonForRelations && (
+            <PersonRelations
+              personId={selectedPersonForRelations.id}
+              personName={`${selectedPersonForRelations.firstName} ${selectedPersonForRelations.lastName}`}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

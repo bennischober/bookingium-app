@@ -30,8 +30,7 @@ export class PersonRepository {
     const whereClause = search
       ? or(
           like(schema.person.first_name, `%${search}%`),
-          like(schema.person.last_name, `%${search}%`),
-          like(schema.person.role, `%${search}%`)
+          like(schema.person.last_name, `%${search}%`)
         )
       : undefined
 
@@ -129,7 +128,6 @@ export class PersonRepository {
           first_name: input.firstName,
           last_name: input.lastName,
           birthday: input.birthday,
-          role: input.role,
           notes: input.notes,
           address_id: addressId,
           contact_id: contactId
@@ -234,7 +232,6 @@ export class PersonRepository {
           first_name: input.firstName,
           last_name: input.lastName,
           birthday: input.birthday,
-          role: input.role,
           notes: input.notes,
           address_id: addressId,
           contact_id: contactId,
@@ -261,5 +258,52 @@ export class PersonRepository {
 
   async delete(id: number) {
     await db.delete(schema.person).where(eq(schema.person.id, id))
+  }
+
+  async getPersonRelations(personId: number) {
+    // Get band memberships
+    const bandMemberships = await db
+      .select({
+        id: schema.band_member.id,
+        bandId: schema.band_member.band_id,
+        bandName: schema.band.name,
+        role: schema.band_member.role,
+        notes: schema.band_member.notes
+      })
+      .from(schema.band_member)
+      .innerJoin(schema.band, eq(schema.band_member.band_id, schema.band.id))
+      .where(eq(schema.band_member.person_id, personId))
+
+    // Get company memberships
+    const companyMemberships = await db
+      .select({
+        id: schema.company_member.id,
+        companyId: schema.company_member.company_id,
+        companyName: schema.company.name,
+        role: schema.company_member.role,
+        notes: schema.company_member.notes
+      })
+      .from(schema.company_member)
+      .innerJoin(schema.company, eq(schema.company_member.company_id, schema.company.id))
+      .where(eq(schema.company_member.person_id, personId))
+
+    // Get venue memberships
+    const venueMemberships = await db
+      .select({
+        id: schema.venue_member.id,
+        venueId: schema.venue_member.venue_id,
+        venueName: schema.venue.name,
+        role: schema.venue_member.role,
+        notes: schema.venue_member.notes
+      })
+      .from(schema.venue_member)
+      .innerJoin(schema.venue, eq(schema.venue_member.venue_id, schema.venue.id))
+      .where(eq(schema.venue_member.person_id, personId))
+
+    return {
+      bands: bandMemberships,
+      companies: companyMemberships,
+      venues: venueMemberships
+    }
   }
 }

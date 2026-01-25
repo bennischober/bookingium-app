@@ -2,7 +2,7 @@ CREATE TABLE `address` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`street` text DEFAULT '' NOT NULL,
 	`street_number` text DEFAULT '' NOT NULL,
-	`address_suffix` text DEFAULT '' NOT NULL,
+	`address_suffix` text DEFAULT '',
 	`zip_code` text DEFAULT '' NOT NULL,
 	`city` text DEFAULT '' NOT NULL,
 	`state` text DEFAULT '' NOT NULL,
@@ -30,6 +30,8 @@ CREATE TABLE `band_member` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`band_id` integer NOT NULL,
 	`person_id` integer NOT NULL,
+	`role` text,
+	`notes` text,
 	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -49,14 +51,14 @@ CREATE INDEX `bank_iban_idx` ON `bank` (`iban`);--> statement-breakpoint
 CREATE TABLE `company` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
-	`notes` text DEFAULT '' NOT NULL,
+	`notes` text,
 	`bank_id` integer,
 	`vat_number` text DEFAULT '' NOT NULL,
 	`ust_number` text DEFAULT '' NOT NULL,
 	`address_id` integer,
 	`contact_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`bank_id`) REFERENCES `bank`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null
@@ -67,6 +69,8 @@ CREATE TABLE `company_member` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`company_id` integer NOT NULL,
 	`person_id` integer NOT NULL,
+	`role` text,
+	`notes` text,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -77,21 +81,12 @@ CREATE UNIQUE INDEX `company_member_unique_idx` ON `company_member` (`company_id
 CREATE TABLE `contact` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`email` text DEFAULT '' NOT NULL,
-	`phone` text DEFAULT '' NOT NULL,
-	`mobile_phone` text DEFAULT '' NOT NULL,
-	`homepage` text DEFAULT '' NOT NULL
+	`phone` text,
+	`mobile_phone` text,
+	`homepage` text
 );
 --> statement-breakpoint
 CREATE INDEX `contact_email_idx` ON `contact` (`email`);--> statement-breakpoint
-CREATE TABLE `contact_phone_number` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`contact_id` integer NOT NULL,
-	`identifier` text NOT NULL,
-	`phone_number` text NOT NULL,
-	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `contact_phone_number_contact_idx` ON `contact_phone_number` (`contact_id`);--> statement-breakpoint
 CREATE TABLE `deal_memo` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`deal` text NOT NULL,
@@ -112,7 +107,7 @@ CREATE TABLE `deal_memo` (
 	`venue_id` integer,
 	`hotel_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`lopro_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`lopro_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE no action,
@@ -127,11 +122,11 @@ CREATE INDEX `deal_memo_status_idx` ON `deal_memo` (`status`);--> statement-brea
 CREATE TABLE `hotel` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
-	`notes` text DEFAULT '' NOT NULL,
+	`notes` text,
 	`contact_id` integer,
 	`address_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null
 );
@@ -155,7 +150,7 @@ CREATE TABLE `itinerary` (
 	`curfew_venue` text DEFAULT '' NOT NULL,
 	`show_length` text DEFAULT '' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`venue_id`) REFERENCES `venue`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`hotel_id`) REFERENCES `hotel`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE cascade
@@ -169,12 +164,11 @@ CREATE TABLE `person` (
 	`first_name` text NOT NULL,
 	`last_name` text NOT NULL,
 	`birthday` text,
-	`role` text DEFAULT '' NOT NULL,
-	`notes` text DEFAULT '' NOT NULL,
+	`notes` text,
 	`contact_id` integer,
 	`address_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null
 );
@@ -187,7 +181,7 @@ CREATE TABLE `venue` (
 	`notes` text DEFAULT '' NOT NULL,
 	`company_id` integer NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -197,7 +191,8 @@ CREATE TABLE `venue_member` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`venue_id` integer NOT NULL,
 	`person_id` integer NOT NULL,
-	`identifier` text DEFAULT '' NOT NULL,
+	`role` text,
+	`notes` text,
 	FOREIGN KEY (`venue_id`) REFERENCES `venue`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE cascade
 );

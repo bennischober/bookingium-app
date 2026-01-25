@@ -19,7 +19,6 @@ export class PersonMapper {
       firstName: entity.first_name,
       lastName: entity.last_name,
       birthday: entity.birthday,
-      role: entity.role,
       notes: entity.notes,
       address: AddressMapper.toDto(entity.address),
       contact: ContactMapper.toDto(entity.contact),
@@ -36,8 +35,7 @@ export class PersonMapper {
     return {
       id: entity.id,
       firstName: entity.first_name,
-      lastName: entity.last_name,
-      role: entity.role
+      lastName: entity.last_name
     }
   }
 
