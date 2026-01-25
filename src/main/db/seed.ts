@@ -2,7 +2,6 @@ import { db } from './index'
 import {
   address,
   contact,
-  contact_phone_number,
   bank,
   person,
   company,
@@ -83,15 +82,6 @@ export async function seedDatabase() {
     // Create Contacts
     // ========================================
     console.log('Creating contacts...')
-    const [venueContact1] = await db
-      .insert(contact)
-      .values({
-        email: 'bookings@whiskyagogo.com',
-        phone: '+1-310-652-4202',
-        mobile_phone: '+1-310-555-0100',
-        homepage: 'https://www.whiskyagogo.com',
-      })
-      .returning()
 
     const [hotelContact1] = await db
       .insert(contact)
@@ -152,20 +142,6 @@ export async function seedDatabase() {
         homepage: '',
       })
       .returning()
-
-    // Add additional phone numbers
-    await db.insert(contact_phone_number).values([
-      {
-        contact_id: venueContact1.id,
-        identifier: 'Box Office',
-        phone_number: '+1-310-652-4203',
-      },
-      {
-        contact_id: companyContact1.id,
-        identifier: 'Emergency',
-        phone_number: '+1-615-555-9999',
-      },
-    ])
 
     // ========================================
     // Create Banks

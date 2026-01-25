@@ -38,20 +38,6 @@ export const contact = sqliteTable(
   (table) => [index('contact_email_idx').on(table.email)]
 )
 
-// Contact phone numbers - separate table for additional phone numbers
-export const contact_phone_number = sqliteTable(
-  'contact_phone_number',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    contact_id: integer('contact_id')
-      .notNull()
-      .references(() => contact.id, { onDelete: 'cascade' }),
-    identifier: text('identifier').notNull(), // e.g., "Work", "Fax", "Emergency"
-    phone_number: text('phone_number').notNull()
-  },
-  (table) => [index('contact_phone_number_contact_idx').on(table.contact_id)]
-)
-
 // Bank table
 export const bank = sqliteTable(
   'bank',
@@ -327,7 +313,6 @@ export const itinerary = sqliteTable(
 export const schema = {
   address,
   contact,
-  contact_phone_number,
   bank,
   person,
   company,
