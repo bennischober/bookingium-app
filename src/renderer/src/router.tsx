@@ -1,6 +1,6 @@
 import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
-import RootLayout from './components/RootLayout'
+import RootLayout from './components/root-layout'
 import App from './App'
 
 const hashHistory = createHashHistory()
