@@ -11,7 +11,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from '@tanstack/react-router'
 import SearchButton from './ui/search-command-button'
 
-export default function Page() {
+export default function RootLayout() {
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar collapsible="none" />
@@ -33,7 +33,7 @@ export default function Page() {
             <SearchButton />
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex">
           <Outlet />
         </div>
       </SidebarInset>

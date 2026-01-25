@@ -1,5 +1,5 @@
 import * as React from 'react'
-
+import { Link } from '@tanstack/react-router'
 import {
   Sidebar,
   SidebarContent,
@@ -40,7 +40,7 @@ const data = {
         },
         {
           title: '📄 Invoices',
-          url: '/invoices',
+          url: '/invoices'
         }
       ]
     },
@@ -66,8 +66,14 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [activeItem, setActiveItem] = React.useState<string>('📊 Dashboard')
+
+  const itemClick = (itemTitle: string) => {
+    setActiveItem(itemTitle)
+  }
+
   return (
-    <Sidebar variant='sidebar' {...props}>
+    <Sidebar variant="sidebar" {...props}>
       <SidebarHeader>
         <h1 className="text-lg font-bold">BOOKINGIUM</h1>
       </SidebarHeader>
@@ -79,8 +85,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenu>
                 {item.items?.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.isActive}>
-                      <a href={item.url}>{item.title}</a>
+                    <SidebarMenuButton asChild isActive={item.title === activeItem}>
+                      <Link
+                        to={item.url}
+                        onClick={() => {
+                          itemClick(item.title)
+                        }}
+                      >
+                        {item.title}
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

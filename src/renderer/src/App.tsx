@@ -19,8 +19,6 @@ function App(): React.JSX.Element {
             Fetch Greeting
           </Button>
         </div>
-      </div>
-      <div className="flex justify-center items-center">
         <Versions />
       </div>
     </main>
