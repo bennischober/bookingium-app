@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { TimestampFields } from './base.schema'
+import { TimestampFields, createPaginatedResponse } from './base.schema'
 
 // Output DTO - what the frontend receives
 export const BandDto = z
@@ -12,6 +12,9 @@ export const BandDto = z
     companyId: z.number()
   })
   .extend(TimestampFields.shape)
+
+// Paginated band response
+export const PaginatedBandResponse = createPaginatedResponse(BandDto)
 
 // For nested/related data
 export const BandWithCompanyDto = BandDto.extend({
@@ -36,6 +39,7 @@ export const UpdateBandInput = CreateBandInput.partial().extend({
 
 // Infer TypeScript types from schemas
 export type BandDto = z.infer<typeof BandDto>
+export type PaginatedBandResponse = z.infer<typeof PaginatedBandResponse>
 export type BandWithCompanyDto = z.infer<typeof BandWithCompanyDto>
 export type CreateBandInput = z.infer<typeof CreateBandInput>
 export type UpdateBandInput = z.infer<typeof UpdateBandInput>

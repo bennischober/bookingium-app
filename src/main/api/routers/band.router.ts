@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import { BandService } from '../../services/BandService'
 import { BandMapper } from '../mappers/band.mapper'
 import { CreateBandInput, UpdateBandInput } from '../schemas/band.schema'
+import { PaginationInput } from '../schemas/base.schema'
 import z from 'zod'
 
 const t = initTRPC.create()
@@ -13,6 +14,14 @@ export const bandRouter = t.router({
   getAll: t.procedure.query(async () => {
     const bands = await bandService.getAllBands()
     return BandMapper.toDtoList(bands)
+  }),
+
+  getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
+    const result = await bandService.getAllBandsPaginated(input)
+    return {
+      ...result,
+      items: BandMapper.toDtoList(result.items)
+    }
   }),
 
   getById: t.procedure.input(z.number()).query(async ({ input }) => {

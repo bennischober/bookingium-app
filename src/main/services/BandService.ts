@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe'
 import { BandRepository } from '../repositories/BandRepository'
 import { CreateBandInput, UpdateBandInput } from '../api/schemas/band.schema'
+import { PaginationInput } from '../api/schemas/base.schema'
 
 @injectable()
 export class BandService {
@@ -11,6 +12,10 @@ export class BandService {
 
   async getAllBands() {
     return await this.bandRepository.getAll()
+  }
+
+  async getAllBandsPaginated(pagination: PaginationInput) {
+    return await this.bandRepository.getAllPaginated(pagination)
   }
 
   async getBandById(id: number) {
