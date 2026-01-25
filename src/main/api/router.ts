@@ -2,6 +2,7 @@ import z from 'zod'
 import { initTRPC } from '@trpc/server'
 import { EventEmitter } from 'events'
 import { bandRouter } from './routers/band.router'
+import { companyRouter } from './routers/company.router'
 
 const ee = new EventEmitter()
 
@@ -16,7 +17,8 @@ export const router = t.router({
       text: `Hello ${input.name}` as const
     }
   }),
-  band: bandRouter
+  band: bandRouter,
+  company: companyRouter
 })
 
 export type AppRouter = typeof router

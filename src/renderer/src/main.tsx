@@ -7,6 +7,7 @@ import { RouterProvider } from '@tanstack/react-router'
 import { ipcLink } from 'electron-trpc/renderer'
 import type { AppRouter } from '../../main/api/router'
 import { router } from './router'
+import { Toaster } from "@/components/ui/sonner"
 
 export const trpcReact = createTRPCReact<AppRouter>()
 
@@ -21,6 +22,7 @@ function AppRoot() {
       <trpcReact.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
+          <Toaster />
         </QueryClientProvider>
       </trpcReact.Provider>
     </React.StrictMode>

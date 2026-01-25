@@ -1,6 +1,6 @@
 import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
-import RootLayout from '@/components/root-layout'
+import RootLayout from '@/layout/root-layout'
 import App from '@/App'
 import BandPage from '@/pages/BandPage'
 import { ROUTES } from '@/lib/routing'

@@ -7,6 +7,7 @@ import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { Pencil, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 export default function BandPage() {
@@ -24,22 +25,46 @@ export default function BandPage() {
   const utils = trpcReact.useUtils()
 
   const createBand = trpcReact.band.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
       sheet.close()
+      toast.success('Band created successfully', {
+        description: `${data.name} has been added to your bands.`
+      })
+    },
+    onError: (error) => {
+      toast.error('Failed to create band', {
+        description: error.message
+      })
     }
   })
 
   const updateBand = trpcReact.band.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
       sheet.close()
+      toast.success('Band updated successfully', {
+        description: `${data.name} has been updated.`
+      })
+    },
+    onError: (error) => {
+      toast.error('Failed to update band', {
+        description: error.message
+      })
     }
   })
 
   const deleteBand = trpcReact.band.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
+      toast.success('Band deleted', {
+        description: `${data.name} has been removed.`
+      })
+    },
+    onError: (error) => {
+      toast.error('Failed to delete band', {
+        description: error.message
+      })
     }
   })
 

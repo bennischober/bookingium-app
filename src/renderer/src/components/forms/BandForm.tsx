@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { trpcReact } from '@/main'
 import type { BandDto, CreateBandInput, UpdateBandInput } from '../../../../main/api/schemas/band.schema'
 import type { FormMode } from '@/hooks/useFormSheet'
 
@@ -15,12 +17,16 @@ interface BandFormProps {
 }
 
 export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting = false }: BandFormProps) {
+  // Fetch companies for dropdown
+  const companies = trpcReact.company.getListItems.useQuery()
+
   const form = useForm({
     defaultValues: {
       name: initialData?.name || '',
       genre: initialData?.genre || '',
       founded: initialData?.founded || '',
-      notes: initialData?.notes || ''
+      notes: initialData?.notes || '',
+      companyId: initialData?.companyId || 0
     },
     onSubmit: async ({ value }) => {
       if (mode === 'edit' && initialData) {
@@ -30,7 +36,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
           genre: value.genre,
           founded: value.founded || null,
           notes: value.notes,
-          companyId: initialData.companyId
+          companyId: value.companyId
         })
       } else {
         onSubmit({
@@ -38,7 +44,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
           genre: value.genre,
           founded: value.founded || null,
           notes: value.notes,
-          companyId: 1 // TODO: Get from context or user selection
+          companyId: value.companyId
         })
       }
     }
@@ -78,6 +84,54 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
               placeholder="Enter band name"
               disabled={isSubmitting}
             />
+            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
+              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      {/* Company Field */}
+      <form.Field
+        name="companyId"
+        validators={{
+          onChange: ({ value }) => {
+            if (!value || value === 0) {
+              return 'Company is required'
+            }
+            return undefined
+          }
+        }}
+      >
+        {(field) => (
+          <div className="space-y-2">
+            <Label htmlFor={field.name}>
+              Company <span className="text-destructive">*</span>
+            </Label>
+            {companies.isLoading ? (
+              <div className="text-sm text-muted-foreground">Loading companies...</div>
+            ) : companies.data && companies.data.length > 0 ? (
+              <Select
+                value={field.state.value.toString()}
+                onValueChange={(value) => field.handleChange(parseInt(value))}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.data.map((company) => (
+                    <SelectItem key={company.id} value={company.id.toString()}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-destructive">
+                No companies available. Please create a company first.
+              </div>
+            )}
             {field.state.meta.errors && field.state.meta.errors.length > 0 && (
               <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
             )}

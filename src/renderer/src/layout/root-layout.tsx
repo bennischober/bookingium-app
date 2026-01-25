@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
-import SearchButton from './ui/search-command-button'
+import SearchButton from '@/components/ui/search-command-button'
 import { getBreadcrumbs } from '@/lib/routing'
 
 export default function RootLayout() {
