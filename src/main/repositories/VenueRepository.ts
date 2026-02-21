@@ -53,7 +53,9 @@ export class VenueRepository {
         name: input.name,
         capacity: input.capacity ?? null,
         notes: input.notes,
-        company_id: input.companyId
+        address_id: input.addressId ?? null,
+        company_id: input.companyId ?? null,
+        contact_id: input.contactId ?? null
       })
       .returning()
 
@@ -67,7 +69,9 @@ export class VenueRepository {
         name: input.name,
         capacity: input.capacity ?? null,
         notes: input.notes,
-        company_id: input.companyId,
+        address_id: input.addressId ?? null,
+        company_id: input.companyId ?? null,
+        contact_id: input.contactId ?? null,
         updated_at: sql`datetime('now')`
       })
       .where(eq(schema.venue.id, input.id))

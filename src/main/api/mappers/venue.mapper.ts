@@ -10,7 +10,9 @@ export class VenueMapper {
       name: entity.name,
       capacity: entity.capacity,
       notes: entity.notes,
-      companyId: entity.company_id,
+      addressId: entity.address_id ?? null,
+      companyId: entity.company_id ?? null,
+      contactId: entity.contact_id ?? null,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

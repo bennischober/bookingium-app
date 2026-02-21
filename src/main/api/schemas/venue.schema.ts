@@ -7,7 +7,9 @@ export const VenueDto = z
     name: z.string(),
     capacity: z.number().nullable(),
     notes: z.string(),
-    companyId: z.number()
+    addressId: z.number().nullable(),
+    companyId: z.number().nullable(),
+    contactId: z.number().nullable()
   })
   .extend(TimestampFields.shape)
 
@@ -24,7 +26,9 @@ export const CreateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   capacity: z.number().nullable().optional(),
   notes: z.string().default(''),
-  companyId: z.number()
+  addressId: z.number().nullable().optional(),
+  companyId: z.number().nullable().optional(),
+  contactId: z.number().nullable().optional()
 })
 
 export type CreateVenueInput = z.infer<typeof CreateVenueInput>
@@ -34,7 +38,9 @@ export const UpdateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   capacity: z.number().nullable().optional(),
   notes: z.string().default(''),
-  companyId: z.number()
+  addressId: z.number().nullable().optional(),
+  companyId: z.number().nullable().optional(),
+  contactId: z.number().nullable().optional()
 })
 
 export type UpdateVenueInput = z.infer<typeof UpdateVenueInput>
