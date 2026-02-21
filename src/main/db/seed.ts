@@ -377,13 +377,63 @@ export async function seedDatabase() {
     // Create Venues
     // ========================================
     console.log('Creating venues...')
+
+    // create contact and address for venues
+    const [venueContact1] = await db
+      .insert(contact)
+      .values({
+        email: 'venue-email@email.com',
+        phone: '+49-30-555-6789',
+        mobile_phone: '+49-172-555-0900',
+        homepage: 'https://www.venue1.com'
+      })
+      .returning()
+
+    const [venueAddress1] = await db
+      .insert(address)
+      .values({
+        street: 'Main Street',
+        street_number: '100',
+        zip_code: '12345',
+        city: 'Berlin',
+        state: 'Berlin',
+        country: 'Germany',
+        country_code: 'DE'
+      })
+      .returning()
+
+    const [venueContact2] = await db
+      .insert(contact)
+      .values({
+        email: 'venue-2@email.com',
+        phone: '+49-30-555-6780',
+        mobile_phone: '+49-172-555-0901',
+        homepage: 'https://www.venue2.com'
+      })
+      .returning()
+
+    const [venueAddress2] = await db
+      .insert(address)
+      .values({
+        street: 'Second Avenue',
+        street_number: '200',
+        zip_code: '54321',
+        city: 'Berlin',
+        state: 'Berlin',
+        country: 'Germany',
+        country_code: 'DE'
+      })
+      .returning()
+
     const [venue1] = await db
       .insert(venue)
       .values({
         name: 'The Whisky a Go Go',
         capacity: 500,
         notes: 'Legendary rock venue on the Sunset Strip',
-        company_id: company2.id
+        company_id: company2.id,
+        contact_id: venueContact1.id,
+        address_id: venueAddress1.id
       })
       .returning()
 
@@ -393,7 +443,9 @@ export async function seedDatabase() {
         name: 'Berghain',
         capacity: 1500,
         notes: 'World-renowned techno club and concert venue',
-        company_id: company2.id
+        company_id: company2.id,
+        contact_id: venueContact2.id,
+        address_id: venueAddress2.id
       })
       .returning()
 

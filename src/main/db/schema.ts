@@ -166,9 +166,10 @@ export const venue = sqliteTable(
     name: text('name').notNull(),
     capacity: integer('capacity'),
     notes: text('notes').default('').notNull(),
-    company_id: integer('company_id')
-      .notNull()
-      .references(() => company.id),
+    // owner, but not required
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
+    address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

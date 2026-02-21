@@ -179,10 +179,14 @@ CREATE TABLE `venue` (
 	`name` text NOT NULL,
 	`capacity` integer,
 	`notes` text DEFAULT '' NOT NULL,
-	`company_id` integer NOT NULL,
+	`company_id` integer,
+	`contact_id` integer,
+	`address_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text,
-	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `venue_name_idx` ON `venue` (`name`);--> statement-breakpoint

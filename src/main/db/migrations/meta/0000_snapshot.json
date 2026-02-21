@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "82809ecc-1fd7-41f0-a53f-628bc9cf54e0",
+  "id": "d2f11e83-6948-4a39-8de0-2f6dce732d33",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "address": {
@@ -1337,7 +1337,21 @@
           "name": "company_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "contact_id": {
+          "name": "contact_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "address_id": {
+          "name": "address_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -1383,7 +1397,33 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "venue_contact_id_contact_id_fk": {
+          "name": "venue_contact_id_contact_id_fk",
+          "tableFrom": "venue",
+          "tableTo": "contact",
+          "columnsFrom": [
+            "contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "venue_address_id_address_id_fk": {
+          "name": "venue_address_id_address_id_fk",
+          "tableFrom": "venue",
+          "tableTo": "address",
+          "columnsFrom": [
+            "address_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
