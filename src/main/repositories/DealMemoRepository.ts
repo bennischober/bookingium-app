@@ -51,6 +51,8 @@ export class DealMemoRepository {
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
+      .leftJoin(schema.company, eq(schema.deal_memo.lopro_company_id, schema.company.id))
       .where(eq(schema.deal_memo.id, id))
 
     if (rows.length === 0) return null
@@ -59,7 +61,9 @@ export class DealMemoRepository {
     return {
       ...row.deal_memo,
       band: row.band,
-      venue: row.venue
+      venue: row.venue,
+      loProPerson: row.person,
+      loProCompany: row.company
     }
   }
 

@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[]
@@ -21,6 +22,7 @@ interface DataTableProps<TData> {
   isLoading?: boolean
   total?: number
   actionButton?: React.ReactNode
+  onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData>({
@@ -34,7 +36,8 @@ export function DataTable<TData>({
   searchPlaceholder = 'Search...',
   isLoading = false,
   total = 0,
-  actionButton
+  actionButton,
+  onRowClick
 }: DataTableProps<TData>) {
   const table = useReactTable({
     data,
@@ -98,7 +101,11 @@ export function DataTable<TData>({
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-t hover:bg-muted/50">
+                <tr
+                  key={row.id}
+                  className={cn('border-t hover:bg-muted/50', onRowClick && 'cursor-pointer')}
+                  onClick={() => onRowClick?.(row.original)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

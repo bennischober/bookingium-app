@@ -44,6 +44,41 @@ export const DealMemoDto = DealMemoListItemDto.extend({
 export type DealMemoDto = z.infer<typeof DealMemoDto>
 
 /**
+ * Richer DTO for the Event Hub detail view — includes nested objects for display.
+ */
+export const DealMemoDetailDto = DealMemoDto.extend({
+  band: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+      genre: z.string()
+    })
+    .nullable(),
+  venue: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+      capacity: z.number().nullable()
+    })
+    .nullable(),
+  loProPerson: z
+    .object({
+      id: z.number(),
+      firstName: z.string(),
+      lastName: z.string()
+    })
+    .nullable(),
+  loProCompany: z
+    .object({
+      id: z.number(),
+      name: z.string()
+    })
+    .nullable()
+})
+
+export type DealMemoDetailDto = z.infer<typeof DealMemoDetailDto>
+
+/**
  * Create input — Step 1 fields are required, Steps 2 + 3 are optional.
  *
  * Step 1 (required): deal name, date, band

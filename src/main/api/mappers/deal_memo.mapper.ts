@@ -1,13 +1,17 @@
-import { deal_memo, band, venue } from '../../db/schema'
-import type { DealMemoListItemDto, DealMemoDto } from '../schemas/deal_memo.schema'
+import { deal_memo, band, venue, person, company } from '../../db/schema'
+import type { DealMemoListItemDto, DealMemoDto, DealMemoDetailDto } from '../schemas/deal_memo.schema'
 
 type DealMemoEntity = typeof deal_memo.$inferSelect
 type BandEntity = typeof band.$inferSelect
 type VenueEntity = typeof venue.$inferSelect
+type PersonEntity = typeof person.$inferSelect
+type CompanyEntity = typeof company.$inferSelect
 
 type DealMemoWithRelations = DealMemoEntity & {
   band?: BandEntity | null
   venue?: VenueEntity | null
+  loProPerson?: PersonEntity | null
+  loProCompany?: CompanyEntity | null
 }
 
 export class DealMemoMapper {
@@ -45,6 +49,28 @@ export class DealMemoMapper {
       hotelId: entity.hotel_id,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
+    }
+  }
+
+  static toDetailDto(entity: DealMemoWithRelations): DealMemoDetailDto {
+    return {
+      ...this.toDto(entity),
+      band: entity.band
+        ? { id: entity.band.id, name: entity.band.name, genre: entity.band.genre }
+        : null,
+      venue: entity.venue
+        ? { id: entity.venue.id, name: entity.venue.name, capacity: entity.venue.capacity }
+        : null,
+      loProPerson: entity.loProPerson
+        ? {
+            id: entity.loProPerson.id,
+            firstName: entity.loProPerson.first_name,
+            lastName: entity.loProPerson.last_name
+          }
+        : null,
+      loProCompany: entity.loProCompany
+        ? { id: entity.loProCompany.id, name: entity.loProCompany.name }
+        : null
     }
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/main'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ export function EventPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
+  const navigate = useNavigate()
 
   const utils = trpcReact.useUtils()
 
@@ -99,7 +101,10 @@ export function EventPage() {
               variant="ghost"
               size="sm"
               className="h-8 px-2 text-destructive hover:text-destructive"
-              onClick={() => handleDelete(event.id, event.deal)}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(event.id, event.deal)
+              }}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -135,6 +140,7 @@ export function EventPage() {
         actionButton={
           <Button onClick={() => setWizardOpen(true)}>+ New Event</Button>
         }
+        onRowClick={(event) => navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })}
       />
 
       <CreateEventWizard

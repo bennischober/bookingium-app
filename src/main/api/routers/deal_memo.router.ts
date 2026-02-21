@@ -21,7 +21,7 @@ export const dealMemoRouter = t.router({
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const memo = await dealMemoService.getDealMemoById(input)
     if (!memo) throw new TRPCError({ code: 'NOT_FOUND' })
-    return DealMemoMapper.toDto(memo)
+    return DealMemoMapper.toDetailDto(memo)
   }),
 
   create: t.procedure.input(CreateDealMemoInput).mutation(async ({ input }) => {
