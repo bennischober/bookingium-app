@@ -16,6 +16,11 @@ export const bandRouter = t.router({
     return BandMapper.toDtoList(bands)
   }),
 
+  getListItems: t.procedure.query(async () => {
+    const bands = await bandService.getAllBands()
+    return BandMapper.toListItemList(bands)
+  }),
+
   getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
     const result = await bandService.getAllBandsPaginated(input)
     return {

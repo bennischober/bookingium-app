@@ -119,7 +119,7 @@ export default function BankPage() {
   return (
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Banks</h1>
+        <h1 className="text-2xl font-bold mb-2">Bank account information</h1>
         <p className="text-sm text-muted-foreground">Manage bank account references for clients.</p>
       </div>
 

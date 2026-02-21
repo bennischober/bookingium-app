@@ -16,6 +16,13 @@ export const BandDto = z
 // Paginated band response
 export const PaginatedBandResponse = createPaginatedResponse(BandDto)
 
+// Lightweight list item for dropdowns
+export const BandListItemDto = z.object({
+  id: z.number(),
+  name: z.string()
+})
+export type BandListItemDto = z.infer<typeof BandListItemDto>
+
 // For nested/related data
 export const BandWithCompanyDto = BandDto.extend({
   company: z.object({

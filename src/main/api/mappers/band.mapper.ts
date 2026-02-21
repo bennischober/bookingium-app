@@ -1,4 +1,4 @@
-import { BandDto } from '../schemas/band.schema'
+import { BandDto, BandListItemDto } from '../schemas/band.schema'
 import { band } from '../../db/schema'
 
 type BandEntity = typeof band.$inferSelect
@@ -18,6 +18,14 @@ export class BandMapper {
   }
 
   static toDtoList(entities: BandEntity[]): BandDto[] {
-    return entities.map(this.toDto)
+    return entities.map((entity) => this.toDto(entity))
+  }
+
+  static toListItem(entity: BandEntity): BandListItemDto {
+    return { id: entity.id, name: entity.name }
+  }
+
+  static toListItemList(entities: BandEntity[]): BandListItemDto[] {
+    return entities.map((entity) => this.toListItem(entity))
   }
 }

@@ -6,6 +6,7 @@ import BandPage from '@/pages/BandPage'
 import PersonPage from '@/pages/PersonPage'
 import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
+import EventPage from '@/pages/EventPage'
 import { PersonRelationsPage } from '@/pages/PersonRelationsPage'
 import { ROUTES } from '@/lib/routing'
 
@@ -51,13 +52,20 @@ const bankRoute = createRoute({
   component: BankPage
 })
 
+const eventRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.events.path,
+  component: EventPage
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   bandRoute,
   personRoute,
   personRelationsRoute,
   companyRoute,
-  bankRoute
+  bankRoute,
+  eventRoute
 ])
 
 export const router = createRouter({
