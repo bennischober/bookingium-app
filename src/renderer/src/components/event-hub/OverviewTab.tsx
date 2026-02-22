@@ -1,0 +1,256 @@
+import { useState, useEffect, useRef } from 'react'
+import { trpcReact } from '@/main'
+import { Separator } from '@/components/ui/separator'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { Music2, MapPin, User, Building2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { type InlineComboboxItem } from '@/components/ui/inline-combobox'
+import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
+import { SwappableEntityCard } from './SwappableEntityCard'
+import { ReadOnlyField } from './ReadOnlyField'
+import { formatDate } from './constants'
+
+export interface OverviewTabProps {
+  event: DealMemoDetailDto
+  isEditing: boolean
+  saveSignal: number
+  cancelSignal: number
+  onSaved: () => void
+}
+
+export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSaved }: OverviewTabProps) {
+  const utils = trpcReact.useUtils()
+  // Track the last signal value we responded to. Seeded with the current value so
+  // that a re-mount (or React Strict Mode's double-invocation) never fires a stale save.
+  const lastSaveSignal = useRef(saveSignal)
+  const [name, setName] = useState(event.name)
+  const [date, setDate] = useState(event.date)
+  const [status, setStatus] = useState(event.status)
+  const [notes, setNotes] = useState(event.notes)
+  const isDirty =
+    name !== event.name ||
+    date !== event.date ||
+    status !== event.status ||
+    notes !== event.notes
+
+  // Keep local state in sync when the server data refreshes
+  useEffect(() => {
+    setName(event.name)
+    setDate(event.date)
+    setStatus(event.status)
+    setNotes(event.notes)
+  }, [event.name, event.date, event.status, event.notes])
+
+  // Reset to server values when cancel is triggered
+  useEffect(() => {
+    if (cancelSignal > 0) {
+      setName(event.name)
+      setDate(event.date)
+      setStatus(event.status)
+      setNotes(event.notes)
+    }
+  }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isDirty) handleSave()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Entity list queries for the swap comboboxes ──
+  const bands = trpcReact.band.getListItems.useQuery()
+  const venues = trpcReact.venue.getListItems.useQuery()
+  const persons = trpcReact.person.getListItems.useQuery()
+  const companies = trpcReact.company.getListItems.useQuery()
+
+  const bandItems: InlineComboboxItem[] = (bands.data ?? []).map((b) => ({ id: b.id, label: b.name }))
+  const venueItems: InlineComboboxItem[] = (venues.data ?? []).map((v) => ({ id: v.id, label: v.name }))
+  const personItems: InlineComboboxItem[] = (persons.data ?? []).map((p) => ({
+    id: p.id,
+    label: `${p.firstName} ${p.lastName}`
+  }))
+  const companyItems: InlineComboboxItem[] = (companies.data ?? []).map((c) => ({ id: c.id, label: c.name }))
+
+  // ── Shared update mutation ──
+  const updateMutation = trpcReact.dealMemo.update.useMutation({
+    onSuccess: () => {
+      utils.dealMemo.getById.invalidate(event.id)
+      utils.dealMemo.getAllPaginated.invalidate()
+      toast.success('Event updated')
+      onSaved()
+    },
+    onError: (e) => toast.error('Failed to save', { description: e.message })
+  })
+
+  const handleSave = () => {
+    updateMutation.mutate({ id: event.id, name, date, status, notes })
+  }
+
+  const handleSwapBand = (bandId: number | null) => {
+    if (bandId === null) return // band is required — disallow clearing
+    updateMutation.mutate({ id: event.id, bandId })
+  }
+
+  const handleSwapVenue = (venueId: number | null) => {
+    updateMutation.mutate({ id: event.id, venueId })
+  }
+
+  const handleSwapPerson = (loProPersonId: number | null) => {
+    updateMutation.mutate({ id: event.id, loProPersonId })
+  }
+
+  const handleSwapCompany = (loProCompanyId: number | null) => {
+    updateMutation.mutate({ id: event.id, loProCompanyId })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ── Entity cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SwappableEntityCard
+          icon={<Music2 className="h-3.5 w-3.5" />}
+          title="Band"
+          currentName={event.bandName}
+          currentDetail={event.band?.genre || null}
+          currentId={event.bandId}
+          items={bandItems}
+          itemsLoading={bands.isLoading}
+          onSwap={handleSwapBand}
+          isSaving={updateMutation.isPending}
+          nullable={false}
+          href="/band"
+          empty="No band assigned"
+        />
+        <SwappableEntityCard
+          icon={<MapPin className="h-3.5 w-3.5" />}
+          title="Venue"
+          currentName={event.venueName}
+          currentDetail={
+            event.venue?.capacity ? `Capacity: ${event.venue.capacity.toLocaleString()}` : null
+          }
+          currentId={event.venueId}
+          items={venueItems}
+          itemsLoading={venues.isLoading}
+          onSwap={handleSwapVenue}
+          isSaving={updateMutation.isPending}
+          nullable={true}
+          empty="No venue assigned"
+        />
+      </div>
+
+      {/* ── LoPro cards ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          Local Promoter
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <SwappableEntityCard
+            icon={<User className="h-3.5 w-3.5" />}
+            title="Contact Person"
+            currentName={
+              event.loProPerson
+                ? `${event.loProPerson.firstName} ${event.loProPerson.lastName}`
+                : null
+            }
+            currentId={event.loProPersonId}
+            items={personItems}
+            itemsLoading={persons.isLoading}
+            onSwap={handleSwapPerson}
+            isSaving={updateMutation.isPending}
+            nullable={true}
+            href="/persons"
+            empty="No contact assigned"
+          />
+          <SwappableEntityCard
+            icon={<Building2 className="h-3.5 w-3.5" />}
+            title="Company"
+            currentName={event.loProCompany?.name ?? null}
+            currentId={event.loProCompanyId}
+            items={companyItems}
+            itemsLoading={companies.isLoading}
+            onSwap={handleSwapCompany}
+            isSaving={updateMutation.isPending}
+            nullable={true}
+            href="/companies"
+            empty="No company assigned"
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Inline editable fields ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+          Event Details
+        </h3>
+
+        {isEditing ? (
+          <div className="space-y-4 max-w-md">
+            <div className="space-y-2">
+              <Label htmlFor="name">Event Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Event name…"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="eventDate">Date</Label>
+              <Input
+                id="eventDate"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={notes ?? ''}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                placeholder="Additional notes about this event…"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 max-w-md">
+            <ReadOnlyField label="Event Name" value={name} />
+            <ReadOnlyField label="Date" value={date ? formatDate(date) : null} />
+            <ReadOnlyField label="Status" value={status ? status.charAt(0).toUpperCase() + status.slice(1) : null} />
+            <ReadOnlyField label="Notes" value={notes} placeholder="No notes" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
