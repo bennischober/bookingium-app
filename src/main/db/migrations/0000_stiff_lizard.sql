@@ -89,18 +89,19 @@ CREATE TABLE `contact` (
 CREATE INDEX `contact_email_idx` ON `contact` (`email`);--> statement-breakpoint
 CREATE TABLE `deal_memo` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`deal` text NOT NULL,
+	`name` text NOT NULL,
+	`deal` text DEFAULT '' NOT NULL,
 	`date` text NOT NULL,
 	`ticket_price_vvk` real,
 	`ticket_price_ak` real,
 	`posters` text DEFAULT '' NOT NULL,
 	`status` text DEFAULT '' NOT NULL,
 	`notes` text DEFAULT '' NOT NULL,
-	`amount_of_people` integer DEFAULT 0 NOT NULL,
-	`room_information` text DEFAULT '' NOT NULL,
-	`performance_duration` text DEFAULT '' NOT NULL,
-	`performance_time` text DEFAULT '' NOT NULL,
-	`performance_information` text DEFAULT '' NOT NULL,
+	`amount_of_people` integer DEFAULT 0,
+	`room_information` text DEFAULT '',
+	`performance_duration` text DEFAULT '',
+	`performance_time` text DEFAULT '',
+	`performance_information` text DEFAULT '',
 	`lopro_person_id` integer,
 	`lopro_company_id` integer,
 	`band_id` integer NOT NULL,
@@ -115,6 +116,7 @@ CREATE TABLE `deal_memo` (
 	FOREIGN KEY (`hotel_id`) REFERENCES `hotel`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
+CREATE INDEX `deal_memo_name_idx` ON `deal_memo` (`name`);--> statement-breakpoint
 CREATE INDEX `deal_memo_date_idx` ON `deal_memo` (`date`);--> statement-breakpoint
 CREATE INDEX `deal_memo_band_idx` ON `deal_memo` (`band_id`);--> statement-breakpoint
 CREATE INDEX `deal_memo_venue_idx` ON `deal_memo` (`venue_id`);--> statement-breakpoint
@@ -135,8 +137,6 @@ CREATE INDEX `hotel_name_idx` ON `hotel` (`name`);--> statement-breakpoint
 CREATE TABLE `itinerary` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`notes` text DEFAULT '' NOT NULL,
-	`venue_id` integer NOT NULL,
-	`hotel_id` integer NOT NULL,
 	`deal_memo_id` integer NOT NULL,
 	`get_in` text DEFAULT '' NOT NULL,
 	`load_in` text DEFAULT '' NOT NULL,
@@ -151,14 +151,10 @@ CREATE TABLE `itinerary` (
 	`show_length` text DEFAULT '' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text,
-	FOREIGN KEY (`venue_id`) REFERENCES `venue`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`hotel_id`) REFERENCES `hotel`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `itinerary_deal_memo_idx` ON `itinerary` (`deal_memo_id`);--> statement-breakpoint
-CREATE INDEX `itinerary_venue_idx` ON `itinerary` (`venue_id`);--> statement-breakpoint
-CREATE INDEX `itinerary_hotel_idx` ON `itinerary` (`hotel_id`);--> statement-breakpoint
 CREATE TABLE `person` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`first_name` text NOT NULL,
@@ -179,14 +175,14 @@ CREATE TABLE `venue` (
 	`name` text NOT NULL,
 	`capacity` integer,
 	`notes` text DEFAULT '' NOT NULL,
+	`address_id` integer,
 	`company_id` integer,
 	`contact_id` integer,
-	`address_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text,
+	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`address_id`) REFERENCES `address`(`id`) ON UPDATE no action ON DELETE set null
+	FOREIGN KEY (`contact_id`) REFERENCES `contact`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `venue_name_idx` ON `venue` (`name`);--> statement-breakpoint

@@ -486,7 +486,8 @@ export async function seedDatabase() {
     const [dealMemo1] = await db
       .insert(deal_memo)
       .values({
-        deal: 'The Electric Waves - Berlin Tour',
+        name: 'The Electric Waves - Berlin Tour',
+        deal: '70/30',
         date: '2026-06-15',
         ticket_price_vvk: 35.0,
         ticket_price_ak: 40.0,
@@ -509,7 +510,8 @@ export async function seedDatabase() {
     const [dealMemo2] = await db
       .insert(deal_memo)
       .values({
-        deal: 'Midnight Symphony - LA Showcase',
+        name: 'Midnight Symphony - LA Showcase',
+        deal: '60/40 with $5,000 guarantee',
         date: '2026-08-22',
         ticket_price_vvk: 25.0,
         ticket_price_ak: 30.0,
@@ -536,8 +538,6 @@ export async function seedDatabase() {
     await db.insert(itinerary).values([
       {
         notes: 'Standard setup for rock show',
-        venue_id: venue2.id,
-        hotel_id: hotel1.id,
         deal_memo_id: dealMemo1.id,
         get_in: '14:00',
         load_in: '15:00',
@@ -553,8 +553,6 @@ export async function seedDatabase() {
       },
       {
         notes: 'Electronic setup with DJ booth',
-        venue_id: venue1.id,
-        hotel_id: hotel1.id,
         deal_memo_id: dealMemo2.id,
         get_in: '13:00',
         load_in: '14:00',

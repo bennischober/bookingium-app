@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { trpcReact } from '@/main'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -15,11 +16,28 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Music2, MapPin, User, Building2, ExternalLink, Calendar, Clock, Pencil, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Music2,
+  MapPin,
+  User,
+  Building2,
+  ExternalLink,
+  Calendar,
+  Clock,
+  Pencil,
+  X,
+  Hotel,
+  Users,
+  Euro,
+  Plus,
+  ListOrdered
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { InlineCombobox, type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
+import type { ItineraryDto } from 'src/main/api/schemas/itinerary.schema'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,7 +185,7 @@ function SwappableEntityCard({
   )
 }
 
-// ─── Placeholder tab ──────────────────────────────────────────────────────────
+// ─── Placeholder tab (Documents only for now) ─────────────────────────────────
 
 function PlaceholderTab({ title, description }: { title: string; description: string }) {
   return (
@@ -190,15 +208,23 @@ interface OverviewTabProps {
 
 function OverviewTab({ event, onSaved }: OverviewTabProps) {
   const utils = trpcReact.useUtils()
+  const [name, setName] = useState(event.name)
+  const [date, setDate] = useState(event.date)
   const [status, setStatus] = useState(event.status)
   const [notes, setNotes] = useState(event.notes)
-  const isDirty = status !== event.status || notes !== event.notes
+  const isDirty =
+    name !== event.name ||
+    date !== event.date ||
+    status !== event.status ||
+    notes !== event.notes
 
   // Keep local state in sync when the server data refreshes
   useEffect(() => {
+    setName(event.name)
+    setDate(event.date)
     setStatus(event.status)
     setNotes(event.notes)
-  }, [event.status, event.notes])
+  }, [event.name, event.date, event.status, event.notes])
 
   // ── Entity list queries for the swap comboboxes ──
   const bands = trpcReact.band.getListItems.useQuery()
@@ -226,7 +252,7 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
   })
 
   const handleSave = () => {
-    updateMutation.mutate({ id: event.id, status, notes })
+    updateMutation.mutate({ id: event.id, name, date, status, notes })
   }
 
   const handleSwapBand = (bandId: number | null) => {
@@ -329,6 +355,27 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
         </h3>
         <div className="space-y-4 max-w-md">
           <div className="space-y-2">
+            <Label htmlFor="name">Event Name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Event name…"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="eventDate">Date</Label>
+            <Input
+              id="eventDate"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-44"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Status</Label>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-44">
@@ -362,6 +409,541 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
             </Button>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Financials tab ───────────────────────────────────────────────────────────
+
+interface FinancialsTabProps {
+  event: DealMemoDetailDto
+}
+
+function FinancialsTab({ event }: FinancialsTabProps) {
+  const utils = trpcReact.useUtils()
+
+  const [deal, setDeal] = useState(event.deal ?? '')
+  const [vvk, setVvk] = useState(event.ticketPriceVvk?.toString() ?? '')
+  const [ak, setAk] = useState(event.ticketPriceAk?.toString() ?? '')
+  const [posters, setPosters] = useState(event.posters ?? '')
+
+  const isDealDirty = deal !== (event.deal ?? '')
+  const isPricesDirty =
+    (parseFloat(vvk) || null) !== event.ticketPriceVvk ||
+    (parseFloat(ak) || null) !== event.ticketPriceAk
+  const isPostersDirty = posters !== (event.posters ?? '')
+
+  useEffect(() => {
+    setDeal(event.deal ?? '')
+    setVvk(event.ticketPriceVvk?.toString() ?? '')
+    setAk(event.ticketPriceAk?.toString() ?? '')
+    setPosters(event.posters ?? '')
+  }, [event.deal, event.ticketPriceVvk, event.ticketPriceAk, event.posters])
+
+  const updateMutation = trpcReact.dealMemo.update.useMutation({
+    onSuccess: () => {
+      utils.dealMemo.getById.invalidate(event.id)
+      toast.success('Saved')
+    },
+    onError: (e) => toast.error('Failed to save', { description: e.message })
+  })
+
+  const handleSaveDeal = () => {
+    updateMutation.mutate({ id: event.id, deal })
+  }
+
+  const handleSavePrices = () => {
+    updateMutation.mutate({
+      id: event.id,
+      ticketPriceVvk: vvk ? parseFloat(vvk) : null,
+      ticketPriceAk: ak ? parseFloat(ak) : null
+    })
+  }
+
+  const handleSavePosters = () => {
+    updateMutation.mutate({ id: event.id, posters })
+  }
+
+  return (
+    <div className="space-y-8 max-w-lg">
+      {/* ── Deal terms ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+          Deal
+        </h3>
+        <div className="space-y-2">
+          <Label htmlFor="deal-terms">Deal Terms</Label>
+          <Input
+            id="deal-terms"
+            placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+            value={deal}
+            onChange={(e) => setDeal(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            The financial split or fee arrangement for this show.
+          </p>
+        </div>
+        {isDealDirty && (
+          <Button className="mt-3" onClick={handleSaveDeal} disabled={updateMutation.isPending} size="sm">
+            {updateMutation.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* ── Ticket prices ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Euro className="h-4 w-4" />
+          Ticket Prices
+        </h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="vvk">Advance Sale (VVK)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                  €
+                </span>
+                <Input
+                  id="vvk"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="pl-7"
+                  placeholder="0.00"
+                  value={vvk}
+                  onChange={(e) => setVvk(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ak">Box Office (AK)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                  €
+                </span>
+                <Input
+                  id="ak"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="pl-7"
+                  placeholder="0.00"
+                  value={ak}
+                  onChange={(e) => setAk(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          {isPricesDirty && (
+            <Button onClick={handleSavePrices} disabled={updateMutation.isPending} size="sm">
+              {updateMutation.isPending ? 'Saving…' : 'Save Prices'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Posters / marketing ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+          Marketing
+        </h3>
+        <div className="space-y-2">
+          <Label htmlFor="posters">Posters</Label>
+          <Input
+            id="posters"
+            placeholder="e.g. 50× A1, 100× A3 flyers…"
+            value={posters}
+            onChange={(e) => setPosters(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            What print materials need to be provided for this show?
+          </p>
+        </div>
+        {isPostersDirty && (
+          <Button
+            className="mt-3"
+            onClick={handleSavePosters}
+            disabled={updateMutation.isPending}
+            size="sm"
+          >
+            {updateMutation.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Itinerary tab ────────────────────────────────────────────────────────────
+
+/** Labeled time row used in the day schedule form. */
+function TimeRow({
+  label,
+  value,
+  onChange
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] items-center gap-3">
+      <Label className="text-right text-muted-foreground text-sm">{label}</Label>
+      <Input
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-32"
+      />
+    </div>
+  )
+}
+
+interface ItineraryTabProps {
+  event: DealMemoDetailDto
+}
+
+function ItineraryTab({ event }: ItineraryTabProps) {
+  const utils = trpcReact.useUtils()
+
+  // ── Hotel / accommodation state (saved to deal_memo) ──
+  const hotels = trpcReact.hotel.getListItems.useQuery()
+  const hotelItems: InlineComboboxItem[] = (hotels.data ?? []).map((h) => ({
+    id: h.id,
+    label: h.name
+  }))
+
+  const [amountOfPeople, setAmountOfPeople] = useState(event.amountOfPeople?.toString() ?? '')
+  const [roomInformation, setRoomInformation] = useState(event.roomInformation ?? '')
+  const isAccommoDirty =
+    (parseInt(amountOfPeople) || null) !== event.amountOfPeople ||
+    roomInformation !== (event.roomInformation ?? '')
+
+  // ── Performance terms state (saved to deal_memo) ──
+  const [performanceTime, setPerformanceTime] = useState(event.performanceTime ?? '')
+  const [performanceDuration, setPerformanceDuration] = useState(event.performanceDuration ?? '')
+  const [performanceInformation, setPerformanceInformation] = useState(
+    event.performanceInformation ?? ''
+  )
+  const isPerfDirty =
+    performanceTime !== (event.performanceTime ?? '') ||
+    performanceDuration !== (event.performanceDuration ?? '') ||
+    performanceInformation !== (event.performanceInformation ?? '')
+
+  useEffect(() => {
+    setAmountOfPeople(event.amountOfPeople?.toString() ?? '')
+    setRoomInformation(event.roomInformation ?? '')
+    setPerformanceTime(event.performanceTime ?? '')
+    setPerformanceDuration(event.performanceDuration ?? '')
+    setPerformanceInformation(event.performanceInformation ?? '')
+  }, [
+    event.amountOfPeople,
+    event.roomInformation,
+    event.performanceTime,
+    event.performanceDuration,
+    event.performanceInformation
+  ])
+
+  // ── Day schedule (itinerary table) ──
+  const { data: itinerary, isLoading: itineraryLoading } =
+    trpcReact.itinerary.getByDealMemoId.useQuery(event.id)
+
+  type ScheduleState = Omit<ItineraryDto, 'id' | 'dealMemoId' | 'createdAt' | 'updatedAt'>
+  const emptySchedule: ScheduleState = {
+    getIn: '', loadIn: '', soundCheckMainAct: '', soundCheckSupport: '',
+    dinner: '', doors: '', showTimeMainAct: '', showTimeSupport: '',
+    curfewStage: '', curfewVenue: '', showLength: '', notes: ''
+  }
+  const [schedule, setSchedule] = useState<ScheduleState>(emptySchedule)
+
+  useEffect(() => {
+    if (itinerary) {
+      setSchedule({
+        getIn: itinerary.getIn,
+        loadIn: itinerary.loadIn,
+        soundCheckMainAct: itinerary.soundCheckMainAct,
+        soundCheckSupport: itinerary.soundCheckSupport,
+        dinner: itinerary.dinner,
+        doors: itinerary.doors,
+        showTimeMainAct: itinerary.showTimeMainAct,
+        showTimeSupport: itinerary.showTimeSupport,
+        curfewStage: itinerary.curfewStage,
+        curfewVenue: itinerary.curfewVenue,
+        showLength: itinerary.showLength,
+        notes: itinerary.notes
+      })
+    }
+  }, [itinerary])
+
+  const set = (key: keyof ScheduleState) => (value: string) =>
+    setSchedule((prev) => ({ ...prev, [key]: value }))
+
+  // ── Mutations ──
+  const dealMemoMutation = trpcReact.dealMemo.update.useMutation({
+    onSuccess: () => {
+      utils.dealMemo.getById.invalidate(event.id)
+      toast.success('Saved')
+    },
+    onError: (e) => toast.error('Failed to save', { description: e.message })
+  })
+
+  const itineraryMutation = trpcReact.itinerary.upsert.useMutation({
+    onSuccess: () => {
+      utils.itinerary.getByDealMemoId.invalidate(event.id)
+      toast.success('Schedule saved')
+    },
+    onError: (e) => toast.error('Failed to save schedule', { description: e.message })
+  })
+
+  const handleSwapHotel = (hotelId: number | null) => {
+    dealMemoMutation.mutate({ id: event.id, hotelId })
+  }
+
+  const handleSaveAccommo = () => {
+    dealMemoMutation.mutate({
+      id: event.id,
+      amountOfPeople: amountOfPeople ? parseInt(amountOfPeople) : null,
+      roomInformation: roomInformation || null
+    })
+  }
+
+  const handleSavePerf = () => {
+    dealMemoMutation.mutate({
+      id: event.id,
+      performanceTime: performanceTime || null,
+      performanceDuration: performanceDuration || null,
+      performanceInformation: performanceInformation || null
+    })
+  }
+
+  const handleSaveSchedule = () => {
+    itineraryMutation.mutate({
+      dealMemoId: event.id,
+      ...schedule
+    })
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* ── Hotel / Accommodation ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Hotel className="h-4 w-4" />
+          Accommodation
+        </h3>
+        <div className="space-y-4">
+          <div className="max-w-sm">
+            <SwappableEntityCard
+              icon={<Hotel className="h-3.5 w-3.5" />}
+              title="Hotel"
+              currentName={event.hotel?.name ?? null}
+              currentId={event.hotelId}
+              items={hotelItems}
+              itemsLoading={hotels.isLoading}
+              onSwap={handleSwapHotel}
+              isSaving={dealMemoMutation.isPending}
+              nullable={true}
+              empty="No hotel assigned"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+            <div className="space-y-2">
+              <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                Number of People
+              </Label>
+              <Input
+                id="amountOfPeople"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={amountOfPeople}
+                onChange={(e) => setAmountOfPeople(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Total headcount requiring accommodation</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="roomInfo">Room Configuration</Label>
+              <Textarea
+                id="roomInfo"
+                rows={3}
+                placeholder="e.g. 1× single, 2× double, 1× triple…"
+                value={roomInformation}
+                onChange={(e) => setRoomInformation(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {isAccommoDirty && (
+            <Button onClick={handleSaveAccommo} disabled={dealMemoMutation.isPending} size="sm">
+              {dealMemoMutation.isPending ? 'Saving…' : 'Save Accommodation'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Performance Terms ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Music2 className="h-4 w-4" />
+          Performance Terms
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Agreed-upon deal terms — the confirmed day-of schedule is managed below.
+        </p>
+        <div className="space-y-4 max-w-md">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="perfTime">Show Time</Label>
+              <Input
+                id="perfTime"
+                type="time"
+                value={performanceTime}
+                onChange={(e) => setPerformanceTime(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="perfDuration">Duration</Label>
+              <Input
+                id="perfDuration"
+                placeholder="e.g. 90 min"
+                value={performanceDuration}
+                onChange={(e) => setPerformanceDuration(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="perfInfo">Performance Notes</Label>
+            <Textarea
+              id="perfInfo"
+              rows={3}
+              placeholder="e.g. pyrotechnics, special requirements…"
+              value={performanceInformation}
+              onChange={(e) => setPerformanceInformation(e.target.value)}
+            />
+          </div>
+          {isPerfDirty && (
+            <Button onClick={handleSavePerf} disabled={dealMemoMutation.isPending} size="sm">
+              {dealMemoMutation.isPending ? 'Saving…' : 'Save Performance Terms'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Day Schedule ── */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <ListOrdered className="h-4 w-4" />
+          Day Schedule
+        </h3>
+
+        {itineraryLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : !itinerary ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-muted-foreground">
+              No day schedule yet. Add one to track get-in times, soundchecks, and show times.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSaveSchedule}
+              disabled={itineraryMutation.isPending}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Create Schedule
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Card className="max-w-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Running Order</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <TimeRow label="Get-in" value={schedule.getIn} onChange={set('getIn')} />
+                <TimeRow label="Load-in" value={schedule.loadIn} onChange={set('loadIn')} />
+                <Separator className="my-1" />
+                <TimeRow
+                  label="Soundcheck (Main Act)"
+                  value={schedule.soundCheckMainAct}
+                  onChange={set('soundCheckMainAct')}
+                />
+                <TimeRow
+                  label="Soundcheck (Support)"
+                  value={schedule.soundCheckSupport}
+                  onChange={set('soundCheckSupport')}
+                />
+                <Separator className="my-1" />
+                <TimeRow label="Dinner" value={schedule.dinner} onChange={set('dinner')} />
+                <TimeRow label="Doors" value={schedule.doors} onChange={set('doors')} />
+                <Separator className="my-1" />
+                <TimeRow
+                  label="Support Act"
+                  value={schedule.showTimeSupport}
+                  onChange={set('showTimeSupport')}
+                />
+                <TimeRow
+                  label="Main Act"
+                  value={schedule.showTimeMainAct}
+                  onChange={set('showTimeMainAct')}
+                />
+                {/* Show Length — duration in minutes, not a clock time */}
+                <div className="grid grid-cols-[200px_1fr] items-center gap-3">
+                  <Label className="text-right text-muted-foreground text-sm">Show Length</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 90"
+                      value={schedule.showLength}
+                      onChange={(e) => set('showLength')(e.target.value)}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-muted-foreground">min</span>
+                  </div>
+                </div>
+                <Separator className="my-1" />
+                <TimeRow
+                  label="Curfew (Stage)"
+                  value={schedule.curfewStage}
+                  onChange={set('curfewStage')}
+                />
+                <TimeRow
+                  label="Curfew (Venue)"
+                  value={schedule.curfewVenue}
+                  onChange={set('curfewVenue')}
+                />
+              </CardContent>
+            </Card>
+
+            <div className="space-y-2 max-w-md">
+              <Label>Schedule Notes</Label>
+              <Textarea
+                rows={3}
+                value={schedule.notes}
+                onChange={(e) => set('notes')(e.target.value)}
+                placeholder="Any additional info for this day…"
+              />
+            </div>
+
+            <Button onClick={handleSaveSchedule} disabled={itineraryMutation.isPending} size="sm">
+              {itineraryMutation.isPending ? 'Saving…' : 'Save Schedule'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -413,7 +995,7 @@ export function EventHubPage() {
 
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">{event.deal}</h1>
+            <h1 className="text-2xl font-bold">{event.name}</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
@@ -453,17 +1035,11 @@ export function EventHubPage() {
         </TabsContent>
 
         <TabsContent value="itinerary">
-          <PlaceholderTab
-            title="Itinerary"
-            description="Get-in, soundcheck, dinner, show times and curfews will be managed here."
-          />
+          <ItineraryTab event={event} />
         </TabsContent>
 
         <TabsContent value="financials">
-          <PlaceholderTab
-            title="Financials"
-            description="Ticket prices, fees, travel costs and settlement details will appear here."
-          />
+          <FinancialsTab event={event} />
         </TabsContent>
 
         <TabsContent value="documents">

@@ -48,7 +48,7 @@ export function EventPage() {
 
   const columns: ColumnDef<DealMemoListItemDto>[] = [
     {
-      accessorKey: 'deal',
+      accessorKey: 'name',
       header: 'Event',
       cell: (info) => <span className="font-medium">{info.getValue() as string}</span>
     },
@@ -103,7 +103,7 @@ export function EventPage() {
               className="h-8 px-2 text-destructive hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation()
-                handleDelete(event.id, event.deal)
+                handleDelete(event.id, event.name)
               }}
             >
               <Trash2 className="h-4 w-4" />

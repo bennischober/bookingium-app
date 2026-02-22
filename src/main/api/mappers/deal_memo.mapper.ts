@@ -1,4 +1,4 @@
-import { deal_memo, band, venue, person, company } from '../../db/schema'
+import { deal_memo, band, venue, person, company, hotel } from '../../db/schema'
 import type { DealMemoListItemDto, DealMemoDto, DealMemoDetailDto } from '../schemas/deal_memo.schema'
 
 type DealMemoEntity = typeof deal_memo.$inferSelect
@@ -6,10 +6,12 @@ type BandEntity = typeof band.$inferSelect
 type VenueEntity = typeof venue.$inferSelect
 type PersonEntity = typeof person.$inferSelect
 type CompanyEntity = typeof company.$inferSelect
+type HotelEntity = typeof hotel.$inferSelect
 
 type DealMemoWithRelations = DealMemoEntity & {
   band?: BandEntity | null
   venue?: VenueEntity | null
+  hotel?: HotelEntity | null
   loProPerson?: PersonEntity | null
   loProCompany?: CompanyEntity | null
 }
@@ -18,6 +20,7 @@ export class DealMemoMapper {
   static toListItemDto(entity: DealMemoWithRelations): DealMemoListItemDto {
     return {
       id: entity.id,
+      name: entity.name,
       deal: entity.deal,
       date: entity.date,
       status: entity.status,
@@ -60,6 +63,9 @@ export class DealMemoMapper {
         : null,
       venue: entity.venue
         ? { id: entity.venue.id, name: entity.venue.name, capacity: entity.venue.capacity }
+        : null,
+      hotel: entity.hotel
+        ? { id: entity.hotel.id, name: entity.hotel.name }
         : null,
       loProPerson: entity.loProPerson
         ? {

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d2f11e83-6948-4a39-8de0-2f6dce732d33",
+  "id": "b49ef84b-71a1-4494-99a9-7a5cdb3d63a6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "address": {
@@ -641,12 +641,20 @@
           "notNull": true,
           "autoincrement": true
         },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "deal": {
           "name": "deal",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "''"
         },
         "date": {
           "name": "date",
@@ -697,7 +705,7 @@
           "name": "amount_of_people",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": 0
         },
@@ -705,7 +713,7 @@
           "name": "room_information",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": "''"
         },
@@ -713,7 +721,7 @@
           "name": "performance_duration",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": "''"
         },
@@ -721,7 +729,7 @@
           "name": "performance_time",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": "''"
         },
@@ -729,7 +737,7 @@
           "name": "performance_information",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": "''"
         },
@@ -785,6 +793,13 @@
         }
       },
       "indexes": {
+        "deal_memo_name_idx": {
+          "name": "deal_memo_name_idx",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
         "deal_memo_date_idx": {
           "name": "deal_memo_date_idx",
           "columns": [
@@ -998,20 +1013,6 @@
           "autoincrement": false,
           "default": "''"
         },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "hotel_id": {
-          "name": "hotel_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "deal_memo_id": {
           "name": "deal_memo_id",
           "type": "integer",
@@ -1130,49 +1131,9 @@
             "deal_memo_id"
           ],
           "isUnique": true
-        },
-        "itinerary_venue_idx": {
-          "name": "itinerary_venue_idx",
-          "columns": [
-            "venue_id"
-          ],
-          "isUnique": false
-        },
-        "itinerary_hotel_idx": {
-          "name": "itinerary_hotel_idx",
-          "columns": [
-            "hotel_id"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {
-        "itinerary_venue_id_venue_id_fk": {
-          "name": "itinerary_venue_id_venue_id_fk",
-          "tableFrom": "itinerary",
-          "tableTo": "venue",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "itinerary_hotel_id_hotel_id_fk": {
-          "name": "itinerary_hotel_id_hotel_id_fk",
-          "tableFrom": "itinerary",
-          "tableTo": "hotel",
-          "columnsFrom": [
-            "hotel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "itinerary_deal_memo_id_deal_memo_id_fk": {
           "name": "itinerary_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "itinerary",
@@ -1333,6 +1294,13 @@
           "autoincrement": false,
           "default": "''"
         },
+        "address_id": {
+          "name": "address_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "company_id": {
           "name": "company_id",
           "type": "integer",
@@ -1342,13 +1310,6 @@
         },
         "contact_id": {
           "name": "contact_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "address_id": {
-          "name": "address_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -1387,6 +1348,19 @@
         }
       },
       "foreignKeys": {
+        "venue_address_id_address_id_fk": {
+          "name": "venue_address_id_address_id_fk",
+          "tableFrom": "venue",
+          "tableTo": "address",
+          "columnsFrom": [
+            "address_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "venue_company_id_company_id_fk": {
           "name": "venue_company_id_company_id_fk",
           "tableFrom": "venue",
@@ -1406,19 +1380,6 @@
           "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "venue_address_id_address_id_fk": {
-          "name": "venue_address_id_address_id_fk",
-          "tableFrom": "venue",
-          "tableTo": "address",
-          "columnsFrom": [
-            "address_id"
           ],
           "columnsTo": [
             "id"

@@ -11,7 +11,7 @@ export class DealMemoRepository {
     const { page, pageSize, search } = pagination
     const offset = (page - 1) * pageSize
 
-    const whereClause = search ? like(schema.deal_memo.deal, `%${search}%`) : undefined
+    const whereClause = search ? like(schema.deal_memo.name, `%${search}%`) : undefined
 
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
@@ -51,6 +51,7 @@ export class DealMemoRepository {
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.hotel, eq(schema.deal_memo.hotel_id, schema.hotel.id))
       .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
       .leftJoin(schema.company, eq(schema.deal_memo.lopro_company_id, schema.company.id))
       .where(eq(schema.deal_memo.id, id))
@@ -62,6 +63,7 @@ export class DealMemoRepository {
       ...row.deal_memo,
       band: row.band,
       venue: row.venue,
+      hotel: row.hotel,
       loProPerson: row.person,
       loProCompany: row.company
     }
@@ -71,7 +73,8 @@ export class DealMemoRepository {
     const result = await db
       .insert(schema.deal_memo)
       .values({
-        deal: input.deal,
+        name: input.name,
+        deal: input.deal ?? '',
         date: input.date,
         band_id: input.bandId,
         venue_id: input.venueId ?? null,
@@ -98,16 +101,24 @@ export class DealMemoRepository {
       updated_at: new Date().toISOString()
     }
 
+    if ('name' in input) values.name = input.name
     if ('deal' in input) values.deal = input.deal
     if ('date' in input) values.date = input.date
     if ('bandId' in input) values.band_id = input.bandId
     if ('status' in input) values.status = input.status
     if ('venueId' in input) values.venue_id = input.venueId ?? null
+    if ('hotelId' in input) values.hotel_id = input.hotelId ?? null
     if ('loProPersonId' in input) values.lopro_person_id = input.loProPersonId ?? null
     if ('loProCompanyId' in input) values.lopro_company_id = input.loProCompanyId ?? null
     if ('ticketPriceVvk' in input) values.ticket_price_vvk = input.ticketPriceVvk ?? null
     if ('ticketPriceAk' in input) values.ticket_price_ak = input.ticketPriceAk ?? null
     if ('notes' in input) values.notes = input.notes
+    if ('posters' in input) values.posters = input.posters
+    if ('amountOfPeople' in input) values.amount_of_people = input.amountOfPeople ?? null
+    if ('roomInformation' in input) values.room_information = input.roomInformation ?? null
+    if ('performanceDuration' in input) values.performance_duration = input.performanceDuration ?? null
+    if ('performanceTime' in input) values.performance_time = input.performanceTime ?? null
+    if ('performanceInformation' in input) values.performance_information = input.performanceInformation ?? null
 
     const result = await db
       .update(schema.deal_memo)

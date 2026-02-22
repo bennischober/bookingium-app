@@ -223,18 +223,19 @@ export const deal_memo = sqliteTable(
   'deal_memo',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    deal: text('deal').notNull(),
+    name: text('name').notNull(),
+    deal: text('deal').notNull().default(''), // financial deal terms, e.g. "70/30"
     date: text('date').notNull(), // ISO 8601 format: YYYY-MM-DD
     ticket_price_vvk: real('ticket_price_vvk'),
     ticket_price_ak: real('ticket_price_ak'),
     posters: text('posters').default('').notNull(),
     status: text('status').default('').notNull(),
     notes: text('notes').default('').notNull(),
-    amount_of_people: integer('amount_of_people').default(0).notNull(),
-    room_information: text('room_information').default('').notNull(),
-    performance_duration: text('performance_duration').default('').notNull(),
-    performance_time: text('performance_time').default('').notNull(),
-    performance_information: text('performance_information').default('').notNull(),
+    amount_of_people: integer('amount_of_people').default(0),
+    room_information: text('room_information').default(''),
+    performance_duration: text('performance_duration').default(''),
+    performance_time: text('performance_time').default(''),
+    performance_information: text('performance_information').default(''),
     lopro_person_id: integer('lopro_person_id').references(() => person.id, {
       onDelete: 'set null'
     }),
@@ -252,6 +253,7 @@ export const deal_memo = sqliteTable(
     updated_at: text('updated_at')
   },
   (table) => [
+    index('deal_memo_name_idx').on(table.name),
     index('deal_memo_date_idx').on(table.date),
     index('deal_memo_band_idx').on(table.band_id),
     index('deal_memo_venue_idx').on(table.venue_id),
@@ -259,18 +261,11 @@ export const deal_memo = sqliteTable(
   ]
 )
 
-// Itinerary table
 export const itinerary = sqliteTable(
   'itinerary',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     notes: text('notes').default('').notNull(),
-    venue_id: integer('venue_id')
-      .notNull()
-      .references(() => venue.id),
-    hotel_id: integer('hotel_id')
-      .notNull()
-      .references(() => hotel.id),
     deal_memo_id: integer('deal_memo_id')
       .notNull()
       .references(() => deal_memo.id, { onDelete: 'cascade' }),
@@ -291,9 +286,7 @@ export const itinerary = sqliteTable(
     updated_at: text('updated_at')
   },
   (table) => [
-    uniqueIndex('itinerary_deal_memo_idx').on(table.deal_memo_id), // One itinerary per deal memo
-    index('itinerary_venue_idx').on(table.venue_id),
-    index('itinerary_hotel_idx').on(table.hotel_id)
+    uniqueIndex('itinerary_deal_memo_idx').on(table.deal_memo_id) // One itinerary per deal memo
   ]
 )
 

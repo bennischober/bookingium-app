@@ -29,7 +29,7 @@ import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
 
 interface WizardFormData {
   // Step 1
-  deal: string
+  name: string
   date: string
   bandId: number | null
   venueId: number | null
@@ -37,6 +37,7 @@ interface WizardFormData {
   loProPersonId: number | null
   loProCompanyId: number | null
   // Step 3
+  deal: string
   status: string
   ticketPriceVvk: string
   ticketPriceAk: string
@@ -349,12 +350,13 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
 const EMPTY_FORM: WizardFormData = {
-  deal: '',
+  name: '',
   date: '',
   bandId: null,
   venueId: null,
   loProPersonId: null,
   loProCompanyId: null,
+  deal: '',
   status: 'pending',
   ticketPriceVvk: '',
   ticketPriceAk: '',
@@ -385,7 +387,7 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
 
   const createMemo = trpcReact.dealMemo.create.useMutation({
     onSuccess: (memo: any) => {
-      toast.success('Event created', { description: `"${form.deal}" has been added.` })
+      toast.success('Event created', { description: `"${form.name}" has been added.` })
       utils.dealMemo.getAllPaginated.invalidate()
       handleClose()
       onSuccess(memo)
@@ -406,12 +408,13 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
     setForm((prev) => ({ ...prev, [key]: value }))
 
   // Step 1 validity
-  const step1Valid = form.deal.trim() !== '' && form.date !== '' && form.bandId !== null
+  const step1Valid = form.name.trim() !== '' && form.date !== '' && form.bandId !== null
 
   const handleSubmit = () => {
     if (!step1Valid) return
     createMemo.mutate({
-      deal: form.deal.trim(),
+      name: form.name.trim(),
+      deal: form.deal.trim() || undefined,
       date: form.date,
       bandId: form.bandId!,
       venueId: form.venueId,
@@ -469,8 +472,8 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                 </Label>
                 <Input
                   id="event-name"
-                  value={form.deal}
-                  onChange={(e) => set('deal', e.target.value)}
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
                   placeholder="e.g. Summer Festival 2024"
                   autoFocus
                 />
@@ -610,6 +613,19 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                   rows={3}
                   placeholder="Any additional information…"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="deal-terms">Deal Terms</Label>
+                <Input
+                  id="deal-terms"
+                  value={form.deal}
+                  onChange={(e) => set('deal', e.target.value)}
+                  placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The financial split or fee arrangement for this show (optional).
+                </p>
               </div>
             </div>
           )}
