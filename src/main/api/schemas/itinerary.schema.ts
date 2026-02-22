@@ -31,18 +31,18 @@ export type ItineraryDto = z.infer<typeof ItineraryDto>
  */
 export const UpsertItineraryInput = z.object({
   dealMemoId: z.number(),
-  notes: z.string().optional().default(''),
-  getIn: z.string().optional().default(''),
-  loadIn: z.string().optional().default(''),
-  soundCheckMainAct: z.string().optional().default(''),
-  soundCheckSupport: z.string().optional().default(''),
-  dinner: z.string().optional().default(''),
-  doors: z.string().optional().default(''),
-  showTimeMainAct: z.string().optional().default(''),
-  showTimeSupport: z.string().optional().default(''),
-  curfewStage: z.string().optional().default(''),
-  curfewVenue: z.string().optional().default(''),
-  showLength: z.string().optional().default('')
+  notes: z.string().optional(),
+  getIn: z.string().optional(),
+  loadIn: z.string().optional(),
+  soundCheckMainAct: z.string().optional(),
+  soundCheckSupport: z.string().optional(),
+  dinner: z.string().optional(),
+  doors: z.string().optional(),
+  showTimeMainAct: z.string().optional(),
+  showTimeSupport: z.string().optional(),
+  curfewStage: z.string().optional(),
+  curfewVenue: z.string().optional(),
+  showLength: z.string().optional()
 })
 
 export type UpsertItineraryInput = z.infer<typeof UpsertItineraryInput>

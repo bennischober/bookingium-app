@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { trpcReact } from '@/main'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -31,7 +31,8 @@ import {
   Users,
   Euro,
   Plus,
-  ListOrdered
+  ListOrdered,
+  Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -199,15 +200,53 @@ function PlaceholderTab({ title, description }: { title: string; description: st
   )
 }
 
+// ─── Read-only field helpers ──────────────────────────────────────────────────
+
+function ReadOnlyField({
+  label,
+  value,
+  placeholder = '—'
+}: {
+  label: string
+  value?: string | null
+  placeholder?: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+      {value ? (
+        <p className="text-sm leading-relaxed">{value}</p>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">{placeholder}</p>
+      )}
+    </div>
+  )
+}
+
+function ReadOnlyTimeRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[200px_1fr] items-center gap-3">
+      <span className="text-right text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-mono">{value || <span className="text-muted-foreground italic">—</span>}</span>
+    </div>
+  )
+}
+
 // ─── Overview tab ─────────────────────────────────────────────────────────────
 
 interface OverviewTabProps {
   event: DealMemoDetailDto
+  isEditing: boolean
+  saveSignal: number
+  cancelSignal: number
   onSaved: () => void
 }
 
-function OverviewTab({ event, onSaved }: OverviewTabProps) {
+function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSaved }: OverviewTabProps) {
   const utils = trpcReact.useUtils()
+  // Track the last signal value we responded to. Seeded with the current value so
+  // that a re-mount (or React Strict Mode's double-invocation) never fires a stale save.
+  const lastSaveSignal = useRef(saveSignal)
   const [name, setName] = useState(event.name)
   const [date, setDate] = useState(event.date)
   const [status, setStatus] = useState(event.status)
@@ -225,6 +264,23 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
     setStatus(event.status)
     setNotes(event.notes)
   }, [event.name, event.date, event.status, event.notes])
+
+  // Reset to server values when cancel is triggered
+  useEffect(() => {
+    if (cancelSignal > 0) {
+      setName(event.name)
+      setDate(event.date)
+      setStatus(event.status)
+      setNotes(event.notes)
+    }
+  }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isDirty) handleSave()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Entity list queries for the swap comboboxes ──
   const bands = trpcReact.band.getListItems.useQuery()
@@ -353,62 +409,62 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
           Event Details
         </h3>
-        <div className="space-y-4 max-w-md">
-          <div className="space-y-2">
-            <Label htmlFor="name">Event Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Event name…"
-            />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="eventDate">Date</Label>
-            <Input
-              id="eventDate"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-44"
-            />
-          </div>
+        {isEditing ? (
+          <div className="space-y-4 max-w-md">
+            <div className="space-y-2">
+              <Label htmlFor="name">Event Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Event name…"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="eventDate">Date</Label>
+              <Input
+                id="eventDate"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Additional notes about this event…"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          {isDirty && (
-            <Button
-              onClick={handleSave}
-              disabled={updateMutation.isPending}
-              size="sm"
-            >
-              {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
-            </Button>
-          )}
-        </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={notes ?? ''}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                placeholder="Additional notes about this event…"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 max-w-md">
+            <ReadOnlyField label="Event Name" value={name} />
+            <ReadOnlyField label="Date" value={date ? formatDate(date) : null} />
+            <ReadOnlyField label="Status" value={status ? status.charAt(0).toUpperCase() + status.slice(1) : null} />
+            <ReadOnlyField label="Notes" value={notes} placeholder="No notes" />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -418,10 +474,14 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
 
 interface FinancialsTabProps {
   event: DealMemoDetailDto
+  isEditing: boolean
+  saveSignal: number
+  cancelSignal: number
 }
 
-function FinancialsTab({ event }: FinancialsTabProps) {
+function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: FinancialsTabProps) {
   const utils = trpcReact.useUtils()
+  const lastSaveSignal = useRef(saveSignal)
 
   const [deal, setDeal] = useState(event.deal ?? '')
   const [vvk, setVvk] = useState(event.ticketPriceVvk?.toString() ?? '')
@@ -433,6 +493,7 @@ function FinancialsTab({ event }: FinancialsTabProps) {
     (parseFloat(vvk) || null) !== event.ticketPriceVvk ||
     (parseFloat(ak) || null) !== event.ticketPriceAk
   const isPostersDirty = posters !== (event.posters ?? '')
+  const isDirty = isDealDirty || isPricesDirty || isPostersDirty
 
   useEffect(() => {
     setDeal(event.deal ?? '')
@@ -440,6 +501,23 @@ function FinancialsTab({ event }: FinancialsTabProps) {
     setAk(event.ticketPriceAk?.toString() ?? '')
     setPosters(event.posters ?? '')
   }, [event.deal, event.ticketPriceVvk, event.ticketPriceAk, event.posters])
+
+  // Reset to server values when cancel is triggered
+  useEffect(() => {
+    if (cancelSignal > 0) {
+      setDeal(event.deal ?? '')
+      setVvk(event.ticketPriceVvk?.toString() ?? '')
+      setAk(event.ticketPriceAk?.toString() ?? '')
+      setPosters(event.posters ?? '')
+    }
+  }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isDirty) handleSaveAll()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
@@ -449,20 +527,15 @@ function FinancialsTab({ event }: FinancialsTabProps) {
     onError: (e) => toast.error('Failed to save', { description: e.message })
   })
 
-  const handleSaveDeal = () => {
-    updateMutation.mutate({ id: event.id, deal })
-  }
-
-  const handleSavePrices = () => {
+  // Batched save triggered by "Save All" in the page header
+  const handleSaveAll = () => {
     updateMutation.mutate({
       id: event.id,
+      deal: deal || undefined,
       ticketPriceVvk: vvk ? parseFloat(vvk) : null,
-      ticketPriceAk: ak ? parseFloat(ak) : null
+      ticketPriceAk: ak ? parseFloat(ak) : null,
+      posters: posters || undefined
     })
-  }
-
-  const handleSavePosters = () => {
-    updateMutation.mutate({ id: event.id, posters })
   }
 
   return (
@@ -472,22 +545,21 @@ function FinancialsTab({ event }: FinancialsTabProps) {
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
           Deal
         </h3>
-        <div className="space-y-2">
-          <Label htmlFor="deal-terms">Deal Terms</Label>
-          <Input
-            id="deal-terms"
-            placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
-            value={deal}
-            onChange={(e) => setDeal(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            The financial split or fee arrangement for this show.
-          </p>
-        </div>
-        {isDealDirty && (
-          <Button className="mt-3" onClick={handleSaveDeal} disabled={updateMutation.isPending} size="sm">
-            {updateMutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Label htmlFor="deal-terms">Deal Terms</Label>
+            <Input
+              id="deal-terms"
+              placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+              value={deal}
+              onChange={(e) => setDeal(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              The financial split or fee arrangement for this show.
+            </p>
+          </div>
+        ) : (
+          <ReadOnlyField label="Deal Terms" value={deal} placeholder="No deal terms specified" />
         )}
       </div>
 
@@ -499,7 +571,7 @@ function FinancialsTab({ event }: FinancialsTabProps) {
           <Euro className="h-4 w-4" />
           Ticket Prices
         </h3>
-        <div className="space-y-4">
+        {isEditing ? (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="vvk">Advance Sale (VVK)</Label>
@@ -538,12 +610,20 @@ function FinancialsTab({ event }: FinancialsTabProps) {
               </div>
             </div>
           </div>
-          {isPricesDirty && (
-            <Button onClick={handleSavePrices} disabled={updateMutation.isPending} size="sm">
-              {updateMutation.isPending ? 'Saving…' : 'Save Prices'}
-            </Button>
-          )}
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <ReadOnlyField
+              label="Advance Sale (VVK)"
+              value={vvk ? `€ ${parseFloat(vvk).toFixed(2)}` : null}
+              placeholder="Not set"
+            />
+            <ReadOnlyField
+              label="Box Office (AK)"
+              value={ak ? `€ ${parseFloat(ak).toFixed(2)}` : null}
+              placeholder="Not set"
+            />
+          </div>
+        )}
       </div>
 
       <Separator />
@@ -553,27 +633,21 @@ function FinancialsTab({ event }: FinancialsTabProps) {
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
           Marketing
         </h3>
-        <div className="space-y-2">
-          <Label htmlFor="posters">Posters</Label>
-          <Input
-            id="posters"
-            placeholder="e.g. 50× A1, 100× A3 flyers…"
-            value={posters}
-            onChange={(e) => setPosters(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            What print materials need to be provided for this show?
-          </p>
-        </div>
-        {isPostersDirty && (
-          <Button
-            className="mt-3"
-            onClick={handleSavePosters}
-            disabled={updateMutation.isPending}
-            size="sm"
-          >
-            {updateMutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Label htmlFor="posters">Posters</Label>
+            <Input
+              id="posters"
+              placeholder="e.g. 50× A1, 100× A3 flyers…"
+              value={posters}
+              onChange={(e) => setPosters(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              What print materials need to be provided for this show?
+            </p>
+          </div>
+        ) : (
+          <ReadOnlyField label="Posters" value={posters} placeholder="No poster details" />
         )}
       </div>
     </div>
@@ -607,10 +681,14 @@ function TimeRow({
 
 interface ItineraryTabProps {
   event: DealMemoDetailDto
+  isEditing: boolean
+  saveSignal: number
+  cancelSignal: number
 }
 
-function ItineraryTab({ event }: ItineraryTabProps) {
+function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: ItineraryTabProps) {
   const utils = trpcReact.useUtils()
+  const lastSaveSignal = useRef(saveSignal)
 
   // ── Hotel / accommodation state (saved to deal_memo) ──
   const hotels = trpcReact.hotel.getListItems.useQuery()
@@ -649,6 +727,38 @@ function ItineraryTab({ event }: ItineraryTabProps) {
     event.performanceDuration,
     event.performanceInformation
   ])
+
+  // Reset to server values when cancel is triggered
+  useEffect(() => {
+    if (cancelSignal > 0) {
+      setAmountOfPeople(event.amountOfPeople?.toString() ?? '')
+      setRoomInformation(event.roomInformation ?? '')
+      setPerformanceTime(event.performanceTime ?? '')
+      setPerformanceDuration(event.performanceDuration ?? '')
+      setPerformanceInformation(event.performanceInformation ?? '')
+      if (itinerary) {
+        setSchedule({
+          getIn: itinerary.getIn, loadIn: itinerary.loadIn,
+          soundCheckMainAct: itinerary.soundCheckMainAct, soundCheckSupport: itinerary.soundCheckSupport,
+          dinner: itinerary.dinner, doors: itinerary.doors,
+          showTimeMainAct: itinerary.showTimeMainAct, showTimeSupport: itinerary.showTimeSupport,
+          curfewStage: itinerary.curfewStage, curfewVenue: itinerary.curfewVenue,
+          showLength: itinerary.showLength, notes: itinerary.notes
+        })
+      } else {
+        setSchedule(emptySchedule)
+      }
+    }
+  }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isAccommoDirty) handleSaveAccommo()
+    if (isPerfDirty) handleSavePerf()
+    if (itinerary) handleSaveSchedule()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Day schedule (itinerary table) ──
   const { data: itinerary, isLoading: itineraryLoading } =
@@ -753,39 +863,47 @@ function ItineraryTab({ event }: ItineraryTabProps) {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-            <div className="space-y-2">
-              <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                Number of People
-              </Label>
-              <Input
-                id="amountOfPeople"
-                type="number"
-                min="0"
-                placeholder="0"
-                value={amountOfPeople}
-                onChange={(e) => setAmountOfPeople(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Total headcount requiring accommodation</p>
+          {isEditing ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+              <div className="space-y-2">
+                <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  Number of People
+                </Label>
+                <Input
+                  id="amountOfPeople"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={amountOfPeople}
+                  onChange={(e) => setAmountOfPeople(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Total headcount requiring accommodation</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="roomInfo">Room Configuration</Label>
+                <Textarea
+                  id="roomInfo"
+                  rows={3}
+                  placeholder="e.g. 1× single, 2× double, 1× triple…"
+                  value={roomInformation}
+                  onChange={(e) => setRoomInformation(e.target.value)}
+                />
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="roomInfo">Room Configuration</Label>
-              <Textarea
-                id="roomInfo"
-                rows={3}
-                placeholder="e.g. 1× single, 2× double, 1× triple…"
-                value={roomInformation}
-                onChange={(e) => setRoomInformation(e.target.value)}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+              <ReadOnlyField
+                label="Number of People"
+                value={amountOfPeople || null}
+                placeholder="Not specified"
+              />
+              <ReadOnlyField
+                label="Room Configuration"
+                value={roomInformation || null}
+                placeholder="Not specified"
               />
             </div>
-          </div>
-
-          {isAccommoDirty && (
-            <Button onClick={handleSaveAccommo} disabled={dealMemoMutation.isPending} size="sm">
-              {dealMemoMutation.isPending ? 'Saving…' : 'Save Accommodation'}
-            </Button>
           )}
         </div>
       </div>
@@ -801,43 +919,52 @@ function ItineraryTab({ event }: ItineraryTabProps) {
         <p className="text-sm text-muted-foreground mb-4">
           Agreed-upon deal terms — the confirmed day-of schedule is managed below.
         </p>
-        <div className="space-y-4 max-w-md">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="perfTime">Show Time</Label>
-              <Input
-                id="perfTime"
-                type="time"
-                value={performanceTime}
-                onChange={(e) => setPerformanceTime(e.target.value)}
-              />
+        {isEditing ? (
+          <div className="space-y-4 max-w-md">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="perfTime">Show Time</Label>
+                <Input
+                  id="perfTime"
+                  type="time"
+                  value={performanceTime}
+                  onChange={(e) => setPerformanceTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="perfDuration">Duration</Label>
+                <Input
+                  id="perfDuration"
+                  placeholder="e.g. 90 min"
+                  value={performanceDuration}
+                  onChange={(e) => setPerformanceDuration(e.target.value)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="perfDuration">Duration</Label>
-              <Input
-                id="perfDuration"
-                placeholder="e.g. 90 min"
-                value={performanceDuration}
-                onChange={(e) => setPerformanceDuration(e.target.value)}
+              <Label htmlFor="perfInfo">Performance Notes</Label>
+              <Textarea
+                id="perfInfo"
+                rows={3}
+                placeholder="e.g. pyrotechnics, special requirements…"
+                value={performanceInformation}
+                onChange={(e) => setPerformanceInformation(e.target.value)}
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="perfInfo">Performance Notes</Label>
-            <Textarea
-              id="perfInfo"
-              rows={3}
-              placeholder="e.g. pyrotechnics, special requirements…"
-              value={performanceInformation}
-              onChange={(e) => setPerformanceInformation(e.target.value)}
+        ) : (
+          <div className="space-y-4 max-w-md">
+            <div className="grid grid-cols-2 gap-4">
+              <ReadOnlyField label="Show Time" value={performanceTime || null} placeholder="Not set" />
+              <ReadOnlyField label="Duration" value={performanceDuration || null} placeholder="Not set" />
+            </div>
+            <ReadOnlyField
+              label="Performance Notes"
+              value={performanceInformation || null}
+              placeholder="No notes"
             />
           </div>
-          {isPerfDirty && (
-            <Button onClick={handleSavePerf} disabled={dealMemoMutation.isPending} size="sm">
-              {dealMemoMutation.isPending ? 'Saving…' : 'Save Performance Terms'}
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       <Separator />
@@ -856,17 +983,19 @@ function ItineraryTab({ event }: ItineraryTabProps) {
             <p className="text-sm text-muted-foreground">
               No day schedule yet. Add one to track get-in times, soundchecks, and show times.
             </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleSaveSchedule}
-              disabled={itineraryMutation.isPending}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Create Schedule
-            </Button>
+            {isEditing && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSaveSchedule}
+                disabled={itineraryMutation.isPending}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Create Schedule
+              </Button>
+            )}
           </div>
-        ) : (
+        ) : isEditing ? (
           <div className="space-y-6">
             <Card className="max-w-md">
               <CardHeader className="pb-3">
@@ -900,7 +1029,6 @@ function ItineraryTab({ event }: ItineraryTabProps) {
                   value={schedule.showTimeMainAct}
                   onChange={set('showTimeMainAct')}
                 />
-                {/* Show Length — duration in minutes, not a clock time */}
                 <div className="grid grid-cols-[200px_1fr] items-center gap-3">
                   <Label className="text-right text-muted-foreground text-sm">Show Length</Label>
                   <div className="flex items-center gap-2">
@@ -938,11 +1066,47 @@ function ItineraryTab({ event }: ItineraryTabProps) {
                 placeholder="Any additional info for this day…"
               />
             </div>
-
-            <Button onClick={handleSaveSchedule} disabled={itineraryMutation.isPending} size="sm">
-              {itineraryMutation.isPending ? 'Saving…' : 'Save Schedule'}
-            </Button>
           </div>
+        ) : (
+          /* Read-only schedule view */
+          <Card className="max-w-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Running Order</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ReadOnlyTimeRow label="Get-in" value={schedule.getIn} />
+              <ReadOnlyTimeRow label="Load-in" value={schedule.loadIn} />
+              <Separator className="my-1" />
+              <ReadOnlyTimeRow label="Soundcheck (Main Act)" value={schedule.soundCheckMainAct} />
+              <ReadOnlyTimeRow label="Soundcheck (Support)" value={schedule.soundCheckSupport} />
+              <Separator className="my-1" />
+              <ReadOnlyTimeRow label="Dinner" value={schedule.dinner} />
+              <ReadOnlyTimeRow label="Doors" value={schedule.doors} />
+              <Separator className="my-1" />
+              <ReadOnlyTimeRow label="Support Act" value={schedule.showTimeSupport} />
+              <ReadOnlyTimeRow label="Main Act" value={schedule.showTimeMainAct} />
+              <div className="grid grid-cols-[200px_1fr] items-center gap-3">
+                <span className="text-right text-sm text-muted-foreground">Show Length</span>
+                <span className="text-sm font-mono">
+                  {schedule.showLength ? `${schedule.showLength} min` : <span className="text-muted-foreground italic">—</span>}
+                </span>
+              </div>
+              <Separator className="my-1" />
+              <ReadOnlyTimeRow label="Curfew (Stage)" value={schedule.curfewStage} />
+              <ReadOnlyTimeRow label="Curfew (Venue)" value={schedule.curfewVenue} />
+              {schedule.notes && (
+                <>
+                  <Separator className="my-1" />
+                  <div className="pt-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      Notes
+                    </p>
+                    <p className="text-sm">{schedule.notes}</p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
@@ -959,6 +1123,24 @@ export function EventHubPage() {
     Number(eventId),
     { enabled: !!eventId }
   )
+
+  // ── Edit-mode state ──
+  const [isEditing, setIsEditing] = useState(false)
+  // Incrementing these signals tells all tabs to either save or reset their local state
+  const [saveSignal, setSaveSignal] = useState(0)
+  const [cancelSignal, setCancelSignal] = useState(0)
+
+  const handleEdit = () => setIsEditing(true)
+
+  const handleSaveAll = () => {
+    setSaveSignal((n) => n + 1)
+    setIsEditing(false)
+  }
+
+  const handleDiscard = () => {
+    setCancelSignal((n) => n + 1)
+    setIsEditing(false)
+  }
 
   if (isLoading) {
     return (
@@ -1012,13 +1194,41 @@ export function EventHubPage() {
               )}
             </div>
           </div>
-          <Badge
-            variant="outline"
-            className={cn('capitalize mt-1 shrink-0', STATUS_STYLES[event.status] ?? '')}
-          >
-            {event.status}
-          </Badge>
+
+          <div className="flex items-center gap-2 shrink-0 mt-1">
+            <Badge
+              variant="outline"
+              className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}
+            >
+              {event.status}
+            </Badge>
+
+            {isEditing ? (
+              <>
+                <Button size="sm" variant="outline" onClick={handleDiscard} className="gap-1.5">
+                  <X className="h-3.5 w-3.5" />
+                  Discard
+                </Button>
+                <Button size="sm" onClick={handleSaveAll} className="gap-1.5">
+                  <Check className="h-3.5 w-3.5" />
+                  Save All
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            )}
+          </div>
         </div>
+
+        {isEditing && (
+          <p className="mt-3 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2 inline-flex items-center gap-1.5">
+            <Pencil className="h-3 w-3" />
+            You are in edit mode. Make your changes across any tab, then click <strong>Save All</strong> or <strong>Discard</strong>.
+          </p>
+        )}
       </div>
 
       {/* ── Tabs ── */}
@@ -1031,15 +1241,31 @@ export function EventHubPage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <OverviewTab event={event} onSaved={() => {}} />
+          <OverviewTab
+            event={event}
+            isEditing={isEditing}
+            saveSignal={saveSignal}
+            cancelSignal={cancelSignal}
+            onSaved={() => {}}
+          />
         </TabsContent>
 
         <TabsContent value="itinerary">
-          <ItineraryTab event={event} />
+          <ItineraryTab
+            event={event}
+            isEditing={isEditing}
+            saveSignal={saveSignal}
+            cancelSignal={cancelSignal}
+          />
         </TabsContent>
 
         <TabsContent value="financials">
-          <FinancialsTab event={event} />
+          <FinancialsTab
+            event={event}
+            isEditing={isEditing}
+            saveSignal={saveSignal}
+            cancelSignal={cancelSignal}
+          />
         </TabsContent>
 
         <TabsContent value="documents">
