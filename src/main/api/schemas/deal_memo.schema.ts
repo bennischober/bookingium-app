@@ -78,26 +78,14 @@ export const DealMemoDetailDto = DealMemoDto.extend({
 
 export type DealMemoDetailDto = z.infer<typeof DealMemoDetailDto>
 
-/**
- * Create input — Step 1 fields are required, Steps 2 + 3 are optional.
- *
- * Step 1 (required): deal name, date, band
- * Step 1 (optional): venue
- * Step 2 (optional): LoPro person + company
- * Step 3 (optional): status, ticket prices, notes
- */
 export const CreateDealMemoInput = z.object({
-  // Step 1 — required
   deal: z.string().min(1, 'Event name is required'),
   date: z.string().min(1, 'Date is required'),
-  bandId: z.number({ error: 'Band is required' }),
-  // Step 1 — optional
+  bandId: z.number('Band is required'),
   venueId: z.number().nullable().optional(),
-  // Step 2 — optional
   loProPersonId: z.number().nullable().optional(),
   loProCompanyId: z.number().nullable().optional(),
-  // Step 3 — optional
-  status: z.string().optional().default('pending'),
+  status: z.string().optional(),
   ticketPriceVvk: z.number().nullable().optional(),
   ticketPriceAk: z.number().nullable().optional(),
   notes: z.string().optional().default('')

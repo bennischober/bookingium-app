@@ -146,7 +146,10 @@ export function EventPage() {
       <CreateEventWizard
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onSuccess={() => setWizardOpen(false)}
+        onSuccess={(memo) => {
+          setWizardOpen(false)
+          navigate({ to: '/events/$eventId', params: { eventId: String(memo.id) } })
+        }}
       />
     </div>
   )

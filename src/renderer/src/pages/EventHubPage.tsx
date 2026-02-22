@@ -15,9 +15,10 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Music2, MapPin, User, Building2, ExternalLink, Calendar, Clock } from 'lucide-react'
+import { ArrowLeft, Music2, MapPin, User, Building2, ExternalLink, Calendar, Clock, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { InlineCombobox, type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,19 +38,54 @@ function formatDate(iso: string) {
   })
 }
 
-// ─── Entity summary card ──────────────────────────────────────────────────────
+// ─── Swappable entity card ────────────────────────────────────────────────────
+// Shows a read-only summary of the linked entity. A pencil button reveals an
+// inline combobox so the *relationship* can be changed without touching the
+// entity's own data.
 
-interface EntityCardProps {
+interface SwappableEntityCardProps {
   icon: React.ReactNode
   title: string
-  label: string
-  lines: (string | null | undefined)[]
+  /** Primary display name of the currently linked entity */
+  currentName: string | null | undefined
+  /** Optional subtitle line (genre, capacity, …) */
+  currentDetail?: string | null
+  /** Combobox items for the swap picker */
+  items: InlineComboboxItem[]
+  itemsLoading?: boolean
+  /** ID of the currently linked entity — used to pre-select in the picker */
+  currentId?: number | null
+  /** Called immediately when the user picks a new value */
+  onSwap: (newId: number | null) => void
+  isSaving?: boolean
+  /** Whether this field can be cleared (nullable FK) */
+  nullable?: boolean
+  /** "View" navigation target — only shown when entity is set */
   href?: string
   empty?: string
 }
 
-function EntityCard({ icon, title, label, lines, href, empty }: EntityCardProps) {
-  const filledLines = lines.filter(Boolean) as string[]
+function SwappableEntityCard({
+  icon,
+  title,
+  currentName,
+  currentDetail,
+  currentId,
+  items,
+  itemsLoading,
+  onSwap,
+  isSaving,
+  nullable = false,
+  href,
+  empty = 'Not assigned'
+}: SwappableEntityCardProps) {
+  const [editing, setEditing] = useState(false)
+  const hasValue = !!currentName
+
+  const handleSwap = (id: number | null) => {
+    onSwap(id)
+    setEditing(false)
+  }
 
   return (
     <Card className="flex flex-col">
@@ -59,27 +95,71 @@ function EntityCard({ icon, title, label, lines, href, empty }: EntityCardProps)
             {icon}
             {title}
           </div>
-          {href && filledLines.length > 0 && (
-            <Link to={href}>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
-                <ExternalLink className="h-3 w-3" />
-                View
+          <div className="flex items-center gap-1">
+            {href && hasValue && !editing && (
+              <Link to={href}>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
+                  <ExternalLink className="h-3 w-3" />
+                  View
+                </Button>
+              </Link>
+            )}
+            {editing ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1 text-muted-foreground"
+                onClick={() => setEditing(false)}
+              >
+                <X className="h-3 w-3" />
+                Cancel
               </Button>
-            </Link>
-          )}
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                onClick={() => setEditing(true)}
+                disabled={isSaving}
+              >
+                <Pencil className="h-3 w-3" />
+                {hasValue ? 'Change' : 'Assign'}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {filledLines.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">{empty ?? 'Not set'}</p>
+        {editing ? (
+          <div className="space-y-2">
+            <InlineCombobox
+              items={items}
+              value={currentId}
+              onChange={handleSwap}
+              placeholder={`Select ${title.toLowerCase()}…`}
+              searchPlaceholder={`Search ${title.toLowerCase()}s…`}
+              isLoading={itemsLoading}
+            />
+            {nullable && hasValue && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-destructive hover:text-destructive w-full"
+                onClick={() => handleSwap(null)}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Remove {title.toLowerCase()}
+              </Button>
+            )}
+          </div>
+        ) : !hasValue ? (
+          <p className="text-sm text-muted-foreground italic">{empty}</p>
         ) : (
           <div className="space-y-0.5">
-            <p className="font-semibold">{label}</p>
-            {filledLines.slice(1).map((line, i) => (
-              <p key={i} className="text-sm text-muted-foreground">
-                {line}
-              </p>
-            ))}
+            <p className="font-semibold">{currentName}</p>
+            {currentDetail && (
+              <p className="text-sm text-muted-foreground">{currentDetail}</p>
+            )}
           </div>
         )}
       </CardContent>
@@ -120,6 +200,21 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
     setNotes(event.notes)
   }, [event.status, event.notes])
 
+  // ── Entity list queries for the swap comboboxes ──
+  const bands = trpcReact.band.getListItems.useQuery()
+  const venues = trpcReact.venue.getListItems.useQuery()
+  const persons = trpcReact.person.getListItems.useQuery()
+  const companies = trpcReact.company.getListItems.useQuery()
+
+  const bandItems: InlineComboboxItem[] = (bands.data ?? []).map((b) => ({ id: b.id, label: b.name }))
+  const venueItems: InlineComboboxItem[] = (venues.data ?? []).map((v) => ({ id: v.id, label: v.name }))
+  const personItems: InlineComboboxItem[] = (persons.data ?? []).map((p) => ({
+    id: p.id,
+    label: `${p.firstName} ${p.lastName}`
+  }))
+  const companyItems: InlineComboboxItem[] = (companies.data ?? []).map((c) => ({ id: c.id, label: c.name }))
+
+  // ── Shared update mutation ──
   const updateMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
@@ -134,27 +229,54 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
     updateMutation.mutate({ id: event.id, status, notes })
   }
 
+  const handleSwapBand = (bandId: number | null) => {
+    if (bandId === null) return // band is required — disallow clearing
+    updateMutation.mutate({ id: event.id, bandId })
+  }
+
+  const handleSwapVenue = (venueId: number | null) => {
+    updateMutation.mutate({ id: event.id, venueId })
+  }
+
+  const handleSwapPerson = (loProPersonId: number | null) => {
+    updateMutation.mutate({ id: event.id, loProPersonId })
+  }
+
+  const handleSwapCompany = (loProCompanyId: number | null) => {
+    updateMutation.mutate({ id: event.id, loProCompanyId })
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Entity cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <EntityCard
+        <SwappableEntityCard
           icon={<Music2 className="h-3.5 w-3.5" />}
           title="Band"
-          label={event.bandName}
-          lines={[event.bandName, event.band?.genre || null]}
+          currentName={event.bandName}
+          currentDetail={event.band?.genre || null}
+          currentId={event.bandId}
+          items={bandItems}
+          itemsLoading={bands.isLoading}
+          onSwap={handleSwapBand}
+          isSaving={updateMutation.isPending}
+          nullable={false}
           href="/band"
           empty="No band assigned"
         />
-        <EntityCard
+        <SwappableEntityCard
           icon={<MapPin className="h-3.5 w-3.5" />}
           title="Venue"
-          label={event.venueName ?? ''}
-          lines={[
-            event.venueName,
+          currentName={event.venueName}
+          currentDetail={
             event.venue?.capacity ? `Capacity: ${event.venue.capacity.toLocaleString()}` : null
-          ]}
-          href="/venues"
+          }
+          currentId={event.venueId}
+          items={venueItems}
+          itemsLoading={venues.isLoading}
+          onSwap={handleSwapVenue}
+          isSaving={updateMutation.isPending}
+          nullable={true}
           empty="No venue assigned"
         />
       </div>
@@ -165,27 +287,33 @@ function OverviewTab({ event, onSaved }: OverviewTabProps) {
           Local Promoter
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <EntityCard
+          <SwappableEntityCard
             icon={<User className="h-3.5 w-3.5" />}
             title="Contact Person"
-            label={
-              event.loProPerson
-                ? `${event.loProPerson.firstName} ${event.loProPerson.lastName}`
-                : ''
-            }
-            lines={[
+            currentName={
               event.loProPerson
                 ? `${event.loProPerson.firstName} ${event.loProPerson.lastName}`
                 : null
-            ]}
+            }
+            currentId={event.loProPersonId}
+            items={personItems}
+            itemsLoading={persons.isLoading}
+            onSwap={handleSwapPerson}
+            isSaving={updateMutation.isPending}
+            nullable={true}
             href="/persons"
             empty="No contact assigned"
           />
-          <EntityCard
+          <SwappableEntityCard
             icon={<Building2 className="h-3.5 w-3.5" />}
             title="Company"
-            label={event.loProCompany?.name ?? ''}
-            lines={[event.loProCompany?.name ?? null]}
+            currentName={event.loProCompany?.name ?? null}
+            currentId={event.loProCompanyId}
+            items={companyItems}
+            itemsLoading={companies.isLoading}
+            onSwap={handleSwapCompany}
+            isSaving={updateMutation.isPending}
+            nullable={true}
             href="/companies"
             empty="No company assigned"
           />

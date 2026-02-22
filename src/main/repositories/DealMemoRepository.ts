@@ -94,21 +94,24 @@ export class DealMemoRepository {
   }
 
   async update(input: UpdateDealMemoInput) {
+    const values: Record<string, unknown> = {
+      updated_at: new Date().toISOString()
+    }
+
+    if ('deal' in input) values.deal = input.deal
+    if ('date' in input) values.date = input.date
+    if ('bandId' in input) values.band_id = input.bandId
+    if ('status' in input) values.status = input.status
+    if ('venueId' in input) values.venue_id = input.venueId ?? null
+    if ('loProPersonId' in input) values.lopro_person_id = input.loProPersonId ?? null
+    if ('loProCompanyId' in input) values.lopro_company_id = input.loProCompanyId ?? null
+    if ('ticketPriceVvk' in input) values.ticket_price_vvk = input.ticketPriceVvk ?? null
+    if ('ticketPriceAk' in input) values.ticket_price_ak = input.ticketPriceAk ?? null
+    if ('notes' in input) values.notes = input.notes
+
     const result = await db
       .update(schema.deal_memo)
-      .set({
-        deal: input.deal,
-        date: input.date,
-        band_id: input.bandId,
-        venue_id: input.venueId ?? null,
-        lopro_person_id: input.loProPersonId ?? null,
-        lopro_company_id: input.loProCompanyId ?? null,
-        status: input.status,
-        ticket_price_vvk: input.ticketPriceVvk ?? null,
-        ticket_price_ak: input.ticketPriceAk ?? null,
-        notes: input.notes,
-        updated_at: new Date().toISOString()
-      })
+      .set(values)
       .where(eq(schema.deal_memo.id, input.id))
       .returning()
 
