@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import { TimestampFields } from './base.schema'
+import { AddressDto, AddressInput } from './address.schema'
+import { ContactDto, ContactInput } from './contact.schema'
+import { CompanyListItemDto } from './company.schema'
 
 export const VenueDto = z
   .object({
@@ -7,6 +10,9 @@ export const VenueDto = z
     name: z.string(),
     capacity: z.number().nullable(),
     notes: z.string(),
+    address: AddressDto.nullable(),
+    contact: ContactDto.nullable(),
+    company: CompanyListItemDto.nullable(),
     addressId: z.number().nullable(),
     companyId: z.number().nullable(),
     contactId: z.number().nullable()
@@ -26,8 +32,10 @@ export const CreateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   capacity: z.number().nullable().optional(),
   notes: z.string().default(''),
-  addressId: z.number().nullable().optional(),
+  address: AddressInput.optional(),
+  contact: ContactInput.optional(),
   companyId: z.number().nullable().optional(),
+  addressId: z.number().nullable().optional(),
   contactId: z.number().nullable().optional()
 })
 
@@ -38,8 +46,10 @@ export const UpdateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   capacity: z.number().nullable().optional(),
   notes: z.string().default(''),
-  addressId: z.number().nullable().optional(),
+  address: AddressInput.optional(),
+  contact: ContactInput.optional(),
   companyId: z.number().nullable().optional(),
+  addressId: z.number().nullable().optional(),
   contactId: z.number().nullable().optional()
 })
 

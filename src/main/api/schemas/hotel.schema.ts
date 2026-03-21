@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
+import { AddressDto, AddressInput } from './address.schema'
+import { ContactDto, ContactInput } from './contact.schema'
 
 export const HotelDto = z
   .object({
     id: z.number(),
     name: z.string(),
     notes: z.string(),
+    address: AddressDto.nullable(),
+    contact: ContactDto.nullable(),
     addressId: z.number().nullable(),
     contactId: z.number().nullable()
   })
@@ -26,6 +30,8 @@ export type PaginatedHotelResponse = z.infer<typeof PaginatedHotelResponse>
 export const CreateHotelInput = z.object({
   name: z.string().min(1, 'Name is required'),
   notes: z.string().default(''),
+  address: AddressInput.optional(),
+  contact: ContactInput.optional(),
   addressId: z.number().nullable().optional(),
   contactId: z.number().nullable().optional()
 })

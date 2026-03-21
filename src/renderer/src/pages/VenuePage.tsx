@@ -68,6 +68,16 @@ export default function VenuePage() {
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
     },
     {
+      accessorKey: 'company',
+      header: 'Company',
+      cell: ({ row }) => row.original.company?.name || '-'
+    },
+    {
+      accessorKey: 'address',
+      header: 'City',
+      cell: ({ row }) => row.original.address?.city || '-'
+    },
+    {
       accessorKey: 'capacity',
       header: 'Capacity',
       cell: ({ row }) =>

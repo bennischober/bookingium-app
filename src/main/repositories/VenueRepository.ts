@@ -8,7 +8,20 @@ import { PaginationInput } from '../api/schemas/base.schema'
 @injectable()
 export class VenueRepository {
   async getAll() {
-    return await db.select().from(schema.venue).orderBy(schema.venue.name)
+    const rows = await db
+      .select()
+      .from(schema.venue)
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
+      .orderBy(schema.venue.name)
+
+    return rows.map((row) => ({
+      ...row.venue,
+      address: row.address,
+      contact: row.contact,
+      company: row.company
+    }))
   }
 
   async getAllPaginated(pagination: PaginationInput) {
@@ -24,13 +37,23 @@ export class VenueRepository {
 
     const total = countResult[0]?.count || 0
 
-    const items = await db
+    const rows = await db
       .select()
       .from(schema.venue)
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
       .where(whereClause)
       .limit(pageSize)
       .offset(offset)
       .orderBy(schema.venue.name)
+
+    const items = rows.map((row) => ({
+      ...row.venue,
+      address: row.address,
+      contact: row.contact,
+      company: row.company
+    }))
 
     return {
       items,
@@ -42,42 +65,183 @@ export class VenueRepository {
   }
 
   async getById(id: number) {
-    const result = await db.select().from(schema.venue).where(eq(schema.venue.id, id))
-    return result[0] || null
+    const rows = await db
+      .select()
+      .from(schema.venue)
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
+      .where(eq(schema.venue.id, id))
+
+    if (!rows[0]) return null
+    return {
+      ...rows[0].venue,
+      address: rows[0].address,
+      contact: rows[0].contact,
+      company: rows[0].company
+    }
   }
 
   async create(input: CreateVenueInput) {
-    const result = await db
-      .insert(schema.venue)
-      .values({
-        name: input.name,
-        capacity: input.capacity ?? null,
-        notes: input.notes,
-        address_id: input.addressId ?? null,
-        company_id: input.companyId ?? null,
-        contact_id: input.contactId ?? null
-      })
-      .returning()
+    return await db.transaction(async (tx) => {
+      let addressId = input.addressId ?? null
+      if (input.address) {
+        const addressResult = await tx
+          .insert(schema.address)
+          .values({
+            street: input.address.street,
+            street_number: input.address.streetNumber,
+            address_suffix: input.address.addressSuffix,
+            zip_code: input.address.zipCode,
+            city: input.address.city,
+            state: input.address.state,
+            country: input.address.country,
+            country_code: input.address.countryCode
+          })
+          .returning()
+        addressId = addressResult[0].id
+      }
 
-    return result[0]
+      let contactId = input.contactId ?? null
+      if (input.contact) {
+        const contactResult = await tx
+          .insert(schema.contact)
+          .values({
+            email: input.contact.email,
+            phone: input.contact.phone,
+            mobile_phone: input.contact.mobilePhone,
+            homepage: input.contact.homepage
+          })
+          .returning()
+        contactId = contactResult[0].id
+      }
+
+      const venueResult = await tx
+        .insert(schema.venue)
+        .values({
+          name: input.name,
+          capacity: input.capacity ?? null,
+          notes: input.notes,
+          address_id: addressId,
+          company_id: input.companyId ?? null,
+          contact_id: contactId
+        })
+        .returning()
+
+      const rows = await tx
+        .select()
+        .from(schema.venue)
+        .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+        .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+        .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
+        .where(eq(schema.venue.id, venueResult[0].id))
+
+      return {
+        ...rows[0].venue,
+        address: rows[0].address,
+        contact: rows[0].contact,
+        company: rows[0].company
+      }
+    })
   }
 
   async update(input: UpdateVenueInput) {
-    const result = await db
-      .update(schema.venue)
-      .set({
-        name: input.name,
-        capacity: input.capacity ?? null,
-        notes: input.notes,
-        address_id: input.addressId ?? null,
-        company_id: input.companyId ?? null,
-        contact_id: input.contactId ?? null,
-        updated_at: sql`datetime('now')`
-      })
-      .where(eq(schema.venue.id, input.id))
-      .returning()
+    return await db.transaction(async (tx) => {
+      const existing = await tx.select().from(schema.venue).where(eq(schema.venue.id, input.id))
+      if (existing.length === 0) throw new Error('Venue not found')
 
-    return result[0]
+      const existingVenue = existing[0]
+      let addressId = input.addressId !== undefined ? input.addressId : existingVenue.address_id
+      let contactId = input.contactId !== undefined ? input.contactId : existingVenue.contact_id
+
+      if (input.address) {
+        if (existingVenue.address_id) {
+          await tx
+            .update(schema.address)
+            .set({
+              street: input.address.street,
+              street_number: input.address.streetNumber,
+              address_suffix: input.address.addressSuffix,
+              zip_code: input.address.zipCode,
+              city: input.address.city,
+              state: input.address.state,
+              country: input.address.country,
+              country_code: input.address.countryCode
+            })
+            .where(eq(schema.address.id, existingVenue.address_id))
+          addressId = existingVenue.address_id
+        } else {
+          const addressResult = await tx
+            .insert(schema.address)
+            .values({
+              street: input.address.street,
+              street_number: input.address.streetNumber,
+              address_suffix: input.address.addressSuffix,
+              zip_code: input.address.zipCode,
+              city: input.address.city,
+              state: input.address.state,
+              country: input.address.country,
+              country_code: input.address.countryCode
+            })
+            .returning()
+          addressId = addressResult[0].id
+        }
+      }
+
+      if (input.contact) {
+        if (existingVenue.contact_id) {
+          await tx
+            .update(schema.contact)
+            .set({
+              email: input.contact.email,
+              phone: input.contact.phone,
+              mobile_phone: input.contact.mobilePhone,
+              homepage: input.contact.homepage
+            })
+            .where(eq(schema.contact.id, existingVenue.contact_id))
+          contactId = existingVenue.contact_id
+        } else {
+          const contactResult = await tx
+            .insert(schema.contact)
+            .values({
+              email: input.contact.email,
+              phone: input.contact.phone,
+              mobile_phone: input.contact.mobilePhone,
+              homepage: input.contact.homepage
+            })
+            .returning()
+          contactId = contactResult[0].id
+        }
+      }
+
+      await tx
+        .update(schema.venue)
+        .set({
+          name: input.name,
+          capacity: input.capacity ?? null,
+          notes: input.notes,
+          address_id: addressId ?? null,
+          company_id: input.companyId !== undefined ? input.companyId : existingVenue.company_id,
+          contact_id: contactId ?? null,
+          updated_at: sql`datetime('now')`
+        })
+        .where(eq(schema.venue.id, input.id))
+
+      const rows = await tx
+        .select()
+        .from(schema.venue)
+        .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+        .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+        .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
+        .where(eq(schema.venue.id, input.id))
+
+      return {
+        ...rows[0].venue,
+        address: rows[0].address,
+        contact: rows[0].contact,
+        company: rows[0].company
+      }
+    })
   }
 
   async delete(id: number) {

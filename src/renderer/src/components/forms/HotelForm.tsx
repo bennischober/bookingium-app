@@ -3,6 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
+import { AddressFormFields } from './AddressFormFields'
+import { ContactFormFields } from './ContactFormFields'
 import type { FormMode } from '@/hooks/useFormSheet'
 import type { CreateHotelInput, HotelDto, UpdateHotelInput } from '../../../../main/api/schemas/hotel.schema'
 
@@ -18,22 +21,40 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
   const form = useForm({
     defaultValues: {
       name: initialData?.name ?? '',
-      notes: initialData?.notes ?? ''
+      notes: initialData?.notes ?? '',
+      address: {
+        street: initialData?.address?.street ?? '',
+        streetNumber: initialData?.address?.streetNumber ?? '',
+        addressSuffix: initialData?.address?.addressSuffix ?? '',
+        zipCode: initialData?.address?.zipCode ?? '',
+        city: initialData?.address?.city ?? '',
+        state: initialData?.address?.state ?? '',
+        country: initialData?.address?.country ?? '',
+        countryCode: initialData?.address?.countryCode ?? ''
+      },
+      contact: {
+        email: initialData?.contact?.email ?? '',
+        phone: initialData?.contact?.phone ?? '',
+        mobilePhone: initialData?.contact?.mobilePhone ?? '',
+        homepage: initialData?.contact?.homepage ?? ''
+      }
     },
     onSubmit: async ({ value }) => {
+      const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
+      const hasContact = Object.values(value.contact).some((entry) => entry.trim().length > 0)
+      const basePayload = {
+        name: value.name.trim(),
+        notes: value.notes.trim(),
+        ...(hasAddress ? { address: value.address } : {}),
+        ...(hasContact ? { contact: value.contact } : {})
+      }
+
       if (mode === 'edit' && initialData) {
-        onSubmit({
-          id: initialData.id,
-          name: value.name.trim(),
-          notes: value.notes.trim()
-        })
+        onSubmit({ id: initialData.id, ...basePayload })
         return
       }
 
-      onSubmit({
-        name: value.name.trim(),
-        notes: value.notes.trim()
-      })
+      onSubmit(basePayload)
     }
   })
 
@@ -93,6 +114,12 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
           </div>
         )}
       </form.Field>
+
+      <Separator />
+      <AddressFormFields form={form} />
+
+      <Separator />
+      <ContactFormFields form={form} />
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

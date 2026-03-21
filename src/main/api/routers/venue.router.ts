@@ -22,7 +22,6 @@ export const venueRouter = t.router({
 
   getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
     const result = await venueService.getAllVenuesPaginated(input)
-
     return {
       ...result,
       items: VenueMapper.toDtoList(result.items)

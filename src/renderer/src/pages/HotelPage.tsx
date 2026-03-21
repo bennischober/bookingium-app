@@ -48,10 +48,9 @@ export default function HotelPage() {
   })
 
   const deleteMutation = trpcReact.hotel.delete.useMutation({
-    onSuccess: (hotel) => {
+    onSuccess: () => {
       utils.hotel.getAllPaginated.invalidate()
       utils.hotel.getListItems.invalidate()
-      toast.success('Hotel deleted', { description: `${hotel.name} was deleted successfully.` })
     },
     onError: (error) => {
       toast.error('Failed to delete hotel', { description: error.message })
@@ -60,7 +59,11 @@ export default function HotelPage() {
 
   const handleDelete = (hotel: HotelDto) => {
     if (confirm(`Are you sure you want to delete ${hotel.name}?`)) {
-      deleteMutation.mutate(hotel.id)
+      deleteMutation.mutate(hotel.id, {
+        onSuccess: () => {
+          toast.success('Hotel deleted', { description: `${hotel.name} was deleted successfully.` })
+        }
+      })
     }
   }
 
@@ -69,6 +72,16 @@ export default function HotelPage() {
       accessorKey: 'name',
       header: 'Hotel Name',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
+    },
+    {
+      accessorKey: 'address',
+      header: 'City',
+      cell: ({ row }) => row.original.address?.city || '-'
+    },
+    {
+      accessorKey: 'contact',
+      header: 'Email',
+      cell: ({ row }) => row.original.contact?.email || '-'
     },
     {
       accessorKey: 'notes',
