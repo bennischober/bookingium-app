@@ -75,40 +75,66 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   }
 
   return (
-    <div className="space-y-8 max-w-lg">
-      {/* ── Deal terms ── */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-          Deal
-        </h3>
-        {isEditing ? (
-          <div className="space-y-2">
-            <Label htmlFor="deal-terms">Deal Terms</Label>
-            <Input
-              id="deal-terms"
-              placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
-              value={deal}
-              onChange={(e) => setDeal(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              The financial split or fee arrangement for this show.
-            </p>
-          </div>
-        ) : (
-          <ReadOnlyField label="Deal Terms" value={deal} placeholder="No deal terms specified" />
-        )}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* ── Left Column: Deal & Marketing ── */}
+      <div className="space-y-6">
+        {/* ── Deal terms ── */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            Deal
+          </h3>
+          {isEditing ? (
+            <div className="space-y-2">
+              <Label htmlFor="deal-terms">Deal Terms</Label>
+              <Input
+                id="deal-terms"
+                placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+                value={deal}
+                onChange={(e) => setDeal(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                The financial split or fee arrangement for this show.
+              </p>
+            </div>
+          ) : (
+            <ReadOnlyField label="Deal Terms" value={deal} placeholder="No deal terms specified" />
+          )}
+        </div>
+
+        <Separator />
+
+        {/* ── Posters / marketing ── */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            Marketing
+          </h3>
+          {isEditing ? (
+            <div className="space-y-2">
+              <Label htmlFor="posters">Posters</Label>
+              <Input
+                id="posters"
+                placeholder="e.g. 50× A1, 100× A3 flyers…"
+                value={posters}
+                onChange={(e) => setPosters(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                What print materials need to be provided for this show?
+              </p>
+            </div>
+          ) : (
+            <ReadOnlyField label="Posters" value={posters} placeholder="No poster details" />
+          )}
+        </div>
       </div>
 
-      <Separator />
-
-      {/* ── Ticket prices ── */}
+      {/* ── Right Column: Ticket Prices ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
           <Euro className="h-4 w-4" />
           Ticket Prices
         </h3>
         {isEditing ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="vvk">Advance Sale (VVK)</Label>
               <div className="relative">
@@ -147,7 +173,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <ReadOnlyField
               label="Advance Sale (VVK)"
               value={vvk ? `€ ${parseFloat(vvk).toFixed(2)}` : null}
@@ -159,31 +185,6 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               placeholder="Not set"
             />
           </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* ── Posters / marketing ── */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-          Marketing
-        </h3>
-        {isEditing ? (
-          <div className="space-y-2">
-            <Label htmlFor="posters">Posters</Label>
-            <Input
-              id="posters"
-              placeholder="e.g. 50× A1, 100× A3 flyers…"
-              value={posters}
-              onChange={(e) => setPosters(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              What print materials need to be provided for this show?
-            </p>
-          </div>
-        ) : (
-          <ReadOnlyField label="Posters" value={posters} placeholder="No poster details" />
         )}
       </div>
     </div>

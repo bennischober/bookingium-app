@@ -214,131 +214,132 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
   }
 
   return (
-    <div className="space-y-8">
-      {/* ── Hotel / Accommodation ── */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-          <Hotel className="h-4 w-4" />
-          Accommodation
-        </h3>
-        <div className="space-y-4">
-          <div className="max-w-sm">
-            <SwappableEntityCard
-              icon={<Hotel className="h-3.5 w-3.5" />}
-              title="Hotel"
-              currentName={event.hotel?.name ?? null}
-              currentId={event.hotelId}
-              items={hotelItems}
-              itemsLoading={hotels.isLoading}
-              onSwap={handleSwapHotel}
-              isSaving={dealMemoMutation.isPending}
-              nullable={true}
-              empty="No hotel assigned"
-            />
-          </div>
+    <div className="space-y-6">
+      {/* ── Accommodation & Performance Terms (2-column on larger screens) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ── Hotel / Accommodation ── */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Hotel className="h-4 w-4" />
+            Accommodation
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <SwappableEntityCard
+                icon={<Hotel className="h-3.5 w-3.5" />}
+                title="Hotel"
+                currentName={event.hotel?.name ?? null}
+                currentId={event.hotelId}
+                items={hotelItems}
+                itemsLoading={hotels.isLoading}
+                onSwap={handleSwapHotel}
+                isSaving={dealMemoMutation.isPending}
+                nullable={true}
+                empty="No hotel assigned"
+              />
+            </div>
 
-          {isEditing ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-              <div className="space-y-2">
-                <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  Number of People
-                </Label>
-                <Input
-                  id="amountOfPeople"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={amountOfPeople}
-                  onChange={(e) => setAmountOfPeople(e.target.value)}
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    Number of People
+                  </Label>
+                  <Input
+                    id="amountOfPeople"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={amountOfPeople}
+                    onChange={(e) => setAmountOfPeople(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Total headcount requiring accommodation</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="roomInfo">Room Configuration</Label>
+                  <Textarea
+                    id="roomInfo"
+                    rows={3}
+                    placeholder="e.g. 1× single, 2× double, 1× triple…"
+                    value={roomInformation}
+                    onChange={(e) => setRoomInformation(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <ReadOnlyField
+                  label="Number of People"
+                  value={amountOfPeople || null}
+                  placeholder="Not specified"
                 />
-                <p className="text-xs text-muted-foreground">Total headcount requiring accommodation</p>
+                <ReadOnlyField
+                  label="Room Configuration"
+                  value={roomInformation || null}
+                  placeholder="Not specified"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Performance Terms ── */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Music2 className="h-4 w-4" />
+            Performance Terms
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Agreed-upon deal terms — the confirmed day-of schedule is managed below.
+          </p>
+          {isEditing ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="perfTime">Show Time</Label>
+                  <Input
+                    id="perfTime"
+                    type="time"
+                    value={performanceTime}
+                    onChange={(e) => setPerformanceTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="perfDuration">Duration</Label>
+                  <Input
+                    id="perfDuration"
+                    placeholder="e.g. 90 min"
+                    value={performanceDuration}
+                    onChange={(e) => setPerformanceDuration(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="roomInfo">Room Configuration</Label>
+                <Label htmlFor="perfInfo">Performance Notes</Label>
                 <Textarea
-                  id="roomInfo"
+                  id="perfInfo"
                   rows={3}
-                  placeholder="e.g. 1× single, 2× double, 1× triple…"
-                  value={roomInformation}
-                  onChange={(e) => setRoomInformation(e.target.value)}
+                  placeholder="e.g. pyrotechnics, special requirements…"
+                  value={performanceInformation}
+                  onChange={(e) => setPerformanceInformation(e.target.value)}
                 />
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <ReadOnlyField label="Show Time" value={performanceTime || null} placeholder="Not set" />
+                <ReadOnlyField label="Duration" value={performanceDuration || null} placeholder="Not set" />
+              </div>
               <ReadOnlyField
-                label="Number of People"
-                value={amountOfPeople || null}
-                placeholder="Not specified"
-              />
-              <ReadOnlyField
-                label="Room Configuration"
-                value={roomInformation || null}
-                placeholder="Not specified"
+                label="Performance Notes"
+                value={performanceInformation || null}
+                placeholder="No notes"
               />
             </div>
           )}
         </div>
-      </div>
-
-      <Separator />
-
-      {/* ── Performance Terms ── */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-          <Music2 className="h-4 w-4" />
-          Performance Terms
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Agreed-upon deal terms — the confirmed day-of schedule is managed below.
-        </p>
-        {isEditing ? (
-          <div className="space-y-4 max-w-md">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="perfTime">Show Time</Label>
-                <Input
-                  id="perfTime"
-                  type="time"
-                  value={performanceTime}
-                  onChange={(e) => setPerformanceTime(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="perfDuration">Duration</Label>
-                <Input
-                  id="perfDuration"
-                  placeholder="e.g. 90 min"
-                  value={performanceDuration}
-                  onChange={(e) => setPerformanceDuration(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="perfInfo">Performance Notes</Label>
-              <Textarea
-                id="perfInfo"
-                rows={3}
-                placeholder="e.g. pyrotechnics, special requirements…"
-                value={performanceInformation}
-                onChange={(e) => setPerformanceInformation(e.target.value)}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 max-w-md">
-            <div className="grid grid-cols-2 gap-4">
-              <ReadOnlyField label="Show Time" value={performanceTime || null} placeholder="Not set" />
-              <ReadOnlyField label="Duration" value={performanceDuration || null} placeholder="Not set" />
-            </div>
-            <ReadOnlyField
-              label="Performance Notes"
-              value={performanceInformation || null}
-              placeholder="No notes"
-            />
-          </div>
-        )}
       </div>
 
       <Separator />
@@ -370,8 +371,8 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
             )}
           </div>
         ) : isEditing ? (
-          <div className="space-y-6">
-            <Card className="max-w-md">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">Running Order</CardTitle>
               </CardHeader>
@@ -431,10 +432,10 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
               </CardContent>
             </Card>
 
-            <div className="space-y-2 max-w-md">
+            <div className="space-y-2">
               <Label>Schedule Notes</Label>
               <Textarea
-                rows={3}
+                rows={12}
                 value={schedule.notes}
                 onChange={(e) => set('notes')(e.target.value)}
                 placeholder="Any additional info for this day…"
@@ -443,7 +444,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
           </div>
         ) : (
           /* Read-only schedule view */
-          <Card className="max-w-md">
+          <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Running Order</CardTitle>
             </CardHeader>

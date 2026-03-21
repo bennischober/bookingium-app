@@ -189,47 +189,48 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
 
       <Separator />
 
-      {/* ── Inline editable fields ── */}
+      {/* ── Event Details ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
           Event Details
         </h3>
 
         {isEditing ? (
-          <div className="space-y-4 max-w-md">
-            <div className="space-y-2">
-              <Label htmlFor="name">Event Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Event name…"
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Event Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Event name…"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="eventDate">Date</Label>
-              <Input
-                id="eventDate"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-44"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="eventDate">Date</Label>
+                <Input
+                  id="eventDate"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -237,17 +238,22 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
               <Textarea
                 value={notes ?? ''}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={4}
+                rows={6}
                 placeholder="Additional notes about this event…"
               />
             </div>
           </div>
         ) : (
-          <div className="space-y-4 max-w-md">
-            <ReadOnlyField label="Event Name" value={name} />
-            <ReadOnlyField label="Date" value={date ? formatDate(date) : null} />
-            <ReadOnlyField label="Status" value={status ? status.charAt(0).toUpperCase() + status.slice(1) : null} />
-            <ReadOnlyField label="Notes" value={notes} placeholder="No notes" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <ReadOnlyField label="Event Name" value={name} />
+              <ReadOnlyField label="Date" value={date ? formatDate(date) : null} />
+              <ReadOnlyField label="Status" value={status ? status.charAt(0).toUpperCase() + status.slice(1) : null} />
+            </div>
+
+            <div className="space-y-4">
+              <ReadOnlyField label="Notes" value={notes} placeholder="No notes" />
+            </div>
           </div>
         )}
       </div>
