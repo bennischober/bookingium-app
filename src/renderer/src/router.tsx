@@ -10,7 +10,7 @@ import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
-import { PersonRelationsPage } from '@/pages/PersonRelationsPage'
+import PersonRelationsPage from '@/pages/PersonRelationsPage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()

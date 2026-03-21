@@ -33,7 +33,7 @@ interface FormData {
   notes: string
 }
 
-export function PersonRelationsPage() {
+export default function PersonRelationsPage() {
   const { personId } = useParams({ strict: false })
   const navigate = useNavigate()
   const utils = trpcReact.useUtils()
