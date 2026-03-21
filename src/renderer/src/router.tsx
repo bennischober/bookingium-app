@@ -1,7 +1,7 @@
 import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
-import App from '@/App'
+import DashboardPage from '@/pages/DashboardPage'
 import Calendar from '@/pages/CalendarPage'
 import BandPage from '@/pages/BandPage'
 import PersonPage from '@/pages/PersonPage'
@@ -23,7 +23,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTES.dashboard.path,
-  component: App
+  component: DashboardPage
 })
 
 const calendarRoute = createRoute({
