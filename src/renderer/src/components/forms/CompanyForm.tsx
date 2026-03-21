@@ -119,7 +119,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
             <div className="space-y-2">
               <Label htmlFor="bankId">Bank (Optional)</Label>
               {banks.isLoading ? (
-                <p className="text-sm text-gray-500">Loading banks...</p>
+                <p className="text-sm text-muted-foreground">Loading banks...</p>
               ) : banks.data && banks.data.length > 0 ? (
                 <Select
                   value={field.state.value?.toString() || ''}
@@ -138,7 +138,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   No banks available. Create a bank first in the Banks page.
                 </p>
               )}
