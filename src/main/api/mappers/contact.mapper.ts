@@ -10,9 +10,9 @@ export class ContactMapper {
     return {
       id: entity.id,
       email: entity.email,
-      phone: entity.phone,
-      mobilePhone: entity.mobile_phone,
-      homepage: entity.homepage
+      phone: entity.phone ?? '',
+      mobilePhone: entity.mobile_phone ?? '',
+      homepage: entity.homepage ?? ''
     }
   }
 }

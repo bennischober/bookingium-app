@@ -25,7 +25,7 @@ export class CompanyMapper {
     return {
       id: entity.id,
       name: entity.name,
-      notes: entity.notes,
+      notes: entity.notes ?? '',
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,
       address: AddressMapper.toDto(entity.address),

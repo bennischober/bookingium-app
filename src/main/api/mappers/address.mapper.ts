@@ -11,7 +11,7 @@ export class AddressMapper {
       id: entity.id,
       street: entity.street,
       streetNumber: entity.street_number,
-      addressSuffix: entity.address_suffix,
+      addressSuffix: entity.address_suffix ?? '',
       zipCode: entity.zip_code,
       city: entity.city,
       state: entity.state,
