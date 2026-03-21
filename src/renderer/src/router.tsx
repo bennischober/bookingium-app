@@ -8,6 +8,8 @@ import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
+import VenuePage from '@/pages/VenuePage'
+import HotelPage from '@/pages/HotelPage'
 import { PersonRelationsPage } from '@/pages/PersonRelationsPage'
 import { ROUTES } from '@/lib/routing'
 
@@ -53,6 +55,18 @@ const bankRoute = createRoute({
   component: BankPage
 })
 
+const venueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.venues.path,
+  component: VenuePage
+})
+
+const hotelRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.hotels.path,
+  component: HotelPage
+})
+
 const eventRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: ROUTES.events.path,
@@ -72,6 +86,8 @@ const routeTree = rootRoute.addChildren([
   personRelationsRoute,
   companyRoute,
   bankRoute,
+  venueRoute,
+  hotelRoute,
   eventRoute,
   eventHubRoute
 ])
