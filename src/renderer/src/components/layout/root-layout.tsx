@@ -11,6 +11,7 @@ import {
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import SearchButton from '@/components/ui/search-command-button'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { getBreadcrumbs } from '@/lib/routing'
 
 export default function RootLayout() {
@@ -45,8 +46,9 @@ export default function RootLayout() {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <SearchButton />
+            <ThemeToggle />
           </div>
         </header>
         <div className="flex">

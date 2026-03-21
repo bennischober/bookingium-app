@@ -15,10 +15,10 @@ import { DocumentsTab } from '@/components/event-hub/DocumentsTab'
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
-
+                                                      
   const {
     data: event,
-    isLoading,
+    isLoading,               
     isError
   } = trpcReact.dealMemo.getById.useQuery(Number(eventId), { enabled: !!eventId })
 

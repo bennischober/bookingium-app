@@ -32,7 +32,7 @@ const SearchButton = () => {
     <div className="flex flex-col gap-4">
       <Button onClick={() => setOpen(true)} variant="outline" size="sm">
         Search anything...
-        <span className="ml-2 text-xs opacity-50 bg-gray-800  px-2 py-1 rounded-lg font-mono">
+        <span className="bg-muted text-muted-foreground ml-2 rounded-lg px-2 py-1 font-mono text-xs">
           Ctrl + K
         </span>
       </Button>
