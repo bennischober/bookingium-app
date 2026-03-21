@@ -1,9 +1,21 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeElectronTRPC } from 'electron-trpc/main'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  uploadDocument: (eventId: number, sourcePath: string, targetFileName: string) =>
+    ipcRenderer.invoke('document:upload', { eventId, sourcePath, targetFileName }),
+
+  openDocument: (filePath: string) =>
+    ipcRenderer.invoke('document:open', { filePath }),
+
+  revealDocumentInFolder: (filePath: string) =>
+    ipcRenderer.invoke('document:revealInFolder', { filePath }),
+
+  showOpenDialog: () =>
+    ipcRenderer.invoke('dialog:showOpenDialog')
+}
 
 process.once('loaded', () => {
   exposeElectronTRPC()

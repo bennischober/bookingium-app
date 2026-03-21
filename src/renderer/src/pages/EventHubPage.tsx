@@ -10,7 +10,7 @@ import { STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
-import { PlaceholderTab } from '@/components/event-hub/PlaceholderTab'
+import { DocumentsTab } from '@/components/event-hub/DocumentsTab'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
@@ -168,10 +168,7 @@ export function EventHubPage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <PlaceholderTab
-            title="Documents"
-            description="Generate and manage Deal Memos, Contracts and Invoices from this tab."
-          />
+          <DocumentsTab event={event} />
         </TabsContent>
       </Tabs>
     </div>

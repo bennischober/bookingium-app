@@ -10,6 +10,7 @@ import { relationRouter } from './routers/relation.router'
 import { dealMemoRouter } from './routers/deal_memo.router'
 import { itineraryRouter } from './routers/itinerary.router'
 import { hotelRouter } from './routers/hotel.router'
+import { documentRouter } from './routers/document.router'
 
 const ee = new EventEmitter()
 
@@ -32,7 +33,8 @@ export const router = t.router({
   relation: relationRouter,
   dealMemo: dealMemoRouter,
   itinerary: itineraryRouter,
-  hotel: hotelRouter
+  hotel: hotelRouter,
+  document: documentRouter
 })
 
 export type AppRouter = typeof router

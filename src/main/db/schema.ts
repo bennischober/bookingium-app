@@ -290,6 +290,35 @@ export const itinerary = sqliteTable(
   ]
 )
 
+// Document table - stores metadata for files associated with deal memos/events
+export const document = sqliteTable(
+  'document',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    file_name: text('file_name').notNull(),
+    file_type: text('file_type').notNull(),
+    file_path: text('file_path').notNull(),
+    document_type: text('document_type').notNull().default('other'),
+    file_size: integer('file_size').notNull(),
+    uploaded_at: text('uploaded_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    uploaded_by: text('uploaded_by'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+  },
+  (table) => [
+    index('document_deal_memo_idx').on(table.deal_memo_id),
+    index('document_type_idx').on(table.document_type),
+    index('document_uploaded_at_idx').on(table.uploaded_at)
+  ]
+)
+
 // ========================================
 // Schema Export for Drizzle Utilities
 // ========================================
@@ -309,5 +338,6 @@ export const schema = {
   venue_member,
   hotel,
   deal_memo,
-  itinerary
+  itinerary,
+  document
 }

@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
@@ -7,6 +7,13 @@ import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
 import { runMigrations } from './db/migrate'
 import { seedDatabase } from './db/seed'
+import {
+  copyFileToEventStorage,
+  getDocumentFullPath,
+  generateUniqueFileName,
+  getEventStoragePath,
+  getFileInfo
+} from './utils/fileStorage'
 
 function createWindow(): void {
   // Create the browser window.
@@ -41,6 +48,106 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+/**
+ * IPC Handler for file uploads
+ * Handles copying a file from temp/source location to the event storage directory
+ */
+ipcMain.handle(
+  'document:upload',
+  async (_event, { eventId, sourcePath, targetFileName }: { eventId: number; sourcePath: string; targetFileName: string }) => {
+    try {
+      // Generate unique filename if needed (handles collisions)
+      const eventStoragePath = await getEventStoragePath(eventId)
+      const uniqueFileName = generateUniqueFileName(eventStoragePath, targetFileName)
+
+      // Copy file to event storage
+      const relativePath = await copyFileToEventStorage(sourcePath, eventId, uniqueFileName)
+      const fileInfo = await getFileInfo(relativePath)
+
+      return {
+        success: true,
+        relativePath,
+        fileName: uniqueFileName,
+        fileSize: fileInfo?.size ?? 0
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * IPC Handler for opening files
+ * Attempts to open the file with the system default application
+ * Falls back to opening the folder if the file type is not recognized
+ */
+ipcMain.handle(
+  'document:open',
+  async (_event, { filePath }: { filePath: string }) => {
+    try {
+      const fullPath = await getDocumentFullPath(filePath)
+
+      // Try to open the file with the default application
+      await shell.openPath(fullPath)
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error opening document:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * IPC Handler for revealing files in explorer/finder
+ * Shows the file in the file explorer/finder window
+ */
+ipcMain.handle(
+  'document:revealInFolder',
+  async (_event, { filePath }: { filePath: string }) => {
+    try {
+      const fullPath = await getDocumentFullPath(filePath)
+
+      // Show the file in the file explorer/finder
+      shell.showItemInFolder(fullPath)
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error revealing document:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * IPC Handler for showing file open dialog
+ */
+ipcMain.handle('dialog:showOpenDialog', async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections']
+    })
+    return result
+  } catch (error) {
+    console.error('Error showing file dialog:', error)
+    return {
+      canceled: true,
+      filePaths: [],
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

@@ -121,6 +121,24 @@ CREATE INDEX `deal_memo_date_idx` ON `deal_memo` (`date`);--> statement-breakpoi
 CREATE INDEX `deal_memo_band_idx` ON `deal_memo` (`band_id`);--> statement-breakpoint
 CREATE INDEX `deal_memo_venue_idx` ON `deal_memo` (`venue_id`);--> statement-breakpoint
 CREATE INDEX `deal_memo_status_idx` ON `deal_memo` (`status`);--> statement-breakpoint
+CREATE TABLE `document` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`deal_memo_id` integer NOT NULL,
+	`file_name` text NOT NULL,
+	`file_type` text NOT NULL,
+	`file_path` text NOT NULL,
+	`document_type` text DEFAULT 'other' NOT NULL,
+	`file_size` integer NOT NULL,
+	`uploaded_at` text DEFAULT (datetime('now')) NOT NULL,
+	`uploaded_by` text,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
+	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `document_deal_memo_idx` ON `document` (`deal_memo_id`);--> statement-breakpoint
+CREATE INDEX `document_type_idx` ON `document` (`document_type`);--> statement-breakpoint
+CREATE INDEX `document_uploaded_at_idx` ON `document` (`uploaded_at`);--> statement-breakpoint
 CREATE TABLE `hotel` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
