@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { InvoiceService } from '../../services/InvoiceService'
 import { InvoiceMapper } from '../mappers/invoice.mapper'
 import {
+  CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
   UpdateInvoiceInput,
   UpsertCompanyInvoiceSettingsInput
@@ -31,6 +32,18 @@ export const invoiceRouter = t.router({
   getByDealMemoId: t.procedure.input(z.number()).query(async ({ input }) => {
     const entities = await invoiceService.getInvoicesByDealMemoId(input)
     return InvoiceMapper.toListItemDtoList(entities)
+  }),
+
+  create: t.procedure.input(CreateInvoiceInput).mutation(async ({ input }) => {
+    try {
+      const entity = await invoiceService.createInvoice(input)
+      return InvoiceMapper.toDto(entity)
+    } catch (error) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: error instanceof Error ? error.message : 'Failed to create invoice'
+      })
+    }
   }),
 
   createForDealMemo: t.procedure.input(CreateInvoiceForDealMemoInput).mutation(async ({ input }) => {

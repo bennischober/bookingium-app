@@ -1,6 +1,7 @@
 import { inject, injectable } from 'tsyringe'
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
 import type {
+  CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
   UpsertCompanyInvoiceSettingsInput,
   UpdateInvoiceInput
@@ -21,6 +22,10 @@ export class InvoiceService {
 
   async getInvoicesByDealMemoId(dealMemoId: number) {
     return await this.invoiceRepository.getByDealMemoId(dealMemoId)
+  }
+
+  async createInvoice(input: CreateInvoiceInput) {
+    return await this.invoiceRepository.create(input)
   }
 
   async createInvoiceForDealMemo(input: CreateInvoiceForDealMemoInput) {

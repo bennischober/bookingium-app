@@ -14,7 +14,9 @@ import {
   deal_memo,
   itinerary,
   company_invoice_settings,
-  invoice
+  invoice,
+  invoice_line_item,
+  invoice_party_snapshot
 } from './schema'
 
 export async function seedDatabase() {
@@ -548,39 +550,177 @@ export async function seedDatabase() {
       })
       .returning()
 
-    await db.insert(invoice).values([
-      {
+    const [issuerSnapshot1] = await db
+      .insert(invoice_party_snapshot)
+      .values({
+        kind: 'company',
+        source_company_id: company2.id,
+        legal_name: company2.name,
+        vat_number: company2.vat_number,
+        ust_number: company2.ust_number
+      })
+      .returning()
+
+    const [issuerSnapshot2] = await db
+      .insert(invoice_party_snapshot)
+      .values({
+        kind: 'company',
+        source_company_id: company1.id,
+        legal_name: company1.name,
+        vat_number: company1.vat_number,
+        ust_number: company1.ust_number
+      })
+      .returning()
+
+    const [recipientSnapshotCompany] = await db
+      .insert(invoice_party_snapshot)
+      .values({
+        kind: 'company',
+        source_company_id: company1.id,
+        legal_name: company1.name
+      })
+      .returning()
+
+    const [recipientSnapshotBand] = await db
+      .insert(invoice_party_snapshot)
+      .values({
+        kind: 'band',
+        source_band_id: band2.id,
+        legal_name: band2.name
+      })
+      .returning()
+
+    const [recipientSnapshotPerson] = await db
+      .insert(invoice_party_snapshot)
+      .values({
+        kind: 'person',
+        source_person_id: person5.id,
+        legal_name: `${person5.first_name} ${person5.last_name}`
+      })
+      .returning()
+
+    const [invoice1] = await db
+      .insert(invoice)
+      .values({
         invoice_number: 1040,
         company_id: company2.id,
+        issuer_snapshot_id: issuerSnapshot1.id,
+        recipient_snapshot_id: recipientSnapshotCompany.id,
         deal_memo_id: dealMemo1.id,
+        period_start_date: '2026-06-01',
+        period_end_date: '2026-06-30',
+        period_label: 'June 2026',
         issue_date: '2026-06-16',
         due_date: '2026-06-30',
         status: 'issued',
         currency: 'EUR',
+        subtotal_net_amount: 3529.41,
+        subtotal_tax_amount: 670.59,
+        total_gross_amount: 4200,
         total_amount: 4200,
         notes: 'Berlin show settlement invoice'
-      },
-      {
+      })
+      .returning()
+
+    const [invoice2] = await db
+      .insert(invoice)
+      .values({
         invoice_number: 1041,
         company_id: company2.id,
+        issuer_snapshot_id: issuerSnapshot1.id,
+        recipient_snapshot_id: recipientSnapshotPerson.id,
         deal_memo_id: null,
+        period_start_date: '2026-05-01',
+        period_end_date: '2026-05-31',
+        period_label: 'May 2026',
         issue_date: '2026-05-20',
         due_date: '2026-06-03',
         status: 'paid',
         currency: 'EUR',
+        subtotal_net_amount: 1250,
+        subtotal_tax_amount: 0,
+        total_gross_amount: 1250,
         total_amount: 1250,
+        reverse_charge_note: 'Reverse charge applies',
         notes: 'General promoter service invoice'
-      },
-      {
+      })
+      .returning()
+
+    const [invoice3] = await db
+      .insert(invoice)
+      .values({
         invoice_number: 509,
         company_id: company1.id,
+        issuer_snapshot_id: issuerSnapshot2.id,
+        recipient_snapshot_id: recipientSnapshotBand.id,
         deal_memo_id: dealMemo2.id,
+        period_start_date: '2026-08-01',
+        period_end_date: '2026-08-31',
+        period_label: 'August 2026',
         issue_date: '2026-08-23',
         due_date: '2026-09-06',
         status: 'draft',
         currency: 'USD',
+        subtotal_net_amount: 5000,
+        subtotal_tax_amount: 0,
+        total_gross_amount: 5000,
         total_amount: 5000,
         notes: 'LA showcase guarantee invoice draft'
+      })
+      .returning()
+
+    await db.insert(invoice_line_item).values([
+      {
+        invoice_id: invoice1.id,
+        position: 1,
+        description: 'Performance fee',
+        quantity: 1,
+        unit: 'service',
+        unit_price_net: 3000,
+        line_net_amount: 3000,
+        tax_rate: 19,
+        tax_code: 'standard',
+        line_tax_amount: 570,
+        line_gross_amount: 3570
+      },
+      {
+        invoice_id: invoice1.id,
+        position: 2,
+        description: 'Travel cost reimbursement',
+        quantity: 1,
+        unit: 'service',
+        unit_price_net: 529.41,
+        line_net_amount: 529.41,
+        tax_rate: 19,
+        tax_code: 'standard',
+        line_tax_amount: 100.59,
+        line_gross_amount: 630
+      },
+      {
+        invoice_id: invoice2.id,
+        position: 1,
+        description: 'Quarterly commission settlement',
+        quantity: 1,
+        unit: 'service',
+        unit_price_net: 1250,
+        line_net_amount: 1250,
+        tax_rate: 0,
+        tax_code: 'reverse_charge',
+        line_tax_amount: 0,
+        line_gross_amount: 1250
+      },
+      {
+        invoice_id: invoice3.id,
+        position: 1,
+        description: 'Show guarantee',
+        quantity: 1,
+        unit: 'service',
+        unit_price_net: 5000,
+        line_net_amount: 5000,
+        tax_rate: 0,
+        tax_code: 'other',
+        line_tax_amount: 0,
+        line_gross_amount: 5000
       }
     ])
 

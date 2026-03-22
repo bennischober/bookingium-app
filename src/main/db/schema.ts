@@ -288,6 +288,42 @@ export const company_invoice_settings = sqliteTable(
   ]
 )
 
+// Immutable invoice party snapshots (issuer/recipient data at invoice issue time)
+export const invoice_party_snapshot = sqliteTable(
+  'invoice_party_snapshot',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    kind: text('kind').notNull(), // company | band | person | other
+    source_company_id: integer('source_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
+    source_band_id: integer('source_band_id').references(() => band.id, { onDelete: 'set null' }),
+    source_person_id: integer('source_person_id').references(() => person.id, {
+      onDelete: 'set null'
+    }),
+    legal_name: text('legal_name').notNull(),
+    street: text('street').default('').notNull(),
+    street_number: text('street_number').default('').notNull(),
+    zip_code: text('zip_code').default('').notNull(),
+    city: text('city').default('').notNull(),
+    country: text('country').default('').notNull(),
+    country_code: text('country_code', { length: 2 }).default('').notNull(),
+    vat_number: text('vat_number').default('').notNull(),
+    ust_number: text('ust_number').default('').notNull(),
+    email: text('email').default('').notNull(),
+    phone: text('phone').default('').notNull(),
+    iban: text('iban').default('').notNull(),
+    bic: text('bic').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('invoice_party_snapshot_kind_idx').on(table.kind),
+    index('invoice_party_snapshot_legal_name_idx').on(table.legal_name)
+  ]
+)
+
 // Invoice table
 export const invoice = sqliteTable(
   'invoice',
@@ -297,12 +333,27 @@ export const invoice = sqliteTable(
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id),
+    issuer_snapshot_id: integer('issuer_snapshot_id').references(() => invoice_party_snapshot.id, {
+      onDelete: 'set null'
+    }),
+    recipient_snapshot_id: integer('recipient_snapshot_id').references(
+      () => invoice_party_snapshot.id,
+      { onDelete: 'set null' }
+    ),
     deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'set null' }),
+    period_start_date: text('period_start_date'),
+    period_end_date: text('period_end_date'),
+    period_label: text('period_label').default('').notNull(),
     issue_date: text('issue_date').default(sql`(date('now'))`).notNull(),
     due_date: text('due_date'),
     status: text('status').default('draft').notNull(),
     currency: text('currency').default('EUR').notNull(),
+    subtotal_net_amount: real('subtotal_net_amount').default(0).notNull(),
+    subtotal_tax_amount: real('subtotal_tax_amount').default(0).notNull(),
+    total_gross_amount: real('total_gross_amount').default(0).notNull(),
     total_amount: real('total_amount').default(0).notNull(),
+    payment_terms: text('payment_terms').default('').notNull(),
+    reverse_charge_note: text('reverse_charge_note').default('').notNull(),
     notes: text('notes').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
@@ -311,9 +362,40 @@ export const invoice = sqliteTable(
   },
   (table) => [
     index('invoice_company_idx').on(table.company_id),
+    index('invoice_recipient_snapshot_idx').on(table.recipient_snapshot_id),
     index('invoice_deal_memo_idx').on(table.deal_memo_id),
     index('invoice_status_idx').on(table.status),
+    index('invoice_issue_date_idx').on(table.issue_date),
+    index('invoice_period_start_idx').on(table.period_start_date),
     uniqueIndex('invoice_company_invoice_number_unique_idx').on(table.company_id, table.invoice_number)
+  ]
+)
+
+// Invoice line items with tax-aware totals
+export const invoice_line_item = sqliteTable(
+  'invoice_line_item',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    position: integer('position').default(1).notNull(),
+    description: text('description').notNull(),
+    quantity: real('quantity').default(1).notNull(),
+    unit: text('unit').default('service').notNull(),
+    unit_price_net: real('unit_price_net').default(0).notNull(),
+    line_net_amount: real('line_net_amount').default(0).notNull(),
+    tax_rate: real('tax_rate').default(0).notNull(),
+    tax_code: text('tax_code').default('standard').notNull(),
+    line_tax_amount: real('line_tax_amount').default(0).notNull(),
+    line_gross_amount: real('line_gross_amount').default(0).notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('invoice_line_item_invoice_idx').on(table.invoice_id),
+    index('invoice_line_item_position_idx').on(table.invoice_id, table.position)
   ]
 )
 
@@ -397,5 +479,7 @@ export const schema = {
   itinerary,
   document,
   company_invoice_settings,
-  invoice
+  invoice,
+  invoice_party_snapshot,
+  invoice_line_item
 }

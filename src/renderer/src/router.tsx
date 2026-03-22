@@ -12,6 +12,7 @@ import EventHubPage from '@/pages/EventHubPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import PersonRelationsPage from '@/pages/PersonRelationsPage'
+import InvoicePage from '@/pages/InvoicePage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
@@ -80,6 +81,12 @@ const eventRoute = createRoute({
   component: EventPage
 })
 
+const invoiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.invoices.path,
+  component: InvoicePage
+})
+
 const eventHubRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events/$eventId',
@@ -97,6 +104,7 @@ const routeTree = rootRoute.addChildren([
   venueRoute,
   hotelRoute,
   eventRoute,
+  invoiceRoute,
   eventHubRoute
 ])
 

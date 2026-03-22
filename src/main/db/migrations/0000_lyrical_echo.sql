@@ -171,23 +171,84 @@ CREATE TABLE `invoice` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`invoice_number` integer NOT NULL,
 	`company_id` integer NOT NULL,
+	`issuer_snapshot_id` integer,
+	`recipient_snapshot_id` integer,
 	`deal_memo_id` integer,
+	`period_start_date` text,
+	`period_end_date` text,
+	`period_label` text DEFAULT '' NOT NULL,
 	`issue_date` text DEFAULT (date('now')) NOT NULL,
 	`due_date` text,
 	`status` text DEFAULT 'draft' NOT NULL,
 	`currency` text DEFAULT 'EUR' NOT NULL,
+	`subtotal_net_amount` real DEFAULT 0 NOT NULL,
+	`subtotal_tax_amount` real DEFAULT 0 NOT NULL,
+	`total_gross_amount` real DEFAULT 0 NOT NULL,
 	`total_amount` real DEFAULT 0 NOT NULL,
+	`payment_terms` text DEFAULT '' NOT NULL,
+	`reverse_charge_note` text DEFAULT '' NOT NULL,
 	`notes` text DEFAULT '' NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`issuer_snapshot_id`) REFERENCES `invoice_party_snapshot`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`recipient_snapshot_id`) REFERENCES `invoice_party_snapshot`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `invoice_company_idx` ON `invoice` (`company_id`);--> statement-breakpoint
+CREATE INDEX `invoice_recipient_snapshot_idx` ON `invoice` (`recipient_snapshot_id`);--> statement-breakpoint
 CREATE INDEX `invoice_deal_memo_idx` ON `invoice` (`deal_memo_id`);--> statement-breakpoint
 CREATE INDEX `invoice_status_idx` ON `invoice` (`status`);--> statement-breakpoint
+CREATE INDEX `invoice_issue_date_idx` ON `invoice` (`issue_date`);--> statement-breakpoint
+CREATE INDEX `invoice_period_start_idx` ON `invoice` (`period_start_date`);--> statement-breakpoint
 CREATE UNIQUE INDEX `invoice_company_invoice_number_unique_idx` ON `invoice` (`company_id`,`invoice_number`);--> statement-breakpoint
+CREATE TABLE `invoice_line_item` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`invoice_id` integer NOT NULL,
+	`position` integer DEFAULT 1 NOT NULL,
+	`description` text NOT NULL,
+	`quantity` real DEFAULT 1 NOT NULL,
+	`unit` text DEFAULT 'service' NOT NULL,
+	`unit_price_net` real DEFAULT 0 NOT NULL,
+	`line_net_amount` real DEFAULT 0 NOT NULL,
+	`tax_rate` real DEFAULT 0 NOT NULL,
+	`tax_code` text DEFAULT 'standard' NOT NULL,
+	`line_tax_amount` real DEFAULT 0 NOT NULL,
+	`line_gross_amount` real DEFAULT 0 NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`invoice_id`) REFERENCES `invoice`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `invoice_line_item_invoice_idx` ON `invoice_line_item` (`invoice_id`);--> statement-breakpoint
+CREATE INDEX `invoice_line_item_position_idx` ON `invoice_line_item` (`invoice_id`,`position`);--> statement-breakpoint
+CREATE TABLE `invoice_party_snapshot` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`kind` text NOT NULL,
+	`source_company_id` integer,
+	`source_band_id` integer,
+	`source_person_id` integer,
+	`legal_name` text NOT NULL,
+	`street` text DEFAULT '' NOT NULL,
+	`street_number` text DEFAULT '' NOT NULL,
+	`zip_code` text DEFAULT '' NOT NULL,
+	`city` text DEFAULT '' NOT NULL,
+	`country` text DEFAULT '' NOT NULL,
+	`country_code` text(2) DEFAULT '' NOT NULL,
+	`vat_number` text DEFAULT '' NOT NULL,
+	`ust_number` text DEFAULT '' NOT NULL,
+	`email` text DEFAULT '' NOT NULL,
+	`phone` text DEFAULT '' NOT NULL,
+	`iban` text DEFAULT '' NOT NULL,
+	`bic` text DEFAULT '' NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`source_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`source_band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`source_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `invoice_party_snapshot_kind_idx` ON `invoice_party_snapshot` (`kind`);--> statement-breakpoint
+CREATE INDEX `invoice_party_snapshot_legal_name_idx` ON `invoice_party_snapshot` (`legal_name`);--> statement-breakpoint
 CREATE TABLE `itinerary` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`notes` text DEFAULT '' NOT NULL,

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "88668be8-08e9-47d8-91d1-1add7c21d945",
+  "id": "568f88d4-b4b0-4703-909f-354f6469b09d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "address": {
@@ -1256,12 +1256,48 @@
           "notNull": true,
           "autoincrement": false
         },
+        "issuer_snapshot_id": {
+          "name": "issuer_snapshot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recipient_snapshot_id": {
+          "name": "recipient_snapshot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "deal_memo_id": {
           "name": "deal_memo_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "period_start_date": {
+          "name": "period_start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "period_end_date": {
+          "name": "period_end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "period_label": {
+          "name": "period_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         },
         "issue_date": {
           "name": "issue_date",
@@ -1294,6 +1330,30 @@
           "autoincrement": false,
           "default": "'EUR'"
         },
+        "subtotal_net_amount": {
+          "name": "subtotal_net_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "subtotal_tax_amount": {
+          "name": "subtotal_tax_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_gross_amount": {
+          "name": "total_gross_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "total_amount": {
           "name": "total_amount",
           "type": "real",
@@ -1301,6 +1361,22 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "payment_terms": {
+          "name": "payment_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "reverse_charge_note": {
+          "name": "reverse_charge_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         },
         "notes": {
           "name": "notes",
@@ -1334,6 +1410,13 @@
           ],
           "isUnique": false
         },
+        "invoice_recipient_snapshot_idx": {
+          "name": "invoice_recipient_snapshot_idx",
+          "columns": [
+            "recipient_snapshot_id"
+          ],
+          "isUnique": false
+        },
         "invoice_deal_memo_idx": {
           "name": "invoice_deal_memo_idx",
           "columns": [
@@ -1345,6 +1428,20 @@
           "name": "invoice_status_idx",
           "columns": [
             "status"
+          ],
+          "isUnique": false
+        },
+        "invoice_issue_date_idx": {
+          "name": "invoice_issue_date_idx",
+          "columns": [
+            "issue_date"
+          ],
+          "isUnique": false
+        },
+        "invoice_period_start_idx": {
+          "name": "invoice_period_start_idx",
+          "columns": [
+            "period_start_date"
           ],
           "isUnique": false
         },
@@ -1371,12 +1468,390 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
+        "invoice_issuer_snapshot_id_invoice_party_snapshot_id_fk": {
+          "name": "invoice_issuer_snapshot_id_invoice_party_snapshot_id_fk",
+          "tableFrom": "invoice",
+          "tableTo": "invoice_party_snapshot",
+          "columnsFrom": [
+            "issuer_snapshot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "invoice_recipient_snapshot_id_invoice_party_snapshot_id_fk": {
+          "name": "invoice_recipient_snapshot_id_invoice_party_snapshot_id_fk",
+          "tableFrom": "invoice",
+          "tableTo": "invoice_party_snapshot",
+          "columnsFrom": [
+            "recipient_snapshot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "invoice_deal_memo_id_deal_memo_id_fk": {
           "name": "invoice_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "invoice",
           "tableTo": "deal_memo",
           "columnsFrom": [
             "deal_memo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "invoice_line_item": {
+      "name": "invoice_line_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'service'"
+        },
+        "unit_price_net": {
+          "name": "unit_price_net",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "line_net_amount": {
+          "name": "line_net_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "tax_rate": {
+          "name": "tax_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "tax_code": {
+          "name": "tax_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'standard'"
+        },
+        "line_tax_amount": {
+          "name": "line_tax_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "line_gross_amount": {
+          "name": "line_gross_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "invoice_line_item_invoice_idx": {
+          "name": "invoice_line_item_invoice_idx",
+          "columns": [
+            "invoice_id"
+          ],
+          "isUnique": false
+        },
+        "invoice_line_item_position_idx": {
+          "name": "invoice_line_item_position_idx",
+          "columns": [
+            "invoice_id",
+            "position"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "invoice_line_item_invoice_id_invoice_id_fk": {
+          "name": "invoice_line_item_invoice_id_invoice_id_fk",
+          "tableFrom": "invoice_line_item",
+          "tableTo": "invoice",
+          "columnsFrom": [
+            "invoice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "invoice_party_snapshot": {
+      "name": "invoice_party_snapshot",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_company_id": {
+          "name": "source_company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_band_id": {
+          "name": "source_band_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_person_id": {
+          "name": "source_person_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "street": {
+          "name": "street",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "street_number": {
+          "name": "street_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "zip_code": {
+          "name": "zip_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "country_code": {
+          "name": "country_code",
+          "type": "text(2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "vat_number": {
+          "name": "vat_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "ust_number": {
+          "name": "ust_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "iban": {
+          "name": "iban",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "bic": {
+          "name": "bic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "invoice_party_snapshot_kind_idx": {
+          "name": "invoice_party_snapshot_kind_idx",
+          "columns": [
+            "kind"
+          ],
+          "isUnique": false
+        },
+        "invoice_party_snapshot_legal_name_idx": {
+          "name": "invoice_party_snapshot_legal_name_idx",
+          "columns": [
+            "legal_name"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "invoice_party_snapshot_source_company_id_company_id_fk": {
+          "name": "invoice_party_snapshot_source_company_id_company_id_fk",
+          "tableFrom": "invoice_party_snapshot",
+          "tableTo": "company",
+          "columnsFrom": [
+            "source_company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "invoice_party_snapshot_source_band_id_band_id_fk": {
+          "name": "invoice_party_snapshot_source_band_id_band_id_fk",
+          "tableFrom": "invoice_party_snapshot",
+          "tableTo": "band",
+          "columnsFrom": [
+            "source_band_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "invoice_party_snapshot_source_person_id_person_id_fk": {
+          "name": "invoice_party_snapshot_source_person_id_person_id_fk",
+          "tableFrom": "invoice_party_snapshot",
+          "tableTo": "person",
+          "columnsFrom": [
+            "source_person_id"
           ],
           "columnsTo": [
             "id"

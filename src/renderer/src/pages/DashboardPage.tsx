@@ -25,6 +25,11 @@ export default function DashboardPage() {
   const bandsQuery = trpcReact.band.getAll.useQuery()
   const venuesQuery = trpcReact.venue.getAll.useQuery()
   const companiesQuery = trpcReact.company.getAll.useQuery()
+  const invoicesQuery = trpcReact.invoice.getAllPaginated.useQuery({
+    page: 1,
+    pageSize: 500,
+    search: undefined
+  })
 
   const now = new Date()
 
@@ -61,6 +66,24 @@ export default function DashboardPage() {
   }, [parsedEvents, now])
 
   const latestUpcoming = upcomingNext7Days.slice(0, 6)
+
+  const invoiceItems = invoicesQuery.data?.items ?? []
+
+  const openInvoices = invoiceItems.filter(
+    (invoice) => invoice.status !== 'paid' && invoice.status !== 'cancelled'
+  )
+
+  const overdueInvoices = openInvoices.filter((invoice) => {
+    if (!invoice.dueDate) return false
+    const dueDate = parseISO(invoice.dueDate)
+    return !Number.isNaN(dueDate.getTime()) && dueDate < now
+  })
+
+  const openInvoiceAmount = openInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0)
+
+  const latestInvoices = [...invoiceItems]
+    .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime())
+    .slice(0, 5)
 
   const isDirectoryLoading =
     bandsQuery.isLoading || venuesQuery.isLoading || companiesQuery.isLoading
@@ -114,9 +137,12 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Unpaid Invoices</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">-</p>
+            <p className="text-3xl font-bold">{openInvoices.length}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Invoice tracking is not implemented yet
+              {overdueInvoices.length} overdue · Open amount {new Intl.NumberFormat('de-DE', {
+                style: 'currency',
+                currency: 'EUR'
+              }).format(openInvoiceAmount)}
             </p>
           </CardContent>
         </Card>
@@ -198,8 +224,12 @@ export default function DashboardPage() {
                   <span className="font-semibold">{companiesQuery.data?.length ?? 0}</span>
                 </div>
                 <div className="pt-2">
-                  <Button className="w-full" variant="outline" onClick={() => navigate({ to: '/events' })}>
-                    Manage Events
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => navigate({ to: '/invoices' })}
+                  >
+                    Manage Invoices
                   </Button>
                 </div>
               </div>
@@ -207,6 +237,51 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Latest Invoices</CardTitle>
+          <Button variant="outline" onClick={() => navigate({ to: '/invoices' })}>
+            Open Invoices
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {invoicesQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading invoices...</p>
+          ) : latestInvoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No invoices available yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {latestInvoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                  <div>
+                    <p className="font-medium">
+                      #{invoice.invoiceNumber} · {invoice.companyName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {invoice.issueDate} {invoice.dueDate ? `· due ${invoice.dueDate}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className={cn('capitalize', invoice.status === 'paid' ? 'bg-green-100 text-green-800 border-green-200' : invoice.status === 'issued' ? 'bg-blue-100 text-blue-800 border-blue-200' : invoice.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-slate-100 text-slate-800 border-slate-200')}>
+                      {invoice.status}
+                    </Badge>
+                    <span className="text-sm font-semibold">
+                      {new Intl.NumberFormat('de-DE', {
+                        style: 'currency',
+                        currency: invoice.currency || 'EUR'
+                      }).format(invoice.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
