@@ -80,6 +80,7 @@ export class DealMemoRepository {
         venue_id: input.venueId ?? null,
         lopro_person_id: input.loProPersonId ?? null,
         lopro_company_id: input.loProCompanyId ?? null,
+        invoice_company_id: input.invoiceCompanyId ?? null,
         status: input.status ?? 'pending',
         ticket_price_vvk: input.ticketPriceVvk ?? null,
         ticket_price_ak: input.ticketPriceAk ?? null,
@@ -110,6 +111,7 @@ export class DealMemoRepository {
     if ('hotelId' in input) values.hotel_id = input.hotelId ?? null
     if ('loProPersonId' in input) values.lopro_person_id = input.loProPersonId ?? null
     if ('loProCompanyId' in input) values.lopro_company_id = input.loProCompanyId ?? null
+    if ('invoiceCompanyId' in input) values.invoice_company_id = input.invoiceCompanyId ?? null
     if ('ticketPriceVvk' in input) values.ticket_price_vvk = input.ticketPriceVvk ?? null
     if ('ticketPriceAk' in input) values.ticket_price_ak = input.ticketPriceAk ?? null
     if ('notes' in input) values.notes = input.notes

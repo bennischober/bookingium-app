@@ -35,6 +35,11 @@ export const companyRouter = t.router({
     return company ? CompanyMapper.toDto(company) : null
   }),
 
+  getDefaultForInvoicing: t.procedure.query(async () => {
+    const company = await companyService.getDefaultForInvoicingCompany()
+    return company ? CompanyMapper.toDto(company) : null
+  }),
+
   create: t.procedure.input(CreateCompanyInput).mutation(async ({ input }) => {
     const company = await companyService.createCompany(input)
     return CompanyMapper.toDto(company)

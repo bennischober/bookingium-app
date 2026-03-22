@@ -84,6 +84,9 @@ export const company = sqliteTable(
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
     vat_number: text('vat_number').default('').notNull(),
     ust_number: text('ust_number').default('').notNull(),
+    is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
+      .default(false)
+      .notNull(),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
     created_at: text('created_at')
@@ -242,6 +245,9 @@ export const deal_memo = sqliteTable(
     lopro_company_id: integer('lopro_company_id').references(() => company.id, {
       onDelete: 'set null'
     }),
+    invoice_company_id: integer('invoice_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
     band_id: integer('band_id')
       .notNull()
       .references(() => band.id),
@@ -257,7 +263,57 @@ export const deal_memo = sqliteTable(
     index('deal_memo_date_idx').on(table.date),
     index('deal_memo_band_idx').on(table.band_id),
     index('deal_memo_venue_idx').on(table.venue_id),
+    index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
     index('deal_memo_status_idx').on(table.status)
+  ]
+)
+
+// Per-company invoice numbering settings
+export const company_invoice_settings = sqliteTable(
+  'company_invoice_settings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    company_id: integer('company_id')
+      .notNull()
+      .references(() => company.id, { onDelete: 'cascade' }),
+    next_invoice_number: integer('next_invoice_number').default(1).notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+  },
+  (table) => [
+    uniqueIndex('company_invoice_settings_company_unique_idx').on(table.company_id),
+    index('company_invoice_settings_next_number_idx').on(table.next_invoice_number)
+  ]
+)
+
+// Invoice table
+export const invoice = sqliteTable(
+  'invoice',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_number: integer('invoice_number').notNull(),
+    company_id: integer('company_id')
+      .notNull()
+      .references(() => company.id),
+    deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'set null' }),
+    issue_date: text('issue_date').default(sql`(date('now'))`).notNull(),
+    due_date: text('due_date'),
+    status: text('status').default('draft').notNull(),
+    currency: text('currency').default('EUR').notNull(),
+    total_amount: real('total_amount').default(0).notNull(),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+  },
+  (table) => [
+    index('invoice_company_idx').on(table.company_id),
+    index('invoice_deal_memo_idx').on(table.deal_memo_id),
+    index('invoice_status_idx').on(table.status),
+    uniqueIndex('invoice_company_invoice_number_unique_idx').on(table.company_id, table.invoice_number)
   ]
 )
 
@@ -339,5 +395,7 @@ export const schema = {
   hotel,
   deal_memo,
   itinerary,
-  document
+  document,
+  company_invoice_settings,
+  invoice
 }

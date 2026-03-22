@@ -39,6 +39,7 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   performanceInformation: z.string().nullable(),
   loProPersonId: z.number().nullable(),
   loProCompanyId: z.number().nullable(),
+  invoiceCompanyId: z.number().nullable(),
   hotelId: z.number().nullable()
 }).extend(TimestampFields.shape)
 
@@ -93,6 +94,7 @@ export const CreateDealMemoInput = z.object({
   venueId: z.number().nullable().optional(),
   loProPersonId: z.number().nullable().optional(),
   loProCompanyId: z.number().nullable().optional(),
+  invoiceCompanyId: z.number().nullable().optional(),
   status: z.string().optional(),
   ticketPriceVvk: z.number().nullable().optional(),
   ticketPriceAk: z.number().nullable().optional(),

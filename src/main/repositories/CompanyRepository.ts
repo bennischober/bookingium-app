@@ -87,6 +87,10 @@ export class CompanyRepository {
 
   async create(input: CreateCompanyInput) {
     return await db.transaction(async (tx) => {
+      if (input.isDefaultForInvoicing) {
+        await tx.update(company).set({ is_default_for_invoicing: false })
+      }
+
       // Create address if provided
       let addressId: number | null = null
       if (input.address) {
@@ -129,6 +133,7 @@ export class CompanyRepository {
           notes: input.notes || '',
           vat_number: input.vatNumber || '',
           ust_number: input.ustNumber || '',
+          is_default_for_invoicing: input.isDefaultForInvoicing,
           address_id: addressId,
           contact_id: contactId,
           bank_id: input.bankId || null
@@ -161,6 +166,10 @@ export class CompanyRepository {
       if (existing.length === 0) throw new Error('Company not found')
 
       const existingCompany = existing[0]
+
+      if (input.isDefaultForInvoicing) {
+        await tx.update(company).set({ is_default_for_invoicing: false })
+      }
 
       // Update or create address
       let addressId = existingCompany.address_id
@@ -236,6 +245,10 @@ export class CompanyRepository {
           notes: input.notes || existingCompany.notes,
           vat_number: input.vatNumber || existingCompany.vat_number,
           ust_number: input.ustNumber || existingCompany.ust_number,
+          is_default_for_invoicing:
+            input.isDefaultForInvoicing !== undefined
+              ? input.isDefaultForInvoicing
+              : existingCompany.is_default_for_invoicing,
           address_id: addressId,
           contact_id: contactId,
           bank_id: input.bankId !== undefined ? input.bankId : existingCompany.bank_id,
@@ -265,5 +278,26 @@ export class CompanyRepository {
   async delete(id: number) {
     const result = await db.delete(company).where(eq(company.id, id)).returning()
     return result[0]
+  }
+
+  async getDefaultForInvoicing() {
+    const rows = await db
+      .select()
+      .from(company)
+      .leftJoin(address, eq(company.address_id, address.id))
+      .leftJoin(contact, eq(company.contact_id, contact.id))
+      .leftJoin(bank, eq(company.bank_id, bank.id))
+      .where(eq(company.is_default_for_invoicing, true))
+      .limit(1)
+
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+    return {
+      ...row.company,
+      address: row.address,
+      contact: row.contact,
+      bank: row.bank
+    }
   }
 }

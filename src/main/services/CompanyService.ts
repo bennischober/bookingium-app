@@ -33,4 +33,8 @@ export class CompanyService {
   async deleteCompany(id: number) {
     return await this.companyRepository.delete(id)
   }
+
+  async getDefaultForInvoicingCompany() {
+    return await this.companyRepository.getDefaultForInvoicing()
+  }
 }

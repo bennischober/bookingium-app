@@ -55,6 +55,7 @@ CREATE TABLE `company` (
 	`bank_id` integer,
 	`vat_number` text DEFAULT '' NOT NULL,
 	`ust_number` text DEFAULT '' NOT NULL,
+	`is_default_for_invoicing` integer DEFAULT false NOT NULL,
 	`address_id` integer,
 	`contact_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
@@ -65,6 +66,17 @@ CREATE TABLE `company` (
 );
 --> statement-breakpoint
 CREATE INDEX `company_name_idx` ON `company` (`name`);--> statement-breakpoint
+CREATE TABLE `company_invoice_settings` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`company_id` integer NOT NULL,
+	`next_invoice_number` integer DEFAULT 1 NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `company_invoice_settings_company_unique_idx` ON `company_invoice_settings` (`company_id`);--> statement-breakpoint
+CREATE INDEX `company_invoice_settings_next_number_idx` ON `company_invoice_settings` (`next_invoice_number`);--> statement-breakpoint
 CREATE TABLE `company_member` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`company_id` integer NOT NULL,
@@ -104,6 +116,7 @@ CREATE TABLE `deal_memo` (
 	`performance_information` text DEFAULT '',
 	`lopro_person_id` integer,
 	`lopro_company_id` integer,
+	`invoice_company_id` integer,
 	`band_id` integer NOT NULL,
 	`venue_id` integer,
 	`hotel_id` integer,
@@ -111,6 +124,7 @@ CREATE TABLE `deal_memo` (
 	`updated_at` text,
 	FOREIGN KEY (`lopro_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`lopro_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`invoice_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`venue_id`) REFERENCES `venue`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`hotel_id`) REFERENCES `hotel`(`id`) ON UPDATE no action ON DELETE set null
@@ -120,6 +134,7 @@ CREATE INDEX `deal_memo_name_idx` ON `deal_memo` (`name`);--> statement-breakpoi
 CREATE INDEX `deal_memo_date_idx` ON `deal_memo` (`date`);--> statement-breakpoint
 CREATE INDEX `deal_memo_band_idx` ON `deal_memo` (`band_id`);--> statement-breakpoint
 CREATE INDEX `deal_memo_venue_idx` ON `deal_memo` (`venue_id`);--> statement-breakpoint
+CREATE INDEX `deal_memo_invoice_company_idx` ON `deal_memo` (`invoice_company_id`);--> statement-breakpoint
 CREATE INDEX `deal_memo_status_idx` ON `deal_memo` (`status`);--> statement-breakpoint
 CREATE TABLE `document` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -152,6 +167,27 @@ CREATE TABLE `hotel` (
 );
 --> statement-breakpoint
 CREATE INDEX `hotel_name_idx` ON `hotel` (`name`);--> statement-breakpoint
+CREATE TABLE `invoice` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`invoice_number` integer NOT NULL,
+	`company_id` integer NOT NULL,
+	`deal_memo_id` integer,
+	`issue_date` text DEFAULT (date('now')) NOT NULL,
+	`due_date` text,
+	`status` text DEFAULT 'draft' NOT NULL,
+	`currency` text DEFAULT 'EUR' NOT NULL,
+	`total_amount` real DEFAULT 0 NOT NULL,
+	`notes` text DEFAULT '' NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `invoice_company_idx` ON `invoice` (`company_id`);--> statement-breakpoint
+CREATE INDEX `invoice_deal_memo_idx` ON `invoice` (`deal_memo_id`);--> statement-breakpoint
+CREATE INDEX `invoice_status_idx` ON `invoice` (`status`);--> statement-breakpoint
+CREATE UNIQUE INDEX `invoice_company_invoice_number_unique_idx` ON `invoice` (`company_id`,`invoice_number`);--> statement-breakpoint
 CREATE TABLE `itinerary` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`notes` text DEFAULT '' NOT NULL,

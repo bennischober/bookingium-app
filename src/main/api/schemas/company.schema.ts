@@ -12,6 +12,7 @@ export const CompanyDto = z
     notes: z.string(),
     vatNumber: z.string(),
     ustNumber: z.string(),
+    isDefaultForInvoicing: z.boolean(),
     address: AddressDto.nullable(),
     contact: ContactDto.nullable(),
     bank: BankDto.nullable()
@@ -33,6 +34,7 @@ export const CreateCompanyInput = z.object({
   notes: z.string().optional().default(''),
   vatNumber: z.string().optional().default(''),
   ustNumber: z.string().optional().default(''),
+  isDefaultForInvoicing: z.boolean().optional().default(false),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
   bankId: z.number().nullable().optional()

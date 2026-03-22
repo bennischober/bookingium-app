@@ -12,7 +12,9 @@ import {
   venue_member,
   hotel,
   deal_memo,
-  itinerary
+  itinerary,
+  company_invoice_settings,
+  invoice
 } from './schema'
 
 export async function seedDatabase() {
@@ -279,6 +281,7 @@ export async function seedDatabase() {
         bank_id: bank2.id,
         vat_number: 'US123456789',
         ust_number: 'UST-98765',
+        is_default_for_invoicing: false,
         address_id: companyAddress1.id,
         contact_id: companyContact1.id
       })
@@ -292,10 +295,22 @@ export async function seedDatabase() {
         bank_id: bank1.id,
         vat_number: 'DE987654321',
         ust_number: 'DE123456789',
+        is_default_for_invoicing: true,
         address_id: companyAddress2.id,
         contact_id: companyContact2.id
       })
       .returning()
+
+    await db.insert(company_invoice_settings).values([
+      {
+        company_id: company1.id,
+        next_invoice_number: 510
+      },
+      {
+        company_id: company2.id,
+        next_invoice_number: 1042
+      }
+    ])
 
     // Create company members with roles
     await db.insert(company_member).values([
@@ -501,6 +516,7 @@ export async function seedDatabase() {
         performance_information: 'Full backline provided, band brings own instruments',
         lopro_person_id: person5.id,
         lopro_company_id: company2.id,
+        invoice_company_id: company2.id,
         band_id: band1.id,
         venue_id: venue2.id,
         hotel_id: hotel1.id
@@ -525,11 +541,48 @@ export async function seedDatabase() {
         performance_information: 'Special lighting setup required',
         lopro_person_id: person5.id,
         lopro_company_id: company1.id,
+        invoice_company_id: company1.id,
         band_id: band2.id,
         venue_id: venue1.id,
         hotel_id: null
       })
       .returning()
+
+    await db.insert(invoice).values([
+      {
+        invoice_number: 1040,
+        company_id: company2.id,
+        deal_memo_id: dealMemo1.id,
+        issue_date: '2026-06-16',
+        due_date: '2026-06-30',
+        status: 'issued',
+        currency: 'EUR',
+        total_amount: 4200,
+        notes: 'Berlin show settlement invoice'
+      },
+      {
+        invoice_number: 1041,
+        company_id: company2.id,
+        deal_memo_id: null,
+        issue_date: '2026-05-20',
+        due_date: '2026-06-03',
+        status: 'paid',
+        currency: 'EUR',
+        total_amount: 1250,
+        notes: 'General promoter service invoice'
+      },
+      {
+        invoice_number: 509,
+        company_id: company1.id,
+        deal_memo_id: dealMemo2.id,
+        issue_date: '2026-08-23',
+        due_date: '2026-09-06',
+        status: 'draft',
+        currency: 'USD',
+        total_amount: 5000,
+        notes: 'LA showcase guarantee invoice draft'
+      }
+    ])
 
     // ========================================
     // Create Itineraries

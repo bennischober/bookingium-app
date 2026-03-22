@@ -49,6 +49,7 @@ export class DealMemoMapper {
       performanceInformation: entity.performance_information,
       loProPersonId: entity.lopro_person_id,
       loProCompanyId: entity.lopro_company_id,
+      invoiceCompanyId: entity.invoice_company_id,
       hotelId: entity.hotel_id,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at

@@ -28,6 +28,7 @@ export class CompanyMapper {
       notes: entity.notes ?? '',
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,
+      isDefaultForInvoicing: entity.is_default_for_invoicing,
       address: AddressMapper.toDto(entity.address),
       contact: ContactMapper.toDto(entity.contact),
       bank: entity.bank ? BankMapper.toDto(entity.bank) : null,

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c0f74793-47de-403f-8d2a-a0731f0d958a",
+  "id": "88668be8-08e9-47d8-91d1-1add7c21d945",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "address": {
@@ -398,6 +398,14 @@
           "autoincrement": false,
           "default": "''"
         },
+        "is_default_for_invoicing": {
+          "name": "is_default_for_invoicing",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "address_id": {
           "name": "address_id",
           "type": "integer",
@@ -475,6 +483,82 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "company_invoice_settings": {
+      "name": "company_invoice_settings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_invoice_number": {
+          "name": "next_invoice_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "company_invoice_settings_company_unique_idx": {
+          "name": "company_invoice_settings_company_unique_idx",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": true
+        },
+        "company_invoice_settings_next_number_idx": {
+          "name": "company_invoice_settings_next_number_idx",
+          "columns": [
+            "next_invoice_number"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "company_invoice_settings_company_id_company_id_fk": {
+          "name": "company_invoice_settings_company_id_company_id_fk",
+          "tableFrom": "company_invoice_settings",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -755,6 +839,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "invoice_company_id": {
+          "name": "invoice_company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "band_id": {
           "name": "band_id",
           "type": "integer",
@@ -821,6 +912,13 @@
           ],
           "isUnique": false
         },
+        "deal_memo_invoice_company_idx": {
+          "name": "deal_memo_invoice_company_idx",
+          "columns": [
+            "invoice_company_id"
+          ],
+          "isUnique": false
+        },
         "deal_memo_status_idx": {
           "name": "deal_memo_status_idx",
           "columns": [
@@ -849,6 +947,19 @@
           "tableTo": "company",
           "columnsFrom": [
             "lopro_company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "deal_memo_invoice_company_id_company_id_fk": {
+          "name": "deal_memo_invoice_company_id_company_id_fk",
+          "tableFrom": "deal_memo",
+          "tableTo": "company",
+          "columnsFrom": [
+            "invoice_company_id"
           ],
           "columnsTo": [
             "id"
@@ -1109,6 +1220,163 @@
           "tableTo": "address",
           "columnsFrom": [
             "address_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "invoice": {
+      "name": "invoice",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deal_memo_id": {
+          "name": "deal_memo_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(date('now'))"
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'draft'"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'EUR'"
+        },
+        "total_amount": {
+          "name": "total_amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_company_idx": {
+          "name": "invoice_company_idx",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        },
+        "invoice_deal_memo_idx": {
+          "name": "invoice_deal_memo_idx",
+          "columns": [
+            "deal_memo_id"
+          ],
+          "isUnique": false
+        },
+        "invoice_status_idx": {
+          "name": "invoice_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "invoice_company_invoice_number_unique_idx": {
+          "name": "invoice_company_invoice_number_unique_idx",
+          "columns": [
+            "company_id",
+            "invoice_number"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "invoice_company_id_company_id_fk": {
+          "name": "invoice_company_id_company_id_fk",
+          "tableFrom": "invoice",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "invoice_deal_memo_id_deal_memo_id_fk": {
+          "name": "invoice_deal_memo_id_deal_memo_id_fk",
+          "tableFrom": "invoice",
+          "tableTo": "deal_memo",
+          "columnsFrom": [
+            "deal_memo_id"
           ],
           "columnsTo": [
             "id"
