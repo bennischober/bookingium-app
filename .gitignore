@@ -6,3 +6,4 @@ out
 *.log*
 orthos-key
 sample_data/
+.opencode/
