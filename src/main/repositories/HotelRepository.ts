@@ -76,10 +76,10 @@ export class HotelRepository {
   }
 
   async create(input: CreateHotelInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       let addressId = input.addressId ?? null
       if (input.address) {
-        const addressResult = await tx
+        const addressResult = tx
           .insert(schema.address)
           .values({
             street: input.address.street,
@@ -92,12 +92,13 @@ export class HotelRepository {
             country_code: input.address.countryCode
           })
           .returning()
+          .all()
         addressId = addressResult[0].id
       }
 
       let contactId = input.contactId ?? null
       if (input.contact) {
-        const contactResult = await tx
+        const contactResult = tx
           .insert(schema.contact)
           .values({
             email: input.contact.email,
@@ -106,10 +107,11 @@ export class HotelRepository {
             homepage: input.contact.homepage
           })
           .returning()
+          .all()
         contactId = contactResult[0].id
       }
 
-      const hotelResult = await tx
+      const hotelResult = tx
         .insert(schema.hotel)
         .values({
           name: input.name,
@@ -118,13 +120,15 @@ export class HotelRepository {
           contact_id: contactId
         })
         .returning()
+        .all()
 
-      const rows = await tx
+      const rows = tx
         .select()
         .from(schema.hotel)
         .leftJoin(schema.address, eq(schema.hotel.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.hotel.contact_id, schema.contact.id))
         .where(eq(schema.hotel.id, hotelResult[0].id))
+        .all()
 
       return {
         ...rows[0].hotel,
@@ -135,8 +139,8 @@ export class HotelRepository {
   }
 
   async update(input: UpdateHotelInput) {
-    return await db.transaction(async (tx) => {
-      const existing = await tx.select().from(schema.hotel).where(eq(schema.hotel.id, input.id))
+    return await db.transaction((tx) => {
+      const existing = tx.select().from(schema.hotel).where(eq(schema.hotel.id, input.id)).all()
       if (existing.length === 0) throw new Error('Hotel not found')
 
       const existingHotel = existing[0]
@@ -145,7 +149,7 @@ export class HotelRepository {
 
       if (input.address) {
         if (existingHotel.address_id) {
-          await tx
+          tx
             .update(schema.address)
             .set({
               street: input.address.street,
@@ -158,9 +162,10 @@ export class HotelRepository {
               country_code: input.address.countryCode
             })
             .where(eq(schema.address.id, existingHotel.address_id))
+            .run()
           addressId = existingHotel.address_id
         } else {
-          const addressResult = await tx
+          const addressResult = tx
             .insert(schema.address)
             .values({
               street: input.address.street,
@@ -173,13 +178,14 @@ export class HotelRepository {
               country_code: input.address.countryCode
             })
             .returning()
+            .all()
           addressId = addressResult[0].id
         }
       }
 
       if (input.contact) {
         if (existingHotel.contact_id) {
-          await tx
+          tx
             .update(schema.contact)
             .set({
               email: input.contact.email,
@@ -188,9 +194,10 @@ export class HotelRepository {
               homepage: input.contact.homepage
             })
             .where(eq(schema.contact.id, existingHotel.contact_id))
+            .run()
           contactId = existingHotel.contact_id
         } else {
-          const contactResult = await tx
+          const contactResult = tx
             .insert(schema.contact)
             .values({
               email: input.contact.email,
@@ -199,11 +206,12 @@ export class HotelRepository {
               homepage: input.contact.homepage
             })
             .returning()
+            .all()
           contactId = contactResult[0].id
         }
       }
 
-      await tx
+      tx
         .update(schema.hotel)
         .set({
           name: input.name,
@@ -213,13 +221,15 @@ export class HotelRepository {
           updated_at: sql`datetime('now')`
         })
         .where(eq(schema.hotel.id, input.id))
+        .run()
 
-      const rows = await tx
+      const rows = tx
         .select()
         .from(schema.hotel)
         .leftJoin(schema.address, eq(schema.hotel.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.hotel.contact_id, schema.contact.id))
         .where(eq(schema.hotel.id, input.id))
+        .all()
 
       return {
         ...rows[0].hotel,

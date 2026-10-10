@@ -14,7 +14,16 @@ const api = {
     ipcRenderer.invoke('document:revealInFolder', { filePath }),
 
   showOpenDialog: () =>
-    ipcRenderer.invoke('dialog:showOpenDialog')
+    ipcRenderer.invoke('dialog:showOpenDialog'),
+
+  uploadLogo: (companyId: number, sourcePath: string, fileName: string) =>
+    ipcRenderer.invoke('logo:upload', { companyId, sourcePath, fileName }),
+
+  deleteLogo: (relativePath: string) =>
+    ipcRenderer.invoke('logo:delete', { relativePath }),
+
+  getLogoPath: (relativePath: string) =>
+    ipcRenderer.invoke('logo:getDataUrl', { relativePath })
 }
 
 process.once('loaded', () => {

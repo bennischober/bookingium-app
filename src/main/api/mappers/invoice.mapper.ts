@@ -118,6 +118,7 @@ export class InvoiceMapper {
       website: entity.website,
       accountHolder: entity.account_holder,
       bankName: entity.bank_name,
+      logoPath: entity.logo_path,
       email: entity.email,
       phone: entity.phone,
       iban: entity.iban,

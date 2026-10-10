@@ -34,11 +34,28 @@ export default function InvoicePrintPage() {
 
   const data = printQuery.data
   const [template, setTemplate] = useState<InvoiceTemplate>('standard')
+  const [logoUrl, setLogoUrl] = useState<string>('')
 
   // Once data arrives, default to a sensible template for the recipient's country
   useEffect(() => {
     if (data) setTemplate(suggestTemplate(data))
   }, [data])
+
+  // Resolve the issuer snapshot's logo into a displayable data URL
+  useEffect(() => {
+    let revoked = false
+    const path = data?.issuer?.logoPath
+    if (!path) {
+      setLogoUrl('')
+      return
+    }
+    void window.api.getLogoPath(path).then((result) => {
+      if (result.success && result.dataUrl && !revoked) setLogoUrl(result.dataUrl)
+    })
+    return () => {
+      revoked = true
+    }
+  }, [data?.issuer?.logoPath])
 
   if (printQuery.isLoading) {
     return <div className="flex h-full items-center justify-center text-muted-foreground">Loading invoice...</div>
@@ -83,7 +100,7 @@ export default function InvoicePrintPage() {
         </div>
       </div>
 
-      <InvoiceDocument data={data} template={template} />
+      <InvoiceDocument data={data} template={template} logoUrl={logoUrl} />
     </div>
   )
 }

@@ -88,6 +88,7 @@ export const company = sqliteTable(
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
     website: text('website').default('').notNull(),
+    logo_path: text('logo_path').default('').notNull(),
     is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
       .default(false)
       .notNull(),
@@ -320,6 +321,7 @@ export const invoice_party_snapshot = sqliteTable(
     website: text('website').default('').notNull(),
     account_holder: text('account_holder').default('').notNull(),
     bank_name: text('bank_name').default('').notNull(),
+    logo_path: text('logo_path').default('').notNull(),
     email: text('email').default('').notNull(),
     phone: text('phone').default('').notNull(),
     iban: text('iban').default('').notNull(),

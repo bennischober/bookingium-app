@@ -1,6 +1,7 @@
 import 'reflect-metadata'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, extname } from 'path'
+import { readFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import { router } from './api/router'
@@ -12,7 +13,9 @@ import {
   getDocumentFullPath,
   generateUniqueFileName,
   getEventStoragePath,
-  getFileInfo
+  getFileInfo,
+  copyLogoToStorage,
+  deleteLogoFile
 } from './utils/fileStorage'
 
 function createWindow(): void {
@@ -148,6 +151,68 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
     }
   }
 })
+
+/**
+ * IPC Handler for uploading a company logo.
+ * Stores the image under storage/logos/<companyId>/ and returns the relative path.
+ */
+ipcMain.handle(
+  'logo:upload',
+  async (_event, { companyId, sourcePath, fileName }: { companyId: number; sourcePath: string; fileName: string }) => {
+    try {
+      const relativePath = await copyLogoToStorage(sourcePath, companyId, fileName)
+      return { success: true, relativePath }
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * IPC Handler for deleting a company logo file.
+ */
+ipcMain.handle(
+  'logo:delete',
+  async (_event, { relativePath }: { relativePath: string }) => {
+    try {
+      await deleteLogoFile(relativePath)
+      return { success: true }
+    } catch (error) {
+      console.error('Error deleting logo:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * IPC Handler for resolving a stored image as a data URL.
+ * Used by the renderer to display images (e.g. company logos) regardless of
+ * dev (http) vs production (file) renderer origin.
+ */
+ipcMain.handle(
+  'logo:getDataUrl',
+  async (_event, { relativePath }: { relativePath: string }) => {
+    try {
+      const fullPath = await getDocumentFullPath(relativePath)
+      const data = await readFile(fullPath)
+      const ext = extname(fullPath).toLowerCase()
+      const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png'
+      return { success: true, dataUrl: `data:${mime};base64,${data.toString('base64')}` }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

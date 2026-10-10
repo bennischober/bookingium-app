@@ -15,6 +15,13 @@
       "when": 1791669102030,
       "tag": "0001_productive_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791670589882,
+      "tag": "0002_charming_diamondback",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,17 @@ export interface DocumentAPI {
     filePaths: string[]
     error?: string
   }>
+  uploadLogo: (
+    companyId: number,
+    sourcePath: string,
+    fileName: string
+  ) => Promise<{ success: boolean; relativePath?: string; error?: string }>
+  deleteLogo: (relativePath: string) => Promise<{ success: boolean; error?: string }>
+  getLogoPath: (relativePath: string) => Promise<{
+    success: boolean
+    dataUrl?: string
+    error?: string
+  }>
 }
 
 declare global {

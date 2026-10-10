@@ -44,6 +44,7 @@ export const InvoicePartySnapshotDto = z.object({
   website: z.string(),
   accountHolder: z.string(),
   bankName: z.string(),
+  logoPath: z.string(),
   email: z.string(),
   phone: z.string(),
   iban: z.string(),

@@ -86,11 +86,11 @@ export class PersonRepository {
   }
 
   async create(input: CreatePersonInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       // Create address if provided
       let addressId: number | null = null
       if (input.address) {
-        const addressResult = await tx
+        const addressResult = tx
           .insert(schema.address)
           .values({
             street: input.address.street,
@@ -103,13 +103,14 @@ export class PersonRepository {
             country_code: input.address.countryCode
           })
           .returning()
+          .all()
         addressId = addressResult[0].id
       }
 
       // Create contact if provided
       let contactId: number | null = null
       if (input.contact) {
-        const contactResult = await tx
+        const contactResult = tx
           .insert(schema.contact)
           .values({
             email: input.contact.email,
@@ -118,11 +119,12 @@ export class PersonRepository {
             homepage: input.contact.homepage
           })
           .returning()
+          .all()
         contactId = contactResult[0].id
       }
 
       // Create person
-      const personResult = await tx
+      const personResult = tx
         .insert(schema.person)
         .values({
           first_name: input.firstName,
@@ -133,14 +135,16 @@ export class PersonRepository {
           contact_id: contactId
         })
         .returning()
+        .all()
 
       // Fetch with relations
-      const created = await tx
+      const created = tx
         .select()
         .from(schema.person)
         .leftJoin(schema.address, eq(schema.person.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
         .where(eq(schema.person.id, personResult[0].id))
+        .all()
 
       const row = created[0]
       return {
@@ -152,9 +156,9 @@ export class PersonRepository {
   }
 
   async update(input: UpdatePersonInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       // Get existing person to check for existing address/contact
-      const existing = await tx.select().from(schema.person).where(eq(schema.person.id, input.id))
+      const existing = tx.select().from(schema.person).where(eq(schema.person.id, input.id)).all()
       if (existing.length === 0) throw new Error('Person not found')
 
       const existingPerson = existing[0]
@@ -164,7 +168,7 @@ export class PersonRepository {
       if (input.address) {
         if (addressId) {
           // Update existing address
-          await tx
+          tx
             .update(schema.address)
             .set({
               street: input.address.street,
@@ -177,9 +181,10 @@ export class PersonRepository {
               country_code: input.address.countryCode
             })
             .where(eq(schema.address.id, addressId))
+            .run()
         } else {
           // Create new address
-          const addressResult = await tx
+          const addressResult = tx
             .insert(schema.address)
             .values({
               street: input.address.street,
@@ -192,6 +197,7 @@ export class PersonRepository {
               country_code: input.address.countryCode
             })
             .returning()
+            .all()
           addressId = addressResult[0].id
         }
       }
@@ -201,7 +207,7 @@ export class PersonRepository {
       if (input.contact) {
         if (contactId) {
           // Update existing contact
-          await tx
+          tx
             .update(schema.contact)
             .set({
               email: input.contact.email,
@@ -210,9 +216,10 @@ export class PersonRepository {
               homepage: input.contact.homepage
             })
             .where(eq(schema.contact.id, contactId))
+            .run()
         } else {
           // Create new contact
-          const contactResult = await tx
+          const contactResult = tx
             .insert(schema.contact)
             .values({
               email: input.contact.email,
@@ -221,12 +228,13 @@ export class PersonRepository {
               homepage: input.contact.homepage
             })
             .returning()
+            .all()
           contactId = contactResult[0].id
         }
       }
 
       // Update person
-      await tx
+      tx
         .update(schema.person)
         .set({
           first_name: input.firstName,
@@ -238,14 +246,16 @@ export class PersonRepository {
           updated_at: sql`datetime('now')`
         })
         .where(eq(schema.person.id, input.id))
+        .run()
 
       // Fetch with relations
-      const updated = await tx
+      const updated = tx
         .select()
         .from(schema.person)
         .leftJoin(schema.address, eq(schema.person.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
         .where(eq(schema.person.id, input.id))
+        .all()
 
       const row = updated[0]
       return {

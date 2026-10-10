@@ -86,15 +86,15 @@ export class CompanyRepository {
   }
 
   async create(input: CreateCompanyInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       if (input.isDefaultForInvoicing) {
-        await tx.update(company).set({ is_default_for_invoicing: false })
+        tx.update(company).set({ is_default_for_invoicing: false }).run()
       }
 
       // Create address if provided
       let addressId: number | null = null
       if (input.address) {
-        const addressResult = await tx
+        const addressResult = tx
           .insert(address)
           .values({
             street: input.address.street,
@@ -107,13 +107,14 @@ export class CompanyRepository {
             country_code: input.address.countryCode
           })
           .returning()
+          .all()
         addressId = addressResult[0].id
       }
 
       // Create contact if provided
       let contactId: number | null = null
       if (input.contact) {
-        const contactResult = await tx
+        const contactResult = tx
           .insert(contact)
           .values({
             email: input.contact.email,
@@ -122,11 +123,12 @@ export class CompanyRepository {
             homepage: input.contact.homepage
           })
           .returning()
+          .all()
         contactId = contactResult[0].id
       }
 
       // Create company
-      const companyResult = await tx
+      const companyResult = tx
         .insert(company)
         .values({
           name: input.name,
@@ -137,21 +139,24 @@ export class CompanyRepository {
           commercial_register_no: input.commercialRegisterNo || '',
           register_court: input.registerCourt || '',
           website: input.website || '',
+          logo_path: input.logoPath || '',
           is_default_for_invoicing: input.isDefaultForInvoicing,
           address_id: addressId,
           contact_id: contactId,
           bank_id: input.bankId || null
         })
         .returning()
+        .all()
 
       // Fetch with relations
-      const created = await tx
+      const created = tx
         .select()
         .from(company)
         .leftJoin(address, eq(company.address_id, address.id))
         .leftJoin(contact, eq(company.contact_id, contact.id))
         .leftJoin(bank, eq(company.bank_id, bank.id))
         .where(eq(company.id, companyResult[0].id))
+        .all()
 
       const row = created[0]
       return {
@@ -164,15 +169,15 @@ export class CompanyRepository {
   }
 
   async update(input: UpdateCompanyInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       // Get existing company to check for existing address/contact
-      const existing = await tx.select().from(company).where(eq(company.id, input.id))
+      const existing = tx.select().from(company).where(eq(company.id, input.id)).all()
       if (existing.length === 0) throw new Error('Company not found')
 
       const existingCompany = existing[0]
 
       if (input.isDefaultForInvoicing) {
-        await tx.update(company).set({ is_default_for_invoicing: false })
+        tx.update(company).set({ is_default_for_invoicing: false }).run()
       }
 
       // Update or create address
@@ -180,7 +185,7 @@ export class CompanyRepository {
       if (input.address) {
         if (addressId) {
           // Update existing address
-          await tx
+          tx
             .update(address)
             .set({
               street: input.address.street,
@@ -193,9 +198,10 @@ export class CompanyRepository {
               country_code: input.address.countryCode
             })
             .where(eq(address.id, addressId))
+            .run()
         } else {
           // Create new address
-          const addressResult = await tx
+          const addressResult = tx
             .insert(address)
             .values({
               street: input.address.street,
@@ -208,6 +214,7 @@ export class CompanyRepository {
               country_code: input.address.countryCode
             })
             .returning()
+            .all()
           addressId = addressResult[0].id
         }
       }
@@ -217,7 +224,7 @@ export class CompanyRepository {
       if (input.contact) {
         if (contactId) {
           // Update existing contact
-          await tx
+          tx
             .update(contact)
             .set({
               email: input.contact.email,
@@ -226,9 +233,10 @@ export class CompanyRepository {
               homepage: input.contact.homepage
             })
             .where(eq(contact.id, contactId))
+            .run()
         } else {
           // Create new contact
-          const contactResult = await tx
+          const contactResult = tx
             .insert(contact)
             .values({
               email: input.contact.email,
@@ -237,12 +245,13 @@ export class CompanyRepository {
               homepage: input.contact.homepage
             })
             .returning()
+            .all()
           contactId = contactResult[0].id
         }
       }
 
       // Update company
-      await tx
+      tx
         .update(company)
         .set({
           name: input.name || existingCompany.name,
@@ -257,6 +266,7 @@ export class CompanyRepository {
           register_court:
             input.registerCourt !== undefined ? input.registerCourt : existingCompany.register_court,
           website: input.website !== undefined ? input.website : existingCompany.website,
+          logo_path: input.logoPath !== undefined ? input.logoPath : existingCompany.logo_path,
           is_default_for_invoicing:
             input.isDefaultForInvoicing !== undefined
               ? input.isDefaultForInvoicing
@@ -267,15 +277,17 @@ export class CompanyRepository {
           updated_at: sql`datetime('now')`
         })
         .where(eq(company.id, input.id))
+        .run()
 
       // Fetch with relations
-      const updated = await tx
+      const updated = tx
         .select()
         .from(company)
         .leftJoin(address, eq(company.address_id, address.id))
         .leftJoin(contact, eq(company.contact_id, contact.id))
         .leftJoin(bank, eq(company.bank_id, bank.id))
         .where(eq(company.id, input.id))
+        .all()
 
       const row = updated[0]
       return {

@@ -126,6 +126,48 @@ export async function getFileInfo(relativeFilePath: string) {
 }
 
 /**
+ * Gets the directory for company logos. Creates it if it doesn't exist.
+ */
+export async function getCompanyLogoPath(companyId: number): Promise<string> {
+  const logoPath = join(getStorageBasePath(), 'logos', String(companyId))
+  await ensureDirectoryExists(logoPath)
+  return logoPath
+}
+
+/**
+ * Copies a logo image into the company's logo directory.
+ * Returns a relative path that can be stored in the database.
+ */
+export async function copyLogoToStorage(
+  sourcePath: string,
+  companyId: number,
+  targetFileName: string
+): Promise<string> {
+  const logoPath = await getCompanyLogoPath(companyId)
+  const uniqueFileName = generateUniqueFileName(logoPath, targetFileName)
+
+  await copyFile(sourcePath, join(logoPath, uniqueFileName))
+
+  return join('logos', String(companyId), uniqueFileName)
+}
+
+/**
+ * Deletes a logo file from company logo storage.
+ */
+export async function deleteLogoFile(relativeFilePath: string): Promise<void> {
+  try {
+    const fullPath = await getDocumentFullPath(relativeFilePath)
+
+    if (existsSync(fullPath)) {
+      await unlink(fullPath)
+    }
+  } catch (error) {
+    console.error(`Failed to delete logo file: ${relativeFilePath}`, error)
+    throw error
+  }
+}
+
+/**
  * Generates a unique filename by appending a counter if the file already exists.
  */
 export function generateUniqueFileName(basePath: string, fileName: string): string {

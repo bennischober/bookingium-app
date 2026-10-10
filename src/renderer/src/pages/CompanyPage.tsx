@@ -59,7 +59,19 @@ export function CompanyPage() {
 
   // Handlers
   const handleCreate = (data: any) => {
-    createMutation.mutate(data)
+    const { logoSourcePath, ...companyData } = data
+    createMutation.mutate(companyData, {
+      onSuccess: async (created) => {
+        // Upload the picked logo now that the company id exists
+        if (logoSourcePath && /^[a-zA-Z]:[\\/]/.test(logoSourcePath)) {
+          const fileName = logoSourcePath.split(/[\\/]/).pop() || 'logo'
+          const upload = await window.api.uploadLogo(created.id, logoSourcePath, fileName)
+          if (upload.success && upload.relativePath) {
+            updateMutation.mutate({ id: created.id, logoPath: upload.relativePath })
+          }
+        }
+      }
+    })
   }
 
   const handleUpdate = (data: any) => {

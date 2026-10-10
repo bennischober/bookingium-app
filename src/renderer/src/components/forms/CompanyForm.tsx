@@ -1,4 +1,5 @@
 import { useForm } from '@tanstack/react-form'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,10 +23,68 @@ interface CompanyFormProps {
   onCancel: () => void
 }
 
+// Resolves a stored relative logo path (or freshly picked absolute path) to a displayable URL
+function LogoPreview({ path }: { path: string }) {
+  const [src, setSrc] = useState<string>('')
+
+  useEffect(() => {
+    let revoked = false
+    if (!path) return
+
+    if (/^[a-zA-Z]:[\\/]/.test(path)) {
+      // Freshly picked absolute path from the dialog: the file is readable by
+      // the main process only, so resolve a data URL through IPC.
+      const fileName = path.split(/[\\/]/).pop() || 'logo'
+      void window.api
+        .uploadLogo(0, path, fileName)
+        .then(async (result) => {
+          if (result.success && result.relativePath) {
+            const dataUrl = await window.api.getLogoPath(result.relativePath)
+            if (dataUrl.success && dataUrl.dataUrl && !revoked) setSrc(dataUrl.dataUrl)
+          }
+        })
+      return
+    }
+
+    void window.api.getLogoPath(path).then((result) => {
+      if (result.success && result.dataUrl && !revoked) {
+        setSrc(result.dataUrl)
+      }
+    })
+
+    return () => {
+      revoked = true
+    }
+  }, [path])
+
+  if (!src) return null
+
+  return <img src={src} alt="Company logo" className="h-16 max-w-32 object-contain rounded border bg-white" />
+}
+
 export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
   // Fetch banks for dropdown
   const banks = trpcReact.bank.getListItems.useQuery()
+  const [logoPreview, setLogoPreview] = useState<string>(company?.logoPath || '')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const handleLogoSelect = async () => {
+    const result = await window.api.showOpenDialog()
+    if (result.canceled || result.filePaths.length === 0) return
+
+    const sourcePath = result.filePaths[0]
+    const fileName = sourcePath.split(/[\\/]/).pop() || 'logo'
+    // New company has no id yet -> logo is stored after creation (see onSubmit),
+    // for existing companies we upload immediately and store the relative path.
+    if (company) {
+      const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
+      if (upload.success && upload.relativePath) {
+        setLogoPreview(upload.relativePath)
+      }
+    } else {
+      setLogoPreview(sourcePath)
+    }
+  }
   const form = useForm({
     defaultValues: {
       name: company?.name || '',
@@ -36,6 +95,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
       website: company?.website || '',
+      logoPath: company?.logoPath || '',
       bankId: company?.bank?.id || null,
       address: {
         street: company?.address?.street || '',
@@ -55,7 +115,9 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       }
     },
     onSubmit: async ({ value }) => {
-      onSubmit(company ? { ...value, id: company.id } : value)
+      // For new companies the picked logo path is passed through so the
+      // repository/form owner can upload it after the company id exists.
+      onSubmit(company ? { ...value, id: company.id, logoPath: logoPreview } : { ...value, logoSourcePath: logoPreview })
     }
   })
 
@@ -175,6 +237,50 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
             </div>
           )}
         </form.Field>
+
+        <div className="space-y-2">
+          <Label>Invoice Logo (optional)</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleLogoSelect()
+            }}
+          />
+          <div className="flex items-center gap-3">
+            {logoPreview ? (
+              <LogoPreview path={logoPreview} />
+            ) : (
+              <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
+                No logo
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                Choose image...
+              </Button>
+              {logoPreview && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    if (company && logoPreview) {
+                      await window.api.deleteLogo(logoPreview)
+                    }
+                    setLogoPreview('')
+                    form.setFieldValue('logoPath', '')
+                  }}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
 
         <form.Field name="bankId">
           {(field) => (

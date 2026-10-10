@@ -83,10 +83,10 @@ export class VenueRepository {
   }
 
   async create(input: CreateVenueInput) {
-    return await db.transaction(async (tx) => {
+    return await db.transaction((tx) => {
       let addressId = input.addressId ?? null
       if (input.address) {
-        const addressResult = await tx
+        const addressResult = tx
           .insert(schema.address)
           .values({
             street: input.address.street,
@@ -99,12 +99,13 @@ export class VenueRepository {
             country_code: input.address.countryCode
           })
           .returning()
+          .all()
         addressId = addressResult[0].id
       }
 
       let contactId = input.contactId ?? null
       if (input.contact) {
-        const contactResult = await tx
+        const contactResult = tx
           .insert(schema.contact)
           .values({
             email: input.contact.email,
@@ -113,10 +114,11 @@ export class VenueRepository {
             homepage: input.contact.homepage
           })
           .returning()
+          .all()
         contactId = contactResult[0].id
       }
 
-      const venueResult = await tx
+      const venueResult = tx
         .insert(schema.venue)
         .values({
           name: input.name,
@@ -127,14 +129,16 @@ export class VenueRepository {
           contact_id: contactId
         })
         .returning()
+        .all()
 
-      const rows = await tx
+      const rows = tx
         .select()
         .from(schema.venue)
         .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
         .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
         .where(eq(schema.venue.id, venueResult[0].id))
+        .all()
 
       return {
         ...rows[0].venue,
@@ -146,8 +150,8 @@ export class VenueRepository {
   }
 
   async update(input: UpdateVenueInput) {
-    return await db.transaction(async (tx) => {
-      const existing = await tx.select().from(schema.venue).where(eq(schema.venue.id, input.id))
+    return await db.transaction((tx) => {
+      const existing = tx.select().from(schema.venue).where(eq(schema.venue.id, input.id)).all()
       if (existing.length === 0) throw new Error('Venue not found')
 
       const existingVenue = existing[0]
@@ -156,7 +160,7 @@ export class VenueRepository {
 
       if (input.address) {
         if (existingVenue.address_id) {
-          await tx
+          tx
             .update(schema.address)
             .set({
               street: input.address.street,
@@ -169,9 +173,10 @@ export class VenueRepository {
               country_code: input.address.countryCode
             })
             .where(eq(schema.address.id, existingVenue.address_id))
+            .run()
           addressId = existingVenue.address_id
         } else {
-          const addressResult = await tx
+          const addressResult = tx
             .insert(schema.address)
             .values({
               street: input.address.street,
@@ -184,13 +189,14 @@ export class VenueRepository {
               country_code: input.address.countryCode
             })
             .returning()
+            .all()
           addressId = addressResult[0].id
         }
       }
 
       if (input.contact) {
         if (existingVenue.contact_id) {
-          await tx
+          tx
             .update(schema.contact)
             .set({
               email: input.contact.email,
@@ -199,9 +205,10 @@ export class VenueRepository {
               homepage: input.contact.homepage
             })
             .where(eq(schema.contact.id, existingVenue.contact_id))
+            .run()
           contactId = existingVenue.contact_id
         } else {
-          const contactResult = await tx
+          const contactResult = tx
             .insert(schema.contact)
             .values({
               email: input.contact.email,
@@ -210,11 +217,12 @@ export class VenueRepository {
               homepage: input.contact.homepage
             })
             .returning()
+            .all()
           contactId = contactResult[0].id
         }
       }
 
-      await tx
+      tx
         .update(schema.venue)
         .set({
           name: input.name,
@@ -226,14 +234,16 @@ export class VenueRepository {
           updated_at: sql`datetime('now')`
         })
         .where(eq(schema.venue.id, input.id))
+        .run()
 
-      const rows = await tx
+      const rows = tx
         .select()
         .from(schema.venue)
         .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
         .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
         .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
         .where(eq(schema.venue.id, input.id))
+        .all()
 
       return {
         ...rows[0].venue,

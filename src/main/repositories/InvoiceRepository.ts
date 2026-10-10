@@ -154,6 +154,7 @@ export class InvoiceRepository {
         website: row.company.website,
         account_holder: row.bank?.account_holder ?? '',
         bank_name: row.bank?.bank_name ?? '',
+        logo_path: row.company.logo_path,
         email: row.contact?.email ?? '',
         phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
         iban: row.bank?.iban ?? '',
