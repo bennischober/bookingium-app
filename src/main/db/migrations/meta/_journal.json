@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1791669102030,
-      "tag": "0001_productive_jubilee",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1791670589882,
-      "tag": "0002_charming_diamondback",
+      "when": 1791672032423,
+      "tag": "0001_fancy_nighthawk",
       "breakpoints": true
     }
   ]

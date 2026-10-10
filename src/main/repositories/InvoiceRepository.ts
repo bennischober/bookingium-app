@@ -151,7 +151,7 @@ export class InvoiceRepository {
         tax_number: row.company.tax_number,
         commercial_register_no: row.company.commercial_register_no,
         register_court: row.company.register_court,
-        website: row.company.website,
+        website: row.contact?.homepage ?? '',
         account_holder: row.bank?.account_holder ?? '',
         bank_name: row.bank?.bank_name ?? '',
         logo_path: row.company.logo_path,

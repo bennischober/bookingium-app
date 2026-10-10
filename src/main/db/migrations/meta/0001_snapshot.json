@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4517f627-ea65-48ab-9b0d-2bbff579405f",
+  "id": "2d93337a-505a-4393-a3a0-6b82fe85cf0a",
   "prevId": "568f88d4-b4b0-4703-909f-354f6469b09d",
   "tables": {
     "address": {
@@ -422,8 +422,8 @@
           "autoincrement": false,
           "default": "''"
         },
-        "website": {
-          "name": "website",
+        "logo_path": {
+          "name": "logo_path",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1836,6 +1836,14 @@
         },
         "bank_name": {
           "name": "bank_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "logo_path": {
+          "name": "logo_path",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

@@ -87,7 +87,6 @@ export const company = sqliteTable(
     tax_number: text('tax_number').default('').notNull(),
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
-    website: text('website').default('').notNull(),
     logo_path: text('logo_path').default('').notNull(),
     is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
       .default(false)

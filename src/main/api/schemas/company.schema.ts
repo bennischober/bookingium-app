@@ -15,7 +15,6 @@ export const CompanyDto = z
     taxNumber: z.string(),
     commercialRegisterNo: z.string(),
     registerCourt: z.string(),
-    website: z.string(),
     logoPath: z.string(),
     isDefaultForInvoicing: z.boolean(),
     address: AddressDto.nullable(),
@@ -42,7 +41,6 @@ export const CreateCompanyInput = z.object({
   taxNumber: z.string().optional().default(''),
   commercialRegisterNo: z.string().optional().default(''),
   registerCourt: z.string().optional().default(''),
-  website: z.string().optional().default(''),
   logoPath: z.string().optional().default(''),
   isDefaultForInvoicing: z.boolean().optional().default(false),
   address: AddressInput.optional(),
@@ -50,9 +48,22 @@ export const CreateCompanyInput = z.object({
   bankId: z.number().nullable().optional()
 })
 
-export const UpdateCompanyInput = CreateCompanyInput.partial().extend({
-  id: z.number()
-})
+export const UpdateCompanyInput = z
+  .object({
+    id: z.number(),
+    name: z.string().min(1, 'Name is required').optional(),
+    notes: z.string().optional(),
+    vatNumber: z.string().optional(),
+    ustNumber: z.string().optional(),
+    taxNumber: z.string().optional(),
+    commercialRegisterNo: z.string().optional(),
+    registerCourt: z.string().optional(),
+    logoPath: z.string().optional(),
+    isDefaultForInvoicing: z.boolean().optional(),
+    address: AddressInput.optional(),
+    contact: ContactInput.optional(),
+    bankId: z.number().nullable().optional()
+  })
 
 // Infer TypeScript types from schemas
 export type CompanyDto = z.infer<typeof CompanyDto>

@@ -94,7 +94,6 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       taxNumber: company?.taxNumber || '',
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
-      website: company?.website || '',
       logoPath: company?.logoPath || '',
       bankId: company?.bank?.id || null,
       address: {
@@ -223,20 +222,6 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
             )}
           </form.Field>
         </div>
-
-        <form.Field name="website">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input
-                id="website"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </div>
-          )}
-        </form.Field>
 
         <div className="space-y-2">
           <Label>Invoice Logo (optional)</Label>

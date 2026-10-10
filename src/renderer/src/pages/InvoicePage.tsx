@@ -446,7 +446,7 @@ function InvoiceForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Issuing Company</Label>
+              <Label>Who gets the money? (Issuer — their bank details & footer appear on the invoice)</Label>
               <Select
                 value={companyId !== undefined ? (companyId === null ? 'none' : companyId.toString()) : 'auto'}
                 onValueChange={(value) => {
@@ -478,7 +478,7 @@ function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Recipient Type</Label>
+            <Label>Who gets billed? (Recipient — they pay this invoice)</Label>
             <Select
               value={recipientKind}
               onValueChange={(value) => {

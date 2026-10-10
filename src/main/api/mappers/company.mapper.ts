@@ -31,7 +31,6 @@ export class CompanyMapper {
       taxNumber: entity.tax_number,
       commercialRegisterNo: entity.commercial_register_no,
       registerCourt: entity.register_court,
-      website: entity.website,
       logoPath: entity.logo_path,
       isDefaultForInvoicing: entity.is_default_for_invoicing,
       address: AddressMapper.toDto(entity.address),

@@ -138,7 +138,6 @@ export class CompanyRepository {
           tax_number: input.taxNumber || '',
           commercial_register_no: input.commercialRegisterNo || '',
           register_court: input.registerCourt || '',
-          website: input.website || '',
           logo_path: input.logoPath || '',
           is_default_for_invoicing: input.isDefaultForInvoicing,
           address_id: addressId,
@@ -250,30 +249,24 @@ export class CompanyRepository {
         }
       }
 
-      // Update company
+      // Update company. Every optional key keeps the stored value when absent
+      // (partial update, e.g. the logo-only update after company creation).
       tx
         .update(company)
         .set({
-          name: input.name || existingCompany.name,
-          notes: input.notes || existingCompany.notes,
-          vat_number: input.vatNumber || existingCompany.vat_number,
-          ust_number: input.ustNumber || existingCompany.ust_number,
-          tax_number: input.taxNumber !== undefined ? input.taxNumber : existingCompany.tax_number,
-          commercial_register_no:
-            input.commercialRegisterNo !== undefined
-              ? input.commercialRegisterNo
-              : existingCompany.commercial_register_no,
-          register_court:
-            input.registerCourt !== undefined ? input.registerCourt : existingCompany.register_court,
-          website: input.website !== undefined ? input.website : existingCompany.website,
-          logo_path: input.logoPath !== undefined ? input.logoPath : existingCompany.logo_path,
+          name: input.name ?? existingCompany.name,
+          notes: input.notes ?? existingCompany.notes,
+          vat_number: input.vatNumber ?? existingCompany.vat_number,
+          ust_number: input.ustNumber ?? existingCompany.ust_number,
+          tax_number: input.taxNumber ?? existingCompany.tax_number,
+          commercial_register_no: input.commercialRegisterNo ?? existingCompany.commercial_register_no,
+          register_court: input.registerCourt ?? existingCompany.register_court,
+          logo_path: input.logoPath ?? existingCompany.logo_path,
           is_default_for_invoicing:
-            input.isDefaultForInvoicing !== undefined
-              ? input.isDefaultForInvoicing
-              : existingCompany.is_default_for_invoicing,
+            input.isDefaultForInvoicing ?? existingCompany.is_default_for_invoicing,
           address_id: addressId,
           contact_id: contactId,
-          bank_id: input.bankId !== undefined ? input.bankId : existingCompany.bank_id,
+          bank_id: input.bankId ?? existingCompany.bank_id,
           updated_at: sql`datetime('now')`
         })
         .where(eq(company.id, input.id))
