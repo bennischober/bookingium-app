@@ -4,3 +4,5 @@ out
 .DS_Store
 .eslintcache
 *.log*
+orthos-key
+sample_data/
