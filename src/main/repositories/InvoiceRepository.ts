@@ -148,6 +148,12 @@ export class InvoiceRepository {
         country_code: row.address?.country_code ?? '',
         vat_number: row.company.vat_number,
         ust_number: row.company.ust_number,
+        tax_number: row.company.tax_number,
+        commercial_register_no: row.company.commercial_register_no,
+        register_court: row.company.register_court,
+        website: row.company.website,
+        account_holder: row.bank?.account_holder ?? '',
+        bank_name: row.bank?.bank_name ?? '',
         email: row.contact?.email ?? '',
         phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
         iban: row.bank?.iban ?? '',
@@ -490,6 +496,7 @@ export class InvoiceRepository {
       .from(schema.invoice)
       .leftJoin(schema.company, eq(schema.invoice.company_id, schema.company.id))
       .leftJoin(schema.deal_memo, eq(schema.invoice.deal_memo_id, schema.deal_memo.id))
+      .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
       .leftJoin(issuerSnapshot, eq(schema.invoice.issuer_snapshot_id, issuerSnapshot.id))
       .leftJoin(recipientSnapshot, eq(schema.invoice.recipient_snapshot_id, recipientSnapshot.id))
       .where(eq(schema.invoice.id, id))
@@ -510,6 +517,7 @@ export class InvoiceRepository {
       ...row.invoice,
       company: row.company,
       dealMemo: row.deal_memo,
+      venueName: row.venue?.name ?? null,
       issuerSnapshot: row.issuer_snapshot,
       recipientSnapshot: row.recipient_snapshot,
       lineItems

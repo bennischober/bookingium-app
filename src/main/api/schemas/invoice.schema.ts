@@ -38,6 +38,12 @@ export const InvoicePartySnapshotDto = z.object({
   country: z.string(),
   vatNumber: z.string(),
   ustNumber: z.string(),
+  taxNumber: z.string(),
+  commercialRegisterNo: z.string(),
+  registerCourt: z.string(),
+  website: z.string(),
+  accountHolder: z.string(),
+  bankName: z.string(),
   email: z.string(),
   phone: z.string(),
   iban: z.string(),
@@ -85,7 +91,8 @@ export type InvoiceDto = z.infer<typeof InvoiceDto>
 export const InvoicePrintDto = z.object({
   invoice: InvoiceDto,
   issuer: InvoicePartySnapshotDto.nullable(),
-  recipient: InvoicePartySnapshotDto.nullable()
+  recipient: InvoicePartySnapshotDto.nullable(),
+  venueName: z.string().nullable()
 })
 
 export type InvoicePrintDto = z.infer<typeof InvoicePrintDto>

@@ -133,6 +133,10 @@ export class CompanyRepository {
           notes: input.notes || '',
           vat_number: input.vatNumber || '',
           ust_number: input.ustNumber || '',
+          tax_number: input.taxNumber || '',
+          commercial_register_no: input.commercialRegisterNo || '',
+          register_court: input.registerCourt || '',
+          website: input.website || '',
           is_default_for_invoicing: input.isDefaultForInvoicing,
           address_id: addressId,
           contact_id: contactId,
@@ -245,6 +249,14 @@ export class CompanyRepository {
           notes: input.notes || existingCompany.notes,
           vat_number: input.vatNumber || existingCompany.vat_number,
           ust_number: input.ustNumber || existingCompany.ust_number,
+          tax_number: input.taxNumber !== undefined ? input.taxNumber : existingCompany.tax_number,
+          commercial_register_no:
+            input.commercialRegisterNo !== undefined
+              ? input.commercialRegisterNo
+              : existingCompany.commercial_register_no,
+          register_court:
+            input.registerCourt !== undefined ? input.registerCourt : existingCompany.register_court,
+          website: input.website !== undefined ? input.website : existingCompany.website,
           is_default_for_invoicing:
             input.isDefaultForInvoicing !== undefined
               ? input.isDefaultForInvoicing

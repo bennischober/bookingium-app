@@ -32,6 +32,10 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       notes: company?.notes || '',
       vatNumber: company?.vatNumber || '',
       ustNumber: company?.ustNumber || '',
+      taxNumber: company?.taxNumber || '',
+      commercialRegisterNo: company?.commercialRegisterNo || '',
+      registerCourt: company?.registerCourt || '',
+      website: company?.website || '',
       bankId: company?.bank?.id || null,
       address: {
         street: company?.address?.street || '',
@@ -112,7 +116,65 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
               </div>
             )}
           </form.Field>
+
+          <form.Field name="taxNumber">
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="taxNumber">Tax Number (Steuernummer)</Label>
+                <Input
+                  id="taxNumber"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </div>
+            )}
+          </form.Field>
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <form.Field name="commercialRegisterNo">
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="commercialRegisterNo">Commercial Register No. (HR-Nr.)</Label>
+                <Input
+                  id="commercialRegisterNo"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="registerCourt">
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="registerCourt">Register Court (Amtsgericht)</Label>
+                <Input
+                  id="registerCourt"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </div>
+            )}
+          </form.Field>
+        </div>
+
+        <form.Field name="website">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
+            </div>
+          )}
+        </form.Field>
 
         <form.Field name="bankId">
           {(field) => (

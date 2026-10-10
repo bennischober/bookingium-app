@@ -112,6 +112,12 @@ export class InvoiceMapper {
       country: entity.country,
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,
+      taxNumber: entity.tax_number,
+      commercialRegisterNo: entity.commercial_register_no,
+      registerCourt: entity.register_court,
+      website: entity.website,
+      accountHolder: entity.account_holder,
+      bankName: entity.bank_name,
       email: entity.email,
       phone: entity.phone,
       iban: entity.iban,
@@ -120,14 +126,15 @@ export class InvoiceMapper {
   }
 
   static toPrintDto(
-    entity: InvoiceWithRelations,
+    entity: InvoiceWithRelations & { venueName?: string | null },
     issuerSnapshot: InvoicePartySnapshotEntity | null,
     recipientSnapshot: InvoicePartySnapshotEntity | null
   ): InvoicePrintDto {
     return {
       invoice: this.toDto({ ...entity, issuerSnapshot, recipientSnapshot }),
       issuer: issuerSnapshot ? this.toPartySnapshotDto(issuerSnapshot) : null,
-      recipient: recipientSnapshot ? this.toPartySnapshotDto(recipientSnapshot) : null
+      recipient: recipientSnapshot ? this.toPartySnapshotDto(recipientSnapshot) : null,
+      venueName: entity.venueName ?? null
     }
   }
 }
