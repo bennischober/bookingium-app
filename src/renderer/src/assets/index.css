@@ -150,3 +150,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ========================================
+   Print styles (invoice PDF output)
+   ======================================== */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}

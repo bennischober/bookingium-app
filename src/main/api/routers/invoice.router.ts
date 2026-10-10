@@ -29,6 +29,16 @@ export const invoiceRouter = t.router({
     return InvoiceMapper.toDto(entity)
   }),
 
+  getPrintData: t.procedure.input(z.number()).query(async ({ input }) => {
+    const entity = await invoiceService.getInvoicePrintData(input)
+    if (!entity) throw new TRPCError({ code: 'NOT_FOUND' })
+    return InvoiceMapper.toPrintDto(
+      entity,
+      entity.issuerSnapshot ?? null,
+      entity.recipientSnapshot ?? null
+    )
+  }),
+
   getByDealMemoId: t.procedure.input(z.number()).query(async ({ input }) => {
     const entities = await invoiceService.getInvoicesByDealMemoId(input)
     return InvoiceMapper.toListItemDtoList(entities)

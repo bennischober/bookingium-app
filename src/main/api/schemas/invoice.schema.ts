@@ -26,6 +26,26 @@ export const InvoiceLineItemDto = z.object({
 
 export type InvoiceLineItemDto = z.infer<typeof InvoiceLineItemDto>
 
+// Frozen party data captured at invoice issue time (used for print/PDF rendering)
+export const InvoicePartySnapshotDto = z.object({
+  id: z.number(),
+  kind: z.string(),
+  legalName: z.string(),
+  street: z.string(),
+  streetNumber: z.string(),
+  zipCode: z.string(),
+  city: z.string(),
+  country: z.string(),
+  vatNumber: z.string(),
+  ustNumber: z.string(),
+  email: z.string(),
+  phone: z.string(),
+  iban: z.string(),
+  bic: z.string()
+})
+
+export type InvoicePartySnapshotDto = z.infer<typeof InvoicePartySnapshotDto>
+
 export const InvoiceListItemDto = z.object({
   id: z.number(),
   invoiceNumber: z.number(),
@@ -61,6 +81,14 @@ export const InvoiceDto = InvoiceListItemDto.extend({
 }).extend(TimestampFields.shape)
 
 export type InvoiceDto = z.infer<typeof InvoiceDto>
+
+export const InvoicePrintDto = z.object({
+  invoice: InvoiceDto,
+  issuer: InvoicePartySnapshotDto.nullable(),
+  recipient: InvoicePartySnapshotDto.nullable()
+})
+
+export type InvoicePrintDto = z.infer<typeof InvoicePrintDto>
 
 export const CompanyInvoiceSettingsDto = z
   .object({

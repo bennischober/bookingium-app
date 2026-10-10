@@ -20,6 +20,10 @@ export class InvoiceService {
     return await this.invoiceRepository.getById(id)
   }
 
+  async getInvoicePrintData(id: number) {
+    return await this.invoiceRepository.getByIdWithSnapshots(id)
+  }
+
   async getInvoicesByDealMemoId(dealMemoId: number) {
     return await this.invoiceRepository.getByDealMemoId(dealMemoId)
   }

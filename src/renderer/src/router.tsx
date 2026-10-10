@@ -1,4 +1,4 @@
-import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router'
+import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
 import DashboardPage from '@/pages/DashboardPage'
@@ -13,99 +13,123 @@ import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import PersonRelationsPage from '@/pages/PersonRelationsPage'
 import InvoicePage from '@/pages/InvoicePage'
+import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
 
-const rootRoute = createRootRoute({
-  component: () => <RootLayout />
+// The root route is a pass-through. App chrome (sidebar, header) lives in the
+// pathless `_app` layout route so that chrome-free routes (e.g. invoice print)
+// can opt out of it.
+const rootRoute = createRootRoute()
+
+const appLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: '_app',
+  component: RootLayout
 })
 
 const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.dashboard.path,
   component: DashboardPage
 })
 
 const calendarRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.calendar.path,
   component: Calendar
 })
 
 const bandRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.bands.path,
   component: BandPage
 })
 
 const personRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.persons.path,
   component: PersonPage
 })
 
 const personRelationsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: '/persons/$personId/relations',
   component: PersonRelationsPage
 })
 
 const companyRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.companies.path,
   component: CompanyPage
 })
 
 const bankRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.banks.path,
   component: BankPage
 })
 
 const venueRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.venues.path,
   component: VenuePage
 })
 
 const hotelRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.hotels.path,
   component: HotelPage
 })
 
 const eventRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.events.path,
   component: EventPage
 })
 
 const invoiceRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: ROUTES.invoices.path,
   component: InvoicePage
 })
 
 const eventHubRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appLayoutRoute,
   path: '/events/$eventId',
   component: EventHubPage
 })
 
+// Chrome-free layout for print views (PDF output must not contain app UI)
+const printLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: '_print',
+  component: () => <Outlet />
+})
+
+const invoicePrintRoute = createRoute({
+  getParentRoute: () => printLayoutRoute,
+  path: '/invoices/$invoiceId/print',
+  component: InvoicePrintPage
+})
+
 const routeTree = rootRoute.addChildren([
-  indexRoute,
-  calendarRoute,
-  bandRoute,
-  personRoute,
-  personRelationsRoute,
-  companyRoute,
-  bankRoute,
-  venueRoute,
-  hotelRoute,
-  eventRoute,
-  invoiceRoute,
-  eventHubRoute
+  appLayoutRoute.addChildren([
+    indexRoute,
+    calendarRoute,
+    bandRoute,
+    personRoute,
+    personRelationsRoute,
+    companyRoute,
+    bankRoute,
+    venueRoute,
+    hotelRoute,
+    eventRoute,
+    invoiceRoute,
+    eventHubRoute
+  ]),
+  printLayoutRoute.addChildren([invoicePrintRoute])
 ])
 
 export const router = createRouter({

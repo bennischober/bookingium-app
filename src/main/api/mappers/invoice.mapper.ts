@@ -10,7 +10,9 @@ import type {
   InvoiceDto,
   InvoiceListItemDto,
   CompanyInvoiceSettingsDto,
-  InvoiceLineItemDto
+  InvoiceLineItemDto,
+  InvoicePartySnapshotDto,
+  InvoicePrintDto
 } from '../schemas/invoice.schema'
 
 type InvoiceEntity = typeof invoice.$inferSelect
@@ -23,6 +25,7 @@ type InvoicePartySnapshotEntity = typeof invoice_party_snapshot.$inferSelect
 type InvoiceWithRelations = InvoiceEntity & {
   company?: CompanyEntity | null
   dealMemo?: DealMemoEntity | null
+  issuerSnapshot?: InvoicePartySnapshotEntity | null
   recipientSnapshot?: InvoicePartySnapshotEntity | null
   lineItems?: InvoiceLineItemEntity[]
 }
@@ -94,6 +97,37 @@ export class InvoiceMapper {
       nextInvoiceNumber: entity.next_invoice_number,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
+    }
+  }
+
+  static toPartySnapshotDto(entity: InvoicePartySnapshotEntity): InvoicePartySnapshotDto {
+    return {
+      id: entity.id,
+      kind: entity.kind,
+      legalName: entity.legal_name,
+      street: entity.street,
+      streetNumber: entity.street_number,
+      zipCode: entity.zip_code,
+      city: entity.city,
+      country: entity.country,
+      vatNumber: entity.vat_number,
+      ustNumber: entity.ust_number,
+      email: entity.email,
+      phone: entity.phone,
+      iban: entity.iban,
+      bic: entity.bic
+    }
+  }
+
+  static toPrintDto(
+    entity: InvoiceWithRelations,
+    issuerSnapshot: InvoicePartySnapshotEntity | null,
+    recipientSnapshot: InvoicePartySnapshotEntity | null
+  ): InvoicePrintDto {
+    return {
+      invoice: this.toDto({ ...entity, issuerSnapshot, recipientSnapshot }),
+      issuer: issuerSnapshot ? this.toPartySnapshotDto(issuerSnapshot) : null,
+      recipient: recipientSnapshot ? this.toPartySnapshotDto(recipientSnapshot) : null
     }
   }
 }

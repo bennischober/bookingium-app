@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/main'
 import { DataTable } from '@/components/data-table'
@@ -751,6 +752,7 @@ export default function InvoicePage() {
 
   const sheet = useFormSheet<InvoiceDto>()
   const utils = trpcReact.useUtils()
+  const navigate = useNavigate()
 
   const invoices = trpcReact.invoice.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,
@@ -863,6 +865,14 @@ export default function InvoicePage() {
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate({ to: '/invoices/$invoiceId/print', params: { invoiceId: String(row.original.id) } })}
+            title="Print / Save as PDF"
+          >
+            <Printer className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

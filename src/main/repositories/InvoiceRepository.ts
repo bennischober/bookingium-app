@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { alias } from 'drizzle-orm/sqlite-core'
 import type {
   CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
@@ -476,6 +477,41 @@ export class InvoiceRepository {
       company: row.company,
       dealMemo: row.deal_memo,
       recipientSnapshot: row.invoice_party_snapshot,
+      lineItems
+    }
+  }
+
+  async getByIdWithSnapshots(id: number) {
+    const issuerSnapshot = alias(schema.invoice_party_snapshot, 'issuer_snapshot')
+    const recipientSnapshot = alias(schema.invoice_party_snapshot, 'recipient_snapshot')
+
+    const rows = await db
+      .select()
+      .from(schema.invoice)
+      .leftJoin(schema.company, eq(schema.invoice.company_id, schema.company.id))
+      .leftJoin(schema.deal_memo, eq(schema.invoice.deal_memo_id, schema.deal_memo.id))
+      .leftJoin(issuerSnapshot, eq(schema.invoice.issuer_snapshot_id, issuerSnapshot.id))
+      .leftJoin(recipientSnapshot, eq(schema.invoice.recipient_snapshot_id, recipientSnapshot.id))
+      .where(eq(schema.invoice.id, id))
+      .limit(1)
+
+    if (rows.length === 0) {
+      return null
+    }
+
+    const lineItems = await db
+      .select()
+      .from(schema.invoice_line_item)
+      .where(eq(schema.invoice_line_item.invoice_id, id))
+      .orderBy(asc(schema.invoice_line_item.position), asc(schema.invoice_line_item.id))
+
+    const row = rows[0]
+    return {
+      ...row.invoice,
+      company: row.company,
+      dealMemo: row.deal_memo,
+      issuerSnapshot: row.issuer_snapshot,
+      recipientSnapshot: row.recipient_snapshot,
       lineItems
     }
   }
