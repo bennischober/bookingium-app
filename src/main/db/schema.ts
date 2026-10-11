@@ -136,6 +136,10 @@ export const band = sqliteTable(
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id),
+    // Technischer Leiter (TL) - technical director, contract contact person
+    responsible_person_id: integer('responsible_person_id').references(() => person.id, {
+      onDelete: 'set null'
+    }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

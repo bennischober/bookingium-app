@@ -22,6 +22,13 @@
       "when": 1791714104242,
       "tag": "0002_lush_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791718145817,
+      "tag": "0003_hot_khan",
+      "breakpoints": true
     }
   ]
 }

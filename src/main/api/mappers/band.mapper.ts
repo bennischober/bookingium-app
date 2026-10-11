@@ -12,6 +12,7 @@ export class BandMapper {
       founded: entity.founded,
       notes: entity.notes,
       companyId: entity.company_id,
+      responsiblePersonId: entity.responsible_person_id,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

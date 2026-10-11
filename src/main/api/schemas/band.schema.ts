@@ -9,7 +9,8 @@ export const BandDto = z
     genre: z.string(),
     founded: z.string().nullable(),
     notes: z.string(),
-    companyId: z.number()
+    companyId: z.number(),
+    responsiblePersonId: z.number().nullable()
   })
   .extend(TimestampFields.shape)
 
@@ -37,7 +38,8 @@ export const CreateBandInput = z.object({
   genre: z.string().optional().default(''),
   founded: z.string().nullable().optional(),
   notes: z.string().optional().default(''),
-  companyId: z.number()
+  companyId: z.number(),
+  responsiblePersonId: z.number().nullable().optional()
 })
 
 export const UpdateBandInput = CreateBandInput.partial().extend({

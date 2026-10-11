@@ -107,4 +107,61 @@ describe('ContractService', () => {
     expect(data?.promoter?.email).toBe('')
     expect(data?.promoter?.iban).toBe('')
   })
+
+  it('resolves the technician: explicit field wins over TL-role heuristic', async () => {
+    const { contracts, artistCompany, promoterCompany } = await seedScenario()
+    const dealMemoRepo = container.resolve(DealMemoRepository)
+    const bandRepo = container.resolve(BandRepository)
+
+    // Create persons via PersonRepository
+    const personRepo = container.resolve(
+      (await import('../src/main/repositories/PersonRepository')).PersonRepository
+    )
+    const tlPerson = await personRepo.create({
+      firstName: 'Tech',
+      lastName: 'Leader',
+      notes: ''
+    })
+    const rookiePerson = await personRepo.create({
+      firstName: 'Rookie',
+      lastName: 'Member',
+      notes: ''
+    })
+
+    const band = await bandRepo.create({
+      name: 'TL Band',
+      genre: '',
+      notes: '',
+      companyId: artistCompany.id
+    })
+
+    // Add members: rookie without role, TL with role containing 'TL'
+    const { db } = await import('../src/main/db/index')
+    const { schema } = await import('../src/main/db/schema')
+    await db.insert(schema.band_member).values([
+      { band_id: band.id, person_id: rookiePerson.id, role: 'Drums' },
+      { band_id: band.id, person_id: tlPerson.id, role: 'Guitar, TL' }
+    ]) // Without explicit field: heuristic finds the member with 'TL' in role
+    const memo1 = await dealMemoRepo.create({
+      name: 'Show A',
+      date: '2026-11-01',
+      bandId: band.id,
+      venueId: null,
+      loProCompanyId: promoterCompany.id
+    })
+    const data1 = await contracts.getContractData(memo1.id)
+    expect(data1?.technician?.firstName).toBe('Tech')
+
+    // With explicit field: it wins
+    await bandRepo.update({ id: band.id, responsiblePersonId: rookiePerson.id })
+    const memo2 = await dealMemoRepo.create({
+      name: 'Show B',
+      date: '2026-11-02',
+      bandId: band.id,
+      venueId: null,
+      loProCompanyId: promoterCompany.id
+    })
+    const data2 = await contracts.getContractData(memo2.id)
+    expect(data2?.technician?.firstName).toBe('Rookie')
+  })
 })

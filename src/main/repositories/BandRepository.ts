@@ -58,21 +58,30 @@ export class BandRepository {
         genre: data.genre,
         founded: data.founded,
         notes: data.notes,
-        company_id: data.companyId
+        company_id: data.companyId,
+        responsible_person_id: data.responsiblePersonId ?? null
       })
       .returning()
     return result[0]
   }
 
   async update(data: UpdateBandInput) {
+    const existing = await db.select().from(schema.band).where(eq(schema.band.id, data.id)).limit(1)
+    if (existing.length === 0) throw new Error('Band not found')
+    const prev = existing[0]
+
     const result = await db
       .update(schema.band)
       .set({
-        name: data.name,
-        genre: data.genre,
-        founded: data.founded,
-        notes: data.notes,
-        company_id: data.companyId
+        name: data.name ?? prev.name,
+        genre: data.genre ?? prev.genre,
+        founded: data.founded ?? prev.founded,
+        notes: data.notes ?? prev.notes,
+        company_id: data.companyId ?? prev.company_id,
+        responsible_person_id:
+          data.responsiblePersonId !== undefined
+            ? data.responsiblePersonId
+            : prev.responsible_person_id
       })
       .where(eq(schema.band.id, data.id))
       .returning()

@@ -103,9 +103,7 @@ export class ContractRepository {
 
       if (promoterRows.length > 0) {
         const p = promoterRows[0]
-        const rep = row.person
-          ? `${row.person.first_name} ${row.person.last_name}`.trim()
-          : ''
+        const rep = row.person ? `${row.person.first_name} ${row.person.last_name}`.trim() : ''
         promoter = toParty(p.company, p.contact, p.bank, p.address, rep)
       }
     }
@@ -128,11 +126,17 @@ export class ContractRepository {
         guaranteeAmount: row.deal_memo.guarantee_amount,
         guaranteeVatRate: row.deal_memo.guarantee_vat_rate,
         contractNotes: row.deal_memo.contract_notes ?? '',
-        notes: row.deal_memo.notes ?? ''
+        notes: row.deal_memo.notes ?? '',
+        deal: row.deal_memo.deal ?? '',
+        posters: row.deal_memo.posters ?? ''
       },
       band: row.band ? { id: row.band.id, name: row.band.name } : null,
       artist: toParty(a.company, a.contact, a.bank, a.address, artistRepresentative),
       promoter,
+      technician: await this.resolveTechnician(
+        row.deal_memo.band_id,
+        row.band?.responsible_person_id ?? null
+      ),
       venue: row.venue
         ? {
             id: row.venue.id,
@@ -142,6 +146,54 @@ export class ContractRepository {
           }
         : null,
       hotel: row.hotel ? { id: row.hotel.id, name: row.hotel.name } : null
+    }
+  }
+
+  /**
+   * Resolves the Technischer Leiter (TL): explicit band field first, then the
+   * first band member whose role contains 'TL', then the first band member
+   * (same heuristic as the old repo).
+   */
+  private async resolveTechnician(bandId: number, responsiblePersonId: number | null) {
+    let personRow: typeof schema.person.$inferSelect | null = null
+
+    if (responsiblePersonId) {
+      const rows = await db
+        .select()
+        .from(schema.person)
+        .where(eq(schema.person.id, responsiblePersonId))
+        .limit(1)
+      personRow = rows[0] ?? null
+    }
+
+    if (!personRow) {
+      const members = await db
+        .select({ person: schema.person, role: schema.band_member.role })
+        .from(schema.band_member)
+        .leftJoin(schema.person, eq(schema.band_member.person_id, schema.person.id))
+        .where(eq(schema.band_member.band_id, bandId))
+
+      const tl = members.find((m) => (m.role ?? '').toUpperCase().includes('TL'))
+      const fallback = members[0]
+      personRow = (tl ?? fallback)?.person ?? null
+    }
+
+    if (!personRow) return null
+
+    const contactRows = personRow.contact_id
+      ? await db
+          .select()
+          .from(schema.contact)
+          .where(eq(schema.contact.id, personRow.contact_id))
+          .limit(1)
+      : []
+
+    return {
+      firstName: personRow.first_name,
+      lastName: personRow.last_name,
+      email: contactRows[0]?.email ?? '',
+      mobilePhone: contactRows[0]?.mobile_phone ?? '',
+      phone: contactRows[0]?.phone ?? ''
     }
   }
 }

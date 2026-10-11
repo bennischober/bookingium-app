@@ -37,7 +37,9 @@ export const ContractDataSchema = z.object({
     guaranteeAmount: z.number().nullable(),
     guaranteeVatRate: z.number().nullable(),
     contractNotes: z.string(),
-    notes: z.string()
+    notes: z.string(),
+    deal: z.string(),
+    posters: z.string()
   }),
   band: z
     .object({
@@ -47,6 +49,17 @@ export const ContractDataSchema = z.object({
     .nullable(),
   artist: ContractPartySchema.nullable(),
   promoter: ContractPartySchema.nullable(),
+  // Technischer Leiter (TL): explicit band field, falls back to first TL
+  // band member, then to the first band member (old-repo heuristic)
+  technician: z
+    .object({
+      firstName: z.string(),
+      lastName: z.string(),
+      email: z.string(),
+      mobilePhone: z.string(),
+      phone: z.string()
+    })
+    .nullable(),
   venue: z
     .object({
       id: z.number(),

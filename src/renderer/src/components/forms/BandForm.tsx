@@ -33,8 +33,9 @@ export function BandForm({
   onCancel,
   isSubmitting = false
 }: BandFormProps) {
-  // Fetch companies for dropdown
+  // Fetch companies + persons for dropdowns
   const companies = trpcReact.company.getListItems.useQuery()
+  const persons = trpcReact.person.getListItems.useQuery()
 
   const form = useForm({
     defaultValues: {
@@ -42,7 +43,8 @@ export function BandForm({
       genre: initialData?.genre || '',
       founded: initialData?.founded || '',
       notes: initialData?.notes || '',
-      companyId: initialData?.companyId || 0
+      companyId: initialData?.companyId || 0,
+      responsiblePersonId: initialData?.responsiblePersonId || null
     },
     onSubmit: async ({ value }) => {
       if (mode === 'edit' && initialData) {
@@ -52,7 +54,8 @@ export function BandForm({
           genre: value.genre,
           founded: value.founded || null,
           notes: value.notes,
-          companyId: value.companyId
+          companyId: value.companyId,
+          responsiblePersonId: value.responsiblePersonId
         })
       } else {
         onSubmit({
@@ -60,7 +63,8 @@ export function BandForm({
           genre: value.genre,
           founded: value.founded || null,
           notes: value.notes,
-          companyId: value.companyId
+          companyId: value.companyId,
+          responsiblePersonId: value.responsiblePersonId
         })
       }
     }
@@ -151,6 +155,43 @@ export function BandForm({
             {field.state.meta.errors && field.state.meta.errors.length > 0 && (
               <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
             )}
+          </div>
+        )}
+      </form.Field>
+
+      {/* Technischer Leiter (TL) Field */}
+      <form.Field name="responsiblePersonId">
+        {(field) => (
+          <div className="space-y-2">
+            <Label htmlFor={field.name}>Technischer Leiter (TL)</Label>
+            {persons.isLoading ? (
+              <div className="text-sm text-muted-foreground">Personen werden geladen...</div>
+            ) : persons.data && persons.data.length > 0 ? (
+              <Select
+                value={field.state.value ? field.state.value.toString() : 'none'}
+                onValueChange={(value) =>
+                  field.handleChange(value === 'none' ? null : parseInt(value))
+                }
+                disabled={isSubmitting}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="TL auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Kein TL hinterlegt</SelectItem>
+                  {persons.data.map((person) => (
+                    <SelectItem key={person.id} value={person.id.toString()}>
+                      {person.firstName} {person.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1.
+            </p>
           </div>
         )}
       </form.Field>
