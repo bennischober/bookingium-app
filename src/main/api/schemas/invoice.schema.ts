@@ -36,6 +36,7 @@ export const InvoicePartySnapshotDto = z.object({
   zipCode: z.string(),
   city: z.string(),
   country: z.string(),
+  countryCode: z.string(),
   vatNumber: z.string(),
   ustNumber: z.string(),
   taxNumber: z.string(),

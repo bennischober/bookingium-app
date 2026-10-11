@@ -110,6 +110,7 @@ export class InvoiceMapper {
       zipCode: entity.zip_code,
       city: entity.city,
       country: entity.country,
+      countryCode: entity.country_code,
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,
       taxNumber: entity.tax_number,

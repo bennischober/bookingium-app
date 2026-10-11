@@ -55,11 +55,22 @@ function formatPeriod(data: InvoicePrintDto): string {
 
 function Logo({ src }: { src?: string }) {
   if (!src) return null
-  return <img src={src} alt="" className="absolute right-0 top-0 max-h-[28mm] max-w-[60mm] object-contain" />
+  // In-flow, right-aligned within the page padding; ~22mm tall like the reference
+  return <img src={src} alt="" className="mb-8 ml-auto max-h-[22mm] max-w-[70mm] object-contain" />
 }
 
-function AddressBlock({ party }: { party: InvoicePartySnapshotDto | null }) {
+// Shows the country only for foreign recipients (matches the reference docs:
+// domestic recipients get no country line, cross-border ones do)
+function AddressBlock({
+  party,
+  issuerCountryCode
+}: {
+  party: InvoicePartySnapshotDto | null
+  issuerCountryCode?: string
+}) {
   if (!party) return null
+  const isForeign =
+    issuerCountryCode && party.countryCode && issuerCountryCode !== party.countryCode
   return (
     <div className="text-[10pt] leading-snug">
       <div>{party.legalName}</div>
@@ -73,46 +84,51 @@ function AddressBlock({ party }: { party: InvoicePartySnapshotDto | null }) {
           {party.zipCode} {party.city}
         </div>
       )}
-      {party.country && <div>{party.country}</div>}
+      {isForeign && party.country && <div>{party.country}</div>}
     </div>
   )
 }
 
-// Centered small-print footer as on the reference documents:
-// bold labels, values behind them, bank details on separate lines
+// Centered small-print footer matching the BMM reference line grouping:
+// 1) Adresse (name, street • zip city)  2) Steuernummer + HR-Nr
+// 3) Amtsgericht + USt-IdNr + E-Mail    4) Tel. + Website
+// 5) Bank                               6) SWIFT/BIC + IBAN
 function CenteredLegalFooter({ issuer }: { issuer: InvoicePartySnapshotDto | null }) {
   if (!issuer) return null
 
-  const addressParts = [
+  const addressValue = [
     issuer.legalName,
     [issuer.street, issuer.streetNumber].filter(Boolean).join(' ').trim(),
-    [issuer.zipCode, issuer.city].filter(Boolean).join(' ').trim(),
-    issuer.country
-  ].filter(Boolean)
+    [issuer.zipCode, issuer.city].filter(Boolean).join(' ').trim()
+  ]
+    .filter(Boolean)
+    .join(', ')
 
-  const line1: Array<[string, string]> = []
-  if (addressParts.length > 0) line1.push(['Adresse', addressParts.join(', ')])
-  if (issuer.taxNumber) line1.push(['Steuernummer', issuer.taxNumber])
-  if (issuer.commercialRegisterNo) line1.push(['HR-Nr', issuer.commercialRegisterNo])
+  const lines: Array<Array<[string, string]>> = []
+  if (addressValue) lines.push([['Adresse', addressValue]])
 
   const line2: Array<[string, string]> = []
-  if (issuer.registerCourt) line2.push(['Amtsgericht', issuer.registerCourt])
-  if (issuer.vatNumber || issuer.ustNumber) line2.push(['USt-IdNr.', issuer.vatNumber || issuer.ustNumber])
-  if (issuer.email) line2.push(['E-Mail', issuer.email])
+  if (issuer.taxNumber) line2.push(['Steuernummer', issuer.taxNumber])
+  if (issuer.commercialRegisterNo) line2.push(['HR-Nr', issuer.commercialRegisterNo])
+  if (line2.length > 0) lines.push(line2)
 
   const line3: Array<[string, string]> = []
-  if (issuer.phone) line3.push(['Tel.', issuer.phone])
-  if (issuer.website) line3.push(['Website', issuer.website])
+  if (issuer.registerCourt) line3.push(['Amtsgericht', issuer.registerCourt])
+  if (issuer.vatNumber || issuer.ustNumber) line3.push(['USt-IdNr.', issuer.vatNumber || issuer.ustNumber])
+  if (issuer.email) line3.push(['E-Mail', issuer.email])
+  if (line3.length > 0) lines.push(line3)
 
   const line4: Array<[string, string]> = []
-  if (issuer.bankName) line4.push(['Bank', issuer.bankName])
+  if (issuer.phone) line4.push(['Tel.', issuer.phone])
+  if (issuer.website) line4.push(['Website', issuer.website])
+  if (line4.length > 0) lines.push(line4)
 
-  const line5: Array<[string, string]> = []
-  if (issuer.bic) line5.push(['SWIFT/BIC', issuer.bic])
-  if (issuer.iban) line5.push(['IBAN', issuer.iban])
+  if (issuer.bankName) lines.push([['Bank', issuer.bankName]])
 
-  const lines = [line1, line2, line3, line4, line5].filter((line) => line.length > 0)
-  if (lines.length === 0) return null
+  const line6: Array<[string, string]> = []
+  if (issuer.bic) line6.push(['SWIFT/BIC', issuer.bic])
+  if (issuer.iban) line6.push(['IBAN', issuer.iban])
+  if (line6.length > 0) lines.push(line6)
 
   return (
     <div className="mt-12 text-center text-[8.5pt] leading-relaxed text-black">
@@ -120,7 +136,7 @@ function CenteredLegalFooter({ issuer }: { issuer: InvoicePartySnapshotDto | nul
         <div key={index}>
           {line.map(([label, value], itemIndex) => (
             <span key={label} className="whitespace-nowrap">
-              {itemIndex > 0 && <span className="mx-2"> </span>}
+              {itemIndex > 0 && <span className="ml-6"> </span>}
               <span className="font-bold">{label}</span> {value}
             </span>
           ))}
@@ -130,26 +146,29 @@ function CenteredLegalFooter({ issuer }: { issuer: InvoicePartySnapshotDto | nul
   )
 }
 
-// Centered footer for the English template
+// Centered footer for the English template (PWW reference):
+// Address: • Account holder: • SWIFT/BIC + IBAN: • Bank:
 function CenteredLegalFooterEn({ issuer }: { issuer: InvoicePartySnapshotDto | null }) {
   if (!issuer) return null
 
-  const addressParts = [
+  const addressValue = [
     issuer.legalName,
     [issuer.street, issuer.streetNumber].filter(Boolean).join(' ').trim(),
     [issuer.zipCode, issuer.city].filter(Boolean).join(' ').trim(),
     issuer.country
-  ].filter(Boolean)
+  ]
+    .filter(Boolean)
+    .join(' • ')
 
   const lines: Array<Array<[string, string]>> = []
-  if (addressParts.length > 0) lines.push([['Address', addressParts.join(' • ')]])
+  if (addressValue) lines.push([['Address', addressValue]])
   if (issuer.accountHolder) lines.push([['Account holder', issuer.accountHolder]])
-  {
-    const swiftIban: Array<[string, string]> = []
-    if (issuer.bic) swiftIban.push(['SWIFT/BIC', issuer.bic])
-    if (issuer.iban) swiftIban.push(['IBAN', issuer.iban])
-    if (swiftIban.length > 0) lines.push(swiftIban)
-  }
+
+  const swiftIban: Array<[string, string]> = []
+  if (issuer.bic) swiftIban.push(['SWIFT/BIC', issuer.bic])
+  if (issuer.iban) swiftIban.push(['IBAN', issuer.iban])
+  if (swiftIban.length > 0) lines.push(swiftIban)
+
   if (issuer.bankName) lines.push([['Bank', issuer.bankName]])
 
   if (lines.length === 0) return null
@@ -160,8 +179,8 @@ function CenteredLegalFooterEn({ issuer }: { issuer: InvoicePartySnapshotDto | n
         <div key={index}>
           {line.map(([label, value], itemIndex) => (
             <span key={label} className="whitespace-nowrap">
-              {itemIndex > 0 && <span className="mx-2"> </span>}
-              <span className="font-bold">{label}</span> {value}
+              {itemIndex > 0 && <span className="ml-6"> </span>}
+              <span className="font-bold">{label}:</span> {value}
             </span>
           ))}
         </div>
@@ -170,7 +189,9 @@ function CenteredLegalFooterEn({ issuer }: { issuer: InvoicePartySnapshotDto | n
   )
 }
 
-// Gray-shaded meta band (Kuenstler | Zeitraum | ... on DE, Artist | Period | ... on EN)
+// Gray-shaded meta band (Kuenstler | Zeitraum | ... on DE, Artist | Period | ... on EN).
+// The reference documents use a Word-style diagonal-hatch header shading with no
+// cell grid; borders only appear as thin rules under the header and below the row.
 function MetaBand({
   columns,
   values
@@ -185,7 +206,11 @@ function MetaBand({
           {columns.map((column) => (
             <th
               key={column}
-              className="border border-neutral-300 bg-neutral-300/60 px-2 py-1 text-left font-semibold"
+              className="border-b border-neutral-400 px-2 py-1 text-left font-semibold"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+              }}
             >
               {column}
             </th>
@@ -195,7 +220,7 @@ function MetaBand({
       <tbody>
         <tr>
           {values.map((value, index) => (
-            <td key={index} className="border border-neutral-300 px-2 py-1 align-top">
+            <td key={index} className="border-b border-neutral-400 px-2 py-1 align-top">
               {value}
             </td>
           ))}
@@ -249,7 +274,7 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         <div className="w-1/2">
           <div className="text-[10pt] leading-snug">
             <div className="font-semibold mb-1">Rechnungsempfänger</div>
-            <AddressBlock party={recipient} />
+            <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
           </div>
         </div>
         <div className="w-1/2 text-[10pt] leading-snug">
@@ -349,11 +374,11 @@ function AgencyDeTemplate({ data, logoUrl }: { data: InvoicePrintDto; logoUrl?: 
     <>
       <Logo src={logoUrl} />
 
-      <div className="mt-[30mm]">
-        <AddressBlock party={recipient} />
+      <div className="mt-[24mm]">
+        <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
       </div>
 
-      <div className="mt-[18mm] text-[16pt] font-bold">RECHNUNG</div>
+      <div className="mt-[16mm] text-[16pt] font-bold underline">RECHNUNG</div>
 
       <MetaBand
         columns={['Künstler', 'Zeitraum', 'Leistungsort', 'Rechnungsdatum', 'Rechnung Nr.']}
@@ -371,25 +396,41 @@ function AgencyDeTemplate({ data, logoUrl }: { data: InvoicePrintDto; logoUrl?: 
       <table className="mt-4 w-full border-collapse text-[9.5pt]">
         <thead>
           <tr>
-            <th className="border border-neutral-300 bg-neutral-300/60 px-2 py-1 text-left font-semibold">
+            <th
+              className="border-b border-neutral-400 px-2 py-1 text-left font-semibold"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+              }}
+            >
               Leistung
             </th>
-            <th className="w-[25mm] border border-neutral-300 bg-neutral-300/60 px-2 py-1 text-left font-semibold">
+            <th
+              className="w-[25mm] border-b border-neutral-400 px-2 py-1 text-left font-semibold"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+              }}
+            >
               Mwst.
             </th>
-            <th className="w-[40mm] border border-neutral-300 bg-neutral-300/60 px-2 py-1 text-right font-semibold">
+            <th
+              className="w-[40mm] border-b border-neutral-400 px-2 py-1 text-right font-semibold"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+              }}
+            >
               Netto
             </th>
           </tr>
         </thead>
         <tbody>
           {invoice.lineItems.map((item) => (
-            <tr key={item.id}>
-              <td className="border border-neutral-300 px-2 py-1 align-top">{item.description}</td>
-              <td className="border border-neutral-300 px-2 py-1 align-top">
-                {formatQuantity(item.taxRate)} %
-              </td>
-              <td className="border border-neutral-300 px-2 py-1 text-right align-top">
+            <tr key={item.id} className="border-b border-neutral-300">
+              <td className="px-2 py-1 align-top">{item.description}</td>
+              <td className="px-2 py-1 align-top">{formatQuantity(item.taxRate)} %</td>
+              <td className="px-2 py-1 text-right align-top">
                 {formatMoney(item.lineNetAmount, invoice.currency)}
               </td>
             </tr>
@@ -397,19 +438,20 @@ function AgencyDeTemplate({ data, logoUrl }: { data: InvoicePrintDto; logoUrl?: 
         </tbody>
       </table>
 
+      {/* Rules only above Summe Netto and Gesamtbetrag, like the reference */}
       <div className="mt-6 ml-auto w-[90mm] text-[10pt]">
         <div className="flex justify-between border-t border-neutral-400 py-1">
           <span>Summe Netto:</span>
           <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
         </div>
         {hasVat && (
-          <div className="flex justify-between border-t border-neutral-400 py-1">
+          <div className="flex justify-between py-1">
             <span>zzgl. {formatQuantity(taxRate)} % Ust.:</span>
             <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
           </div>
         )}
         {invoice.reverseChargeNote && (
-          <div className="flex justify-between border-t border-neutral-400 py-1">
+          <div className="flex justify-between py-1">
             <span>{invoice.reverseChargeNote}</span>
             <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
           </div>
@@ -468,7 +510,7 @@ function AgencyEnTemplate({ data, logoUrl }: { data: InvoicePrintDto; logoUrl?: 
       )}
 
       <div className="mt-[16mm]">
-        <AddressBlock party={recipient} />
+        <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
       </div>
 
       <div className="mt-[14mm] text-[16pt] font-bold">INVOICE</div>
@@ -486,7 +528,13 @@ function AgencyEnTemplate({ data, logoUrl }: { data: InvoicePrintDto; logoUrl?: 
       <p className="mt-4 text-[10pt]">{invoice.notes || 'Herewith we charge our agreed services:'}</p>
 
       <div className="mt-3">
-        <div className="border border-neutral-300 bg-neutral-300/60 px-2 py-1 text-[9.5pt] font-semibold">
+        <div
+          className="border-b border-neutral-400 px-2 py-1 text-[9.5pt] font-semibold"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+          }}
+        >
           Performance
         </div>
         <div className="mt-1 border-t border-dashed border-neutral-500" />
