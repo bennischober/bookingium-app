@@ -7,7 +7,11 @@ import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import type { FormMode } from '@/hooks/useFormSheet'
-import type { CreateHotelInput, HotelDto, UpdateHotelInput } from '../../../../main/api/schemas/hotel.schema'
+import type {
+  CreateHotelInput,
+  HotelDto,
+  UpdateHotelInput
+} from '../../../../main/api/schemas/hotel.schema'
 
 interface HotelFormProps {
   mode: FormMode
@@ -17,7 +21,13 @@ interface HotelFormProps {
   isSubmitting?: boolean
 }
 
-export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting = false }: HotelFormProps) {
+export function HotelForm({
+  mode,
+  initialData,
+  onSubmit,
+  onCancel,
+  isSubmitting = false
+}: HotelFormProps) {
   const form = useForm({
     defaultValues: {
       name: initialData?.name ?? '',
@@ -126,7 +136,11 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
           Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Hotel anlegen' : 'Änderungen speichern'}
+          {isSubmitting
+            ? 'Speichert...'
+            : mode === 'create'
+              ? 'Hotel anlegen'
+              : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

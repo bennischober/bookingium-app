@@ -184,8 +184,7 @@ export class CompanyRepository {
       if (input.address) {
         if (addressId) {
           // Update existing address
-          tx
-            .update(address)
+          tx.update(address)
             .set({
               street: input.address.street,
               street_number: input.address.streetNumber,
@@ -223,8 +222,7 @@ export class CompanyRepository {
       if (input.contact) {
         if (contactId) {
           // Update existing contact
-          tx
-            .update(contact)
+          tx.update(contact)
             .set({
               email: input.contact.email,
               phone: input.contact.phone,
@@ -251,15 +249,15 @@ export class CompanyRepository {
 
       // Update company. Every optional key keeps the stored value when absent
       // (partial update, e.g. the logo-only update after company creation).
-      tx
-        .update(company)
+      tx.update(company)
         .set({
           name: input.name ?? existingCompany.name,
           notes: input.notes ?? existingCompany.notes,
           vat_number: input.vatNumber ?? existingCompany.vat_number,
           ust_number: input.ustNumber ?? existingCompany.ust_number,
           tax_number: input.taxNumber ?? existingCompany.tax_number,
-          commercial_register_no: input.commercialRegisterNo ?? existingCompany.commercial_register_no,
+          commercial_register_no:
+            input.commercialRegisterNo ?? existingCompany.commercial_register_no,
           register_court: input.registerCourt ?? existingCompany.register_court,
           logo_path: input.logoPath ?? existingCompany.logo_path,
           is_default_for_invoicing:

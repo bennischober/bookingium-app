@@ -160,8 +160,7 @@ export class VenueRepository {
 
       if (input.address) {
         if (existingVenue.address_id) {
-          tx
-            .update(schema.address)
+          tx.update(schema.address)
             .set({
               street: input.address.street,
               street_number: input.address.streetNumber,
@@ -196,8 +195,7 @@ export class VenueRepository {
 
       if (input.contact) {
         if (existingVenue.contact_id) {
-          tx
-            .update(schema.contact)
+          tx.update(schema.contact)
             .set({
               email: input.contact.email,
               phone: input.contact.phone,
@@ -222,8 +220,7 @@ export class VenueRepository {
         }
       }
 
-      tx
-        .update(schema.venue)
+      tx.update(schema.venue)
         .set({
           name: input.name,
           capacity: input.capacity ?? null,

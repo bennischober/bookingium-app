@@ -58,7 +58,8 @@ export default function PersonRelationsPage() {
       closeDialog()
       toast.success('Erfolgreich zur Band hinzugefügt')
     },
-    onError: (error) => toast.error('Hinzufügen zur Band fehlgeschlagen', { description: error.message })
+    onError: (error) =>
+      toast.error('Hinzufügen zur Band fehlgeschlagen', { description: error.message })
   })
 
   const updateBandMember = trpcReact.relation.updateBandMember.useMutation({
@@ -84,7 +85,8 @@ export default function PersonRelationsPage() {
       closeDialog()
       toast.success('Erfolgreich zur Firma hinzugefügt')
     },
-    onError: (error) => toast.error('Hinzufügen zur Firma fehlgeschlagen', { description: error.message })
+    onError: (error) =>
+      toast.error('Hinzufügen zur Firma fehlgeschlagen', { description: error.message })
   })
 
   const updateCompanyMember = trpcReact.relation.updateCompanyMember.useMutation({
@@ -110,7 +112,8 @@ export default function PersonRelationsPage() {
       closeDialog()
       toast.success('Erfolgreich zur Spielstätte hinzugefügt')
     },
-    onError: (error) => toast.error('Hinzufügen zur Spielstätte fehlgeschlagen', { description: error.message })
+    onError: (error) =>
+      toast.error('Hinzufügen zur Spielstätte fehlgeschlagen', { description: error.message })
   })
 
   const updateVenueMember = trpcReact.relation.updateVenueMember.useMutation({
@@ -144,7 +147,10 @@ export default function PersonRelationsPage() {
     setDialogOpen(true)
   }
 
-  const openEditDialog = (type: RelationType, membership: { id: number; role: string; notes: string }) => {
+  const openEditDialog = (
+    type: RelationType,
+    membership: { id: number; role: string; notes: string }
+  ) => {
     setDialogType(type)
     setDialogMode('edit')
     setEditingId(membership.id)
@@ -249,19 +255,32 @@ export default function PersonRelationsPage() {
             ) : (
               <div className="space-y-3">
                 {relations.data?.bands.map((membership) => (
-                  <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                  <div
+                    key={membership.id}
+                    className="flex items-center justify-between p-3 border rounded"
+                  >
                     <div className="flex-1">
                       <p className="font-medium">{membership.bandName}</p>
-                      <Badge variant="secondary" className="mt-1">{membership.role}</Badge>
+                      <Badge variant="secondary" className="mt-1">
+                        {membership.role}
+                      </Badge>
                       {membership.notes && (
                         <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('band', membership)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog('band', membership)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemove('band', membership.id, membership.bandName)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemove('band', membership.id, membership.bandName)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -287,19 +306,34 @@ export default function PersonRelationsPage() {
             ) : (
               <div className="space-y-3">
                 {relations.data?.companies.map((membership) => (
-                  <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                  <div
+                    key={membership.id}
+                    className="flex items-center justify-between p-3 border rounded"
+                  >
                     <div className="flex-1">
                       <p className="font-medium">{membership.companyName}</p>
-                      <Badge variant="secondary" className="mt-1">{membership.role}</Badge>
+                      <Badge variant="secondary" className="mt-1">
+                        {membership.role}
+                      </Badge>
                       {membership.notes && (
                         <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('company', membership)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog('company', membership)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemove('company', membership.id, membership.companyName)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          handleRemove('company', membership.id, membership.companyName)
+                        }
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -325,19 +359,32 @@ export default function PersonRelationsPage() {
             ) : (
               <div className="space-y-3">
                 {relations.data?.venues.map((membership) => (
-                  <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                  <div
+                    key={membership.id}
+                    className="flex items-center justify-between p-3 border rounded"
+                  >
                     <div className="flex-1">
                       <p className="font-medium">{membership.venueName}</p>
-                      <Badge variant="secondary" className="mt-1">{membership.role}</Badge>
+                      <Badge variant="secondary" className="mt-1">
+                        {membership.role}
+                      </Badge>
                       {membership.notes && (
                         <p className="text-sm text-muted-foreground mt-1">{membership.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('venue', membership)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog('venue', membership)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemove('venue', membership.id, membership.venueName)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemove('venue', membership.id, membership.venueName)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

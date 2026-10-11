@@ -140,7 +140,9 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Band schnell anlegen</DialogTitle>
-          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
+          <DialogDescription>
+            Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -177,7 +179,10 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
             <Button type="button" variant="outline" onClick={onClose}>
               Abbrechen
             </Button>
-            <Button type="submit" disabled={!name.trim() || companyId === null || createBand.isPending}>
+            <Button
+              type="submit"
+              disabled={!name.trim() || companyId === null || createBand.isPending}
+            >
               Band anlegen
             </Button>
           </DialogFooter>
@@ -196,7 +201,12 @@ interface VenueQuickCreateProps {
   onCreated: (id: number, name: string) => void
 }
 
-function VenueQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: VenueQuickCreateProps) {
+function VenueQuickCreateDialog({
+  isOpen,
+  prefillName,
+  onClose,
+  onCreated
+}: VenueQuickCreateProps) {
   const [name, setName] = useState(prefillName)
   const [city, setCity] = useState('')
 
@@ -206,7 +216,8 @@ function VenueQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Ven
       onCreated(venue.id, venue.name)
       onClose()
     },
-    onError: (e) => toast.error('Spielstätte konnte nicht erstellt werden', { description: e.message })
+    onError: (e) =>
+      toast.error('Spielstätte konnte nicht erstellt werden', { description: e.message })
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -224,7 +235,9 @@ function VenueQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Ven
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Spielstätte schnell anlegen</DialogTitle>
-          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
+          <DialogDescription>
+            Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -269,7 +282,12 @@ interface PersonQuickCreateProps {
   onCreated: (id: number, label: string) => void
 }
 
-function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: PersonQuickCreateProps) {
+function PersonQuickCreateDialog({
+  isOpen,
+  prefillName,
+  onClose,
+  onCreated
+}: PersonQuickCreateProps) {
   const parts = prefillName.trim().split(' ')
   const [firstName, setFirstName] = useState(parts[0] ?? '')
   const [lastName, setLastName] = useState(parts.slice(1).join(' '))
@@ -301,7 +319,9 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Person schnell anlegen</DialogTitle>
-          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
+          <DialogDescription>
+            Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -337,7 +357,10 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
             <Button type="button" variant="outline" onClick={onClose}>
               Abbrechen
             </Button>
-            <Button type="submit" disabled={!firstName.trim() || !lastName.trim() || createPerson.isPending}>
+            <Button
+              type="submit"
+              disabled={!firstName.trim() || !lastName.trim() || createPerson.isPending}
+            >
               Person anlegen
             </Button>
           </DialogFooter>
@@ -457,7 +480,8 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
           <DialogHeader>
             <DialogTitle>Neues Event anlegen</DialogTitle>
             <DialogDescription>
-              Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt werden.
+              Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt
+              werden.
             </DialogDescription>
           </DialogHeader>
 
@@ -510,7 +534,9 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
               </div>
 
               <div className="space-y-2">
-                <Label>Spielstätte <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Label>
+                  Spielstätte <span className="text-muted-foreground text-xs">(optional)</span>
+                </Label>
                 <EntityCombobox
                   items={venueItems}
                   value={form.venueId}
@@ -529,7 +555,8 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Der LoPro (Local Promoter) ist die Person und/oder Firma, die vor Ort für die Show verantwortlich ist.
+                Der LoPro (Local Promoter) ist die Person und/oder Firma, die vor Ort für die Show
+                verantwortlich ist.
               </p>
 
               <div className="space-y-2">
@@ -665,7 +692,12 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                 </Button>
               )}
               {step === 1 && step1Valid && (
-                <Button type="button" variant="outline" onClick={handleSubmit} disabled={createMemo.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSubmit}
+                  disabled={createMemo.isPending}
+                >
                   {createMemo.isPending ? 'Wird erstellt…' : 'Schnell anlegen'}
                 </Button>
               )}

@@ -158,11 +158,7 @@ export default function BandPage() {
         searchPlaceholder="Bands filtern..."
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
-        actionButton={
-          <Button onClick={() => sheet.openCreate()}>
-            + Neue Band anlegen
-          </Button>
-        }
+        actionButton={<Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>}
       />
 
       <FormSheet

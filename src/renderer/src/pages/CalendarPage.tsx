@@ -71,7 +71,9 @@ export default function CalendarPage() {
 
     const start = startOfMonth(activeMonthDate)
     const end = endOfMonth(activeMonthDate)
-    return eventsWithParsedDate.filter((event) => isWithinInterval(event.parsedDate, { start, end }))
+    return eventsWithParsedDate.filter((event) =>
+      isWithinInterval(event.parsedDate, { start, end })
+    )
   }, [eventsWithParsedDate, selectedDate, viewMode, activeMonthDate])
 
   const groupedAgenda = useMemo(() => {
@@ -142,7 +144,8 @@ export default function CalendarPage() {
                 hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd'))
               }}
               modifiersClassNames={{
-                hasEvent: 'font-semibold underline decoration-primary decoration-2 underline-offset-4'
+                hasEvent:
+                  'font-semibold underline decoration-primary decoration-2 underline-offset-4'
               }}
             />
           </CardContent>
@@ -162,12 +165,16 @@ export default function CalendarPage() {
             {events.isLoading ? (
               <p className="text-sm text-muted-foreground">Events werden geladen...</p>
             ) : groupedAgenda.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine Events für diese Auswahl geplant.</p>
+              <p className="text-sm text-muted-foreground">
+                Keine Events für diese Auswahl geplant.
+              </p>
             ) : (
               <div className="space-y-5">
                 {groupedAgenda.map((group) => (
                   <section key={group.dayKey} className="space-y-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground">{group.dayLabel}</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      {group.dayLabel}
+                    </h3>
 
                     <div className="space-y-3">
                       {group.items.map((event) => (

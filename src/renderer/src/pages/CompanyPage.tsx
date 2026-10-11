@@ -40,7 +40,9 @@ export function CompanyPage() {
     onSuccess: () => {
       utils.company.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Firma aktualisiert', { description: 'Die Firma wurde erfolgreich aktualisiert.' })
+      toast.success('Firma aktualisiert', {
+        description: 'Die Firma wurde erfolgreich aktualisiert.'
+      })
     },
     onError: (error) => {
       toast.error('Firma konnte nicht aktualisiert werden', { description: error.message })
@@ -139,7 +141,9 @@ export function CompanyPage() {
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Firmen</h1>
-        <p className="text-sm text-muted-foreground">Verwalten Sie die Firmen Ihrer Geschäftspartner.</p>
+        <p className="text-sm text-muted-foreground">
+          Verwalten Sie die Firmen Ihrer Geschäftspartner.
+        </p>
       </div>
 
       <DataTable
@@ -156,11 +160,7 @@ export function CompanyPage() {
         searchPlaceholder="Firmen filtern..."
         isLoading={companies.isLoading}
         total={companies.data?.total ?? 0}
-        actionButton={
-          <Button onClick={() => formSheet.openCreate()}>
-            + Neue Firma anlegen
-          </Button>
-        }
+        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>}
       />
 
       <FormSheet

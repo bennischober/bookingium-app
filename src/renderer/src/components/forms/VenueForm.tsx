@@ -15,7 +15,11 @@ import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import { trpcReact } from '@/main'
 import type { FormMode } from '@/hooks/useFormSheet'
-import type { CreateVenueInput, UpdateVenueInput, VenueDto } from '../../../../main/api/schemas/venue.schema'
+import type {
+  CreateVenueInput,
+  UpdateVenueInput,
+  VenueDto
+} from '../../../../main/api/schemas/venue.schema'
 
 interface VenueFormProps {
   mode: FormMode
@@ -25,7 +29,13 @@ interface VenueFormProps {
   isSubmitting?: boolean
 }
 
-export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting = false }: VenueFormProps) {
+export function VenueForm({
+  mode,
+  initialData,
+  onSubmit,
+  onCancel,
+  isSubmitting = false
+}: VenueFormProps) {
   const companies = trpcReact.company.getListItems.useQuery()
 
   const form = useForm({
@@ -208,7 +218,11 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
           Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Spielstätte anlegen' : 'Änderungen speichern'}
+          {isSubmitting
+            ? 'Speichert...'
+            : mode === 'create'
+              ? 'Spielstätte anlegen'
+              : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

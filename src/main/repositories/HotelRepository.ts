@@ -149,8 +149,7 @@ export class HotelRepository {
 
       if (input.address) {
         if (existingHotel.address_id) {
-          tx
-            .update(schema.address)
+          tx.update(schema.address)
             .set({
               street: input.address.street,
               street_number: input.address.streetNumber,
@@ -185,8 +184,7 @@ export class HotelRepository {
 
       if (input.contact) {
         if (existingHotel.contact_id) {
-          tx
-            .update(schema.contact)
+          tx.update(schema.contact)
             .set({
               email: input.contact.email,
               phone: input.contact.phone,
@@ -211,8 +209,7 @@ export class HotelRepository {
         }
       }
 
-      tx
-        .update(schema.hotel)
+      tx.update(schema.hotel)
         .set({
           name: input.name,
           notes: input.notes,

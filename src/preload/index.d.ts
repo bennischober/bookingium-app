@@ -1,7 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 export interface DocumentAPI {
-  uploadDocument: (eventId: number, sourcePath: string, targetFileName: string) => Promise<{
+  uploadDocument: (
+    eventId: number,
+    sourcePath: string,
+    targetFileName: string
+  ) => Promise<{
     success: boolean
     relativePath?: string
     fileName?: string

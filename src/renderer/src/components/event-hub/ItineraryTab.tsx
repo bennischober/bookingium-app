@@ -112,12 +112,18 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
       setPerformanceInformation(event.performanceInformation ?? '')
       if (itinerary) {
         setSchedule({
-          getIn: itinerary.getIn, loadIn: itinerary.loadIn,
-          soundCheckMainAct: itinerary.soundCheckMainAct, soundCheckSupport: itinerary.soundCheckSupport,
-          dinner: itinerary.dinner, doors: itinerary.doors,
-          showTimeMainAct: itinerary.showTimeMainAct, showTimeSupport: itinerary.showTimeSupport,
-          curfewStage: itinerary.curfewStage, curfewVenue: itinerary.curfewVenue,
-          showLength: itinerary.showLength, notes: itinerary.notes
+          getIn: itinerary.getIn,
+          loadIn: itinerary.loadIn,
+          soundCheckMainAct: itinerary.soundCheckMainAct,
+          soundCheckSupport: itinerary.soundCheckSupport,
+          dinner: itinerary.dinner,
+          doors: itinerary.doors,
+          showTimeMainAct: itinerary.showTimeMainAct,
+          showTimeSupport: itinerary.showTimeSupport,
+          curfewStage: itinerary.curfewStage,
+          curfewVenue: itinerary.curfewVenue,
+          showLength: itinerary.showLength,
+          notes: itinerary.notes
         })
       } else {
         setSchedule(emptySchedule)
@@ -140,9 +146,18 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
 
   type ScheduleState = Omit<ItineraryDto, 'id' | 'dealMemoId' | 'createdAt' | 'updatedAt'>
   const emptySchedule: ScheduleState = {
-    getIn: '', loadIn: '', soundCheckMainAct: '', soundCheckSupport: '',
-    dinner: '', doors: '', showTimeMainAct: '', showTimeSupport: '',
-    curfewStage: '', curfewVenue: '', showLength: '', notes: ''
+    getIn: '',
+    loadIn: '',
+    soundCheckMainAct: '',
+    soundCheckSupport: '',
+    dinner: '',
+    doors: '',
+    showTimeMainAct: '',
+    showTimeSupport: '',
+    curfewStage: '',
+    curfewVenue: '',
+    showLength: '',
+    notes: ''
   }
   const [schedule, setSchedule] = useState<ScheduleState>(emptySchedule)
 
@@ -182,7 +197,8 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
       utils.itinerary.getByDealMemoId.invalidate(event.id)
       toast.success('Tagesablauf gespeichert')
     },
-    onError: (e) => toast.error('Tagesablauf konnte nicht gespeichert werden', { description: e.message })
+    onError: (e) =>
+      toast.error('Tagesablauf konnte nicht gespeichert werden', { description: e.message })
   })
 
   const handleSwapHotel = (hotelId: number | null) => {
@@ -254,7 +270,9 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                     value={amountOfPeople}
                     onChange={(e) => setAmountOfPeople(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">Gesamte Personen, die eine Unterkunft benötigen</p>
+                  <p className="text-xs text-muted-foreground">
+                    Gesamte Personen, die eine Unterkunft benötigen
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="roomInfo">Zimmeraufteilung</Label>
@@ -329,8 +347,16 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="Show-Zeit" value={performanceTime || null} placeholder="Nicht festgelegt" />
-                <ReadOnlyField label="Dauer" value={performanceDuration || null} placeholder="Nicht festgelegt" />
+                <ReadOnlyField
+                  label="Show-Zeit"
+                  value={performanceTime || null}
+                  placeholder="Nicht festgelegt"
+                />
+                <ReadOnlyField
+                  label="Dauer"
+                  value={performanceDuration || null}
+                  placeholder="Nicht festgelegt"
+                />
               </div>
               <ReadOnlyField
                 label="Anmerkungen zum Auftritt"
@@ -356,7 +382,8 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
         ) : !itinerary ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted-foreground">
-              Noch kein Tagesablauf vorhanden. Legen Sie einen an, um Aufbauzeiten, Soundchecks und Show-Zeiten zu erfassen.
+              Noch kein Tagesablauf vorhanden. Legen Sie einen an, um Aufbauzeiten, Soundchecks und
+              Show-Zeiten zu erfassen.
             </p>
             {isEditing && (
               <Button
@@ -463,7 +490,11 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
               <div className="grid grid-cols-[200px_1fr] items-center gap-3">
                 <span className="text-right text-sm text-muted-foreground">Showlänge</span>
                 <span className="text-sm font-mono">
-                  {schedule.showLength ? `${schedule.showLength} min` : <span className="text-muted-foreground italic">—</span>}
+                  {schedule.showLength ? (
+                    `${schedule.showLength} min`
+                  ) : (
+                    <span className="text-muted-foreground italic">—</span>
+                  )}
                 </span>
               </div>
               <Separator className="my-1" />

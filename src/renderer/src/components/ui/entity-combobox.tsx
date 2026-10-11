@@ -81,11 +81,7 @@ export function EntityCombobox({
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput
-          placeholder={searchPlaceholder}
-          value={query}
-          onValueChange={setQuery}
-        />
+        <CommandInput placeholder={searchPlaceholder} value={query} onValueChange={setQuery} />
         <CommandList>
           <CommandEmpty>
             <span className="text-sm text-muted-foreground">{emptyText}</span>
@@ -93,11 +89,7 @@ export function EntityCombobox({
 
           <CommandGroup>
             {items.map((item) => (
-              <CommandItem
-                key={item.id}
-                value={item.label}
-                onSelect={() => handleSelect(item.id)}
-              >
+              <CommandItem key={item.id} value={item.label} onSelect={() => handleSelect(item.id)}>
                 <Check
                   className={cn('mr-2 h-4 w-4', value === item.id ? 'opacity-100' : 'opacity-0')}
                 />

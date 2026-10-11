@@ -53,7 +53,8 @@ export class InvoiceMapper {
       invoiceNumber: entity.invoice_number,
       companyId: entity.company_id,
       companyName: entity.company?.name ?? 'Unknown company',
-      recipientKind: (entity.recipientSnapshot?.kind as InvoiceListItemDto['recipientKind']) ?? 'other',
+      recipientKind:
+        (entity.recipientSnapshot?.kind as InvoiceListItemDto['recipientKind']) ?? 'other',
       recipientName: entity.recipientSnapshot?.legal_name ?? 'Unknown recipient',
       recipientCompanyId: entity.recipientSnapshot?.source_company_id ?? null,
       recipientBandId: entity.recipientSnapshot?.source_band_id ?? null,

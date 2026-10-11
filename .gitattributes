@@ -1,0 +1,23 @@
+# Normalize line endings: LF in the repository and working tree everywhere.
+# Prettier is configured with endOfLine: lf to match.
+* text=auto eol=lf
+
+# Windows scripts conventionally need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries must never be normalized
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.doc binary
+*.docx binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.node binary

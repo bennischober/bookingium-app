@@ -1,4 +1,7 @@
-import type { InvoicePartySnapshotDto, InvoicePrintDto } from '../../../../main/api/schemas/invoice.schema'
+import type {
+  InvoicePartySnapshotDto,
+  InvoicePrintDto
+} from '../../../../main/api/schemas/invoice.schema'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -125,8 +128,7 @@ function CenteredLegalFooter({
     .filter(Boolean)
     .join(', ')
 
-  const holderDiffers =
-    issuer.accountHolder && issuer.accountHolder !== issuer.legalName
+  const holderDiffers = issuer.accountHolder && issuer.accountHolder !== issuer.legalName
 
   const lines: Array<Array<[string, string]>> = []
   if (addressValue) lines.push([[L.address, addressValue]])
@@ -138,7 +140,8 @@ function CenteredLegalFooter({
 
   const line3: Array<[string, string]> = []
   if (issuer.registerCourt) line3.push([L.registerCourt, issuer.registerCourt])
-  if (issuer.vatNumber || issuer.ustNumber) line3.push([L.vatId, issuer.vatNumber || issuer.ustNumber])
+  if (issuer.vatNumber || issuer.ustNumber)
+    line3.push([L.vatId, issuer.vatNumber || issuer.ustNumber])
   if (issuer.email) line3.push([L.email, issuer.email])
   if (line3.length > 0) lines.push(line3)
 
@@ -182,19 +185,17 @@ const HATCH_STYLE = {
 // Gray meta band (Kuenstler | Zeitraum | ... / Artist | Period | ...).
 // The reference documents use Word-style diagonal-hatch shading with no cell
 // grid; borders only appear as thin rules under the header and below the row.
-function MetaBand({
-  columns,
-  values
-}: {
-  columns: string[]
-  values: string[]
-}) {
+function MetaBand({ columns, values }: { columns: string[]; values: string[] }) {
   return (
     <table className="mt-4 w-full table-fixed border-collapse text-[9.5pt]">
       <thead>
         <tr>
           {columns.map((column) => (
-            <th key={column} className="border-b border-neutral-400 px-2 py-1 text-left font-semibold" style={HATCH_STYLE}>
+            <th
+              key={column}
+              className="border-b border-neutral-400 px-2 py-1 text-left font-semibold"
+              style={HATCH_STYLE}
+            >
               {column}
             </th>
           ))}
@@ -253,7 +254,8 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
     reverseCharge: 'Reverse Charge Procedure applies',
     total: 'Sum total:',
     paymentDue: (date) => `Please transfer the amount until ${date} to our account.`,
-    thanks: 'We would like to thank you for your cooperation and ask you to transfer the money to our account.'
+    thanks:
+      'We would like to thank you for your cooperation and ask you to transfer the money to our account.'
   }
 }
 
@@ -263,7 +265,15 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
 // with 5 columns (incl. place of performance), 3-column items table,
 // stacked totals with rules above Summe Netto and the total,
 // closing sentence, centered data-driven footer
-function AgencyTemplate({ data, lang, logoUrl }: { data: InvoicePrintDto; lang: 'de' | 'en'; logoUrl?: string }) {
+function AgencyTemplate({
+  data,
+  lang,
+  logoUrl
+}: {
+  data: InvoicePrintDto
+  lang: 'de' | 'en'
+  logoUrl?: string
+}) {
   const { invoice, issuer, recipient } = data
   const t = AGENCY_STRINGS[lang]
   const taxRate = dominantTaxRate(data)
@@ -295,7 +305,10 @@ function AgencyTemplate({ data, lang, logoUrl }: { data: InvoicePrintDto; lang: 
       <table className="mt-4 w-full border-collapse text-[9.5pt]">
         <thead>
           <tr>
-            <th className="border-b border-neutral-400 px-2 py-1 text-left font-semibold" style={HATCH_STYLE}>
+            <th
+              className="border-b border-neutral-400 px-2 py-1 text-left font-semibold"
+              style={HATCH_STYLE}
+            >
               {t.items[0]}
             </th>
             <th
@@ -446,10 +459,16 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
               <td className="py-2 pr-2">{item.description}</td>
               <td className="py-2 pr-2 text-right">{formatQuantity(item.quantity)}</td>
               <td className="py-2 pr-2">{item.unit}</td>
-              <td className="py-2 pr-2 text-right">{formatMoney(item.lineNetAmount, invoice.currency)}</td>
+              <td className="py-2 pr-2 text-right">
+                {formatMoney(item.lineNetAmount, invoice.currency)}
+              </td>
               <td className="py-2 pr-2 text-right">{formatQuantity(item.taxRate)}%</td>
-              <td className="py-2 pr-2 text-right">{formatMoney(item.lineTaxAmount, invoice.currency)}</td>
-              <td className="py-2 text-right">{formatMoney(item.lineGrossAmount, invoice.currency)}</td>
+              <td className="py-2 pr-2 text-right">
+                {formatMoney(item.lineTaxAmount, invoice.currency)}
+              </td>
+              <td className="py-2 text-right">
+                {formatMoney(item.lineGrossAmount, invoice.currency)}
+              </td>
             </tr>
           ))}
         </tbody>

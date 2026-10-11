@@ -7,23 +7,19 @@ const api = {
   uploadDocument: (eventId: number, sourcePath: string, targetFileName: string) =>
     ipcRenderer.invoke('document:upload', { eventId, sourcePath, targetFileName }),
 
-  openDocument: (filePath: string) =>
-    ipcRenderer.invoke('document:open', { filePath }),
+  openDocument: (filePath: string) => ipcRenderer.invoke('document:open', { filePath }),
 
   revealDocumentInFolder: (filePath: string) =>
     ipcRenderer.invoke('document:revealInFolder', { filePath }),
 
-  showOpenDialog: () =>
-    ipcRenderer.invoke('dialog:showOpenDialog'),
+  showOpenDialog: () => ipcRenderer.invoke('dialog:showOpenDialog'),
 
   uploadLogo: (companyId: number, sourcePath: string, fileName: string) =>
     ipcRenderer.invoke('logo:upload', { companyId, sourcePath, fileName }),
 
-  deleteLogo: (relativePath: string) =>
-    ipcRenderer.invoke('logo:delete', { relativePath }),
+  deleteLogo: (relativePath: string) => ipcRenderer.invoke('logo:delete', { relativePath }),
 
-  getLogoPath: (relativePath: string) =>
-    ipcRenderer.invoke('logo:getDataUrl', { relativePath })
+  getLogoPath: (relativePath: string) => ipcRenderer.invoke('logo:getDataUrl', { relativePath })
 }
 
 process.once('loaded', () => {

@@ -82,16 +82,12 @@
       "indexes": {
         "address_city_idx": {
           "name": "address_city_idx",
-          "columns": [
-            "city"
-          ],
+          "columns": ["city"],
           "isUnique": false
         },
         "address_country_idx": {
           "name": "address_country_idx",
-          "columns": [
-            "country"
-          ],
+          "columns": ["country"],
           "isUnique": false
         }
       },
@@ -167,16 +163,12 @@
       "indexes": {
         "band_name_idx": {
           "name": "band_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         },
         "band_company_idx": {
           "name": "band_company_idx",
-          "columns": [
-            "company_id"
-          ],
+          "columns": ["company_id"],
           "isUnique": false
         }
       },
@@ -185,12 +177,8 @@
           "name": "band_company_id_company_id_fk",
           "tableFrom": "band",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -241,24 +229,17 @@
       "indexes": {
         "band_member_band_idx": {
           "name": "band_member_band_idx",
-          "columns": [
-            "band_id"
-          ],
+          "columns": ["band_id"],
           "isUnique": false
         },
         "band_member_person_idx": {
           "name": "band_member_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         },
         "band_member_unique_idx": {
           "name": "band_member_unique_idx",
-          "columns": [
-            "band_id",
-            "person_id"
-          ],
+          "columns": ["band_id", "person_id"],
           "isUnique": true
         }
       },
@@ -267,12 +248,8 @@
           "name": "band_member_band_id_band_id_fk",
           "tableFrom": "band_member",
           "tableTo": "band",
-          "columnsFrom": [
-            "band_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["band_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -280,12 +257,8 @@
           "name": "band_member_person_id_person_id_fk",
           "tableFrom": "band_member",
           "tableTo": "person",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -340,9 +313,7 @@
       "indexes": {
         "bank_iban_idx": {
           "name": "bank_iban_idx",
-          "columns": [
-            "iban"
-          ],
+          "columns": ["iban"],
           "isUnique": false
         }
       },
@@ -439,9 +410,7 @@
       "indexes": {
         "company_name_idx": {
           "name": "company_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         }
       },
@@ -450,12 +419,8 @@
           "name": "company_bank_id_bank_id_fk",
           "tableFrom": "company",
           "tableTo": "bank",
-          "columnsFrom": [
-            "bank_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bank_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -463,12 +428,8 @@
           "name": "company_address_id_address_id_fk",
           "tableFrom": "company",
           "tableTo": "address",
-          "columnsFrom": [
-            "address_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["address_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -476,12 +437,8 @@
           "name": "company_contact_id_contact_id_fk",
           "tableFrom": "company",
           "tableTo": "contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -534,16 +491,12 @@
       "indexes": {
         "company_invoice_settings_company_unique_idx": {
           "name": "company_invoice_settings_company_unique_idx",
-          "columns": [
-            "company_id"
-          ],
+          "columns": ["company_id"],
           "isUnique": true
         },
         "company_invoice_settings_next_number_idx": {
           "name": "company_invoice_settings_next_number_idx",
-          "columns": [
-            "next_invoice_number"
-          ],
+          "columns": ["next_invoice_number"],
           "isUnique": false
         }
       },
@@ -552,12 +505,8 @@
           "name": "company_invoice_settings_company_id_company_id_fk",
           "tableFrom": "company_invoice_settings",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -608,24 +557,17 @@
       "indexes": {
         "company_member_company_idx": {
           "name": "company_member_company_idx",
-          "columns": [
-            "company_id"
-          ],
+          "columns": ["company_id"],
           "isUnique": false
         },
         "company_member_person_idx": {
           "name": "company_member_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         },
         "company_member_unique_idx": {
           "name": "company_member_unique_idx",
-          "columns": [
-            "company_id",
-            "person_id"
-          ],
+          "columns": ["company_id", "person_id"],
           "isUnique": true
         }
       },
@@ -634,12 +576,8 @@
           "name": "company_member_company_id_company_id_fk",
           "tableFrom": "company_member",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -647,12 +585,8 @@
           "name": "company_member_person_id_person_id_fk",
           "tableFrom": "company_member",
           "tableTo": "person",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -704,9 +638,7 @@
       "indexes": {
         "contact_email_idx": {
           "name": "contact_email_idx",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": false
         }
       },
@@ -886,44 +818,32 @@
       "indexes": {
         "deal_memo_name_idx": {
           "name": "deal_memo_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         },
         "deal_memo_date_idx": {
           "name": "deal_memo_date_idx",
-          "columns": [
-            "date"
-          ],
+          "columns": ["date"],
           "isUnique": false
         },
         "deal_memo_band_idx": {
           "name": "deal_memo_band_idx",
-          "columns": [
-            "band_id"
-          ],
+          "columns": ["band_id"],
           "isUnique": false
         },
         "deal_memo_venue_idx": {
           "name": "deal_memo_venue_idx",
-          "columns": [
-            "venue_id"
-          ],
+          "columns": ["venue_id"],
           "isUnique": false
         },
         "deal_memo_invoice_company_idx": {
           "name": "deal_memo_invoice_company_idx",
-          "columns": [
-            "invoice_company_id"
-          ],
+          "columns": ["invoice_company_id"],
           "isUnique": false
         },
         "deal_memo_status_idx": {
           "name": "deal_memo_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -932,12 +852,8 @@
           "name": "deal_memo_lopro_person_id_person_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "person",
-          "columnsFrom": [
-            "lopro_person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lopro_person_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -945,12 +861,8 @@
           "name": "deal_memo_lopro_company_id_company_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "company",
-          "columnsFrom": [
-            "lopro_company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lopro_company_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -958,12 +870,8 @@
           "name": "deal_memo_invoice_company_id_company_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "company",
-          "columnsFrom": [
-            "invoice_company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_company_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -971,12 +879,8 @@
           "name": "deal_memo_band_id_band_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "band",
-          "columnsFrom": [
-            "band_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["band_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -984,12 +888,8 @@
           "name": "deal_memo_venue_id_venue_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "venue",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["venue_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -997,12 +897,8 @@
           "name": "deal_memo_hotel_id_hotel_id_fk",
           "tableFrom": "deal_memo",
           "tableTo": "hotel",
-          "columnsFrom": [
-            "hotel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["hotel_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1098,23 +994,17 @@
       "indexes": {
         "document_deal_memo_idx": {
           "name": "document_deal_memo_idx",
-          "columns": [
-            "deal_memo_id"
-          ],
+          "columns": ["deal_memo_id"],
           "isUnique": false
         },
         "document_type_idx": {
           "name": "document_type_idx",
-          "columns": [
-            "document_type"
-          ],
+          "columns": ["document_type"],
           "isUnique": false
         },
         "document_uploaded_at_idx": {
           "name": "document_uploaded_at_idx",
-          "columns": [
-            "uploaded_at"
-          ],
+          "columns": ["uploaded_at"],
           "isUnique": false
         }
       },
@@ -1123,12 +1013,8 @@
           "name": "document_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "document",
           "tableTo": "deal_memo",
-          "columnsFrom": [
-            "deal_memo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deal_memo_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1194,9 +1080,7 @@
       "indexes": {
         "hotel_name_idx": {
           "name": "hotel_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         }
       },
@@ -1205,12 +1089,8 @@
           "name": "hotel_contact_id_contact_id_fk",
           "tableFrom": "hotel",
           "tableTo": "contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1218,12 +1098,8 @@
           "name": "hotel_address_id_address_id_fk",
           "tableFrom": "hotel",
           "tableTo": "address",
-          "columnsFrom": [
-            "address_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["address_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1405,52 +1281,37 @@
       "indexes": {
         "invoice_company_idx": {
           "name": "invoice_company_idx",
-          "columns": [
-            "company_id"
-          ],
+          "columns": ["company_id"],
           "isUnique": false
         },
         "invoice_recipient_snapshot_idx": {
           "name": "invoice_recipient_snapshot_idx",
-          "columns": [
-            "recipient_snapshot_id"
-          ],
+          "columns": ["recipient_snapshot_id"],
           "isUnique": false
         },
         "invoice_deal_memo_idx": {
           "name": "invoice_deal_memo_idx",
-          "columns": [
-            "deal_memo_id"
-          ],
+          "columns": ["deal_memo_id"],
           "isUnique": false
         },
         "invoice_status_idx": {
           "name": "invoice_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "invoice_issue_date_idx": {
           "name": "invoice_issue_date_idx",
-          "columns": [
-            "issue_date"
-          ],
+          "columns": ["issue_date"],
           "isUnique": false
         },
         "invoice_period_start_idx": {
           "name": "invoice_period_start_idx",
-          "columns": [
-            "period_start_date"
-          ],
+          "columns": ["period_start_date"],
           "isUnique": false
         },
         "invoice_company_invoice_number_unique_idx": {
           "name": "invoice_company_invoice_number_unique_idx",
-          "columns": [
-            "company_id",
-            "invoice_number"
-          ],
+          "columns": ["company_id", "invoice_number"],
           "isUnique": true
         }
       },
@@ -1459,12 +1320,8 @@
           "name": "invoice_company_id_company_id_fk",
           "tableFrom": "invoice",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1472,12 +1329,8 @@
           "name": "invoice_issuer_snapshot_id_invoice_party_snapshot_id_fk",
           "tableFrom": "invoice",
           "tableTo": "invoice_party_snapshot",
-          "columnsFrom": [
-            "issuer_snapshot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["issuer_snapshot_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1485,12 +1338,8 @@
           "name": "invoice_recipient_snapshot_id_invoice_party_snapshot_id_fk",
           "tableFrom": "invoice",
           "tableTo": "invoice_party_snapshot",
-          "columnsFrom": [
-            "recipient_snapshot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recipient_snapshot_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1498,12 +1347,8 @@
           "name": "invoice_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "invoice",
           "tableTo": "deal_memo",
-          "columnsFrom": [
-            "deal_memo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deal_memo_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1620,17 +1465,12 @@
       "indexes": {
         "invoice_line_item_invoice_idx": {
           "name": "invoice_line_item_invoice_idx",
-          "columns": [
-            "invoice_id"
-          ],
+          "columns": ["invoice_id"],
           "isUnique": false
         },
         "invoice_line_item_position_idx": {
           "name": "invoice_line_item_position_idx",
-          "columns": [
-            "invoice_id",
-            "position"
-          ],
+          "columns": ["invoice_id", "position"],
           "isUnique": false
         }
       },
@@ -1639,12 +1479,8 @@
           "name": "invoice_line_item_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_line_item",
           "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1806,16 +1642,12 @@
       "indexes": {
         "invoice_party_snapshot_kind_idx": {
           "name": "invoice_party_snapshot_kind_idx",
-          "columns": [
-            "kind"
-          ],
+          "columns": ["kind"],
           "isUnique": false
         },
         "invoice_party_snapshot_legal_name_idx": {
           "name": "invoice_party_snapshot_legal_name_idx",
-          "columns": [
-            "legal_name"
-          ],
+          "columns": ["legal_name"],
           "isUnique": false
         }
       },
@@ -1824,12 +1656,8 @@
           "name": "invoice_party_snapshot_source_company_id_company_id_fk",
           "tableFrom": "invoice_party_snapshot",
           "tableTo": "company",
-          "columnsFrom": [
-            "source_company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_company_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1837,12 +1665,8 @@
           "name": "invoice_party_snapshot_source_band_id_band_id_fk",
           "tableFrom": "invoice_party_snapshot",
           "tableTo": "band",
-          "columnsFrom": [
-            "source_band_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_band_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1850,12 +1674,8 @@
           "name": "invoice_party_snapshot_source_person_id_person_id_fk",
           "tableFrom": "invoice_party_snapshot",
           "tableTo": "person",
-          "columnsFrom": [
-            "source_person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_person_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1996,9 +1816,7 @@
       "indexes": {
         "itinerary_deal_memo_idx": {
           "name": "itinerary_deal_memo_idx",
-          "columns": [
-            "deal_memo_id"
-          ],
+          "columns": ["deal_memo_id"],
           "isUnique": true
         }
       },
@@ -2007,12 +1825,8 @@
           "name": "itinerary_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "itinerary",
           "tableTo": "deal_memo",
-          "columnsFrom": [
-            "deal_memo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deal_memo_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2092,10 +1906,7 @@
       "indexes": {
         "person_name_idx": {
           "name": "person_name_idx",
-          "columns": [
-            "first_name",
-            "last_name"
-          ],
+          "columns": ["first_name", "last_name"],
           "isUnique": false
         }
       },
@@ -2104,12 +1915,8 @@
           "name": "person_contact_id_contact_id_fk",
           "tableFrom": "person",
           "tableTo": "contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2117,12 +1924,8 @@
           "name": "person_address_id_address_id_fk",
           "tableFrom": "person",
           "tableTo": "address",
-          "columnsFrom": [
-            "address_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["address_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2203,16 +2006,12 @@
       "indexes": {
         "venue_name_idx": {
           "name": "venue_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         },
         "venue_company_idx": {
           "name": "venue_company_idx",
-          "columns": [
-            "company_id"
-          ],
+          "columns": ["company_id"],
           "isUnique": false
         }
       },
@@ -2221,12 +2020,8 @@
           "name": "venue_address_id_address_id_fk",
           "tableFrom": "venue",
           "tableTo": "address",
-          "columnsFrom": [
-            "address_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["address_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2234,12 +2029,8 @@
           "name": "venue_company_id_company_id_fk",
           "tableFrom": "venue",
           "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2247,12 +2038,8 @@
           "name": "venue_contact_id_contact_id_fk",
           "tableFrom": "venue",
           "tableTo": "contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2303,16 +2090,12 @@
       "indexes": {
         "venue_member_venue_idx": {
           "name": "venue_member_venue_idx",
-          "columns": [
-            "venue_id"
-          ],
+          "columns": ["venue_id"],
           "isUnique": false
         },
         "venue_member_person_idx": {
           "name": "venue_member_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         }
       },
@@ -2321,12 +2104,8 @@
           "name": "venue_member_venue_id_venue_id_fk",
           "tableFrom": "venue_member",
           "tableTo": "venue",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["venue_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2334,12 +2113,8 @@
           "name": "venue_member_person_id_person_id_fk",
           "tableFrom": "venue_member",
           "tableTo": "person",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

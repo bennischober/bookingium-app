@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { addDays, endOfDay, endOfMonth, isWithinInterval, parseISO, startOfDay, startOfMonth } from 'date-fns'
+import {
+  addDays,
+  endOfDay,
+  endOfMonth,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+  startOfMonth
+} from 'date-fns'
 import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/main'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,9 +70,7 @@ export default function DashboardPage() {
     const end = endOfDay(addDays(now, 7))
 
     return parsedEvents.filter(
-      (event) =>
-        event.status !== 'cancelled' &&
-        isWithinInterval(event.parsedDate, { start, end })
+      (event) => event.status !== 'cancelled' && isWithinInterval(event.parsedDate, { start, end })
     )
   }, [parsedEvents, now])
 
@@ -153,7 +159,8 @@ export default function DashboardPage() {
           <CardContent>
             <p className="text-3xl font-bold">{openInvoices.length}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {overdueInvoices.length} überfällig · Offener Betrag {new Intl.NumberFormat('de-DE', {
+              {overdueInvoices.length} überfällig · Offener Betrag{' '}
+              {new Intl.NumberFormat('de-DE', {
                 style: 'currency',
                 currency: 'EUR'
               }).format(openInvoiceAmount)}
@@ -174,7 +181,9 @@ export default function DashboardPage() {
             {eventsQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Anstehende Events werden geladen...</p>
             ) : latestUpcoming.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine anstehenden Gigs in den nächsten 7 Tagen.</p>
+              <p className="text-sm text-muted-foreground">
+                Keine anstehenden Gigs in den nächsten 7 Tagen.
+              </p>
             ) : (
               <div className="space-y-3">
                 {latestUpcoming.map((event) => (
@@ -194,7 +203,10 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}>
+                      <Badge
+                        variant="outline"
+                        className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}
+                      >
                         {STATUS_LABELS[event.status || 'pending'] ?? event.status}
                       </Badge>
                       <Button
@@ -222,7 +234,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {isDirectoryLoading ? (
-              <p className="text-sm text-muted-foreground">Verzeichnis-Statistiken werden geladen...</p>
+              <p className="text-sm text-muted-foreground">
+                Verzeichnis-Statistiken werden geladen...
+              </p>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
@@ -280,7 +294,19 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={cn('capitalize', invoice.status === 'paid' ? 'bg-green-100 text-green-800 border-green-200' : invoice.status === 'issued' ? 'bg-blue-100 text-blue-800 border-blue-200' : invoice.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-slate-100 text-slate-800 border-slate-200')}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'capitalize',
+                        invoice.status === 'paid'
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : invoice.status === 'issued'
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : invoice.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800 border-red-200'
+                              : 'bg-slate-100 text-slate-800 border-slate-200'
+                      )}
+                    >
                       {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                     </Badge>
                     <span className="text-sm font-semibold">

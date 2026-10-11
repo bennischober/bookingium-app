@@ -103,16 +103,18 @@ export const CreateDealMemoInput = z.object({
 
 export type CreateDealMemoInput = z.infer<typeof CreateDealMemoInput>
 
-export const UpdateDealMemoInput = CreateDealMemoInput.partial().omit({ name: true }).extend({
-  name: z.string().min(1).optional(),
-  id: z.number(),
-  hotelId: z.number().nullable().optional(),
-  posters: z.string().optional(),
-  amountOfPeople: z.number().nullable().optional(),
-  roomInformation: z.string().nullable().optional(),
-  performanceDuration: z.string().nullable().optional(),
-  performanceTime: z.string().nullable().optional(),
-  performanceInformation: z.string().nullable().optional()
-})
+export const UpdateDealMemoInput = CreateDealMemoInput.partial()
+  .omit({ name: true })
+  .extend({
+    name: z.string().min(1).optional(),
+    id: z.number(),
+    hotelId: z.number().nullable().optional(),
+    posters: z.string().optional(),
+    amountOfPeople: z.number().nullable().optional(),
+    roomInformation: z.string().nullable().optional(),
+    performanceDuration: z.string().nullable().optional(),
+    performanceTime: z.string().nullable().optional(),
+    performanceInformation: z.string().nullable().optional()
+  })
 
 export type UpdateDealMemoInput = z.infer<typeof UpdateDealMemoInput>

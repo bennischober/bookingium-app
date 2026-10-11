@@ -45,7 +45,10 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.bands.map((membership) => (
-                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                <div
+                  key={membership.id}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
                   <div>
                     <p className="font-medium">{membership.bandName}</p>
                     <div className="flex gap-2 mt-1">
@@ -73,7 +76,10 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.companies.map((membership) => (
-                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                <div
+                  key={membership.id}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
                   <div>
                     <p className="font-medium">{membership.companyName}</p>
                     <div className="flex gap-2 mt-1">
@@ -101,7 +107,10 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
           ) : (
             <div className="space-y-3">
               {relations.data?.venues.map((membership) => (
-                <div key={membership.id} className="flex items-center justify-between p-3 border rounded">
+                <div
+                  key={membership.id}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
                   <div>
                     <p className="font-medium">{membership.venueName}</p>
                     <div className="flex gap-2 mt-1">

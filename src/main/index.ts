@@ -32,7 +32,7 @@ function createWindow(): void {
     }
   })
 
-  createIPCHandler({ router, windows: [mainWindow] });
+  createIPCHandler({ router, windows: [mainWindow] })
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -58,7 +58,14 @@ function createWindow(): void {
  */
 ipcMain.handle(
   'document:upload',
-  async (_event, { eventId, sourcePath, targetFileName }: { eventId: number; sourcePath: string; targetFileName: string }) => {
+  async (
+    _event,
+    {
+      eventId,
+      sourcePath,
+      targetFileName
+    }: { eventId: number; sourcePath: string; targetFileName: string }
+  ) => {
     try {
       // Generate unique filename if needed (handles collisions)
       const eventStoragePath = await getEventStoragePath(eventId)
@@ -89,49 +96,43 @@ ipcMain.handle(
  * Attempts to open the file with the system default application
  * Falls back to opening the folder if the file type is not recognized
  */
-ipcMain.handle(
-  'document:open',
-  async (_event, { filePath }: { filePath: string }) => {
-    try {
-      const fullPath = await getDocumentFullPath(filePath)
+ipcMain.handle('document:open', async (_event, { filePath }: { filePath: string }) => {
+  try {
+    const fullPath = await getDocumentFullPath(filePath)
 
-      // Try to open the file with the default application
-      await shell.openPath(fullPath)
+    // Try to open the file with the default application
+    await shell.openPath(fullPath)
 
-      return { success: true }
-    } catch (error) {
-      console.error('Error opening document:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+    return { success: true }
+  } catch (error) {
+    console.error('Error opening document:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
-)
+})
 
 /**
  * IPC Handler for revealing files in explorer/finder
  * Shows the file in the file explorer/finder window
  */
-ipcMain.handle(
-  'document:revealInFolder',
-  async (_event, { filePath }: { filePath: string }) => {
-    try {
-      const fullPath = await getDocumentFullPath(filePath)
+ipcMain.handle('document:revealInFolder', async (_event, { filePath }: { filePath: string }) => {
+  try {
+    const fullPath = await getDocumentFullPath(filePath)
 
-      // Show the file in the file explorer/finder
-      shell.showItemInFolder(fullPath)
+    // Show the file in the file explorer/finder
+    shell.showItemInFolder(fullPath)
 
-      return { success: true }
-    } catch (error) {
-      console.error('Error revealing document:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+    return { success: true }
+  } catch (error) {
+    console.error('Error revealing document:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
-)
+})
 
 /**
  * IPC Handler for showing file open dialog
@@ -158,7 +159,10 @@ ipcMain.handle('dialog:showOpenDialog', async () => {
  */
 ipcMain.handle(
   'logo:upload',
-  async (_event, { companyId, sourcePath, fileName }: { companyId: number; sourcePath: string; fileName: string }) => {
+  async (
+    _event,
+    { companyId, sourcePath, fileName }: { companyId: number; sourcePath: string; fileName: string }
+  ) => {
     try {
       const relativePath = await copyLogoToStorage(sourcePath, companyId, fileName)
       return { success: true, relativePath }
@@ -175,44 +179,43 @@ ipcMain.handle(
 /**
  * IPC Handler for deleting a company logo file.
  */
-ipcMain.handle(
-  'logo:delete',
-  async (_event, { relativePath }: { relativePath: string }) => {
-    try {
-      await deleteLogoFile(relativePath)
-      return { success: true }
-    } catch (error) {
-      console.error('Error deleting logo:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+ipcMain.handle('logo:delete', async (_event, { relativePath }: { relativePath: string }) => {
+  try {
+    await deleteLogoFile(relativePath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting logo:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
-)
+})
 
 /**
  * IPC Handler for resolving a stored image as a data URL.
  * Used by the renderer to display images (e.g. company logos) regardless of
  * dev (http) vs production (file) renderer origin.
  */
-ipcMain.handle(
-  'logo:getDataUrl',
-  async (_event, { relativePath }: { relativePath: string }) => {
-    try {
-      const fullPath = await getDocumentFullPath(relativePath)
-      const data = await readFile(fullPath)
-      const ext = extname(fullPath).toLowerCase()
-      const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png'
-      return { success: true, dataUrl: `data:${mime};base64,${data.toString('base64')}` }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+ipcMain.handle('logo:getDataUrl', async (_event, { relativePath }: { relativePath: string }) => {
+  try {
+    const fullPath = await getDocumentFullPath(relativePath)
+    const data = await readFile(fullPath)
+    const ext = extname(fullPath).toLowerCase()
+    const mime =
+      ext === '.svg'
+        ? 'image/svg+xml'
+        : ext === '.jpg' || ext === '.jpeg'
+          ? 'image/jpeg'
+          : 'image/png'
+    return { success: true, dataUrl: `data:${mime};base64,${data.toString('base64')}` }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
-)
+})
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

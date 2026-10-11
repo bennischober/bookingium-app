@@ -17,7 +17,9 @@ export function PersonPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
   const [relationsSheetOpen, setRelationsSheetOpen] = useState(false)
-  const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(null)
+  const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(
+    null
+  )
 
   const formSheet = useFormSheet<PersonDto>()
   const utils = trpcReact.useUtils()
@@ -48,7 +50,9 @@ export function PersonPage() {
     onSuccess: () => {
       utils.person.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Person aktualisiert', { description: 'Die Person wurde erfolgreich aktualisiert.' })
+      toast.success('Person aktualisiert', {
+        description: 'Die Person wurde erfolgreich aktualisiert.'
+      })
     },
     onError: (error) => {
       toast.error('Person konnte nicht aktualisiert werden', { description: error.message })
@@ -75,7 +79,9 @@ export function PersonPage() {
   }
 
   const handleDelete = (person: PersonDto) => {
-    if (confirm(`Sind Sie sicher, dass Sie ${person.firstName} ${person.lastName} löschen möchten?`)) {
+    if (
+      confirm(`Sind Sie sicher, dass Sie ${person.firstName} ${person.lastName} löschen möchten?`)
+    ) {
       deleteMutation.mutate({ id: person.id })
     }
   }

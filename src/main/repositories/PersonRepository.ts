@@ -168,8 +168,7 @@ export class PersonRepository {
       if (input.address) {
         if (addressId) {
           // Update existing address
-          tx
-            .update(schema.address)
+          tx.update(schema.address)
             .set({
               street: input.address.street,
               street_number: input.address.streetNumber,
@@ -207,8 +206,7 @@ export class PersonRepository {
       if (input.contact) {
         if (contactId) {
           // Update existing contact
-          tx
-            .update(schema.contact)
+          tx.update(schema.contact)
             .set({
               email: input.contact.email,
               phone: input.contact.phone,
@@ -234,8 +232,7 @@ export class PersonRepository {
       }
 
       // Update person
-      tx
-        .update(schema.person)
+      tx.update(schema.person)
         .set({
           first_name: input.firstName,
           last_name: input.lastName,

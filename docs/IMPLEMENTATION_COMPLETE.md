@@ -43,17 +43,17 @@ tRPC endpoints:
 **Four main handlers for renderer ↔ main process communication:**
 
 ```typescript
-ipcMain.handle('document:upload', async (_event, { eventId, sourcePath, targetFileName }))
-  // Copies file from source to event storage directory
-  
-ipcMain.handle('document:open', async (_event, { filePath }))
-  // Opens file with system default app using shell.openPath()
-  
-ipcMain.handle('document:revealInFolder', async (_event, { filePath }))
-  // Shows file in explorer/finder using shell.showItemInFolder()
-  
-ipcMain.handle('dialog:showOpenDialog', async ())
-  // Native file picker supporting multiselection
+ipcMain.handle('document:upload', async(_event, { eventId, sourcePath, targetFileName }))
+// Copies file from source to event storage directory
+
+ipcMain.handle('document:open', async(_event, { filePath }))
+// Opens file with system default app using shell.openPath()
+
+ipcMain.handle('document:revealInFolder', async(_event, { filePath }))
+// Shows file in explorer/finder using shell.showItemInFolder()
+
+ipcMain.handle('dialog:showOpenDialog', async())
+// Native file picker supporting multiselection
 ```
 
 ### 5. Preload API (`src/preload/index.ts`)

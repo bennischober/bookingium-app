@@ -27,7 +27,9 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Spielstätte erstellt', { description: `${venue.name} wurde erfolgreich erstellt.` })
+      toast.success('Spielstätte erstellt', {
+        description: `${venue.name} wurde erfolgreich erstellt.`
+      })
     },
     onError: (error) => {
       toast.error('Spielstätte konnte nicht erstellt werden', { description: error.message })
@@ -38,7 +40,9 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Spielstätte aktualisiert', { description: `${venue.name} wurde erfolgreich aktualisiert.` })
+      toast.success('Spielstätte aktualisiert', {
+        description: `${venue.name} wurde erfolgreich aktualisiert.`
+      })
     },
     onError: (error) => {
       toast.error('Spielstätte konnte nicht aktualisiert werden', { description: error.message })
@@ -48,7 +52,9 @@ export default function VenuePage() {
   const deleteMutation = trpcReact.venue.delete.useMutation({
     onSuccess: () => {
       utils.venue.getAllPaginated.invalidate()
-      toast.success('Spielstätte gelöscht', { description: 'Die Spielstätte wurde erfolgreich gelöscht.' })
+      toast.success('Spielstätte gelöscht', {
+        description: 'Die Spielstätte wurde erfolgreich gelöscht.'
+      })
     },
     onError: (error) => {
       toast.error('Spielstätte konnte nicht gelöscht werden', { description: error.message })
@@ -121,7 +127,9 @@ export default function VenuePage() {
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Spielstätten</h1>
-        <p className="text-sm text-muted-foreground">Verwalten Sie alle Event-Spielstätten und Kapazitäten.</p>
+        <p className="text-sm text-muted-foreground">
+          Verwalten Sie alle Event-Spielstätten und Kapazitäten.
+        </p>
       </div>
 
       <DataTable
@@ -138,7 +146,9 @@ export default function VenuePage() {
         searchPlaceholder="Spielstätten filtern..."
         isLoading={venues.isLoading}
         total={venues.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>}
+        actionButton={
+          <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
+        }
       />
 
       <FormSheet

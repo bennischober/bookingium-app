@@ -48,22 +48,21 @@ export const CreateCompanyInput = z.object({
   bankId: z.number().nullable().optional()
 })
 
-export const UpdateCompanyInput = z
-  .object({
-    id: z.number(),
-    name: z.string().min(1, 'Name is required').optional(),
-    notes: z.string().optional(),
-    vatNumber: z.string().optional(),
-    ustNumber: z.string().optional(),
-    taxNumber: z.string().optional(),
-    commercialRegisterNo: z.string().optional(),
-    registerCourt: z.string().optional(),
-    logoPath: z.string().optional(),
-    isDefaultForInvoicing: z.boolean().optional(),
-    address: AddressInput.optional(),
-    contact: ContactInput.optional(),
-    bankId: z.number().nullable().optional()
-  })
+export const UpdateCompanyInput = z.object({
+  id: z.number(),
+  name: z.string().min(1, 'Name is required').optional(),
+  notes: z.string().optional(),
+  vatNumber: z.string().optional(),
+  ustNumber: z.string().optional(),
+  taxNumber: z.string().optional(),
+  commercialRegisterNo: z.string().optional(),
+  registerCourt: z.string().optional(),
+  logoPath: z.string().optional(),
+  isDefaultForInvoicing: z.boolean().optional(),
+  address: AddressInput.optional(),
+  contact: ContactInput.optional(),
+  bankId: z.number().nullable().optional()
+})
 
 // Infer TypeScript types from schemas
 export type CompanyDto = z.infer<typeof CompanyDto>

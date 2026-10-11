@@ -87,10 +87,7 @@ export function EventPage() {
       cell: (info) => {
         const status = (info.getValue() as string) || 'pending'
         return (
-          <Badge
-            variant="outline"
-            className={cn('capitalize', STATUS_STYLES[status] ?? '')}
-          >
+          <Badge variant="outline" className={cn('capitalize', STATUS_STYLES[status] ?? '')}>
             {STATUS_LABELS[status] ?? status}
           </Badge>
         )
@@ -143,10 +140,10 @@ export function EventPage() {
         searchPlaceholder="Events filtern…"
         isLoading={events.isLoading}
         total={events.data?.total ?? 0}
-        actionButton={
-          <Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>
+        actionButton={<Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>}
+        onRowClick={(event) =>
+          navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
         }
-        onRowClick={(event) => navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })}
       />
 
       <CreateEventWizard

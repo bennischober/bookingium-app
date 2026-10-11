@@ -6,22 +6,24 @@ import { TimestampFields } from './base.schema'
  * An itinerary is always 1-to-1 with a deal_memo and holds the
  * day-of running-order schedule.
  */
-export const ItineraryDto = z.object({
-  id: z.number(),
-  dealMemoId: z.number(),
-  notes: z.string(),
-  getIn: z.string(),
-  loadIn: z.string(),
-  soundCheckMainAct: z.string(),
-  soundCheckSupport: z.string(),
-  dinner: z.string(),
-  doors: z.string(),
-  showTimeMainAct: z.string(),
-  showTimeSupport: z.string(),
-  curfewStage: z.string(),
-  curfewVenue: z.string(),
-  showLength: z.string()
-}).extend(TimestampFields.shape)
+export const ItineraryDto = z
+  .object({
+    id: z.number(),
+    dealMemoId: z.number(),
+    notes: z.string(),
+    getIn: z.string(),
+    loadIn: z.string(),
+    soundCheckMainAct: z.string(),
+    soundCheckSupport: z.string(),
+    dinner: z.string(),
+    doors: z.string(),
+    showTimeMainAct: z.string(),
+    showTimeSupport: z.string(),
+    curfewStage: z.string(),
+    curfewVenue: z.string(),
+    showLength: z.string()
+  })
+  .extend(TimestampFields.shape)
 
 export type ItineraryDto = z.infer<typeof ItineraryDto>
 

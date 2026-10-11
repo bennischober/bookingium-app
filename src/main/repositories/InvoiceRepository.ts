@@ -299,7 +299,9 @@ export class InvoiceRepository {
       .all()
 
     if (defaultCompany.length === 0) {
-      throw new Error('No invoicing company configured. Set a default company or pick one explicitly.')
+      throw new Error(
+        'No invoicing company configured. Set a default company or pick one explicitly.'
+      )
     }
 
     return defaultCompany[0].id
@@ -589,8 +591,7 @@ export class InvoiceRepository {
       const assignedInvoiceNumber = existingSettings[0]?.next_invoice_number ?? 1
 
       if (existingSettings.length > 0) {
-        tx
-          .update(schema.company_invoice_settings)
+        tx.update(schema.company_invoice_settings)
           .set({
             next_invoice_number: assignedInvoiceNumber + 1,
             updated_at: sql`datetime('now')`
@@ -598,10 +599,12 @@ export class InvoiceRepository {
           .where(eq(schema.company_invoice_settings.id, existingSettings[0].id))
           .run()
       } else {
-        tx.insert(schema.company_invoice_settings).values({
-          company_id: companyId,
-          next_invoice_number: assignedInvoiceNumber + 1
-        }).run()
+        tx.insert(schema.company_invoice_settings)
+          .values({
+            company_id: companyId,
+            next_invoice_number: assignedInvoiceNumber + 1
+          })
+          .run()
       }
 
       const created = tx
@@ -637,8 +640,7 @@ export class InvoiceRepository {
       const invoiceId = created[0].id
 
       for (const item of normalizedLineItems) {
-        tx
-          .insert(schema.invoice_line_item)
+        tx.insert(schema.invoice_line_item)
           .values({
             invoice_id: invoiceId,
             position: item.position,
@@ -740,9 +742,7 @@ export class InvoiceRepository {
           tx,
           {
             dealMemoId:
-              'dealMemoId' in input
-                ? (input.dealMemoId ?? null)
-                : (existing.deal_memo_id ?? null),
+              'dealMemoId' in input ? (input.dealMemoId ?? null) : (existing.deal_memo_id ?? null),
             companyId: nextCompanyId,
             recipientKind: inferredKind,
             recipientCompanyId: input.recipientCompanyId ?? null,
@@ -767,11 +767,12 @@ export class InvoiceRepository {
       }
 
       if (normalizedLineItems) {
-        tx.delete(schema.invoice_line_item).where(eq(schema.invoice_line_item.invoice_id, input.id)).run()
+        tx.delete(schema.invoice_line_item)
+          .where(eq(schema.invoice_line_item.invoice_id, input.id))
+          .run()
 
         for (const item of normalizedLineItems) {
-          tx
-            .insert(schema.invoice_line_item)
+          tx.insert(schema.invoice_line_item)
             .values({
               invoice_id: input.id,
               position: item.position,
@@ -824,7 +825,10 @@ export class InvoiceRepository {
       .select()
       .from(schema.invoice)
       .where(
-        and(eq(schema.invoice.company_id, companyId), eq(schema.invoice.invoice_number, invoiceNumber))
+        and(
+          eq(schema.invoice.company_id, companyId),
+          eq(schema.invoice.invoice_number, invoiceNumber)
+        )
       )
       .limit(1)
 

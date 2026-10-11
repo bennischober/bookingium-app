@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { InvoiceDocument, INVOICE_TEMPLATES, type InvoiceTemplate } from '@/components/invoice/InvoiceDocument'
+import {
+  InvoiceDocument,
+  INVOICE_TEMPLATES,
+  type InvoiceTemplate
+} from '@/components/invoice/InvoiceDocument'
 import type { InvoicePrintDto } from '../../../main/api/schemas/invoice.schema'
 
 // Display labels for the template dropdown (DB/template values stay untouched)
@@ -65,7 +69,11 @@ export default function InvoicePrintPage() {
   }, [data?.issuer?.logoPath])
 
   if (printQuery.isLoading) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Rechnung wird geladen…</div>
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        Rechnung wird geladen…
+      </div>
+    )
   }
 
   if (printQuery.isError || !data) {

@@ -41,7 +41,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const [vvk, setVvk] = useState(event.ticketPriceVvk?.toString() ?? '')
   const [ak, setAk] = useState(event.ticketPriceAk?.toString() ?? '')
   const [posters, setPosters] = useState(event.posters ?? '')
-  const [invoiceCompanyId, setInvoiceCompanyId] = useState<number | null>(event.invoiceCompanyId ?? null)
+  const [invoiceCompanyId, setInvoiceCompanyId] = useState<number | null>(
+    event.invoiceCompanyId ?? null
+  )
 
   const companies = trpcReact.company.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
@@ -139,7 +141,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               </p>
             </div>
           ) : (
-            <ReadOnlyField label="Konditionen" value={deal} placeholder="Keine Konditionen hinterlegt" />
+            <ReadOnlyField
+              label="Konditionen"
+              value={deal}
+              placeholder="Keine Konditionen hinterlegt"
+            />
           )}
         </div>
 
@@ -255,7 +261,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   <SelectValue placeholder="Rechnungssteller auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Keine explizite Auswahl (Standard-Fallback verwenden)</SelectItem>
+                  <SelectItem value="none">
+                    Keine explizite Auswahl (Standard-Fallback verwenden)
+                  </SelectItem>
                   {(companies.data ?? []).map((company) => (
                     <SelectItem key={company.id} value={company.id.toString()}>
                       {company.name}
@@ -264,7 +272,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die Standard-Firma zurück.
+                Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die
+                Standard-Firma zurück.
               </p>
             </div>
           ) : (
@@ -284,14 +293,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => createInvoiceMutation.mutate({
-                dealMemoId: event.id,
-                companyId: invoiceCompanyId,
-                status: 'draft',
-                currency: 'EUR',
-                totalAmount: 0,
-                notes: ''
-              })}
+              onClick={() =>
+                createInvoiceMutation.mutate({
+                  dealMemoId: event.id,
+                  companyId: invoiceCompanyId,
+                  status: 'draft',
+                  currency: 'EUR',
+                  totalAmount: 0,
+                  notes: ''
+                })
+              }
               disabled={createInvoiceMutation.isPending}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -318,7 +329,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         #{invoice.invoiceNumber} · {invoice.companyName}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {invoice.issueDate} {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
+                        {invoice.issueDate}{' '}
+                        {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

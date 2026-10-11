@@ -1,5 +1,9 @@
 import { deal_memo, band, venue, person, company, hotel } from '../../db/schema'
-import type { DealMemoListItemDto, DealMemoDto, DealMemoDetailDto } from '../schemas/deal_memo.schema'
+import type {
+  DealMemoListItemDto,
+  DealMemoDto,
+  DealMemoDetailDto
+} from '../schemas/deal_memo.schema'
 
 type DealMemoEntity = typeof deal_memo.$inferSelect
 type BandEntity = typeof band.$inferSelect
@@ -65,9 +69,7 @@ export class DealMemoMapper {
       venue: entity.venue
         ? { id: entity.venue.id, name: entity.venue.name, capacity: entity.venue.capacity }
         : null,
-      hotel: entity.hotel
-        ? { id: entity.hotel.id, name: entity.hotel.name }
-        : null,
+      hotel: entity.hotel ? { id: entity.hotel.id, name: entity.hotel.name } : null,
       loProPerson: entity.loProPerson
         ? {
             id: entity.loProPerson.id,

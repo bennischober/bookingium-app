@@ -48,6 +48,7 @@ const companies = trpcReact.company.getListItems.useQuery()
 ```
 
 **Router Pattern**: Provide lightweight `getListItems` endpoint
+
 ```typescript
 // In company.router.ts
 getListItems: t.procedure.query(async () => {
@@ -57,6 +58,7 @@ getListItems: t.procedure.query(async () => {
 ```
 
 **Schema Pattern**: Create simplified DTO
+
 ```typescript
 export const CompanyListItemDto = z.object({
   id: z.number(),
@@ -152,7 +154,7 @@ const [selectedMembers, setSelectedMembers] = useState<number[]>([])
 
 <div className="space-y-3">
   <Label>Band Members</Label>
-  
+
   {/* Current members list */}
   <div className="space-y-2">
     {selectedMembers.map((memberId) => {
@@ -198,18 +200,20 @@ const [selectedMembers, setSelectedMembers] = useState<number[]>([])
 ```typescript
 // Option 1: Separate endpoint
 updateBandMembers: t.procedure
-  .input(z.object({
-    bandId: z.number(),
-    memberIds: z.array(z.number())
-  }))
+  .input(
+    z.object({
+      bandId: z.number(),
+      memberIds: z.array(z.number())
+    })
+  )
   .mutation(async ({ input }) => {
     // Delete existing
     await db.delete(schema.band_member).where(eq(schema.band_member.band_id, input.bandId))
-    
+
     // Insert new
     if (input.memberIds.length > 0) {
       await db.insert(schema.band_member).values(
-        input.memberIds.map(personId => ({
+        input.memberIds.map((personId) => ({
           band_id: input.bandId,
           person_id: personId
         }))
@@ -218,24 +222,26 @@ updateBandMembers: t.procedure
   })
 
 // Option 2: Include in create/update
-create: t.procedure.input(
-  CreateBandInput.extend({
-    memberIds: z.array(z.number()).optional()
+create: t.procedure
+  .input(
+    CreateBandInput.extend({
+      memberIds: z.array(z.number()).optional()
+    })
+  )
+  .mutation(async ({ input }) => {
+    const band = await bandService.createBand(input)
+
+    if (input.memberIds && input.memberIds.length > 0) {
+      await db.insert(schema.band_member).values(
+        input.memberIds.map((personId) => ({
+          band_id: band.id,
+          person_id: personId
+        }))
+      )
+    }
+
+    return band
   })
-).mutation(async ({ input }) => {
-  const band = await bandService.createBand(input)
-  
-  if (input.memberIds && input.memberIds.length > 0) {
-    await db.insert(schema.band_member).values(
-      input.memberIds.map(personId => ({
-        band_id: band.id,
-        person_id: personId
-      }))
-    )
-  }
-  
-  return band
-})
 ```
 
 ---
@@ -279,19 +285,20 @@ const [showContactSheet, setShowContactSheet] = useState(false)
 
 ## Summary
 
-| Relationship Type | Best Pattern | Example |
-|-------------------|-------------|---------|
-| Required FK | Select dropdown | band → company |
-| Optional FK (simple) | Select with "None" | person → contact |
+| Relationship Type     | Best Pattern                      | Example          |
+| --------------------- | --------------------------------- | ---------------- |
+| Required FK           | Select dropdown                   | band → company   |
+| Optional FK (simple)  | Select with "None"                | person → contact |
 | Optional FK (complex) | Inline creation or separate sheet | person → address |
-| Many-to-Many | List with add/remove | band ↔ persons |
-| Reusable nested | Create first, then select | contact, address |
+| Many-to-Many          | List with add/remove              | band ↔ persons   |
+| Reusable nested       | Create first, then select         | contact, address |
 
 ---
 
 ## Implementation Checklist
 
 For each relationship:
+
 - [ ] Create lightweight DTO for dropdowns (e.g., `CompanyListItemDto`)
 - [ ] Add `getListItems` endpoint to router
 - [ ] Add mapper method for list items

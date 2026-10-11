@@ -35,14 +35,12 @@ function LogoPreview({ path }: { path: string }) {
       // Freshly picked absolute path from the dialog: the file is readable by
       // the main process only, so resolve a data URL through IPC.
       const fileName = path.split(/[\\/]/).pop() || 'logo'
-      void window.api
-        .uploadLogo(0, path, fileName)
-        .then(async (result) => {
-          if (result.success && result.relativePath) {
-            const dataUrl = await window.api.getLogoPath(result.relativePath)
-            if (dataUrl.success && dataUrl.dataUrl && !revoked) setSrc(dataUrl.dataUrl)
-          }
-        })
+      void window.api.uploadLogo(0, path, fileName).then(async (result) => {
+        if (result.success && result.relativePath) {
+          const dataUrl = await window.api.getLogoPath(result.relativePath)
+          if (dataUrl.success && dataUrl.dataUrl && !revoked) setSrc(dataUrl.dataUrl)
+        }
+      })
       return
     }
 
@@ -59,7 +57,13 @@ function LogoPreview({ path }: { path: string }) {
 
   if (!src) return null
 
-  return <img src={src} alt="Firmenlogo" className="h-16 max-w-32 object-contain rounded border bg-white" />
+  return (
+    <img
+      src={src}
+      alt="Firmenlogo"
+      className="h-16 max-w-32 object-contain rounded border bg-white"
+    />
+  )
 }
 
 export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
@@ -116,7 +120,11 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
     onSubmit: async ({ value }) => {
       // For new companies the picked logo path is passed through so the
       // repository/form owner can upload it after the company id exists.
-      onSubmit(company ? { ...value, id: company.id, logoPath: logoPreview } : { ...value, logoSourcePath: logoPreview })
+      onSubmit(
+        company
+          ? { ...value, id: company.id, logoPath: logoPreview }
+          : { ...value, logoSourcePath: logoPreview }
+      )
     }
   })
 
@@ -244,7 +252,12 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 Bild auswählen…
               </Button>
               {logoPreview && (

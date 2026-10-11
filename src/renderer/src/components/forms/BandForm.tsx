@@ -3,9 +3,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { trpcReact } from '@/main'
-import type { BandDto, CreateBandInput, UpdateBandInput } from '../../../../main/api/schemas/band.schema'
+import type {
+  BandDto,
+  CreateBandInput,
+  UpdateBandInput
+} from '../../../../main/api/schemas/band.schema'
 import type { FormMode } from '@/hooks/useFormSheet'
 
 interface BandFormProps {
@@ -16,7 +26,13 @@ interface BandFormProps {
   isSubmitting?: boolean
 }
 
-export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting = false }: BandFormProps) {
+export function BandForm({
+  mode,
+  initialData,
+  onSubmit,
+  onCancel,
+  isSubmitting = false
+}: BandFormProps) {
   // Fetch companies for dropdown
   const companies = trpcReact.company.getListItems.useQuery()
 
@@ -197,7 +213,11 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
           Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Band anlegen' : 'Änderungen speichern'}
+          {isSubmitting
+            ? 'Speichert...'
+            : mode === 'create'
+              ? 'Band anlegen'
+              : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

@@ -333,7 +333,9 @@ function InvoiceForm({
       return
     }
 
-    setLineItems((prev) => prev.map((line, idx) => (idx === editingLineIndex ? { ...lineEditor } : line)))
+    setLineItems((prev) =>
+      prev.map((line, idx) => (idx === editingLineIndex ? { ...lineEditor } : line))
+    )
     setEditingLineIndex(null)
     setLineEditor({ ...EMPTY_LINE })
   }
@@ -405,7 +407,10 @@ function InvoiceForm({
 
   return (
     <div className="space-y-4">
-      <Tabs value={step} onValueChange={(value) => setStep(value as 'basics' | 'lines' | 'finalize')}>
+      <Tabs
+        value={step}
+        onValueChange={(value) => setStep(value as 'basics' | 'lines' | 'finalize')}
+      >
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basics">1. Grunddaten</TabsTrigger>
           <TabsTrigger value="lines">2. Positionen</TabsTrigger>
@@ -428,7 +433,9 @@ function InvoiceForm({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Der Status ist nur informativ. Sie können später alles weiter bearbeiten.</p>
+              <p className="text-xs text-muted-foreground">
+                Der Status ist nur informativ. Sie können später alles weiter bearbeiten.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -475,7 +482,13 @@ function InvoiceForm({
                 info="Wer bekommt das Geld? Dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
               />
               <Select
-                value={companyId !== undefined ? (companyId === null ? 'none' : companyId.toString()) : 'auto'}
+                value={
+                  companyId !== undefined
+                    ? companyId === null
+                      ? 'none'
+                      : companyId.toString()
+                    : 'auto'
+                }
                 onValueChange={(value) => {
                   if (value === 'auto') {
                     setCompanyId(undefined)
@@ -505,10 +518,7 @@ function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <InfoLabel
-              text="Rechnungsempfänger"
-              info="Wer wird belastet? Zahlt diese Rechnung."
-            />
+            <InfoLabel text="Rechnungsempfänger" info="Wer wird belastet? Zahlt diese Rechnung." />
             <Select
               value={recipientKind}
               onValueChange={(value) => {
@@ -538,7 +548,9 @@ function InvoiceForm({
               <Label>Empfänger-Firma</Label>
               <Select
                 value={recipientCompanyId === null ? 'none' : recipientCompanyId.toString()}
-                onValueChange={(value) => setRecipientCompanyId(value === 'none' ? null : Number(value))}
+                onValueChange={(value) =>
+                  setRecipientCompanyId(value === 'none' ? null : Number(value))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Automatisch" />
@@ -611,20 +623,34 @@ function InvoiceForm({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Zeitraum von</Label>
-              <Input type="date" value={periodStartDate} onChange={(e) => setPeriodStartDate(e.target.value)} />
+              <Input
+                type="date"
+                value={periodStartDate}
+                onChange={(e) => setPeriodStartDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Zeitraum bis</Label>
-              <Input type="date" value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
+              <Input
+                type="date"
+                value={periodEndDate}
+                onChange={(e) => setPeriodEndDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Zeitraum-Bezeichnung</Label>
-              <Input placeholder="z. B. Q4 2025" value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} />
+              <Input
+                placeholder="z. B. Q4 2025"
+                value={periodLabel}
+                onChange={(e) => setPeriodLabel(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={() => setStep('lines')}>Weiter: Positionen</Button>
+            <Button type="button" onClick={() => setStep('lines')}>
+              Weiter: Positionen
+            </Button>
           </div>
         </TabsContent>
 
@@ -646,19 +672,35 @@ function InvoiceForm({
               const gross = roundMoney(net + (net * taxRate) / 100)
 
               return (
-                <div key={`line-card-${index}`} className="border rounded-md p-3 flex items-start justify-between gap-3">
+                <div
+                  key={`line-card-${index}`}
+                  className="border rounded-md p-3 flex items-start justify-between gap-3"
+                >
                   <div>
                     <p className="font-medium text-sm">{line.description || 'Ohne Bezeichnung'}</p>
                     <p className="text-xs text-muted-foreground">
-                      {quantity} x {formatMoney(unitPrice, currency)} ({taxRate}% MwSt., {TAX_CODE_LABELS[line.taxCode]})
+                      {quantity} x {formatMoney(unitPrice, currency)} ({taxRate}% MwSt.,{' '}
+                      {TAX_CODE_LABELS[line.taxCode]})
                     </p>
-                    <p className="text-xs mt-1">Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}</p>
+                    <p className="text-xs mt-1">
+                      Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}
+                    </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => openEditLine(index)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditLine(index)}
+                    >
                       Bearbeiten
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLine(index)}
+                    >
                       Entfernen
                     </Button>
                   </div>
@@ -669,33 +711,63 @@ function InvoiceForm({
 
           <div className="border rounded-md p-3 space-y-3">
             <p className="text-sm font-medium">
-              {editingLineIndex === null ? 'Position hinzufügen' : `Position #${editingLineIndex + 1} bearbeiten`}
+              {editingLineIndex === null
+                ? 'Position hinzufügen'
+                : `Position #${editingLineIndex + 1} bearbeiten`}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1 md:col-span-2">
                 <Label>Beschreibung</Label>
-                <Input value={lineEditor.description} onChange={(e) => setLine({ description: e.target.value })} />
+                <Input
+                  value={lineEditor.description}
+                  onChange={(e) => setLine({ description: e.target.value })}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Menge</Label>
-                <Input type="number" step="0.01" min="0" value={lineEditor.quantity} onChange={(e) => setLine({ quantity: e.target.value })} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={lineEditor.quantity}
+                  onChange={(e) => setLine({ quantity: e.target.value })}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Einheit</Label>
-                <Input value={lineEditor.unit} onChange={(e) => setLine({ unit: e.target.value })} />
+                <Input
+                  value={lineEditor.unit}
+                  onChange={(e) => setLine({ unit: e.target.value })}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Netto-Einzelpreis</Label>
-                <Input type="number" step="0.01" min="0" value={lineEditor.unitPriceNet} onChange={(e) => setLine({ unitPriceNet: e.target.value })} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={lineEditor.unitPriceNet}
+                  onChange={(e) => setLine({ unitPriceNet: e.target.value })}
+                />
               </div>
               <div className="space-y-1">
                 <Label>MwSt. %</Label>
-                <Input type="number" step="0.01" min="0" max="100" value={lineEditor.taxRate} onChange={(e) => setLine({ taxRate: e.target.value })} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={lineEditor.taxRate}
+                  onChange={(e) => setLine({ taxRate: e.target.value })}
+                />
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label>Steuerschlüssel</Label>
-                <Select value={lineEditor.taxCode} onValueChange={(value) => setLine({ taxCode: value as InvoiceTaxCode })}>
+                <Select
+                  value={lineEditor.taxCode}
+                  onValueChange={(value) => setLine({ taxCode: value as InvoiceTaxCode })}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -711,7 +783,14 @@ function InvoiceForm({
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => { setEditingLineIndex(null); setLineEditor({ ...EMPTY_LINE }) }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingLineIndex(null)
+                  setLineEditor({ ...EMPTY_LINE })
+                }}
+              >
                 Zurücksetzen
               </Button>
               <Button type="button" onClick={saveLineEditor}>
@@ -721,8 +800,12 @@ function InvoiceForm({
           </div>
 
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => setStep('basics')}>Zurück</Button>
-            <Button type="button" onClick={() => setStep('finalize')}>Weiter: Abschließen</Button>
+            <Button type="button" variant="outline" onClick={() => setStep('basics')}>
+              Zurück
+            </Button>
+            <Button type="button" onClick={() => setStep('finalize')}>
+              Weiter: Abschließen
+            </Button>
           </div>
         </TabsContent>
 
@@ -744,12 +827,20 @@ function InvoiceForm({
 
           <div className="space-y-2">
             <Label>Zahlungsbedingungen</Label>
-            <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="z. B. Zahlbar innerhalb von 14 Tagen" />
+            <Input
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value)}
+              placeholder="z. B. Zahlbar innerhalb von 14 Tagen"
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Reverse-Charge-Hinweis</Label>
-            <Input value={reverseChargeNote} onChange={(e) => setReverseChargeNote(e.target.value)} placeholder="Optionaler Steuerhinweis" />
+            <Input
+              value={reverseChargeNote}
+              onChange={(e) => setReverseChargeNote(e.target.value)}
+              placeholder="Optionaler Steuerhinweis"
+            />
           </div>
 
           <div className="space-y-2">
@@ -758,7 +849,9 @@ function InvoiceForm({
           </div>
 
           <div className="flex justify-between gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setStep('lines')}>Zurück</Button>
+            <Button type="button" variant="outline" onClick={() => setStep('lines')}>
+              Zurück
+            </Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                 Abbrechen
@@ -814,7 +907,8 @@ export default function InvoicePage() {
       sheet.close()
       toast.success('Rechnung erstellt')
     },
-    onError: (error) => toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
+    onError: (error) =>
+      toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
   })
 
   const updateMutation = trpcReact.invoice.update.useMutation({
@@ -823,7 +917,8 @@ export default function InvoicePage() {
       sheet.close()
       toast.success('Rechnung aktualisiert')
     },
-    onError: (error) => toast.error('Rechnung konnte nicht aktualisiert werden', { description: error.message })
+    onError: (error) =>
+      toast.error('Rechnung konnte nicht aktualisiert werden', { description: error.message })
   })
 
   const deleteMutation = trpcReact.invoice.delete.useMutation({
@@ -831,7 +926,8 @@ export default function InvoicePage() {
       utils.invoice.getAllPaginated.invalidate()
       toast.success('Rechnung gelöscht')
     },
-    onError: (error) => toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
+    onError: (error) =>
+      toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
   })
 
   const settingsMutation = trpcReact.invoice.upsertCompanySettings.useMutation({
@@ -841,7 +937,8 @@ export default function InvoicePage() {
       }
       toast.success('Rechnungsnummerierung aktualisiert')
     },
-    onError: (error) => toast.error('Einstellungen konnten nicht aktualisiert werden', { description: error.message })
+    onError: (error) =>
+      toast.error('Einstellungen konnten nicht aktualisiert werden', { description: error.message })
   })
 
   const rows = useMemo(() => invoices.data?.items ?? [], [invoices.data?.items])
@@ -898,7 +995,12 @@ export default function InvoicePage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate({ to: '/invoices/$invoiceId/print', params: { invoiceId: String(row.original.id) } })}
+            onClick={() =>
+              navigate({
+                to: '/invoices/$invoiceId/print',
+                params: { invoiceId: String(row.original.id) }
+              })
+            }
             title="Drucken / Als PDF speichern"
           >
             <Printer className="h-4 w-4" />
@@ -958,7 +1060,8 @@ export default function InvoicePage() {
       <div>
         <h1 className="text-2xl font-bold mb-2">Rechnungen</h1>
         <p className="text-sm text-muted-foreground">
-          Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen.
+          Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und
+          Positionen.
         </p>
       </div>
 
@@ -1018,12 +1121,17 @@ export default function InvoicePage() {
               />
             </div>
 
-            <Button className="w-full" onClick={handleSaveSettings} disabled={settingsMutation.isPending}>
+            <Button
+              className="w-full"
+              onClick={handleSaveSettings}
+              disabled={settingsMutation.isPending}
+            >
               Nummerierung speichern
             </Button>
 
             <p className="text-xs text-muted-foreground">
-              Dieser Wert wird als nächste Rechnungsnummer für neu erstellte Rechnungen der ausgewählten Firma verwendet.
+              Dieser Wert wird als nächste Rechnungsnummer für neu erstellte Rechnungen der
+              ausgewählten Firma verwendet.
             </p>
           </CardContent>
         </Card>

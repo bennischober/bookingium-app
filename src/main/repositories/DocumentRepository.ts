@@ -17,10 +17,7 @@ export class DocumentRepository {
   }
 
   async getById(id: number) {
-    const documents = await db
-      .select()
-      .from(schema.document)
-      .where(eq(schema.document.id, id))
+    const documents = await db.select().from(schema.document).where(eq(schema.document.id, id))
 
     return documents[0] || null
   }

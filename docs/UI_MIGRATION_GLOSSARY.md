@@ -16,6 +16,7 @@ Goal: All user-visible strings in the renderer become German. This app is German
 ## Binding glossary
 
 ### Navigation / layout
+
 - Dashboard → Dashboard
 - Calendar → Kalender
 - Events → Events
@@ -37,6 +38,7 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - Settings → Einstellungen
 
 ### Generic actions
+
 - Create / New / Add → Anlegen / Neu / Hinzufügen
 - Edit → Bearbeiten
 - Delete → Löschen
@@ -54,6 +56,7 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - Print / Save as PDF → Drucken / Als PDF speichern
 
 ### Invoice domain
+
 - Invoice → Rechnung
 - Invoices → Rechnungen
 - Invoice Number / Invoice # → Rechnungsnr.
@@ -116,6 +119,7 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - PWW / Agency (English) → Agentur (Englisch)
 
 ### Standard invoice template (rendered document, becomes German)
+
 - INVOICE → RECHNUNG
 - No. → Nr.
 - Date: → Datum:
@@ -130,6 +134,7 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - IBAN/BIC labels stay
 
 ### Event hub / documents
+
 - Overview → Übersicht
 - Documents → Dokumente
 - Financials → Finanzen
@@ -146,7 +151,8 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - Event created/updated/deleted → Event erstellt/aktualisiert/gelöscht
 
 ### Forms (Band/Person/Company/Bank/Venue/Hotel/Event)
-- Company Name * → Firmenname *
+
+- Company Name _ → Firmenname _
 - First name / Last name → Vorname / Nachname
 - Birthday → Geburtstag
 - Notes → Anmerkungen
@@ -173,14 +179,17 @@ Goal: All user-visible strings in the renderer become German. This app is German
 - Loading companies… → Firmen werden geladen…
 
 ### Calendar
+
 - Month / Week / Day / Agenda (view tabs if present) → Monat / Woche / Tag / Agenda
 - Confirmed / Pending / Cancelled labels → Bestätigt / Ausstehend / Storniert (labels only)
 - No events → Keine Events
 
 ### Dashboard
+
 - Whatever headline/stats labels exist: translate; keep keys/queries untouched.
 
 ## Verification checklist for every file you touch
+
 - [ ] No English remains in user-visible strings (except allowed: AgencyEnTemplate, stored values, domain anglicisms like Event/Band/Rider/Deal Memo)
 - [ ] No logic/props/queries changed
 - [ ] Typecheck passes for the files' patterns (no renamed identifiers)

@@ -248,7 +248,10 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
       {/* Documents List */}
       <div>
         <h3 className="font-semibold mb-3">
-          Dokumente {documents.length > 0 && <span className="text-muted-foreground">({documents.length})</span>}
+          Dokumente{' '}
+          {documents.length > 0 && (
+            <span className="text-muted-foreground">({documents.length})</span>
+          )}
         </h3>
 
         {documents.length === 0 ? (
@@ -386,7 +389,9 @@ function getMimeType(extension: string): string {
   return mimeTypes[extension.toLowerCase()] || 'application/octet-stream'
 }
 
-function extractDroppedFiles(e: React.DragEvent<HTMLDivElement>): Array<{ filePath: string; fileName: string }> {
+function extractDroppedFiles(
+  e: React.DragEvent<HTMLDivElement>
+): Array<{ filePath: string; fileName: string }> {
   const filesFromList = Array.from(e.dataTransfer.files ?? [])
     .map((file) => ({
       filePath: (file as File & { path?: string }).path,

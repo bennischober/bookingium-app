@@ -21,10 +21,10 @@ const STATUS_LABELS: Record<string, string> = {
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
-                                                      
+
   const {
     data: event,
-    isLoading,               
+    isLoading,
     isError
   } = trpcReact.dealMemo.getById.useQuery(Number(eventId), { enabled: !!eventId })
 
@@ -130,8 +130,9 @@ export function EventHubPage() {
         {isEditing && (
           <p className="mt-3 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2 inline-flex items-center gap-1.5">
             <Pencil className="h-3 w-3" />
-            Sie befinden sich im Bearbeitungsmodus. Nehmen Sie Änderungen in beliebigen Tabs vor und klicken Sie anschließend auf{' '}
-            <strong>Alles speichern</strong> oder <strong>Verwerfen</strong>.
+            Sie befinden sich im Bearbeitungsmodus. Nehmen Sie Änderungen in beliebigen Tabs vor und
+            klicken Sie anschließend auf <strong>Alles speichern</strong> oder{' '}
+            <strong>Verwerfen</strong>.
           </p>
         )}
       </div>

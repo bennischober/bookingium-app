@@ -119,9 +119,7 @@ export function SwappableEntityCard({
         ) : (
           <div className="space-y-0.5">
             <p className="font-semibold">{currentName}</p>
-            {currentDetail && (
-              <p className="text-sm text-muted-foreground">{currentDetail}</p>
-            )}
+            {currentDetail && <p className="text-sm text-muted-foreground">{currentDetail}</p>}
           </div>
         )}
       </CardContent>

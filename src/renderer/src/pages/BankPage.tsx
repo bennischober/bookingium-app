@@ -40,7 +40,9 @@ export default function BankPage() {
     onSuccess: () => {
       utils.bank.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Bank aktualisiert', { description: 'Die Bank wurde erfolgreich aktualisiert.' })
+      toast.success('Bank aktualisiert', {
+        description: 'Die Bank wurde erfolgreich aktualisiert.'
+      })
     },
     onError: (error) => {
       toast.error('Bank konnte nicht aktualisiert werden', { description: error.message })

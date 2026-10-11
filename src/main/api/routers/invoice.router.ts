@@ -56,17 +56,19 @@ export const invoiceRouter = t.router({
     }
   }),
 
-  createForDealMemo: t.procedure.input(CreateInvoiceForDealMemoInput).mutation(async ({ input }) => {
-    try {
-      const entity = await invoiceService.createInvoiceForDealMemo(input)
-      return InvoiceMapper.toDto(entity)
-    } catch (error) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: error instanceof Error ? error.message : 'Failed to create invoice'
-      })
-    }
-  }),
+  createForDealMemo: t.procedure
+    .input(CreateInvoiceForDealMemoInput)
+    .mutation(async ({ input }) => {
+      try {
+        const entity = await invoiceService.createInvoiceForDealMemo(input)
+        return InvoiceMapper.toDto(entity)
+      } catch (error) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: error instanceof Error ? error.message : 'Failed to create invoice'
+        })
+      }
+    }),
 
   update: t.procedure.input(UpdateInvoiceInput).mutation(async ({ input }) => {
     try {

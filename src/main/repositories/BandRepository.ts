@@ -17,10 +17,7 @@ export class BandRepository {
 
     // Build where clause for search
     const whereClause = search
-      ? or(
-          like(schema.band.name, `%${search}%`),
-          like(schema.band.genre, `%${search}%`)
-        )
+      ? or(like(schema.band.name, `%${search}%`), like(schema.band.genre, `%${search}%`))
       : undefined
 
     // Get total count
@@ -28,7 +25,7 @@ export class BandRepository {
       .select({ count: sql<number>`count(*)` })
       .from(schema.band)
       .where(whereClause)
-    
+
     const total = countResult[0]?.count || 0
 
     // Get paginated data
@@ -83,10 +80,7 @@ export class BandRepository {
   }
 
   async delete(id: number) {
-    const result = await db
-      .delete(schema.band)
-      .where(eq(schema.band.id, id))
-      .returning()
+    const result = await db.delete(schema.band).where(eq(schema.band.id, id)).returning()
     return result[0]
   }
 }

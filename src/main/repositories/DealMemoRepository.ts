@@ -118,9 +118,11 @@ export class DealMemoRepository {
     if ('posters' in input) values.posters = input.posters
     if ('amountOfPeople' in input) values.amount_of_people = input.amountOfPeople ?? null
     if ('roomInformation' in input) values.room_information = input.roomInformation ?? null
-    if ('performanceDuration' in input) values.performance_duration = input.performanceDuration ?? null
+    if ('performanceDuration' in input)
+      values.performance_duration = input.performanceDuration ?? null
     if ('performanceTime' in input) values.performance_time = input.performanceTime ?? null
-    if ('performanceInformation' in input) values.performance_information = input.performanceInformation ?? null
+    if ('performanceInformation' in input)
+      values.performance_information = input.performanceInformation ?? null
 
     const result = await db
       .update(schema.deal_memo)

@@ -238,7 +238,8 @@ const SearchButton = () => {
     hotels.isLoading
 
   const emptyMessage = useMemo(() => {
-    if (!hasTypedQuery) return `Geben Sie mindestens ${MIN_SEARCH_LENGTH} Zeichen ein, um Einträge zu suchen.`
+    if (!hasTypedQuery)
+      return `Geben Sie mindestens ${MIN_SEARCH_LENGTH} Zeichen ein, um Einträge zu suchen.`
     if (isAnyLoading) return 'Suche läuft...'
     if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
     return 'Keine Ergebnisse gefunden.'
@@ -271,10 +272,7 @@ const SearchButton = () => {
                     onSelect={() => {
                       if (recent.type === 'route' && recent.path) {
                         const path = recent.path
-                        runAndClose(
-                          () => navigate({ to: path }),
-                          recent
-                        )
+                        runAndClose(() => navigate({ to: path }), recent)
                         return
                       }
 

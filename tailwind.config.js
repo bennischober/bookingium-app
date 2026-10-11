@@ -1,10 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class"],
-  content: [
-    './src/renderer/index.html',
-    './src/renderer/src/**/*.{js,ts,jsx,tsx}',
-  ],
+  darkMode: ['class'],
+  content: ['./src/renderer/index.html', './src/renderer/src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       borderRadius: {
@@ -13,7 +10,7 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)'
       },
       colors: {}
-    },
+    }
   },
-  plugins: [require("tailwindcss-animate")],
-};
+  plugins: [require('tailwindcss-animate')]
+}

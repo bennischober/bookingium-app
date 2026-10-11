@@ -355,7 +355,9 @@ export const invoice = sqliteTable(
     period_start_date: text('period_start_date'),
     period_end_date: text('period_end_date'),
     period_label: text('period_label').default('').notNull(),
-    issue_date: text('issue_date').default(sql`(date('now'))`).notNull(),
+    issue_date: text('issue_date')
+      .default(sql`(date('now'))`)
+      .notNull(),
     due_date: text('due_date'),
     status: text('status').default('draft').notNull(),
     currency: text('currency').default('EUR').notNull(),
@@ -378,7 +380,10 @@ export const invoice = sqliteTable(
     index('invoice_status_idx').on(table.status),
     index('invoice_issue_date_idx').on(table.issue_date),
     index('invoice_period_start_idx').on(table.period_start_date),
-    uniqueIndex('invoice_company_invoice_number_unique_idx').on(table.company_id, table.invoice_number)
+    uniqueIndex('invoice_company_invoice_number_unique_idx').on(
+      table.company_id,
+      table.invoice_number
+    )
   ]
 )
 

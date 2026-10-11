@@ -40,7 +40,9 @@ export default function HotelPage() {
       utils.hotel.getAllPaginated.invalidate()
       utils.hotel.getListItems.invalidate()
       formSheet.close()
-      toast.success('Hotel aktualisiert', { description: `${hotel.name} wurde erfolgreich aktualisiert.` })
+      toast.success('Hotel aktualisiert', {
+        description: `${hotel.name} wurde erfolgreich aktualisiert.`
+      })
     },
     onError: (error) => {
       toast.error('Hotel konnte nicht aktualisiert werden', { description: error.message })
@@ -61,7 +63,9 @@ export default function HotelPage() {
     if (confirm(`Sind Sie sicher, dass Sie ${hotel.name} löschen möchten?`)) {
       deleteMutation.mutate(hotel.id, {
         onSuccess: () => {
-          toast.success('Hotel gelöscht', { description: `${hotel.name} wurde erfolgreich gelöscht.` })
+          toast.success('Hotel gelöscht', {
+            description: `${hotel.name} wurde erfolgreich gelöscht.`
+          })
         }
       })
     }

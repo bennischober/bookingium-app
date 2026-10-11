@@ -16,14 +16,7 @@ interface FormSheetProps {
   children: React.ReactNode
 }
 
-export function FormSheet({
-  isOpen,
-  onClose,
-  mode,
-  title,
-  description,
-  children
-}: FormSheetProps) {
+export function FormSheet({ isOpen, onClose, mode, title, description, children }: FormSheetProps) {
   const defaultTitle = mode === 'create' ? 'Neu anlegen' : 'Bearbeiten'
   const defaultDescription =
     mode === 'create'

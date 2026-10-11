@@ -33,7 +33,13 @@ export interface OverviewTabProps {
   onSaved: () => void
 }
 
-export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSaved }: OverviewTabProps) {
+export function OverviewTab({
+  event,
+  isEditing,
+  saveSignal,
+  cancelSignal,
+  onSaved
+}: OverviewTabProps) {
   const utils = trpcReact.useUtils()
   // Track the last signal value we responded to. Seeded with the current value so
   // that a re-mount (or React Strict Mode's double-invocation) never fires a stale save.
@@ -43,10 +49,7 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
   const [status, setStatus] = useState(event.status)
   const [notes, setNotes] = useState(event.notes)
   const isDirty =
-    name !== event.name ||
-    date !== event.date ||
-    status !== event.status ||
-    notes !== event.notes
+    name !== event.name || date !== event.date || status !== event.status || notes !== event.notes
 
   // Keep local state in sync when the server data refreshes
   useEffect(() => {
@@ -79,13 +82,22 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
   const persons = trpcReact.person.getListItems.useQuery()
   const companies = trpcReact.company.getListItems.useQuery()
 
-  const bandItems: InlineComboboxItem[] = (bands.data ?? []).map((b) => ({ id: b.id, label: b.name }))
-  const venueItems: InlineComboboxItem[] = (venues.data ?? []).map((v) => ({ id: v.id, label: v.name }))
+  const bandItems: InlineComboboxItem[] = (bands.data ?? []).map((b) => ({
+    id: b.id,
+    label: b.name
+  }))
+  const venueItems: InlineComboboxItem[] = (venues.data ?? []).map((v) => ({
+    id: v.id,
+    label: v.name
+  }))
   const personItems: InlineComboboxItem[] = (persons.data ?? []).map((p) => ({
     id: p.id,
     label: `${p.firstName} ${p.lastName}`
   }))
-  const companyItems: InlineComboboxItem[] = (companies.data ?? []).map((c) => ({ id: c.id, label: c.name }))
+  const companyItems: InlineComboboxItem[] = (companies.data ?? []).map((c) => ({
+    id: c.id,
+    label: c.name
+  }))
 
   // ── Shared update mutation ──
   const updateMutation = trpcReact.dealMemo.update.useMutation({
@@ -254,7 +266,10 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
             <div className="space-y-4">
               <ReadOnlyField label="Eventname" value={name} />
               <ReadOnlyField label="Datum" value={date ? formatDate(date) : null} />
-              <ReadOnlyField label="Status" value={status ? STATUS_LABELS[status] ?? status : null} />
+              <ReadOnlyField
+                label="Status"
+                value={status ? (STATUS_LABELS[status] ?? status) : null}
+              />
             </div>
 
             <div className="space-y-4">

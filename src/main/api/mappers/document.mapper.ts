@@ -2,7 +2,7 @@ import type { DocumentDto } from '../schemas/document.schema'
 import { schema } from '../../db/schema'
 
 export class DocumentMapper {
-  static toDtoList(documents: typeof schema.document.$inferSelect[]): DocumentDto[] {
+  static toDtoList(documents: (typeof schema.document.$inferSelect)[]): DocumentDto[] {
     return documents.map((doc) => this.toDto(doc))
   }
 
