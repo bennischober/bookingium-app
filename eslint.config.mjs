@@ -29,6 +29,13 @@ export default defineConfig(
     }
   },
   {
+    // Build/test helper scripts (plain node scripts, not app code)
+    files: ['tests/e2e/helpers/**/*.mjs'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
+    }
+  },
+  {
     // App entry point: renders the root and exports nothing (fast-refresh
     // only-export-components is noise for an entry file)
     files: ['src/renderer/src/main.tsx'],
