@@ -11,6 +11,7 @@ export type BandMemberQueryResult = {
   bandId: number
   bandName: string
   personId: number
+  personName: string
   role: string | null
   notes: string | null
 }
@@ -20,6 +21,7 @@ export type CompanyMemberQueryResult = {
   companyId: number
   companyName: string
   personId: number
+  personName: string
   role: string | null
   notes: string | null
 }
@@ -29,6 +31,7 @@ export type VenueMemberQueryResult = {
   venueId: number
   venueName: string
   personId: number
+  personName: string
   role: string | null
   notes: string | null
 }
@@ -49,6 +52,7 @@ export class RelationMapper {
       bandId: entity.bandId,
       bandName: entity.bandName,
       personId: entity.personId,
+      personName: entity.personName,
       role: entity.role ?? '',
       notes: entity.notes ?? ''
     }
@@ -67,6 +71,7 @@ export class RelationMapper {
       companyId: entity.companyId,
       companyName: entity.companyName,
       personId: entity.personId,
+      personName: entity.personName,
       role: entity.role ?? '',
       notes: entity.notes ?? ''
     }
@@ -85,6 +90,7 @@ export class RelationMapper {
       venueId: entity.venueId,
       venueName: entity.venueName,
       personId: entity.personId,
+      personName: entity.personName,
       role: entity.role ?? '',
       notes: entity.notes ?? ''
     }

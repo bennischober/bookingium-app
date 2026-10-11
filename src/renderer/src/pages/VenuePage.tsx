@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Users } from 'lucide-react'
+import { MembersSheet } from '@/components/MembersSheet'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -13,6 +14,11 @@ import type { VenueDto } from '../../../main/api/schemas/venue.schema'
 export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+  const [membersEntity, setMembersEntity] = useState<{
+    type: 'venue'
+    id: number
+    name: string
+  } | null>(null)
 
   const formSheet = useFormSheet<VenueDto>()
   const utils = trpcReact.useUtils()
@@ -105,6 +111,16 @@ export default function VenuePage() {
           <Button
             variant="ghost"
             size="icon"
+            onClick={() =>
+              setMembersEntity({ type: 'venue', id: row.original.id, name: row.original.name })
+            }
+            title="Ansprechpartner"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => formSheet.openEdit(row.original)}
             title="Bearbeiten"
           >
@@ -149,6 +165,16 @@ export default function VenuePage() {
         actionButton={
           <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
         }
+      />
+
+      <MembersSheet
+        entityType="venue"
+        entityId={membersEntity?.id ?? null}
+        entityName={membersEntity?.name ?? ''}
+        open={membersEntity !== null}
+        onOpenChange={(open) => {
+          if (!open) setMembersEntity(null)
+        }}
       />
 
       <FormSheet

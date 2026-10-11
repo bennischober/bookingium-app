@@ -8,6 +8,7 @@ export const BandMemberDto = z.object({
   bandId: z.number(),
   bandName: z.string(),
   personId: z.number(),
+  personName: z.string(),
   role: z.string(),
   notes: z.string()
 })
@@ -33,6 +34,7 @@ export const CompanyMemberDto = z.object({
   companyId: z.number(),
   companyName: z.string(),
   personId: z.number(),
+  personName: z.string(),
   role: z.string(),
   notes: z.string()
 })
@@ -58,6 +60,7 @@ export const VenueMemberDto = z.object({
   venueId: z.number(),
   venueName: z.string(),
   personId: z.number(),
+  personName: z.string(),
   role: z.string(),
   notes: z.string()
 })

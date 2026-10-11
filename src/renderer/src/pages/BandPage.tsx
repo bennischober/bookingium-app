@@ -9,12 +9,19 @@ import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Users } from 'lucide-react'
+import { MembersSheet } from '@/components/MembersSheet'
 import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 export default function BandPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+  const [membersEntity, setMembersEntity] = useState<{
+    type: 'band'
+    id: number
+    name: string
+  } | null>(null)
 
   const sheet = useFormSheet<BandDto>()
 
@@ -120,6 +127,17 @@ export default function BandPage() {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => {
+                setMembersEntity({ type: 'band', id: band.id, name: band.name })
+              }}
+              className="h-8 px-2"
+              title="Mitglieder"
+            >
+              <Users className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => sheet.openEdit(band)}
               className="h-8 px-2"
             >
@@ -161,6 +179,16 @@ export default function BandPage() {
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
         actionButton={<Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>}
+      />
+
+      <MembersSheet
+        entityType="band"
+        entityId={membersEntity?.id ?? null}
+        entityName={membersEntity?.name ?? ''}
+        open={membersEntity !== null}
+        onOpenChange={(open) => {
+          if (!open) setMembersEntity(null)
+        }}
       />
 
       <FormSheet

@@ -13,11 +13,17 @@ import type {
 } from '../../../main/api/schemas/company.schema'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Users } from 'lucide-react'
+import { MembersSheet } from '@/components/MembersSheet'
 
 export function CompanyPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+  const [membersEntity, setMembersEntity] = useState<{
+    type: 'company'
+    id: number
+    name: string
+  } | null>(null)
 
   const formSheet = useFormSheet<CompanyDto>()
   const utils = trpcReact.useUtils()
@@ -143,6 +149,16 @@ export function CompanyPage() {
           <Button
             variant="ghost"
             size="icon"
+            onClick={() =>
+              setMembersEntity({ type: 'company', id: row.original.id, name: row.original.name })
+            }
+            title="Mitarbeiter"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => formSheet.openEdit(row.original)}
             title="Bearbeiten"
           >
@@ -185,6 +201,16 @@ export function CompanyPage() {
         isLoading={companies.isLoading}
         total={companies.data?.total ?? 0}
         actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>}
+      />
+
+      <MembersSheet
+        entityType="company"
+        entityId={membersEntity?.id ?? null}
+        entityName={membersEntity?.name ?? ''}
+        open={membersEntity !== null}
+        onOpenChange={(open) => {
+          if (!open) setMembersEntity(null)
+        }}
       />
 
       <FormSheet
