@@ -2,6 +2,7 @@ import type {
   InvoicePartySnapshotDto,
   InvoicePrintDto
 } from '../../../../main/api/schemas/invoice.schema'
+import { PagedDocument } from '../print/PagedDocument'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -526,7 +527,7 @@ export function InvoiceDocument({
   const isDraft = data.invoice.status === 'draft'
 
   return (
-    <div className="relative mx-auto w-[210mm] min-h-[297mm] bg-white p-[18mm] text-black shadow-lg print:shadow-none print:m-0 print:w-auto print:min-h-0">
+    <PagedDocument paddingMm={18}>
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">
@@ -538,6 +539,6 @@ export function InvoiceDocument({
       {template === 'standard' && <StandardTemplate data={data} />}
       {template === 'agency-de' && <AgencyTemplate data={data} lang="de" logoUrl={logoUrl} />}
       {template === 'agency-en' && <AgencyTemplate data={data} lang="en" logoUrl={logoUrl} />}
-    </div>
+    </PagedDocument>
   )
 }

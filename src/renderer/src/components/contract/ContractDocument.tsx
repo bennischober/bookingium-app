@@ -1,4 +1,5 @@
 import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
+import { PagedDocument } from '../print/PagedDocument'
 
 // ========================================
 // Formatting helpers
@@ -91,7 +92,7 @@ export function ContractDocument({
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
   return (
-    <div className="relative mx-auto w-[210mm] min-h-[297mm] bg-white p-[20mm] text-black shadow-lg print:shadow-none print:m-0 print:w-auto print:min-h-0">
+    <PagedDocument paddingMm={20}>
       {/* Letterhead: artist company identity */}
       {artistImageUrl && (
         <img
@@ -514,6 +515,6 @@ export function ContractDocument({
           </div>
         </div>
       </div>
-    </div>
+    </PagedDocument>
   )
 }
