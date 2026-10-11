@@ -9,6 +9,8 @@ export type AppHandle = {
   app: ElectronApplication
   page: Page
   close: () => Promise<void>
+  /** printToPDF on the main window's webContents */
+  printPageToPdf: () => Promise<Buffer>
 }
 
 export async function launchApp(): Promise<AppHandle> {
@@ -36,6 +38,19 @@ export async function launchApp(): Promise<AppHandle> {
     page,
     close: async () => {
       await app.close()
-    }
+    },
+    printPageToPdf: () =>
+      app.evaluate(
+        async ({ BrowserWindow }) => {
+          const win = BrowserWindow.getAllWindows()[0]
+          if (!win) throw new Error('no window')
+          return win.webContents.printToPDF({
+            landscape: false,
+            printBackground: true,
+            pageSize: 'A4',
+            margins: { top: 0, bottom: 0, left: 0, right: 0 }
+          })
+        }
+      )
   }
 }

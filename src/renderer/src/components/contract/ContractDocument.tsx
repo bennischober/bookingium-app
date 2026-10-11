@@ -159,7 +159,7 @@ export function ContractDocument({
         <p className="font-bold">
           Auftrittszeit: {dealMemo.performanceTime || '-'} Uhr
           <br />
-          Spieldauer: {dealMemo.performanceDuration || '-'} Minuten
+          Spieldauer: {dealMemo.performanceDuration || '-'}
           <br />
           Sonstiges: {dealMemo.performanceInformation || '-'}
         </p>
@@ -493,20 +493,25 @@ export function ContractDocument({
         </Section>
       )}
 
-      {/* Signatures (old layout: place+date line, signature image, label) */}
+      {/* Signatures (old layout: place+date line, signature image above the
+          line, label below it; both sides structurally identical) */}
       <div className="mt-12 flex text-[10pt]">
         <div className="w-1/2 pr-8">
-          <div className="border-b-2 border-black w-4/5 pb-1 mb-4">
-            {artist?.city || 'Bad Hindelang'}, den {todayStr}
+          <div className="w-4/5">
+            {representative?.city || artist?.city || 'Bad Hindelang'}, den {todayStr}
           </div>
           {artistSignatureUrl && (
-            <img src={artistSignatureUrl} alt="" className="max-h-[15mm] mb-1 object-contain" />
+            <img src={artistSignatureUrl} alt="" className="max-h-[15mm] mt-2 object-contain" />
           )}
-          <div className="border-t-2 border-black w-4/5 pt-1">Unterschrift VP1 mit Stempel</div>
+          <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
+            Unterschrift VP1 mit Stempel
+          </div>
         </div>
         <div className="w-1/2 pr-8">
-          <div className="border-b-2 border-black w-4/5 pb-1 mb-24">, den</div>
-          <div className="border-t-2 border-black w-4/5 pt-1">Unterschrift VP2 mit Stempel</div>
+          <div className="w-4/5">, den</div>
+          <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
+            Unterschrift VP2 mit Stempel
+          </div>
         </div>
       </div>
     </div>

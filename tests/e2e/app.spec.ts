@@ -1,6 +1,7 @@
 // E2E smoke: app boots, navigation works, main pages render.
 import { test, expect } from '@playwright/test'
 import { launchApp, type AppHandle } from './helpers/launch'
+import { resolve } from 'path'
 
 let h: AppHandle
 
@@ -41,4 +42,25 @@ test('contract print view renders the document', async () => {
   await h.page.waitForSelector('text=KONZERTVERTRAG', { timeout: 15_000 })
   // Save a screenshot for visual inspection
   await h.page.screenshot({ path: 'tests/e2e/__screenshots__/contract.png', fullPage: true })
+})
+
+test('contract prints to the real PDF output', async () => {
+  // Generate the genuine print output via Electron's printToPDF (same engine
+  // as the print dialog), so pagination and @page CSS are verified, not just
+  // the screen rendering. printPageToPdf targets the first (only) window,
+  // which currently shows the contract print route.
+  const pdf = await h.printPageToPdf()
+
+  const fs = await import('fs')
+  const dir = resolve(process.cwd(), 'tests/e2e/__screenshots__')
+  fs.mkdirSync(dir, { recursive: true })
+  const out = resolve(dir, 'contract.pdf')
+  fs.writeFileSync(out, pdf)
+  expect(fs.statSync(out).size).toBeGreaterThan(10_000)
+
+  // Render pages to PNG via pdfjs v4 (with standard fonts) for inspection
+  const { execSync } = await import('child_process')
+  execSync(`node ${resolve(process.cwd(), 'tests/e2e/helpers/pdf2png.mjs')} ${out} ${dir}`, {
+    stdio: 'inherit'
+  })
 })
