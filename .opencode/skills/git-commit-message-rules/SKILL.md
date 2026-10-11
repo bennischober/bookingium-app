@@ -13,6 +13,8 @@ aliases: ["/en/"]
 
 # Conventional Commits 1.0.0
 
+- Important: do never use PII in the commit message!
+
 ## Summary
 
 The Conventional Commits specification is a lightweight convention on top of commit messages.
