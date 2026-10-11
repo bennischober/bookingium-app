@@ -3,7 +3,7 @@ import { useParams, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
-import { ContractDocument } from '@/components/contract/ContractDocument'
+import { ContractDocument, CONTRACT_PADDING_MM } from '@/components/contract/ContractDocument'
 
 // Resolves a stored relative image path to a data URL via IPC (null if empty/missing)
 function useStoredImageUrl(relativePath: string | undefined): string | null {
@@ -75,7 +75,9 @@ export default function ContractPrintPage() {
 
   return (
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
-      <style>{`@page { size: A4; margin: 0; }`}</style>
+      {/* Print margins mirror the preview's column padding, so the print
+          fragmentation matches the on-screen page preview exactly */}
+      <style>{`@page { size: A4; margin: ${CONTRACT_PADDING_MM}mm; }`}</style>
 
       {/* Screen-only toolbar */}
       <div className="mx-auto mb-4 flex w-[210mm] items-center justify-between print:hidden">

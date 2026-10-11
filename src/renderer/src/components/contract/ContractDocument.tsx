@@ -70,6 +70,8 @@ function AddressLines({ party }: { party: ContractParty }) {
 // ported to the print-to-PDF renderer)
 // ========================================
 
+export const CONTRACT_PADDING_MM = 20
+
 export function ContractDocument({
   data,
   artistImageUrl,
@@ -112,9 +114,11 @@ export function ContractDocument({
         <div className="mt-2 mb-1">{artist ? <AddressLines party={artist} /> : band?.name}</div>
         <p className="font-bold mt-2">vertreten durch:</p>
         <p className="italic">
-          {representative
+          {representative && representative.name !== artist?.name
             ? `${representative.name}, ${representative.street} ${representative.streetNumber}, ${representative.zipCode} ${representative.city}`
-            : (artist?.name ?? '-')}
+            : artist?.representative
+              ? artist.representative
+              : (artist?.name ?? '-')}
         </p>
 
         <p className="font-bold mt-4">und Vertragspartner (VP2):</p>

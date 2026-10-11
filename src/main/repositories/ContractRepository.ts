@@ -132,9 +132,14 @@ export class ContractRepository {
     }
 
     const a = artistRows[0]
-    const artistRepresentative = row.person
-      ? `${row.person.first_name} ${row.person.last_name}`
-      : ''
+
+    // Resolve the technician first: the artist-side representative is the TL
+    // (the person signing for the band company when no agency is involved)
+    const technician = await this.resolveTechnician(
+      row.deal_memo.band_id,
+      row.band?.responsible_person_id ?? null
+    )
+    const artistRepresentative = technician ? `${technician.firstName} ${technician.lastName}` : ''
 
     return {
       dealMemo: {
@@ -158,10 +163,7 @@ export class ContractRepository {
       artistLogoPath: a.company?.logo_path || null,
       representative: representativeParty,
       promoter,
-      technician: await this.resolveTechnician(
-        row.deal_memo.band_id,
-        row.band?.responsible_person_id ?? null
-      ),
+      technician,
       venue: row.venue
         ? {
             id: row.venue.id,

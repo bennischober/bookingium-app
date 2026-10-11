@@ -21,7 +21,6 @@ export const ContractPartySchema = z.object({
   signaturePath: z.string(),
   representative: z.string()
 })
-
 export type ContractParty = z.infer<typeof ContractPartySchema>
 
 export const ContractDataSchema = z.object({
