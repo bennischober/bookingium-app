@@ -28,5 +28,25 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
+  {
+    // shadcn/radix-generated UI primitives: these files legitimately export
+    // variants/helpers alongside components (fast-refresh warning is noise),
+    // use internal props (prop-types) and cmdk-specific DOM attributes.
+    files: ['src/renderer/src/components/ui/**'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'react/prop-types': 'off',
+      'react/no-unknown-property': 'off'
+    }
+  },
+  {
+    // This codebase relies on TypeScript inference for local functions and
+    // callbacks; requiring explicit return types everywhere would add 300+
+    // annotations with no safety gain (tsc already checks assignability).
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
+    }
+  },
   eslintConfigPrettier
 )
