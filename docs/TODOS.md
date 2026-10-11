@@ -1,7 +1,15 @@
 # Lists of TODOs and future improvements for the app
 
-## Done (2026-10-11 autonomous session)
+## Done (2026-10-11 autonomous sessions)
 
+- Members visibility from entity sides (Bands → Mitglieder, Companies →
+  Mitarbeiter, Venues → Ansprechpartner) via shared MembersSheet
+- Dashboard performance: SQL-computed stats endpoint + react-query defaults
+  fixed (staleTime, no refetch-on-focus, retry 1)
+- 150% zoom resilience: DataTable horizontal scroll + e2e zoom screenshots
+- Search trigger redesigned (input-style with kbd chip)
+- Keyboard shortcuts: Alt+1..8 page jumps, ? help dialog with button in
+  header
 - PDF creation logic for invoices AND contracts (print-to-PDF via React
   components) — invoice templates unified (one agency layout, DE/EN),
   contract rebuilt from the old repo's proven PDFContract structure incl.
@@ -20,6 +28,9 @@
 
 ## Open
 
+- **CSV import** (next up; blocked on input — see docs/SESSION_QUESTIONS.md
+  question 1: target objects, example files, template vs column-mapping UI,
+  duplicate handling)
 - Further enhance "search anything" (FTS5, per-object hot entries, context
   weighting) — see docs/SESSION_QUESTIONS.md for the strategy notes
 - Dependabot PRs on GitHub: 16 open PRs are superseded by our dependency
