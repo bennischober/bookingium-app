@@ -1,0 +1,11 @@
+# Only these packages are allowed to run lifecycle scripts (postinstall etc.).
+# Everything else is installed with scripts disabled - supply-chain hardening
+# against install-script malware. Add a package here only if it genuinely
+# needs a build/download step (native modules, binary downloads).
+allowBuilds:
+  electron: true
+  better-sqlite3: true
+  esbuild: true
+  '@tailwindcss/oxide': true
+  electron-winstaller: true
+  node-abi: true
