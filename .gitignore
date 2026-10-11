@@ -8,3 +8,7 @@ orthos-key
 sample_data/*
 !sample_data/internal-seed.example.json
 .opencode/
+
+test-results/
+playwright-report/
+tests/e2e/__screenshots__/

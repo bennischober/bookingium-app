@@ -71,12 +71,14 @@ function AddressLines({ party }: { party: ContractParty }) {
 
 export function ContractDocument({
   data,
-  artistImageUrl
+  artistImageUrl,
+  artistSignatureUrl
 }: {
   data: ContractData
   artistImageUrl?: string
+  artistSignatureUrl?: string
 }) {
-  const { dealMemo, band, artist, promoter, technician, venue, hotel } = data
+  const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
 
   const today = new Date()
   const todayStr = formatDate(
@@ -109,8 +111,9 @@ export function ContractDocument({
         <div className="mt-2 mb-1">{artist ? <AddressLines party={artist} /> : band?.name}</div>
         <p className="font-bold mt-2">vertreten durch:</p>
         <p className="italic">
-          {artist?.name ?? '-'}, {artist?.street} {artist?.streetNumber}, {artist?.zipCode}{' '}
-          {artist?.city}
+          {representative
+            ? `${representative.name}, ${representative.street} ${representative.streetNumber}, ${representative.zipCode} ${representative.city}`
+            : artist?.name ?? '-'}
         </p>
 
         <p className="font-bold mt-4">und Vertragspartner (VP2):</p>
@@ -496,8 +499,8 @@ export function ContractDocument({
           <div className="border-b-2 border-black w-4/5 pb-1 mb-4">
             {artist?.city || 'Bad Hindelang'}, den {todayStr}
           </div>
-          {artistImageUrl && (
-            <img src={artistImageUrl} alt="" className="max-h-[15mm] mb-1 object-contain" />
+          {artistSignatureUrl && (
+            <img src={artistSignatureUrl} alt="" className="max-h-[15mm] mb-1 object-contain" />
           )}
           <div className="border-t-2 border-black w-4/5 pt-1">Unterschrift VP1 mit Stempel</div>
         </div>

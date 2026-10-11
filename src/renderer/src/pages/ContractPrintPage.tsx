@@ -48,10 +48,8 @@ export default function ContractPrintPage() {
   })
 
   const data = contractQuery.data
-  // Note: the artist company currently stores one image (signature_path).
-  // Logo letterhead and signature share the company's stored image until
-  // separate uploads are introduced.
-  const artistImage = useStoredImageUrl(data?.artist?.signaturePath || undefined)
+  const artistLogo = useStoredImageUrl(data?.artistLogoPath || undefined)
+  const artistSignature = useStoredImageUrl(data?.artist?.signaturePath || undefined)
 
   if (contractQuery.isLoading) {
     return (
@@ -89,7 +87,11 @@ export default function ContractPrintPage() {
         </Button>
       </div>
 
-      <ContractDocument data={data} artistImageUrl={artistImage ?? undefined} />
+      <ContractDocument
+        data={data}
+        artistImageUrl={artistLogo ?? undefined}
+        artistSignatureUrl={artistSignature ?? undefined}
+      />
     </div>
   )
 }

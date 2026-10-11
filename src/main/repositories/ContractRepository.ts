@@ -65,8 +65,7 @@ export class ContractRepository {
 
     const row = rows[0]
 
-    // Artist side: the band's company (with contact/address/bank for the
-    // contract header and signature)
+    // Artist side: the band's company (contract party VP1)
     const artistRows = await db
       .select({
         company: schema.company,
@@ -81,6 +80,30 @@ export class ContractRepository {
       .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
       .where(eq(schema.band.id, row.deal_memo.band_id))
       .limit(1)
+
+    // VP1 "vertreten durch": the invoicing company (agency issuing on behalf
+    // of the band) - the agency party is returned separately
+    let representativeParty: ContractParty | null = null
+    if (row.deal_memo.invoice_company_id) {
+      const repRows = await db
+        .select({
+          company: schema.company,
+          contact: schema.contact,
+          bank: schema.bank,
+          address: schema.address
+        })
+        .from(schema.company)
+        .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+        .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
+        .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+        .where(eq(schema.company.id, row.deal_memo.invoice_company_id))
+        .limit(1)
+
+      if (repRows.length > 0) {
+        const r = repRows[0]
+        representativeParty = toParty(r.company, r.contact, r.bank, r.address, '')
+      }
+    }
 
     // Promoter ("oeV"): the deal memo's local promoter company. The
     // representative (lopro person) is fetched separately - it belongs to the
@@ -114,8 +137,7 @@ export class ContractRepository {
       : ''
 
     return {
-      dealMemo: {
-        id: row.deal_memo.id,
+      dealMemo: {        id: row.deal_memo.id,
         name: row.deal_memo.name,
         date: row.deal_memo.date,
         amountOfPeople: row.deal_memo.amount_of_people,
@@ -132,6 +154,8 @@ export class ContractRepository {
       },
       band: row.band ? { id: row.band.id, name: row.band.name } : null,
       artist: toParty(a.company, a.contact, a.bank, a.address, artistRepresentative),
+      artistLogoPath: a.company?.logo_path || null,
+      representative: representativeParty,
       promoter,
       technician: await this.resolveTechnician(
         row.deal_memo.band_id,

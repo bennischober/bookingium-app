@@ -232,7 +232,9 @@ app.whenReady().then(async () => {
   })
 
   runMigrations()
-  await seedDatabase()
+  await seedDatabase().catch((error) => {
+    console.error('Database seeding failed:', error)
+  })
 
   createWindow()
 

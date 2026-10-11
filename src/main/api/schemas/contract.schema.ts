@@ -48,6 +48,10 @@ export const ContractDataSchema = z.object({
     })
     .nullable(),
   artist: ContractPartySchema.nullable(),
+  // Artist company's invoice logo (letterhead) - separate from the signature image
+  artistLogoPath: z.string().nullable(),
+  // VP1 "vertreten durch": the invoicing company (agency) when set
+  representative: ContractPartySchema.nullable(),
   promoter: ContractPartySchema.nullable(),
   // Technischer Leiter (TL): explicit band field, falls back to first TL
   // band member, then to the first band member (old-repo heuristic)
