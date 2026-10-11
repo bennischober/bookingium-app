@@ -53,15 +53,15 @@ export function DataTable<TData>({
 
   return (
     <div className="flex flex-col w-full">
-      {/* Search and Action Button */}
+      {/* Search and Action Button — wraps at narrow widths (150% zoom) */}
       {(onSearchChange || actionButton) && (
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           {onSearchChange ? (
             <Input
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="max-w-sm"
+              className="max-w-sm w-full sm:w-auto"
             />
           ) : (
             <div />
@@ -70,14 +70,18 @@ export function DataTable<TData>({
         </div>
       )}
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full">
+      {/* Table — horizontal scroll instead of squeezing at high zoom
+          (e.g. Windows 150% scaling on laptops) */}
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-4 py-3 text-left text-sm font-medium">
+                  <th
+                    key={header.id}
+                    className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -124,8 +128,8 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
+      {/* Pagination — wraps gracefully at narrow widths */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
         <div className="text-sm text-muted-foreground">
           {total > 0 && (
             <>
