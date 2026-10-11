@@ -137,7 +137,8 @@ export class ContractRepository {
       : ''
 
     return {
-      dealMemo: {        id: row.deal_memo.id,
+      dealMemo: {
+        id: row.deal_memo.id,
         name: row.deal_memo.name,
         date: row.deal_memo.date,
         amountOfPeople: row.deal_memo.amount_of_people,

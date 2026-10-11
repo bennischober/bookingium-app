@@ -113,7 +113,7 @@ export function ContractDocument({
         <p className="italic">
           {representative
             ? `${representative.name}, ${representative.street} ${representative.streetNumber}, ${representative.zipCode} ${representative.city}`
-            : artist?.name ?? '-'}
+            : (artist?.name ?? '-')}
         </p>
 
         <p className="font-bold mt-4">und Vertragspartner (VP2):</p>

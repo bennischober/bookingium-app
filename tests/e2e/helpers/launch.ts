@@ -39,21 +39,17 @@ export async function launchApp(): Promise<AppHandle> {
   // Identify the BrowserWindow that owns Playwright's page (by URL) at call
   // time - window index [0] is not stable across navigations in tests.
   const printPageToPdf = () =>
-    app.evaluate(
-      async ({ BrowserWindow }, targetUrl) => {
-        const windows = BrowserWindow.getAllWindows()
-        const win =
-          windows.find((w) => w.webContents.getURL().includes(targetUrl)) ?? windows[0]
-        if (!win) throw new Error('no window')
-        return win.webContents.printToPDF({
-          landscape: false,
-          printBackground: true,
-          pageSize: 'A4',
-          margins: { top: 0, bottom: 0, left: 0, right: 0 }
-        })
-      },
-      'contract/print'
-    )
+    app.evaluate(async ({ BrowserWindow }, targetUrl) => {
+      const windows = BrowserWindow.getAllWindows()
+      const win = windows.find((w) => w.webContents.getURL().includes(targetUrl)) ?? windows[0]
+      if (!win) throw new Error('no window')
+      return win.webContents.printToPDF({
+        landscape: false,
+        printBackground: true,
+        pageSize: 'A4',
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+      })
+    }, 'contract/print')
 
   return {
     app,

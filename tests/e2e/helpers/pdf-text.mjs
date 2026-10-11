@@ -9,7 +9,10 @@ async function main() {
   for (let i = 1; i <= Math.min(3, doc.numPages); i++) {
     const page = await doc.getPage(i)
     const content = await page.getTextContent()
-    const text = content.items.map((item) => item.str).join(' ').slice(0, 300)
+    const text = content.items
+      .map((item) => item.str)
+      .join(' ')
+      .slice(0, 300)
     console.log(`--- page ${i} text (${content.items.length} items):`, text || '(EMPTY)')
   }
 }

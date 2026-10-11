@@ -15,6 +15,7 @@ import {
   Building2,
   Calendar,
   CirclePlus,
+  FileText,
   Guitar,
   HandCoins,
   Hotel,
@@ -148,30 +149,21 @@ const SearchButton = () => {
 
   const searchEnabled = open && debouncedQuery.length >= MIN_SEARCH_LENGTH
 
-  const events = trpcReact.dealMemo.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
+  // One dedicated search call (LIKE queries on indexed columns, lightweight
+  // payloads) instead of six paginated entity queries
+  const search = trpcReact.search.search.useQuery(
+    { query: debouncedQuery, limit: 4 },
     { enabled: searchEnabled }
   )
-  const bands = trpcReact.band.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
-    { enabled: searchEnabled }
-  )
-  const companies = trpcReact.company.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
-    { enabled: searchEnabled }
-  )
-  const persons = trpcReact.person.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
-    { enabled: searchEnabled }
-  )
-  const venues = trpcReact.venue.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
-    { enabled: searchEnabled }
-  )
-  const hotels = trpcReact.hotel.getAllPaginated.useQuery(
-    { page: 1, pageSize: 8, search: debouncedQuery },
-    { enabled: searchEnabled }
-  )
+
+  const grouped = search.data?.results ?? []
+  const events = grouped.filter((r) => r.type === 'event')
+  const bands = grouped.filter((r) => r.type === 'band')
+  const companies = grouped.filter((r) => r.type === 'company')
+  const persons = grouped.filter((r) => r.type === 'person')
+  const venues = grouped.filter((r) => r.type === 'venue')
+  const hotels = grouped.filter((r) => r.type === 'hotel')
+  const invoices = grouped.filter((r) => r.type === 'invoice')
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -210,12 +202,13 @@ const SearchButton = () => {
     setOpen(false)
   }
 
-  const eventsQuickList = events.data?.items ?? []
-  const personsQuickList = persons.data?.items ?? []
-  const companiesQuickList = companies.data?.items ?? []
-  const bandsQuickList = bands.data?.items ?? []
-  const venuesQuickList = venues.data?.items ?? []
-  const hotelsQuickList = hotels.data?.items ?? []
+  const eventsQuickList = events
+  const personsQuickList = persons
+  const companiesQuickList = companies
+  const bandsQuickList = bands
+  const venuesQuickList = venues
+  const hotelsQuickList = hotels
+  const invoicesQuickList = invoices
 
   const hasTypedQuery = debouncedQuery.length >= MIN_SEARCH_LENGTH
   const hasRecordMatches =
@@ -224,15 +217,10 @@ const SearchButton = () => {
     companiesQuickList.length > 0 ||
     bandsQuickList.length > 0 ||
     venuesQuickList.length > 0 ||
-    hotelsQuickList.length > 0
+    hotelsQuickList.length > 0 ||
+    invoicesQuickList.length > 0
 
-  const isAnyLoading =
-    events.isLoading ||
-    bands.isLoading ||
-    companies.isLoading ||
-    persons.isLoading ||
-    venues.isLoading ||
-    hotels.isLoading
+  const isAnyLoading = searchEnabled && search.isLoading
 
   const emptyMessage = useMemo(() => {
     if (!hasTypedQuery)
@@ -362,18 +350,18 @@ const SearchButton = () => {
                 {eventsQuickList.map((event) => (
                   <CommandItem
                     key={`event-${event.id}`}
-                    value={`${event.name} ${event.bandName} ${event.venueName ?? ''}`}
+                    value={`${event.label} event gig show`}
                     keywords={['event', 'gig', 'show']}
                     onSelect={() =>
                       runAndClose(
                         () =>
                           navigate({
-                            to: '/events/$eventId',
-                            params: { eventId: String(event.id) }
+                            to: event.route,
+                            params: event.routeParams ?? undefined
                           }),
                         {
                           id: `event:${event.id}`,
-                          label: `${event.name} (${event.bandName})`,
+                          label: event.label,
                           type: 'event',
                           eventId: event.id
                         }
@@ -381,8 +369,8 @@ const SearchButton = () => {
                     }
                   >
                     <Music2 />
-                    <span>{event.name}</span>
-                    <CommandShortcut>{event.bandName}</CommandShortcut>
+                    <span>{event.label}</span>
+                    <CommandShortcut>{event.sublabel ?? ''}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -391,29 +379,34 @@ const SearchButton = () => {
                 {personsQuickList.map((person) => (
                   <CommandItem
                     key={`person-${person.id}`}
-                    value={`${person.firstName} ${person.lastName}`}
+                    value={`${person.label} person contact`}
                     keywords={['person', 'contact']}
-                    onSelect={() => runAndClose(() => navigate({ to: '/persons' }))}
+                    onSelect={() =>
+                      runAndClose(() =>
+                        navigate({
+                          to: person.route,
+                          params: person.routeParams ?? undefined
+                        })
+                      )
+                    }
                   >
                     <User />
-                    <span>
-                      {person.firstName} {person.lastName}
-                    </span>
+                    <span>{person.label}</span>
                     <CommandShortcut>Personen</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Einträge: Firmen / Bands / Spielstätten / Hotels">
+              <CommandGroup heading="Einträge: Firmen / Bands / Spielstätten / Hotels / Rechnungen">
                 {companiesQuickList.map((company) => (
                   <CommandItem
                     key={`company-${company.id}`}
-                    value={`${company.name} company`}
+                    value={`${company.label} company firma`}
                     keywords={['company']}
-                    onSelect={() => runAndClose(() => navigate({ to: '/companies' }))}
+                    onSelect={() => runAndClose(() => navigate({ to: company.route }))}
                   >
                     <Building2 />
-                    <span>{company.name}</span>
+                    <span>{company.label}</span>
                     <CommandShortcut>Firmen</CommandShortcut>
                   </CommandItem>
                 ))}
@@ -421,12 +414,12 @@ const SearchButton = () => {
                 {bandsQuickList.map((band) => (
                   <CommandItem
                     key={`band-${band.id}`}
-                    value={`${band.name} ${band.genre ?? ''} band`}
+                    value={`${band.label} ${band.sublabel ?? ''} band artist`}
                     keywords={['artist']}
-                    onSelect={() => runAndClose(() => navigate({ to: '/band' }))}
+                    onSelect={() => runAndClose(() => navigate({ to: band.route }))}
                   >
                     <Guitar />
-                    <span>{band.name}</span>
+                    <span>{band.label}</span>
                     <CommandShortcut>Bands</CommandShortcut>
                   </CommandItem>
                 ))}
@@ -434,12 +427,12 @@ const SearchButton = () => {
                 {venuesQuickList.map((venue) => (
                   <CommandItem
                     key={`venue-${venue.id}`}
-                    value={`${venue.name} ${venue.address?.city ?? ''} venue`}
+                    value={`${venue.label} ${venue.sublabel ?? ''} venue location`}
                     keywords={['location']}
-                    onSelect={() => runAndClose(() => navigate({ to: '/venues' }))}
+                    onSelect={() => runAndClose(() => navigate({ to: venue.route }))}
                   >
                     <MapPin />
-                    <span>{venue.name}</span>
+                    <span>{venue.label}</span>
                     <CommandShortcut>Spielstätten</CommandShortcut>
                   </CommandItem>
                 ))}
@@ -447,13 +440,26 @@ const SearchButton = () => {
                 {hotelsQuickList.map((hotel) => (
                   <CommandItem
                     key={`hotel-${hotel.id}`}
-                    value={`${hotel.name} ${hotel.address?.city ?? ''} hotel`}
+                    value={`${hotel.label} ${hotel.sublabel ?? ''} hotel accommodation`}
                     keywords={['accommodation']}
-                    onSelect={() => runAndClose(() => navigate({ to: '/hotels' }))}
+                    onSelect={() => runAndClose(() => navigate({ to: hotel.route }))}
                   >
                     <Hotel />
-                    <span>{hotel.name}</span>
+                    <span>{hotel.label}</span>
                     <CommandShortcut>Hotels</CommandShortcut>
+                  </CommandItem>
+                ))}
+
+                {invoicesQuickList.map((invoice) => (
+                  <CommandItem
+                    key={`invoice-${invoice.id}`}
+                    value={`${invoice.label} ${invoice.sublabel ?? ''} invoice rechnung`}
+                    keywords={['invoice', 'rechnung']}
+                    onSelect={() => runAndClose(() => navigate({ to: invoice.route }))}
+                  >
+                    <FileText />
+                    <span>{invoice.label}</span>
+                    <CommandShortcut>{invoice.sublabel ?? 'Rechnungen'}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>

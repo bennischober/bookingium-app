@@ -793,15 +793,12 @@ export async function seedDatabase() {
             hotel_id: hotel1.id,
             guarantee_amount: 4000,
             guarantee_vat_rate: 7,
-            contract_notes:
-              'Sondervereinbarung: Vorband stellt Backline. Auf- und Abbau am Vortag.'
+            contract_notes: 'Sondervereinbarung: Vorband stellt Backline. Auf- und Abbau am Vortag.'
           })
           .returning()
 
         internalDealMemoId = internalMemo.id
-        console.log(
-          `Internal contract demo: deal memo #${internalMemo.id} (BMM <-> PWW)`
-        )
+        console.log(`Internal contract demo: deal memo #${internalMemo.id} (BMM <-> PWW)`)
       }
     } catch (error) {
       console.warn(
