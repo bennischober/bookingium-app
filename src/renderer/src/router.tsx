@@ -14,6 +14,7 @@ import HotelPage from '@/pages/HotelPage'
 import PersonRelationsPage from '@/pages/PersonRelationsPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
+import ContractPrintPage from '@/pages/ContractPrintPage'
 import { ROUTES } from '@/lib/routing'
 
 const hashHistory = createHashHistory()
@@ -114,6 +115,12 @@ const invoicePrintRoute = createRoute({
   component: InvoicePrintPage
 })
 
+const contractPrintRoute = createRoute({
+  getParentRoute: () => printLayoutRoute,
+  path: '/events/$eventId/contract/print',
+  component: ContractPrintPage
+})
+
 const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     indexRoute,
@@ -129,7 +136,7 @@ const routeTree = rootRoute.addChildren([
     invoiceRoute,
     eventHubRoute
   ]),
-  printLayoutRoute.addChildren([invoicePrintRoute])
+  printLayoutRoute.addChildren([invoicePrintRoute, contractPrintRoute])
 ])
 
 export const router = createRouter({

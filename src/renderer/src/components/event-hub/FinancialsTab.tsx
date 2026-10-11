@@ -3,6 +3,7 @@ import { trpcReact } from '@/lib/trpc'
 import { useSyncedState } from '@/hooks/useSyncedState'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Euro, FileText, Plus } from 'lucide-react'
+import { Euro, FileText, Plus, FileSignature } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
@@ -56,7 +57,19 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
     (parseFloat(ak) || null) !== event.ticketPriceAk
   const isPostersDirty = posters !== (event.posters ?? '')
   const isInvoiceCompanyDirty = invoiceCompanyId !== (event.invoiceCompanyId ?? null)
-  const isDirty = isDealDirty || isPricesDirty || isPostersDirty || isInvoiceCompanyDirty
+  const [guaranteeAmount, setGuaranteeAmount] = useSyncedState(
+    event.guaranteeAmount?.toString() ?? ''
+  )
+  const [guaranteeVatRate, setGuaranteeVatRate] = useSyncedState(
+    event.guaranteeVatRate?.toString() ?? ''
+  )
+  const [contractNotes, setContractNotes] = useSyncedState(event.contractNotes ?? '')
+  const isContractDirty =
+    (parseFloat(guaranteeAmount) || null) !== event.guaranteeAmount ||
+    (parseFloat(guaranteeVatRate) || null) !== event.guaranteeVatRate ||
+    contractNotes !== (event.contractNotes ?? '')
+  const isDirty =
+    isDealDirty || isPricesDirty || isPostersDirty || isInvoiceCompanyDirty || isContractDirty
 
   // Reset to server values when cancel is triggered
   useEffect(() => {
@@ -66,6 +79,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       setAk(event.ticketPriceAk?.toString() ?? '')
       setPosters(event.posters ?? '')
       setInvoiceCompanyId(event.invoiceCompanyId ?? null)
+      setGuaranteeAmount(event.guaranteeAmount?.toString() ?? '')
+      setGuaranteeVatRate(event.guaranteeVatRate?.toString() ?? '')
+      setContractNotes(event.contractNotes ?? '')
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,7 +101,10 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       ticketPriceVvk: vvk ? parseFloat(vvk) : null,
       ticketPriceAk: ak ? parseFloat(ak) : null,
       posters: posters || undefined,
-      invoiceCompanyId
+      invoiceCompanyId,
+      guaranteeAmount: guaranteeAmount ? parseFloat(guaranteeAmount) : null,
+      guaranteeVatRate: guaranteeVatRate ? parseFloat(guaranteeVatRate) : null,
+      contractNotes: contractNotes
     })
   }
 
@@ -230,6 +249,80 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       </div>
 
       <div className="md:col-span-2 space-y-4">
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <FileSignature className="h-4 w-4" />
+            Vertrag (Gage)
+          </h3>
+          {isEditing ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+              <div className="space-y-2">
+                <Label htmlFor="guarantee-amount">Garantiezahlung (netto, €)</Label>
+                <Input
+                  id="guarantee-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="z. B. 4000"
+                  value={guaranteeAmount}
+                  onChange={(e) => setGuaranteeAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  aparece im Auftrittsvertrag als vereinbarte Gage
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="guarantee-vat">MwSt.-Satz der Gage (%)</Label>
+                <Input
+                  id="guarantee-vat"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  placeholder="z. B. 7"
+                  value={guaranteeVatRate}
+                  onChange={(e) => setGuaranteeVatRate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Leer oder 0 = keine MwSt. ausweisen</p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="contract-notes">Sondervereinbarungen (Vertrag)</Label>
+                <Textarea
+                  id="contract-notes"
+                  rows={3}
+                  placeholder="Zusätzliche vertragliche Vereinbarungen für dieses Event…"
+                  value={contractNotes}
+                  onChange={(e) => setContractNotes(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Wird im Vertrag als Abschnitt „Sondervereinbarungen“ angehängt.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+              <ReadOnlyField
+                label="Garantiezahlung (netto)"
+                value={guaranteeAmount ? `€ ${parseFloat(guaranteeAmount).toFixed(2)}` : null}
+                placeholder="Nicht festgelegt"
+              />
+              <ReadOnlyField
+                label="MwSt.-Satz der Gage"
+                value={guaranteeVatRate ? `${guaranteeVatRate} %` : null}
+                placeholder="Keine MwSt. ausgewiesen"
+              />
+              <ReadOnlyField
+                label="Sondervereinbarungen"
+                value={contractNotes}
+                placeholder="Keine Sondervereinbarungen"
+                className="md:col-span-2"
+              />
+            </div>
+          )}
+        </div>
+
         <Separator />
 
         <div>

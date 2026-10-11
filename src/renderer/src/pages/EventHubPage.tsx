@@ -4,7 +4,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, MapPin, Pencil, X, Check } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
@@ -119,10 +119,27 @@ export function EventHubPage() {
                 </Button>
               </>
             ) : (
-              <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
-                <Pencil className="h-3.5 w-3.5" />
-                Bearbeiten
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() =>
+                    navigate({
+                      to: '/events/$eventId/contract/print',
+                      params: { eventId: String(event.id) }
+                    })
+                  }
+                  title="Auftrittsvertrag drucken / als PDF speichern"
+                >
+                  <FileSignature className="h-3.5 w-3.5" />
+                  Vertrag
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
+                  <Pencil className="h-3.5 w-3.5" />
+                  Bearbeiten
+                </Button>
+              </>
             )}
           </div>
         </div>

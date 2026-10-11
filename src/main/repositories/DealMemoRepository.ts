@@ -123,6 +123,9 @@ export class DealMemoRepository {
     if ('performanceTime' in input) values.performance_time = input.performanceTime ?? null
     if ('performanceInformation' in input)
       values.performance_information = input.performanceInformation ?? null
+    if ('guaranteeAmount' in input) values.guarantee_amount = input.guaranteeAmount ?? null
+    if ('guaranteeVatRate' in input) values.guarantee_vat_rate = input.guaranteeVatRate ?? null
+    if ('contractNotes' in input) values.contract_notes = input.contractNotes ?? ''
 
     const result = await db
       .update(schema.deal_memo)

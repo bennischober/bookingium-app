@@ -1,0 +1,151 @@
+import { injectable } from 'tsyringe'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { schema } from '../db/schema'
+import type { ContractData, ContractParty } from '../api/schemas/contract.schema'
+
+export type { ContractData, ContractParty } from '../api/schemas/contract.schema'
+
+type CompanyRow = typeof schema.company.$inferSelect
+type ContactRow = typeof schema.contact.$inferSelect
+type BankRow = typeof schema.bank.$inferSelect
+type AddressRow = typeof schema.address.$inferSelect
+
+function toParty(
+  company: CompanyRow | null,
+  contact: ContactRow | null,
+  bank: BankRow | null,
+  address: AddressRow | null,
+  representative: string
+): ContractParty | null {
+  if (!company) return null
+  return {
+    id: company.id,
+    name: company.name,
+    street: address?.street ?? '',
+    streetNumber: address?.street_number ?? '',
+    zipCode: address?.zip_code ?? '',
+    city: address?.city ?? '',
+    country: address?.country ?? '',
+    email: contact?.email ?? '',
+    phone: contact?.phone ?? '',
+    vatNumber: company.vat_number,
+    ustNumber: company.ust_number,
+    taxNumber: company.tax_number,
+    kskNumber: company.ksk_number,
+    bankName: bank?.bank_name ?? '',
+    accountHolder: bank?.account_holder ?? '',
+    iban: bank?.iban ?? '',
+    bic: bank?.bic ?? '',
+    signaturePath: company.signature_path,
+    representative
+  }
+}
+
+@injectable()
+export class ContractRepository {
+  /**
+   * Assembles all data needed to render the engagement contract for a deal
+   * memo. Contracts are drafted before an event, so parties are read live
+   * from master data (unlike invoices, which freeze snapshots at issue time).
+   */
+  async getContractData(dealMemoId: number): Promise<ContractData | null> {
+    const rows = await db
+      .select()
+      .from(schema.deal_memo)
+      .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
+      .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .leftJoin(schema.hotel, eq(schema.deal_memo.hotel_id, schema.hotel.id))
+      .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
+      .where(eq(schema.deal_memo.id, dealMemoId))
+      .limit(1)
+
+    if (rows.length === 0) return null
+
+    const row = rows[0]
+
+    // Artist side: the band's company (with contact/address/bank for the
+    // contract header and signature)
+    const artistRows = await db
+      .select({
+        company: schema.company,
+        contact: schema.contact,
+        bank: schema.bank,
+        address: schema.address
+      })
+      .from(schema.band)
+      .leftJoin(schema.company, eq(schema.band.company_id, schema.company.id))
+      .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+      .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
+      .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+      .where(eq(schema.band.id, row.deal_memo.band_id))
+      .limit(1)
+
+    // Promoter ("oeV"): the deal memo's local promoter company
+    let promoter: ContractParty | null = null
+    if (row.deal_memo.lopro_company_id) {
+      const promoterRows = await db
+        .select({
+          company: schema.company,
+          contact: schema.contact,
+          bank: schema.bank,
+          address: schema.address,
+          person_first_name: schema.person.first_name,
+          person_last_name: schema.person.last_name
+        })
+        .from(schema.company)
+        .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+        .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
+        .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+        .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
+        .where(eq(schema.company.id, row.deal_memo.lopro_company_id))
+        .limit(1)
+
+      if (promoterRows.length > 0) {
+        const p = promoterRows[0]
+        promoter = toParty(
+          p.company,
+          p.contact,
+          p.bank,
+          p.address,
+          [p.person_first_name, p.person_last_name].filter(Boolean).join(' ')
+        )
+      }
+    }
+
+    const a = artistRows[0]
+    const artistRepresentative = row.person
+      ? `${row.person.first_name} ${row.person.last_name}`
+      : ''
+
+    return {
+      dealMemo: {
+        id: row.deal_memo.id,
+        name: row.deal_memo.name,
+        date: row.deal_memo.date,
+        amountOfPeople: row.deal_memo.amount_of_people,
+        roomInformation: row.deal_memo.room_information ?? '',
+        performanceDuration: row.deal_memo.performance_duration ?? '',
+        performanceTime: row.deal_memo.performance_time ?? '',
+        performanceInformation: row.deal_memo.performance_information ?? '',
+        guaranteeAmount: row.deal_memo.guarantee_amount,
+        guaranteeVatRate: row.deal_memo.guarantee_vat_rate,
+        contractNotes: row.deal_memo.contract_notes ?? '',
+        notes: row.deal_memo.notes ?? ''
+      },
+      band: row.band ? { id: row.band.id, name: row.band.name } : null,
+      artist: toParty(a.company, a.contact, a.bank, a.address, artistRepresentative),
+      promoter,
+      venue: row.venue
+        ? {
+            id: row.venue.id,
+            name: row.venue.name,
+            city: row.address?.city ?? '',
+            capacity: row.venue.capacity
+          }
+        : null,
+      hotel: row.hotel ? { id: row.hotel.id, name: row.hotel.name } : null
+    }
+  }
+}

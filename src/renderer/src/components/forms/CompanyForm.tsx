@@ -74,7 +74,9 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
   // Fetch banks for dropdown
   const banks = trpcReact.bank.getListItems.useQuery()
   const [logoPreview, setLogoPreview] = useState<string>(company?.logoPath || '')
+  const [signaturePreview, setSignaturePreview] = useState<string>(company?.signaturePath || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const signatureInputRef = useRef<HTMLInputElement>(null)
 
   const handleLogoSelect = async () => {
     const result = await window.api.showOpenDialog()
@@ -93,6 +95,22 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       setLogoPreview(sourcePath)
     }
   }
+
+  const handleSignatureSelect = async () => {
+    const result = await window.api.showOpenDialog()
+    if (result.canceled || result.filePaths.length === 0) return
+
+    const sourcePath = result.filePaths[0]
+    const fileName = sourcePath.split(/[\\/]/).pop() || 'signature'
+    if (company) {
+      const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
+      if (upload.success && upload.relativePath) {
+        setSignaturePreview(upload.relativePath)
+      }
+    } else {
+      setSignaturePreview(sourcePath)
+    }
+  }
   const form = useForm({
     defaultValues: {
       name: company?.name || '',
@@ -103,6 +121,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
       logoPath: company?.logoPath || '',
+      signaturePath: company?.signaturePath || '',
       bankId: company?.bank?.id || null,
       address: {
         street: company?.address?.street || '',
@@ -122,13 +141,17 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       }
     },
     onSubmit: async ({ value }) => {
-      // For new companies the picked logo path is passed through so the
-      // repository/form owner can upload it after the company id exists.
+      // For new companies the picked logo/signature paths are passed through
+      // so the form owner can upload them after the company id exists.
       const payload = company
-        ? { ...value, id: company.id, logoPath: logoPreview }
-        : { ...value, logoSourcePath: logoPreview }
+        ? { ...value, id: company.id, logoPath: logoPreview, signaturePath: signaturePreview }
+        : { ...value, logoSourcePath: logoPreview, signatureSourcePath: signaturePreview }
       onSubmit(
-        payload as z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
+        payload as z.infer<typeof CreateCompanyInput> & {
+          id?: number
+          logoSourcePath?: string
+          signatureSourcePath?: string
+        }
       )
     }
   })
@@ -283,6 +306,55 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Unterschrift für Verträge (optional)</Label>
+          <input
+            ref={signatureInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml"
+            className="hidden"
+            onChange={() => void handleSignatureSelect()}
+          />
+          <div className="flex items-center gap-3">
+            {signaturePreview ? (
+              <LogoPreview path={signaturePreview} />
+            ) : (
+              <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
+                Keine Unterschrift
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signatureInputRef.current?.click()}
+              >
+                Bild auswählen…
+              </Button>
+              {signaturePreview && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    if (company && signaturePreview) {
+                      await window.api.deleteLogo(signaturePreview)
+                    }
+                    setSignaturePreview('')
+                    form.setFieldValue('signaturePath', '')
+                  }}
+                >
+                  Entfernen
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Erscheint über der Unterschriftszeile des Künstlers im Auftrittsvertrag.
+          </p>
         </div>
 
         <form.Field name="bankId">

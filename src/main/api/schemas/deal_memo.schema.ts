@@ -37,6 +37,9 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   performanceDuration: z.string().nullable(),
   performanceTime: z.string().nullable(),
   performanceInformation: z.string().nullable(),
+  guaranteeAmount: z.number().nullable(),
+  guaranteeVatRate: z.number().nullable(),
+  contractNotes: z.string(),
   loProPersonId: z.number().nullable(),
   loProCompanyId: z.number().nullable(),
   invoiceCompanyId: z.number().nullable(),
@@ -114,7 +117,10 @@ export const UpdateDealMemoInput = CreateDealMemoInput.partial()
     roomInformation: z.string().nullable().optional(),
     performanceDuration: z.string().nullable().optional(),
     performanceTime: z.string().nullable().optional(),
-    performanceInformation: z.string().nullable().optional()
+    performanceInformation: z.string().nullable().optional(),
+    guaranteeAmount: z.number().nullable().optional(),
+    guaranteeVatRate: z.number().nullable().optional(),
+    contractNotes: z.string().optional()
   })
 
 export type UpdateDealMemoInput = z.infer<typeof UpdateDealMemoInput>

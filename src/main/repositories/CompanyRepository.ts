@@ -139,6 +139,8 @@ export class CompanyRepository {
           commercial_register_no: input.commercialRegisterNo || '',
           register_court: input.registerCourt || '',
           logo_path: input.logoPath || '',
+          signature_path: input.signaturePath || '',
+          ksk_number: input.kskNumber || '',
           is_default_for_invoicing: input.isDefaultForInvoicing,
           address_id: addressId,
           contact_id: contactId,
@@ -260,6 +262,8 @@ export class CompanyRepository {
             input.commercialRegisterNo ?? existingCompany.commercial_register_no,
           register_court: input.registerCourt ?? existingCompany.register_court,
           logo_path: input.logoPath ?? existingCompany.logo_path,
+          signature_path: input.signaturePath ?? existingCompany.signature_path,
+          ksk_number: input.kskNumber ?? existingCompany.ksk_number,
           is_default_for_invoicing:
             input.isDefaultForInvoicing ?? existingCompany.is_default_for_invoicing,
           address_id: addressId,

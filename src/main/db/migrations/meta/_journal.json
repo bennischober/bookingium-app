@@ -15,6 +15,13 @@
       "when": 1791672032423,
       "tag": "0001_fancy_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791714104242,
+      "tag": "0002_lush_chronomancer",
+      "breakpoints": true
     }
   ]
 }

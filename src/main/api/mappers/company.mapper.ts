@@ -32,6 +32,8 @@ export class CompanyMapper {
       commercialRegisterNo: entity.commercial_register_no,
       registerCourt: entity.register_court,
       logoPath: entity.logo_path,
+      signaturePath: entity.signature_path,
+      kskNumber: entity.ksk_number,
       isDefaultForInvoicing: entity.is_default_for_invoicing,
       address: AddressMapper.toDto(entity.address),
       contact: ContactMapper.toDto(entity.contact),

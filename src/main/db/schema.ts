@@ -88,6 +88,8 @@ export const company = sqliteTable(
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
     logo_path: text('logo_path').default('').notNull(),
+    signature_path: text('signature_path').default('').notNull(),
+    ksk_number: text('ksk_number').default('').notNull(),
     is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
       .default(false)
       .notNull(),
@@ -243,6 +245,9 @@ export const deal_memo = sqliteTable(
     performance_duration: text('performance_duration').default(''),
     performance_time: text('performance_time').default(''),
     performance_information: text('performance_information').default(''),
+    guarantee_amount: real('guarantee_amount'),
+    guarantee_vat_rate: real('guarantee_vat_rate'),
+    contract_notes: text('contract_notes').default(''),
     lopro_person_id: integer('lopro_person_id').references(() => person.id, {
       onDelete: 'set null'
     }),
