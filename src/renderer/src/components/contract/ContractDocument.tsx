@@ -75,11 +75,13 @@ export const CONTRACT_PADDING_MM = 20
 export function ContractDocument({
   data,
   artistImageUrl,
-  artistSignatureUrl
+  artistSignatureUrl,
+  previewPdfUrl
 }: {
   data: ContractData
   artistImageUrl?: string
   artistSignatureUrl?: string
+  previewPdfUrl?: string | null
 }) {
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
 
@@ -94,7 +96,7 @@ export function ContractDocument({
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
   return (
-    <PagedDocument>
+    <PagedDocument previewPdfUrl={previewPdfUrl}>
       {/* Letterhead: artist company identity */}
       {artistImageUrl && (
         <img

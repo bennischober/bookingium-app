@@ -19,7 +19,9 @@ const api = {
 
   deleteLogo: (relativePath: string) => ipcRenderer.invoke('logo:delete', { relativePath }),
 
-  getLogoPath: (relativePath: string) => ipcRenderer.invoke('logo:getDataUrl', { relativePath })
+  getLogoPath: (relativePath: string) => ipcRenderer.invoke('logo:getDataUrl', { relativePath }),
+
+  generatePrintPreview: () => ipcRenderer.invoke('print:previewPdf')
 }
 
 process.once('loaded', () => {

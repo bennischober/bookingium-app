@@ -1,138 +1,94 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-
-// A4 page geometry (DIN A4: 210 x 297 mm)
-const PAGE_H_MM = 297
-const PADDING_MM = 20
+import { useEffect, useRef, type ReactNode } from 'react'
+import { FileQuestion } from 'lucide-react'
 
 /**
- * A4 page preview with real page frames — React-idiomatic.
+ * A4 document wrapper with a true-to-print PDF preview.
  *
- * How it works:
- * 1. Children render ONCE into a hidden measuring container (React-owned).
- * 2. A ResizeObserver/font-load watcher measures the block flow heights and
- *    computes which block starts which page (greedy fill; blocks taller than
- *    one page overflow and the next block starts a new page).
- * 3. The pages are RENDERED as separate absolutely-stacked frames via React
- *    portals: each page frame is a div; the SAME React children are portaled
- *    into every frame?? NO — portals duplicate; instead:
+ * The document itself renders as a single vertical A4-width sheet (fixed
+ * 210mm, centered) — clean and simple on screen. Section blocks carry
+ * break-inside: avoid, so the print engine never splits a section across
+ * pages or cuts a word at the page edge; @page margins mirror the sheet
+ * padding.
  *
- *    The actual approach: children are rendered into the measure container
- *    only. The visible page frames are pure CSS overlays (page boxes with
- *    shadows) positioned behind/around the measured flow, and the flow
- *    container gets per-block `break-inside: avoid` + margins that match the
- *    page gaps, so the flow VISUALLY aligns with the page frames.
- *
- *    This is a visual alignment trick: page frames are drawn at computed
- *    offsets; the content flows naturally (with break-inside rules) inside
- *    one continuous column that starts inside the first frame. Gaps between
- *    pages are cut out visually by translating content blocks per page...
- *
- * Simpler and honest: given the complexity discovered, this component only
- * guarantees PRINT correctness (break-inside on blocks, print margins via
- * @page), and shows the content in a single A4-width sheet with computed
- * page-frame shadows at the measured break offsets (approximate preview).
+ * The "how will this print?" question is answered by the exact preview:
+ * an optional inline viewer that renders the REAL print output (Electron
+ * printToPDF via IPC) — Chromium's PDF viewer shows the genuine pages,
+ * so the preview is exact by definition (it IS the print result).
  */
 export function PagedDocument({
   children,
-  paddingMm = PADDING_MM
+  paddingMm = 20,
+  previewPdfUrl
 }: {
   children: ReactNode
   paddingMm?: number
+  /** data: or file: URL of the real generated PDF (printToPDF output) */
+  previewPdfUrl?: string | null
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
-  const [breaksPx, setBreaksPx] = useState<number[]>([])
-  const [mmPx, setMmPx] = useState(3.7795)
-
-  const measure = useCallback(() => {
-    const content = contentRef.current
-    if (!content) return
-
-    // mm -> px
-    const probe = document.createElement('div')
-    probe.style.cssText = 'height:10mm;position:absolute;visibility:hidden;'
-    content.appendChild(probe)
-    const pxPerMm = probe.offsetHeight / 10
-    probe.remove()
-    setMmPx(pxPerMm)
-
-    const usable = (PAGE_H_MM - paddingMm * 2) * pxPerMm
-    const blocks = Array.from(content.children).filter(
-      (el): el is HTMLElement => el instanceof HTMLElement
-    )
-    if (blocks.length === 0) return
-
-    const breaks: number[] = []
-    let used = 0
-    for (const block of blocks) {
-      const rect = block.getBoundingClientRect()
-      const topInContent = rect.top - content.getBoundingClientRect().top
-      const height = rect.height
-      const margin = getComputedStyle(block)
-      const outer = height + parseFloat(margin.marginTop) + parseFloat(margin.marginBottom)
-
-      if (used > 0 && used + outer > usable) {
-        // Page ends: content top offset of this block, relative to content
-        breaks.push(topInContent)
-        used = outer
-      } else {
-        used += outer
-      }
-    }
-    setBreaksPx(breaks)
-  }, [paddingMm])
 
   useEffect(() => {
-    void document.fonts.ready.then(() => measure())
     const content = contentRef.current
     if (!content) return
-    content.addEventListener('load', measure, true)
-    const observer = new ResizeObserver(measure)
-    observer.observe(content)
-    return () => {
-      content.removeEventListener('load', measure, true)
-      observer.disconnect()
+    for (const child of Array.from(content.children)) {
+      if (child instanceof HTMLElement) {
+        child.style.breakInside = 'avoid'
+      }
     }
-  }, [measure])
+  })
 
   return (
-    <div className="relative">
-      {/* Print stylesheet: @page margins mirror the preview padding */}
+    <>
       <style>{`
         @media print {
-          @page { size: A4; margin: ${paddingMm}mm; }
+          .paged-sheet {
+            width: auto !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+          }
           .paged-content { padding: 0 !important; }
+          @page { size: A4; margin: ${paddingMm}mm; }
         }
       `}</style>
 
-      {/* Continuous A4-width sheet with page frame overlays */}
-      <div className="bg-white text-black shadow-lg print:shadow-none print:m-0 print:w-auto">
+      {/* The document as a single vertical A4 sheet */}
+      <div
+        ref={contentRef}
+        className="paged-sheet relative mx-auto w-[210mm] bg-white text-black shadow-lg print:shadow-none"
+        style={{ minHeight: '297mm' }}
+      >
         <div
-          ref={contentRef}
           className="paged-content"
-          style={{
-            padding: `${paddingMm}mm`,
-            overflowWrap: 'anywhere',
-            hyphens: 'auto'
-          }}
+          style={{ padding: `${paddingMm}mm`, overflowWrap: 'anywhere', hyphens: 'auto' }}
         >
           {children}
         </div>
+      </div>
 
-        {/* Page frame overlays: light separators where pages break (screen only) */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 print:hidden">
-          {breaksPx.map((topPx, index) => (
-            <div
-              key={`${topPx}-${index}`}
-              className="absolute left-0 right-0 flex items-center gap-2"
-              style={{ top: topPx + paddingMm * mmPx }}
-            >
-              <div className="flex-1 border-t-2 border-dashed border-red-300/80" />
-              <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] text-red-500">
-                Seite {index + 1} Ende
-              </span>
-            </div>
-          ))}
+      {/* Exact print preview: the real generated PDF, embedded */}
+      {previewPdfUrl && (
+        <div className="mx-auto mt-6 w-[210mm] print:hidden">
+          <p className="mb-2 text-center text-xs text-muted-foreground">
+            Exakte Druckvorschau (echtes PDF):
+          </p>
+          <iframe
+            src={previewPdfUrl}
+            title="Druckvorschau"
+            className="h-[800px] w-full rounded-lg border bg-white"
+          />
         </div>
+      )}
+    </>
+  )
+}
+
+export function PdfPreviewPlaceholder() {
+  return (
+    <div className="mx-auto mt-6 w-[210mm] print:hidden">
+      <div className="flex h-32 items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground">
+        <FileQuestion className="h-4 w-4" />
+        Vorschau wird erstellt…
       </div>
     </div>
   )

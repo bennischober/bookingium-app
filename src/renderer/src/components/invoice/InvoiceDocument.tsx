@@ -518,16 +518,18 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
 export function InvoiceDocument({
   data,
   template,
-  logoUrl
+  logoUrl,
+  previewPdfUrl
 }: {
   data: InvoicePrintDto
   template: InvoiceTemplate
   logoUrl?: string
+  previewPdfUrl?: string | null
 }) {
   const isDraft = data.invoice.status === 'draft'
 
   return (
-    <PagedDocument>
+    <PagedDocument previewPdfUrl={previewPdfUrl}>
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">

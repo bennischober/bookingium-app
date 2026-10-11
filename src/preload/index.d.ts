@@ -30,6 +30,11 @@ export interface DocumentAPI {
     dataUrl?: string
     error?: string
   }>
+  generatePrintPreview: () => Promise<{
+    success: boolean
+    dataUrl?: string
+    error?: string
+  }>
 }
 
 declare global {

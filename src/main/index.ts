@@ -225,6 +225,30 @@ ipcMain.handle('logo:getDataUrl', async (_event, { relativePath }: { relativePat
   }
 })
 
+/**
+ * IPC Handler: generate the real print output (printToPDF) of the current
+ * window. Used by the print pages' exact preview.
+ */
+ipcMain.handle('print:previewPdf', async (event) => {
+  try {
+    const wc = event.sender
+    const pdf = await wc.printToPDF({
+      landscape: false,
+      printBackground: true,
+      pageSize: 'A4',
+      margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
+    })
+    // Return as a data URL — no temp files, no file:// security concerns
+    return { success: true, dataUrl: `data:application/pdf;base64,${pdf.toString('base64')}` }
+  } catch (error) {
+    console.error('Error generating print preview:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.

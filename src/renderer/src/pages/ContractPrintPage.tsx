@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Eye, Printer } from 'lucide-react'
+import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { ContractDocument } from '@/components/contract/ContractDocument'
@@ -54,6 +55,9 @@ export default function ContractPrintPage() {
   const signaturePath = data?.representative?.signaturePath || data?.artist?.signaturePath || ''
   const artistSignature = useStoredImageUrl(signaturePath || undefined)
 
+  // Exact print preview (real printToPDF output, shown inline)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
   if (contractQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -75,9 +79,6 @@ export default function ContractPrintPage() {
 
   return (
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
-      {/* Page margins are managed by paged.js (PagedDocument) for preview and
-          print — no @page rule here, that would double the margins */}
-
       {/* Screen-only toolbar */}
       <div className="mx-auto mb-4 flex w-[210mm] items-center justify-between print:hidden">
         <Button
@@ -86,15 +87,31 @@ export default function ContractPrintPage() {
         >
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
-        <Button onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const result = await window.api.generatePrintPreview()
+              if (result.success && result.dataUrl) {
+                setPreviewUrl(result.dataUrl)
+              } else {
+                toast.error('Vorschau fehlgeschlagen', { description: result.error })
+              }
+            }}
+          >
+            <Eye className="h-4 w-4" /> Exakte Vorschau
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
+          </Button>
+        </div>
       </div>
 
       <ContractDocument
         data={data}
         artistImageUrl={artistLogo ?? undefined}
         artistSignatureUrl={artistSignature ?? undefined}
+        previewPdfUrl={previewUrl}
       />
     </div>
   )
