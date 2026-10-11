@@ -1,11 +1,16 @@
 import { useState } from 'react'
-import { trpcReact } from '@/main'
+import type { z } from 'zod'
+import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { BankForm } from '@/components/forms/BankForm'
+import type {
+  BankDto,
+  CreateBankInput,
+  UpdateBankInput
+} from '../../../main/api/schemas/bank.schema'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import type { BankDto } from '../../../main/api/schemas/bank.schema'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
@@ -60,12 +65,12 @@ export default function BankPage() {
   })
 
   // Handlers
-  const handleCreate = (data: any) => {
+  const handleCreate = (data: z.infer<typeof CreateBankInput>) => {
     createMutation.mutate(data)
   }
 
-  const handleUpdate = (data: any) => {
-    updateMutation.mutate(data)
+  const handleUpdate = (data: z.infer<typeof CreateBankInput> & { id?: number }) => {
+    updateMutation.mutate(data as z.infer<typeof UpdateBankInput>)
   }
 
   const handleDelete = (bank: BankDto) => {

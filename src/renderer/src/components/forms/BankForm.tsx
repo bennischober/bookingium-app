@@ -2,11 +2,12 @@ import { useForm } from '@tanstack/react-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { BankDto } from '../../../../main/api/schemas/bank.schema'
+import type { z } from 'zod'
+import type { BankDto, CreateBankInput } from '../../../../main/api/schemas/bank.schema'
 
 interface BankFormProps {
   bank?: BankDto
-  onSubmit: (data: any) => void
+  onSubmit: (data: z.infer<typeof CreateBankInput> & { id?: number }) => void
   onCancel: () => void
 }
 

@@ -37,7 +37,7 @@ export const documentRouter = t.router({
     // Validate that the file exists before creating the database record
     try {
       await getDocumentFullPath(input.filePath)
-    } catch (error) {
+    } catch {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Invalid file path'
@@ -90,7 +90,7 @@ export const documentRouter = t.router({
     try {
       const fullPath = await getDocumentFullPath(document.file_path)
       return { filePath: fullPath, fileName: document.file_name }
-    } catch (error) {
+    } catch {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to get file path'

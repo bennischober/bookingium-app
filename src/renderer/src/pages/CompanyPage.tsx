@@ -1,11 +1,16 @@
 import { useState } from 'react'
-import { trpcReact } from '@/main'
+import type { z } from 'zod'
+import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import type { CompanyDto } from '../../../main/api/schemas/company.schema'
+import type {
+  CompanyDto,
+  CreateCompanyInput,
+  UpdateCompanyInput
+} from '../../../main/api/schemas/company.schema'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
@@ -60,7 +65,9 @@ export function CompanyPage() {
   })
 
   // Handlers
-  const handleCreate = (data: any) => {
+  const handleCreate = (
+    data: z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
+  ) => {
     const { logoSourcePath, ...companyData } = data
     createMutation.mutate(companyData, {
       onSuccess: async (created) => {
@@ -76,8 +83,8 @@ export function CompanyPage() {
     })
   }
 
-  const handleUpdate = (data: any) => {
-    updateMutation.mutate(data)
+  const handleUpdate = (data: z.infer<typeof CreateCompanyInput> & { id?: number }) => {
+    updateMutation.mutate(data as z.infer<typeof UpdateCompanyInput>)
   }
 
   const handleDelete = (company: CompanyDto) => {

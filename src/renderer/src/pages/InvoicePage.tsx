@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Plus, Trash2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
@@ -208,7 +208,6 @@ function InvoiceForm({
   }) => void
   isSubmitting: boolean
 }) {
-  const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
   const companies = trpcReact.company.getListItems.useQuery()
   const bands = trpcReact.band.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
@@ -218,91 +217,79 @@ function InvoiceForm({
     search: undefined
   })
 
-  const [dealMemoId, setDealMemoId] = useState<number | null>(null)
-  const [companyId, setCompanyId] = useState<number | null | undefined>(undefined)
-  const [recipientKind, setRecipientKind] = useState<InvoiceRecipientKind>('company')
-  const [recipientCompanyId, setRecipientCompanyId] = useState<number | null>(null)
-  const [recipientBandId, setRecipientBandId] = useState<number | null>(null)
-  const [recipientPersonId, setRecipientPersonId] = useState<number | null>(null)
-  const [recipientNameOverride, setRecipientNameOverride] = useState('')
-  const [periodStartDate, setPeriodStartDate] = useState('')
-  const [periodEndDate, setPeriodEndDate] = useState('')
-  const [periodLabel, setPeriodLabel] = useState('')
-  const [issueDate, setIssueDate] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [status, setStatus] = useState<InvoiceStatus>('draft')
-  const [currency, setCurrency] = useState('EUR')
-  const [paymentTerms, setPaymentTerms] = useState('')
-  const [reverseChargeNote, setReverseChargeNote] = useState('')
-  const [notes, setNotes] = useState('')
-  const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>([EMPTY_LINE])
+  // Form state initializes once from the invoice on mount. The parent remounts
+  // this component (key=mode-id) when the sheet switches mode/target, so no
+  // state-sync-in-effect is needed.
+  const [dealMemoId, setDealMemoId] = useState<number | null>(
+    mode === 'edit' ? (invoice?.dealMemoId ?? null) : null
+  )
+  const [companyId, setCompanyId] = useState<number | null | undefined>(
+    mode === 'edit' ? invoice?.companyId : undefined
+  )
+  const [recipientKind, setRecipientKind] = useState<InvoiceRecipientKind>(
+    mode === 'edit' ? (invoice?.recipientKind ?? 'company') : 'company'
+  )
+  const [recipientCompanyId, setRecipientCompanyId] = useState<number | null>(
+    mode === 'edit' ? (invoice?.recipientCompanyId ?? null) : null
+  )
+  const [recipientBandId, setRecipientBandId] = useState<number | null>(
+    mode === 'edit' ? (invoice?.recipientBandId ?? null) : null
+  )
+  const [recipientPersonId, setRecipientPersonId] = useState<number | null>(
+    mode === 'edit' ? (invoice?.recipientPersonId ?? null) : null
+  )
+  const [recipientNameOverride, setRecipientNameOverride] = useState(
+    mode === 'edit' && invoice?.recipientKind === 'other' ? invoice.recipientName : ''
+  )
+  const [periodStartDate, setPeriodStartDate] = useState(
+    mode === 'edit' ? (invoice?.periodStartDate ?? '') : ''
+  )
+  const [periodEndDate, setPeriodEndDate] = useState(
+    mode === 'edit' ? (invoice?.periodEndDate ?? '') : ''
+  )
+  const [periodLabel, setPeriodLabel] = useState(
+    mode === 'edit' ? (invoice?.periodLabel ?? '') : ''
+  )
+  const [issueDate, setIssueDate] = useState(
+    mode === 'edit' ? (invoice?.issueDate ?? '') : new Date().toISOString().slice(0, 10)
+  )
+  const [dueDate, setDueDate] = useState(mode === 'edit' ? (invoice?.dueDate ?? '') : '')
+  const [status, setStatus] = useState<InvoiceStatus>(
+    mode === 'edit' ? (invoice?.status ?? 'draft') : 'draft'
+  )
+  const [currency, setCurrency] = useState(mode === 'edit' ? (invoice?.currency ?? 'EUR') : 'EUR')
+  const [paymentTerms, setPaymentTerms] = useState(
+    mode === 'edit' ? (invoice?.paymentTerms ?? '') : ''
+  )
+  const [reverseChargeNote, setReverseChargeNote] = useState(
+    mode === 'edit' ? (invoice?.reverseChargeNote ?? '') : ''
+  )
+  const [notes, setNotes] = useState(mode === 'edit' ? (invoice?.notes ?? '') : '')
+  const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => {
+    if (mode === 'edit' && invoice) {
+      return invoice.lineItems.length > 0
+        ? invoice.lineItems.map((line) => ({
+            description: line.description,
+            quantity: String(line.quantity),
+            unit: line.unit,
+            unitPriceNet: String(line.unitPriceNet),
+            taxRate: String(line.taxRate),
+            taxCode: line.taxCode
+          }))
+        : [
+            {
+              ...EMPTY_LINE,
+              description: 'Leistungsposition',
+              unitPriceNet: String(invoice.totalAmount),
+              taxRate: '0'
+            }
+          ]
+    }
+    return [EMPTY_LINE]
+  })
   const [step, setStep] = useState<'basics' | 'lines' | 'finalize'>('basics')
   const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null)
   const [lineEditor, setLineEditor] = useState<InvoiceLineDraft>({ ...EMPTY_LINE })
-
-  useEffect(() => {
-    if (mode === 'edit' && invoice) {
-      setDealMemoId(invoice.dealMemoId ?? null)
-      setCompanyId(invoice.companyId)
-      setRecipientKind(invoice.recipientKind)
-      setRecipientCompanyId(invoice.recipientCompanyId)
-      setRecipientBandId(invoice.recipientBandId)
-      setRecipientPersonId(invoice.recipientPersonId)
-      setRecipientNameOverride(invoice.recipientKind === 'other' ? invoice.recipientName : '')
-      setPeriodStartDate(invoice.periodStartDate ?? '')
-      setPeriodEndDate(invoice.periodEndDate ?? '')
-      setPeriodLabel(invoice.periodLabel ?? '')
-      setIssueDate(invoice.issueDate)
-      setDueDate(invoice.dueDate ?? '')
-      setStatus(invoice.status)
-      setCurrency(invoice.currency)
-      setPaymentTerms(invoice.paymentTerms)
-      setReverseChargeNote(invoice.reverseChargeNote)
-      setNotes(invoice.notes)
-      setLineItems(
-        invoice.lineItems.length > 0
-          ? invoice.lineItems.map((line) => ({
-              description: line.description,
-              quantity: String(line.quantity),
-              unit: line.unit,
-              unitPriceNet: String(line.unitPriceNet),
-              taxRate: String(line.taxRate),
-              taxCode: line.taxCode
-            }))
-          : [
-              {
-                ...EMPTY_LINE,
-                description: 'Leistungsposition',
-                unitPriceNet: String(invoice.totalAmount),
-                taxRate: '0'
-              }
-            ]
-      )
-      return
-    }
-
-    setDealMemoId(null)
-    setCompanyId(defaultCompany.data?.id ?? undefined)
-    setRecipientKind('company')
-    setRecipientCompanyId(null)
-    setRecipientBandId(null)
-    setRecipientPersonId(null)
-    setRecipientNameOverride('')
-    setPeriodStartDate('')
-    setPeriodEndDate('')
-    setPeriodLabel('')
-    setIssueDate(new Date().toISOString().slice(0, 10))
-    setDueDate('')
-    setStatus('draft')
-    setCurrency('EUR')
-    setPaymentTerms('')
-    setReverseChargeNote('')
-    setNotes('')
-    setLineItems([EMPTY_LINE])
-    setStep('basics')
-    setEditingLineIndex(null)
-    setLineEditor({ ...EMPTY_LINE })
-  }, [mode, invoice, defaultCompany.data?.id])
 
   const normalizedLines = useMemo(() => normalizeLineItems(lineItems), [lineItems])
   const totals = useMemo(() => computeTotals(normalizedLines), [normalizedLines])
@@ -886,19 +873,31 @@ export default function InvoicePage() {
   const companies = trpcReact.company.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
 
-  useEffect(() => {
-    if (settingsCompanyId === null && defaultCompany.data?.id) {
+  // Default the settings panel to the default invoicing company once known
+  // (state adjustment during render, per "You Might Not Need an Effect")
+  const [lastDefaultCompanyId, setLastDefaultCompanyId] = useState<number | null | undefined>(
+    defaultCompany.data?.id
+  )
+  if (settingsCompanyId === null && defaultCompany.data?.id !== lastDefaultCompanyId) {
+    setLastDefaultCompanyId(defaultCompany.data?.id)
+    if (defaultCompany.data?.id) {
       setSettingsCompanyId(defaultCompany.data.id)
     }
-  }, [settingsCompanyId, defaultCompany.data?.id])
+  }
 
   const settingsQuery = trpcReact.invoice.getCompanySettings.useQuery(settingsCompanyId ?? 0, {
     enabled: settingsCompanyId !== null
   })
 
-  useEffect(() => {
+  // Keep the numbering input following the loaded settings (state adjustment
+  // during render, per "You Might Not Need an Effect")
+  const [lastNextInvoiceNumber, setLastNextInvoiceNumber] = useState<number | undefined>(
+    settingsQuery.data?.nextInvoiceNumber
+  )
+  if (settingsQuery.data?.nextInvoiceNumber !== lastNextInvoiceNumber) {
+    setLastNextInvoiceNumber(settingsQuery.data?.nextInvoiceNumber)
     setNextNumberInput((settingsQuery.data?.nextInvoiceNumber ?? 1).toString())
-  }, [settingsQuery.data?.nextInvoiceNumber])
+  }
 
   const createMutation = trpcReact.invoice.create.useMutation({
     onSuccess: () => {
@@ -1149,6 +1148,7 @@ export default function InvoicePage() {
         }
       >
         <InvoiceForm
+          key={`${sheet.mode}-${sheet.selectedItem?.id ?? 'new'}`}
           mode={sheet.mode}
           invoice={sheet.selectedItem ?? undefined}
           onCancel={sheet.close}

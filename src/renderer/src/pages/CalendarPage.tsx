@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',

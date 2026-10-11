@@ -14,12 +14,16 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
-import { trpcReact } from '@/main'
-import { CompanyDto } from 'src/main/api/schemas/company.schema'
+import { trpcReact } from '@/lib/trpc'
+
+import type { z } from 'zod'
+import type { CompanyDto, CreateCompanyInput } from '../../../../main/api/schemas/company.schema'
 
 interface CompanyFormProps {
   company?: CompanyDto
-  onSubmit: (data: any) => void
+  onSubmit: (
+    data: z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
+  ) => void
   onCancel: () => void
 }
 
@@ -120,10 +124,11 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
     onSubmit: async ({ value }) => {
       // For new companies the picked logo path is passed through so the
       // repository/form owner can upload it after the company id exists.
+      const payload = company
+        ? { ...value, id: company.id, logoPath: logoPreview }
+        : { ...value, logoSourcePath: logoPreview }
       onSubmit(
-        company
-          ? { ...value, id: company.id, logoPath: logoPreview }
-          : { ...value, logoSourcePath: logoPreview }
+        payload as z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
       )
     }
   })

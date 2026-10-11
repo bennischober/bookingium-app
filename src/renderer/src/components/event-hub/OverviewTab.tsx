@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { trpcReact } from '@/main'
+import { useEffect, useRef } from 'react'
+import { trpcReact } from '@/lib/trpc'
+import { useSyncedState } from '@/hooks/useSyncedState'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -44,20 +45,12 @@ export function OverviewTab({
   // Track the last signal value we responded to. Seeded with the current value so
   // that a re-mount (or React Strict Mode's double-invocation) never fires a stale save.
   const lastSaveSignal = useRef(saveSignal)
-  const [name, setName] = useState(event.name)
-  const [date, setDate] = useState(event.date)
-  const [status, setStatus] = useState(event.status)
-  const [notes, setNotes] = useState(event.notes)
+  const [name, setName] = useSyncedState(event.name)
+  const [date, setDate] = useSyncedState(event.date)
+  const [status, setStatus] = useSyncedState(event.status)
+  const [notes, setNotes] = useSyncedState(event.notes)
   const isDirty =
     name !== event.name || date !== event.date || status !== event.status || notes !== event.notes
-
-  // Keep local state in sync when the server data refreshes
-  useEffect(() => {
-    setName(event.name)
-    setDate(event.date)
-    setStatus(event.status)
-    setNotes(event.notes)
-  }, [event.name, event.date, event.status, event.notes])
 
   // Reset to server values when cancel is triggered
   useEffect(() => {
@@ -68,13 +61,6 @@ export function OverviewTab({
       setNotes(event.notes)
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Save when the page-level "Save All" fires
-  useEffect(() => {
-    if (saveSignal === lastSaveSignal.current) return
-    lastSaveSignal.current = saveSignal
-    if (isDirty) handleSave()
-  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Entity list queries for the swap comboboxes ──
   const bands = trpcReact.band.getListItems.useQuery()
@@ -113,6 +99,13 @@ export function OverviewTab({
   const handleSave = () => {
     updateMutation.mutate({ id: event.id, name, date, status, notes })
   }
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isDirty) handleSave()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwapBand = (bandId: number | null) => {
     if (bandId === null) return // band is required — disallow clearing

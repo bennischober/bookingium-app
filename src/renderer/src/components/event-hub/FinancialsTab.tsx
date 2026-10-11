@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { trpcReact } from '@/main'
+import { useEffect, useRef } from 'react'
+import { trpcReact } from '@/lib/trpc'
+import { useSyncedState } from '@/hooks/useSyncedState'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -37,11 +38,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const utils = trpcReact.useUtils()
   const lastSaveSignal = useRef(saveSignal)
 
-  const [deal, setDeal] = useState(event.deal ?? '')
-  const [vvk, setVvk] = useState(event.ticketPriceVvk?.toString() ?? '')
-  const [ak, setAk] = useState(event.ticketPriceAk?.toString() ?? '')
-  const [posters, setPosters] = useState(event.posters ?? '')
-  const [invoiceCompanyId, setInvoiceCompanyId] = useState<number | null>(
+  const [deal, setDeal] = useSyncedState(event.deal ?? '')
+  const [vvk, setVvk] = useSyncedState(event.ticketPriceVvk?.toString() ?? '')
+  const [ak, setAk] = useSyncedState(event.ticketPriceAk?.toString() ?? '')
+  const [posters, setPosters] = useSyncedState(event.posters ?? '')
+  const [invoiceCompanyId, setInvoiceCompanyId] = useSyncedState<number | null>(
     event.invoiceCompanyId ?? null
   )
 
@@ -57,14 +58,6 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const isInvoiceCompanyDirty = invoiceCompanyId !== (event.invoiceCompanyId ?? null)
   const isDirty = isDealDirty || isPricesDirty || isPostersDirty || isInvoiceCompanyDirty
 
-  useEffect(() => {
-    setDeal(event.deal ?? '')
-    setVvk(event.ticketPriceVvk?.toString() ?? '')
-    setAk(event.ticketPriceAk?.toString() ?? '')
-    setPosters(event.posters ?? '')
-    setInvoiceCompanyId(event.invoiceCompanyId ?? null)
-  }, [event.deal, event.ticketPriceVvk, event.ticketPriceAk, event.posters])
-
   // Reset to server values when cancel is triggered
   useEffect(() => {
     if (cancelSignal > 0) {
@@ -75,13 +68,6 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       setInvoiceCompanyId(event.invoiceCompanyId ?? null)
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Save when the page-level "Save All" fires
-  useEffect(() => {
-    if (saveSignal === lastSaveSignal.current) return
-    lastSaveSignal.current = saveSignal
-    if (isDirty) handleSaveAll()
-  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
@@ -102,6 +88,13 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       invoiceCompanyId
     })
   }
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isDirty) handleSaveAll()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const createInvoiceMutation = trpcReact.invoice.createForDealMemo.useMutation({
     onSuccess: () => {

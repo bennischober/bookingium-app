@@ -8,9 +8,12 @@ import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import { PersonDto } from 'src/main/api/schemas/person.schema'
 
+import type { z } from 'zod'
+import type { CreatePersonInput } from '../../../../main/api/schemas/person.schema'
+
 interface PersonFormProps {
   person?: PersonDto
-  onSubmit: (data: any) => void
+  onSubmit: (data: z.infer<typeof CreatePersonInput> & { id?: number }) => void
   onCancel: () => void
 }
 

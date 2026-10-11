@@ -9,7 +9,7 @@ import {
   startOfMonth
 } from 'date-fns'
 import { useNavigate } from '@tanstack/react-router'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,7 +53,9 @@ export default function DashboardPage() {
     search: undefined
   })
 
-  const now = new Date()
+  // "Now" is fixed at mount; the dashboard refreshes on navigation/query
+  // invalidation, so a per-render Date would just destabilize memo deps
+  const now = useMemo(() => new Date(), [])
 
   const parsedEvents = useMemo(() => {
     return (eventsQuery.data?.items ?? [])

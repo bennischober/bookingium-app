@@ -24,7 +24,7 @@ import {
   User,
   Users
 } from 'lucide-react'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 
 type StaticRoute =
   | '/'
@@ -121,21 +121,18 @@ const SearchButton = () => {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [recentCommands, setRecentCommands] = useState<RecentCommand[]>([])
-  const navigate = useNavigate()
-
-  useEffect(() => {
+  // Recents are read from localStorage lazily at mount (pure initializer)
+  const [recentCommands, setRecentCommands] = useState<RecentCommand[]>(() => {
     try {
       const raw = localStorage.getItem(RECENTS_STORAGE_KEY)
-      if (!raw) return
+      if (!raw) return []
       const parsed = JSON.parse(raw) as RecentCommand[]
-      if (Array.isArray(parsed)) {
-        setRecentCommands(parsed.slice(0, 8))
-      }
+      return Array.isArray(parsed) ? parsed.slice(0, 8) : []
     } catch {
-      setRecentCommands([])
+      return []
     }
-  }, [])
+  })
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!open) return

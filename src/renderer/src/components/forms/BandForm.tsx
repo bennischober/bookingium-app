@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import type {
   BandDto,
   CreateBandInput,

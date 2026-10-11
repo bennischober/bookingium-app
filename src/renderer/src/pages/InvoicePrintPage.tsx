@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Printer } from 'lucide-react'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -44,29 +44,38 @@ export default function InvoicePrintPage() {
   })
 
   const data = printQuery.data
-  const [template, setTemplate] = useState<InvoiceTemplate>('standard')
+
+  // Default template once data arrives; the user can override afterwards via
+  // the dropdown (state adjustment during render, per "You Might Not Need an
+  // Effect")
+  const [suggestedTemplate, setSuggestedTemplate] = useState<InvoiceTemplate>('standard')
+  const [suggestedFor, setSuggestedFor] = useState<InvoicePrintDto | undefined>(undefined)
+  if (data && suggestedFor !== data) {
+    setSuggestedFor(data)
+    setSuggestedTemplate(suggestTemplate(data))
+  }
+  const [template, setTemplate] = useState<InvoiceTemplate>(suggestedTemplate)
+
+  // Logo resolution is async IPC, so clearing on path change happens during
+  // render, loading stays in an effect
+  const logoPath = data?.issuer?.logoPath ?? ''
   const [logoUrl, setLogoUrl] = useState<string>('')
+  const [lastLogoPath, setLastLogoPath] = useState<string>(logoPath)
+  if (logoPath !== lastLogoPath) {
+    setLastLogoPath(logoPath)
+    setLogoUrl('')
+  }
 
-  // Once data arrives, default to a sensible template for the recipient's country
   useEffect(() => {
-    if (data) setTemplate(suggestTemplate(data))
-  }, [data])
-
-  // Resolve the issuer snapshot's logo into a displayable data URL
-  useEffect(() => {
+    if (!logoPath) return
     let revoked = false
-    const path = data?.issuer?.logoPath
-    if (!path) {
-      setLogoUrl('')
-      return
-    }
-    void window.api.getLogoPath(path).then((result) => {
+    void window.api.getLogoPath(logoPath).then((result) => {
       if (result.success && result.dataUrl && !revoked) setLogoUrl(result.dataUrl)
     })
     return () => {
       revoked = true
     }
-  }, [data?.issuer?.logoPath])
+  }, [logoPath])
 
   if (printQuery.isLoading) {
     return (

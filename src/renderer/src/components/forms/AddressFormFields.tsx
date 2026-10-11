@@ -1,8 +1,14 @@
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 
+// The parent form instance (TanStack Form). Typed loosely on purpose: these
+// shared fields are embedded in several forms with different value shapes,
+// and TanStack Form's FormApi generic needs 11 type parameters that would
+// couple this component to one parent's exact shape. The Field calls below
+// are string-path fields with string values.
 interface AddressFormFieldsProps {
-  form: any // TanStack Form instance
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form: any
 }
 
 export function AddressFormFields({ form }: AddressFormFieldsProps) {

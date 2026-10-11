@@ -1,12 +1,14 @@
 import { Users } from 'lucide-react'
 import { useState } from 'react'
+import type { z } from 'zod'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { PersonRelations } from '@/components/PersonRelations'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
+import type { CreatePersonInput, UpdatePersonInput } from '../../../main/api/schemas/person.schema'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -70,12 +72,12 @@ export function PersonPage() {
   })
 
   // Handlers
-  const handleCreate = (data: any) => {
+  const handleCreate = (data: z.infer<typeof CreatePersonInput>) => {
     createMutation.mutate(data)
   }
 
-  const handleUpdate = (data: any) => {
-    updateMutation.mutate(data)
+  const handleUpdate = (data: z.infer<typeof CreatePersonInput> & { id?: number }) => {
+    updateMutation.mutate(data as z.infer<typeof UpdatePersonInput>)
   }
 
   const handleDelete = (person: PersonDto) => {

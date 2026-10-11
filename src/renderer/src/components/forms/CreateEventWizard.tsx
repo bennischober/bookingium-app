@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -409,11 +409,11 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
   const utils = trpcReact.useUtils()
 
   const createMemo = trpcReact.dealMemo.create.useMutation({
-    onSuccess: (memo: any) => {
+    onSuccess: (memo) => {
       toast.success('Event erstellt', { description: `"${form.name}" wurde hinzugefügt.` })
       utils.dealMemo.getAllPaginated.invalidate()
       handleClose()
-      onSuccess(memo)
+      onSuccess(memo as unknown as DealMemoListItemDto)
     },
     onError: (e) => toast.error('Event konnte nicht erstellt werden', { description: e.message })
   })

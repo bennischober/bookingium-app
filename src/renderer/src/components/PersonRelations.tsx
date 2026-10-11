@@ -1,4 +1,4 @@
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { useNavigate } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ export function PersonRelations({ personId, personName }: PersonRelationsProps) 
         <div>
           <h2 className="text-xl font-semibold mb-2">Relations for {personName}</h2>
           <p className="text-sm text-muted-foreground">
-            Quick overview of this person's relationships.
+            Quick overview of this person&apos;s relationships.
           </p>
         </div>
         <Button

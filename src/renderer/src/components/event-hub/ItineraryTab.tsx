@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
+import { useSyncedState } from '@/hooks/useSyncedState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
@@ -71,74 +72,24 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
     label: h.name
   }))
 
-  const [amountOfPeople, setAmountOfPeople] = useState(event.amountOfPeople?.toString() ?? '')
-  const [roomInformation, setRoomInformation] = useState(event.roomInformation ?? '')
+  const [amountOfPeople, setAmountOfPeople] = useSyncedState(event.amountOfPeople?.toString() ?? '')
+  const [roomInformation, setRoomInformation] = useSyncedState(event.roomInformation ?? '')
   const isAccommoDirty =
     (parseInt(amountOfPeople) || null) !== event.amountOfPeople ||
     roomInformation !== (event.roomInformation ?? '')
 
   // ── Performance terms state (saved to deal_memo) ──
-  const [performanceTime, setPerformanceTime] = useState(event.performanceTime ?? '')
-  const [performanceDuration, setPerformanceDuration] = useState(event.performanceDuration ?? '')
-  const [performanceInformation, setPerformanceInformation] = useState(
+  const [performanceTime, setPerformanceTime] = useSyncedState(event.performanceTime ?? '')
+  const [performanceDuration, setPerformanceDuration] = useSyncedState(
+    event.performanceDuration ?? ''
+  )
+  const [performanceInformation, setPerformanceInformation] = useSyncedState(
     event.performanceInformation ?? ''
   )
   const isPerfDirty =
     performanceTime !== (event.performanceTime ?? '') ||
     performanceDuration !== (event.performanceDuration ?? '') ||
     performanceInformation !== (event.performanceInformation ?? '')
-
-  useEffect(() => {
-    setAmountOfPeople(event.amountOfPeople?.toString() ?? '')
-    setRoomInformation(event.roomInformation ?? '')
-    setPerformanceTime(event.performanceTime ?? '')
-    setPerformanceDuration(event.performanceDuration ?? '')
-    setPerformanceInformation(event.performanceInformation ?? '')
-  }, [
-    event.amountOfPeople,
-    event.roomInformation,
-    event.performanceTime,
-    event.performanceDuration,
-    event.performanceInformation
-  ])
-
-  // Reset to server values when cancel is triggered
-  useEffect(() => {
-    if (cancelSignal > 0) {
-      setAmountOfPeople(event.amountOfPeople?.toString() ?? '')
-      setRoomInformation(event.roomInformation ?? '')
-      setPerformanceTime(event.performanceTime ?? '')
-      setPerformanceDuration(event.performanceDuration ?? '')
-      setPerformanceInformation(event.performanceInformation ?? '')
-      if (itinerary) {
-        setSchedule({
-          getIn: itinerary.getIn,
-          loadIn: itinerary.loadIn,
-          soundCheckMainAct: itinerary.soundCheckMainAct,
-          soundCheckSupport: itinerary.soundCheckSupport,
-          dinner: itinerary.dinner,
-          doors: itinerary.doors,
-          showTimeMainAct: itinerary.showTimeMainAct,
-          showTimeSupport: itinerary.showTimeSupport,
-          curfewStage: itinerary.curfewStage,
-          curfewVenue: itinerary.curfewVenue,
-          showLength: itinerary.showLength,
-          notes: itinerary.notes
-        })
-      } else {
-        setSchedule(emptySchedule)
-      }
-    }
-  }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Save when the page-level "Save All" fires
-  useEffect(() => {
-    if (saveSignal === lastSaveSignal.current) return
-    lastSaveSignal.current = saveSignal
-    if (isAccommoDirty) handleSaveAccommo()
-    if (isPerfDirty) handleSavePerf()
-    if (itinerary) handleSaveSchedule()
-  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Day schedule (itinerary table) ──
   const { data: itinerary, isLoading: itineraryLoading } =
@@ -161,24 +112,42 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
   }
   const [schedule, setSchedule] = useState<ScheduleState>(emptySchedule)
 
-  useEffect(() => {
-    if (itinerary) {
-      setSchedule({
-        getIn: itinerary.getIn,
-        loadIn: itinerary.loadIn,
-        soundCheckMainAct: itinerary.soundCheckMainAct,
-        soundCheckSupport: itinerary.soundCheckSupport,
-        dinner: itinerary.dinner,
-        doors: itinerary.doors,
-        showTimeMainAct: itinerary.showTimeMainAct,
-        showTimeSupport: itinerary.showTimeSupport,
-        curfewStage: itinerary.curfewStage,
-        curfewVenue: itinerary.curfewVenue,
-        showLength: itinerary.showLength,
-        notes: itinerary.notes
-      })
-    }
-  }, [itinerary])
+  // Maps an itinerary entity to the editable schedule form state
+  const itinerarySchedule = (entity: NonNullable<typeof itinerary>): ScheduleState => ({
+    getIn: entity.getIn,
+    loadIn: entity.loadIn,
+    soundCheckMainAct: entity.soundCheckMainAct,
+    soundCheckSupport: entity.soundCheckSupport,
+    dinner: entity.dinner,
+    doors: entity.doors,
+    showTimeMainAct: entity.showTimeMainAct,
+    showTimeSupport: entity.showTimeSupport,
+    curfewStage: entity.curfewStage,
+    curfewVenue: entity.curfewVenue,
+    showLength: entity.showLength,
+    notes: entity.notes
+  })
+
+  // Keep the schedule form in sync when the server data refreshes
+  // (state adjustment during render, per "You Might Not Need an Effect")
+  const [lastItinerary, setLastItinerary] = useState<typeof itinerary | null>(null)
+  if (lastItinerary !== itinerary) {
+    setLastItinerary(itinerary)
+    setSchedule(itinerary ? itinerarySchedule(itinerary) : emptySchedule)
+  }
+
+  // Reset to server values when cancel is triggered (state adjustment during
+  // render, keyed on the cancel signal - per "You Might Not Need an Effect")
+  const [lastCancelSignal, setLastCancelSignal] = useState(cancelSignal)
+  if (cancelSignal !== lastCancelSignal) {
+    setLastCancelSignal(cancelSignal)
+    setAmountOfPeople(event.amountOfPeople?.toString() ?? '')
+    setRoomInformation(event.roomInformation ?? '')
+    setPerformanceTime(event.performanceTime ?? '')
+    setPerformanceDuration(event.performanceDuration ?? '')
+    setPerformanceInformation(event.performanceInformation ?? '')
+    setSchedule(itinerary ? { ...itinerarySchedule(itinerary) } : emptySchedule)
+  }
 
   const set = (key: keyof ScheduleState) => (value: string) =>
     setSchedule((prev) => ({ ...prev, [key]: value }))
@@ -228,6 +197,15 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
       ...schedule
     })
   }
+
+  // Save when the page-level "Save All" fires
+  useEffect(() => {
+    if (saveSignal === lastSaveSignal.current) return
+    lastSaveSignal.current = saveSignal
+    if (isAccommoDirty) handleSaveAccommo()
+    if (isPerfDirty) handleSavePerf()
+    if (itinerary) handleSaveSchedule()
+  }, [saveSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6">

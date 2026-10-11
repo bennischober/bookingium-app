@@ -1,5 +1,6 @@
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
+import type { z } from 'zod'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table'
@@ -8,6 +9,7 @@ import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 export default function BandPage() {
@@ -74,11 +76,11 @@ export default function BandPage() {
     }
   }
 
-  const handleFormSubmit = (data: any) => {
+  const handleFormSubmit = (data: CreateBandInput | UpdateBandInput) => {
     if (sheet.mode === 'edit') {
-      updateBand.mutate(data)
+      updateBand.mutate(data as z.infer<typeof UpdateBandInput>)
     } else {
-      createBand.mutate(data)
+      createBand.mutate(data as z.infer<typeof CreateBandInput>)
     }
   }
 

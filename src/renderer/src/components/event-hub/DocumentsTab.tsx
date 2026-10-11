@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import {
   Select,

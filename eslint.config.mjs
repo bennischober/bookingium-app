@@ -29,6 +29,14 @@ export default defineConfig(
     }
   },
   {
+    // App entry point: renders the root and exports nothing (fast-refresh
+    // only-export-components is noise for an entry file)
+    files: ['src/renderer/src/main.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off'
+    }
+  },
+  {
     // shadcn/radix-generated UI primitives: these files legitimately export
     // variants/helpers alongside components (fast-refresh warning is noise),
     // use internal props (prop-types) and cmdk-specific DOM attributes.

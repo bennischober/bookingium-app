@@ -13,7 +13,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
-import { trpcReact } from '@/main'
+import { trpcReact } from '@/lib/trpc'
 import type { FormMode } from '@/hooks/useFormSheet'
 import type {
   CreateVenueInput,

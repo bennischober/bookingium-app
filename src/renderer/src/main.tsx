@@ -1,16 +1,13 @@
 import './assets/index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { createTRPCReact } from '@trpc/react-query'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { ipcLink } from 'electron-trpc/renderer'
-import type { AppRouter } from '../../main/api/router'
+import { trpcReact } from './lib/trpc'
 import { router } from './router'
 import { ThemeProvider } from './components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
-
-export const trpcReact = createTRPCReact<AppRouter>()
 
 const queryClient = new QueryClient()
 const trpcClient = trpcReact.createClient({
