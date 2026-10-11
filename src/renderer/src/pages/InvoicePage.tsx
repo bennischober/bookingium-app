@@ -471,8 +471,8 @@ function InvoiceForm({
 
             <div className="space-y-2">
               <InfoLabel
-                text="Wer bekommt das Geld?"
-                info="Rechnungssteller – dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
+                text="Rechnungssteller"
+                info="Wer bekommt das Geld? Dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
               />
               <Select
                 value={companyId !== undefined ? (companyId === null ? 'none' : companyId.toString()) : 'auto'}
@@ -506,8 +506,8 @@ function InvoiceForm({
 
           <div className="space-y-2">
             <InfoLabel
-              text="Wer wird belastet?"
-              info="Rechnungsempfänger – zahlt diese Rechnung."
+              text="Rechnungsempfänger"
+              info="Wer wird belastet? Zahlt diese Rechnung."
             />
             <Select
               value={recipientKind}
