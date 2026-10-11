@@ -186,7 +186,9 @@ export function MembersSheet({
           }))
 
   const isLoading =
-    membersQuery.isLoading || companyMembersQuery.isLoading || venueMembersQuery.isLoading
+    (entityType === 'band' && membersQuery.isLoading) ||
+    (entityType === 'company' && companyMembersQuery.isLoading) ||
+    (entityType === 'venue' && venueMembersQuery.isLoading)
 
   const openAdd = () => {
     setEditingId(null)
