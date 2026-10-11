@@ -527,7 +527,7 @@ export function InvoiceDocument({
   const isDraft = data.invoice.status === 'draft'
 
   return (
-    <PagedDocument paddingMm={18}>
+    <PagedDocument>
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">

@@ -98,7 +98,8 @@ export default function InvoicePrintPage() {
 
   return (
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
-      <style>{`@page { size: A4; margin: 0; }`}</style>
+      {/* Page margins are managed by paged.js (PagedDocument) for preview and
+          print — no @page rule here, that would double the margins */}
 
       {/* Screen-only toolbar */}
       <div className="mx-auto mb-4 flex w-[210mm] items-center justify-between print:hidden">

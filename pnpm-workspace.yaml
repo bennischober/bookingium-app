@@ -10,3 +10,6 @@ allowBuilds:
   electron-winstaller: true
   node-abi: true
   canvas: true
+  pagedjs: true
+  core-js: false
+  es5-ext: false

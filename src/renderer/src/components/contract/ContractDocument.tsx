@@ -94,7 +94,7 @@ export function ContractDocument({
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
   return (
-    <PagedDocument paddingMm={20}>
+    <PagedDocument>
       {/* Letterhead: artist company identity */}
       {artistImageUrl && (
         <img
