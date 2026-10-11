@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Button } from './button'
 import {
   CommandDialog,
   CommandEmpty,
@@ -22,6 +21,7 @@ import {
   LayoutDashboard,
   MapPin,
   Music2,
+  Search,
   User,
   Users
 } from 'lucide-react'
@@ -229,15 +229,20 @@ const SearchButton = () => {
     if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
     return 'Keine Ergebnisse gefunden.'
   }, [hasTypedQuery, isAnyLoading, hasRecordMatches])
-
   return (
     <div className="flex flex-col gap-4">
-      <Button onClick={() => setOpen(true)} variant="outline" size="sm">
-        Alles suchen...
-        <span className="bg-muted text-muted-foreground ml-2 rounded-lg px-2 py-1 font-mono text-xs">
-          Ctrl + K
-        </span>
-      </Button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="group flex h-8 w-72 max-w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Alles suchen (Ctrl+K)"
+      >
+        <Search className="h-3.5 w-3.5 shrink-0 opacity-70" />
+        <span className="flex-1 truncate">Alles suchen...</span>
+        <kbd className="pointer-events-none rounded border border-muted-foreground/30 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-background">
+          Ctrl+K
+        </kbd>
+      </button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
           placeholder="Seiten, Einträge oder Aktionen suchen..."
@@ -246,7 +251,6 @@ const SearchButton = () => {
         />
         <CommandList>
           <CommandEmpty>{emptyMessage}</CommandEmpty>
-
           {recentCommands.length > 0 && (
             <>
               <CommandGroup heading="Letzte Befehle">
@@ -436,7 +440,6 @@ const SearchButton = () => {
                     <CommandShortcut>Spielstätten</CommandShortcut>
                   </CommandItem>
                 ))}
-
                 {hotelsQuickList.map((hotel) => (
                   <CommandItem
                     key={`hotel-${hotel.id}`}
