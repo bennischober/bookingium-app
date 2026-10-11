@@ -9,9 +9,14 @@ import { existsSync } from 'fs'
  * - Windows: C:\Users\<username>\AppData\Roaming\<app-name>
  * - macOS: ~/Library/Application Support/<app-name>
  * - Linux: ~/.config/<app-name>
+ * Outside the Electron runtime (tests), falls back to the OS temp directory.
  */
 export function getStorageBasePath(): string {
-  return join(app.getPath('userData'), 'storage')
+  try {
+    return join(app.getPath('userData'), 'storage')
+  } catch {
+    return join(process.env.TMP || process.env.TEMP || '/tmp', 'bookingum-test', 'storage')
+  }
 }
 
 /**

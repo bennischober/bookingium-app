@@ -1,20 +1,35 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { db } from './index'
+import { getDb } from './index'
 import { join } from 'path'
-import { app } from 'electron'
 
-export function runMigrations() {
+let migrationsFolderOverride: string | null = null
+
+/** Tests can point the migrator at a specific migrations folder. */
+export function setMigrationsFolder(folder: string | null): void {
+  migrationsFolderOverride = folder
+}
+
+export function runMigrations(): void {
   let migrationsFolder: string
 
-  if (app.isPackaged) {
-    // Production: migrations are copied to resources folder
-    migrationsFolder = join(process.resourcesPath, 'migrations')
+  if (migrationsFolderOverride) {
+    migrationsFolder = migrationsFolderOverride
   } else {
-    // Development: resolve from app root
-    migrationsFolder = join(app.getAppPath(), 'src/main/db/migrations')
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { app } = require('electron') as typeof import('electron')
+      if (app.isPackaged) {
+        // Production: migrations are copied to resources folder
+        migrationsFolder = join(process.resourcesPath, 'migrations')
+      } else {
+        // Development: resolve from app root
+        migrationsFolder = join(app.getAppPath(), 'src/main/db/migrations')
+      }
+    } catch {
+      // Outside the electron runtime (tests/tooling): resolve from repo root
+      migrationsFolder = join(process.cwd(), 'src/main/db/migrations')
+    }
   }
 
-  console.log('Running migrations from:', migrationsFolder)
-
-  migrate(db, { migrationsFolder })
+  migrate(getDb(), { migrationsFolder })
 }
