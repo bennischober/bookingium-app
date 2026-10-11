@@ -25,6 +25,14 @@ import {
 
 export async function seedDatabase() {
   try {
+    // Date helper: ISO date string relative to today (keeps seeded demo data
+    // in a sensible window around "now" so dashboard/calendar show content)
+    const isoInDays = (offset: number): string => {
+      const d = new Date()
+      d.setDate(d.getDate() + offset)
+      return d.toISOString().slice(0, 10)
+    }
+
     // Check if already seeded
     const existingBands = await db.select().from(band).limit(1)
     if (existingBands.length > 0) {
@@ -681,7 +689,7 @@ export async function seedDatabase() {
       .values({
         name: 'The Electric Waves - Berlin Tour',
         deal: '70/30',
-        date: '2026-06-15',
+        date: isoInDays(21),
         ticket_price_vvk: 35.0,
         ticket_price_ak: 40.0,
         posters: '500 A1 posters, 1000 flyers',
@@ -706,7 +714,7 @@ export async function seedDatabase() {
       .values({
         name: 'Midnight Symphony - LA Showcase',
         deal: '60/40 with $5,000 guarantee',
-        date: '2026-08-22',
+        date: isoInDays(3),
         ticket_price_vvk: 25.0,
         ticket_price_ak: 30.0,
         posters: '300 A2 posters',
@@ -766,7 +774,7 @@ export async function seedDatabase() {
           .values({
             name: 'Pretty Wild - Bad Hindelang Open Air',
             deal: 'Garantie 4.000,00 € zzgl. 7% MwSt.',
-            date: '2026-12-30',
+            date: isoInDays(10),
             ticket_price_vvk: 25.0,
             ticket_price_ak: 30.0,
             posters: '200 A1 posters',
@@ -859,11 +867,11 @@ export async function seedDatabase() {
         issuer_snapshot_id: issuerSnapshot1.id,
         recipient_snapshot_id: recipientSnapshotCompany.id,
         deal_memo_id: dealMemo1.id,
-        period_start_date: '2026-06-01',
-        period_end_date: '2026-06-30',
-        period_label: 'June 2026',
-        issue_date: '2026-06-16',
-        due_date: '2026-06-30',
+        period_start_date: isoInDays(-14),
+        period_end_date: isoInDays(7),
+        period_label: 'Current period',
+        issue_date: isoInDays(-3),
+        due_date: isoInDays(11),
         status: 'issued',
         currency: 'EUR',
         subtotal_net_amount: 3529.41,
@@ -882,11 +890,11 @@ export async function seedDatabase() {
         issuer_snapshot_id: issuerSnapshot1.id,
         recipient_snapshot_id: recipientSnapshotPerson.id,
         deal_memo_id: null,
-        period_start_date: '2026-05-01',
-        period_end_date: '2026-05-31',
-        period_label: 'May 2026',
-        issue_date: '2026-05-20',
-        due_date: '2026-06-03',
+        period_start_date: isoInDays(-45),
+        period_end_date: isoInDays(-15),
+        period_label: 'Previous period',
+        issue_date: isoInDays(-40),
+        due_date: isoInDays(-26),
         status: 'paid',
         currency: 'EUR',
         subtotal_net_amount: 1250,
@@ -906,11 +914,11 @@ export async function seedDatabase() {
         issuer_snapshot_id: issuerSnapshot2.id,
         recipient_snapshot_id: recipientSnapshotBand.id,
         deal_memo_id: dealMemo2.id,
-        period_start_date: '2026-08-01',
-        period_end_date: '2026-08-31',
-        period_label: 'August 2026',
-        issue_date: '2026-08-23',
-        due_date: '2026-09-06',
+        period_start_date: isoInDays(-7),
+        period_end_date: isoInDays(23),
+        period_label: 'Next 30 days',
+        issue_date: isoInDays(-1),
+        due_date: isoInDays(13),
         status: 'draft',
         currency: 'USD',
         subtotal_net_amount: 5000,
