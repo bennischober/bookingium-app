@@ -101,6 +101,9 @@ export const CreateDealMemoInput = z.object({
   status: z.string().optional(),
   ticketPriceVvk: z.number().nullable().optional(),
   ticketPriceAk: z.number().nullable().optional(),
+  guaranteeAmount: z.number().nullable().optional(),
+  guaranteeVatRate: z.number().nullable().optional(),
+  contractNotes: z.string().optional(),
   notes: z.string().optional().default('')
 })
 

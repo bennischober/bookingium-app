@@ -82,7 +82,9 @@ export class ContractRepository {
       .where(eq(schema.band.id, row.deal_memo.band_id))
       .limit(1)
 
-    // Promoter ("oeV"): the deal memo's local promoter company
+    // Promoter ("oeV"): the deal memo's local promoter company. The
+    // representative (lopro person) is fetched separately - it belongs to the
+    // deal memo, not to the company.
     let promoter: ContractParty | null = null
     if (row.deal_memo.lopro_company_id) {
       const promoterRows = await db
@@ -90,27 +92,21 @@ export class ContractRepository {
           company: schema.company,
           contact: schema.contact,
           bank: schema.bank,
-          address: schema.address,
-          person_first_name: schema.person.first_name,
-          person_last_name: schema.person.last_name
+          address: schema.address
         })
         .from(schema.company)
         .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
         .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
         .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
-        .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
         .where(eq(schema.company.id, row.deal_memo.lopro_company_id))
         .limit(1)
 
       if (promoterRows.length > 0) {
         const p = promoterRows[0]
-        promoter = toParty(
-          p.company,
-          p.contact,
-          p.bank,
-          p.address,
-          [p.person_first_name, p.person_last_name].filter(Boolean).join(' ')
-        )
+        const rep = row.person
+          ? `${row.person.first_name} ${row.person.last_name}`.trim()
+          : ''
+        promoter = toParty(p.company, p.contact, p.bank, p.address, rep)
       }
     }
 

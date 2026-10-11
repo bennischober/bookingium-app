@@ -90,7 +90,10 @@ export class DealMemoRepository {
         room_information: '',
         performance_duration: '',
         performance_time: '',
-        performance_information: ''
+        performance_information: '',
+        guarantee_amount: input.guaranteeAmount ?? null,
+        guarantee_vat_rate: input.guaranteeVatRate ?? null,
+        contract_notes: input.contractNotes ?? ''
       })
       .returning()
 
