@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { Badge } from '@/components/ui/badge'
+import { InfoLabel } from '@/components/InfoLabel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -469,7 +470,10 @@ function InvoiceForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Wer bekommt das Geld? (Rechnungssteller – dessen Bankdaten und Fußzeile erscheinen auf der Rechnung)</Label>
+              <InfoLabel
+                text="Wer bekommt das Geld?"
+                info="Rechnungssteller – dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
+              />
               <Select
                 value={companyId !== undefined ? (companyId === null ? 'none' : companyId.toString()) : 'auto'}
                 onValueChange={(value) => {
@@ -501,7 +505,10 @@ function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Wer wird belastet? (Rechnungsempfänger – zahlt diese Rechnung)</Label>
+            <InfoLabel
+              text="Wer wird belastet?"
+              info="Rechnungsempfänger – zahlt diese Rechnung."
+            />
             <Select
               value={recipientKind}
               onValueChange={(value) => {
