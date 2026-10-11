@@ -1,0 +1,37 @@
+{
+  "$comment": "Copy this file to internal-seed.json and fill in real master data. internal-seed.json is gitignored and never committed. It is loaded by the database seeder when present (dev machines only; the packaged app ignores it). All string fields are optional unless noted.",
+  "companies": [
+    {
+      "key": "my-agency",
+      "name": "REQUIRED — legal name as it should appear on invoices",
+      "notes": "e.g. Booking agency - issuer of the German template invoices",
+      "address": {
+        "street": "Street name",
+        "streetNumber": "13",
+        "zipCode": "87541",
+        "city": "City",
+        "state": "State/region",
+        "country": "Germany",
+        "countryCode": "DE"
+      },
+      "contact": {
+        "email": "office@example.com",
+        "phone": "+49-000-000000",
+        "homepage": "www.example.com"
+      },
+      "bank": {
+        "bankName": "Bank name",
+        "accountHolder": "Account holder if it differs from the legal name",
+        "iban": "DE00 0000 0000 0000 0000 00",
+        "bic": "BICXXXXX"
+      },
+      "vatNumber": "DE000000000",
+      "ustNumber": "",
+      "taxNumber": "00000000000",
+      "commercialRegisterNo": "HRB 0000",
+      "registerCourt": "AG Some Town",
+      "nextInvoiceNumber": 1,
+      "logoFile": "logo.jpg (file inside sample_data/, optional)"
+    }
+  ]
+}

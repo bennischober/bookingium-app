@@ -1,7 +1,7 @@
 import { db } from './index'
 import { eq } from 'drizzle-orm'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { copyLogoToStorage } from '../utils/fileStorage'
 import {
   address,
@@ -76,32 +76,6 @@ export async function seedDatabase() {
       })
       .returning()
 
-    const [companyAddress3] = await db
-      .insert(address)
-      .values({
-        street: 'Weidachstr.',
-        street_number: '13',
-        zip_code: '87541',
-        city: 'Bad Hindelang',
-        state: 'Bayern',
-        country: 'Germany',
-        country_code: 'DE'
-      })
-      .returning()
-
-    const [companyAddress4] = await db
-      .insert(address)
-      .values({
-        street: 'Kurze Gasse',
-        street_number: '14',
-        zip_code: '87541',
-        city: 'Bad Hindelang',
-        state: 'Bayern',
-        country: 'Germany',
-        country_code: 'DE'
-      })
-      .returning()
-
     const [personAddress1] = await db
       .insert(address)
       .values({
@@ -160,26 +134,6 @@ export async function seedDatabase() {
         phone: '+49-30-555-1234',
         mobile_phone: '+49-172-555-0400',
         homepage: 'https://www.livemusic-berlin.de'
-      })
-      .returning()
-
-    const [companyContact3] = await db
-      .insert(contact)
-      .values({
-        email: 'deville@bmm-ag.de',
-        phone: '08324-5139991',
-        mobile_phone: '',
-        homepage: 'www.bmm-ag.de'
-      })
-      .returning()
-
-    const [companyContact4] = await db
-      .insert(contact)
-      .values({
-        email: '',
-        phone: '',
-        mobile_phone: '',
-        homepage: ''
       })
       .returning()
 
@@ -254,26 +208,6 @@ export async function seedDatabase() {
         account_holder: 'Soundwave Records LLC',
         iban: 'US89370400440532013000',
         bic: 'BOFAUS3N'
-      })
-      .returning()
-
-    const [bank3] = await db
-      .insert(bank)
-      .values({
-        bank_name: 'Sparkasse Allgäu',
-        account_holder: 'Brainstorm Music Marketing AG',
-        iban: 'DE07 7335 0000 0000 1099 59',
-        bic: 'BYLADEM1ALG'
-      })
-      .returning()
-
-    const [bank4] = await db
-      .insert(bank)
-      .values({
-        bank_name: 'Raiffeisenbank Kempten/Oberallgäu',
-        account_holder: 'Michael Schober',
-        iban: 'DE55 7336 9920 0006 8595 50',
-        bic: 'GENODEF1SFO'
       })
       .returning()
 
@@ -373,44 +307,150 @@ export async function seedDatabase() {
       })
       .returning()
 
-    // BMM AG - booking agency, issuer of the German reference invoices
-    // (sample_data/bmm_ag_invoice.png and the Rechnung .docx files)
-    const [company3] = await db
-      .insert(company)
-      .values({
-        name: 'Brainstorm Music Marketing AG',
-        notes: 'Booking agency (BMM AG) - issuer of the German template invoices',
-        bank_id: bank3.id,
-        vat_number: 'DE212298737',
-        ust_number: '',
-        tax_number: '12712063600',
-        commercial_register_no: 'HRB 7710',
-        register_court: 'AG Kempten',
-        is_default_for_invoicing: false,
-        address_id: companyAddress3.id,
-        contact_id: companyContact3.id
-      })
-      .returning()
+    // ========================================
+    // Internal seed: real issuer companies with real master data.
+    // Loaded from sample_data/internal-seed.json (gitignored). When the file
+    // is absent (fresh clones, packaged app), these companies are skipped and
+    // the database contains only the fictional demo companies above.
+    // See sample_data/internal-seed.example.json for the format.
+    // ========================================
+    const internalSeedPath = join(process.cwd(), 'sample_data', 'internal-seed.json')
+    if (existsSync(internalSeedPath)) {
+      console.log('Creating internal issuer companies...')
+      try {
+        const internalSeed = JSON.parse(readFileSync(internalSeedPath, 'utf-8')) as {
+          companies?: Array<{
+            key: string
+            name: string
+            notes?: string
+            address?: {
+              street?: string
+              streetNumber?: string
+              zipCode?: string
+              city?: string
+              state?: string
+              country?: string
+              countryCode?: string
+            }
+            contact?: { email?: string; phone?: string; homepage?: string }
+            bank?: {
+              bankName?: string
+              accountHolder?: string
+              iban?: string
+              bic?: string
+            }
+            vatNumber?: string
+            ustNumber?: string
+            taxNumber?: string
+            commercialRegisterNo?: string
+            registerCourt?: string
+            nextInvoiceNumber?: number
+            logoFile?: string
+          }>
+        }
 
-    // Pretty Wild Water - issuer of the English reference invoice
-    // (sample_data/pretty_wild_waters_invoice.png); account holder differs
-    // from the legal name, which is why the bank record carries it
-    const [company4] = await db
-      .insert(company)
-      .values({
-        name: 'Pretty Wild Water',
-        notes: 'Merchandise/water brand - issuer of the English template invoice',
-        bank_id: bank4.id,
-        vat_number: 'DE 402431194',
-        ust_number: '',
-        tax_number: '',
-        commercial_register_no: '',
-        register_court: '',
-        is_default_for_invoicing: false,
-        address_id: companyAddress4.id,
-        contact_id: companyContact4.id
-      })
-      .returning()
+        for (const entry of internalSeed.companies ?? []) {
+          if (!entry.name) {
+            console.warn(`Internal seed entry "${entry.key ?? '?'}" has no name, skipping`)
+            continue
+          }
+
+          let addressId: number | null = null
+          if (entry.address) {
+            const [row] = await db
+              .insert(address)
+              .values({
+                street: entry.address.street ?? '',
+                street_number: entry.address.streetNumber ?? '',
+                zip_code: entry.address.zipCode ?? '',
+                city: entry.address.city ?? '',
+                state: entry.address.state ?? '',
+                country: entry.address.country ?? '',
+                country_code: entry.address.countryCode ?? ''
+              })
+              .returning()
+            addressId = row.id
+          }
+
+          let contactId: number | null = null
+          if (entry.contact) {
+            const [row] = await db
+              .insert(contact)
+              .values({
+                email: entry.contact.email ?? '',
+                phone: entry.contact.phone ?? '',
+                mobile_phone: '',
+                homepage: entry.contact.homepage ?? ''
+              })
+              .returning()
+            contactId = row.id
+          }
+
+          let bankId: number | null = null
+          if (entry.bank) {
+            const [row] = await db
+              .insert(bank)
+              .values({
+                bank_name: entry.bank.bankName ?? '',
+                account_holder: entry.bank.accountHolder ?? '',
+                iban: entry.bank.iban ?? '',
+                bic: entry.bank.bic ?? ''
+              })
+              .returning()
+            bankId = row.id
+          }
+
+          const [created] = await db
+            .insert(company)
+            .values({
+              name: entry.name,
+              notes: entry.notes ?? '',
+              bank_id: bankId,
+              vat_number: entry.vatNumber ?? '',
+              ust_number: entry.ustNumber ?? '',
+              tax_number: entry.taxNumber ?? '',
+              commercial_register_no: entry.commercialRegisterNo ?? '',
+              register_court: entry.registerCourt ?? '',
+              is_default_for_invoicing: false,
+              address_id: addressId,
+              contact_id: contactId
+            })
+            .returning()
+
+          await db.insert(company_invoice_settings).values({
+            company_id: created.id,
+            next_invoice_number: entry.nextInvoiceNumber ?? 1
+          })
+
+          if (entry.logoFile) {
+            const logoSource = join(process.cwd(), 'sample_data', entry.logoFile)
+            if (existsSync(logoSource)) {
+              try {
+                const logoPath = await copyLogoToStorage(logoSource, created.id, entry.logoFile)
+                await db
+                  .update(company)
+                  .set({ logo_path: logoPath })
+                  .where(eq(company.id, created.id))
+              } catch (error) {
+                console.warn(
+                  `Logo for "${entry.name}" could not be copied:`,
+                  error instanceof Error ? error.message : error
+                )
+              }
+            } else {
+              console.warn(`Logo file "${entry.logoFile}" not found in sample_data, skipping`)
+            }
+          }
+
+          console.log(`  ${created.name} (next invoice #${entry.nextInvoiceNumber ?? 1})`)
+        }
+      } catch (error) {
+        console.warn(
+          'Internal seed file could not be parsed, skipping internal companies:',
+          error instanceof Error ? error.message : error
+        )
+      }
+    }
 
     await db.insert(company_invoice_settings).values([
       {
@@ -420,39 +460,8 @@ export async function seedDatabase() {
       {
         company_id: company2.id,
         next_invoice_number: 1042
-      },
-      {
-        // BMM invoice numbers continue after the highest reference number (2026784)
-        company_id: company3.id,
-        next_invoice_number: 2026785
-      },
-      {
-        // PWW invoice numbers continue after the reference number 14246
-        company_id: company4.id,
-        next_invoice_number: 14247
       }
     ])
-
-    // Copy reference logos from the repo's sample_data folder when available
-    // (development convenience; production users upload logos via CompanyForm)
-    try {
-      const sampleLogo = (fileName: string) =>
-        join(process.cwd(), 'sample_data', fileName)
-
-      const bmmLogo = sampleLogo('bmm-ag.jpg')
-      if (existsSync(bmmLogo)) {
-        const logoPath = await copyLogoToStorage(bmmLogo, company3.id, 'bmm-ag.jpg')
-        await db.update(company).set({ logo_path: logoPath }).where(eq(company.id, company3.id))
-      }
-
-      const pwwLogo = sampleLogo('Pretty-Wild-Waters-Logo.jpg')
-      if (existsSync(pwwLogo)) {
-        const logoPath = await copyLogoToStorage(pwwLogo, company4.id, 'pretty-wild-waters-logo.jpg')
-        await db.update(company).set({ logo_path: logoPath }).where(eq(company.id, company4.id))
-      }
-    } catch (error) {
-      console.warn('Logo seeding skipped:', error instanceof Error ? error.message : error)
-    }
 
     // Create company members with roles
     await db.insert(company_member).values([

@@ -5,5 +5,6 @@ out
 .eslintcache
 *.log*
 orthos-key
-sample_data/
+sample_data/*
+!sample_data/internal-seed.example.json
 .opencode/
