@@ -1,19 +1,49 @@
 # Lists of TODOs and future improvements for the app
 
-- The previous step also requires us to implement the PDF creation logic, e.g. for invoices, contracts, and so on. It was suggested to just use React components for this and use the print-to-PDF functionality of the browser, which is a good idea to keep things simple and avoid adding a heavy PDF generation library. We can create a hidden React component that renders the invoice/contract in a print-friendly format, and when the user clicks "Download PDF", we can trigger the print dialog for that component.
-- Further enhance "search anything" with dedicated search repository functions using `LIKE` queries, as well as dedicated models for smaller payloads (`sqlite fts5` could be useful in the future)
-  - could also include its UI part
-- work on architecture and developer experience (e.g. adding a new business object end-to-end; add new UI parts etc)
-  - includes stuff like extracting shared components into dedicated components that other components can reference
-- work on dashboard/opening page? I dont know what we could do here
-- adjust README with proper information
+## Done (2026-10-11 autonomous session)
 
-Remarks: at some point we might want to check that we use the same coding guidelines and patterns everywhere, e.g. some repositories use create and update, whereas others use upsert. We also need to check if we split up larger components and so on. But this is something for later.
+- PDF creation logic for invoices AND contracts (print-to-PDF via React
+  components) — invoice templates unified (one agency layout, DE/EN),
+  contract rebuilt from the old repo's proven PDFContract structure incl.
+  TL (Technischer Leiter) and signature images
+- "Search anything" enhanced: dedicated `search` tRPC router with LIKE
+  queries on indexed columns + lightweight result payloads; UI queries on
+  demand (no prefetch on Ctrl+K); FTS5 deliberately left as a future option
+  for larger datasets
+- Architecture/DX: docs/ARCHITECTURE.md with the end-to-end recipe for
+  adding a business object + decided coding guidelines; InvoicePage split
+  (form -> components/forms/InvoiceForm.tsx, helpers -> lib/invoiceLabels.ts)
+- README rewritten with real project information
+- Test infrastructure: vitest unit suite (21 tests, in-memory SQLite) and
+  Playwright e2e suite (5 tests) incl. real printToPDF output verification
+- Dashboard shows content on fresh databases (seed dates relative to today)
 
-Older "prompts" I found. I dont know if we should work on them or if these are answered:
+## Open
 
-    1. Still, we either use the field `deal` wrong here or we do not fully display it in the UI. Because we show a name of the event, but not the deal information (e.g. 70/30 - so the actual deal the band gets for playing). So I do not know if we currently just store the event name in the deal field. If so, I guess we have to adjust the schema once again.
+- Further enhance "search anything" (FTS5, per-object hot entries, context
+  weighting) — see docs/SESSION_QUESTIONS.md for the strategy notes
+- Dependabot PRs on GitHub: 16 open PRs are superseded by our dependency
+  commits and should be closed (needs web UI access / gh CLI)
+- Dependabot alerts: 2 moderate dev-only findings remain (esbuild via
+  drizzle-kit's @esbuild-kit loader — serve mode only, not used; sprintf-js —
+  no fixed release). Revisit when drizzle-kit drops the legacy loader.
+- Split large components further when working on them (InvoicePage is now
+  312 lines; FinancialsTab/ItineraryTab/DocumentsTab are 370-470 lines each,
+  acceptable)
+- Possibly: drag-and-drop for the documents tab, PDF preview embedded in the
+  documents tab, invoice download counter, document version history
+  (from docs/IMPLEMENTATION_COMPLETE.md future list)
 
-    // second thing, but should be answered in a different session: we might need to introduce a general "edit" mode to differ between view and editing. This makes deal inspecting and editing easier I guess; currently we use a weird hybrid.
+## Old prompts (answered)
 
-    2. I am impressed how well this works. Though, I am unsure if we should populate database already when pressing CTRL + K. Because this leads to a slight delay until it opens up. So I guess we should either do this non-blocking in the background once its opened, or just fully search on demand. I think about this, because what if we have like thousands of entries in or db? I know, we are using sqlite and everything is on-device and thus we have low-latency, but still, querying thousands of entries needs resources. Though, we have pagination for specific endpoints and you also slice it to a max of 8 items (if I saw it correctly), I still think whats best here. I also thought about a specific "search" route per business object. I know that we have no lucene or some similar search engine here, but a `like` query could still be very effective here (though, we kind of have to execute the query on almost all fields of all tables; if we decide we really want to make everything searchable). There is so much to do here, e.g. pre-query/populate "hot entries" or data that is related to "upcoming" events, because it could be more likely that these are important, but its hard to decide what we actually want. Also, I think the current "inital state" of the search command is pretty large. Still, I guess things like “recent searches / recent opened records” sounds reasonable, as well as "context-aware actions (example: if currently on Persons page, include quick “Create Person” command)." I guess its hard to decide what to do, so I am curious what you suggest.
+1. `deal` field semantics — ANSWERED: the field stores the deal terms as
+   free text (e.g. "70/30") and is displayed in the FinancialsTab
+   ("Konditionen") and in the contract (§2). Structured guarantee data lives
+   in guarantee_amount/guarantee_vat_rate (added 2026-10). No schema change
+   needed.
+   The "general edit mode" idea (view vs edit distinction) is partially
+   implemented: the event hub has an explicit edit mode with save/discard;
+   other pages still use inline FormSheets.
+2. Search strategy — ANSWERED: on-demand debounced search (>= 2 chars) via
+   the dedicated search router; LIKE on indexed columns; per-type limit 4,
+   total cap 24; recent searches persisted; FTS5 as future option.
