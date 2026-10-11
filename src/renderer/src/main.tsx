@@ -9,7 +9,24 @@ import { router } from './router'
 import { ThemeProvider } from './components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Local-first single-user app: data only changes through this app
+      // itself, so there is no reason to refetch aggressively.
+      // - staleTime: cached data is considered fresh for a minute; visiting
+      //   a page back and forth no longer re-runs every query
+      // - refetchOnWindowFocus: false — clicking into the window does not
+      //   refetch everything (the default was the main "slow dashboard"
+      //   culprit alongside staleTime 0)
+      // - retry: 1 — a failed query retries once quickly instead of three
+      //   backoff-stretched attempts (the earlier "long loading" on errors)
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1
+    }
+  }
+})
 const trpcClient = trpcReact.createClient({
   links: [ipcLink()]
 })
