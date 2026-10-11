@@ -346,6 +346,7 @@ export async function seedDatabase() {
             registerCourt?: string
             nextInvoiceNumber?: number
             logoFile?: string
+            signatureFile?: string
           }>
         }
 
@@ -439,6 +440,32 @@ export async function seedDatabase() {
               }
             } else {
               console.warn(`Logo file "${entry.logoFile}" not found in sample_data, skipping`)
+            }
+          }
+
+          if (entry.signatureFile) {
+            const signatureSource = join(process.cwd(), 'sample_data', entry.signatureFile)
+            if (existsSync(signatureSource)) {
+              try {
+                const signaturePath = await copyLogoToStorage(
+                  signatureSource,
+                  created.id,
+                  entry.signatureFile
+                )
+                await db
+                  .update(company)
+                  .set({ signature_path: signaturePath })
+                  .where(eq(company.id, created.id))
+              } catch (error) {
+                console.warn(
+                  `Signature for "${entry.name}" could not be copied:`,
+                  error instanceof Error ? error.message : error
+                )
+              }
+            } else {
+              console.warn(
+                `Signature file "${entry.signatureFile}" not found in sample_data, skipping`
+              )
             }
           }
 
@@ -699,6 +726,82 @@ export async function seedDatabase() {
       })
       .returning()
 
+    // ========================================
+    // Internal contract demo: when the internal seed companies exist, create
+    // a deal memo exercising the full contract path (BMM as issuing agency,
+    // PWW as local promoter, guarantee + signature + TL)
+    // ========================================
+    let internalDealMemoId: number | null = null
+    try {
+      const internalCompanies = await db.select().from(company)
+      const bmm = internalCompanies.find((c) => c.name === 'Brainstorm Music Marketing AG')
+      const pww = internalCompanies.find((c) => c.name === 'Pretty Wild Water')
+
+      if (bmm && pww) {
+        // A band owned by PWW (so the artist company carries the PWW signature
+        // and the contract letterhead), BMM as issuing agency (vertreten
+        // durch + signature), PWW also as local promoter
+        const [internalBand] = await db
+          .insert(band)
+          .values({
+            name: 'Pretty Wild',
+            genre: 'Rock',
+            founded: '2019-04-01',
+            notes: 'Internal contract demo band',
+            company_id: pww.id,
+            responsible_person_id: person5.id
+          })
+          .returning()
+
+        // TL band membership
+        await db.insert(band_member).values({
+          band_id: internalBand.id,
+          person_id: person5.id,
+          role: 'Guitar, TL',
+          notes: 'Technischer Leiter for contract demos'
+        })
+
+        const [internalMemo] = await db
+          .insert(deal_memo)
+          .values({
+            name: 'Pretty Wild - Bad Hindelang Open Air',
+            deal: 'Garantie 4.000,00 € zzgl. 7% MwSt.',
+            date: '2026-12-30',
+            ticket_price_vvk: 25.0,
+            ticket_price_ak: 30.0,
+            posters: '200 A1 posters',
+            status: 'confirmed',
+            notes: 'Internal contract demo event',
+            amount_of_people: 7,
+            room_information: '7 EZ (single rooms)',
+            performance_duration: '90 Minuten',
+            performance_time: '20:30',
+            performance_information: 'Open Air Buehne, Support ab 19:00',
+            lopro_person_id: person5.id,
+            lopro_company_id: pww.id,
+            invoice_company_id: bmm.id,
+            band_id: internalBand.id,
+            venue_id: venue2.id,
+            hotel_id: hotel1.id,
+            guarantee_amount: 4000,
+            guarantee_vat_rate: 7,
+            contract_notes:
+              'Sondervereinbarung: Vorband stellt Backline. Auf- und Abbau am Vortag.'
+          })
+          .returning()
+
+        internalDealMemoId = internalMemo.id
+        console.log(
+          `Internal contract demo: deal memo #${internalMemo.id} (BMM <-> PWW)`
+        )
+      }
+    } catch (error) {
+      console.warn(
+        'Internal contract demo could not be created:',
+        error instanceof Error ? error.message : error
+      )
+    }
+
     const [issuerSnapshot1] = await db
       .insert(invoice_party_snapshot)
       .values({
@@ -907,7 +1010,26 @@ export async function seedDatabase() {
         curfew_stage: '22:30',
         curfew_venue: '23:00',
         show_length: '75'
-      }
+      },
+      ...(internalDealMemoId
+        ? [
+            {
+              notes: 'Open Air setup with support act',
+              deal_memo_id: internalDealMemoId,
+              get_in: '12:00',
+              load_in: '13:00',
+              sound_check_main_act: '16:00',
+              sound_check_support: '15:00',
+              dinner: '18:00',
+              doors: '19:00',
+              show_time_main_act: '20:30',
+              show_time_support: '19:30',
+              curfew_stage: '22:30',
+              curfew_venue: '23:00',
+              show_length: '90'
+            }
+          ]
+        : [])
     ])
 
     console.log('Database seeded successfully!')

@@ -49,7 +49,11 @@ export default function ContractPrintPage() {
 
   const data = contractQuery.data
   const artistLogo = useStoredImageUrl(data?.artistLogoPath || undefined)
-  const artistSignature = useStoredImageUrl(data?.artist?.signaturePath || undefined)
+  // The VP1 signature belongs to the issuing agency (the "vertreten durch"
+  // company), falling back to the band company's signature
+  const signaturePath =
+    data?.representative?.signaturePath || data?.artist?.signaturePath || ''
+  const artistSignature = useStoredImageUrl(signaturePath || undefined)
 
   if (contractQuery.isLoading) {
     return (

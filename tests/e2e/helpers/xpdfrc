@@ -1,0 +1,6 @@
+# Minimal Xpdf config: map the standard font names to real font files.
+# Needed by pdftoppm when PDFs reference Symbol/ZapfDingbats without
+# embedding them (e.g. bullet glyphs from Chromium's print-to-PDF).
+fontFile Symbol "C:\Program Files\Xpdf\symbol.ttf"
+fontFile ZapfDingbats "C:\Windows\Fonts\wingding.ttf"
+fontDir "C:\Windows\Fonts"

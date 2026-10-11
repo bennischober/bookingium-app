@@ -4,6 +4,14 @@ import { join, extname } from 'path'
 import { readFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
+
+// Test-runner launches (playwright drives electron directly) get the bare
+// 'Electron' userData path, which points at a different (empty) database
+// than the dev/packaged app. Honor an explicit override so tests hit the
+// same database as the real app.
+if (process.env.BOOKINGIUM_USER_DATA) {
+  app.setPath('userData', process.env.BOOKINGIUM_USER_DATA)
+}
 import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
 import { runMigrations } from './db/migrate'

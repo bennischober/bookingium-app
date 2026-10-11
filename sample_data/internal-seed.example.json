@@ -31,7 +31,8 @@
       "commercialRegisterNo": "HRB 0000",
       "registerCourt": "AG Some Town",
       "nextInvoiceNumber": 1,
-      "logoFile": "logo.jpg (file inside sample_data/, optional)"
+      "logoFile": "logo.jpg (file inside sample_data/, optional)",
+      "signatureFile": "signature.jpg (file inside sample_data/, optional - shown above the VP1 signature line in contracts)"
     }
   ]
 }
