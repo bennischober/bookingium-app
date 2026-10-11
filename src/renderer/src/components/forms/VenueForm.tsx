@@ -88,7 +88,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
         validators={{
           onChange: ({ value }) => {
             if (!value || value.trim().length === 0) {
-              return 'Name is required'
+              return 'Name ist erforderlich'
             }
             return undefined
           }
@@ -104,7 +104,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Enter venue name"
+              placeholder="Spielstättennamen eingeben"
               disabled={isSubmitting}
             />
             {field.state.meta.errors.length > 0 && (
@@ -121,7 +121,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
             if (!value.trim()) return undefined
             const parsed = Number(value)
             if (Number.isNaN(parsed) || parsed < 0) {
-              return 'Capacity must be a positive number'
+              return 'Kapazität muss eine positive Zahl sein'
             }
             return undefined
           }
@@ -129,7 +129,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
       >
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Capacity</Label>
+            <Label htmlFor={field.name}>Kapazität</Label>
             <Input
               id={field.name}
               type="number"
@@ -137,7 +137,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="e.g. 1200"
+              placeholder="z. B. 1200"
               disabled={isSubmitting}
             />
             {field.state.meta.errors.length > 0 && (
@@ -150,13 +150,13 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
       <form.Field name="notes">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Notes</Label>
+            <Label htmlFor={field.name}>Anmerkungen</Label>
             <Textarea
               id={field.name}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Add additional details about this venue"
+              placeholder="Weitere Details zu dieser Spielstätte"
               rows={4}
               disabled={isSubmitting}
             />
@@ -167,9 +167,9 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
       <form.Field name="companyId">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Linked Company (optional)</Label>
+            <Label htmlFor={field.name}>Verknüpfte Firma (optional)</Label>
             {companies.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading companies...</p>
+              <p className="text-sm text-muted-foreground">Firmen werden geladen...</p>
             ) : companies.data && companies.data.length > 0 ? (
               <Select
                 value={field.state.value ? String(field.state.value) : 'none'}
@@ -179,10 +179,10 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
                 disabled={isSubmitting}
               >
                 <SelectTrigger id={field.name}>
-                  <SelectValue placeholder="Select company" />
+                  <SelectValue placeholder="Firma auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">Keine</SelectItem>
                   {companies.data.map((company) => (
                     <SelectItem key={company.id} value={String(company.id)}>
                       {company.name}
@@ -191,7 +191,7 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
                 </SelectContent>
               </Select>
             ) : (
-              <p className="text-sm text-muted-foreground">No companies found.</p>
+              <p className="text-sm text-muted-foreground">Keine Firmen gefunden.</p>
             )}
           </div>
         )}
@@ -205,10 +205,10 @@ export function VenueForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Venue' : 'Save Changes'}
+          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Spielstätte anlegen' : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

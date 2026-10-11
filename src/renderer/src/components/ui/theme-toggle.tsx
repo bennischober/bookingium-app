@@ -19,8 +19,8 @@ export function ThemeToggle() {
       type="button"
       variant="outline"
       size="icon"
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      title={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={isDark ? "Zum hellen Farbschema wechseln" : "Zum dunklen Farbschema wechseln"}
+      title={isDark ? "Zum hellen Farbschema wechseln" : "Zum dunklen Farbschema wechseln"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className="size-8 cursor-pointer"
     >

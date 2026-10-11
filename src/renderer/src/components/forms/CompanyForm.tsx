@@ -59,7 +59,7 @@ function LogoPreview({ path }: { path: string }) {
 
   if (!src) return null
 
-  return <img src={src} alt="Company logo" className="h-16 max-w-32 object-contain rounded border bg-white" />
+  return <img src={src} alt="Firmenlogo" className="h-16 max-w-32 object-contain rounded border bg-white" />
 }
 
 export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
@@ -130,12 +130,12 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       className="space-y-6"
     >
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Company Information</h3>
+        <h3 className="text-lg font-semibold">Firmeninformationen</h3>
 
         <form.Field name="name">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="name">Company Name *</Label>
+              <Label htmlFor="name">Firmenname *</Label>
               <Input
                 id="name"
                 value={field.state.value}
@@ -153,7 +153,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
           <form.Field name="vatNumber">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="vatNumber">VAT Number</Label>
+                <Label htmlFor="vatNumber">USt-IdNr.</Label>
                 <Input
                   id="vatNumber"
                   value={field.state.value}
@@ -167,7 +167,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
           <form.Field name="ustNumber">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="ustNumber">USt Number</Label>
+                <Label htmlFor="ustNumber">USt-Nr.</Label>
                 <Input
                   id="ustNumber"
                   value={field.state.value}
@@ -181,7 +181,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
           <form.Field name="taxNumber">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="taxNumber">Tax Number (Steuernummer)</Label>
+                <Label htmlFor="taxNumber">Steuernummer</Label>
                 <Input
                   id="taxNumber"
                   value={field.state.value}
@@ -197,7 +197,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
           <form.Field name="commercialRegisterNo">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="commercialRegisterNo">Commercial Register No. (HR-Nr.)</Label>
+                <Label htmlFor="commercialRegisterNo">Registernummer (HR-Nr.)</Label>
                 <Input
                   id="commercialRegisterNo"
                   value={field.state.value}
@@ -211,7 +211,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
           <form.Field name="registerCourt">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="registerCourt">Register Court (Amtsgericht)</Label>
+                <Label htmlFor="registerCourt">Registergericht (Amtsgericht)</Label>
                 <Input
                   id="registerCourt"
                   value={field.state.value}
@@ -224,7 +224,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label>Invoice Logo (optional)</Label>
+          <Label>Rechnungslogo (optional)</Label>
           <input
             ref={fileInputRef}
             type="file"
@@ -240,12 +240,12 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
               <LogoPreview path={logoPreview} />
             ) : (
               <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                No logo
+                Kein Logo
               </div>
             )}
             <div className="flex flex-col gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                Choose image...
+                Bild auswählen…
               </Button>
               {logoPreview && (
                 <Button
@@ -260,7 +260,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
                     form.setFieldValue('logoPath', '')
                   }}
                 >
-                  Remove
+                  Entfernen
                 </Button>
               )}
             </div>
@@ -270,19 +270,19 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
         <form.Field name="bankId">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="bankId">Bank (Optional)</Label>
+              <Label htmlFor="bankId">Bank (optional)</Label>
               {banks.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading banks...</p>
+                <p className="text-sm text-muted-foreground">Banken werden geladen...</p>
               ) : banks.data && banks.data.length > 0 ? (
                 <Select
                   value={field.state.value?.toString() || ''}
                   onValueChange={(value) => field.handleChange(value ? Number(value) : null)}
                 >
                   <SelectTrigger id="bankId">
-                    <SelectValue placeholder="Select a bank" />
+                    <SelectValue placeholder="Bank auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="none">Keine</SelectItem>
                     {banks.data.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id.toString()}>
                         {bank.bankName} - {bank.accountHolder}
@@ -292,7 +292,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
                 </Select>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No banks available. Create a bank first in the Banks page.
+                  Keine Banken vorhanden. Legen Sie zuerst eine Bank auf der Banken-Seite an.
                 </p>
               )}
             </div>
@@ -302,7 +302,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
         <form.Field name="notes">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Anmerkungen</Label>
               <Textarea
                 id="notes"
                 value={field.state.value}
@@ -325,9 +325,9 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          Abbrechen
         </Button>
-        <Button type="submit">Save Company</Button>
+        <Button type="submit">Firma speichern</Button>
       </div>
     </form>
   )

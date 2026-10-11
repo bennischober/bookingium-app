@@ -29,10 +29,10 @@ export default function BankPage() {
     onSuccess: () => {
       utils.bank.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Bank created', { description: 'The bank was created successfully.' })
+      toast.success('Bank angelegt', { description: 'Die Bank wurde erfolgreich angelegt.' })
     },
     onError: (error) => {
-      toast.error('Failed to create bank', { description: error.message })
+      toast.error('Bank konnte nicht angelegt werden', { description: error.message })
     }
   })
 
@@ -40,20 +40,20 @@ export default function BankPage() {
     onSuccess: () => {
       utils.bank.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Bank updated', { description: 'The bank was updated successfully.' })
+      toast.success('Bank aktualisiert', { description: 'Die Bank wurde erfolgreich aktualisiert.' })
     },
     onError: (error) => {
-      toast.error('Failed to update bank', { description: error.message })
+      toast.error('Bank konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
   const deleteMutation = trpcReact.bank.delete.useMutation({
     onSuccess: () => {
       utils.bank.getAllPaginated.invalidate()
-      toast.success('Bank deleted', { description: 'The bank was deleted successfully.' })
+      toast.success('Bank gelöscht', { description: 'Die Bank wurde erfolgreich gelöscht.' })
     },
     onError: (error) => {
-      toast.error('Failed to delete bank', { description: error.message })
+      toast.error('Bank konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
@@ -67,7 +67,7 @@ export default function BankPage() {
   }
 
   const handleDelete = (bank: BankDto) => {
-    if (confirm(`Are you sure you want to delete ${bank.bankName}?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie ${bank.bankName} löschen möchten?`)) {
       deleteMutation.mutate({ id: bank.id })
     }
   }
@@ -76,11 +76,11 @@ export default function BankPage() {
   const columns: ColumnDef<BankDto>[] = [
     {
       accessorKey: 'bankName',
-      header: 'Bank Name'
+      header: 'Bankname'
     },
     {
       accessorKey: 'accountHolder',
-      header: 'Account Holder'
+      header: 'Kontoinhaber'
     },
     {
       accessorKey: 'iban',
@@ -92,14 +92,14 @@ export default function BankPage() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -107,7 +107,7 @@ export default function BankPage() {
             variant="ghost"
             size="icon"
             onClick={() => handleDelete(row.original)}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -119,8 +119,8 @@ export default function BankPage() {
   return (
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Bank account information</h1>
-        <p className="text-sm text-muted-foreground">Manage bank account references for clients.</p>
+        <h1 className="text-2xl font-bold mb-2">Bankkontoinformationen</h1>
+        <p className="text-sm text-muted-foreground">Bankkontodaten von Kundschaft verwalten.</p>
       </div>
 
       <DataTable
@@ -134,21 +134,21 @@ export default function BankPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter banks..."
+        searchPlaceholder="Banken filtern..."
         isLoading={banks.isLoading}
         total={banks.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Add New Bank</Button>}
+        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Bank anlegen</Button>}
       />
 
       <FormSheet
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Create Bank' : 'Edit Bank'}
+        title={formSheet.mode === 'create' ? 'Bank anlegen' : 'Bank bearbeiten'}
         description={
           formSheet.mode === 'create'
-            ? 'Add a new bank to the system.'
-            : 'Update the bank information.'
+            ? 'Eine neue Bank im System anlegen.'
+            : 'Bankinformationen aktualisieren.'
         }
       >
         <BankForm

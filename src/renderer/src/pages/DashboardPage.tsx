@@ -13,6 +13,20 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200'
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: 'Entwurf',
+  issued: 'gestellt',
+  paid: 'bezahlt',
+  overdue: 'überfällig',
+  cancelled: 'storniert'
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate()
 
@@ -93,53 +107,53 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold mb-2">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          High-level overview of your bookings and operational data.
+          Überblick über Ihre Bookings und operativen Daten.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Upcoming Gigs (7 days)</CardTitle>
+            <CardTitle className="text-base">Anstehende Gigs (7 Tage)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{upcomingNext7Days.length}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Non-cancelled events from today through next week
+              Nicht stornierte Events von heute bis in die nächste Woche
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Pending Confirmations</CardTitle>
+            <CardTitle className="text-base">Ausstehende Bestätigungen</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{pendingEventsCount}</p>
-            <p className="text-sm text-muted-foreground mt-1">Events with pending status</p>
+            <p className="text-sm text-muted-foreground mt-1">Events mit ausstehendem Status</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Events This Month</CardTitle>
+            <CardTitle className="text-base">Events diesen Monat</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{eventsThisMonthCount}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Events scheduled in the current month
+              Für den aktuellen Monat geplante Events
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Unpaid Invoices</CardTitle>
+            <CardTitle className="text-base">Unbezahlte Rechnungen</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{openInvoices.length}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {overdueInvoices.length} overdue · Open amount {new Intl.NumberFormat('de-DE', {
+              {overdueInvoices.length} überfällig · Offener Betrag {new Intl.NumberFormat('de-DE', {
                 style: 'currency',
                 currency: 'EUR'
               }).format(openInvoiceAmount)}
@@ -151,16 +165,16 @@ export default function DashboardPage() {
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Upcoming Agenda</CardTitle>
+            <CardTitle>Agenda</CardTitle>
             <Button variant="outline" onClick={() => navigate({ to: '/calendar' })}>
-              Open Calendar
+              Kalender öffnen
             </Button>
           </CardHeader>
           <CardContent>
             {eventsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading upcoming events...</p>
+              <p className="text-sm text-muted-foreground">Anstehende Events werden geladen...</p>
             ) : latestUpcoming.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No upcoming gigs in the next 7 days.</p>
+              <p className="text-sm text-muted-foreground">Keine anstehenden Gigs in den nächsten 7 Tagen.</p>
             ) : (
               <div className="space-y-3">
                 {latestUpcoming.map((event) => (
@@ -181,7 +195,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}>
-                        {event.status || 'pending'}
+                        {STATUS_LABELS[event.status || 'pending'] ?? event.status}
                       </Badge>
                       <Button
                         variant="outline"
@@ -192,7 +206,7 @@ export default function DashboardPage() {
                           })
                         }
                       >
-                        Open Event
+                        Event öffnen
                       </Button>
                     </div>
                   </div>
@@ -204,11 +218,11 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Directory Overview</CardTitle>
+            <CardTitle>Verzeichnis-Übersicht</CardTitle>
           </CardHeader>
           <CardContent>
             {isDirectoryLoading ? (
-              <p className="text-sm text-muted-foreground">Loading directory stats...</p>
+              <p className="text-sm text-muted-foreground">Verzeichnis-Statistiken werden geladen...</p>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
@@ -216,11 +230,11 @@ export default function DashboardPage() {
                   <span className="font-semibold">{bandsQuery.data?.length ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Venues</span>
+                  <span className="text-muted-foreground">Spielstätten</span>
                   <span className="font-semibold">{venuesQuery.data?.length ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Companies</span>
+                  <span className="text-muted-foreground">Firmen</span>
                   <span className="font-semibold">{companiesQuery.data?.length ?? 0}</span>
                 </div>
                 <div className="pt-2">
@@ -229,7 +243,7 @@ export default function DashboardPage() {
                     variant="outline"
                     onClick={() => navigate({ to: '/invoices' })}
                   >
-                    Manage Invoices
+                    Rechnungen verwalten
                   </Button>
                 </div>
               </div>
@@ -240,16 +254,16 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Latest Invoices</CardTitle>
+          <CardTitle>Neueste Rechnungen</CardTitle>
           <Button variant="outline" onClick={() => navigate({ to: '/invoices' })}>
-            Open Invoices
+            Rechnungen öffnen
           </Button>
         </CardHeader>
         <CardContent>
           {invoicesQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading invoices...</p>
+            <p className="text-sm text-muted-foreground">Rechnungen werden geladen...</p>
           ) : latestInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No invoices available yet.</p>
+            <p className="text-sm text-muted-foreground">Noch keine Rechnungen vorhanden.</p>
           ) : (
             <div className="space-y-3">
               {latestInvoices.map((invoice) => (
@@ -262,12 +276,12 @@ export default function DashboardPage() {
                       #{invoice.invoiceNumber} · {invoice.companyName}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {invoice.issueDate} {invoice.dueDate ? `· due ${invoice.dueDate}` : ''}
+                      {invoice.issueDate} {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className={cn('capitalize', invoice.status === 'paid' ? 'bg-green-100 text-green-800 border-green-200' : invoice.status === 'issued' ? 'bg-blue-100 text-blue-800 border-blue-200' : invoice.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-slate-100 text-slate-800 border-slate-200')}>
-                      {invoice.status}
+                      {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                     </Badge>
                     <span className="text-sm font-semibold">
                       {new Intl.NumberFormat('de-DE', {

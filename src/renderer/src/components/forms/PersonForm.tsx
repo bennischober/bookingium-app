@@ -53,13 +53,13 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
       className="space-y-6"
     >
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Personal Information</h3>
+        <h3 className="text-lg font-semibold">Persönliche Angaben</h3>
 
         <div className="grid grid-cols-2 gap-4">
           <form.Field name="firstName">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
+                <Label htmlFor="firstName">Vorname *</Label>
                 <Input
                   id="firstName"
                   value={field.state.value}
@@ -76,7 +76,7 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
           <form.Field name="lastName">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
+                <Label htmlFor="lastName">Nachname *</Label>
                 <Input
                   id="lastName"
                   value={field.state.value}
@@ -95,7 +95,7 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
           <form.Field name="birthday">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="birthday">Birthday</Label>
+                <Label htmlFor="birthday">Geburtstag</Label>
                 <Input
                   id="birthday"
                   type="date"
@@ -111,7 +111,7 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
         <form.Field name="notes">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Anmerkungen</Label>
               <Textarea
                 id="notes"
                 value={field.state.value}
@@ -134,9 +134,9 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          Abbrechen
         </Button>
-        <Button type="submit">Save Person</Button>
+        <Button type="submit">Person speichern</Button>
       </div>
     </form>
   )

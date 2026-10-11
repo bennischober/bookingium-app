@@ -65,7 +65,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
         validators={{
           onChange: ({ value }) => {
             if (!value || value.trim().length === 0) {
-              return 'Name is required'
+              return 'Name ist erforderlich'
             }
             return undefined
           }
@@ -81,7 +81,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Enter band name"
+              placeholder="Bandnamen eingeben"
               disabled={isSubmitting}
             />
             {field.state.meta.errors && field.state.meta.errors.length > 0 && (
@@ -97,7 +97,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
         validators={{
           onChange: ({ value }) => {
             if (!value || value === 0) {
-              return 'Company is required'
+              return 'Firma ist erforderlich'
             }
             return undefined
           }
@@ -106,10 +106,10 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
         {(field) => (
           <div className="space-y-2">
             <Label htmlFor={field.name}>
-              Company <span className="text-destructive">*</span>
+              Firma <span className="text-destructive">*</span>
             </Label>
             {companies.isLoading ? (
-              <div className="text-sm text-muted-foreground">Loading companies...</div>
+              <div className="text-sm text-muted-foreground">Firmen werden geladen...</div>
             ) : companies.data && companies.data.length > 0 ? (
               <Select
                 value={field.state.value.toString()}
@@ -117,7 +117,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
                 disabled={isSubmitting}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a company" />
+                  <SelectValue placeholder="Firma auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {companies.data.map((company) => (
@@ -129,7 +129,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
               </Select>
             ) : (
               <div className="text-sm text-destructive">
-                No companies available. Please create a company first.
+                Keine Firmen vorhanden. Bitte legen Sie zuerst eine Firma an.
               </div>
             )}
             {field.state.meta.errors && field.state.meta.errors.length > 0 && (
@@ -149,7 +149,7 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="e.g., Rock, Metal, Pop"
+              placeholder="z. B. Rock, Metal, Pop"
               disabled={isSubmitting}
             />
           </div>
@@ -160,13 +160,13 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
       <form.Field name="founded">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Founded</Label>
+            <Label htmlFor={field.name}>Gründung</Label>
             <Input
               id={field.name}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="e.g., 1965"
+              placeholder="z. B. 1965"
               disabled={isSubmitting}
             />
           </div>
@@ -177,13 +177,13 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
       <form.Field name="notes">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Notes</Label>
+            <Label htmlFor={field.name}>Anmerkungen</Label>
             <Textarea
               id={field.name}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Add any additional notes..."
+              placeholder="Weitere Anmerkungen hinzufügen..."
               rows={4}
               disabled={isSubmitting}
             />
@@ -194,10 +194,10 @@ export function BandForm({ mode, initialData, onSubmit, onCancel, isSubmitting =
       {/* Form Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Band' : 'Save Changes'}
+          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Band anlegen' : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

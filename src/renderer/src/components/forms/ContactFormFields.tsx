@@ -8,11 +8,11 @@ interface ContactFormFieldsProps {
 export function ContactFormFields({ form }: ContactFormFieldsProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Contact Information</h3>
+      <h3 className="text-lg font-semibold">Kontaktinformationen</h3>
       <form.Field name="contact.email">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor="contact.email">Email</Label>
+            <Label htmlFor="contact.email">E-Mail</Label>
             <Input
               id="contact.email"
               type="email"
@@ -32,7 +32,7 @@ export function ContactFormFields({ form }: ContactFormFieldsProps) {
         <form.Field name="contact.phone">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="contact.phone">Phone</Label>
+              <Label htmlFor="contact.phone">Telefon</Label>
               <Input
                 id="contact.phone"
                 type="tel"
@@ -48,7 +48,7 @@ export function ContactFormFields({ form }: ContactFormFieldsProps) {
         <form.Field name="contact.mobilePhone">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="contact.mobilePhone">Mobile Phone</Label>
+              <Label htmlFor="contact.mobilePhone">Mobil</Label>
               <Input
                 id="contact.mobilePhone"
                 type="tel"

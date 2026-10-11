@@ -23,62 +23,62 @@ export const ROUTES = {
   dashboard: {
     path: '/',
     title: '📊 Dashboard',
-    group: 'Main Menu',
+    group: 'Hauptmenü',
     breadcrumb: 'Dashboard'
   },
   calendar: {
     path: '/calendar',
-    title: '📅 Calendar',
-    group: 'Main Menu',
-    breadcrumb: 'Calendar'
+    title: '📅 Kalender',
+    group: 'Hauptmenü',
+    breadcrumb: 'Kalender'
   },
   events: {
     path: '/events',
     title: '🎸 Events',
-    group: 'Production',
+    group: 'Produktion',
     breadcrumb: 'Events'
   },
   invoices: {
     path: '/invoices',
-    title: '📄 Invoices',
-    group: 'Production',
-    breadcrumb: 'Invoices'
+    title: '📄 Rechnungen',
+    group: 'Produktion',
+    breadcrumb: 'Rechnungen'
   },
   bands: {
     path: '/band',
     title: '🥁 Bands',
-    group: 'Directory',
+    group: 'Verzeichnis',
     breadcrumb: 'Bands'
   },
   venues: {
     path: '/venues',
-    title: '📍 Venues',
-    group: 'Directory',
-    breadcrumb: 'Venues'
+    title: '📍 Spielstätten',
+    group: 'Verzeichnis',
+    breadcrumb: 'Spielstätten'
   },
   hotels: {
     path: '/hotels',
     title: '🏨 Hotels',
-    group: 'Directory',
+    group: 'Verzeichnis',
     breadcrumb: 'Hotels'
   },
   persons: {
     path: '/persons',
-    title: '👤 Persons',
-    group: 'Master Data',
-    breadcrumb: 'Persons'
+    title: '👤 Personen',
+    group: 'Stammdaten',
+    breadcrumb: 'Personen'
   },
   companies: {
     path: '/companies',
-    title: '🏢 Companies',
-    group: 'Master Data',
-    breadcrumb: 'Companies'
+    title: '🏢 Firmen',
+    group: 'Stammdaten',
+    breadcrumb: 'Firmen'
   },
   banks: {
     path: '/banks',
-    title: '🏦 Banks',
-    group: 'Master Data',
-    breadcrumb: 'Banks'
+    title: '🏦 Banken',
+    group: 'Stammdaten',
+    breadcrumb: 'Banken'
   }
 } as const
 
@@ -116,7 +116,7 @@ export const getRouteByPath = (path: string): RouteInfo | undefined => {
  * @returns An array of breadcrumb items with title and path.
  */
 export const getBreadcrumbs = (path: string): Array<{ title: string; path: string }> => {
-  const breadcrumbs: Array<{ title: string; path: string }> = [{ title: 'Home', path: '/' }]
+  const breadcrumbs: Array<{ title: string; path: string }> = [{ title: 'Start', path: '/' }]
 
   if (path !== '/') {
     // Split path into segments

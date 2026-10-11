@@ -28,10 +28,10 @@ export default function HotelPage() {
       utils.hotel.getAllPaginated.invalidate()
       utils.hotel.getListItems.invalidate()
       formSheet.close()
-      toast.success('Hotel created', { description: `${hotel.name} was created successfully.` })
+      toast.success('Hotel angelegt', { description: `${hotel.name} wurde erfolgreich angelegt.` })
     },
     onError: (error) => {
-      toast.error('Failed to create hotel', { description: error.message })
+      toast.error('Hotel konnte nicht angelegt werden', { description: error.message })
     }
   })
 
@@ -40,10 +40,10 @@ export default function HotelPage() {
       utils.hotel.getAllPaginated.invalidate()
       utils.hotel.getListItems.invalidate()
       formSheet.close()
-      toast.success('Hotel updated', { description: `${hotel.name} was updated successfully.` })
+      toast.success('Hotel aktualisiert', { description: `${hotel.name} wurde erfolgreich aktualisiert.` })
     },
     onError: (error) => {
-      toast.error('Failed to update hotel', { description: error.message })
+      toast.error('Hotel konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
@@ -53,15 +53,15 @@ export default function HotelPage() {
       utils.hotel.getListItems.invalidate()
     },
     onError: (error) => {
-      toast.error('Failed to delete hotel', { description: error.message })
+      toast.error('Hotel konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
   const handleDelete = (hotel: HotelDto) => {
-    if (confirm(`Are you sure you want to delete ${hotel.name}?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie ${hotel.name} löschen möchten?`)) {
       deleteMutation.mutate(hotel.id, {
         onSuccess: () => {
-          toast.success('Hotel deleted', { description: `${hotel.name} was deleted successfully.` })
+          toast.success('Hotel gelöscht', { description: `${hotel.name} wurde erfolgreich gelöscht.` })
         }
       })
     }
@@ -70,22 +70,22 @@ export default function HotelPage() {
   const columns: ColumnDef<HotelDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Hotel Name',
+      header: 'Hotelname',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
     },
     {
       accessorKey: 'address',
-      header: 'City',
+      header: 'Stadt',
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
       accessorKey: 'contact',
-      header: 'Email',
+      header: 'E-Mail',
       cell: ({ row }) => row.original.contact?.email || '-'
     },
     {
       accessorKey: 'notes',
-      header: 'Notes',
+      header: 'Anmerkungen',
       cell: ({ row }) => {
         const value = row.original.notes
         return value ? (value.length > 90 ? `${value.slice(0, 90)}...` : value) : '-'
@@ -93,14 +93,14 @@ export default function HotelPage() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -108,7 +108,7 @@ export default function HotelPage() {
             variant="ghost"
             size="icon"
             onClick={() => handleDelete(row.original)}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -121,7 +121,7 @@ export default function HotelPage() {
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Hotels</h1>
-        <p className="text-sm text-muted-foreground">Manage accommodation options for tours and events.</p>
+        <p className="text-sm text-muted-foreground">Unterkünfte für Tours und Events verwalten.</p>
       </div>
 
       <DataTable
@@ -135,21 +135,21 @@ export default function HotelPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter hotels..."
+        searchPlaceholder="Hotels filtern..."
         isLoading={hotels.isLoading}
         total={hotels.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Add New Hotel</Button>}
+        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neues Hotel anlegen</Button>}
       />
 
       <FormSheet
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Create Hotel' : 'Edit Hotel'}
+        title={formSheet.mode === 'create' ? 'Hotel anlegen' : 'Hotel bearbeiten'}
         description={
           formSheet.mode === 'create'
-            ? 'Add a new hotel to your directory.'
-            : 'Update hotel information.'
+            ? 'Ein neues Hotel im Verzeichnis anlegen.'
+            : 'Hotelinformationen aktualisieren.'
         }
       >
         <HotelForm

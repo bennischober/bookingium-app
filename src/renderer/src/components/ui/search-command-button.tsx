@@ -58,60 +58,60 @@ const ROUTE_COMMANDS: Array<{
 }> = [
   {
     title: 'Dashboard',
-    description: 'Open overview and KPIs',
+    description: 'Übersicht und KPIs öffnen',
     path: '/',
     icon: <LayoutDashboard />,
     aliases: ['home', 'landing', 'overview']
   },
   {
-    title: 'Calendar',
-    description: 'Open scheduling calendar',
+    title: 'Kalender',
+    description: 'Terminkalender öffnen',
     path: '/calendar',
     icon: <Calendar />,
     aliases: ['agenda', 'schedule']
   },
   {
     title: 'Events',
-    description: 'Open all gigs and deal memos',
+    description: 'Alle Gigs und Deal Memos öffnen',
     path: '/events',
     icon: <Music2 />,
     aliases: ['gigs', 'shows', 'event hub']
   },
   {
     title: 'Bands',
-    description: 'Open artist directory',
+    description: 'Künstlerverzeichnis öffnen',
     path: '/band',
     icon: <Guitar />
   },
   {
-    title: 'Venues',
-    description: 'Open venue directory',
+    title: 'Spielstätten',
+    description: 'Spielstättenverzeichnis öffnen',
     path: '/venues',
     icon: <MapPin />
   },
   {
     title: 'Hotels',
-    description: 'Open hotel directory',
+    description: 'Hotelverzeichnis öffnen',
     path: '/hotels',
     icon: <Hotel />,
     aliases: ['accommodation']
   },
   {
-    title: 'Persons',
-    description: 'Open person master data',
+    title: 'Personen',
+    description: 'Personen-Stammdaten öffnen',
     path: '/persons',
     icon: <Users />,
     aliases: ['contacts', 'person relations', 'relations']
   },
   {
-    title: 'Companies',
-    description: 'Open company master data',
+    title: 'Firmen',
+    description: 'Firmen-Stammdaten öffnen',
     path: '/companies',
     icon: <Building2 />
   },
   {
-    title: 'Banks',
-    description: 'Open bank account references',
+    title: 'Banken',
+    description: 'Bankverbindungen öffnen',
     path: '/banks',
     icon: <HandCoins />
   }
@@ -238,23 +238,23 @@ const SearchButton = () => {
     hotels.isLoading
 
   const emptyMessage = useMemo(() => {
-    if (!hasTypedQuery) return `Type at least ${MIN_SEARCH_LENGTH} characters to search records.`
-    if (isAnyLoading) return 'Searching...'
-    if (!hasRecordMatches) return 'No matching records found.'
-    return 'No results found.'
+    if (!hasTypedQuery) return `Geben Sie mindestens ${MIN_SEARCH_LENGTH} Zeichen ein, um Einträge zu suchen.`
+    if (isAnyLoading) return 'Suche läuft...'
+    if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
+    return 'Keine Ergebnisse gefunden.'
   }, [hasTypedQuery, isAnyLoading, hasRecordMatches])
 
   return (
     <div className="flex flex-col gap-4">
       <Button onClick={() => setOpen(true)} variant="outline" size="sm">
-        Search anything...
+        Alles suchen...
         <span className="bg-muted text-muted-foreground ml-2 rounded-lg px-2 py-1 font-mono text-xs">
           Ctrl + K
         </span>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Search pages, records, or actions..."
+          placeholder="Seiten, Einträge oder Aktionen suchen..."
           value={query}
           onValueChange={setQuery}
         />
@@ -263,7 +263,7 @@ const SearchButton = () => {
 
           {recentCommands.length > 0 && (
             <>
-              <CommandGroup heading="Recent">
+              <CommandGroup heading="Letzte Befehle">
                 {recentCommands.map((recent) => (
                   <CommandItem
                     key={recent.id}
@@ -292,7 +292,7 @@ const SearchButton = () => {
                   >
                     <Calendar />
                     <span>{recent.label}</span>
-                    <CommandShortcut>Recent</CommandShortcut>
+                    <CommandShortcut>Letzte</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -300,7 +300,7 @@ const SearchButton = () => {
             </>
           )}
 
-          <CommandGroup heading="Navigate">
+          <CommandGroup heading="Navigation">
             {ROUTE_COMMANDS.map((route) => (
               <CommandItem
                 key={route.path}
@@ -317,28 +317,28 @@ const SearchButton = () => {
               >
                 {route.icon}
                 <span>{route.title}</span>
-                <CommandShortcut>Go</CommandShortcut>
+                <CommandShortcut>Öffnen</CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Actions">
+          <CommandGroup heading="Aktionen">
             <CommandItem
               value="create new event"
               keywords={['add event', 'new gig']}
               onSelect={() =>
                 runAndClose(() => navigate({ to: '/events' }), {
                   id: 'route:/events:create',
-                  label: 'Create New Event',
+                  label: 'Neues Event anlegen',
                   type: 'route',
                   path: '/events'
                 })
               }
             >
               <CirclePlus />
-              <span>Create New Event</span>
+              <span>Neues Event anlegen</span>
               <CommandShortcut>Events</CommandShortcut>
             </CommandItem>
             <CommandItem
@@ -347,15 +347,15 @@ const SearchButton = () => {
               onSelect={() =>
                 runAndClose(() => navigate({ to: '/persons' }), {
                   id: 'route:/persons:relations',
-                  label: 'Open Person Relations',
+                  label: 'Personen-Beziehungen öffnen',
                   type: 'route',
                   path: '/persons'
                 })
               }
             >
               <Users />
-              <span>Open Person Relations</span>
-              <CommandShortcut>Persons</CommandShortcut>
+              <span>Personen-Beziehungen öffnen</span>
+              <CommandShortcut>Personen</CommandShortcut>
             </CommandItem>
           </CommandGroup>
 
@@ -363,7 +363,7 @@ const SearchButton = () => {
             <>
               <CommandSeparator />
 
-              <CommandGroup heading="Records: Events">
+              <CommandGroup heading="Einträge: Events">
                 {eventsQuickList.map((event) => (
                   <CommandItem
                     key={`event-${event.id}`}
@@ -392,7 +392,7 @@ const SearchButton = () => {
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Records: Persons">
+              <CommandGroup heading="Einträge: Personen">
                 {personsQuickList.map((person) => (
                   <CommandItem
                     key={`person-${person.id}`}
@@ -404,12 +404,12 @@ const SearchButton = () => {
                     <span>
                       {person.firstName} {person.lastName}
                     </span>
-                    <CommandShortcut>Persons</CommandShortcut>
+                    <CommandShortcut>Personen</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Records: Companies / Bands / Venues / Hotels">
+              <CommandGroup heading="Einträge: Firmen / Bands / Spielstätten / Hotels">
                 {companiesQuickList.map((company) => (
                   <CommandItem
                     key={`company-${company.id}`}
@@ -419,7 +419,7 @@ const SearchButton = () => {
                   >
                     <Building2 />
                     <span>{company.name}</span>
-                    <CommandShortcut>Companies</CommandShortcut>
+                    <CommandShortcut>Firmen</CommandShortcut>
                   </CommandItem>
                 ))}
 
@@ -445,7 +445,7 @@ const SearchButton = () => {
                   >
                     <MapPin />
                     <span>{venue.name}</span>
-                    <CommandShortcut>Venues</CommandShortcut>
+                    <CommandShortcut>Spielstätten</CommandShortcut>
                   </CommandItem>
                 ))}
 

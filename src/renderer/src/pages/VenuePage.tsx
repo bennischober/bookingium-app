@@ -27,10 +27,10 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Venue created', { description: `${venue.name} was created successfully.` })
+      toast.success('Spielstätte erstellt', { description: `${venue.name} wurde erfolgreich erstellt.` })
     },
     onError: (error) => {
-      toast.error('Failed to create venue', { description: error.message })
+      toast.error('Spielstätte konnte nicht erstellt werden', { description: error.message })
     }
   })
 
@@ -38,25 +38,25 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Venue updated', { description: `${venue.name} was updated successfully.` })
+      toast.success('Spielstätte aktualisiert', { description: `${venue.name} wurde erfolgreich aktualisiert.` })
     },
     onError: (error) => {
-      toast.error('Failed to update venue', { description: error.message })
+      toast.error('Spielstätte konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
   const deleteMutation = trpcReact.venue.delete.useMutation({
     onSuccess: () => {
       utils.venue.getAllPaginated.invalidate()
-      toast.success('Venue deleted', { description: 'The venue was deleted successfully.' })
+      toast.success('Spielstätte gelöscht', { description: 'Die Spielstätte wurde erfolgreich gelöscht.' })
     },
     onError: (error) => {
-      toast.error('Failed to delete venue', { description: error.message })
+      toast.error('Spielstätte konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
   const handleDelete = (venue: VenueDto) => {
-    if (confirm(`Are you sure you want to delete ${venue.name}?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie ${venue.name} löschen möchten?`)) {
       deleteMutation.mutate({ id: venue.id })
     }
   }
@@ -64,28 +64,28 @@ export default function VenuePage() {
   const columns: ColumnDef<VenueDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Venue Name',
+      header: 'Name',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
     },
     {
       accessorKey: 'company',
-      header: 'Company',
+      header: 'Firma',
       cell: ({ row }) => row.original.company?.name || '-'
     },
     {
       accessorKey: 'address',
-      header: 'City',
+      header: 'Stadt',
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
       accessorKey: 'capacity',
-      header: 'Capacity',
+      header: 'Kapazität',
       cell: ({ row }) =>
         row.original.capacity ? row.original.capacity.toLocaleString('de-DE') : '-'
     },
     {
       accessorKey: 'notes',
-      header: 'Notes',
+      header: 'Anmerkungen',
       cell: ({ row }) => {
         const value = row.original.notes
         return value ? (value.length > 60 ? `${value.slice(0, 60)}...` : value) : '-'
@@ -93,14 +93,14 @@ export default function VenuePage() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -108,7 +108,7 @@ export default function VenuePage() {
             variant="ghost"
             size="icon"
             onClick={() => handleDelete(row.original)}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -120,8 +120,8 @@ export default function VenuePage() {
   return (
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Venues</h1>
-        <p className="text-sm text-muted-foreground">Manage all event venues and capacities.</p>
+        <h1 className="text-2xl font-bold mb-2">Spielstätten</h1>
+        <p className="text-sm text-muted-foreground">Verwalten Sie alle Event-Spielstätten und Kapazitäten.</p>
       </div>
 
       <DataTable
@@ -135,21 +135,21 @@ export default function VenuePage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter venues..."
+        searchPlaceholder="Spielstätten filtern..."
         isLoading={venues.isLoading}
         total={venues.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Add New Venue</Button>}
+        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>}
       />
 
       <FormSheet
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Create Venue' : 'Edit Venue'}
+        title={formSheet.mode === 'create' ? 'Spielstätte anlegen' : 'Spielstätte bearbeiten'}
         description={
           formSheet.mode === 'create'
-            ? 'Add a new venue to your directory.'
-            : 'Update venue information.'
+            ? 'Fügen Sie eine neue Spielstätte zu Ihrem Verzeichnis hinzu.'
+            : 'Spielstätteninformationen aktualisieren.'
         }
       >
         <VenueForm

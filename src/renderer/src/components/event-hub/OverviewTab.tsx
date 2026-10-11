@@ -19,6 +19,12 @@ import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatDate } from './constants'
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
 export interface OverviewTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -86,10 +92,10 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event updated')
+      toast.success('Event aktualisiert')
       onSaved()
     },
-    onError: (e) => toast.error('Failed to save', { description: e.message })
+    onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
   })
 
   const handleSave = () => {
@@ -129,14 +135,14 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
           isSaving={updateMutation.isPending}
           nullable={false}
           href="/band"
-          empty="No band assigned"
+          empty="Keine Band zugewiesen"
         />
         <SwappableEntityCard
           icon={<MapPin className="h-3.5 w-3.5" />}
-          title="Venue"
+          title="Spielstätte"
           currentName={event.venueName}
           currentDetail={
-            event.venue?.capacity ? `Capacity: ${event.venue.capacity.toLocaleString()}` : null
+            event.venue?.capacity ? `Kapazität: ${event.venue.capacity.toLocaleString()}` : null
           }
           currentId={event.venueId}
           items={venueItems}
@@ -144,19 +150,19 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
           onSwap={handleSwapVenue}
           isSaving={updateMutation.isPending}
           nullable={true}
-          empty="No venue assigned"
+          empty="Keine Spielstätte zugewiesen"
         />
       </div>
 
       {/* ── LoPro cards ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Local Promoter
+          Lokale Veranstalter (Local Promoter)
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SwappableEntityCard
             icon={<User className="h-3.5 w-3.5" />}
-            title="Contact Person"
+            title="Kontaktperson"
             currentName={
               event.loProPerson
                 ? `${event.loProPerson.firstName} ${event.loProPerson.lastName}`
@@ -169,11 +175,11 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
             isSaving={updateMutation.isPending}
             nullable={true}
             href="/persons"
-            empty="No contact assigned"
+            empty="Kein Kontakt zugewiesen"
           />
           <SwappableEntityCard
             icon={<Building2 className="h-3.5 w-3.5" />}
-            title="Company"
+            title="Firma"
             currentName={event.loProCompany?.name ?? null}
             currentId={event.loProCompanyId}
             items={companyItems}
@@ -182,7 +188,7 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
             isSaving={updateMutation.isPending}
             nullable={true}
             href="/companies"
-            empty="No company assigned"
+            empty="Keine Firma zugewiesen"
           />
         </div>
       </div>
@@ -192,24 +198,24 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
       {/* ── Event Details ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-          Event Details
+          Eventdetails
         </h3>
 
         {isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Event Name</Label>
+                <Label htmlFor="name">Eventname</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Event name…"
+                  placeholder="Eventname…"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="eventDate">Date</Label>
+                <Label htmlFor="eventDate">Datum</Label>
                 <Input
                   id="eventDate"
                   type="date"
@@ -225,34 +231,34 @@ export function OverviewTab({ event, isEditing, saveSignal, cancelSignal, onSave
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="pending">Ausstehend</SelectItem>
+                    <SelectItem value="confirmed">Bestätigt</SelectItem>
+                    <SelectItem value="cancelled">Storniert</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>Anmerkungen</Label>
               <Textarea
                 value={notes ?? ''}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={6}
-                placeholder="Additional notes about this event…"
+                placeholder="Zusätzliche Anmerkungen zu diesem Event…"
               />
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <ReadOnlyField label="Event Name" value={name} />
-              <ReadOnlyField label="Date" value={date ? formatDate(date) : null} />
-              <ReadOnlyField label="Status" value={status ? status.charAt(0).toUpperCase() + status.slice(1) : null} />
+              <ReadOnlyField label="Eventname" value={name} />
+              <ReadOnlyField label="Datum" value={date ? formatDate(date) : null} />
+              <ReadOnlyField label="Status" value={status ? STATUS_LABELS[status] ?? status : null} />
             </div>
 
             <div className="space-y-4">
-              <ReadOnlyField label="Notes" value={notes} placeholder="No notes" />
+              <ReadOnlyField label="Anmerkungen" value={notes} placeholder="Keine Anmerkungen" />
             </div>
           </div>
         )}

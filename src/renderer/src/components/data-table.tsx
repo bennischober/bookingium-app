@@ -33,7 +33,7 @@ export function DataTable<TData>({
   onPaginationChange,
   search = '',
   onSearchChange,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = 'Suchen...',
   isLoading = false,
   total = 0,
   actionButton,
@@ -90,13 +90,13 @@ export function DataTable<TData>({
             {isLoading ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
-                  Loading...
+                  Lädt...
                 </td>
               </tr>
             ) : table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
-                  No results found.
+                  Keine Ergebnisse gefunden.
                 </td>
               </tr>
             ) : (
@@ -123,8 +123,9 @@ export function DataTable<TData>({
         <div className="text-sm text-muted-foreground">
           {total > 0 && (
             <>
-              Showing {pagination.pageIndex * pagination.pageSize + 1} to{' '}
-              {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} of {total} results
+              Zeige {pagination.pageIndex * pagination.pageSize + 1} bis{' '}
+              {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} von {total}{' '}
+              Einträgen
             </>
           )}
         </div>
@@ -135,10 +136,10 @@ export function DataTable<TData>({
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            &lt; Previous
+            &lt; Zurück
           </Button>
           <span className="text-sm">
-            Page {pagination.pageIndex + 1} of {pageCount || 1}
+            Seite {pagination.pageIndex + 1} von {pageCount || 1}
           </span>
           <Button
             variant="outline"
@@ -146,7 +147,7 @@ export function DataTable<TData>({
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
-            Next &gt;
+            Weiter &gt;
           </Button>
         </div>
       </div>

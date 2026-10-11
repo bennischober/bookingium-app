@@ -72,7 +72,7 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
         validators={{
           onChange: ({ value }) => {
             if (!value || value.trim().length === 0) {
-              return 'Name is required'
+              return 'Name ist erforderlich'
             }
             return undefined
           }
@@ -88,7 +88,7 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Enter hotel name"
+              placeholder="Hotelnamen eingeben"
               disabled={isSubmitting}
             />
             {field.state.meta.errors.length > 0 && (
@@ -101,13 +101,13 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
       <form.Field name="notes">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor={field.name}>Notes</Label>
+            <Label htmlFor={field.name}>Anmerkungen</Label>
             <Textarea
               id={field.name}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Add additional details about this hotel"
+              placeholder="Weitere Details zu diesem Hotel"
               rows={4}
               disabled={isSubmitting}
             />
@@ -123,10 +123,10 @@ export function HotelForm({ mode, initialData, onSubmit, onCancel, isSubmitting 
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Hotel' : 'Save Changes'}
+          {isSubmitting ? 'Speichert...' : mode === 'create' ? 'Hotel anlegen' : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

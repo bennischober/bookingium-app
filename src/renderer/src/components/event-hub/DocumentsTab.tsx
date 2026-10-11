@@ -21,10 +21,10 @@ export interface DocumentsTabProps {
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   deal_memo: 'Deal Memo',
-  contract: 'Contract',
+  contract: 'Vertrag',
   rider: 'Rider',
-  invoice: 'Invoice',
-  other: 'Other'
+  invoice: 'Rechnung',
+  other: 'Sonstiges'
 }
 
 export function DocumentsTab({ event }: DocumentsTabProps) {
@@ -53,30 +53,30 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
   const createDocumentMutation = trpcReact.document.create.useMutation({
     onSuccess: () => {
       utils.document.getByDealMemoId.invalidate(event.id)
-      toast.success('Document uploaded successfully')
+      toast.success('Dokument erfolgreich hochgeladen')
     },
     onError: (error) => {
-      toast.error('Failed to upload document', { description: error.message })
+      toast.error('Dokument konnte nicht hochgeladen werden', { description: error.message })
     }
   })
 
   const updateDocumentMutation = trpcReact.document.update.useMutation({
     onSuccess: () => {
       utils.document.getByDealMemoId.invalidate(event.id)
-      toast.success('Document updated')
+      toast.success('Dokument aktualisiert')
     },
     onError: (error) => {
-      toast.error('Failed to update document', { description: error.message })
+      toast.error('Dokument konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
   const deleteDocumentMutation = trpcReact.document.delete.useMutation({
     onSuccess: () => {
       utils.document.getByDealMemoId.invalidate(event.id)
-      toast.success('Document deleted')
+      toast.success('Dokument gelöscht')
     },
     onError: (error) => {
-      toast.error('Failed to delete document', { description: error.message })
+      toast.error('Dokument konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
@@ -87,7 +87,7 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
       const uploadResult = await window.api.uploadDocument(event.id, filePath, fileName)
 
       if (!uploadResult.success) {
-        toast.error('Upload failed', { description: uploadResult.error })
+        toast.error('Upload fehlgeschlagen', { description: uploadResult.error })
         return
       }
 
@@ -106,8 +106,8 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
         uploadedBy: undefined
       })
     } catch (error) {
-      toast.error('Error uploading document', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error('Fehler beim Hochladen des Dokuments', {
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler'
       })
     }
   }
@@ -132,8 +132,8 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
       setIsUploading(false)
     } catch (error) {
       console.error('Error selecting files:', error)
-      toast.error('Failed to select files', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error('Dateien konnten nicht ausgewählt werden', {
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler'
       })
       setIsUploading(false)
     }
@@ -161,11 +161,11 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
 
     if (fileInfos.length === 0) {
       const types = Array.from(e.dataTransfer.types ?? [])
-      toast.error('Could not read dropped files', {
+      toast.error('Dateien konnten nicht gelesen werden', {
         description:
           types.length === 0
-            ? 'The OS did not provide drag payload data. If this persists, use "Select Files".'
-            : 'This drag source does not expose local file paths. Please use "Select Files".'
+            ? 'Das Betriebssystem hat keine Drag-Daten bereitgestellt. Falls das Problem bestehen bleibt, verwenden Sie „Dateien auswählen“.'
+            : 'Diese Drag-Quelle stellt keine lokalen Dateipfade bereit. Bitte verwenden Sie „Dateien auswählen“.'
       })
       return
     }
@@ -194,8 +194,8 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
         await handleRevealInFolder(filePath)
       }
     } catch (error) {
-      toast.error('Error opening document', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error('Fehler beim Öffnen des Dokuments', {
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler'
       })
     }
   }
@@ -204,11 +204,11 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
     try {
       const result = await window.api.revealDocumentInFolder(filePath)
       if (!result.success) {
-        toast.error('Error revealing file', { description: result.error })
+        toast.error('Fehler beim Anzeigen der Datei im Ordner', { description: result.error })
       }
     } catch (error) {
-      toast.error('Error revealing file', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error('Fehler beim Anzeigen der Datei im Ordner', {
+        description: error instanceof Error ? error.message : 'Unbekannter Fehler'
       })
     }
   }
@@ -216,7 +216,7 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <p className="text-muted-foreground">Loading documents…</p>
+        <p className="text-muted-foreground">Dokumente werden geladen…</p>
       </div>
     )
   }
@@ -233,29 +233,29 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
         onDrop={onDropZoneDrop}
       >
         <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-        <h3 className="font-semibold mb-1">Drop documents here or select files</h3>
+        <h3 className="font-semibold mb-1">Dokumente hier ablegen oder Dateien auswählen</h3>
         <p className="text-sm text-muted-foreground mb-3">
-          Drag files from your explorer/finder, or click below to browse
+          Ziehen Sie Dateien aus Ihrem Dateimanager hierher oder klicken Sie unten zum Durchsuchen
         </p>
         <Button
           onClick={handleSelectFiles}
           disabled={isUploading || createDocumentMutation.isPending}
         >
-          {isUploading ? 'Uploading...' : 'Select Files'}
+          {isUploading ? 'Wird hochgeladen...' : 'Dateien auswählen'}
         </Button>
       </div>
 
       {/* Documents List */}
       <div>
         <h3 className="font-semibold mb-3">
-          Documents {documents.length > 0 && <span className="text-muted-foreground">({documents.length})</span>}
+          Dokumente {documents.length > 0 && <span className="text-muted-foreground">({documents.length})</span>}
         </h3>
 
         {documents.length === 0 ? (
           <div className="flex items-center justify-center py-8 border border-dashed rounded-lg">
             <div className="text-center text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No documents yet</p>
+              <p className="text-sm">Noch keine Dokumente</p>
             </div>
           </div>
         ) : (
@@ -308,7 +308,7 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    title="Reveal in folder"
+                    title="Im Ordner anzeigen"
                     onClick={() => handleRevealInFolder(doc.filePath)}
                   >
                     <FolderOpen className="h-4 w-4" />
@@ -321,7 +321,7 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
                     onClick={() => {
                       if (
                         confirm(
-                          `Delete "${doc.fileName}"? This action cannot be undone.`
+                          `„${doc.fileName}" löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
                         )
                       ) {
                         deleteDocumentMutation.mutate(doc.id)
@@ -356,7 +356,7 @@ function formatFileSize(bytes: number): string {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('de-DE', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'

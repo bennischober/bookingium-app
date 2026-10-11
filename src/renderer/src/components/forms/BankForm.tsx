@@ -35,7 +35,7 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
       <form.Field name="bankName">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor="bankName">Bank Name *</Label>
+            <Label htmlFor="bankName">Bankname *</Label>
             <Input
               id="bankName"
               value={field.state.value}
@@ -52,7 +52,7 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
       <form.Field name="accountHolder">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor="accountHolder">Account Holder *</Label>
+            <Label htmlFor="accountHolder">Kontoinhaber *</Label>
             <Input
               id="accountHolder"
               value={field.state.value}
@@ -104,9 +104,9 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          Abbrechen
         </Button>
-        <Button type="submit">Save Bank</Button>
+        <Button type="submit">Bank speichern</Button>
       </div>
     </form>
   )

@@ -55,7 +55,7 @@ interface CreateEventWizardProps {
 const STEPS = [
   { label: 'Event & Band', required: true },
   { label: 'LoPro', required: false },
-  { label: 'Deal Details', required: false }
+  { label: 'Deal-Details', required: false }
 ]
 
 function StepIndicator({ current }: { current: number }) {
@@ -88,7 +88,7 @@ function StepIndicator({ current }: { current: number }) {
               >
                 {step.label}
                 {!step.required && (
-                  <span className="ml-0.5 text-muted-foreground"> (opt)</span>
+                  <span className="ml-0.5 text-muted-foreground"> (optional)</span>
                 )}
               </span>
             </div>
@@ -117,11 +117,11 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
 
   const createBand = trpcReact.band.create.useMutation({
     onSuccess: (band) => {
-      toast.success(`Band "${band.name}" created`)
+      toast.success(`Band "${band.name}" erstellt`)
       onCreated(band.id, band.name)
       onClose()
     },
-    onError: (e) => toast.error('Failed to create band', { description: e.message })
+    onError: (e) => toast.error('Band konnte nicht erstellt werden', { description: e.message })
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -139,17 +139,17 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Quick-add Band</DialogTitle>
-          <DialogDescription>Minimal info — you can fill the rest later.</DialogDescription>
+          <DialogTitle>Band schnell anlegen</DialogTitle>
+          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="band-name">Band Name *</Label>
+            <Label htmlFor="band-name">Bandname *</Label>
             <Input
               id="band-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. The Rockettes"
+              placeholder="z. B. Die Toten Hosen"
               autoFocus
             />
           </div>
@@ -159,26 +159,26 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
               id="band-genre"
               value={genre}
               onChange={(e) => setGenre(e.target.value)}
-              placeholder="e.g. Rock"
+              placeholder="z. B. Rock"
             />
           </div>
           <div className="space-y-2">
-            <Label>Management Company *</Label>
+            <Label>Management-Firma *</Label>
             <EntityCombobox
               items={(companies.data ?? []).map((c) => ({ id: c.id, label: c.name }))}
               value={companyId}
               onChange={setCompanyId}
-              placeholder="Select company…"
-              searchPlaceholder="Search companies…"
+              placeholder="Firma auswählen…"
+              searchPlaceholder="Firmen suchen…"
               isLoading={companies.isLoading}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              Abbrechen
             </Button>
             <Button type="submit" disabled={!name.trim() || companyId === null || createBand.isPending}>
-              Create Band
+              Band anlegen
             </Button>
           </DialogFooter>
         </form>
@@ -202,17 +202,17 @@ function VenueQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Ven
 
   const createVenue = trpcReact.venue.create.useMutation({
     onSuccess: (venue) => {
-      toast.success(`Venue "${venue.name}" created`)
+      toast.success(`Spielstätte "${venue.name}" erstellt`)
       onCreated(venue.id, venue.name)
       onClose()
     },
-    onError: (e) => toast.error('Failed to create venue', { description: e.message })
+    onError: (e) => toast.error('Spielstätte konnte nicht erstellt werden', { description: e.message })
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    createVenue.mutate({ name: name.trim(), notes: city ? `City: ${city}` : '' })
+    createVenue.mutate({ name: name.trim(), notes: city ? `Stadt: ${city}` : '' })
   }
 
   if (isOpen && name !== prefillName && prefillName) {
@@ -223,35 +223,35 @@ function VenueQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Ven
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Quick-add Venue</DialogTitle>
-          <DialogDescription>Minimal info — you can fill the rest later.</DialogDescription>
+          <DialogTitle>Spielstätte schnell anlegen</DialogTitle>
+          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="venue-name">Venue Name *</Label>
+            <Label htmlFor="venue-name">Spielstättenname *</Label>
             <Input
               id="venue-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Zenith München"
+              placeholder="z. B. Zenith München"
               autoFocus
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="venue-city">City</Label>
+            <Label htmlFor="venue-city">Stadt</Label>
             <Input
               id="venue-city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Berlin"
+              placeholder="z. B. Berlin"
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              Abbrechen
             </Button>
             <Button type="submit" disabled={!name.trim() || createVenue.isPending}>
-              Create Venue
+              Spielstätte anlegen
             </Button>
           </DialogFooter>
         </form>
@@ -278,11 +278,11 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
   const createPerson = trpcReact.person.create.useMutation({
     onSuccess: (person) => {
       const label = `${person.firstName} ${person.lastName}`
-      toast.success(`Person "${label}" created`)
+      toast.success(`Person "${label}" erstellt`)
       onCreated(person.id, label)
       onClose()
     },
-    onError: (e) => toast.error('Failed to create person', { description: e.message })
+    onError: (e) => toast.error('Person konnte nicht erstellt werden', { description: e.message })
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -300,13 +300,13 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Quick-add Person</DialogTitle>
-          <DialogDescription>Minimal info — you can fill the rest later.</DialogDescription>
+          <DialogTitle>Person schnell anlegen</DialogTitle>
+          <DialogDescription>Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="person-first">First Name *</Label>
+              <Label htmlFor="person-first">Vorname *</Label>
               <Input
                 id="person-first"
                 value={firstName}
@@ -315,7 +315,7 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="person-last">Last Name *</Label>
+              <Label htmlFor="person-last">Nachname *</Label>
               <Input
                 id="person-last"
                 value={lastName}
@@ -324,21 +324,21 @@ function PersonQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Pe
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="person-email">Email</Label>
+            <Label htmlFor="person-email">E-Mail</Label>
             <Input
               id="person-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="contact@example.com"
+              placeholder="kontakt@example.com"
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              Abbrechen
             </Button>
             <Button type="submit" disabled={!firstName.trim() || !lastName.trim() || createPerson.isPending}>
-              Create Person
+              Person anlegen
             </Button>
           </DialogFooter>
         </form>
@@ -387,12 +387,12 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
 
   const createMemo = trpcReact.dealMemo.create.useMutation({
     onSuccess: (memo: any) => {
-      toast.success('Event created', { description: `"${form.name}" has been added.` })
+      toast.success('Event erstellt', { description: `"${form.name}" wurde hinzugefügt.` })
       utils.dealMemo.getAllPaginated.invalidate()
       handleClose()
       onSuccess(memo)
     },
-    onError: (e) => toast.error('Failed to create event', { description: e.message })
+    onError: (e) => toast.error('Event konnte nicht erstellt werden', { description: e.message })
   })
 
   const handleClose = () => {
@@ -455,9 +455,9 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create New Event</DialogTitle>
+            <DialogTitle>Neues Event anlegen</DialogTitle>
             <DialogDescription>
-              Fill in the required fields to get started. Optional steps can be completed later.
+              Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt werden.
             </DialogDescription>
           </DialogHeader>
 
@@ -468,20 +468,20 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="event-name">
-                  Event Name <span className="text-destructive">*</span>
+                  Eventname <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="event-name"
                   value={form.name}
                   onChange={(e) => set('name', e.target.value)}
-                  placeholder="e.g. Summer Festival 2024"
+                  placeholder="z. B. Summer Festival 2024"
                   autoFocus
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="event-date">
-                  Date <span className="text-destructive">*</span>
+                  Datum <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="event-date"
@@ -501,25 +501,25 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                   items={bandItems}
                   value={form.bandId}
                   onChange={(id) => set('bandId', id)}
-                  placeholder="Select band…"
-                  searchPlaceholder="Search bands…"
+                  placeholder="Band auswählen…"
+                  searchPlaceholder="Bands suchen…"
                   isLoading={bands.isLoading}
                   onCreateNew={(q) => setBandQC({ open: true, prefill: q })}
-                  createNewLabel="Add new band"
+                  createNewLabel="Neue Band anlegen"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Venue <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Label>Spielstätte <span className="text-muted-foreground text-xs">(optional)</span></Label>
                 <EntityCombobox
                   items={venueItems}
                   value={form.venueId}
                   onChange={(id) => set('venueId', id)}
-                  placeholder="Select venue…"
-                  searchPlaceholder="Search venues…"
+                  placeholder="Spielstätte auswählen…"
+                  searchPlaceholder="Spielstätten suchen…"
                   isLoading={venues.isLoading}
                   onCreateNew={(q) => setVenueQC({ open: true, prefill: q })}
-                  createNewLabel="Add new venue"
+                  createNewLabel="Neue Spielstätte anlegen"
                 />
               </div>
             </div>
@@ -529,31 +529,31 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                The LoPro (Local Promoter) is the person and/or company responsible for the show on site.
+                Der LoPro (Local Promoter) ist die Person und/oder Firma, die vor Ort für die Show verantwortlich ist.
               </p>
 
               <div className="space-y-2">
-                <Label>LoPro Contact Person</Label>
+                <Label>LoPro-Kontaktperson</Label>
                 <EntityCombobox
                   items={personItems}
                   value={form.loProPersonId}
                   onChange={(id) => set('loProPersonId', id)}
-                  placeholder="Select person…"
-                  searchPlaceholder="Search persons…"
+                  placeholder="Person auswählen…"
+                  searchPlaceholder="Personen suchen…"
                   isLoading={persons.isLoading}
                   onCreateNew={(q) => setPersonQC({ open: true, prefill: q })}
-                  createNewLabel="Add new person"
+                  createNewLabel="Neue Person anlegen"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>LoPro Company</Label>
+                <Label>LoPro-Firma</Label>
                 <EntityCombobox
                   items={companyItems}
                   value={form.loProCompanyId}
                   onChange={(id) => set('loProCompanyId', id)}
-                  placeholder="Select company…"
-                  searchPlaceholder="Search companies…"
+                  placeholder="Firma auswählen…"
+                  searchPlaceholder="Firmen suchen…"
                   isLoading={companies.isLoading}
                 />
               </div>
@@ -570,16 +570,16 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="pending">Ausstehend</SelectItem>
+                    <SelectItem value="confirmed">Bestätigt</SelectItem>
+                    <SelectItem value="cancelled">Storniert</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="vvk">Ticket Price VVK (€)</Label>
+                  <Label htmlFor="vvk">Ticketpreis VVK (€)</Label>
                   <Input
                     id="vvk"
                     type="number"
@@ -591,7 +591,7 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ak">Ticket Price AK (€)</Label>
+                  <Label htmlFor="ak">Ticketpreis AK (€)</Label>
                   <Input
                     id="ak"
                     type="number"
@@ -605,26 +605,26 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes">Anmerkungen</Label>
                 <Textarea
                   id="notes"
                   value={form.notes}
                   onChange={(e) => set('notes', e.target.value)}
                   rows={3}
-                  placeholder="Any additional information…"
+                  placeholder="Weitere Informationen…"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="deal-terms">Deal Terms</Label>
+                <Label htmlFor="deal-terms">Deal-Bedingungen</Label>
                 <Input
                   id="deal-terms"
                   value={form.deal}
                   onChange={(e) => set('deal', e.target.value)}
-                  placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+                  placeholder="z. B. 70/30, Pauschale 2.000 €, Garantie 1.500 € + 80 %…"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The financial split or fee arrangement for this show (optional).
+                  Die finanzielle Aufteilung oder Vergütungsvereinbarung für diese Show (optional).
                 </p>
               </div>
             </div>
@@ -634,7 +634,7 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
             <div className="flex gap-2">
               {step > 1 && (
                 <Button type="button" variant="ghost" onClick={() => setStep(step - 1)}>
-                  Back
+                  Zurück
                 </Button>
               )}
             </div>
@@ -643,7 +643,7 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                 <>
                   {step > 1 && (
                     <Button type="button" variant="outline" onClick={() => setStep(step + 1)}>
-                      Skip
+                      Überspringen
                     </Button>
                   )}
                   <Button
@@ -651,7 +651,7 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                     onClick={() => setStep(step + 1)}
                     disabled={step === 1 && !step1Valid}
                   >
-                    Next
+                    Weiter
                   </Button>
                 </>
               )}
@@ -661,12 +661,12 @@ export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWiz
                   onClick={handleSubmit}
                   disabled={!step1Valid || createMemo.isPending}
                 >
-                  {createMemo.isPending ? 'Creating…' : 'Create Event'}
+                  {createMemo.isPending ? 'Wird erstellt…' : 'Event anlegen'}
                 </Button>
               )}
               {step === 1 && step1Valid && (
                 <Button type="button" variant="outline" onClick={handleSubmit} disabled={createMemo.isPending}>
-                  {createMemo.isPending ? 'Creating…' : 'Quick Create'}
+                  {createMemo.isPending ? 'Wird erstellt…' : 'Schnell anlegen'}
                 </Button>
               )}
             </div>

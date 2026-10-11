@@ -12,6 +12,12 @@ import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsTab } from '@/components/event-hub/DocumentsTab'
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
@@ -43,7 +49,7 @@ export function EventHubPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Loading event…</p>
+        <p className="text-muted-foreground">Event wird geladen…</p>
       </div>
     )
   }
@@ -51,9 +57,9 @@ export function EventHubPage() {
   if (isError || !event) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-muted-foreground">Event not found.</p>
+        <p className="text-muted-foreground">Event nicht gefunden.</p>
         <Button variant="outline" onClick={() => navigate({ to: '/events' })}>
-          Back to Events
+          Zurück zu den Events
         </Button>
       </div>
     )
@@ -70,7 +76,7 @@ export function EventHubPage() {
           onClick={() => navigate({ to: '/events' })}
         >
           <ArrowLeft className="h-4 w-4" />
-          All Events
+          Alle Events
         </Button>
 
         <div className="flex items-start justify-between gap-4">
@@ -98,24 +104,24 @@ export function EventHubPage() {
               variant="outline"
               className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}
             >
-              {event.status}
+              {STATUS_LABELS[event.status] ?? event.status}
             </Badge>
 
             {isEditing ? (
               <>
                 <Button size="sm" variant="outline" onClick={handleDiscard} className="gap-1.5">
                   <X className="h-3.5 w-3.5" />
-                  Discard
+                  Verwerfen
                 </Button>
                 <Button size="sm" onClick={handleSaveAll} className="gap-1.5">
                   <Check className="h-3.5 w-3.5" />
-                  Save All
+                  Alles speichern
                 </Button>
               </>
             ) : (
               <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                 <Pencil className="h-3.5 w-3.5" />
-                Edit
+                Bearbeiten
               </Button>
             )}
           </div>
@@ -124,8 +130,8 @@ export function EventHubPage() {
         {isEditing && (
           <p className="mt-3 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2 inline-flex items-center gap-1.5">
             <Pencil className="h-3 w-3" />
-            You are in edit mode. Make your changes across any tab, then click{' '}
-            <strong>Save All</strong> or <strong>Discard</strong>.
+            Sie befinden sich im Bearbeitungsmodus. Nehmen Sie Änderungen in beliebigen Tabs vor und klicken Sie anschließend auf{' '}
+            <strong>Alles speichern</strong> oder <strong>Verwerfen</strong>.
           </p>
         )}
       </div>
@@ -133,10 +139,10 @@ export function EventHubPage() {
       {/* ── Tabs ── */}
       <Tabs defaultValue="overview" className="flex-1">
         <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
-          <TabsTrigger value="financials">Financials</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="overview">Übersicht</TabsTrigger>
+          <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
+          <TabsTrigger value="financials">Finanzen</TabsTrigger>
+          <TabsTrigger value="documents">Dokumente</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">

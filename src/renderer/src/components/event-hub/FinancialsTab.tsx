@@ -18,6 +18,14 @@ import { toast } from 'sonner'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
 
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: 'Entwurf',
+  issued: 'gestellt',
+  paid: 'bezahlt',
+  overdue: 'überfällig',
+  cancelled: 'storniert'
+}
+
 export interface FinancialsTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -76,9 +84,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const updateMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
-      toast.success('Saved')
+      toast.success('Gespeichert')
     },
-    onError: (e) => toast.error('Failed to save', { description: e.message })
+    onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
   })
 
   // Batched save triggered by "Save All" in the page header
@@ -98,15 +106,15 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       utils.invoice.getByDealMemoId.invalidate(event.id)
       utils.invoice.getAllPaginated.invalidate()
       utils.dealMemo.getById.invalidate(event.id)
-      toast.success('Invoice created for this event')
+      toast.success('Rechnung für dieses Event erstellt')
     },
     onError: (error) => {
-      toast.error('Failed to create invoice', { description: error.message })
+      toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
     }
   })
 
   const selectedInvoiceCompany = companies.data?.find((c) => c.id === invoiceCompanyId)
-  const defaultInvoiceCompanyName = defaultCompany.data?.name ?? 'None configured'
+  const defaultInvoiceCompanyName = defaultCompany.data?.name ?? 'Nicht konfiguriert'
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -119,19 +127,19 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           </h3>
           {isEditing ? (
             <div className="space-y-2">
-              <Label htmlFor="deal-terms">Deal Terms</Label>
+              <Label htmlFor="deal-terms">Konditionen</Label>
               <Input
                 id="deal-terms"
-                placeholder="e.g. 70/30, flat fee €2 000, guarantee €1 500 + 80%…"
+                placeholder="z. B. 70/30, Pauschale 2 000 €, Garantie 1 500 € + 80 %…"
                 value={deal}
                 onChange={(e) => setDeal(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                The financial split or fee arrangement for this show.
+                Die finanzielle Aufteilung oder Gagenvereinbarung für diese Show.
               </p>
             </div>
           ) : (
-            <ReadOnlyField label="Deal Terms" value={deal} placeholder="No deal terms specified" />
+            <ReadOnlyField label="Konditionen" value={deal} placeholder="Keine Konditionen hinterlegt" />
           )}
         </div>
 
@@ -144,19 +152,19 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           </h3>
           {isEditing ? (
             <div className="space-y-2">
-              <Label htmlFor="posters">Posters</Label>
+              <Label htmlFor="posters">Plakate</Label>
               <Input
                 id="posters"
-                placeholder="e.g. 50× A1, 100× A3 flyers…"
+                placeholder="z. B. 50× A1, 100× A3 Flyer…"
                 value={posters}
                 onChange={(e) => setPosters(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                What print materials need to be provided for this show?
+                Welche Printmaterialien müssen für diese Show bereitgestellt werden?
               </p>
             </div>
           ) : (
-            <ReadOnlyField label="Posters" value={posters} placeholder="No poster details" />
+            <ReadOnlyField label="Plakate" value={posters} placeholder="Keine Plakat-Details" />
           )}
         </div>
       </div>
@@ -165,12 +173,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
           <Euro className="h-4 w-4" />
-          Ticket Prices
+          Ticketpreise
         </h3>
         {isEditing ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="vvk">Advance Sale (VVK)</Label>
+              <Label htmlFor="vvk">Vorverkauf (VVK)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   €
@@ -188,7 +196,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ak">Box Office (AK)</Label>
+              <Label htmlFor="ak">Abendkasse (AK)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   €
@@ -209,14 +217,14 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
         ) : (
           <div className="space-y-4">
             <ReadOnlyField
-              label="Advance Sale (VVK)"
+              label="Vorverkauf (VVK)"
               value={vvk ? `€ ${parseFloat(vvk).toFixed(2)}` : null}
-              placeholder="Not set"
+              placeholder="Nicht festgelegt"
             />
             <ReadOnlyField
-              label="Box Office (AK)"
+              label="Abendkasse (AK)"
               value={ak ? `€ ${parseFloat(ak).toFixed(2)}` : null}
-              placeholder="Not set"
+              placeholder="Nicht festgelegt"
             />
           </div>
         )}
@@ -227,12 +235,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Invoicing
+            Rechnungsstellung
           </h3>
 
           {isEditing ? (
             <div className="space-y-2 max-w-md">
-              <Label>Invoice Company for this Event</Label>
+              <Label>Rechnungssteller für dieses Event</Label>
               <Select
                 value={invoiceCompanyId === null ? 'none' : invoiceCompanyId.toString()}
                 onValueChange={(value) => {
@@ -244,10 +252,10 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select invoice company" />
+                  <SelectValue placeholder="Rechnungssteller auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No explicit company (use default fallback)</SelectItem>
+                  <SelectItem value="none">Keine explizite Auswahl (Standard-Fallback verwenden)</SelectItem>
                   {(companies.data ?? []).map((company) => (
                     <SelectItem key={company.id} value={company.id.toString()}>
                       {company.name}
@@ -256,15 +264,15 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                If no explicit company is set, invoice creation falls back to the default invoicing company.
+                Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die Standard-Firma zurück.
               </p>
             </div>
           ) : (
             <div className="space-y-2">
               <ReadOnlyField
-                label="Invoice Company"
+                label="Rechnungssteller"
                 value={selectedInvoiceCompany?.name ?? null}
-                placeholder={`Using default: ${defaultInvoiceCompanyName}`}
+                placeholder={`Standard: ${defaultInvoiceCompanyName}`}
               />
             </div>
           )}
@@ -272,7 +280,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Invoices for this Event</CardTitle>
+            <CardTitle className="text-base">Rechnungen für dieses Event</CardTitle>
             <Button
               size="sm"
               className="gap-1.5"
@@ -287,16 +295,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               disabled={createInvoiceMutation.isPending}
             >
               <Plus className="h-3.5 w-3.5" />
-              Create Invoice
+              Rechnung erstellen
             </Button>
           </CardHeader>
           <CardContent>
             {invoices.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading invoices...</p>
+              <p className="text-sm text-muted-foreground">Rechnungen werden geladen...</p>
             ) : (invoices.data?.length ?? 0) === 0 ? (
               <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                No invoices linked to this event yet.
+                Noch keine Rechnungen mit diesem Event verknüpft.
               </div>
             ) : (
               <div className="space-y-2">
@@ -310,12 +318,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         #{invoice.invoiceNumber} · {invoice.companyName}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {invoice.issueDate} {invoice.dueDate ? `· due ${invoice.dueDate}` : ''}
+                        {invoice.issueDate} {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="capitalize">
-                        {invoice.status}
+                        {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                       </Badge>
                       <span className="text-sm font-semibold">
                         {new Intl.NumberFormat('de-DE', {

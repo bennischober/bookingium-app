@@ -37,10 +37,10 @@ export function PersonPage() {
     onSuccess: () => {
       utils.person.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Person created', { description: 'The person was created successfully.' })
+      toast.success('Person angelegt', { description: 'Die Person wurde erfolgreich angelegt.' })
     },
     onError: (error) => {
-      toast.error('Failed to create person', { description: error.message })
+      toast.error('Person konnte nicht angelegt werden', { description: error.message })
     }
   })
 
@@ -48,20 +48,20 @@ export function PersonPage() {
     onSuccess: () => {
       utils.person.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Person updated', { description: 'The person was updated successfully.' })
+      toast.success('Person aktualisiert', { description: 'Die Person wurde erfolgreich aktualisiert.' })
     },
     onError: (error) => {
-      toast.error('Failed to update person', { description: error.message })
+      toast.error('Person konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
   const deleteMutation = trpcReact.person.delete.useMutation({
     onSuccess: () => {
       utils.person.getAllPaginated.invalidate()
-      toast.success('Person deleted', { description: 'The person was deleted successfully.' })
+      toast.success('Person gelöscht', { description: 'Die Person wurde erfolgreich gelöscht.' })
     },
     onError: (error) => {
-      toast.error('Failed to delete person', { description: error.message })
+      toast.error('Person konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
@@ -75,7 +75,7 @@ export function PersonPage() {
   }
 
   const handleDelete = (person: PersonDto) => {
-    if (confirm(`Are you sure you want to delete ${person.firstName} ${person.lastName}?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie ${person.firstName} ${person.lastName} löschen möchten?`)) {
       deleteMutation.mutate({ id: person.id })
     }
   }
@@ -84,25 +84,25 @@ export function PersonPage() {
   const columns: ColumnDef<PersonDto>[] = [
     {
       accessorKey: 'firstName',
-      header: 'First Name'
+      header: 'Vorname'
     },
     {
       accessorKey: 'lastName',
-      header: 'Last Name'
+      header: 'Nachname'
     },
     {
       accessorKey: 'contact',
-      header: 'Email',
+      header: 'E-Mail',
       cell: ({ row }) => row.original.contact?.email || '-'
     },
     {
       accessorKey: 'address',
-      header: 'City',
+      header: 'Stadt',
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
@@ -112,7 +112,7 @@ export function PersonPage() {
               setSelectedPersonForRelations(row.original)
               setRelationsSheetOpen(true)
             }}
-            title="View Relations"
+            title="Beziehungen anzeigen"
           >
             <Users className="h-4 w-4" />
           </Button>
@@ -120,7 +120,7 @@ export function PersonPage() {
             variant="ghost"
             size="icon"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -128,7 +128,7 @@ export function PersonPage() {
             variant="ghost"
             size="icon"
             onClick={() => handleDelete(row.original)}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -140,9 +140,9 @@ export function PersonPage() {
   return (
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Persons</h1>
+        <h1 className="text-2xl font-bold mb-2">Personen</h1>
         <p className="text-sm text-muted-foreground">
-          Manage the Person master data including contact information and addresses.
+          Stammdaten der Personen verwalten, einschließlich Kontaktinformationen und Adressen.
         </p>
       </div>
 
@@ -157,21 +157,21 @@ export function PersonPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter persons..."
+        searchPlaceholder="Personen filtern..."
         isLoading={persons.isLoading}
         total={persons.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Add New Person</Button>}
+        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>}
       />
 
       <FormSheet
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Create Person' : 'Edit Person'}
+        title={formSheet.mode === 'create' ? 'Person anlegen' : 'Person bearbeiten'}
         description={
           formSheet.mode === 'create'
-            ? 'Add a new person to the system.'
-            : 'Update the person information.'
+            ? 'Eine neue Person im System anlegen.'
+            : 'Personeninformationen aktualisieren.'
         }
       >
         <PersonForm
@@ -184,7 +184,7 @@ export function PersonPage() {
       <Sheet open={relationsSheetOpen} onOpenChange={setRelationsSheetOpen}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Person Relations</SheetTitle>
+            <SheetTitle>Beziehungen der Person</SheetTitle>
           </SheetHeader>
           {selectedPersonForRelations && (
             <PersonRelations

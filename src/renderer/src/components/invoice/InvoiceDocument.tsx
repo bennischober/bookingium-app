@@ -6,8 +6,8 @@ import type { InvoicePartySnapshotDto, InvoicePrintDto } from '../../../../main/
 
 export const INVOICE_TEMPLATES = [
   { value: 'standard', label: 'Standard' },
-  { value: 'agency-de', label: 'BMM / Agency (German)' },
-  { value: 'agency-en', label: 'PWW / Agency (English)' }
+  { value: 'agency-de', label: 'Agentur (Deutsch)' },
+  { value: 'agency-en', label: 'Agentur (Englisch)' }
 ] as const
 
 export type InvoiceTemplate = (typeof INVOICE_TEMPLATES)[number]['value']
@@ -232,13 +232,13 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
           )}
         </div>
         <div className="text-right">
-          <div className="text-[20pt] font-bold tracking-wide">INVOICE</div>
+          <div className="text-[20pt] font-bold tracking-wide">RECHNUNG</div>
           <div className="mt-2 text-[10pt]">
             <div>
-              No. {invoice.companyId}-{invoice.invoiceNumber}
+              Nr. {invoice.companyId}-{invoice.invoiceNumber}
             </div>
-            <div>Date: {formatDate(invoice.issueDate)}</div>
-            {invoice.dueDate && <div>Due: {formatDate(invoice.dueDate)}</div>}
+            <div>Datum: {formatDate(invoice.issueDate)}</div>
+            {invoice.dueDate && <div>Fällig: {formatDate(invoice.dueDate)}</div>}
           </div>
         </div>
       </div>
@@ -248,7 +248,7 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
       <div className="flex justify-between items-start gap-8">
         <div className="w-1/2">
           <div className="text-[10pt] leading-snug">
-            <div className="font-semibold mb-1">Bill to</div>
+            <div className="font-semibold mb-1">Rechnungsempfänger</div>
             <AddressBlock party={recipient} />
           </div>
         </div>
@@ -260,12 +260,12 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
           )}
           {invoice.periodLabel && (
             <div>
-              <span className="font-semibold">Period:</span> {invoice.periodLabel}
+              <span className="font-semibold">Zeitraum:</span> {invoice.periodLabel}
             </div>
           )}
           {(invoice.periodStartDate || invoice.periodEndDate) && (
             <div>
-              <span className="font-semibold">Service period:</span>{' '}
+              <span className="font-semibold">Leistungszeitraum:</span>{' '}
               {formatDate(invoice.periodStartDate)} – {formatDate(invoice.periodEndDate)}
             </div>
           )}
@@ -276,13 +276,13 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         <thead>
           <tr className="border-b border-neutral-400 text-left">
             <th className="py-2 pr-2 font-semibold">Pos.</th>
-            <th className="py-2 pr-2 font-semibold">Description</th>
-            <th className="py-2 pr-2 text-right font-semibold">Qty</th>
-            <th className="py-2 pr-2 font-semibold">Unit</th>
-            <th className="py-2 pr-2 text-right font-semibold">Net</th>
-            <th className="py-2 pr-2 text-right font-semibold">VAT %</th>
-            <th className="py-2 pr-2 text-right font-semibold">VAT</th>
-            <th className="py-2 text-right font-semibold">Gross</th>
+            <th className="py-2 pr-2 font-semibold">Beschreibung</th>
+            <th className="py-2 pr-2 text-right font-semibold">Menge</th>
+            <th className="py-2 pr-2 font-semibold">Einheit</th>
+            <th className="py-2 pr-2 text-right font-semibold">Netto</th>
+            <th className="py-2 pr-2 text-right font-semibold">MwSt. %</th>
+            <th className="py-2 pr-2 text-right font-semibold">MwSt.</th>
+            <th className="py-2 text-right font-semibold">Brutto</th>
           </tr>
         </thead>
         <tbody>
@@ -303,15 +303,15 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
 
       <div className="mt-6 ml-auto w-[70mm] text-[10pt]">
         <div className="flex justify-between py-1">
-          <span>Subtotal (net)</span>
+          <span>Zwischensumme (netto)</span>
           <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
         </div>
         <div className="flex justify-between py-1">
-          <span>VAT</span>
+          <span>MwSt.</span>
           <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
         </div>
         <div className="flex justify-between border-t border-neutral-400 py-2 font-bold text-[11pt]">
-          <span>Total</span>
+          <span>Gesamt</span>
           <span>{formatMoney(invoice.totalGrossAmount, invoice.currency)}</span>
         </div>
       </div>
@@ -320,13 +320,13 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         {invoice.reverseChargeNote && <p>{invoice.reverseChargeNote}</p>}
         {invoice.paymentTerms && (
           <p>
-            <span className="font-semibold text-black">Payment terms: </span>
+            <span className="font-semibold text-black">Zahlungsbedingungen: </span>
             {invoice.paymentTerms}
           </p>
         )}
         {invoice.notes && (
           <p>
-            <span className="font-semibold text-black">Notes: </span>
+            <span className="font-semibold text-black">Anmerkungen: </span>
             {invoice.notes}
           </p>
         )}
@@ -568,7 +568,7 @@ export function InvoiceDocument({
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">
-            DRAFT
+            ENTWURF
           </span>
         </div>
       )}

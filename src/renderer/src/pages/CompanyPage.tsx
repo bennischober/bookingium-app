@@ -29,10 +29,10 @@ export function CompanyPage() {
     onSuccess: () => {
       utils.company.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Company created', { description: 'The company was created successfully.' })
+      toast.success('Firma angelegt', { description: 'Die Firma wurde erfolgreich angelegt.' })
     },
     onError: (error) => {
-      toast.error('Failed to create company', { description: error.message })
+      toast.error('Firma konnte nicht angelegt werden', { description: error.message })
     }
   })
 
@@ -40,20 +40,20 @@ export function CompanyPage() {
     onSuccess: () => {
       utils.company.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Company updated', { description: 'The company was updated successfully.' })
+      toast.success('Firma aktualisiert', { description: 'Die Firma wurde erfolgreich aktualisiert.' })
     },
     onError: (error) => {
-      toast.error('Failed to update company', { description: error.message })
+      toast.error('Firma konnte nicht aktualisiert werden', { description: error.message })
     }
   })
 
   const deleteMutation = trpcReact.company.delete.useMutation({
     onSuccess: () => {
       utils.company.getAllPaginated.invalidate()
-      toast.success('Company deleted', { description: 'The company was deleted successfully.' })
+      toast.success('Firma gelöscht', { description: 'Die Firma wurde erfolgreich gelöscht.' })
     },
     onError: (error) => {
-      toast.error('Failed to delete company', { description: error.message })
+      toast.error('Firma konnte nicht gelöscht werden', { description: error.message })
     }
   })
 
@@ -79,7 +79,7 @@ export function CompanyPage() {
   }
 
   const handleDelete = (company: CompanyDto) => {
-    if (confirm(`Are you sure you want to delete ${company.name}?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie ${company.name} löschen möchten?`)) {
       deleteMutation.mutate({ id: company.id })
     }
   }
@@ -88,20 +88,20 @@ export function CompanyPage() {
   const columns: ColumnDef<CompanyDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Company Name'
+      header: 'Firmenname'
     },
     {
       accessorKey: 'vatNumber',
-      header: 'VAT Number'
+      header: 'USt-IdNr.'
     },
     {
       accessorKey: 'contact',
-      header: 'Email',
+      header: 'E-Mail',
       cell: ({ row }) => row.original.contact?.email || '-'
     },
     {
       accessorKey: 'address',
-      header: 'City',
+      header: 'Stadt',
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
@@ -111,14 +111,14 @@ export function CompanyPage() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -126,7 +126,7 @@ export function CompanyPage() {
             variant="ghost"
             size="icon"
             onClick={() => handleDelete(row.original)}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -138,8 +138,8 @@ export function CompanyPage() {
   return (
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Companies</h1>
-        <p className="text-sm text-muted-foreground">Manage the companies of your business partners.</p>
+        <h1 className="text-2xl font-bold mb-2">Firmen</h1>
+        <p className="text-sm text-muted-foreground">Verwalten Sie die Firmen Ihrer Geschäftspartner.</p>
       </div>
 
       <DataTable
@@ -153,12 +153,12 @@ export function CompanyPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter companies..."
+        searchPlaceholder="Firmen filtern..."
         isLoading={companies.isLoading}
         total={companies.data?.total ?? 0}
         actionButton={
           <Button onClick={() => formSheet.openCreate()}>
-            + Add New Company
+            + Neue Firma anlegen
           </Button>
         }
       />
@@ -167,11 +167,11 @@ export function CompanyPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Create Company' : 'Edit Company'}
+        title={formSheet.mode === 'create' ? 'Firma anlegen' : 'Firma bearbeiten'}
         description={
           formSheet.mode === 'create'
-            ? 'Add a new company to the system.'
-            : 'Update the company information.'
+            ? 'Eine neue Firma im System anlegen.'
+            : 'Firmeninformationen aktualisieren.'
         }
       >
         <CompanyForm

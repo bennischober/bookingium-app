@@ -24,11 +24,11 @@ export function FormSheet({
   description,
   children
 }: FormSheetProps) {
-  const defaultTitle = mode === 'create' ? 'Create New' : 'Edit'
+  const defaultTitle = mode === 'create' ? 'Neu anlegen' : 'Bearbeiten'
   const defaultDescription =
     mode === 'create'
-      ? 'Fill in the details to create a new record.'
-      : 'Make changes to the record below.'
+      ? 'Füllen Sie die Details aus, um einen neuen Eintrag zu erstellen.'
+      : 'Nehmen Sie unten Änderungen am Eintrag vor.'
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>

@@ -18,6 +18,12 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200'
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
 export function EventPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
@@ -35,13 +41,13 @@ export function EventPage() {
   const deleteMutation = trpcReact.dealMemo.delete.useMutation({
     onSuccess: () => {
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event deleted')
+      toast.success('Event gelöscht')
     },
-    onError: (e) => toast.error('Failed to delete event', { description: e.message })
+    onError: (e) => toast.error('Event konnte nicht gelöscht werden', { description: e.message })
   })
 
   const handleDelete = (id: number, name: string) => {
-    if (confirm(`Delete event "${name}"? This cannot be undone.`)) {
+    if (confirm(`Event "${name}" löschen? Dies kann nicht rückgängig gemacht werden.`)) {
       deleteMutation.mutate(id)
     }
   }
@@ -54,7 +60,7 @@ export function EventPage() {
     },
     {
       accessorKey: 'date',
-      header: 'Date',
+      header: 'Datum',
       cell: (info) => {
         const val = info.getValue() as string
         if (!val) return '-'
@@ -72,7 +78,7 @@ export function EventPage() {
     },
     {
       accessorKey: 'venueName',
-      header: 'Venue',
+      header: 'Spielstätte',
       cell: (info) => (info.getValue() as string | null) ?? '-'
     },
     {
@@ -85,14 +91,14 @@ export function EventPage() {
             variant="outline"
             className={cn('capitalize', STATUS_STYLES[status] ?? '')}
           >
-            {status}
+            {STATUS_LABELS[status] ?? status}
           </Badge>
         )
       }
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => {
         const event = row.original
         return (
@@ -119,7 +125,7 @@ export function EventPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Events</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your shows, tours, and deal memos.
+          Verwalten Sie Ihre Shows, Tours und Deal Memos.
         </p>
       </div>
 
@@ -134,11 +140,11 @@ export function EventPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter events…"
+        searchPlaceholder="Events filtern…"
         isLoading={events.isLoading}
         total={events.data?.total ?? 0}
         actionButton={
-          <Button onClick={() => setWizardOpen(true)}>+ New Event</Button>
+          <Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>
         }
         onRowClick={(event) => navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })}
       />

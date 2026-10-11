@@ -28,12 +28,12 @@ export default function BandPage() {
     onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
       sheet.close()
-      toast.success('Band created successfully', {
-        description: `${data.name} has been added to your bands.`
+      toast.success('Band erfolgreich erstellt', {
+        description: `${data.name} wurde zu Ihren Bands hinzugefügt.`
       })
     },
     onError: (error) => {
-      toast.error('Failed to create band', {
+      toast.error('Band konnte nicht erstellt werden', {
         description: error.message
       })
     }
@@ -43,12 +43,12 @@ export default function BandPage() {
     onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
       sheet.close()
-      toast.success('Band updated successfully', {
-        description: `${data.name} has been updated.`
+      toast.success('Band erfolgreich aktualisiert', {
+        description: `${data.name} wurde aktualisiert.`
       })
     },
     onError: (error) => {
-      toast.error('Failed to update band', {
+      toast.error('Band konnte nicht aktualisiert werden', {
         description: error.message
       })
     }
@@ -57,19 +57,19 @@ export default function BandPage() {
   const deleteBand = trpcReact.band.delete.useMutation({
     onSuccess: (data) => {
       utils.band.getAllPaginated.invalidate()
-      toast.success('Band deleted', {
-        description: `${data.name} has been removed.`
+      toast.success('Band gelöscht', {
+        description: `${data.name} wurde entfernt.`
       })
     },
     onError: (error) => {
-      toast.error('Failed to delete band', {
+      toast.error('Band konnte nicht gelöscht werden', {
         description: error.message
       })
     }
   })
 
   const handleDelete = (id: number, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"?`)) {
+    if (confirm(`Sind Sie sicher, dass Sie "${name}" löschen möchten?`)) {
       deleteBand.mutate(id)
     }
   }
@@ -96,12 +96,12 @@ export default function BandPage() {
     },
     {
       accessorKey: 'founded',
-      header: 'Founded',
+      header: 'Gründung',
       cell: (info) => info.getValue() || '-'
     },
     {
       accessorKey: 'notes',
-      header: 'Notes',
+      header: 'Anmerkungen',
       cell: (info) => {
         const value = info.getValue() as string
         return value ? (value.length > 50 ? value.substring(0, 50) + '...' : value) : '-'
@@ -109,7 +109,7 @@ export default function BandPage() {
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => {
         const band = row.original
 
@@ -141,7 +141,7 @@ export default function BandPage() {
     <div className="flex flex-col w-full h-full p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Bands</h1>
-        <p className="text-sm text-muted-foreground">Manage your artists and contacts.</p>
+        <p className="text-sm text-muted-foreground">Verwalten Sie Ihre Künstler und Kontakte.</p>
       </div>
 
       <DataTable
@@ -155,12 +155,12 @@ export default function BandPage() {
           setSearch(value)
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
-        searchPlaceholder="Filter bands..."
+        searchPlaceholder="Bands filtern..."
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
         actionButton={
           <Button onClick={() => sheet.openCreate()}>
-            + Add New Band
+            + Neue Band anlegen
           </Button>
         }
       />
@@ -169,11 +169,11 @@ export default function BandPage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode={sheet.mode}
-        title={sheet.mode === 'create' ? 'Create New Band' : 'Edit Band'}
+        title={sheet.mode === 'create' ? 'Neue Band anlegen' : 'Band bearbeiten'}
         description={
           sheet.mode === 'create'
-            ? 'Fill in the details to create a new band.'
-            : 'Make changes to the band profile below.'
+            ? 'Füllen Sie die Details aus, um eine neue Band anzulegen.'
+            : 'Nehmen Sie Änderungen am Bandprofil unten vor.'
         }
       >
         <BandForm

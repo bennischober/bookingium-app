@@ -8,13 +8,13 @@ interface AddressFormFieldsProps {
 export function AddressFormFields({ form }: AddressFormFieldsProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Address</h3>
+      <h3 className="text-lg font-semibold">Adresse</h3>
 
       <div className="grid grid-cols-2 gap-4">
         <form.Field name="address.street">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.street">Street</Label>
+              <Label htmlFor="address.street">Straße</Label>
               <Input
                 id="address.street"
                 value={field.state.value || ''}
@@ -31,7 +31,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
         <form.Field name="address.streetNumber">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.streetNumber">Street Number</Label>
+              <Label htmlFor="address.streetNumber">Hausnummer</Label>
               <Input
                 id="address.streetNumber"
                 value={field.state.value || ''}
@@ -46,13 +46,13 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
       <form.Field name="address.addressSuffix">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor="address.addressSuffix">Address Suffix</Label>
+            <Label htmlFor="address.addressSuffix">Adresszusatz</Label>
             <Input
               id="address.addressSuffix"
               value={field.state.value || ''}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Apt, Suite, Floor, etc."
+              placeholder="Wohnung, Etage, etc."
             />
           </div>
         )}
@@ -62,7 +62,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
         <form.Field name="address.zipCode">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.zipCode">ZIP Code</Label>
+              <Label htmlFor="address.zipCode">PLZ</Label>
               <Input
                 id="address.zipCode"
                 value={field.state.value || ''}
@@ -79,7 +79,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
         <form.Field name="address.city">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.city">City</Label>
+              <Label htmlFor="address.city">Stadt</Label>
               <Input
                 id="address.city"
                 value={field.state.value || ''}
@@ -97,7 +97,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
       <form.Field name="address.state">
         {(field) => (
           <div className="space-y-2">
-            <Label htmlFor="address.state">State/Province</Label>
+            <Label htmlFor="address.state">Bundesland</Label>
             <Input
               id="address.state"
               value={field.state.value || ''}
@@ -112,7 +112,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
         <form.Field name="address.country">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.country">Country</Label>
+              <Label htmlFor="address.country">Land</Label>
               <Input
                 id="address.country"
                 value={field.state.value || ''}
@@ -129,7 +129,7 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
         <form.Field name="address.countryCode">
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor="address.countryCode">Country Code</Label>
+              <Label htmlFor="address.countryCode">Ländercode</Label>
               <Input
                 id="address.countryCode"
                 value={field.state.value || ''}

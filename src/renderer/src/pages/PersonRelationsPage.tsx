@@ -56,78 +56,78 @@ export default function PersonRelationsPage() {
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Added to band successfully')
+      toast.success('Erfolgreich zur Band hinzugefügt')
     },
-    onError: (error) => toast.error('Failed to add to band', { description: error.message })
+    onError: (error) => toast.error('Hinzufügen zur Band fehlgeschlagen', { description: error.message })
   })
 
   const updateBandMember = trpcReact.relation.updateBandMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Band membership updated')
+      toast.success('Bandmitgliedschaft aktualisiert')
     },
-    onError: (error) => toast.error('Failed to update', { description: error.message })
+    onError: (error) => toast.error('Aktualisierung fehlgeschlagen', { description: error.message })
   })
 
   const removeBandMember = trpcReact.relation.removeBandMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
-      toast.success('Removed from band')
+      toast.success('Aus der Band entfernt')
     },
-    onError: (error) => toast.error('Failed to remove', { description: error.message })
+    onError: (error) => toast.error('Entfernen fehlgeschlagen', { description: error.message })
   })
 
   const addCompanyMember = trpcReact.relation.addCompanyMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Added to company successfully')
+      toast.success('Erfolgreich zur Firma hinzugefügt')
     },
-    onError: (error) => toast.error('Failed to add to company', { description: error.message })
+    onError: (error) => toast.error('Hinzufügen zur Firma fehlgeschlagen', { description: error.message })
   })
 
   const updateCompanyMember = trpcReact.relation.updateCompanyMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Company membership updated')
+      toast.success('Firmenzugehörigkeit aktualisiert')
     },
-    onError: (error) => toast.error('Failed to update', { description: error.message })
+    onError: (error) => toast.error('Aktualisierung fehlgeschlagen', { description: error.message })
   })
 
   const removeCompanyMember = trpcReact.relation.removeCompanyMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
-      toast.success('Removed from company')
+      toast.success('Aus der Firma entfernt')
     },
-    onError: (error) => toast.error('Failed to remove', { description: error.message })
+    onError: (error) => toast.error('Entfernen fehlgeschlagen', { description: error.message })
   })
 
   const addVenueMember = trpcReact.relation.addVenueMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Added to venue successfully')
+      toast.success('Erfolgreich zur Spielstätte hinzugefügt')
     },
-    onError: (error) => toast.error('Failed to add to venue', { description: error.message })
+    onError: (error) => toast.error('Hinzufügen zur Spielstätte fehlgeschlagen', { description: error.message })
   })
 
   const updateVenueMember = trpcReact.relation.updateVenueMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
       closeDialog()
-      toast.success('Venue membership updated')
+      toast.success('Spielstättenzugehörigkeit aktualisiert')
     },
-    onError: (error) => toast.error('Failed to update', { description: error.message })
+    onError: (error) => toast.error('Aktualisierung fehlgeschlagen', { description: error.message })
   })
 
   const removeVenueMember = trpcReact.relation.removeVenueMember.useMutation({
     onSuccess: () => {
       utils.relation.getPersonRelations.invalidate({ personId: Number(personId) })
-      toast.success('Removed from venue')
+      toast.success('Von der Spielstätte entfernt')
     },
-    onError: (error) => toast.error('Failed to remove', { description: error.message })
+    onError: (error) => toast.error('Entfernen fehlgeschlagen', { description: error.message })
   })
 
   // Dialog handlers
@@ -191,7 +191,7 @@ export default function PersonRelationsPage() {
   }
 
   const handleRemove = (type: RelationType, id: number, name: string) => {
-    if (!confirm(`Remove from ${name}?`)) return
+    if (!confirm(`Aus ${name} entfernen?`)) return
 
     if (type === 'band') {
       removeBandMember.mutate({ id })
@@ -203,15 +203,15 @@ export default function PersonRelationsPage() {
   }
 
   if (person.isLoading || relations.isLoading) {
-    return <div className="p-6">Loading...</div>
+    return <div className="p-6">Lädt...</div>
   }
 
-  const personName = person.data ? `${person.data.firstName} ${person.data.lastName}` : 'Unknown'
+  const personName = person.data ? `${person.data.firstName} ${person.data.lastName}` : 'Unbekannt'
 
   const getEntityLabel = () => {
     if (dialogType === 'band') return 'Band'
-    if (dialogType === 'company') return 'Company'
-    return 'Venue'
+    if (dialogType === 'company') return 'Firma'
+    return 'Spielstätte'
   }
 
   const getEntityOptions = () => {
@@ -225,11 +225,11 @@ export default function PersonRelationsPage() {
       <div className="mb-6">
         <Button variant="ghost" onClick={() => navigate({ to: '/persons' })} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Persons
+          Zurück zu Personen
         </Button>
-        <h1 className="text-2xl font-bold mb-2">Relations for {personName}</h1>
+        <h1 className="text-2xl font-bold mb-2">Beziehungen von {personName}</h1>
         <p className="text-sm text-muted-foreground">
-          Manage this person's relationships with bands, companies, and venues.
+          Verwalten Sie die Beziehungen dieser Person zu Bands, Firmen und Spielstätten.
         </p>
       </div>
 
@@ -237,15 +237,15 @@ export default function PersonRelationsPage() {
         {/* Band Memberships */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Band Memberships</CardTitle>
+            <CardTitle>Bandmitgliedschaften</CardTitle>
             <Button size="sm" variant="outline" onClick={() => openAddDialog('band')}>
               <Plus className="h-4 w-4 mr-2" />
-              Add to Band
+              Zur Band hinzufügen
             </Button>
           </CardHeader>
           <CardContent>
             {relations.data?.bands.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No band memberships</p>
+              <p className="text-sm text-muted-foreground">Keine Bandmitgliedschaften</p>
             ) : (
               <div className="space-y-3">
                 {relations.data?.bands.map((membership) => (
@@ -275,15 +275,15 @@ export default function PersonRelationsPage() {
         {/* Company Memberships */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Company Affiliations</CardTitle>
+            <CardTitle>Firmenzugehörigkeiten</CardTitle>
             <Button size="sm" variant="outline" onClick={() => openAddDialog('company')}>
               <Plus className="h-4 w-4 mr-2" />
-              Add to Company
+              Zur Firma hinzufügen
             </Button>
           </CardHeader>
           <CardContent>
             {relations.data?.companies.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No company affiliations</p>
+              <p className="text-sm text-muted-foreground">Keine Firmenzugehörigkeiten</p>
             ) : (
               <div className="space-y-3">
                 {relations.data?.companies.map((membership) => (
@@ -313,15 +313,15 @@ export default function PersonRelationsPage() {
         {/* Venue Affiliations */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Venue Affiliations</CardTitle>
+            <CardTitle>Spielstättenzugehörigkeiten</CardTitle>
             <Button size="sm" variant="outline" onClick={() => openAddDialog('venue')}>
               <Plus className="h-4 w-4 mr-2" />
-              Add to Venue
+              Zur Spielstätte hinzufügen
             </Button>
           </CardHeader>
           <CardContent>
             {relations.data?.venues.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No venue affiliations</p>
+              <p className="text-sm text-muted-foreground">Keine Spielstättenzugehörigkeiten</p>
             ) : (
               <div className="space-y-3">
                 {relations.data?.venues.map((membership) => (
@@ -354,7 +354,7 @@ export default function PersonRelationsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === 'add' ? 'Add' : 'Edit'} {getEntityLabel()} Membership
+              {dialogMode === 'add' ? 'Hinzufügen' : 'Bearbeiten'}: {getEntityLabel()}-Zugehörigkeit
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -366,7 +366,7 @@ export default function PersonRelationsPage() {
                   onValueChange={(value) => setFormData({ ...formData, entityId: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select..." />
+                    <SelectValue placeholder="Auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
                     {getEntityOptions().map((entity) => (
@@ -379,28 +379,28 @@ export default function PersonRelationsPage() {
               </div>
             )}
             <div>
-              <Label>Role</Label>
+              <Label>Rolle</Label>
               <Input
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                placeholder="e.g., Lead Vocalist, Manager, Stage Manager"
+                placeholder="z. B. Sänger/in, Manager, Bühnenmanager"
               />
             </div>
             <div>
-              <Label>Notes</Label>
+              <Label>Anmerkungen</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder="Weitere Anmerkungen..."
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleSubmit} disabled={dialogMode === 'add' && !formData.entityId}>
-              {dialogMode === 'add' ? 'Add' : 'Update'}
+              {dialogMode === 'add' ? 'Hinzufügen' : 'Aktualisieren'}
             </Button>
           </DialogFooter>
         </DialogContent>

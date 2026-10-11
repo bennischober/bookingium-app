@@ -24,6 +24,12 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200'
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
 export default function CalendarPage() {
   const navigate = useNavigate()
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
@@ -93,9 +99,9 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col w-full h-full p-6 gap-6">
       <div>
-        <h1 className="text-2xl font-bold mb-2">Calendar</h1>
+        <h1 className="text-2xl font-bold mb-2">Kalender</h1>
         <p className="text-sm text-muted-foreground">
-          See upcoming events and jump directly into the event hub.
+          Anstehende Events sehen und direkt zum Event-Hub springen.
         </p>
       </div>
 
@@ -103,7 +109,7 @@ export default function CalendarPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <CardTitle>Event Calendar</CardTitle>
+              <CardTitle>Event-Kalender</CardTitle>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Tabs
@@ -111,9 +117,9 @@ export default function CalendarPage() {
                   onValueChange={(value) => setViewMode(value as 'day' | 'week' | 'month')}
                 >
                   <TabsList>
-                    <TabsTrigger value="day">Day</TabsTrigger>
-                    <TabsTrigger value="week">Week</TabsTrigger>
-                    <TabsTrigger value="month">Month</TabsTrigger>
+                    <TabsTrigger value="day">Tag</TabsTrigger>
+                    <TabsTrigger value="week">Woche</TabsTrigger>
+                    <TabsTrigger value="month">Monat</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -146,17 +152,17 @@ export default function CalendarPage() {
           <CardHeader>
             <CardTitle>
               {viewMode === 'day' && selectedDate
-                ? `Agenda for ${format(selectedDate, 'dd.MM.yyyy')}`
+                ? `Agenda für den ${format(selectedDate, 'dd.MM.yyyy')}`
                 : viewMode === 'week' && selectedDate
-                  ? `Agenda for week of ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd.MM.yyyy')}`
-                  : `Agenda for ${format(activeMonthDate, 'MMMM yyyy')}`}
+                  ? `Agenda für die Woche vom ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd.MM.yyyy')}`
+                  : `Agenda für ${format(activeMonthDate, 'MMMM yyyy')}`}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {events.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading events...</p>
+              <p className="text-sm text-muted-foreground">Events werden geladen...</p>
             ) : groupedAgenda.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events scheduled for this selection.</p>
+              <p className="text-sm text-muted-foreground">Keine Events für diese Auswahl geplant.</p>
             ) : (
               <div className="space-y-5">
                 {groupedAgenda.map((group) => (
@@ -175,7 +181,7 @@ export default function CalendarPage() {
                               {event.bandName} {event.venueName ? `@ ${event.venueName}` : ''}
                             </p>
                             <Badge variant="outline" className={STATUS_STYLES[event.status] ?? ''}>
-                              {event.status || 'pending'}
+                              {STATUS_LABELS[event.status || 'pending'] ?? event.status}
                             </Badge>
                           </div>
                           <Button
@@ -187,7 +193,7 @@ export default function CalendarPage() {
                               })
                             }
                           >
-                            Open Event
+                            Event öffnen
                           </Button>
                         </div>
                       ))}

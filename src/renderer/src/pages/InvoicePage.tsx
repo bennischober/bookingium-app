@@ -43,6 +43,29 @@ const INVOICE_STATUS: InvoiceStatus[] = ['draft', 'issued', 'paid', 'overdue', '
 const INVOICE_RECIPIENT_KIND: InvoiceRecipientKind[] = ['company', 'band', 'person', 'other']
 const TAX_CODES: InvoiceTaxCode[] = ['standard', 'reduced', 'reverse_charge', 'exempt', 'other']
 
+const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: 'Entwurf',
+  issued: 'gestellt',
+  paid: 'bezahlt',
+  overdue: 'überfällig',
+  cancelled: 'storniert'
+}
+
+const RECIPIENT_KIND_LABELS: Record<InvoiceRecipientKind, string> = {
+  company: 'Firma',
+  band: 'Band',
+  person: 'Person',
+  other: 'Sonstige'
+}
+
+const TAX_CODE_LABELS: Record<InvoiceTaxCode, string> = {
+  standard: 'Regelsatz',
+  reduced: 'ermäßigt',
+  reverse_charge: 'Reverse Charge',
+  exempt: 'steuerfrei',
+  other: 'sonstig'
+}
+
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
   draft: 'bg-slate-100 text-slate-800 border-slate-200',
   issued: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -82,7 +105,7 @@ function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemInput[] {
       const quantity = Math.max(0.000001, parseNumber(line.quantity, 1))
       const unitPriceNet = Math.max(0, parseNumber(line.unitPriceNet, 0))
       const taxRate = Math.max(0, Math.min(100, parseNumber(line.taxRate, 0)))
-      const description = line.description.trim() || 'Service item'
+      const description = line.description.trim() || 'Leistungsposition'
 
       return {
         description,
@@ -99,7 +122,7 @@ function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemInput[] {
     ? normalized
     : [
         {
-          description: 'Service item',
+          description: 'Leistungsposition',
           quantity: 1,
           unit: 'service',
           unitPriceNet: 0,
@@ -248,7 +271,7 @@ function InvoiceForm({
           : [
               {
                 ...EMPTY_LINE,
-                description: 'Service item',
+                description: 'Leistungsposition',
                 unitPriceNet: String(invoice.totalAmount),
                 taxRate: '0'
               }
@@ -299,7 +322,7 @@ function InvoiceForm({
 
   const saveLineEditor = () => {
     if (!lineEditor.description.trim()) {
-      toast.error('Please enter a line description')
+      toast.error('Bitte eine Positionsbeschreibung eingeben')
       return
     }
 
@@ -329,17 +352,17 @@ function InvoiceForm({
 
   const handleSubmit = () => {
     if (recipientKind === 'band' && !recipientBandId) {
-      toast.error('Please select a recipient band')
+      toast.error('Bitte eine Empfänger-Band auswählen')
       return
     }
 
     if (recipientKind === 'person' && !recipientPersonId) {
-      toast.error('Please select a recipient person')
+      toast.error('Bitte eine Empfänger-Person auswählen')
       return
     }
 
     if (recipientKind === 'other' && !recipientNameOverride.trim()) {
-      toast.error('Please enter a recipient name')
+      toast.error('Bitte einen Empfängernamen eingeben')
       return
     }
 
@@ -383,15 +406,15 @@ function InvoiceForm({
     <div className="space-y-4">
       <Tabs value={step} onValueChange={(value) => setStep(value as 'basics' | 'lines' | 'finalize')}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basics">1. Basics</TabsTrigger>
-          <TabsTrigger value="lines">2. Lines</TabsTrigger>
-          <TabsTrigger value="finalize">3. Finalize</TabsTrigger>
+          <TabsTrigger value="basics">1. Grunddaten</TabsTrigger>
+          <TabsTrigger value="lines">2. Positionen</TabsTrigger>
+          <TabsTrigger value="finalize">3. Abschließen</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basics" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Invoice Stage</Label>
+              <Label>Rechnungsstatus</Label>
               <Select value={status} onValueChange={(value) => setStatus(value as InvoiceStatus)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -399,43 +422,43 @@ function InvoiceForm({
                 <SelectContent>
                   {INVOICE_STATUS.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s}
+                      {STATUS_LABELS[s]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Stages are informational. You can still edit everything later.</p>
+              <p className="text-xs text-muted-foreground">Der Status ist nur informativ. Sie können später alles weiter bearbeiten.</p>
             </div>
 
             <div className="space-y-2">
-              <Label>Currency</Label>
+              <Label>Währung</Label>
               <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Issue Date</Label>
+              <Label>Rechnungsdatum</Label>
               <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Due Date</Label>
+              <Label>Fälligkeitsdatum</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Event Link (optional)</Label>
+              <Label>Event-Verknüpfung (optional)</Label>
               <Select
                 value={dealMemoId?.toString() ?? 'none'}
                 onValueChange={(value) => setDealMemoId(value === 'none' ? null : Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an event" />
+                  <SelectValue placeholder="Event auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No event linkage</SelectItem>
+                  <SelectItem value="none">Keine Event-Verknüpfung</SelectItem>
                   {(events.data?.items ?? []).map((event) => (
                     <SelectItem key={event.id} value={event.id.toString()}>
                       {event.name}
@@ -446,7 +469,7 @@ function InvoiceForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Who gets the money? (Issuer — their bank details & footer appear on the invoice)</Label>
+              <Label>Wer bekommt das Geld? (Rechnungssteller – dessen Bankdaten und Fußzeile erscheinen auf der Rechnung)</Label>
               <Select
                 value={companyId !== undefined ? (companyId === null ? 'none' : companyId.toString()) : 'auto'}
                 onValueChange={(value) => {
@@ -465,8 +488,8 @@ function InvoiceForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Auto (event/default)</SelectItem>
-                  <SelectItem value="none">No explicit override</SelectItem>
+                  <SelectItem value="auto">Auto (Event/Standard)</SelectItem>
+                  <SelectItem value="none">Keine explizite Auswahl</SelectItem>
                   {(companies.data ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id.toString()}>
                       {c.name}
@@ -478,7 +501,7 @@ function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Who gets billed? (Recipient — they pay this invoice)</Label>
+            <Label>Wer wird belastet? (Rechnungsempfänger – zahlt diese Rechnung)</Label>
             <Select
               value={recipientKind}
               onValueChange={(value) => {
@@ -496,7 +519,7 @@ function InvoiceForm({
               <SelectContent>
                 {INVOICE_RECIPIENT_KIND.map((kind) => (
                   <SelectItem key={kind} value={kind}>
-                    {kind}
+                    {RECIPIENT_KIND_LABELS[kind]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -505,16 +528,16 @@ function InvoiceForm({
 
           {recipientKind === 'company' && (
             <div className="space-y-2">
-              <Label>Recipient Company</Label>
+              <Label>Empfänger-Firma</Label>
               <Select
                 value={recipientCompanyId === null ? 'none' : recipientCompanyId.toString()}
                 onValueChange={(value) => setRecipientCompanyId(value === 'none' ? null : Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Auto fallback" />
+                  <SelectValue placeholder="Automatisch" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Auto fallback</SelectItem>
+                  <SelectItem value="none">Automatisch</SelectItem>
                   {(companies.data ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id.toString()}>
                       {c.name}
@@ -527,13 +550,13 @@ function InvoiceForm({
 
           {recipientKind === 'band' && (
             <div className="space-y-2">
-              <Label>Recipient Band</Label>
+              <Label>Empfänger-Band</Label>
               <Select
                 value={recipientBandId?.toString() ?? ''}
                 onValueChange={(value) => setRecipientBandId(Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select band" />
+                  <SelectValue placeholder="Band auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {(bands.data ?? []).map((b) => (
@@ -548,13 +571,13 @@ function InvoiceForm({
 
           {recipientKind === 'person' && (
             <div className="space-y-2">
-              <Label>Recipient Person</Label>
+              <Label>Empfänger-Person</Label>
               <Select
                 value={recipientPersonId?.toString() ?? ''}
                 onValueChange={(value) => setRecipientPersonId(Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select person" />
+                  <SelectValue placeholder="Person auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {(persons.data ?? []).map((p) => (
@@ -569,41 +592,41 @@ function InvoiceForm({
 
           {recipientKind === 'other' && (
             <div className="space-y-2">
-              <Label>Recipient Name</Label>
+              <Label>Empfängername</Label>
               <Input
                 value={recipientNameOverride}
                 onChange={(e) => setRecipientNameOverride(e.target.value)}
-                placeholder="Enter recipient name"
+                placeholder="Empfängername eingeben"
               />
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Period Start</Label>
+              <Label>Zeitraum von</Label>
               <Input type="date" value={periodStartDate} onChange={(e) => setPeriodStartDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Period End</Label>
+              <Label>Zeitraum bis</Label>
               <Input type="date" value={periodEndDate} onChange={(e) => setPeriodEndDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Period Label</Label>
-              <Input placeholder="e.g. Q4 2025" value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} />
+              <Label>Zeitraum-Bezeichnung</Label>
+              <Input placeholder="z. B. Q4 2025" value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} />
             </div>
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={() => setStep('lines')}>Next: Lines</Button>
+            <Button type="button" onClick={() => setStep('lines')}>Weiter: Positionen</Button>
           </div>
         </TabsContent>
 
         <TabsContent value="lines" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
-            <Label>Invoice Lines</Label>
+            <Label>Positionen</Label>
             <Button type="button" variant="outline" size="sm" onClick={openAddLine}>
               <Plus className="h-4 w-4 mr-1" />
-              Add Line
+              Position hinzufügen
             </Button>
           </div>
 
@@ -618,18 +641,18 @@ function InvoiceForm({
               return (
                 <div key={`line-card-${index}`} className="border rounded-md p-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-sm">{line.description || 'Untitled line'}</p>
+                    <p className="font-medium text-sm">{line.description || 'Ohne Bezeichnung'}</p>
                     <p className="text-xs text-muted-foreground">
-                      {quantity} x {formatMoney(unitPrice, currency)} ({taxRate}% VAT, {line.taxCode})
+                      {quantity} x {formatMoney(unitPrice, currency)} ({taxRate}% MwSt., {TAX_CODE_LABELS[line.taxCode]})
                     </p>
-                    <p className="text-xs mt-1">Net {formatMoney(net, currency)} · Gross {formatMoney(gross, currency)}</p>
+                    <p className="text-xs mt-1">Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => openEditLine(index)}>
-                      Edit
+                      Bearbeiten
                     </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)}>
-                      Remove
+                      Entfernen
                     </Button>
                   </div>
                 </div>
@@ -639,32 +662,32 @@ function InvoiceForm({
 
           <div className="border rounded-md p-3 space-y-3">
             <p className="text-sm font-medium">
-              {editingLineIndex === null ? 'Add Line' : `Edit Line #${editingLineIndex + 1}`}
+              {editingLineIndex === null ? 'Position hinzufügen' : `Position #${editingLineIndex + 1} bearbeiten`}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1 md:col-span-2">
-                <Label>Description</Label>
+                <Label>Beschreibung</Label>
                 <Input value={lineEditor.description} onChange={(e) => setLine({ description: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Qty</Label>
+                <Label>Menge</Label>
                 <Input type="number" step="0.01" min="0" value={lineEditor.quantity} onChange={(e) => setLine({ quantity: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Unit</Label>
+                <Label>Einheit</Label>
                 <Input value={lineEditor.unit} onChange={(e) => setLine({ unit: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Unit Net</Label>
+                <Label>Netto-Einzelpreis</Label>
                 <Input type="number" step="0.01" min="0" value={lineEditor.unitPriceNet} onChange={(e) => setLine({ unitPriceNet: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>VAT %</Label>
+                <Label>MwSt. %</Label>
                 <Input type="number" step="0.01" min="0" max="100" value={lineEditor.taxRate} onChange={(e) => setLine({ taxRate: e.target.value })} />
               </div>
               <div className="space-y-1 md:col-span-2">
-                <Label>Tax Code</Label>
+                <Label>Steuerschlüssel</Label>
                 <Select value={lineEditor.taxCode} onValueChange={(value) => setLine({ taxCode: value as InvoiceTaxCode })}>
                   <SelectTrigger>
                     <SelectValue />
@@ -672,7 +695,7 @@ function InvoiceForm({
                   <SelectContent>
                     {TAX_CODES.map((code) => (
                       <SelectItem key={code} value={code}>
-                        {code}
+                        {TAX_CODE_LABELS[code]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -682,59 +705,59 @@ function InvoiceForm({
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => { setEditingLineIndex(null); setLineEditor({ ...EMPTY_LINE }) }}>
-                Reset
+                Zurücksetzen
               </Button>
               <Button type="button" onClick={saveLineEditor}>
-                {editingLineIndex === null ? 'Add Line' : 'Save Line'}
+                {editingLineIndex === null ? 'Position hinzufügen' : 'Position speichern'}
               </Button>
             </div>
           </div>
 
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => setStep('basics')}>Back</Button>
-            <Button type="button" onClick={() => setStep('finalize')}>Next: Finalize</Button>
+            <Button type="button" variant="outline" onClick={() => setStep('basics')}>Zurück</Button>
+            <Button type="button" onClick={() => setStep('finalize')}>Weiter: Abschließen</Button>
           </div>
         </TabsContent>
 
         <TabsContent value="finalize" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Subtotal Net</Label>
+              <Label>Zwischensumme netto</Label>
               <Input value={formatMoney(totals.subtotalNetAmount, currency)} readOnly />
             </div>
             <div className="space-y-2">
-              <Label>Tax Total</Label>
+              <Label>Steuerbetrag</Label>
               <Input value={formatMoney(totals.subtotalTaxAmount, currency)} readOnly />
             </div>
             <div className="space-y-2">
-              <Label>Total Gross</Label>
+              <Label>Gesamt brutto</Label>
               <Input value={formatMoney(totals.totalGrossAmount, currency)} readOnly />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Payment Terms</Label>
-            <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Payable within 14 days" />
+            <Label>Zahlungsbedingungen</Label>
+            <Input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="z. B. Zahlbar innerhalb von 14 Tagen" />
           </div>
 
           <div className="space-y-2">
-            <Label>Reverse Charge Note</Label>
-            <Input value={reverseChargeNote} onChange={(e) => setReverseChargeNote(e.target.value)} placeholder="Optional tax note" />
+            <Label>Reverse-Charge-Hinweis</Label>
+            <Input value={reverseChargeNote} onChange={(e) => setReverseChargeNote(e.target.value)} placeholder="Optionaler Steuerhinweis" />
           </div>
 
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>Anmerkungen</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
 
           <div className="flex justify-between gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setStep('lines')}>Back</Button>
+            <Button type="button" variant="outline" onClick={() => setStep('lines')}>Zurück</Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-                Cancel
+                Abbrechen
               </Button>
               <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-                {mode === 'create' ? 'Create Invoice' : 'Save Invoice'}
+                {mode === 'create' ? 'Rechnung anlegen' : 'Rechnung speichern'}
               </Button>
             </div>
           </div>
@@ -782,26 +805,26 @@ export default function InvoicePage() {
       utils.invoice.getAllPaginated.invalidate()
       utils.invoice.getByDealMemoId.invalidate()
       sheet.close()
-      toast.success('Invoice created')
+      toast.success('Rechnung erstellt')
     },
-    onError: (error) => toast.error('Failed to create invoice', { description: error.message })
+    onError: (error) => toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
   })
 
   const updateMutation = trpcReact.invoice.update.useMutation({
     onSuccess: () => {
       utils.invoice.getAllPaginated.invalidate()
       sheet.close()
-      toast.success('Invoice updated')
+      toast.success('Rechnung aktualisiert')
     },
-    onError: (error) => toast.error('Failed to update invoice', { description: error.message })
+    onError: (error) => toast.error('Rechnung konnte nicht aktualisiert werden', { description: error.message })
   })
 
   const deleteMutation = trpcReact.invoice.delete.useMutation({
     onSuccess: () => {
       utils.invoice.getAllPaginated.invalidate()
-      toast.success('Invoice deleted')
+      toast.success('Rechnung gelöscht')
     },
-    onError: (error) => toast.error('Failed to delete invoice', { description: error.message })
+    onError: (error) => toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
   })
 
   const settingsMutation = trpcReact.invoice.upsertCompanySettings.useMutation({
@@ -809,9 +832,9 @@ export default function InvoicePage() {
       if (settingsCompanyId !== null) {
         utils.invoice.getCompanySettings.invalidate(settingsCompanyId)
       }
-      toast.success('Invoice numbering updated')
+      toast.success('Rechnungsnummerierung aktualisiert')
     },
-    onError: (error) => toast.error('Failed to update settings', { description: error.message })
+    onError: (error) => toast.error('Einstellungen konnten nicht aktualisiert werden', { description: error.message })
   })
 
   const rows = useMemo(() => invoices.data?.items ?? [], [invoices.data?.items])
@@ -819,19 +842,19 @@ export default function InvoicePage() {
   const columns: ColumnDef<InvoiceListItemDto>[] = [
     {
       accessorKey: 'invoiceNumber',
-      header: 'Invoice #'
+      header: 'Rechnungsnr.'
     },
     {
       accessorKey: 'companyName',
-      header: 'Issuer'
+      header: 'Rechnungssteller'
     },
     {
       accessorKey: 'recipientName',
-      header: 'Recipient'
+      header: 'Rechnungsempfänger'
     },
     {
       accessorKey: 'periodLabel',
-      header: 'Period',
+      header: 'Zeitraum',
       cell: ({ row }) => row.original.periodLabel || '-'
     },
     {
@@ -841,35 +864,35 @@ export default function InvoicePage() {
     },
     {
       accessorKey: 'issueDate',
-      header: 'Issued'
+      header: 'Datum'
     },
     {
       accessorKey: 'status',
-      header: 'Stage',
+      header: 'Status',
       cell: ({ row }) => {
         const status = row.original.status
         return (
           <Badge variant="outline" className={STATUS_STYLES[status]}>
-            {status}
+            {STATUS_LABELS[status]}
           </Badge>
         )
       }
     },
     {
       accessorKey: 'totalAmount',
-      header: 'Total',
+      header: 'Betrag',
       cell: ({ row }) => formatMoney(row.original.totalAmount, row.original.currency)
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: 'Aktionen',
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate({ to: '/invoices/$invoiceId/print', params: { invoiceId: String(row.original.id) } })}
-            title="Print / Save as PDF"
+            title="Drucken / Als PDF speichern"
           >
             <Printer className="h-4 w-4" />
           </Button>
@@ -879,12 +902,12 @@ export default function InvoicePage() {
             onClick={async () => {
               const fullInvoice = await utils.invoice.getById.fetch(row.original.id)
               if (!fullInvoice) {
-                toast.error('Invoice not found')
+                toast.error('Rechnung nicht gefunden')
                 return
               }
               sheet.openEdit(fullInvoice)
             }}
-            title="Edit"
+            title="Bearbeiten"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -892,11 +915,11 @@ export default function InvoicePage() {
             variant="ghost"
             size="icon"
             onClick={() => {
-              if (confirm(`Delete invoice #${row.original.invoiceNumber}?`)) {
+              if (confirm(`Rechnung #${row.original.invoiceNumber} löschen?`)) {
                 deleteMutation.mutate(row.original.id)
               }
             }}
-            title="Delete"
+            title="Löschen"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -907,13 +930,13 @@ export default function InvoicePage() {
 
   const handleSaveSettings = () => {
     if (settingsCompanyId === null) {
-      toast.error('Select a company first')
+      toast.error('Bitte zuerst eine Firma auswählen')
       return
     }
 
     const value = Number(nextNumberInput)
     if (!Number.isInteger(value) || value < 1) {
-      toast.error('Next invoice number must be an integer >= 1')
+      toast.error('Nächste Rechnungsnummer muss eine ganze Zahl ≥ 1 sein')
       return
     }
 
@@ -926,9 +949,9 @@ export default function InvoicePage() {
   return (
     <div className="flex flex-col w-full h-full p-6 gap-6">
       <div>
-        <h1 className="text-2xl font-bold mb-2">Invoices</h1>
+        <h1 className="text-2xl font-bold mb-2">Rechnungen</h1>
         <p className="text-sm text-muted-foreground">
-          Create event-linked or standalone invoices with editable stages and line items.
+          Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen.
         </p>
       </div>
 
@@ -945,26 +968,26 @@ export default function InvoicePage() {
               setSearch(value)
               setPagination((prev) => ({ ...prev, pageIndex: 0 }))
             }}
-            searchPlaceholder="Filter invoices..."
+            searchPlaceholder="Rechnungen filtern..."
             isLoading={invoices.isLoading}
             total={invoices.data?.total ?? 0}
-            actionButton={<Button onClick={() => sheet.openCreate()}>+ Create Invoice</Button>}
+            actionButton={<Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>}
           />
         </div>
 
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Invoice Numbering</CardTitle>
+            <CardTitle>Rechnungsnummerierung</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Company</Label>
+              <Label>Firma</Label>
               <Select
                 value={settingsCompanyId?.toString() ?? ''}
                 onValueChange={(value) => setSettingsCompanyId(Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select company" />
+                  <SelectValue placeholder="Firma auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {(companies.data ?? []).map((company) => (
@@ -977,7 +1000,7 @@ export default function InvoicePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Next Invoice Number</Label>
+              <Label>Nächste Rechnungsnummer</Label>
               <Input
                 type="number"
                 min="1"
@@ -989,11 +1012,11 @@ export default function InvoicePage() {
             </div>
 
             <Button className="w-full" onClick={handleSaveSettings} disabled={settingsMutation.isPending}>
-              Save Numbering
+              Nummerierung speichern
             </Button>
 
             <p className="text-xs text-muted-foreground">
-              This value is used as the next invoice number for newly created invoices of the selected company.
+              Dieser Wert wird als nächste Rechnungsnummer für neu erstellte Rechnungen der ausgewählten Firma verwendet.
             </p>
           </CardContent>
         </Card>
@@ -1003,11 +1026,11 @@ export default function InvoicePage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode={sheet.mode}
-        title={sheet.mode === 'create' ? 'Create Invoice' : 'Edit Invoice'}
+        title={sheet.mode === 'create' ? 'Rechnung anlegen' : 'Rechnung bearbeiten'}
         description={
           sheet.mode === 'create'
-            ? 'Create an invoice with line items.'
-            : 'Update invoice details, recipient, linkage and stage.'
+            ? 'Erstellen Sie eine Rechnung mit Positionen.'
+            : 'Bearbeiten Sie Details, Empfänger, Verknüpfung und Status der Rechnung.'
         }
       >
         <InvoiceForm

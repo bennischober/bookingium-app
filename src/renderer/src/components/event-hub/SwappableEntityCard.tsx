@@ -39,7 +39,7 @@ export function SwappableEntityCard({
   isSaving,
   nullable = false,
   href,
-  empty = 'Not assigned'
+  empty = 'Nicht zugewiesen'
 }: SwappableEntityCardProps) {
   const [editing, setEditing] = useState(false)
   const hasValue = !!currentName
@@ -62,7 +62,7 @@ export function SwappableEntityCard({
               <Link to={href}>
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  View
+                  Ansehen
                 </Button>
               </Link>
             )}
@@ -74,7 +74,7 @@ export function SwappableEntityCard({
                 onClick={() => setEditing(false)}
               >
                 <X className="h-3 w-3" />
-                Cancel
+                Abbrechen
               </Button>
             ) : (
               <Button
@@ -85,7 +85,7 @@ export function SwappableEntityCard({
                 disabled={isSaving}
               >
                 <Pencil className="h-3 w-3" />
-                {hasValue ? 'Change' : 'Assign'}
+                {hasValue ? 'Ändern' : 'Zuweisen'}
               </Button>
             )}
           </div>
@@ -98,8 +98,8 @@ export function SwappableEntityCard({
               items={items}
               value={currentId}
               onChange={handleSwap}
-              placeholder={`Select ${title.toLowerCase()}…`}
-              searchPlaceholder={`Search ${title.toLowerCase()}s…`}
+              placeholder={`${title} auswählen…`}
+              searchPlaceholder={`${title} suchen…`}
               isLoading={itemsLoading}
             />
             {nullable && hasValue && (
@@ -110,7 +110,7 @@ export function SwappableEntityCard({
                 onClick={() => handleSwap(null)}
               >
                 <X className="h-3 w-3 mr-1" />
-                Remove {title.toLowerCase()}
+                {title} entfernen
               </Button>
             )}
           </div>
