@@ -45,11 +45,8 @@ test('contract print view renders the document', async () => {
     .locator('canvas[data-page="1"]')
     .evaluate((c: HTMLCanvasElement) => c.height / c.width)
   expect(ratio).toBeCloseTo(297 / 210, 2)
-  // The plain document view still shows the editable sheet
-  await h.page.click('text=Dokument')
-  await h.page.waitForSelector('text=KONZERTVERTRAG', { timeout: 15_000 })
-  await h.page.click('text=Seiten (A4)')
-  await h.page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+  // The window title doubles as the print job / PDF file name
+  expect(await h.page.title()).toMatch(/^Konzertvertrag_/)
   // Save a screenshot for visual inspection
   await h.page.screenshot({ path: 'tests/e2e/__screenshots__/contract.png', fullPage: true })
 })

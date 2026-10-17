@@ -1,5 +1,5 @@
 import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
-import { PagedDocument, type PrintView } from '../print/PagedDocument'
+import { PagedDocument } from '../print/PagedDocument'
 
 // ========================================
 // Formatting helpers
@@ -75,13 +75,11 @@ export const CONTRACT_PADDING_MM = 20
 export function ContractDocument({
   data,
   artistImageUrl,
-  artistSignatureUrl,
-  view
+  artistSignatureUrl
 }: {
   data: ContractData
   artistImageUrl?: string
   artistSignatureUrl?: string
-  view?: PrintView
 }) {
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
 
@@ -96,7 +94,7 @@ export function ContractDocument({
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
   return (
-    <PagedDocument view={view}>
+    <PagedDocument>
       {/* Letterhead: artist company identity */}
       {artistImageUrl && (
         <img
@@ -501,8 +499,9 @@ export function ContractDocument({
       )}
 
       {/* Signatures (old layout: place+date line, signature image above the
-          line, label below it; both sides structurally identical) */}
-      <div className="mt-12 flex text-[10pt]">
+          line, label below it; both sides structurally identical). Never
+          split, and never alone on a page: it stays with the last clause. */}
+      <div className="mt-12 flex break-before-avoid break-inside-avoid text-[10pt]">
         <div className="w-1/2 pr-8">
           <div className="w-4/5">
             {representative?.city || artist?.city || 'Bad Hindelang'}, den {todayStr}

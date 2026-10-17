@@ -36,6 +36,14 @@ export interface DocumentAPI {
     data?: Uint8Array
     error?: string
   }>
+  /** Saves the real print output via a save dialog prefilled with the file name */
+  savePrintPdf: (defaultFileName: string) => Promise<{
+    success: boolean
+    canceled?: boolean
+    filePath?: string
+    error?: string
+  }>
+  openSavedPdf: (filePath: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

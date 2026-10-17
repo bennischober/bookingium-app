@@ -21,7 +21,12 @@ const api = {
 
   getLogoPath: (relativePath: string) => ipcRenderer.invoke('logo:getDataUrl', { relativePath }),
 
-  generatePrintPreview: () => ipcRenderer.invoke('print:previewPdf')
+  generatePrintPreview: () => ipcRenderer.invoke('print:previewPdf'),
+
+  savePrintPdf: (defaultFileName: string) =>
+    ipcRenderer.invoke('print:savePdf', { defaultFileName }),
+
+  openSavedPdf: (filePath: string) => ipcRenderer.invoke('print:openPdf', { filePath })
 }
 
 process.once('loaded', () => {

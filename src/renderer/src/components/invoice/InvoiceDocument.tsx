@@ -2,7 +2,7 @@ import type {
   InvoicePartySnapshotDto,
   InvoicePrintDto
 } from '../../../../main/api/schemas/invoice.schema'
-import { PagedDocument, type PrintView } from '../print/PagedDocument'
+import { PagedDocument } from '../print/PagedDocument'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -162,7 +162,7 @@ function CenteredLegalFooter({
   if (lines.length === 0) return null
 
   return (
-    <div className="mt-12 text-center text-[8.5pt] leading-relaxed text-black">
+    <div className="mt-12 break-inside-avoid text-center text-[8.5pt] leading-relaxed text-black">
       {lines.map((line, index) => (
         <div key={index}>
           {line.map(([label, value], itemIndex) => (
@@ -340,7 +340,7 @@ function AgencyTemplate({
       </table>
 
       {/* Rules only above Summe Netto and the total, like the reference */}
-      <div className="mt-6 ml-auto w-[90mm] text-[10pt]">
+      <div className="mt-6 ml-auto w-[90mm] break-inside-avoid text-[10pt]">
         <div className="flex justify-between border-t border-neutral-400 py-1">
           <span>{t.sumNet}</span>
           <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
@@ -475,7 +475,7 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         </tbody>
       </table>
 
-      <div className="mt-6 ml-auto w-[70mm] text-[10pt]">
+      <div className="mt-6 ml-auto w-[70mm] break-inside-avoid text-[10pt]">
         <div className="flex justify-between py-1">
           <span>Zwischensumme (netto)</span>
           <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
@@ -518,18 +518,16 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
 export function InvoiceDocument({
   data,
   template,
-  logoUrl,
-  view
+  logoUrl
 }: {
   data: InvoicePrintDto
   template: InvoiceTemplate
   logoUrl?: string
-  view?: PrintView
 }) {
   const isDraft = data.invoice.status === 'draft'
 
   return (
-    <PagedDocument view={view}>
+    <PagedDocument>
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">

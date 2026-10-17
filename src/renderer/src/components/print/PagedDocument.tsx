@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 
-export type PrintView = 'pages' | 'document'
-
 // A4 at CSS pixel density (96dpi): 210mm x 297mm
 const A4_WIDTH_PX = (210 / 25.4) * 96
 const A4_ASPECT = 297 / 210
@@ -10,34 +8,37 @@ const A4_ASPECT = 297 / 210
 /**
  * A4 document wrapper with a true-to-print page view.
  *
- * The document itself renders as a single vertical A4-width sheet (fixed
- * 210mm, centered). Section blocks carry break-inside: avoid, so the print
- * engine never splits a section across pages; @page margins mirror the
- * sheet padding.
- *
- * In the 'pages' view the sheet is hidden on screen only, and the REAL print
+ * The document renders as a single A4-width sheet (fixed 210mm) that is the
+ * print source but hidden on screen. What the user sees is the REAL print
  * output (Electron printToPDF of this window, which renders print media, so
- * the hidden sheet is what gets printed) is drawn page by page with pdf.js —
+ * the hidden sheet is what gets printed) drawn page by page with pdf.js —
  * each canvas is one genuine DIN A4 page, exact by definition. The output is
  * regenerated whenever the document content changes (data, template, images
- * loading in).
+ * loading in). If generating it fails, the plain sheet is shown instead.
+ *
+ * Page breaks: content flows freely across pages (no whole-section
+ * avoidance, which left large gaps); headings stay with the text that
+ * follows, paragraphs keep at least 3 lines on either side of a break, and
+ * table rows / images / blocks marked break-inside-avoid never split.
+ * @page margins mirror the sheet padding.
  */
 export function PagedDocument({
   children,
-  paddingMm = 20,
-  view = 'pages'
+  paddingMm = 20
 }: {
   children: ReactNode
   paddingMm?: number
-  view?: PrintView
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
-  const pdf = usePrintOutput(contentRef, view === 'pages')
+  const pdf = usePrintOutput(contentRef)
+  const showSheet = pdf.status === 'error' && !pdf.data
 
   return (
     <>
       <style>{`
-        .paged-content > * { break-inside: avoid; }
+        .paged-content :is(h1, h2, h3, h4) { break-after: avoid; }
+        .paged-content :is(p, li) { orphans: 3; widows: 3; }
+        .paged-content :is(tr, img) { break-inside: avoid; }
         @media print {
           .paged-sheet {
             width: auto !important;
@@ -49,26 +50,29 @@ export function PagedDocument({
           @page { size: A4; margin: ${paddingMm}mm; }
         }
         @media screen {
-          .paged-sheet[data-screen-hidden='true'] { display: none; }
+          .paged-source[data-screen-hidden='true'] { display: none; }
         }
       `}</style>
 
-      {/* The document as a single vertical A4 sheet (always the print source) */}
-      <div
-        ref={contentRef}
-        data-screen-hidden={view === 'pages'}
-        className="paged-sheet relative mx-auto w-[210mm] bg-white text-black shadow-lg print:shadow-none"
-        style={{ minHeight: '297mm' }}
-      >
+      {/* The document as a single A4 sheet: the print source. The wrapper
+          carries the visibility flag so toggling it is not a content change
+          for the observer. */}
+      <div className="paged-source" data-screen-hidden={!showSheet}>
         <div
-          className="paged-content"
-          style={{ padding: `${paddingMm}mm`, overflowWrap: 'anywhere', hyphens: 'auto' }}
+          ref={contentRef}
+          className="paged-sheet relative mx-auto w-[210mm] bg-white text-black shadow-lg print:shadow-none"
+          style={{ minHeight: '297mm' }}
         >
-          {children}
+          <div
+            className="paged-content"
+            style={{ padding: `${paddingMm}mm`, overflowWrap: 'anywhere', hyphens: 'auto' }}
+          >
+            {children}
+          </div>
         </div>
       </div>
 
-      {view === 'pages' && <PdfPages pdf={pdf} />}
+      <PdfPages pdf={pdf} />
     </>
   )
 }
@@ -82,15 +86,12 @@ type PrintOutput =
  * Generates the real print output of this window and regenerates it
  * (debounced) whenever the document DOM changes or an image finishes loading.
  */
-function usePrintOutput(
-  contentRef: React.RefObject<HTMLDivElement | null>,
-  enabled: boolean
-): PrintOutput {
+function usePrintOutput(contentRef: React.RefObject<HTMLDivElement | null>): PrintOutput {
   const [output, setOutput] = useState<PrintOutput>({ status: 'loading', data: null })
 
   useEffect(() => {
     const content = contentRef.current
-    if (!enabled || !content) return
+    if (!content) return
 
     let run = 0
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -138,7 +139,7 @@ function usePrintOutput(
       observer.disconnect()
       content.removeEventListener('load', schedule, true)
     }
-  }, [contentRef, enabled])
+  }, [contentRef])
 
   return output
 }

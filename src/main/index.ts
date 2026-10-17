@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, extname } from 'path'
-import { readFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 
@@ -229,15 +229,19 @@ ipcMain.handle('logo:getDataUrl', async (_event, { relativePath }: { relativePat
  * IPC Handler: generate the real print output (printToPDF) of the current
  * window. Used by the print pages' exact preview.
  */
+// A4 with 20mm margins (0.787in), mirroring the sheet padding / @page CSS
+function printWindowToPdf(wc: Electron.WebContents): Promise<Buffer> {
+  return wc.printToPDF({
+    landscape: false,
+    printBackground: true,
+    pageSize: 'A4',
+    margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
+  })
+}
+
 ipcMain.handle('print:previewPdf', async (event) => {
   try {
-    const wc = event.sender
-    const pdf = await wc.printToPDF({
-      landscape: false,
-      printBackground: true,
-      pageSize: 'A4',
-      margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
-    })
+    const pdf = await printWindowToPdf(event.sender)
     // Raw bytes (arrive as Uint8Array) — the renderer draws the pages itself
     // with pdf.js; no temp files, no PDF plugin, no data: frames
     return { success: true, data: new Uint8Array(pdf) }
@@ -248,6 +252,44 @@ ipcMain.handle('print:previewPdf', async (event) => {
       error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
+})
+
+// Only PDFs saved through print:savePdf may be opened via print:openPdf
+const savedPdfPaths = new Set<string>()
+
+/**
+ * IPC Handler: save the real print output of the current window as a PDF,
+ * via a save dialog prefilled with the given file name (in Documents).
+ */
+ipcMain.handle('print:savePdf', async (event, { defaultFileName }: { defaultFileName: string }) => {
+  try {
+    const pdf = await printWindowToPdf(event.sender)
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.SaveDialogOptions = {
+      title: 'Als PDF speichern',
+      defaultPath: join(app.getPath('documents'), defaultFileName),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    }
+    const result = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return { success: true, canceled: true }
+    await writeFile(result.filePath, pdf)
+    savedPdfPaths.add(result.filePath)
+    return { success: true, canceled: false, filePath: result.filePath }
+  } catch (error) {
+    console.error('Error saving PDF:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
+ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string }) => {
+  if (!savedPdfPaths.has(filePath)) return { success: false, error: 'Unknown file' }
+  const error = await shell.openPath(filePath)
+  return error ? { success: false, error } : { success: true }
 })
 
 // This method will be called when Electron has finished

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
-import { PrintViewToggle } from '@/components/print/PrintViewToggle'
-import type { PrintView } from '@/components/print/PagedDocument'
+import { PrintActions } from '@/components/print/PrintActions'
+import { buildFileName } from '@/lib/fileName'
 import { ContractDocument } from '@/components/contract/ContractDocument'
 
 // Resolves a stored relative image path to a data URL via IPC (null if empty/missing)
@@ -56,9 +56,6 @@ export default function ContractPrintPage() {
   const signaturePath = data?.representative?.signaturePath || data?.artist?.signaturePath || ''
   const artistSignature = useStoredImageUrl(signaturePath || undefined)
 
-  // A4 page view (real print output) or the plain document sheet
-  const [view, setView] = useState<PrintView>('pages')
-
   if (contractQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -78,6 +75,14 @@ export default function ContractPrintPage() {
     )
   }
 
+  // e.g. "Konzertvertrag_Pretty Wild_Berghain_2026-10-21"
+  const fileName = buildFileName([
+    'Konzertvertrag',
+    data.band?.name,
+    data.venue?.name,
+    data.dealMemo.date
+  ])
+
   return (
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
       {/* Screen-only toolbar */}
@@ -89,10 +94,7 @@ export default function ContractPrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-2">
-          <PrintViewToggle value={view} onChange={setView} />
-          <Button onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
-          </Button>
+          <PrintActions fileName={fileName} />
         </div>
       </div>
 
@@ -100,7 +102,6 @@ export default function ContractPrintPage() {
         data={data}
         artistImageUrl={artistLogo ?? undefined}
         artistSignatureUrl={artistSignature ?? undefined}
-        view={view}
       />
     </div>
   )

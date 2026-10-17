@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
-import { PrintViewToggle } from '@/components/print/PrintViewToggle'
-import type { PrintView } from '@/components/print/PagedDocument'
+import { PrintActions } from '@/components/print/PrintActions'
+import { buildFileName } from '@/lib/fileName'
 import {
   Select,
   SelectContent,
@@ -57,8 +57,6 @@ export default function InvoicePrintPage() {
     setSuggestedTemplate(suggestTemplate(data))
   }
   const [template, setTemplate] = useState<InvoiceTemplate>(suggestedTemplate)
-  // A4 page view (real print output) or the plain document sheet
-  const [view, setView] = useState<PrintView>('pages')
 
   // Logo resolution is async IPC, so clearing on path change happens during
   // render, loading stays in an effect
@@ -100,6 +98,17 @@ export default function InvoicePrintPage() {
     )
   }
 
+  // e.g. "Rechnung_2-1040_Soundwave Records" — the number as the template prints it
+  const { invoice } = data
+  const fileName = buildFileName([
+    'Rechnung',
+    template === 'standard'
+      ? `${invoice.companyId}-${invoice.invoiceNumber}`
+      : invoice.invoiceNumber,
+    data.recipient?.legalName || invoice.recipientName,
+    invoice.status === 'draft' ? 'Entwurf' : null
+  ])
+
   return (
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
       {/* Screen-only toolbar */}
@@ -120,14 +129,11 @@ export default function InvoicePrintPage() {
               ))}
             </SelectContent>
           </Select>
-          <PrintViewToggle value={view} onChange={setView} />
-          <Button onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
-          </Button>
+          <PrintActions fileName={fileName} />
         </div>
       </div>
 
-      <InvoiceDocument data={data} template={template} logoUrl={logoUrl} view={view} />
+      <InvoiceDocument data={data} template={template} logoUrl={logoUrl} />
     </div>
   )
 }
