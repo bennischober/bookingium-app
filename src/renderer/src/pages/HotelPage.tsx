@@ -9,6 +9,7 @@ import { FormSheet } from '@/components/form-sheet'
 import { HotelForm } from '@/components/forms/HotelForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { HotelDto } from '../../../main/api/schemas/hotel.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export default function HotelPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -59,8 +60,15 @@ export default function HotelPage() {
     }
   })
 
-  const handleDelete = (hotel: HotelDto) => {
-    if (confirm(`Sind Sie sicher, dass Sie ${hotel.name} löschen möchten?`)) {
+  const handleDelete = async (hotel: HotelDto) => {
+    if (
+      await confirmAction({
+        title: `„${hotel.name}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteMutation.mutate(hotel.id, {
         onSuccess: () => {
           toast.success('Hotel gelöscht', {

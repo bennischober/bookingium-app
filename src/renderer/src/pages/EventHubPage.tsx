@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from '@tanstack/react-router'
+import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsTab } from '@/components/event-hub/DocumentsTab'
+import { isEventTab } from '@/components/event-hub/constants'
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Bestätigt',
@@ -21,6 +22,8 @@ const STATUS_LABELS: Record<string, string> = {
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as { tab?: string }
+  const activeTab = isEventTab(search.tab) ? search.tab : 'overview'
 
   const {
     data: event,
@@ -155,7 +158,19 @@ export function EventHubPage() {
       </div>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="overview" className="flex-1">
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) =>
+          // replace: switching tabs should not pile up history entries
+          navigate({
+            to: '/events/$eventId',
+            params: { eventId: String(eventId) },
+            search: { tab: isEventTab(tab) && tab !== 'overview' ? tab : undefined },
+            replace: true
+          })
+        }
+        className="flex-1"
+      >
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>

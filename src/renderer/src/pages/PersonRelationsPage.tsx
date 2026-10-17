@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { confirmAction } from '@/lib/confirm'
 
 type RelationType = 'band' | 'company' | 'venue'
 type DialogMode = 'add' | 'edit'
@@ -196,8 +197,13 @@ export default function PersonRelationsPage() {
     }
   }
 
-  const handleRemove = (type: RelationType, id: number, name: string) => {
-    if (!confirm(`Aus ${name} entfernen?`)) return
+  const handleRemove = async (type: RelationType, id: number, name: string) => {
+    const confirmed = await confirmAction({
+      title: `Aus ${name} entfernen?`,
+      confirmLabel: 'Entfernen',
+      destructive: true
+    })
+    if (!confirmed) return
 
     if (type === 'band') {
       removeBandMember.mutate({ id })

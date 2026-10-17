@@ -14,6 +14,7 @@ import { FileText, Trash2, Upload, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import type { DocumentType } from 'src/main/api/schemas/document.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export interface DocumentsTabProps {
   event: DealMemoDetailDto
@@ -321,11 +322,14 @@ export function DocumentsTab({ event }: DocumentsTabProps) {
                     variant="ghost"
                     size="sm"
                     disabled={deleteDocumentMutation.isPending}
-                    onClick={() => {
+                    onClick={async () => {
                       if (
-                        confirm(
-                          `„${doc.fileName}" löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
-                        )
+                        await confirmAction({
+                          title: `„${doc.fileName}“ löschen?`,
+                          description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+                          confirmLabel: 'Löschen',
+                          destructive: true
+                        })
                       ) {
                         deleteDocumentMutation.mutate(doc.id)
                       }

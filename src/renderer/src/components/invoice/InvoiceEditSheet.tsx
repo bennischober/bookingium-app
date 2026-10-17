@@ -19,6 +19,7 @@ import {
   type InvoiceDto,
   type InvoiceStatus
 } from '../../../../main/api/schemas/invoice.schema'
+import { confirmAction } from '@/lib/confirm'
 
 const STATUS_ACTION_LABELS: Partial<Record<InvoiceStatus, string>> = {
   issued: 'Wieder offen (gestellt)',
@@ -201,11 +202,15 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
                 size="sm"
                 className="ml-auto"
                 disabled={statusMutation.isPending}
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    confirm(
-                      `Rechnung ${invoiceNumberLabel(invoice.invoiceNumber)} stornieren? Das lässt sich nicht rückgängig machen.`
-                    )
+                    await confirmAction({
+                      title: `Rechnung ${invoiceNumberLabel(invoice.invoiceNumber)} stornieren?`,
+                      description:
+                        'Die Rechnung bleibt mit ihrer Nummer erhalten. Das lässt sich nicht rückgängig machen.',
+                      confirmLabel: 'Stornieren',
+                      destructive: true
+                    })
                   ) {
                     statusMutation.mutate({ id: invoice.id, status: 'cancelled' })
                   }

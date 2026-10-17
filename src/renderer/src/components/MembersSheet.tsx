@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { confirmAction } from '@/lib/confirm'
 
 type MemberEntityType = 'band' | 'company' | 'venue'
 
@@ -238,8 +239,13 @@ export function MembersSheet({
     }
   }
 
-  const handleRemove = (member: MemberRow) => {
-    if (!confirm(`${member.personName} aus ${entityName} entfernen?`)) return
+  const handleRemove = async (member: MemberRow) => {
+    const confirmed = await confirmAction({
+      title: `${member.personName} aus ${entityName} entfernen?`,
+      confirmLabel: 'Entfernen',
+      destructive: true
+    })
+    if (!confirmed) return
     if (entityType === 'band') {
       removeMutation.mutate({ id: member.id })
     } else if (entityType === 'company') {

@@ -14,6 +14,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
 import { PersonDto } from 'src/main/api/schemas/person.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export function PersonPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -80,9 +81,14 @@ export function PersonPage() {
     updateMutation.mutate(data as z.infer<typeof UpdatePersonInput>)
   }
 
-  const handleDelete = (person: PersonDto) => {
+  const handleDelete = async (person: PersonDto) => {
     if (
-      confirm(`Sind Sie sicher, dass Sie ${person.firstName} ${person.lastName} löschen möchten?`)
+      await confirmAction({
+        title: `„${person.firstName} ${person.lastName}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
     ) {
       deleteMutation.mutate({ id: person.id })
     }

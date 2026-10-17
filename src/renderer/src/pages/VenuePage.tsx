@@ -10,6 +10,7 @@ import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { VenueDto } from '../../../main/api/schemas/venue.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -67,8 +68,15 @@ export default function VenuePage() {
     }
   })
 
-  const handleDelete = (venue: VenueDto) => {
-    if (confirm(`Sind Sie sicher, dass Sie ${venue.name} löschen möchten?`)) {
+  const handleDelete = async (venue: VenueDto) => {
+    if (
+      await confirmAction({
+        title: `„${venue.name}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteMutation.mutate({ id: venue.id })
     }
   }

@@ -10,6 +10,7 @@ import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
+import { confirmAction } from '@/lib/confirm'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -46,8 +47,15 @@ export function EventPage() {
     onError: (e) => toast.error('Event konnte nicht gelöscht werden', { description: e.message })
   })
 
-  const handleDelete = (id: number, name: string) => {
-    if (confirm(`Event "${name}" löschen? Dies kann nicht rückgängig gemacht werden.`)) {
+  const handleDelete = async (id: number, name: string) => {
+    if (
+      await confirmAction({
+        title: `Event „${name}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteMutation.mutate(id)
     }
   }

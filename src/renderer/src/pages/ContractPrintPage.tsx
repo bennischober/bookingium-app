@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from '@tanstack/react-router'
+import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -43,6 +43,8 @@ function useStoredImageUrl(relativePath: string | undefined): string | null {
 export default function ContractPrintPage() {
   const { eventId } = useParams({ strict: false })
   const navigate = useNavigate()
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
   const id = Number(eventId)
 
   // The contract reads live master data (band, companies, people, event), so
@@ -92,7 +94,13 @@ export default function ContractPrintPage() {
       <div className="mx-auto mb-4 flex w-[210mm] items-center justify-between print:hidden">
         <Button
           variant="outline"
-          onClick={() => navigate({ to: '/events/$eventId', params: { eventId: String(id) } })}
+          // Back to the event tab the contract was opened from; the event
+          // itself when opened directly
+          onClick={() =>
+            canGoBack
+              ? router.history.back()
+              : navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
+          }
         >
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>

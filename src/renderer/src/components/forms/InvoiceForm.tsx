@@ -23,6 +23,7 @@ import type {
   InvoiceStatus,
   InvoiceTaxCode
 } from '../../../../main/api/schemas/invoice.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export type InvoiceLineDraft = {
   description: string
@@ -304,7 +305,7 @@ export function InvoiceForm({
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (recipientKind === 'band' && !recipientBandId) {
       toast.error('Bitte eine Empfänger-Band auswählen')
       return
@@ -344,9 +345,12 @@ export function InvoiceForm({
 
     if (
       status === 'issued' &&
-      !confirm(
-        'Rechnung jetzt stellen? Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.'
-      )
+      !(await confirmAction({
+        title: 'Rechnung jetzt stellen?',
+        description:
+          'Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.',
+        confirmLabel: 'Rechnung stellen'
+      }))
     ) {
       return
     }

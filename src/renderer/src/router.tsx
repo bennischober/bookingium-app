@@ -16,6 +16,7 @@ import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
 import { ROUTES } from '@/lib/routing'
+import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 
 const hashHistory = createHashHistory()
 
@@ -99,6 +100,11 @@ const invoiceRoute = createRoute({
 const eventHubRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/events/$eventId',
+  // The active tab lives in the URL, so returning from a print page (or any
+  // back navigation) reopens the tab the user was on
+  validateSearch: (search: Record<string, unknown>): { tab?: EventTab } => ({
+    tab: isEventTab(search.tab) ? search.tab : undefined
+  }),
   component: EventHubPage
 })
 

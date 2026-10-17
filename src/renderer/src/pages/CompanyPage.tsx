@@ -15,6 +15,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Pencil, Trash2, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
+import { confirmAction } from '@/lib/confirm'
 
 export function CompanyPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -110,8 +111,15 @@ export function CompanyPage() {
     updateMutation.mutate(data as z.infer<typeof UpdateCompanyInput>)
   }
 
-  const handleDelete = (company: CompanyDto) => {
-    if (confirm(`Sind Sie sicher, dass Sie ${company.name} löschen möchten?`)) {
+  const handleDelete = async (company: CompanyDto) => {
+    if (
+      await confirmAction({
+        title: `„${company.name}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteMutation.mutate({ id: company.id })
     }
   }

@@ -13,6 +13,7 @@ import { Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
 import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
+import { confirmAction } from '@/lib/confirm'
 
 export default function BandPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -77,8 +78,15 @@ export default function BandPage() {
     }
   })
 
-  const handleDelete = (id: number, name: string) => {
-    if (confirm(`Sind Sie sicher, dass Sie "${name}" löschen möchten?`)) {
+  const handleDelete = async (id: number, name: string) => {
+    if (
+      await confirmAction({
+        title: `„${name}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteBand.mutate(id)
     }
   }

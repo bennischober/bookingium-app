@@ -14,6 +14,7 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
+import { confirmAction } from '@/lib/confirm'
 
 export default function BankPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -73,8 +74,15 @@ export default function BankPage() {
     updateMutation.mutate(data as z.infer<typeof UpdateBankInput>)
   }
 
-  const handleDelete = (bank: BankDto) => {
-    if (confirm(`Sind Sie sicher, dass Sie ${bank.bankName} löschen möchten?`)) {
+  const handleDelete = async (bank: BankDto) => {
+    if (
+      await confirmAction({
+        title: `„${bank.bankName}“ löschen?`,
+        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+    ) {
       deleteMutation.mutate({ id: bank.id })
     }
   }

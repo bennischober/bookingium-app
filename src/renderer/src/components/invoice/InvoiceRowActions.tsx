@@ -8,6 +8,7 @@ import {
   isInvoiceLocked,
   type InvoiceListItemDto
 } from '../../../../main/api/schemas/invoice.schema'
+import { confirmAction } from '@/lib/confirm'
 
 /**
  * Open / print / delete buttons of an invoice row (invoice list and an
@@ -70,8 +71,15 @@ export function InvoiceRowActions({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
-            if (confirm(`${invoiceNumberLabel(invoice.invoiceNumber)} löschen?`)) {
+          onClick={async () => {
+            if (
+              await confirmAction({
+                title: `${invoiceNumberLabel(invoice.invoiceNumber)} löschen?`,
+                description: 'Der Entwurf wird endgültig entfernt.',
+                confirmLabel: 'Löschen',
+                destructive: true
+              })
+            ) {
               deleteMutation.mutate(invoice.id)
             }
           }}
