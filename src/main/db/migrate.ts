@@ -1,5 +1,5 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { getDb } from './index'
+import { getDb, getSqlite } from './index'
 import { join } from 'path'
 
 let migrationsFolderOverride: string | null = null
@@ -45,5 +45,21 @@ export function runMigrations(): void {
       }) ?? candidates[0]
   }
 
-  migrate(getDb(), { migrationsFolder })
+  // drizzle-kit rebuilds tables for some schema changes (CREATE __new_x,
+  // copy, DROP x, rename). The migrator runs inside a transaction, where the
+  // migration's own `PRAGMA foreign_keys=OFF` is a no-op, and better-sqlite3
+  // enables foreign keys by default - so DROP TABLE would cascade-delete
+  // child rows (e.g. all invoice line items). Disable enforcement outside
+  // the transaction instead, and verify integrity before re-enabling it.
+  const sqlite = getSqlite()
+  sqlite.pragma('foreign_keys = OFF')
+  try {
+    migrate(getDb(), { migrationsFolder })
+    const violations = sqlite.pragma('foreign_key_check') as unknown[]
+    if (violations.length > 0) {
+      throw new Error(`Migration left ${violations.length} foreign key violation(s)`)
+    }
+  } finally {
+    sqlite.pragma('foreign_keys = ON')
+  }
 }

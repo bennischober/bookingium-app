@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { formatMoney } from '@/lib/invoiceLabels'
+import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                 >
                   <div>
                     <p className="font-medium">
-                      #{invoice.invoiceNumber} · {invoice.companyName}
+                      {invoiceNumberLabel(invoice.invoiceNumber)} · {invoice.companyName}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(invoice.issueDate)}{' '}

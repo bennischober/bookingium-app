@@ -8,6 +8,7 @@ import type {
   CreateInvoiceForDealMemoInput,
   InvoiceLineItemInput,
   InvoiceRecipientKind,
+  InvoiceStatus,
   UpsertCompanyInvoiceSettingsInput,
   UpdateInvoiceInput
 } from '../api/schemas/invoice.schema'
@@ -573,6 +574,46 @@ export class InvoiceRepository {
     })
   }
 
+  /** An invoice needs a non-zero total before it can be issued */
+  private assertIssuable(totalGrossAmount: number) {
+    if (totalGrossAmount === 0) {
+      throw new Error(
+        'Eine Rechnung über 0,00 kann nicht gestellt werden – bitte Positionen erfassen'
+      )
+    }
+  }
+
+  /** Takes the company's next invoice number and advances its counter */
+  private takeNextInvoiceNumber(tx: Tx, companyId: number): number {
+    const existingSettings = tx
+      .select()
+      .from(schema.company_invoice_settings)
+      .where(eq(schema.company_invoice_settings.company_id, companyId))
+      .limit(1)
+      .all()
+
+    const assignedInvoiceNumber = existingSettings[0]?.next_invoice_number ?? 1
+
+    if (existingSettings.length > 0) {
+      tx.update(schema.company_invoice_settings)
+        .set({
+          next_invoice_number: assignedInvoiceNumber + 1,
+          updated_at: sql`datetime('now')`
+        })
+        .where(eq(schema.company_invoice_settings.id, existingSettings[0].id))
+        .run()
+    } else {
+      tx.insert(schema.company_invoice_settings)
+        .values({
+          company_id: companyId,
+          next_invoice_number: assignedInvoiceNumber + 1
+        })
+        .run()
+    }
+
+    return assignedInvoiceNumber
+  }
+
   async create(input: CreateInvoiceInput) {
     return db.transaction((tx) => {
       const companyId = this.resolveInvoiceCompanyId(tx, input)
@@ -581,31 +622,11 @@ export class InvoiceRepository {
       const normalizedLineItems = this.normalizeLineItems(input.lineItems, input.totalAmount)
       const totals = this.sumTotals(normalizedLineItems)
 
-      const existingSettings = tx
-        .select()
-        .from(schema.company_invoice_settings)
-        .where(eq(schema.company_invoice_settings.company_id, companyId))
-        .limit(1)
-        .all()
-
-      const assignedInvoiceNumber = existingSettings[0]?.next_invoice_number ?? 1
-
-      if (existingSettings.length > 0) {
-        tx.update(schema.company_invoice_settings)
-          .set({
-            next_invoice_number: assignedInvoiceNumber + 1,
-            updated_at: sql`datetime('now')`
-          })
-          .where(eq(schema.company_invoice_settings.id, existingSettings[0].id))
-          .run()
-      } else {
-        tx.insert(schema.company_invoice_settings)
-          .values({
-            company_id: companyId,
-            next_invoice_number: assignedInvoiceNumber + 1
-          })
-          .run()
-      }
+      const status = input.status ?? 'draft'
+      // Drafts get their number when they are issued
+      if (status !== 'draft') this.assertIssuable(totals.totalGrossAmount)
+      const assignedInvoiceNumber =
+        status === 'draft' ? null : this.takeNextInvoiceNumber(tx, companyId)
 
       const created = tx
         .insert(schema.invoice)
@@ -620,7 +641,7 @@ export class InvoiceRepository {
           period_label: input.periodLabel ?? '',
           issue_date: input.issueDate ?? new Date().toISOString().slice(0, 10),
           due_date: input.dueDate ?? null,
-          status: input.status ?? 'draft',
+          status,
           currency: input.currency ?? 'EUR',
           subtotal_net_amount: totals.subtotalNetAmount,
           subtotal_tax_amount: totals.subtotalTaxAmount,
@@ -755,6 +776,15 @@ export class InvoiceRepository {
         values.recipient_snapshot_id = recipientSnapshot.id
       }
 
+      // Issuing a draft: it gets the (possibly changed) issuer's next number
+      const issuing = values.status !== undefined && values.status !== 'draft'
+      if (issuing && existing.invoice_number === null) {
+        this.assertIssuable(
+          (values.total_gross_amount as number | undefined) ?? existing.total_gross_amount
+        )
+        values.invoice_number = this.takeNextInvoiceNumber(tx, nextCompanyId)
+      }
+
       const updated = tx
         .update(schema.invoice)
         .set(values)
@@ -791,6 +821,28 @@ export class InvoiceRepository {
       }
 
       return this.loadInvoiceWithRelationsTx(tx, input.id)
+    })
+  }
+
+  /** Changes only the status; assigns the number when a draft is issued */
+  async setStatus(id: number, status: InvoiceStatus) {
+    return db.transaction((tx) => {
+      const existing = tx
+        .select()
+        .from(schema.invoice)
+        .where(eq(schema.invoice.id, id))
+        .limit(1)
+        .all()[0]
+      if (!existing) throw new Error('Invoice not found')
+
+      const values: Record<string, unknown> = { status, updated_at: sql`datetime('now')` }
+      if (status !== 'draft' && existing.invoice_number === null) {
+        this.assertIssuable(existing.total_gross_amount)
+        values.invoice_number = this.takeNextInvoiceNumber(tx, existing.company_id)
+      }
+
+      tx.update(schema.invoice).set(values).where(eq(schema.invoice.id, id)).run()
+      return this.loadInvoiceWithRelationsTx(tx, id)
     })
   }
 

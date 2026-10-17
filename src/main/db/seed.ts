@@ -490,7 +490,7 @@ export async function seedDatabase() {
     await db.insert(company_invoice_settings).values([
       {
         company_id: company1.id,
-        next_invoice_number: 510
+        next_invoice_number: 509
       },
       {
         company_id: company2.id,
@@ -906,7 +906,8 @@ export async function seedDatabase() {
     const [invoice3] = await db
       .insert(invoice)
       .values({
-        invoice_number: 509,
+        // Draft: no number until it is issued
+        invoice_number: null,
         company_id: company1.id,
         issuer_snapshot_id: issuerSnapshot2.id,
         recipient_snapshot_id: recipientSnapshotBand.id,

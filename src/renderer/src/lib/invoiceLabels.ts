@@ -19,6 +19,11 @@ export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200'
 }
 
+/** List label of an invoice number: "#1040", or "Entwurf" before it is issued */
+export function invoiceNumberLabel(invoiceNumber: number | null): string {
+  return invoiceNumber === null ? 'Entwurf' : `#${invoiceNumber}`
+}
+
 export function formatMoney(value: number, currency: string): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',

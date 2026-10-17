@@ -33,7 +33,10 @@ export type InvoiceLineDraft = {
   taxCode: InvoiceTaxCode
 }
 
-const INVOICE_STATUS: InvoiceStatus[] = ['draft', 'issued', 'paid', 'overdue', 'cancelled']
+// The form only handles drafts: save as draft, or issue (which assigns the
+// number and locks the invoice). Later status changes happen on the locked
+// invoice (paid, overdue, Storno).
+const INVOICE_STATUS: InvoiceStatus[] = ['draft', 'issued']
 const INVOICE_RECIPIENT_KIND: InvoiceRecipientKind[] = ['company', 'band', 'person', 'other']
 const TAX_CODES: InvoiceTaxCode[] = ['standard', 'reduced', 'reverse_charge', 'exempt', 'other']
 
@@ -339,6 +342,15 @@ export function InvoiceForm({
       notes
     }
 
+    if (
+      status === 'issued' &&
+      !confirm(
+        'Rechnung jetzt stellen? Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.'
+      )
+    ) {
+      return
+    }
+
     if (mode === 'create') {
       onCreate(payload)
       return
@@ -382,7 +394,9 @@ export function InvoiceForm({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Der Status ist nur informativ. Sie können später alles weiter bearbeiten.
+                {status === 'draft'
+                  ? 'Entwürfe bleiben bearbeitbar und erhalten noch keine Rechnungsnummer.'
+                  : 'Beim Stellen wird die nächste Rechnungsnummer vergeben; danach ist die Rechnung gesperrt.'}
               </p>
             </div>
 
@@ -805,7 +819,11 @@ export function InvoiceForm({
                 Abbrechen
               </Button>
               <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-                {mode === 'create' ? 'Rechnung anlegen' : 'Rechnung speichern'}
+                {status === 'issued'
+                  ? 'Rechnung stellen'
+                  : mode === 'create'
+                    ? 'Entwurf anlegen'
+                    : 'Entwurf speichern'}
               </Button>
             </div>
           </div>

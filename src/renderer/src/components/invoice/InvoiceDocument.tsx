@@ -297,7 +297,11 @@ function AgencyTemplate({
           formatPeriod(data),
           data.venueName || '-',
           formatDate(invoice.issueDate),
-          String(invoice.invoiceNumber)
+          invoice.invoiceNumber === null
+            ? lang === 'en'
+              ? 'Draft'
+              : 'Entwurf'
+            : String(invoice.invoiceNumber)
         ]}
       />
 
@@ -402,9 +406,7 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         <div className="text-right">
           <div className="text-[20pt] font-bold tracking-wide">RECHNUNG</div>
           <div className="mt-2 text-[10pt]">
-            <div>
-              Nr. {invoice.companyId}-{invoice.invoiceNumber}
-            </div>
+            <div>Nr. {invoice.invoiceNumber ?? 'Entwurf'}</div>
             <div>Datum: {formatDate(invoice.issueDate)}</div>
             {invoice.dueDate && <div>Fällig: {formatDate(invoice.dueDate)}</div>}
           </div>
@@ -524,14 +526,27 @@ export function InvoiceDocument({
   template: InvoiceTemplate
   logoUrl?: string
 }) {
-  const isDraft = data.invoice.status === 'draft'
+  // Drafts and cancelled invoices carry a watermark on every print
+  const watermark =
+    data.invoice.status === 'draft'
+      ? template === 'agency-en'
+        ? 'DRAFT'
+        : 'ENTWURF'
+      : data.invoice.status === 'cancelled'
+        ? template === 'agency-en'
+          ? 'CANCELLED'
+          : 'STORNIERT'
+        : null
 
   return (
     <PagedDocument>
-      {isDraft && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
-          <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">
-            ENTWURF
+      {/* fixed in print: Chromium repeats fixed elements on every page, centered
+          per page. inline-block so the rotation applies; translucent so it
+          never hides the text underneath. */}
+      {watermark && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:fixed">
+          <span className="inline-block rotate-[-30deg] text-[60pt] font-bold text-black/10 select-none">
+            {watermark}
           </span>
         </div>
       )}

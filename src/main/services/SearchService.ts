@@ -145,7 +145,10 @@ export class SearchService {
       ...invoices.map((invoice) => ({
         type: 'invoice' as const,
         id: invoice.id,
-        label: `Rechnung #${invoice.invoiceNumber}`,
+        label:
+          invoice.invoiceNumber === null
+            ? 'Rechnungsentwurf'
+            : `Rechnung #${invoice.invoiceNumber}`,
         sublabel: `${invoice.companyName ?? ''} · ${invoice.status}`.trim(),
         route: '/invoices',
         routeParams: null

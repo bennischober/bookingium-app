@@ -4,6 +4,36 @@ import { TimestampFields, createPaginatedResponse } from './base.schema'
 export const InvoiceStatus = z.enum(['draft', 'issued', 'paid', 'overdue', 'cancelled'])
 export type InvoiceStatus = z.infer<typeof InvoiceStatus>
 
+// ========================================
+// Invoice lifecycle rules (shared by main and renderer)
+// ========================================
+// draft     -> editable, deletable, no number yet
+// issued    -> number assigned, content locked; status can still move
+//              between issued/paid/overdue, or to cancelled (Storno)
+// cancelled -> final; the invoice and its number stay on record
+
+const INVOICE_STATUS_TRANSITIONS: Record<InvoiceStatus, readonly InvoiceStatus[]> = {
+  draft: ['issued'],
+  issued: ['paid', 'overdue', 'cancelled'],
+  overdue: ['issued', 'paid', 'cancelled'],
+  paid: ['issued', 'overdue', 'cancelled'],
+  cancelled: []
+}
+
+/** Statuses an invoice in `from` may move to (excluding staying put) */
+export function nextInvoiceStatuses(from: InvoiceStatus): readonly InvoiceStatus[] {
+  return INVOICE_STATUS_TRANSITIONS[from]
+}
+
+export function canChangeInvoiceStatus(from: InvoiceStatus, to: InvoiceStatus): boolean {
+  return from === to || INVOICE_STATUS_TRANSITIONS[from].includes(to)
+}
+
+/** Only drafts may be edited or deleted; everything else is on record */
+export function isInvoiceLocked(status: InvoiceStatus): boolean {
+  return status !== 'draft'
+}
+
 export const InvoiceRecipientKind = z.enum(['company', 'band', 'person', 'other'])
 export type InvoiceRecipientKind = z.infer<typeof InvoiceRecipientKind>
 
@@ -56,7 +86,8 @@ export type InvoicePartySnapshotDto = z.infer<typeof InvoicePartySnapshotDto>
 
 export const InvoiceListItemDto = z.object({
   id: z.number(),
-  invoiceNumber: z.number(),
+  // null while the invoice is a draft (assigned on issue)
+  invoiceNumber: z.number().nullable(),
   companyId: z.number(),
   companyName: z.string(),
   recipientKind: InvoiceRecipientKind,
@@ -184,3 +215,10 @@ export const UpdateInvoiceInput = z.object({
 })
 
 export type UpdateInvoiceInput = z.infer<typeof UpdateInvoiceInput>
+
+export const SetInvoiceStatusInput = z.object({
+  id: z.number(),
+  status: InvoiceStatus
+})
+
+export type SetInvoiceStatusInput = z.infer<typeof SetInvoiceStatusInput>

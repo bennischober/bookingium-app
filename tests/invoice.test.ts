@@ -1,6 +1,7 @@
-// Invoice repository/service tests: sequential per-company numbering (the
-// unique index on (company_id, invoice_number) must never trip), issuer and
-// recipient snapshot capture with footer fields, and line-item totals.
+// Invoice repository/service tests: sequential per-company numbering on
+// issue (the unique index on (company_id, invoice_number) must never trip),
+// the draft/issued/cancelled lifecycle rules, issuer and recipient snapshot
+// capture with footer fields, and line-item totals.
 import 'reflect-metadata'
 import { describe, it, expect } from 'vitest'
 import { container } from 'tsyringe'
@@ -32,19 +33,21 @@ describe('InvoiceService', () => {
 
     const a = await invoices.createInvoice({
       companyId: company.id,
+      status: 'issued',
       lineItems: [
         { description: 'A', quantity: 1, unitPriceNet: 100, taxRate: 19, taxCode: 'standard' }
       ]
     })
     const b = await invoices.createInvoice({
       companyId: company.id,
+      status: 'issued',
       lineItems: [
         { description: 'B', quantity: 1, unitPriceNet: 200, taxRate: 0, taxCode: 'other' }
       ]
     })
 
     expect(a.invoice_number).toBeGreaterThan(0)
-    expect(b.invoice_number).toBe(a.invoice_number + 1)
+    expect(b.invoice_number).toBe((a.invoice_number ?? 0) + 1)
   })
 
   it('two issuers number independently', async () => {
@@ -59,12 +62,14 @@ describe('InvoiceService', () => {
 
     const a = await invoices.createInvoice({
       companyId: c1.id,
+      status: 'issued',
       lineItems: [
         { description: 'A', quantity: 1, unitPriceNet: 100, taxRate: 0, taxCode: 'other' }
       ]
     })
     const b = await invoices.createInvoice({
       companyId: c2.id,
+      status: 'issued',
       lineItems: [
         { description: 'B', quantity: 1, unitPriceNet: 100, taxRate: 0, taxCode: 'other' }
       ]
@@ -148,5 +153,112 @@ describe('InvoiceService', () => {
     expect(updated.status).toBe('issued')
     expect(updated.lineItems).toHaveLength(1)
     expect(updated.lineItems[0].description).toBe('Item')
+  })
+
+  describe('lifecycle', () => {
+    const line = [
+      { description: 'Gage', quantity: 1, unitPriceNet: 100, taxRate: 0, taxCode: 'other' as const }
+    ]
+
+    async function setup() {
+      const companies = container.resolve(CompanyService)
+      const invoices = container.resolve(InvoiceService)
+      const company = await companies.createCompany({
+        ...issuer,
+        name: `Lifecycle ${Math.random()}`,
+        isDefaultForInvoicing: false
+      })
+      return { invoices, company }
+    }
+
+    it('drafts get no number; issuing takes the next one', async () => {
+      const { invoices, company } = await setup()
+
+      const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      expect(draft.status).toBe('draft')
+      expect(draft.invoice_number).toBeNull()
+
+      const issued = await invoices.setInvoiceStatus(draft.id, 'issued')
+      expect(issued.invoice_number).toBe(1)
+
+      // Issuing via the form's update path numbers the same way
+      const draft2 = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      const issued2 = await invoices.updateInvoice({ id: draft2.id, status: 'issued' })
+      expect(issued2.invoice_number).toBe(2)
+    })
+
+    it('refuses to issue an invoice with a zero total', async () => {
+      const { invoices, company } = await setup()
+      const empty = await invoices.createInvoice({ companyId: company.id })
+
+      await expect(invoices.setInvoiceStatus(empty.id, 'issued')).rejects.toThrow(/0,00/)
+      await expect(invoices.updateInvoice({ id: empty.id, status: 'issued' })).rejects.toThrow(
+        /0,00/
+      )
+      // Nothing was consumed: the next issued invoice still gets number 1
+      const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      expect((await invoices.setInvoiceStatus(draft.id, 'issued')).invoice_number).toBe(1)
+    })
+
+    it('deleting a draft leaves no gap in the sequence', async () => {
+      const { invoices, company } = await setup()
+
+      const throwaway = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      await invoices.deleteInvoice(throwaway.id)
+
+      const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      const issued = await invoices.setInvoiceStatus(draft.id, 'issued')
+      expect(issued.invoice_number).toBe(1)
+    })
+
+    it('locks issued invoices: no edits, no delete', async () => {
+      const { invoices, company } = await setup()
+      const issued = await invoices.createInvoice({
+        companyId: company.id,
+        status: 'issued',
+        lineItems: line
+      })
+
+      await expect(invoices.updateInvoice({ id: issued.id, notes: 'changed' })).rejects.toThrow(
+        /nicht mehr bearbeitet/
+      )
+      await expect(invoices.deleteInvoice(issued.id)).rejects.toThrow(/Nur Entwürfe/)
+      expect(await invoices.getInvoiceById(issued.id)).not.toBeNull()
+    })
+
+    it('allows paid/overdue changes and Storno, which is final', async () => {
+      const { invoices, company } = await setup()
+      const issued = await invoices.createInvoice({
+        companyId: company.id,
+        status: 'issued',
+        lineItems: line
+      })
+
+      expect((await invoices.setInvoiceStatus(issued.id, 'overdue')).status).toBe('overdue')
+      expect((await invoices.setInvoiceStatus(issued.id, 'paid')).status).toBe('paid')
+
+      const cancelled = await invoices.setInvoiceStatus(issued.id, 'cancelled')
+      expect(cancelled.status).toBe('cancelled')
+      expect(cancelled.invoice_number).toBe(issued.invoice_number)
+
+      await expect(invoices.setInvoiceStatus(issued.id, 'paid')).rejects.toThrow(/nicht erlaubt/)
+      await expect(invoices.deleteInvoice(issued.id)).rejects.toThrow(/Nur Entwürfe/)
+    })
+
+    it('rejects skipping the issue step or going back to draft', async () => {
+      const { invoices, company } = await setup()
+      const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+
+      await expect(invoices.setInvoiceStatus(draft.id, 'paid')).rejects.toThrow(/nicht erlaubt/)
+      await expect(invoices.setInvoiceStatus(draft.id, 'cancelled')).rejects.toThrow(
+        /nicht erlaubt/
+      )
+
+      await invoices.setInvoiceStatus(draft.id, 'issued')
+      await expect(invoices.setInvoiceStatus(draft.id, 'draft')).rejects.toThrow(/nicht erlaubt/)
+      await expect(
+        invoices.createInvoice({ companyId: company.id, status: 'cancelled', lineItems: line })
+      ).rejects.toThrow(/storniert/)
+    })
   })
 })

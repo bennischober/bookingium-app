@@ -100,15 +100,13 @@ export default function InvoicePrintPage() {
     )
   }
 
-  // e.g. "Rechnung_2-1040_Soundwave Records" — the number as the template prints it
+  // e.g. "Rechnung_1040_Soundwave Records", "Rechnung_Entwurf_Soundwave Records"
   const { invoice } = data
   const fileName = buildFileName([
     'Rechnung',
-    template === 'standard'
-      ? `${invoice.companyId}-${invoice.invoiceNumber}`
-      : invoice.invoiceNumber,
+    invoice.invoiceNumber ?? 'Entwurf',
     data.recipient?.legalName || invoice.recipientName,
-    invoice.status === 'draft' ? 'Entwurf' : null
+    invoice.status === 'cancelled' ? 'storniert' : null
   ])
 
   return (

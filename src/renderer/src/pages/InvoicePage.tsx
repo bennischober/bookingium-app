@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -20,7 +18,14 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '@/lib/invoiceLabels'
+import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
+import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
+import {
+  INVOICE_STATUS_LABELS,
+  INVOICE_STATUS_STYLES,
+  formatMoney,
+  invoiceNumberLabel
+} from '@/lib/invoiceLabels'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
 
 export default function InvoicePage() {
@@ -29,9 +34,11 @@ export default function InvoicePage() {
   const [settingsCompanyId, setSettingsCompanyId] = useState<number | null>(null)
   const [nextNumberInput, setNextNumberInput] = useState('1')
 
+  // Create uses the form sheet; existing invoices open in the edit sheet
+  // (drafts editable, issued invoices locked)
   const sheet = useFormSheet<InvoiceDto>()
+  const [openInvoiceId, setOpenInvoiceId] = useState<number | null>(null)
   const utils = trpcReact.useUtils()
-  const navigate = useNavigate()
 
   const invoices = trpcReact.invoice.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,
@@ -69,33 +76,19 @@ export default function InvoicePage() {
   }
 
   const createMutation = trpcReact.invoice.create.useMutation({
-    onSuccess: () => {
-      utils.invoice.getAllPaginated.invalidate()
-      utils.invoice.getByDealMemoId.invalidate()
+    onSuccess: (created) => {
+      utils.invoice.invalidate()
+      utils.dealMemo.getById.invalidate()
+      utils.dashboard.invalidate()
       sheet.close()
-      toast.success('Rechnung erstellt')
+      toast.success(
+        created.status === 'draft'
+          ? 'Entwurf angelegt'
+          : `Rechnung ${invoiceNumberLabel(created.invoiceNumber)} gestellt`
+      )
     },
     onError: (error) =>
       toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
-  })
-
-  const updateMutation = trpcReact.invoice.update.useMutation({
-    onSuccess: () => {
-      utils.invoice.getAllPaginated.invalidate()
-      sheet.close()
-      toast.success('Rechnung aktualisiert')
-    },
-    onError: (error) =>
-      toast.error('Rechnung konnte nicht aktualisiert werden', { description: error.message })
-  })
-
-  const deleteMutation = trpcReact.invoice.delete.useMutation({
-    onSuccess: () => {
-      utils.invoice.getAllPaginated.invalidate()
-      toast.success('Rechnung gelöscht')
-    },
-    onError: (error) =>
-      toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
   })
 
   const settingsMutation = trpcReact.invoice.upsertCompanySettings.useMutation({
@@ -114,7 +107,8 @@ export default function InvoicePage() {
   const columns: ColumnDef<InvoiceListItemDto>[] = [
     {
       accessorKey: 'invoiceNumber',
-      header: 'Rechnungsnr.'
+      header: 'Rechnungsnr.',
+      cell: ({ row }) => invoiceNumberLabel(row.original.invoiceNumber)
     },
     {
       accessorKey: 'companyName',
@@ -158,50 +152,7 @@ export default function InvoicePage() {
     {
       id: 'actions',
       header: 'Aktionen',
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              navigate({
-                to: '/invoices/$invoiceId/print',
-                params: { invoiceId: String(row.original.id) }
-              })
-            }
-            title="Drucken / Als PDF speichern"
-          >
-            <Printer className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={async () => {
-              const fullInvoice = await utils.invoice.getById.fetch(row.original.id)
-              if (!fullInvoice) {
-                toast.error('Rechnung nicht gefunden')
-                return
-              }
-              sheet.openEdit(fullInvoice)
-            }}
-            title="Bearbeiten"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              if (confirm(`Rechnung #${row.original.invoiceNumber} löschen?`)) {
-                deleteMutation.mutate(row.original.id)
-              }
-            }}
-            title="Löschen"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      )
+      cell: ({ row }) => <InvoiceRowActions invoice={row.original} onOpen={setOpenInvoiceId} />
     }
   ]
 
@@ -308,24 +259,21 @@ export default function InvoicePage() {
       <FormSheet
         isOpen={sheet.isOpen}
         onClose={sheet.close}
-        mode={sheet.mode}
-        title={sheet.mode === 'create' ? 'Rechnung anlegen' : 'Rechnung bearbeiten'}
-        description={
-          sheet.mode === 'create'
-            ? 'Erstellen Sie eine Rechnung mit Positionen.'
-            : 'Bearbeiten Sie Details, Empfänger, Verknüpfung und Status der Rechnung.'
-        }
+        mode="create"
+        title="Rechnung anlegen"
+        description="Erstellen Sie eine Rechnung mit Positionen – als Entwurf oder direkt gestellt."
       >
         <InvoiceForm
-          key={`${sheet.mode}-${sheet.selectedItem?.id ?? 'new'}`}
-          mode={sheet.mode}
-          invoice={sheet.selectedItem ?? undefined}
+          key={sheet.isOpen ? 'create-open' : 'create'}
+          mode="create"
           onCancel={sheet.close}
           onCreate={(payload) => createMutation.mutate(payload)}
-          onUpdate={(payload) => updateMutation.mutate(payload)}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
+          onUpdate={() => {}}
+          isSubmitting={createMutation.isPending}
         />
       </FormSheet>
+
+      <InvoiceEditSheet invoiceId={openInvoiceId} onClose={() => setOpenInvoiceId(null)} />
     </div>
   )
 }

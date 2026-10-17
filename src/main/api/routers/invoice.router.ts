@@ -6,6 +6,7 @@ import { InvoiceMapper } from '../mappers/invoice.mapper'
 import {
   CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
+  SetInvoiceStatusInput,
   UpdateInvoiceInput,
   UpsertCompanyInvoiceSettingsInput
 } from '../schemas/invoice.schema'
@@ -82,8 +83,27 @@ export const invoiceRouter = t.router({
     }
   }),
 
+  setStatus: t.procedure.input(SetInvoiceStatusInput).mutation(async ({ input }) => {
+    try {
+      const entity = await invoiceService.setInvoiceStatus(input.id, input.status)
+      return InvoiceMapper.toDto(entity)
+    } catch (error) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: error instanceof Error ? error.message : 'Failed to change invoice status'
+      })
+    }
+  }),
+
   delete: t.procedure.input(z.number()).mutation(async ({ input }) => {
-    await invoiceService.deleteInvoice(input)
+    try {
+      await invoiceService.deleteInvoice(input)
+    } catch (error) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: error instanceof Error ? error.message : 'Failed to delete invoice'
+      })
+    }
   }),
 
   getCompanySettings: t.procedure.input(z.number()).query(async ({ input }) => {

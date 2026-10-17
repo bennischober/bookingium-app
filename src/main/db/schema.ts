@@ -349,7 +349,9 @@ export const invoice = sqliteTable(
   'invoice',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    invoice_number: integer('invoice_number').notNull(),
+    // Assigned from the company's counter when the invoice is issued; drafts
+    // have none, so deleting a draft never leaves a gap in the sequence
+    invoice_number: integer('invoice_number'),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id),
