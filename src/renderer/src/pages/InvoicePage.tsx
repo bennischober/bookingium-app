@@ -184,7 +184,7 @@ export default function InvoicePage() {
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 min-[1700px]:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           <DataTable
             columns={columns}

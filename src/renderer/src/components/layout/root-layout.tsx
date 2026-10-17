@@ -21,8 +21,11 @@ export default function RootLayout() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <AppSidebar collapsible="none" />
-      <SidebarInset>
+      {/* Fixed-width sidebar; the content column may shrink below its
+          content's width (min-w-0), so wide tables scroll inside their own
+          frame instead of widening the window and squeezing the sidebar */}
+      <AppSidebar collapsible="none" className="shrink-0" />
+      <SidebarInset className="min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <Breadcrumb>
             <BreadcrumbList>
@@ -53,7 +56,7 @@ export default function RootLayout() {
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex">
+        <div className="flex min-w-0">
           <Outlet />
         </div>
       </SidebarInset>

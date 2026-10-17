@@ -146,6 +146,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Always reserve the vertical scrollbar's space, so pages don't shift
+     sideways when content grows tall enough to need it */
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground;
   }
