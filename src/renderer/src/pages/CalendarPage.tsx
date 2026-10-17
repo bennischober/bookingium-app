@@ -13,7 +13,6 @@ import {
 } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -160,8 +159,10 @@ export default function CalendarPage() {
                 <p className="font-medium">
                   {format(selectedDate, 'EEEE, dd.MM.yyyy', { locale: de })}
                 </p>
-                <Button size="sm" className="gap-1.5" onClick={() => setWizardOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" /> Event anlegen
+                {/* "+" as text like the other create buttons: the thin Plus icon
+                    sat visibly higher than the text in this font */}
+                <Button size="sm" onClick={() => setWizardOpen(true)}>
+                  + Event anlegen
                 </Button>
               </div>
               {selectedDayEvents.length === 0 ? (

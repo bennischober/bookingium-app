@@ -23,7 +23,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Euro, FileText, Plus, FileSignature } from 'lucide-react'
+import { Euro, FileText, FileSignature } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
@@ -428,7 +428,6 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
             <CardTitle className="text-base">Rechnungen für dieses Event</CardTitle>
             <Button
               size="sm"
-              className="gap-1.5"
               onClick={() =>
                 createInvoiceMutation.mutate({
                   dealMemoId: event.id,
@@ -441,8 +440,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               }
               disabled={createInvoiceMutation.isPending}
             >
-              <Plus className="h-3.5 w-3.5" />
-              Rechnung erstellen
+              + Rechnung erstellen
             </Button>
           </CardHeader>
           <CardContent>
