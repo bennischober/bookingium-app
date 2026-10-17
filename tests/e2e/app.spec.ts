@@ -39,7 +39,17 @@ test('contract print view renders the document', async () => {
   const currentUrl = h.page.url()
   const base = currentUrl.split('#')[0]
   await h.page.goto(`${base}#/events/3/contract/print`)
+  // Default A4 page view: the real print output drawn as one canvas per page
+  await h.page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+  const ratio = await h.page
+    .locator('canvas[data-page="1"]')
+    .evaluate((c: HTMLCanvasElement) => c.height / c.width)
+  expect(ratio).toBeCloseTo(297 / 210, 2)
+  // The plain document view still shows the editable sheet
+  await h.page.click('text=Dokument')
   await h.page.waitForSelector('text=KONZERTVERTRAG', { timeout: 15_000 })
+  await h.page.click('text=Seiten (A4)')
+  await h.page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
   // Save a screenshot for visual inspection
   await h.page.screenshot({ path: 'tests/e2e/__screenshots__/contract.png', fullPage: true })
 })

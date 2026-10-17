@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Eye, Printer } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowLeft, Printer } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
+import { PrintViewToggle } from '@/components/print/PrintViewToggle'
+import type { PrintView } from '@/components/print/PagedDocument'
 import { ContractDocument } from '@/components/contract/ContractDocument'
 
 // Resolves a stored relative image path to a data URL via IPC (null if empty/missing)
@@ -55,8 +56,8 @@ export default function ContractPrintPage() {
   const signaturePath = data?.representative?.signaturePath || data?.artist?.signaturePath || ''
   const artistSignature = useStoredImageUrl(signaturePath || undefined)
 
-  // Exact print preview (real printToPDF output, shown inline)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // A4 page view (real print output) or the plain document sheet
+  const [view, setView] = useState<PrintView>('pages')
 
   if (contractQuery.isLoading) {
     return (
@@ -88,19 +89,7 @@ export default function ContractPrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const result = await window.api.generatePrintPreview()
-              if (result.success && result.dataUrl) {
-                setPreviewUrl(result.dataUrl)
-              } else {
-                toast.error('Vorschau fehlgeschlagen', { description: result.error })
-              }
-            }}
-          >
-            <Eye className="h-4 w-4" /> Exakte Vorschau
-          </Button>
+          <PrintViewToggle value={view} onChange={setView} />
           <Button onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
           </Button>
@@ -111,7 +100,7 @@ export default function ContractPrintPage() {
         data={data}
         artistImageUrl={artistLogo ?? undefined}
         artistSignatureUrl={artistSignature ?? undefined}
-        previewPdfUrl={previewUrl}
+        view={view}
       />
     </div>
   )

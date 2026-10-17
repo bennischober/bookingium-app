@@ -1,5 +1,5 @@
 import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
-import { PagedDocument } from '../print/PagedDocument'
+import { PagedDocument, type PrintView } from '../print/PagedDocument'
 
 // ========================================
 // Formatting helpers
@@ -76,12 +76,12 @@ export function ContractDocument({
   data,
   artistImageUrl,
   artistSignatureUrl,
-  previewPdfUrl
+  view
 }: {
   data: ContractData
   artistImageUrl?: string
   artistSignatureUrl?: string
-  previewPdfUrl?: string | null
+  view?: PrintView
 }) {
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
 
@@ -96,7 +96,7 @@ export function ContractDocument({
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
   return (
-    <PagedDocument previewPdfUrl={previewPdfUrl}>
+    <PagedDocument view={view}>
       {/* Letterhead: artist company identity */}
       {artistImageUrl && (
         <img

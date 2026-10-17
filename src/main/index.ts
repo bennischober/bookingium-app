@@ -238,8 +238,9 @@ ipcMain.handle('print:previewPdf', async (event) => {
       pageSize: 'A4',
       margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
     })
-    // Return as a data URL — no temp files, no file:// security concerns
-    return { success: true, dataUrl: `data:application/pdf;base64,${pdf.toString('base64')}` }
+    // Raw bytes (arrive as Uint8Array) — the renderer draws the pages itself
+    // with pdf.js; no temp files, no PDF plugin, no data: frames
+    return { success: true, data: new Uint8Array(pdf) }
   } catch (error) {
     console.error('Error generating print preview:', error)
     return {

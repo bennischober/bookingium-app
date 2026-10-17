@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Eye, Printer } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowLeft, Printer } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
+import { PrintViewToggle } from '@/components/print/PrintViewToggle'
+import type { PrintView } from '@/components/print/PagedDocument'
 import {
   Select,
   SelectContent,
@@ -56,8 +57,8 @@ export default function InvoicePrintPage() {
     setSuggestedTemplate(suggestTemplate(data))
   }
   const [template, setTemplate] = useState<InvoiceTemplate>(suggestedTemplate)
-  // Exact print preview (real printToPDF output, shown inline)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // A4 page view (real print output) or the plain document sheet
+  const [view, setView] = useState<PrintView>('pages')
 
   // Logo resolution is async IPC, so clearing on path change happens during
   // render, loading stays in an effect
@@ -119,31 +120,14 @@ export default function InvoicePrintPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const result = await window.api.generatePrintPreview()
-              if (result.success && result.dataUrl) {
-                setPreviewUrl(result.dataUrl)
-              } else {
-                toast.error('Vorschau fehlgeschlagen', { description: result.error })
-              }
-            }}
-          >
-            <Eye className="h-4 w-4" /> Exakte Vorschau
-          </Button>
+          <PrintViewToggle value={view} onChange={setView} />
           <Button onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> Drucken / Als PDF speichern
           </Button>
         </div>
       </div>
 
-      <InvoiceDocument
-        data={data}
-        template={template}
-        logoUrl={logoUrl}
-        previewPdfUrl={previewUrl}
-      />
+      <InvoiceDocument data={data} template={template} logoUrl={logoUrl} view={view} />
     </div>
   )
 }

@@ -1,45 +1,43 @@
-import { useEffect, useRef, type ReactNode } from 'react'
-import { FileQuestion } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Loader2 } from 'lucide-react'
+
+export type PrintView = 'pages' | 'document'
+
+// A4 at CSS pixel density (96dpi): 210mm x 297mm
+const A4_WIDTH_PX = (210 / 25.4) * 96
+const A4_ASPECT = 297 / 210
 
 /**
- * A4 document wrapper with a true-to-print PDF preview.
+ * A4 document wrapper with a true-to-print page view.
  *
  * The document itself renders as a single vertical A4-width sheet (fixed
- * 210mm, centered) — clean and simple on screen. Section blocks carry
- * break-inside: avoid, so the print engine never splits a section across
- * pages or cuts a word at the page edge; @page margins mirror the sheet
- * padding.
+ * 210mm, centered). Section blocks carry break-inside: avoid, so the print
+ * engine never splits a section across pages; @page margins mirror the
+ * sheet padding.
  *
- * The "how will this print?" question is answered by the exact preview:
- * an optional inline viewer that renders the REAL print output (Electron
- * printToPDF via IPC) — Chromium's PDF viewer shows the genuine pages,
- * so the preview is exact by definition (it IS the print result).
+ * In the 'pages' view the sheet is hidden on screen only, and the REAL print
+ * output (Electron printToPDF of this window, which renders print media, so
+ * the hidden sheet is what gets printed) is drawn page by page with pdf.js —
+ * each canvas is one genuine DIN A4 page, exact by definition. The output is
+ * regenerated whenever the document content changes (data, template, images
+ * loading in).
  */
 export function PagedDocument({
   children,
   paddingMm = 20,
-  previewPdfUrl
+  view = 'pages'
 }: {
   children: ReactNode
   paddingMm?: number
-  /** data: or file: URL of the real generated PDF (printToPDF output) */
-  previewPdfUrl?: string | null
+  view?: PrintView
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const content = contentRef.current
-    if (!content) return
-    for (const child of Array.from(content.children)) {
-      if (child instanceof HTMLElement) {
-        child.style.breakInside = 'avoid'
-      }
-    }
-  })
+  const pdf = usePrintOutput(contentRef, view === 'pages')
 
   return (
     <>
       <style>{`
+        .paged-content > * { break-inside: avoid; }
         @media print {
           .paged-sheet {
             width: auto !important;
@@ -50,11 +48,15 @@ export function PagedDocument({
           .paged-content { padding: 0 !important; }
           @page { size: A4; margin: ${paddingMm}mm; }
         }
+        @media screen {
+          .paged-sheet[data-screen-hidden='true'] { display: none; }
+        }
       `}</style>
 
-      {/* The document as a single vertical A4 sheet */}
+      {/* The document as a single vertical A4 sheet (always the print source) */}
       <div
         ref={contentRef}
+        data-screen-hidden={view === 'pages'}
         className="paged-sheet relative mx-auto w-[210mm] bg-white text-black shadow-lg print:shadow-none"
         style={{ minHeight: '297mm' }}
       >
@@ -66,30 +68,184 @@ export function PagedDocument({
         </div>
       </div>
 
-      {/* Exact print preview: the real generated PDF, embedded */}
-      {previewPdfUrl && (
-        <div className="mx-auto mt-6 w-[210mm] print:hidden">
-          <p className="mb-2 text-center text-xs text-muted-foreground">
-            Exakte Druckvorschau (echtes PDF):
-          </p>
-          <iframe
-            src={previewPdfUrl}
-            title="Druckvorschau"
-            className="h-[800px] w-full rounded-lg border bg-white"
-          />
-        </div>
-      )}
+      {view === 'pages' && <PdfPages pdf={pdf} />}
     </>
   )
 }
 
-export function PdfPreviewPlaceholder() {
+type PrintOutput =
+  | { status: 'loading'; data: Uint8Array | null }
+  | { status: 'ready'; data: Uint8Array }
+  | { status: 'error'; data: Uint8Array | null; error: string }
+
+/**
+ * Generates the real print output of this window and regenerates it
+ * (debounced) whenever the document DOM changes or an image finishes loading.
+ */
+function usePrintOutput(
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean
+): PrintOutput {
+  const [output, setOutput] = useState<PrintOutput>({ status: 'loading', data: null })
+
+  useEffect(() => {
+    const content = contentRef.current
+    if (!enabled || !content) return
+
+    let run = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const generate = async () => {
+      const current = ++run
+      setOutput((prev) => ({ status: 'loading', data: prev.data }))
+      // Wait for webfonts and every image so the PDF matches the final layout
+      await document.fonts.ready
+      await Promise.all(
+        Array.from(content.querySelectorAll('img')).map((img) => img.decode().catch(() => {}))
+      )
+      if (current !== run) return
+      const result = await window.api.generatePrintPreview()
+      if (current !== run) return
+      if (result.success && result.data) {
+        setOutput({ status: 'ready', data: result.data })
+      } else {
+        setOutput((prev) => ({
+          status: 'error',
+          data: prev.data,
+          error: result.error ?? 'Unbekannter Fehler'
+        }))
+      }
+    }
+
+    const schedule = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => void generate(), 300)
+    }
+
+    schedule()
+    const observer = new MutationObserver(schedule)
+    observer.observe(content, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true
+    })
+    content.addEventListener('load', schedule, true)
+
+    return () => {
+      run++
+      clearTimeout(timer)
+      observer.disconnect()
+      content.removeEventListener('load', schedule, true)
+    }
+  }, [contentRef, enabled])
+
+  return output
+}
+
+// pdf.js is loaded lazily on first use. The worker runs on the main thread
+// (pdfjsWorker global): the documents are a few pages, and it avoids module
+// workers from file:// and CSP worker-src issues in the packaged app.
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null
+function loadPdfjs() {
+  pdfjsPromise ??= (async () => {
+    const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs')
+    ;(globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = worker
+    return import('pdfjs-dist')
+  })()
+  return pdfjsPromise
+}
+
+/** Draws each page of the print PDF as its own A4 sheet */
+function PdfPages({ pdf }: { pdf: PrintOutput }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [pageCount, setPageCount] = useState(0)
+  const [renderError, setRenderError] = useState<string | null>(null)
+
+  const data = pdf.data
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!data || !container) return
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const pdfjs = await loadPdfjs()
+        // getDocument transfers the buffer to the worker; keep ours intact
+        const doc = await pdfjs.getDocument({ data: data.slice(), isEvalSupported: false }).promise
+        if (cancelled) return
+
+        // Render offscreen first, then swap in all pages at once (no flicker)
+        const canvases: HTMLCanvasElement[] = []
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i)
+          const base = page.getViewport({ scale: 1 })
+          const viewport = page.getViewport({
+            scale: (A4_WIDTH_PX / base.width) * Math.max(window.devicePixelRatio, 1) * 1.5
+          })
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.floor(viewport.width)
+          canvas.height = Math.floor(viewport.height)
+          canvas.className = 'block h-auto w-[210mm] bg-white shadow-lg'
+          canvas.dataset.page = String(i)
+          const ctx = canvas.getContext('2d')
+          if (!ctx) throw new Error('Canvas nicht verfügbar')
+          await page.render({ canvasContext: ctx, viewport }).promise
+          if (cancelled) return
+          canvases.push(canvas)
+        }
+        void doc.destroy()
+        if (cancelled) return
+
+        // Wrap each canvas with its page label
+        const nodes = canvases.map((canvas, index) => {
+          const wrapper = document.createElement('div')
+          wrapper.className = 'flex flex-col items-center gap-1'
+          const label = document.createElement('div')
+          label.className = 'text-xs text-neutral-500'
+          label.textContent = `Seite ${index + 1} von ${canvases.length}`
+          wrapper.append(canvas, label)
+          return wrapper
+        })
+        container.replaceChildren(...nodes)
+        setPageCount(canvases.length)
+        setRenderError(null)
+      } catch (error) {
+        if (!cancelled) setRenderError(error instanceof Error ? error.message : String(error))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [data])
+
+  const error = pdf.status === 'error' ? pdf.error : renderError
+
   return (
-    <div className="mx-auto mt-6 w-[210mm] print:hidden">
-      <div className="flex h-32 items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground">
-        <FileQuestion className="h-4 w-4" />
-        Vorschau wird erstellt…
+    <div className="mx-auto w-[210mm] print:hidden" data-testid="print-pages">
+      <div className="mb-2 flex h-5 items-center justify-center gap-2 text-xs text-neutral-600">
+        {pdf.status === 'loading' && (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {data ? 'Seitenansicht wird aktualisiert…' : 'Seitenansicht wird erstellt…'}
+          </>
+        )}
+        {pdf.status !== 'loading' && !error && pageCount > 0 && (
+          <>
+            DIN A4 · {pageCount} {pageCount === 1 ? 'Seite' : 'Seiten'} — entspricht dem Ausdruck
+          </>
+        )}
+        {error && <span className="text-red-600">Seitenansicht fehlgeschlagen: {error}</span>}
       </div>
+      {!data && (
+        <div
+          className="mx-auto w-[210mm] bg-white shadow-lg"
+          style={{ height: `${A4_WIDTH_PX * A4_ASPECT}px` }}
+        />
+      )}
+      <div ref={containerRef} className="flex flex-col items-center gap-6" />
     </div>
   )
 }

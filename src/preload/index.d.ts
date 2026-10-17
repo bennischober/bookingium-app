@@ -30,9 +30,10 @@ export interface DocumentAPI {
     dataUrl?: string
     error?: string
   }>
+  /** The real print output (printToPDF of the current window) as PDF bytes */
   generatePrintPreview: () => Promise<{
     success: boolean
-    dataUrl?: string
+    data?: Uint8Array
     error?: string
   }>
 }

@@ -2,7 +2,7 @@ import type {
   InvoicePartySnapshotDto,
   InvoicePrintDto
 } from '../../../../main/api/schemas/invoice.schema'
-import { PagedDocument } from '../print/PagedDocument'
+import { PagedDocument, type PrintView } from '../print/PagedDocument'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -519,17 +519,17 @@ export function InvoiceDocument({
   data,
   template,
   logoUrl,
-  previewPdfUrl
+  view
 }: {
   data: InvoicePrintDto
   template: InvoiceTemplate
   logoUrl?: string
-  previewPdfUrl?: string | null
+  view?: PrintView
 }) {
   const isDraft = data.invoice.status === 'draft'
 
   return (
-    <PagedDocument previewPdfUrl={previewPdfUrl}>
+    <PagedDocument view={view}>
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center print:block">
           <span className="rotate-[-30deg] text-[60pt] font-bold text-neutral-200 select-none">
