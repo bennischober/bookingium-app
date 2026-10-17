@@ -3,7 +3,28 @@
 // the same code path as the packaged app.
 import { _electron as electron } from 'playwright-core'
 import type { Page, ElectronApplication } from 'playwright-core'
-import { resolve } from 'path'
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join, resolve } from 'path'
+
+/**
+ * userData folder for one app launch. By default a fresh, empty temp folder:
+ * the app migrates and seeds it on start, so tests never touch the real
+ * database (%APPDATA%/bookingum-app) and always see the same seed data.
+ * Set BOOKINGIUM_E2E_USER_DATA to run against a specific folder instead
+ * (e.g. a copy of real data) - it is used as-is and never deleted.
+ */
+export function createTestUserData(): { dir: string; cleanup: () => void } {
+  const explicit = process.env.BOOKINGIUM_E2E_USER_DATA
+  if (explicit) return { dir: resolve(explicit), cleanup: () => {} }
+
+  const dir = mkdtempSync(join(tmpdir(), 'bookingum-e2e-'))
+  return {
+    dir,
+    // Best effort: Chromium may still hold files briefly after quitting
+    cleanup: () => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
+}
 
 export type AppHandle = {
   app: ElectronApplication
@@ -14,6 +35,7 @@ export type AppHandle = {
 }
 
 export async function launchApp(): Promise<AppHandle> {
+  const userData = createTestUserData()
   const app = await electron.launch({
     // Resolve from the project root (process.cwd()), not __dirname - the
     // playwright transpilation output lives elsewhere.
@@ -21,9 +43,7 @@ export async function launchApp(): Promise<AppHandle> {
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      // Point the app at the real dev database (bookingum-app userData)
-      // instead of the bare-electron 'Electron' profile the driver would get.
-      BOOKINGIUM_USER_DATA: resolve(process.env.APPDATA ?? '', 'bookingum-app')
+      BOOKINGIUM_USER_DATA: userData.dir
     }
   })
 
@@ -56,6 +76,7 @@ export async function launchApp(): Promise<AppHandle> {
     page,
     close: async () => {
       await app.close()
+      userData.cleanup()
     },
     printPageToPdf
   }

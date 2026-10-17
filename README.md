@@ -54,6 +54,12 @@ npx playwright test # e2e (needs pnpm build first): boots the app,
                     # verifies navigation and the contract print output
 ```
 
+Each e2e app launch gets a fresh, temporary data folder that the app migrates
+and seeds on start, so tests never touch your real database
+(`%APPDATA%/bookingum-app`) and always see the same seed data. To run them
+against a specific folder (e.g. a copy of real data), set
+`BOOKINGIUM_E2E_USER_DATA` to it; that folder is used as-is and never deleted.
+
 E2E artifacts land in `tests/e2e/__screenshots__/` (the generated
 `contract.pdf` is the real print output — inspect it, not just the
 screenshot, since pagination bugs are invisible in screenshots).

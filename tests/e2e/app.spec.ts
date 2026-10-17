@@ -35,10 +35,12 @@ test('events list renders and event hub opens', async () => {
 })
 
 test('contract print view renders the document', async () => {
-  // Navigate via the hash: rebuild the current URL with the print route
-  const currentUrl = h.page.url()
-  const base = currentUrl.split('#')[0]
-  await h.page.goto(`${base}#/events/3/contract/print`)
+  // Open the first seeded event's contract the way a user does (no hardcoded
+  // ids: the seed differs with and without sample_data/internal-seed.json)
+  await h.page.click('text=Events')
+  await h.page.locator('table tbody tr').first().click()
+  await h.page.getByRole('button', { name: 'Vertrag', exact: true }).click()
+  await h.page.waitForURL(/contract\/print/)
   // Default A4 page view: the real print output drawn as one canvas per page
   await h.page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
   const ratio = await h.page

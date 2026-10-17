@@ -4,14 +4,16 @@
 import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright-core'
 import { resolve } from 'path'
+import { createTestUserData } from './helpers/launch'
 
 async function launchAtZoom() {
+  const userData = createTestUserData()
   const app = await electron.launch({
     args: [resolve(process.cwd(), 'out/main/index.js')],
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      BOOKINGIUM_USER_DATA: resolve(process.env.APPDATA ?? '', 'bookingum-app')
+      BOOKINGIUM_USER_DATA: userData.dir
     },
     // Chromium deviceScaleFactor equivalent of Windows 150% display scaling
     deviceScaleFactor: 1.5,
@@ -19,11 +21,11 @@ async function launchAtZoom() {
   })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
-  return { app, page }
+  return { app, page, cleanup: userData.cleanup }
 }
 
 test('dashboard and events table stay usable at 150% zoom', async () => {
-  const { app, page } = await launchAtZoom()
+  const { app, page, cleanup } = await launchAtZoom()
 
   try {
     // Dashboard
@@ -44,6 +46,7 @@ test('dashboard and events table stay usable at 150% zoom', async () => {
     expect(scrollable).toBe(true)
   } finally {
     await app.close()
+    cleanup()
   }
 })
 
@@ -52,7 +55,7 @@ test('band members sheet loads and shows members', async () => {
   // forever because the combined isLoading included the two disabled
   // (non-active entity type) queries, which TanStack Query v4 reports as
   // isLoading=true.
-  const { app: zoomApp, page } = await launchAtZoom()
+  const { app: zoomApp, page, cleanup } = await launchAtZoom()
   try {
     await page.waitForSelector('text=Dashboard', { timeout: 15_000 })
     await page.goto(`${page.url().split('#')[0]}#/band`)
@@ -66,5 +69,6 @@ test('band members sheet loads and shows members', async () => {
     expect(body).toContain('Lead Vocalist')
   } finally {
     await zoomApp.close()
+    cleanup()
   }
 })

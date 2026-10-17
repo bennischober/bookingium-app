@@ -24,6 +24,9 @@ export function runMigrations(): void {
         candidates.push(join(process.resourcesPath, 'migrations'))
       } else {
         candidates.push(join(app.getAppPath(), 'src/main/db/migrations'))
+        // Built main bundle lives in out/main: independent of the working
+        // directory the app was started from
+        candidates.push(join(__dirname, '../../src/main/db/migrations'))
       }
     } catch {
       // Outside the electron runtime (tests/tooling)
