@@ -48,6 +48,8 @@ interface CreateEventWizardProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (memo: DealMemoListItemDto) => void
+  /** yyyy-MM-dd prefilled as the event date when the wizard opens */
+  initialDate?: string
 }
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
@@ -386,9 +388,22 @@ const EMPTY_FORM: WizardFormData = {
   notes: ''
 }
 
-export function CreateEventWizard({ isOpen, onClose, onSuccess }: CreateEventWizardProps) {
+export function CreateEventWizard({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialDate
+}: CreateEventWizardProps) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<WizardFormData>(EMPTY_FORM)
+
+  // Prefill the date each time the wizard opens (state adjustment during
+  // render, per "You Might Not Need an Effect")
+  const [wasOpen, setWasOpen] = useState(isOpen)
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen)
+    if (isOpen && initialDate) setForm((prev) => ({ ...prev, date: initialDate }))
+  }
 
   // Quick-create state
   const [bandQC, setBandQC] = useState({ open: false, prefill: '' })
