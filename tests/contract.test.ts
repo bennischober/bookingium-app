@@ -164,4 +164,64 @@ describe('ContractService', () => {
     const data2 = await contracts.getContractData(memo2.id)
     expect(data2?.technician?.firstName).toBe('Rookie')
   })
+
+  it('resolves "vertreten durch": event override > band management > default company', async () => {
+    const companies = container.resolve(CompanyService)
+    const contracts = container.resolve(ContractService)
+    const dealMemoRepo = container.resolve(DealMemoRepository)
+    const bandRepo = container.resolve(BandRepository)
+
+    const bandCompany = await companies.createCompany({
+      name: 'Band GbR',
+      logoPath: 'logos/band.png',
+      isDefaultForInvoicing: false
+    })
+    await companies.createCompany({
+      name: 'Own Default AG',
+      logoPath: 'logos/own.png',
+      isDefaultForInvoicing: true
+    })
+    const management = await companies.createCompany({
+      name: 'Band Management GmbH',
+      logoPath: 'logos/mgmt.png',
+      isDefaultForInvoicing: false
+    })
+    const agency = await companies.createCompany({
+      name: 'Extratours',
+      isDefaultForInvoicing: false
+    })
+
+    const band = await bandRepo.create({ name: 'Resolve Band', companyId: bandCompany.id })
+    const memo = await dealMemoRepo.create({ name: 'Show', date: '2026-11-05', bandId: band.id })
+    const resolve = async () => (await contracts.getContractData(memo.id))!
+
+    // No band management, no override: the default own company
+    let data = await resolve()
+    expect(data.representative?.name).toBe('Own Default AG')
+    expect(data.letterheadLogoPath).toBe('logos/own.png')
+
+    // Band management wins over the default
+    await bandRepo.update({ id: band.id, managementCompanyId: management.id })
+    data = await resolve()
+    expect(data.representative?.name).toBe('Band Management GmbH')
+    expect(data.letterheadLogoPath).toBe('logos/mgmt.png')
+
+    // Event override wins over the band; without its own logo the letterhead
+    // falls back to the band company's
+    await dealMemoRepo.update({ id: memo.id, representingCompanyId: agency.id })
+    data = await resolve()
+    expect(data.representative?.name).toBe('Extratours')
+    expect(data.letterheadLogoPath).toBe('logos/band.png')
+
+    // A band represented by its own company has no "vertreten durch"
+    await dealMemoRepo.update({ id: memo.id, representingCompanyId: bandCompany.id })
+    data = await resolve()
+    expect(data.representative).toBeNull()
+    expect(data.artist?.name).toBe('Band GbR')
+
+    // Clearing the override falls back to the band management
+    await dealMemoRepo.update({ id: memo.id, representingCompanyId: null })
+    data = await resolve()
+    expect(data.representative?.name).toBe('Band Management GmbH')
+  })
 })

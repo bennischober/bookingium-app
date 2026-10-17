@@ -57,6 +57,7 @@ export class DealMemoMapper {
       loProPersonId: entity.lopro_person_id,
       loProCompanyId: entity.lopro_company_id,
       invoiceCompanyId: entity.invoice_company_id,
+      representingCompanyId: entity.representing_company_id,
       hotelId: entity.hotel_id,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
@@ -67,7 +68,12 @@ export class DealMemoMapper {
     return {
       ...this.toDto(entity),
       band: entity.band
-        ? { id: entity.band.id, name: entity.band.name, genre: entity.band.genre }
+        ? {
+            id: entity.band.id,
+            name: entity.band.name,
+            genre: entity.band.genre,
+            managementCompanyId: entity.band.management_company_id
+          }
         : null,
       venue: entity.venue
         ? { id: entity.venue.id, name: entity.venue.name, capacity: entity.venue.capacity }

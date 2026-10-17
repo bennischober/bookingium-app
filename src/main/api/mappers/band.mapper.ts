@@ -13,6 +13,7 @@ export class BandMapper {
       notes: entity.notes,
       companyId: entity.company_id,
       responsiblePersonId: entity.responsible_person_id,
+      managementCompanyId: entity.management_company_id,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

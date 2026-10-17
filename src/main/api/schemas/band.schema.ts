@@ -10,7 +10,9 @@ export const BandDto = z
     founded: z.string().nullable(),
     notes: z.string(),
     companyId: z.number(),
-    responsiblePersonId: z.number().nullable()
+    responsiblePersonId: z.number().nullable(),
+    // Represents the band in contracts ("vertreten durch")
+    managementCompanyId: z.number().nullable()
   })
   .extend(TimestampFields.shape)
 
@@ -39,7 +41,8 @@ export const CreateBandInput = z.object({
   founded: z.string().nullable().optional(),
   notes: z.string().optional().default(''),
   companyId: z.number(),
-  responsiblePersonId: z.number().nullable().optional()
+  responsiblePersonId: z.number().nullable().optional(),
+  managementCompanyId: z.number().nullable().optional()
 })
 
 export const UpdateBandInput = CreateBandInput.partial().extend({

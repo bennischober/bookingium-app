@@ -746,9 +746,9 @@ export async function seedDatabase() {
       const pww = internalCompanies.find((c) => c.name === 'Pretty Wild Water')
 
       if (bmm && pww) {
-        // A band owned by PWW (so the artist company carries the PWW signature
-        // and the contract letterhead), BMM as issuing agency (vertreten
-        // durch + signature), PWW also as local promoter
+        // A band owned by PWW (the artist company), managed by BMM (vertreten
+        // durch, letterhead + signature in contracts), PWW also as local
+        // promoter
         const [internalBand] = await db
           .insert(band)
           .values({
@@ -757,7 +757,8 @@ export async function seedDatabase() {
             founded: '2019-04-01',
             notes: 'Internal contract demo band',
             company_id: pww.id,
-            responsible_person_id: person5.id
+            responsible_person_id: person5.id,
+            management_company_id: bmm.id
           })
           .returning()
 

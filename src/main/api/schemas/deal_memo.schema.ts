@@ -43,6 +43,8 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   loProPersonId: z.number().nullable(),
   loProCompanyId: z.number().nullable(),
   invoiceCompanyId: z.number().nullable(),
+  // Contract "vertreten durch" override; null = band management / default
+  representingCompanyId: z.number().nullable(),
   hotelId: z.number().nullable()
 }).extend(TimestampFields.shape)
 
@@ -56,7 +58,8 @@ export const DealMemoDetailDto = DealMemoDto.extend({
     .object({
       id: z.number(),
       name: z.string(),
-      genre: z.string()
+      genre: z.string(),
+      managementCompanyId: z.number().nullable()
     })
     .nullable(),
   venue: z
@@ -98,6 +101,7 @@ export const CreateDealMemoInput = z.object({
   loProPersonId: z.number().nullable().optional(),
   loProCompanyId: z.number().nullable().optional(),
   invoiceCompanyId: z.number().nullable().optional(),
+  representingCompanyId: z.number().nullable().optional(),
   status: z.string().optional(),
   ticketPriceVvk: z.number().nullable().optional(),
   ticketPriceAk: z.number().nullable().optional(),

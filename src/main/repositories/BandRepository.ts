@@ -59,7 +59,8 @@ export class BandRepository {
         founded: data.founded,
         notes: data.notes,
         company_id: data.companyId,
-        responsible_person_id: data.responsiblePersonId ?? null
+        responsible_person_id: data.responsiblePersonId ?? null,
+        management_company_id: data.managementCompanyId ?? null
       })
       .returning()
     return result[0]
@@ -81,7 +82,11 @@ export class BandRepository {
         responsible_person_id:
           data.responsiblePersonId !== undefined
             ? data.responsiblePersonId
-            : prev.responsible_person_id
+            : prev.responsible_person_id,
+        management_company_id:
+          data.managementCompanyId !== undefined
+            ? data.managementCompanyId
+            : prev.management_company_id
       })
       .where(eq(schema.band.id, data.id))
       .returning()

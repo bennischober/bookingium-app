@@ -36,6 +36,7 @@ export function BandForm({
   // Fetch companies + persons for dropdowns
   const companies = trpcReact.company.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
+  const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
 
   const form = useForm({
     defaultValues: {
@@ -44,7 +45,8 @@ export function BandForm({
       founded: initialData?.founded || '',
       notes: initialData?.notes || '',
       companyId: initialData?.companyId || 0,
-      responsiblePersonId: initialData?.responsiblePersonId || null
+      responsiblePersonId: initialData?.responsiblePersonId || null,
+      managementCompanyId: initialData?.managementCompanyId ?? null
     },
     onSubmit: async ({ value }) => {
       if (mode === 'edit' && initialData) {
@@ -55,7 +57,8 @@ export function BandForm({
           founded: value.founded || null,
           notes: value.notes,
           companyId: value.companyId,
-          responsiblePersonId: value.responsiblePersonId
+          responsiblePersonId: value.responsiblePersonId,
+          managementCompanyId: value.managementCompanyId
         })
       } else {
         onSubmit({
@@ -64,7 +67,8 @@ export function BandForm({
           founded: value.founded || null,
           notes: value.notes,
           companyId: value.companyId,
-          responsiblePersonId: value.responsiblePersonId
+          responsiblePersonId: value.responsiblePersonId,
+          managementCompanyId: value.managementCompanyId
         })
       }
     }
@@ -191,6 +195,40 @@ export function BandForm({
             )}
             <p className="text-xs text-muted-foreground">
               Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1.
+            </p>
+          </div>
+        )}
+      </form.Field>
+
+      {/* Management company: "vertreten durch" in contracts */}
+      <form.Field name="managementCompanyId">
+        {(field) => (
+          <div className="space-y-2">
+            <Label htmlFor={field.name}>Management (vertreten durch)</Label>
+            <Select
+              value={field.state.value ? field.state.value.toString() : 'none'}
+              onValueChange={(value) =>
+                field.handleChange(value === 'none' ? null : parseInt(value))
+              }
+              disabled={isSubmitting || companies.isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Management auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  Standard ({defaultCompany.data?.name ?? 'keine Standard-Firma'})
+                </SelectItem>
+                {(companies.data ?? []).map((company) => (
+                  <SelectItem key={company.id} value={company.id.toString()}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Vertritt die Band in Konzertverträgen (Briefkopf, „vertreten durch“, Unterschrift
+              VP1). Einzelne Events können das überschreiben.
             </p>
           </div>
         )}

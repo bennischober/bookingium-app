@@ -140,6 +140,11 @@ export const band = sqliteTable(
     responsible_person_id: integer('responsible_person_id').references(() => person.id, {
       onDelete: 'set null'
     }),
+    // Management company that represents the band in contracts ("vertreten
+    // durch"); events can override it
+    management_company_id: integer('management_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -259,6 +264,12 @@ export const deal_memo = sqliteTable(
       onDelete: 'set null'
     }),
     invoice_company_id: integer('invoice_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
+    // Contract "vertreten durch" (the management/agency acting for the band)
+    // for this event only; null = the band's management company, then the
+    // default own company
+    representing_company_id: integer('representing_company_id').references(() => company.id, {
       onDelete: 'set null'
     }),
     band_id: integer('band_id')

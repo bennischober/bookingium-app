@@ -45,12 +45,15 @@ export default function ContractPrintPage() {
   const navigate = useNavigate()
   const id = Number(eventId)
 
+  // The contract reads live master data (band, companies, people, event), so
+  // any edit elsewhere can change it: never render a cached copy
   const contractQuery = trpcReact.contract.getData.useQuery(id, {
-    enabled: Number.isFinite(id) && id > 0
+    enabled: Number.isFinite(id) && id > 0,
+    cacheTime: 0
   })
 
   const data = contractQuery.data
-  const artistLogo = useStoredImageUrl(data?.artistLogoPath || undefined)
+  const letterhead = useStoredImageUrl(data?.letterheadLogoPath || undefined)
   // The VP1 signature belongs to the issuing agency (the "vertreten durch"
   // company), falling back to the band company's signature
   const signaturePath = data?.representative?.signaturePath || data?.artist?.signaturePath || ''
@@ -100,7 +103,7 @@ export default function ContractPrintPage() {
 
       <ContractDocument
         data={data}
-        artistImageUrl={artistLogo ?? undefined}
+        letterheadUrl={letterhead ?? undefined}
         artistSignatureUrl={artistSignature ?? undefined}
       />
     </div>

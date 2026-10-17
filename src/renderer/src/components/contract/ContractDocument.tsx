@@ -74,11 +74,12 @@ export const CONTRACT_PADDING_MM = 20
 
 export function ContractDocument({
   data,
-  artistImageUrl,
+  letterheadUrl,
   artistSignatureUrl
 }: {
   data: ContractData
-  artistImageUrl?: string
+  /** Logo of the issuing side (representing company, else the band company) */
+  letterheadUrl?: string
   artistSignatureUrl?: string
 }) {
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
@@ -96,9 +97,9 @@ export function ContractDocument({
   return (
     <PagedDocument>
       {/* Letterhead: artist company identity */}
-      {artistImageUrl && (
+      {letterheadUrl && (
         <img
-          src={artistImageUrl}
+          src={letterheadUrl}
           alt=""
           className="mb-4 ml-auto max-h-[20mm] max-w-[60mm] object-contain"
         />
@@ -113,13 +114,18 @@ export function ContractDocument({
         <p className="font-bold">zwischen Vertragspartner (VP1):</p>
         <div className="mt-2 mb-1">{artist ? <AddressLines party={artist} /> : band?.name}</div>
         <p className="font-bold mt-2">vertreten durch:</p>
-        <p className="italic">
-          {representative && representative.name !== artist?.name
-            ? `${representative.name}, ${representative.street} ${representative.streetNumber}, ${representative.zipCode} ${representative.city}`
-            : artist?.representative
-              ? artist.representative
-              : (artist?.name ?? '-')}
-        </p>
+        {/* The management/agency acting for the band, else the band's own
+            contact person (TL) */}
+        {representative ? (
+          <p className="italic">
+            {representative.name}, {representative.street} {representative.streetNumber},{' '}
+            {representative.zipCode} {representative.city}
+            <br />
+            (im Auftrag und in Vertretung von {band?.name ?? artist?.name ?? '-'})
+          </p>
+        ) : (
+          <p className="italic">{artist?.representative || artist?.name || '-'}</p>
+        )}
 
         <p className="font-bold mt-4">und Vertragspartner (VP2):</p>
         <div className="mt-2 mb-1">{promoter ? <AddressLines party={promoter} /> : '-'}</div>
@@ -447,11 +453,14 @@ export function ContractDocument({
       <Section number={19} title="Rechtsverhältnis">
         <p>
           Ein Rechtsverhältnis aus diesem Vertrag kommt nur zwischen der VP1 und dem Veranstalter
-          VP2 zustande, nicht jedoch zwischen Veranstalter und {artist?.name || 'die Agentur'}. Die
-          Rechtsbeziehungen der Vertragspartner unterliegen deutschem Recht. Jedwede Korrespondenz
-          bzgl. dieses Vertrages, wenn nicht anders vereinbart, ist ausschließlich an die Adresse
-          von {artist?.name || '-'}, {artist?.street} {artist?.streetNumber} in {artist?.zipCode}{' '}
-          {artist?.city} zu richten.
+          VP2 zustande
+          {representative
+            ? `, nicht jedoch zwischen Veranstalter und ${representative.name}.`
+            : '.'}{' '}
+          Die Rechtsbeziehungen der Vertragspartner unterliegen deutschem Recht. Jedwede
+          Korrespondenz bzgl. dieses Vertrages, wenn nicht anders vereinbart, ist ausschließlich an
+          die Adresse von {artist?.name || '-'}, {artist?.street} {artist?.streetNumber} in{' '}
+          {artist?.zipCode} {artist?.city} zu richten.
         </p>
       </Section>
 
@@ -504,13 +513,14 @@ export function ContractDocument({
       <div className="mt-12 flex break-before-avoid break-inside-avoid text-[10pt]">
         <div className="w-1/2 pr-8">
           <div className="w-4/5">
-            {representative?.city || artist?.city || 'Bad Hindelang'}, den {todayStr}
+            {representative?.city || artist?.city || '____________'}, den {todayStr}
           </div>
           {artistSignatureUrl && (
             <img src={artistSignatureUrl} alt="" className="max-h-[15mm] mt-2 object-contain" />
           )}
           <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
             Unterschrift VP1 mit Stempel
+            {representative && <div>i. A. {representative.name}</div>}
           </div>
         </div>
         <div className="w-1/2 pr-8">

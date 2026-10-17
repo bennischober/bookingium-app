@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { ContractData, ContractParty } from '../api/schemas/contract.schema'
@@ -66,72 +66,28 @@ export class ContractRepository {
     const row = rows[0]
 
     // Artist side: the band's company (contract party VP1)
-    const artistRows = await db
-      .select({
-        company: schema.company,
-        contact: schema.contact,
-        bank: schema.bank,
-        address: schema.address
-      })
-      .from(schema.band)
-      .leftJoin(schema.company, eq(schema.band.company_id, schema.company.id))
-      .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
-      .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
-      .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
-      .where(eq(schema.band.id, row.deal_memo.band_id))
-      .limit(1)
+    const artist = row.band ? await this.loadCompany(row.band.company_id) : null
 
-    // VP1 "vertreten durch": the invoicing company (agency issuing on behalf
-    // of the band) - the agency party is returned separately
-    let representativeParty: ContractParty | null = null
-    if (row.deal_memo.invoice_company_id) {
-      const repRows = await db
-        .select({
-          company: schema.company,
-          contact: schema.contact,
-          bank: schema.bank,
-          address: schema.address
-        })
-        .from(schema.company)
-        .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
-        .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
-        .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
-        .where(eq(schema.company.id, row.deal_memo.invoice_company_id))
-        .limit(1)
-
-      if (repRows.length > 0) {
-        const r = repRows[0]
-        representativeParty = toParty(r.company, r.contact, r.bank, r.address, '')
-      }
-    }
+    // VP1 "vertreten durch": the management/agency acting for the band.
+    // Event override first, then the band's management company, then the
+    // default own company. A band represented by its own company has none.
+    const representingCompanyId =
+      row.deal_memo.representing_company_id ??
+      row.band?.management_company_id ??
+      (await this.defaultOwnCompanyId())
+    const representative =
+      representingCompanyId !== null && representingCompanyId !== row.band?.company_id
+        ? await this.loadCompany(representingCompanyId)
+        : null
 
     // Promoter ("oeV"): the deal memo's local promoter company. The
-    // representative (lopro person) is fetched separately - it belongs to the
-    // deal memo, not to the company.
-    let promoter: ContractParty | null = null
-    if (row.deal_memo.lopro_company_id) {
-      const promoterRows = await db
-        .select({
-          company: schema.company,
-          contact: schema.contact,
-          bank: schema.bank,
-          address: schema.address
-        })
-        .from(schema.company)
-        .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
-        .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
-        .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
-        .where(eq(schema.company.id, row.deal_memo.lopro_company_id))
-        .limit(1)
-
-      if (promoterRows.length > 0) {
-        const p = promoterRows[0]
-        const rep = row.person ? `${row.person.first_name} ${row.person.last_name}`.trim() : ''
-        promoter = toParty(p.company, p.contact, p.bank, p.address, rep)
-      }
-    }
-
-    const a = artistRows[0]
+    // representative (lopro person) belongs to the deal memo, not the company.
+    const promoterRepresentative = row.person
+      ? `${row.person.first_name} ${row.person.last_name}`.trim()
+      : ''
+    const promoter = row.deal_memo.lopro_company_id
+      ? await this.loadCompany(row.deal_memo.lopro_company_id, promoterRepresentative)
+      : null
 
     // Resolve the technician first: the artist-side representative is the TL
     // (the person signing for the band company when no agency is involved)
@@ -159,10 +115,11 @@ export class ContractRepository {
         posters: row.deal_memo.posters ?? ''
       },
       band: row.band ? { id: row.band.id, name: row.band.name } : null,
-      artist: toParty(a.company, a.contact, a.bank, a.address, artistRepresentative),
-      artistLogoPath: a.company?.logo_path || null,
-      representative: representativeParty,
-      promoter,
+      artist: artist ? { ...artist.party, representative: artistRepresentative } : null,
+      // The issuing side's letterhead: the representing company, else the band's
+      letterheadLogoPath: representative?.logoPath || artist?.logoPath || null,
+      representative: representative?.party ?? null,
+      promoter: promoter?.party ?? null,
       technician,
       venue: row.venue
         ? {
@@ -174,6 +131,37 @@ export class ContractRepository {
         : null,
       hotel: row.hotel ? { id: row.hotel.id, name: row.hotel.name } : null
     }
+  }
+
+  /** A company as contract party (with address, contact, bank) plus its logo */
+  private async loadCompany(companyId: number, representative = '') {
+    const rows = await db
+      .select({
+        company: schema.company,
+        contact: schema.contact,
+        bank: schema.bank,
+        address: schema.address
+      })
+      .from(schema.company)
+      .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+      .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
+      .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+      .where(eq(schema.company.id, companyId))
+      .limit(1)
+    const r = rows[0]
+    const party = r ? toParty(r.company, r.contact, r.bank, r.address, representative) : null
+    return party ? { party, logoPath: r.company.logo_path || null } : null
+  }
+
+  /** The own company marked as default (also the invoicing default) */
+  private async defaultOwnCompanyId(): Promise<number | null> {
+    const rows = await db
+      .select({ id: schema.company.id })
+      .from(schema.company)
+      .where(eq(schema.company.is_default_for_invoicing, true))
+      .orderBy(asc(schema.company.id))
+      .limit(1)
+    return rows[0]?.id ?? null
   }
 
   /**

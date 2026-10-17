@@ -65,10 +65,15 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
     event.guaranteeVatRate?.toString() ?? ''
   )
   const [contractNotes, setContractNotes] = useSyncedState(event.contractNotes ?? '')
+  // Contract "vertreten durch" override; null = band management / default
+  const [representingCompanyId, setRepresentingCompanyId] = useSyncedState<number | null>(
+    event.representingCompanyId ?? null
+  )
   const isContractDirty =
     (parseFloat(guaranteeAmount) || null) !== event.guaranteeAmount ||
     (parseFloat(guaranteeVatRate) || null) !== event.guaranteeVatRate ||
-    contractNotes !== (event.contractNotes ?? '')
+    contractNotes !== (event.contractNotes ?? '') ||
+    representingCompanyId !== (event.representingCompanyId ?? null)
   const isDirty =
     isDealDirty || isPricesDirty || isPostersDirty || isInvoiceCompanyDirty || isContractDirty
 
@@ -83,6 +88,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       setGuaranteeAmount(event.guaranteeAmount?.toString() ?? '')
       setGuaranteeVatRate(event.guaranteeVatRate?.toString() ?? '')
       setContractNotes(event.contractNotes ?? '')
+      setRepresentingCompanyId(event.representingCompanyId ?? null)
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -105,7 +111,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       invoiceCompanyId,
       guaranteeAmount: guaranteeAmount ? parseFloat(guaranteeAmount) : null,
       guaranteeVatRate: guaranteeVatRate ? parseFloat(guaranteeVatRate) : null,
-      contractNotes: contractNotes
+      contractNotes: contractNotes,
+      representingCompanyId
     })
   }
 
@@ -129,6 +136,15 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
     }
   })
+
+  // Who represents the band when the event sets no override
+  const bandManagementName = companies.data?.find(
+    (c) => c.id === event.band?.managementCompanyId
+  )?.name
+  const defaultRepresentationName = bandManagementName
+    ? `${bandManagementName} (Management der Band)`
+    : (defaultCompany.data?.name ?? 'keine Standard-Firma')
+  const representingCompanyName = companies.data?.find((c) => c.id === representingCompanyId)?.name
 
   const selectedInvoiceCompany = companies.data?.find((c) => c.id === invoiceCompanyId)
   const defaultInvoiceCompanyName = defaultCompany.data?.name ?? 'Nicht konfiguriert'
@@ -273,7 +289,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   onChange={(e) => setGuaranteeAmount(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  aparece im Auftrittsvertrag als vereinbarte Gage
+                  Erscheint im Auftrittsvertrag als vereinbarte Gage
                 </p>
               </div>
               <div className="space-y-2">
@@ -289,6 +305,31 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   onChange={(e) => setGuaranteeVatRate(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">Leer oder 0 = keine MwSt. ausweisen</p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Vertreten durch (Management)</Label>
+                <Select
+                  value={representingCompanyId === null ? 'none' : representingCompanyId.toString()}
+                  onValueChange={(value) =>
+                    setRepresentingCompanyId(value === 'none' ? null : Number(value))
+                  }
+                >
+                  <SelectTrigger className="max-w-md">
+                    <SelectValue placeholder="Management auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Standard: {defaultRepresentationName}</SelectItem>
+                    {(companies.data ?? []).map((company) => (
+                      <SelectItem key={company.id} value={company.id.toString()}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Vertritt die Band in diesem Vertrag (Briefkopf, „vertreten durch“, Unterschrift
+                  VP1). Nur setzen, wenn es vom Management der Band abweicht.
+                </p>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="contract-notes">Sondervereinbarungen (Vertrag)</Label>
@@ -315,6 +356,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 label="MwSt.-Satz der Gage"
                 value={guaranteeVatRate ? `${guaranteeVatRate} %` : null}
                 placeholder="Keine MwSt. ausgewiesen"
+              />
+              <ReadOnlyField
+                label="Vertreten durch (Management)"
+                value={representingCompanyName ?? null}
+                placeholder={`Standard: ${defaultRepresentationName}`}
+                className="md:col-span-2"
               />
               <ReadOnlyField
                 label="Sondervereinbarungen"
