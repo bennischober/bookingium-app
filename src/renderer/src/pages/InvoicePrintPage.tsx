@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from '@tanstack/react-router'
+import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,8 @@ function suggestTemplate(data: InvoicePrintDto | undefined): InvoiceTemplate {
 export default function InvoicePrintPage() {
   const { invoiceId } = useParams({ strict: false })
   const navigate = useNavigate()
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
   const id = Number(invoiceId)
 
   const printQuery = trpcReact.invoice.getPrintData.useQuery(id, {
@@ -113,7 +115,12 @@ export default function InvoicePrintPage() {
     <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
       {/* Screen-only toolbar */}
       <div className="mx-auto mb-4 flex w-[210mm] items-center justify-between print:hidden">
-        <Button variant="outline" onClick={() => navigate({ to: '/invoices' })}>
+        {/* Back to wherever the invoice was opened from (invoice list or an
+            event's Finanzen tab); the list when opened directly */}
+        <Button
+          variant="outline"
+          onClick={() => (canGoBack ? router.history.back() : navigate({ to: '/invoices' }))}
+        >
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-3">

@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { useSyncedState } from '@/hooks/useSyncedState'
+import { useFormSheet } from '@/hooks/useFormSheet'
+import { FormSheet } from '@/components/form-sheet'
+import { InvoiceForm } from '@/components/forms/InvoiceForm'
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, formatMoney } from '@/lib/invoiceLabels'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,18 +20,11 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Euro, FileText, Plus, FileSignature } from 'lucide-react'
+import { Euro, FileText, Plus, FileSignature, Pencil, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
+import type { InvoiceDto, InvoiceListItemDto } from 'src/main/api/schemas/invoice.schema'
 import { ReadOnlyField } from './ReadOnlyField'
-
-const INVOICE_STATUS_LABELS: Record<string, string> = {
-  draft: 'Entwurf',
-  issued: 'gestellt',
-  paid: 'bezahlt',
-  overdue: 'überfällig',
-  cancelled: 'storniert'
-}
 
 export interface FinancialsTabProps {
   event: DealMemoDetailDto
@@ -37,7 +35,9 @@ export interface FinancialsTabProps {
 
 export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: FinancialsTabProps) {
   const utils = trpcReact.useUtils()
+  const navigate = useNavigate()
   const lastSaveSignal = useRef(saveSignal)
+  const invoiceSheet = useFormSheet<InvoiceDto>()
 
   const [deal, setDeal] = useSyncedState(event.deal ?? '')
   const [vvk, setVvk] = useSyncedState(event.ticketPriceVvk?.toString() ?? '')
@@ -126,6 +126,42 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
     }
   })
+
+  // Invoice changes made here show up in the event, the invoice list and the
+  // dashboard alike
+  const invalidateInvoices = () => {
+    utils.invoice.getByDealMemoId.invalidate(event.id)
+    utils.invoice.getAllPaginated.invalidate()
+    utils.dealMemo.getById.invalidate(event.id)
+  }
+
+  const updateInvoiceMutation = trpcReact.invoice.update.useMutation({
+    onSuccess: () => {
+      invalidateInvoices()
+      invoiceSheet.close()
+      toast.success('Rechnung aktualisiert')
+    },
+    onError: (error) =>
+      toast.error('Rechnung konnte nicht aktualisiert werden', { description: error.message })
+  })
+
+  const deleteInvoiceMutation = trpcReact.invoice.delete.useMutation({
+    onSuccess: () => {
+      invalidateInvoices()
+      toast.success('Rechnung gelöscht')
+    },
+    onError: (error) =>
+      toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
+  })
+
+  const openInvoice = async (invoice: InvoiceListItemDto) => {
+    const fullInvoice = await utils.invoice.getById.fetch(invoice.id)
+    if (!fullInvoice) {
+      toast.error('Rechnung nicht gefunden')
+      return
+    }
+    invoiceSheet.openEdit(fullInvoice)
+  }
 
   const selectedInvoiceCompany = companies.data?.find((c) => c.id === invoiceCompanyId)
   const defaultInvoiceCompanyName = defaultCompany.data?.name ?? 'Nicht konfiguriert'
@@ -408,27 +444,68 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 {(invoices.data ?? []).map((invoice) => (
                   <div
                     key={invoice.id}
-                    className="border rounded-md px-3 py-2 flex items-center justify-between gap-3"
+                    className="border rounded-md pl-3 pr-1 py-1 flex items-center justify-between gap-3"
                   >
-                    <div>
-                      <p className="text-sm font-medium">
-                        #{invoice.invoiceNumber} · {invoice.companyName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {invoice.issueDate}{' '}
-                        {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="capitalize">
-                        {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-                      </Badge>
-                      <span className="text-sm font-semibold">
-                        {new Intl.NumberFormat('de-DE', {
-                          style: 'currency',
-                          currency: invoice.currency || 'EUR'
-                        }).format(invoice.totalAmount)}
-                      </span>
+                    {/* The row itself opens the invoice for editing */}
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center justify-between gap-3 py-1 text-left hover:opacity-80"
+                      onClick={() => void openInvoice(invoice)}
+                      title="Rechnung öffnen"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          #{invoice.invoiceNumber} · {invoice.companyName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {invoice.issueDate}{' '}
+                          {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={INVOICE_STATUS_STYLES[invoice.status]}>
+                          {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
+                        </Badge>
+                        <span className="text-sm font-semibold">
+                          {formatMoney(invoice.totalAmount, invoice.currency)}
+                        </span>
+                      </div>
+                    </button>
+                    <div className="flex items-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void openInvoice(invoice)}
+                        title="Bearbeiten"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          navigate({
+                            to: '/invoices/$invoiceId/print',
+                            params: { invoiceId: String(invoice.id) }
+                          })
+                        }
+                        title="Drucken / Als PDF speichern"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(`Rechnung #${invoice.invoiceNumber} löschen?`)) {
+                            deleteInvoiceMutation.mutate(invoice.id)
+                          }
+                        }}
+                        disabled={deleteInvoiceMutation.isPending}
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -437,6 +514,24 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           </CardContent>
         </Card>
       </div>
+
+      <FormSheet
+        isOpen={invoiceSheet.isOpen}
+        onClose={invoiceSheet.close}
+        mode="edit"
+        title="Rechnung bearbeiten"
+        description="Bearbeiten Sie Details, Empfänger, Verknüpfung und Status der Rechnung."
+      >
+        <InvoiceForm
+          key={`edit-${invoiceSheet.selectedItem?.id ?? 'none'}`}
+          mode="edit"
+          invoice={invoiceSheet.selectedItem ?? undefined}
+          onCancel={invoiceSheet.close}
+          onCreate={() => {}}
+          onUpdate={(payload) => updateInvoiceMutation.mutate(payload)}
+          isSubmitting={updateInvoiceMutation.isPending}
+        />
+      </FormSheet>
     </div>
   )
 }
