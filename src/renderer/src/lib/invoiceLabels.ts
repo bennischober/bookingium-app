@@ -39,3 +39,17 @@ export function parseNumber(value: string, fallback = 0): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
 }
+
+/**
+ * Parses an amount typed the German way ("34.217,60", "34217,6", "1.000 €")
+ * or with a decimal point ("34217.60"); null if it is not a number
+ */
+export function parseAmount(value: string): number | null {
+  const compact = value.replace(/[\s€]/g, '')
+  const normalized = compact.includes(',')
+    ? compact.replace(/\./g, '').replace(',', '.')
+    : /^-?\d{1,3}(\.\d{3})+$/.test(compact)
+      ? compact.replace(/\./g, '') // "1.000" = one thousand
+      : compact
+  return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null
+}

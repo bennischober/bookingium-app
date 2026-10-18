@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ManagementShareSection } from './ManagementShareSection'
 import { Separator } from '@/components/ui/separator'
 import {
   Select,
@@ -37,7 +38,8 @@ function contractLabel(contract: ManagementContractDto, isCurrent: boolean): str
 
 /**
  * Management contracts of a band: pick one (newest = current), edit its
- * terms, print it, or start a new one (a copy of the current terms).
+ * terms, print it, bill quarterly management shares from it, or start a
+ * new one (a copy of the current terms).
  */
 export function ManagementContractSheet({
   band,
@@ -278,6 +280,13 @@ function ContractForm({
 
   return (
     <div className="space-y-5">
+      {/* Bill with what is on screen: save pending changes first */}
+      <ManagementShareSection
+        bandId={bandId}
+        contract={contract}
+        beforeBilling={async () => !dirty || (await save())}
+      />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>Management</Label>
