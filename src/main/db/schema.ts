@@ -558,6 +558,51 @@ export const management_contract_member = sqliteTable(
   ]
 )
 
+// Quarterly management share ("Managementbeteiligung"): the invoice billed
+// to the band for one quarter, with the % applied and the band's reported
+// net income it was computed from. Deleting the (draft) invoice removes it.
+export const management_share = sqliteTable(
+  'management_share',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    management_contract_id: integer('management_contract_id').references(
+      () => management_contract.id,
+      { onDelete: 'set null' }
+    ),
+    year: integer('year').notNull(),
+    quarter: integer('quarter').notNull(), // 1-4
+    commission_percent: real('commission_percent').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('management_share_invoice_unique_idx').on(table.invoice_id),
+    index('management_share_band_period_idx').on(table.band_id, table.year, table.quarter)
+  ]
+)
+
+// The band's net income lines for a quarter (e.g. Konzerte, Merchandise)
+export const management_share_income = sqliteTable(
+  'management_share_income',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    share_id: integer('share_id')
+      .notNull()
+      .references(() => management_share.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    description: text('description').notNull(),
+    net_amount: real('net_amount').notNull()
+  },
+  (table) => [index('management_share_income_share_idx').on(table.share_id)]
+)
+
 // ========================================
 // Schema Export for Drizzle Utilities
 // ========================================
@@ -584,5 +629,7 @@ export const schema = {
   invoice_party_snapshot,
   invoice_line_item,
   management_contract,
-  management_contract_member
+  management_contract_member,
+  management_share,
+  management_share_income
 }

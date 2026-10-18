@@ -79,3 +79,68 @@ export const ManagementContractPrintData = z.object({
 })
 
 export type ManagementContractPrintData = z.infer<typeof ManagementContractPrintData>
+
+// ========================================
+// Quarterly management share ("Managementbeteiligung")
+// ========================================
+
+/** "4. Quartal 2025" – period label and invoice line wording */
+export function quarterLabel(year: number, quarter: number): string {
+  return `${quarter}. Quartal ${year}`
+}
+
+/** First and last day of a quarter as YYYY-MM-DD */
+export function quarterDates(year: number, quarter: number): { start: string; end: string } {
+  const firstMonth = (quarter - 1) * 3 + 1
+  const lastMonth = firstMonth + 2
+  const lastDay = new Date(Date.UTC(year, lastMonth, 0)).getUTCDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return {
+    start: `${year}-${pad(firstMonth)}-01`,
+    end: `${year}-${pad(lastMonth)}-${pad(lastDay)}`
+  }
+}
+
+/** The management's net share: commission % of the band's net income, rounded to cents */
+export function managementShareAmount(incomeTotal: number, commissionPercent: number): number {
+  // income × % / 100 is the amount in euros, so income × % is it in cents
+  return Math.round(incomeTotal * commissionPercent + Number.EPSILON) / 100
+}
+
+export const ManagementShareIncomeInput = z.object({
+  description: z.string().trim().min(1, 'Bitte die Art der Einnahme angeben'),
+  netAmount: z.number().min(0)
+})
+
+export type ManagementShareIncomeInput = z.infer<typeof ManagementShareIncomeInput>
+
+export const CreateManagementShareInput = z.object({
+  contractId: z.number(),
+  year: z.number().int().min(2000).max(2100),
+  quarter: z.number().int().min(1).max(4),
+  // The band's reported net income for the quarter, one line per kind
+  income: z.array(ManagementShareIncomeInput).min(1),
+  taxRate: percent.optional().default(19),
+  issueDate: z.string().optional()
+})
+
+export type CreateManagementShareInput = z.infer<typeof CreateManagementShareInput>
+
+export const ManagementShareDto = z.object({
+  id: z.number(),
+  invoiceId: z.number(),
+  bandId: z.number(),
+  managementContractId: z.number().nullable(),
+  year: z.number(),
+  quarter: z.number(),
+  commissionPercent: z.number(),
+  income: z.array(z.object({ description: z.string(), netAmount: z.number() })),
+  incomeTotal: z.number(),
+  // Net amount billed (the invoice's, so later edits to the draft show)
+  netAmount: z.number(),
+  invoiceNumber: z.number().nullable(),
+  invoiceStatus: z.string(),
+  createdAt: z.string()
+})
+
+export type ManagementShareDto = z.infer<typeof ManagementShareDto>

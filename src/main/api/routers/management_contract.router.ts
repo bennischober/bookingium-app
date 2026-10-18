@@ -3,7 +3,10 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { ManagementContractService } from '../../services/ManagementContractService'
 import { ManagementContractMapper } from '../mappers/management_contract.mapper'
-import { UpdateManagementContractInput } from '../schemas/management_contract.schema'
+import {
+  CreateManagementShareInput,
+  UpdateManagementContractInput
+} from '../schemas/management_contract.schema'
 
 const t = initTRPC.create()
 const service = container.resolve(ManagementContractService)
@@ -44,5 +47,18 @@ export const managementContractRouter = t.router({
     const data = await service.getPrintData(input)
     if (!data) throw new TRPCError({ code: 'NOT_FOUND' })
     return data
+  }),
+
+  /** Quarterly management share: draft invoice from the contract's terms */
+  createShare: t.procedure.input(CreateManagementShareInput).mutation(async ({ input }) => {
+    try {
+      return await service.createShare(input)
+    } catch (error) {
+      throw badRequest(error, 'Failed to create management share invoice')
+    }
+  }),
+
+  listSharesByBand: t.procedure.input(z.number()).query(async ({ input }) => {
+    return await service.listSharesByBand(input)
   })
 })

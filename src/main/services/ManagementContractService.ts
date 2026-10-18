@@ -1,11 +1,16 @@
 import { inject, injectable } from 'tsyringe'
 import { ManagementContractRepository } from '../repositories/ManagementContractRepository'
-import type { UpdateManagementContractInput } from '../api/schemas/management_contract.schema'
+import { ManagementShareRepository } from '../repositories/ManagementShareRepository'
+import type {
+  CreateManagementShareInput,
+  UpdateManagementContractInput
+} from '../api/schemas/management_contract.schema'
 
 @injectable()
 export class ManagementContractService {
   constructor(
-    @inject(ManagementContractRepository) private repository: ManagementContractRepository
+    @inject(ManagementContractRepository) private repository: ManagementContractRepository,
+    @inject(ManagementShareRepository) private shares: ManagementShareRepository
   ) {}
 
   async listByBand(bandId: number) {
@@ -31,5 +36,14 @@ export class ManagementContractService {
 
   async getPrintData(id: number) {
     return await this.repository.getPrintData(id)
+  }
+
+  /** Bills a quarter's management share as a draft invoice to the band */
+  async createShare(input: CreateManagementShareInput) {
+    return await this.shares.createForContract(input)
+  }
+
+  async listSharesByBand(bandId: number) {
+    return await this.shares.listByBand(bandId)
   }
 }

@@ -615,71 +615,74 @@ export class InvoiceRepository {
   }
 
   async create(input: CreateInvoiceInput) {
-    return db.transaction((tx) => {
-      const companyId = this.resolveInvoiceCompanyId(tx, input)
-      const issuerSnapshot = this.createCompanySnapshot(tx, companyId)
-      const recipientSnapshot = this.resolveRecipientSnapshot(tx, input, companyId)
-      const normalizedLineItems = this.normalizeLineItems(input.lineItems, input.totalAmount)
-      const totals = this.sumTotals(normalizedLineItems)
+    return db.transaction((tx) => this.createTx(tx, input))
+  }
 
-      const status = input.status ?? 'draft'
-      // Drafts get their number when they are issued
-      if (status !== 'draft') this.assertIssuable(totals.totalGrossAmount)
-      const assignedInvoiceNumber =
-        status === 'draft' ? null : this.takeNextInvoiceNumber(tx, companyId)
+  /** Creates an invoice inside a caller's transaction (e.g. with records that point to it) */
+  createTx(tx: Tx, input: CreateInvoiceInput) {
+    const companyId = this.resolveInvoiceCompanyId(tx, input)
+    const issuerSnapshot = this.createCompanySnapshot(tx, companyId)
+    const recipientSnapshot = this.resolveRecipientSnapshot(tx, input, companyId)
+    const normalizedLineItems = this.normalizeLineItems(input.lineItems, input.totalAmount)
+    const totals = this.sumTotals(normalizedLineItems)
 
-      const created = tx
-        .insert(schema.invoice)
+    const status = input.status ?? 'draft'
+    // Drafts get their number when they are issued
+    if (status !== 'draft') this.assertIssuable(totals.totalGrossAmount)
+    const assignedInvoiceNumber =
+      status === 'draft' ? null : this.takeNextInvoiceNumber(tx, companyId)
+
+    const created = tx
+      .insert(schema.invoice)
+      .values({
+        invoice_number: assignedInvoiceNumber,
+        company_id: companyId,
+        issuer_snapshot_id: issuerSnapshot.id,
+        recipient_snapshot_id: recipientSnapshot.id,
+        deal_memo_id: input.dealMemoId ?? null,
+        period_start_date: input.periodStartDate ?? null,
+        period_end_date: input.periodEndDate ?? null,
+        period_label: input.periodLabel ?? '',
+        issue_date: input.issueDate ?? new Date().toISOString().slice(0, 10),
+        due_date: input.dueDate ?? null,
+        status,
+        currency: input.currency ?? 'EUR',
+        subtotal_net_amount: totals.subtotalNetAmount,
+        subtotal_tax_amount: totals.subtotalTaxAmount,
+        total_gross_amount: totals.totalGrossAmount,
+        total_amount: totals.totalGrossAmount,
+        payment_terms: input.paymentTerms ?? '',
+        reverse_charge_note: input.reverseChargeNote ?? '',
+        notes: input.notes ?? ''
+      })
+      .returning()
+      .all()
+
+    if (created.length === 0) {
+      throw new Error('Failed to create invoice record')
+    }
+
+    const invoiceId = created[0].id
+
+    for (const item of normalizedLineItems) {
+      tx.insert(schema.invoice_line_item)
         .values({
-          invoice_number: assignedInvoiceNumber,
-          company_id: companyId,
-          issuer_snapshot_id: issuerSnapshot.id,
-          recipient_snapshot_id: recipientSnapshot.id,
-          deal_memo_id: input.dealMemoId ?? null,
-          period_start_date: input.periodStartDate ?? null,
-          period_end_date: input.periodEndDate ?? null,
-          period_label: input.periodLabel ?? '',
-          issue_date: input.issueDate ?? new Date().toISOString().slice(0, 10),
-          due_date: input.dueDate ?? null,
-          status,
-          currency: input.currency ?? 'EUR',
-          subtotal_net_amount: totals.subtotalNetAmount,
-          subtotal_tax_amount: totals.subtotalTaxAmount,
-          total_gross_amount: totals.totalGrossAmount,
-          total_amount: totals.totalGrossAmount,
-          payment_terms: input.paymentTerms ?? '',
-          reverse_charge_note: input.reverseChargeNote ?? '',
-          notes: input.notes ?? ''
+          invoice_id: invoiceId,
+          position: item.position,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price_net: item.unitPriceNet,
+          line_net_amount: item.lineNetAmount,
+          tax_rate: item.taxRate,
+          tax_code: item.taxCode,
+          line_tax_amount: item.lineTaxAmount,
+          line_gross_amount: item.lineGrossAmount
         })
-        .returning()
-        .all()
+        .run()
+    }
 
-      if (created.length === 0) {
-        throw new Error('Failed to create invoice record')
-      }
-
-      const invoiceId = created[0].id
-
-      for (const item of normalizedLineItems) {
-        tx.insert(schema.invoice_line_item)
-          .values({
-            invoice_id: invoiceId,
-            position: item.position,
-            description: item.description,
-            quantity: item.quantity,
-            unit: item.unit,
-            unit_price_net: item.unitPriceNet,
-            line_net_amount: item.lineNetAmount,
-            tax_rate: item.taxRate,
-            tax_code: item.taxCode,
-            line_tax_amount: item.lineTaxAmount,
-            line_gross_amount: item.lineGrossAmount
-          })
-          .run()
-      }
-
-      return this.loadInvoiceWithRelationsTx(tx, invoiceId)
-    })
+    return this.loadInvoiceWithRelationsTx(tx, invoiceId)
   }
 
   async createForDealMemo(input: CreateInvoiceForDealMemoInput) {
