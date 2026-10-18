@@ -1,5 +1,6 @@
 import { AppSidebar } from '@/components/app-sidebar'
 import { AppBreadcrumbs } from '@/components/layout/app-breadcrumbs'
+import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from '@tanstack/react-router'
 import SearchButton from '@/components/ui/search-command-button'
@@ -18,6 +19,7 @@ export default function RootLayout() {
           <AppBreadcrumbs />
 
           <div className="ml-auto flex items-center gap-2">
+            <QuickCreateMenu />
             <SearchButton />
             <ShortcutsHelp />
             <ThemeToggle />
