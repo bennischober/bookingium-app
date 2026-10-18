@@ -31,6 +31,10 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
+    // Narrowest size the layout supports (sidebar + content, breadcrumbs,
+    // scrolling tables); below that the window can't be shrunk
+    minWidth: 800,
+    minHeight: 600,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
