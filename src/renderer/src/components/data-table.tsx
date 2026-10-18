@@ -10,6 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
+// The 'actions' column hugs its buttons at the right edge of the table
+// (w-px shrinks it to its content); any spare width goes to the data columns
+const ACTIONS_COLUMN_ID = 'actions'
+const ACTIONS_CELL_CLASS = 'w-px whitespace-nowrap text-right'
+
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -80,7 +85,10 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+                    className={cn(
+                      'px-4 py-3 text-left text-sm font-medium whitespace-nowrap',
+                      header.column.id === ACTIONS_COLUMN_ID && ACTIONS_CELL_CLASS
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -117,7 +125,13 @@ export function DataTable<TData>({
                   onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-sm">
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        'px-4 py-3 text-sm',
+                        cell.column.id === ACTIONS_COLUMN_ID && ACTIONS_CELL_CLASS
+                      )}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
