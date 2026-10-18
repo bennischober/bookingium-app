@@ -11,7 +11,8 @@ import {
 import { ROUTES, isRouteActive } from '@/lib/routing'
 import { trpcReact } from '@/lib/trpc'
 
-type Crumb = { title: string; path?: string }
+/** `name`: an entity name - the only crumbs that may shorten ("…") */
+type Crumb = { title: string; path?: string; name?: boolean }
 
 /**
  * Top bar breadcrumbs: the menu section, then the open entity by name on
@@ -36,26 +37,33 @@ export function AppBreadcrumbs() {
   const crumbs: Crumb[] = []
   const section = Object.values(ROUTES).find((route) => isRouteActive(route.path, pathname))
   if (section) crumbs.push({ title: section.title, path: section.path })
-  if (eventId !== null) crumbs.push({ title: event.data?.name ?? '…' })
+  if (eventId !== null) crumbs.push({ title: event.data?.name ?? '…', name: true })
   if (personId !== null) {
     crumbs.push({
       title: person.data ? `${person.data.firstName} ${person.data.lastName}` : '…',
-      path: undefined
+      name: true
     })
     crumbs.push({ title: 'Beziehungen' })
   }
 
   return (
     <Breadcrumb className="min-w-0">
-      <BreadcrumbList className="flex-nowrap">
+      <BreadcrumbList className="flex-nowrap overflow-hidden">
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1
           return (
             <React.Fragment key={`${index}-${crumb.title}`}>
-              {index > 0 && <BreadcrumbSeparator />}
-              <BreadcrumbItem className="min-w-0">
+              {index > 0 && <BreadcrumbSeparator className="shrink-0" />}
+              {/* On narrow windows entity names give way first (keeping a few
+                  letters, full name as tooltip), trailing labels only as a
+                  last resort; the section link always stays whole */}
+              <BreadcrumbItem
+                className={
+                  index === 0 ? 'shrink-0' : crumb.name ? 'min-w-12 shrink-[100]' : 'min-w-0'
+                }
+              >
                 {isLast || !crumb.path ? (
-                  <BreadcrumbPage className="truncate" title={crumb.title}>
+                  <BreadcrumbPage className="min-w-0 truncate" title={crumb.title}>
                     {crumb.title}
                   </BreadcrumbPage>
                 ) : (
