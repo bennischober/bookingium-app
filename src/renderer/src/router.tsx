@@ -15,6 +15,7 @@ import PersonRelationsPage from '@/pages/PersonRelationsPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
+import ManagementContractPrintPage from '@/pages/ManagementContractPrintPage'
 import { ROUTES } from '@/lib/routing'
 import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
@@ -136,6 +137,12 @@ const contractPrintRoute = createRoute({
   component: ContractPrintPage
 })
 
+const managementContractPrintRoute = createRoute({
+  getParentRoute: () => printLayoutRoute,
+  path: '/management-contracts/$contractId/print',
+  component: ManagementContractPrintPage
+})
+
 const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     indexRoute,
@@ -151,7 +158,11 @@ const routeTree = rootRoute.addChildren([
     invoiceRoute,
     eventHubRoute
   ]),
-  printLayoutRoute.addChildren([invoicePrintRoute, contractPrintRoute])
+  printLayoutRoute.addChildren([
+    invoicePrintRoute,
+    contractPrintRoute,
+    managementContractPrintRoute
+  ])
 ])
 
 export const router = createRouter({

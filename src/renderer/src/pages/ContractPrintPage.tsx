@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -6,39 +5,7 @@ import { Button } from '@/components/ui/button'
 import { PrintActions } from '@/components/print/PrintActions'
 import { buildFileName } from '@/lib/fileName'
 import { ContractDocument } from '@/components/contract/ContractDocument'
-
-// Resolves a stored relative image path to a data URL via IPC (null if empty/missing)
-function useStoredImageUrl(relativePath: string | undefined): string | null {
-  const [resolved, setResolved] = useState<{ path: string; url: string | null }>({
-    path: '',
-    url: null
-  })
-
-  const path = relativePath ?? ''
-
-  // Reset synchronously during render when the path changes; async IPC load
-  // stays in an effect (state adjustment pattern, per "You Might Not Need an
-  // Effect")
-  if (resolved.path !== path) {
-    setResolved({ path, url: null })
-  }
-
-  useEffect(() => {
-    if (!path) return
-    let active = true
-    void window.api.getLogoPath(path).then((result) => {
-      if (!active) return
-      if (result.success && result.dataUrl) {
-        setResolved({ path, url: result.dataUrl })
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [path])
-
-  return resolved.url
-}
+import { useStoredImageUrl } from '@/hooks/useStoredImageUrl'
 
 export default function ContractPrintPage() {
   const { eventId } = useParams({ strict: false })
