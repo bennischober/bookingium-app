@@ -125,7 +125,9 @@ export const InvoicePrintDto = z.object({
   invoice: InvoiceDto,
   issuer: InvoicePartySnapshotDto.nullable(),
   recipient: InvoicePartySnapshotDto.nullable(),
-  venueName: z.string().nullable()
+  venueName: z.string().nullable(),
+  // Set for a quarterly management share (billed to the band's company)
+  managementShare: z.object({ bandName: z.string() }).nullable()
 })
 
 export type InvoicePrintDto = z.infer<typeof InvoicePrintDto>

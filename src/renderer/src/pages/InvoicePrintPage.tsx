@@ -100,12 +100,14 @@ export default function InvoicePrintPage() {
     )
   }
 
-  // e.g. "Rechnung_1040_Soundwave Records", "Rechnung_Entwurf_Soundwave Records"
+  // e.g. "Rechnung_1040_Soundwave Records", "Rechnung_Entwurf_Soundwave Records",
+  // "Rechnung_2026783_The New Roses_Managementbeteiligung 4. Quartal 2025"
   const { invoice } = data
   const fileName = buildFileName([
     'Rechnung',
     invoice.invoiceNumber ?? 'Entwurf',
-    data.recipient?.legalName || invoice.recipientName,
+    data.managementShare?.bandName || data.recipient?.legalName || invoice.recipientName,
+    data.managementShare ? `Managementbeteiligung ${invoice.periodLabel}` : null,
     invoice.status === 'cancelled' ? 'storniert' : null
   ])
 

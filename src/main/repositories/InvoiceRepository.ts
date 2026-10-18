@@ -503,6 +503,8 @@ export class InvoiceRepository {
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
       .leftJoin(issuerSnapshot, eq(schema.invoice.issuer_snapshot_id, issuerSnapshot.id))
       .leftJoin(recipientSnapshot, eq(schema.invoice.recipient_snapshot_id, recipientSnapshot.id))
+      .leftJoin(schema.management_share, eq(schema.management_share.invoice_id, schema.invoice.id))
+      .leftJoin(schema.band, eq(schema.management_share.band_id, schema.band.id))
       .where(eq(schema.invoice.id, id))
       .limit(1)
 
@@ -522,6 +524,8 @@ export class InvoiceRepository {
       company: row.company,
       dealMemo: row.deal_memo,
       venueName: row.venue?.name ?? null,
+      // Quarterly management share: the band it was billed for
+      managementShareBandName: row.band?.name ?? null,
       issuerSnapshot: row.issuer_snapshot,
       recipientSnapshot: row.recipient_snapshot,
       lineItems

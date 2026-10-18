@@ -129,7 +129,10 @@ export class InvoiceMapper {
   }
 
   static toPrintDto(
-    entity: InvoiceWithRelations & { venueName?: string | null },
+    entity: InvoiceWithRelations & {
+      venueName?: string | null
+      managementShareBandName?: string | null
+    },
     issuerSnapshot: InvoicePartySnapshotEntity | null,
     recipientSnapshot: InvoicePartySnapshotEntity | null
   ): InvoicePrintDto {
@@ -137,7 +140,10 @@ export class InvoiceMapper {
       invoice: this.toDto({ ...entity, issuerSnapshot, recipientSnapshot }),
       issuer: issuerSnapshot ? this.toPartySnapshotDto(issuerSnapshot) : null,
       recipient: recipientSnapshot ? this.toPartySnapshotDto(recipientSnapshot) : null,
-      venueName: entity.venueName ?? null
+      venueName: entity.venueName ?? null,
+      managementShare: entity.managementShareBandName
+        ? { bandName: entity.managementShareBandName }
+        : null
     }
   }
 }

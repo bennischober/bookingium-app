@@ -8,6 +8,7 @@ import { CompanyService } from '../src/main/services/CompanyService'
 import { InvoiceService } from '../src/main/services/InvoiceService'
 import { ManagementContractService } from '../src/main/services/ManagementContractService'
 import { BandRepository } from '../src/main/repositories/BandRepository'
+import { InvoiceMapper } from '../src/main/api/mappers/invoice.mapper'
 import { quarterDates } from '../src/main/api/schemas/management_contract.schema'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
@@ -220,5 +221,40 @@ describe('ManagementContractService.createShare', () => {
     expect(shares.map((s) => `${s.year}/${s.quarter}`)).toEqual(['2026/1', '2025/4', '2025/2'])
     expect(shares[0].income).toEqual([{ description: 'Lizenzen', netAmount: 250 }])
     expect(shares[0].netAmount).toBe(50)
+  })
+  it('names the band in the print data; other invoices have no share', async () => {
+    const { service, contract, bandCompany } = await setup('Printed')
+    const invoices = container.resolve(InvoiceService)
+    const share = await service.createShare({
+      contractId: contract.id,
+      year: 2025,
+      quarter: 4,
+      income: Q4_INCOME,
+      taxRate: 19
+    })
+
+    const printData = async (id: number) => {
+      const entity = await invoices.getInvoicePrintData(id)
+      if (!entity) throw new Error('missing')
+      return InvoiceMapper.toPrintDto(entity, entity.issuerSnapshot, entity.recipientSnapshot)
+    }
+    const data = await printData(share.invoiceId)
+    expect(data.managementShare).toEqual({ bandName: 'Printed' })
+    expect(data.recipient?.legalName).toBe('Printed GbR')
+    expect(data.issuer?.city).toBe('Bad Hindelang')
+
+    const plain = await invoices.createInvoice({
+      companyId: bandCompany.id,
+      recipientKind: 'company',
+      recipientCompanyId: bandCompany.id,
+      status: 'draft',
+      currency: 'EUR',
+      lineItems: [],
+      totalAmount: 0,
+      paymentTerms: '',
+      reverseChargeNote: '',
+      notes: ''
+    })
+    expect((await printData(plain.id)).managementShare).toBeNull()
   })
 })

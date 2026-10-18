@@ -293,9 +293,11 @@ function AgencyTemplate({
       <MetaBand
         columns={t.meta}
         values={[
-          invoice.recipientName,
+          // A management share goes to the band's company but names the band,
+          // performed at the management's seat (like the agency's invoices)
+          data.managementShare?.bandName ?? invoice.recipientName,
           formatPeriod(data),
-          data.venueName || '-',
+          data.venueName || (data.managementShare && issuer?.city) || '-',
           formatDate(invoice.issueDate),
           invoice.invoiceNumber === null
             ? lang === 'en'
@@ -423,6 +425,11 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
           </div>
         </div>
         <div className="w-1/2 text-[10pt] leading-snug">
+          {data.managementShare && (
+            <div>
+              <span className="font-semibold">Künstler:</span> {data.managementShare.bandName}
+            </div>
+          )}
           {invoice.dealMemoName && (
             <div>
               <span className="font-semibold">Event:</span> {invoice.dealMemoName}
