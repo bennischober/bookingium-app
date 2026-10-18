@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,9 +12,36 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 // The 'actions' column hugs its buttons at the right edge of the table
-// (w-px shrinks it to its content); any spare width goes to the data columns
+// (w-px shrinks it to its content); any spare width goes to the data
+// columns. It is pinned (sticky right) so the buttons stay reachable while a
+// wide table scrolls horizontally in a narrow window; pinned cells need an
+// opaque background, so body cells mirror the row hover color.
 const ACTIONS_COLUMN_ID = 'actions'
-const ACTIONS_CELL_CLASS = 'w-px whitespace-nowrap text-right'
+const ACTIONS_CELL_CLASS = 'sticky right-0 w-px whitespace-nowrap text-right'
+const ACTIONS_HEAD_BG = 'bg-muted'
+const ACTIONS_BODY_BG =
+  'bg-background group-hover:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))]'
+// Separates the pinned column from content scrolled underneath it
+const PINNED_SHADOW = 'shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.25)]'
+
+/** Whether the table is wider than its scroll frame (i.e. scrolls) */
+function useHorizontalOverflow() {
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
+
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const measure = () => setOverflowing(frame.scrollWidth > frame.clientWidth + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(frame)
+    if (frame.firstElementChild) observer.observe(frame.firstElementChild)
+    return () => observer.disconnect()
+  }, [])
+
+  return { frameRef, overflowing }
+}
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[]
@@ -55,6 +83,7 @@ export function DataTable<TData>({
     },
     onPaginationChange
   })
+  const { frameRef, overflowing } = useHorizontalOverflow()
 
   return (
     <div className="flex flex-col w-full">
@@ -77,7 +106,7 @@ export function DataTable<TData>({
 
       {/* Table — horizontal scroll instead of squeezing at high zoom
           (e.g. Windows 150% scaling on laptops) */}
-      <div className="border rounded-lg overflow-x-auto">
+      <div ref={frameRef} className="border rounded-lg overflow-x-auto">
         <table className="w-full min-w-[640px]">
           <thead className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -87,7 +116,11 @@ export function DataTable<TData>({
                     key={header.id}
                     className={cn(
                       'px-4 py-3 text-left text-sm font-medium whitespace-nowrap',
-                      header.column.id === ACTIONS_COLUMN_ID && ACTIONS_CELL_CLASS
+                      header.column.id === ACTIONS_COLUMN_ID && [
+                        ACTIONS_CELL_CLASS,
+                        ACTIONS_HEAD_BG,
+                        overflowing && PINNED_SHADOW
+                      ]
                     )}
                   >
                     {header.isPlaceholder
@@ -121,7 +154,7 @@ export function DataTable<TData>({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className={cn('border-t hover:bg-muted/50', onRowClick && 'cursor-pointer')}
+                  className={cn('group border-t hover:bg-muted/50', onRowClick && 'cursor-pointer')}
                   onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -129,7 +162,11 @@ export function DataTable<TData>({
                       key={cell.id}
                       className={cn(
                         'px-4 py-3 text-sm',
-                        cell.column.id === ACTIONS_COLUMN_ID && ACTIONS_CELL_CLASS
+                        cell.column.id === ACTIONS_COLUMN_ID && [
+                          ACTIONS_CELL_CLASS,
+                          ACTIONS_BODY_BG,
+                          overflowing && PINNED_SHADOW
+                        ]
                       )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
