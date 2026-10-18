@@ -34,7 +34,7 @@ export const PaginatedPersonResponse = createPaginatedResponse(PersonDto)
  */
 export const CreatePersonInput = z.object({
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  lastName: z.string().default(''),
   birthday: z.string().nullable().default(null),
   notes: z.string().nullable(),
   address: AddressInput.optional(),
@@ -47,7 +47,7 @@ export const CreatePersonInput = z.object({
 export const UpdatePersonInput = z.object({
   id: z.number(),
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  lastName: z.string().default(''),
   birthday: z.string().nullable().default(null),
   notes: z.string().nullable(),
   address: AddressInput.optional(),
