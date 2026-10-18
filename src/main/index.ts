@@ -25,6 +25,7 @@ import {
   copyLogoToStorage,
   deleteLogoFile
 } from './utils/fileStorage'
+import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
   // Create the browser window.
@@ -294,6 +295,33 @@ ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string 
   if (!savedPdfPaths.has(filePath)) return { success: false, error: 'Unknown file' }
   const error = await shell.openPath(filePath)
   return error ? { success: false, error } : { success: true }
+})
+
+/**
+ * IPC Handler: pick an Excel workbook for the import dialog and return its
+ * sheets (rows as text plus a suggested column mapping)
+ */
+ipcMain.handle('import:pickWorkbook', async (event) => {
+  try {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: 'Excel-Datei importieren',
+      properties: ['openFile'],
+      filters: [{ name: 'Excel-Arbeitsmappe', extensions: ['xlsx', 'xlsm'] }]
+    }
+    const result = owner
+      ? await dialog.showOpenDialog(owner, options)
+      : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return { success: true, canceled: true }
+    const workbook = await readWorkbook(result.filePaths[0])
+    return { success: true, canceled: false, workbook }
+  } catch (error) {
+    console.error('Error reading workbook:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
 })
 
 // This method will be called when Electron has finished

@@ -26,7 +26,9 @@ const api = {
   savePrintPdf: (defaultFileName: string) =>
     ipcRenderer.invoke('print:savePdf', { defaultFileName }),
 
-  openSavedPdf: (filePath: string) => ipcRenderer.invoke('print:openPdf', { filePath })
+  openSavedPdf: (filePath: string) => ipcRenderer.invoke('print:openPdf', { filePath }),
+
+  pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 
 process.once('loaded', () => {

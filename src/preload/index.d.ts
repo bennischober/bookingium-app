@@ -1,4 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type { ImportWorkbook } from '../main/api/schemas/import.schema'
 
 export interface DocumentAPI {
   uploadDocument: (
@@ -44,6 +45,13 @@ export interface DocumentAPI {
     error?: string
   }>
   openSavedPdf: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  /** Open dialog for an Excel file; returns its sheets for the import dialog */
+  pickImportWorkbook: () => Promise<{
+    success: boolean
+    canceled?: boolean
+    workbook?: ImportWorkbook
+    error?: string
+  }>
 }
 
 declare global {
