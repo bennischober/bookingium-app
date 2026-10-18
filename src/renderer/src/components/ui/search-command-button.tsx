@@ -16,9 +16,7 @@ import {
   CirclePlus,
   FileText,
   Guitar,
-  HandCoins,
   Hotel,
-  LayoutDashboard,
   MapPin,
   Music2,
   Search,
@@ -26,23 +24,18 @@ import {
   Users
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
+import { ROUTES } from '@/lib/routing'
+import type { ListSearch } from '@/hooks/useListSearchActions'
 
-type StaticRoute =
-  | '/'
-  | '/calendar'
-  | '/events'
-  | '/band'
-  | '/venues'
-  | '/hotels'
-  | '/persons'
-  | '/companies'
-  | '/banks'
+type StaticRoute = (typeof ROUTES)[keyof typeof ROUTES]['path']
 
 type RecentCommand = {
   id: string
   label: string
   type: 'route' | 'event'
   path?: StaticRoute
+  /** e.g. { create: true } for "new …" actions (see useListSearchActions) */
+  search?: ListSearch
   eventId?: number
 }
 
@@ -50,73 +43,33 @@ const RECENTS_STORAGE_KEY = 'bookingium-search-recents'
 const MIN_SEARCH_LENGTH = 2
 const SEARCH_DEBOUNCE_MS = 200
 
-const ROUTE_COMMANDS: Array<{
-  title: string
-  description: string
-  path: StaticRoute
-  icon: React.ReactNode
-  aliases?: string[]
-}> = [
-  {
-    title: 'Dashboard',
-    description: 'Übersicht und KPIs öffnen',
-    path: '/',
-    icon: <LayoutDashboard />,
-    aliases: ['home', 'landing', 'overview']
-  },
-  {
-    title: 'Kalender',
-    description: 'Terminkalender öffnen',
-    path: '/calendar',
-    icon: <Calendar />,
-    aliases: ['agenda', 'schedule']
-  },
-  {
-    title: 'Events',
+// Palette texts per page; titles, icons and order come from the menu config
+const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string[] }> = {
+  '/': { description: 'Übersicht und KPIs öffnen', aliases: ['home', 'landing', 'overview'] },
+  '/calendar': { description: 'Terminkalender öffnen', aliases: ['agenda', 'schedule'] },
+  '/events': {
     description: 'Alle Gigs und Deal Memos öffnen',
-    path: '/events',
-    icon: <Music2 />,
     aliases: ['gigs', 'shows', 'event hub']
   },
-  {
-    title: 'Bands',
-    description: 'Künstlerverzeichnis öffnen',
-    path: '/band',
-    icon: <Guitar />
+  '/invoices': {
+    description: 'Rechnungen und Nummerierung öffnen',
+    aliases: ['invoices', 'rechnung', 'billing']
   },
-  {
-    title: 'Spielstätten',
-    description: 'Spielstättenverzeichnis öffnen',
-    path: '/venues',
-    icon: <MapPin />
-  },
-  {
-    title: 'Hotels',
-    description: 'Hotelverzeichnis öffnen',
-    path: '/hotels',
-    icon: <Hotel />,
-    aliases: ['accommodation']
-  },
-  {
-    title: 'Personen',
+  '/band': { description: 'Künstlerverzeichnis öffnen', aliases: ['artists'] },
+  '/persons': {
     description: 'Personen-Stammdaten öffnen',
-    path: '/persons',
-    icon: <Users />,
     aliases: ['contacts', 'person relations', 'relations']
   },
-  {
-    title: 'Firmen',
-    description: 'Firmen-Stammdaten öffnen',
-    path: '/companies',
-    icon: <Building2 />
-  },
-  {
-    title: 'Banken',
-    description: 'Bankverbindungen öffnen',
-    path: '/banks',
-    icon: <HandCoins />
-  }
-]
+  '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
+  '/venues': { description: 'Spielstättenverzeichnis öffnen', aliases: ['locations'] },
+  '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
+  '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] }
+}
+
+const ROUTE_COMMANDS = Object.values(ROUTES).map((route) => ({
+  ...route,
+  ...ROUTE_DETAILS[route.path]
+}))
 
 const SearchButton = () => {
   const [open, setOpen] = useState(false)
@@ -260,8 +213,8 @@ const SearchButton = () => {
                     value={recent.label}
                     onSelect={() => {
                       if (recent.type === 'route' && recent.path) {
-                        const path = recent.path
-                        runAndClose(() => navigate({ to: path }), recent)
+                        const { path, search } = recent
+                        runAndClose(() => navigate({ to: path, search: search ?? {} }), recent)
                         return
                       }
 
@@ -302,7 +255,7 @@ const SearchButton = () => {
                   })
                 }
               >
-                {route.icon}
+                <route.icon />
                 <span>{route.title}</span>
                 <CommandShortcut>Öffnen</CommandShortcut>
               </CommandItem>
@@ -313,20 +266,38 @@ const SearchButton = () => {
 
           <CommandGroup heading="Aktionen">
             <CommandItem
-              value="create new event"
+              value="Neues Event anlegen create new event"
               keywords={['add event', 'new gig']}
               onSelect={() =>
-                runAndClose(() => navigate({ to: '/events' }), {
+                runAndClose(() => navigate({ to: '/events', search: { create: true } }), {
                   id: 'route:/events:create',
                   label: 'Neues Event anlegen',
                   type: 'route',
-                  path: '/events'
+                  path: '/events',
+                  search: { create: true }
                 })
               }
             >
               <CirclePlus />
               <span>Neues Event anlegen</span>
               <CommandShortcut>Events</CommandShortcut>
+            </CommandItem>
+            <CommandItem
+              value="Neue Rechnung anlegen create new invoice"
+              keywords={['add invoice', 'new invoice', 'rechnung']}
+              onSelect={() =>
+                runAndClose(() => navigate({ to: '/invoices', search: { create: true } }), {
+                  id: 'route:/invoices:create',
+                  label: 'Neue Rechnung anlegen',
+                  type: 'route',
+                  path: '/invoices',
+                  search: { create: true }
+                })
+              }
+            >
+              <CirclePlus />
+              <span>Neue Rechnung anlegen</span>
+              <CommandShortcut>Rechnungen</CommandShortcut>
             </CommandItem>
             <CommandItem
               value="person relations"
@@ -407,7 +378,11 @@ const SearchButton = () => {
                     key={`company-${company.id}`}
                     value={`${company.label} company firma`}
                     keywords={['company']}
-                    onSelect={() => runAndClose(() => navigate({ to: company.route }))}
+                    onSelect={() =>
+                      runAndClose(() =>
+                        navigate({ to: company.route, search: { open: company.id } })
+                      )
+                    }
                   >
                     <Building2 />
                     <span>{company.label}</span>
@@ -420,7 +395,9 @@ const SearchButton = () => {
                     key={`band-${band.id}`}
                     value={`${band.label} ${band.sublabel ?? ''} band artist`}
                     keywords={['artist']}
-                    onSelect={() => runAndClose(() => navigate({ to: band.route }))}
+                    onSelect={() =>
+                      runAndClose(() => navigate({ to: band.route, search: { open: band.id } }))
+                    }
                   >
                     <Guitar />
                     <span>{band.label}</span>
@@ -433,7 +410,9 @@ const SearchButton = () => {
                     key={`venue-${venue.id}`}
                     value={`${venue.label} ${venue.sublabel ?? ''} venue location`}
                     keywords={['location']}
-                    onSelect={() => runAndClose(() => navigate({ to: venue.route }))}
+                    onSelect={() =>
+                      runAndClose(() => navigate({ to: venue.route, search: { open: venue.id } }))
+                    }
                   >
                     <MapPin />
                     <span>{venue.label}</span>
@@ -445,7 +424,9 @@ const SearchButton = () => {
                     key={`hotel-${hotel.id}`}
                     value={`${hotel.label} ${hotel.sublabel ?? ''} hotel accommodation`}
                     keywords={['accommodation']}
-                    onSelect={() => runAndClose(() => navigate({ to: hotel.route }))}
+                    onSelect={() =>
+                      runAndClose(() => navigate({ to: hotel.route, search: { open: hotel.id } }))
+                    }
                   >
                     <Hotel />
                     <span>{hotel.label}</span>
@@ -458,7 +439,11 @@ const SearchButton = () => {
                     key={`invoice-${invoice.id}`}
                     value={`${invoice.label} ${invoice.sublabel ?? ''} invoice rechnung`}
                     keywords={['invoice', 'rechnung']}
-                    onSelect={() => runAndClose(() => navigate({ to: invoice.route }))}
+                    onSelect={() =>
+                      runAndClose(() =>
+                        navigate({ to: invoice.route, search: { open: invoice.id } })
+                      )
+                    }
                   >
                     <FileText />
                     <span>{invoice.label}</span>
