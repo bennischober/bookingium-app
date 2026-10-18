@@ -1,7 +1,10 @@
 import { injectable, inject } from 'tsyringe'
 import { VenueRepository } from '../repositories/VenueRepository'
-import type { CreateVenueInput, UpdateVenueInput } from '../api/schemas/venue.schema'
-import { PaginationInput } from '../api/schemas/base.schema'
+import type {
+  CreateVenueInput,
+  UpdateVenueInput,
+  VenuePaginationInput
+} from '../api/schemas/venue.schema'
 
 @injectable()
 export class VenueService {
@@ -11,7 +14,7 @@ export class VenueService {
     return await this.venueRepository.getAll()
   }
 
-  async getAllVenuesPaginated(pagination: PaginationInput) {
+  async getAllVenuesPaginated(pagination: VenuePaginationInput) {
     return await this.venueRepository.getAllPaginated(pagination)
   }
 

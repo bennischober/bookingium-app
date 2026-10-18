@@ -1,0 +1,1 @@
+ALTER TABLE `venue` ADD `kind` text DEFAULT 'venue' NOT NULL;

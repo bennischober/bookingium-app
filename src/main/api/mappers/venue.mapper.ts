@@ -24,6 +24,7 @@ export class VenueMapper {
     return {
       id: entity.id,
       name: entity.name,
+      kind: entity.kind === 'festival' ? 'festival' : 'venue',
       capacity: entity.capacity,
       notes: entity.notes,
       address: AddressMapper.toDto(entity.address),

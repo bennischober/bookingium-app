@@ -182,6 +182,8 @@ export const venue = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
+    // 'venue' (club, hall, theatre, ...) or 'festival'
+    kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
     notes: text('notes').default('').notNull(),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),

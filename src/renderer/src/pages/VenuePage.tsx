@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import type { VenueDto } from '../../../main/api/schemas/venue.schema'
+import { VENUE_KIND_LABELS, VenueKind, type VenueDto } from '../../../main/api/schemas/venue.schema'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
@@ -17,6 +25,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
+  const [kind, setKind] = useState<VenueKind | 'all'>('all')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'venue'
     id: number
@@ -36,7 +45,8 @@ export default function VenuePage() {
   const venues = trpcReact.venue.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,
     pageSize: pagination.pageSize,
-    search: search || undefined
+    search: search || undefined,
+    kind: kind === 'all' ? undefined : kind
   })
 
   const createMutation = trpcReact.venue.create.useMutation({
@@ -95,6 +105,16 @@ export default function VenuePage() {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
+    },
+    {
+      accessorKey: 'kind',
+      header: 'Art',
+      cell: ({ row }) =>
+        row.original.kind === 'festival' ? (
+          <Badge variant="secondary">{VENUE_KIND_LABELS.festival}</Badge>
+        ) : (
+          VENUE_KIND_LABELS.venue
+        )
     },
     {
       accessorKey: 'company',
@@ -172,7 +192,25 @@ export default function VenuePage() {
         isLoading={venues.isLoading}
         total={venues.data?.total ?? 0}
         actionButton={
-          <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={kind}
+              onValueChange={(value) => {
+                setKind(value as VenueKind | 'all')
+                setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+              }}
+            >
+              <SelectTrigger className="w-40" aria-label="Art filtern">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Arten</SelectItem>
+                <SelectItem value="venue">Spielstätten</SelectItem>
+                <SelectItem value="festival">Festivals</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
+          </div>
         }
       />
 

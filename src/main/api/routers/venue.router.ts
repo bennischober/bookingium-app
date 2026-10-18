@@ -3,8 +3,7 @@ import { initTRPC } from '@trpc/server'
 import { container } from 'tsyringe'
 import { VenueService } from '../../services/VenueService'
 import { VenueMapper } from '../mappers/venue.mapper'
-import { CreateVenueInput, UpdateVenueInput } from '../schemas/venue.schema'
-import { PaginationInput } from '../schemas/base.schema'
+import { CreateVenueInput, UpdateVenueInput, VenuePaginationInput } from '../schemas/venue.schema'
 
 const t = initTRPC.create()
 const venueService = container.resolve(VenueService)
@@ -20,7 +19,7 @@ export const venueRouter = t.router({
     return VenueMapper.toListItemList(venues)
   }),
 
-  getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
+  getAllPaginated: t.procedure.input(VenuePaginationInput).query(async ({ input }) => {
     const result = await venueService.getAllVenuesPaginated(input)
     return {
       ...result,

@@ -15,10 +15,12 @@ import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import { trpcReact } from '@/lib/trpc'
 import type { FormMode } from '@/hooks/useFormSheet'
-import type {
-  CreateVenueInput,
-  UpdateVenueInput,
-  VenueDto
+import {
+  VENUE_KIND_LABELS,
+  VenueKind,
+  type CreateVenueInput,
+  type UpdateVenueInput,
+  type VenueDto
 } from '../../../../main/api/schemas/venue.schema'
 
 interface VenueFormProps {
@@ -41,6 +43,7 @@ export function VenueForm({
   const form = useForm({
     defaultValues: {
       name: initialData?.name ?? '',
+      kind: initialData?.kind ?? ('venue' as VenueKind),
       capacity: initialData?.capacity?.toString() ?? '',
       notes: initialData?.notes ?? '',
       companyId: initialData?.company?.id ?? null,
@@ -68,6 +71,7 @@ export function VenueForm({
       const hasContact = Object.values(value.contact).some((entry) => entry.trim().length > 0)
       const basePayload = {
         name: value.name.trim(),
+        kind: value.kind,
         capacity,
         notes: value.notes.trim(),
         companyId: value.companyId,
@@ -120,6 +124,30 @@ export function VenueForm({
             {field.state.meta.errors.length > 0 && (
               <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
             )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field name="kind">
+        {(field) => (
+          <div className="space-y-2">
+            <Label htmlFor={field.name}>Art</Label>
+            <Select
+              value={field.state.value}
+              onValueChange={(value) => field.handleChange(value as VenueKind)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger id={field.name}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VenueKind.options.map((kind) => (
+                  <SelectItem key={kind} value={kind}>
+                    {VENUE_KIND_LABELS[kind]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </form.Field>

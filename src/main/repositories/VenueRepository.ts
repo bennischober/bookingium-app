@@ -1,9 +1,12 @@
-import { eq, like, sql } from 'drizzle-orm'
+import { and, eq, like, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import type { CreateVenueInput, UpdateVenueInput } from '../api/schemas/venue.schema'
-import { PaginationInput } from '../api/schemas/base.schema'
+import type {
+  CreateVenueInput,
+  UpdateVenueInput,
+  VenuePaginationInput
+} from '../api/schemas/venue.schema'
 
 @injectable()
 export class VenueRepository {
@@ -24,11 +27,14 @@ export class VenueRepository {
     }))
   }
 
-  async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
+  async getAllPaginated(pagination: VenuePaginationInput) {
+    const { page, pageSize, search, kind } = pagination
     const offset = (page - 1) * pageSize
 
-    const whereClause = search ? like(schema.venue.name, `%${search}%`) : undefined
+    const whereClause = and(
+      search ? like(schema.venue.name, `%${search}%`) : undefined,
+      kind ? eq(schema.venue.kind, kind) : undefined
+    )
 
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
@@ -122,6 +128,7 @@ export class VenueRepository {
         .insert(schema.venue)
         .values({
           name: input.name,
+          kind: input.kind,
           capacity: input.capacity ?? null,
           notes: input.notes,
           address_id: addressId,
@@ -223,6 +230,7 @@ export class VenueRepository {
       tx.update(schema.venue)
         .set({
           name: input.name,
+          kind: input.kind,
           capacity: input.capacity ?? null,
           notes: input.notes,
           address_id: addressId ?? null,
