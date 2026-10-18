@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
-import { getGroupedRoutes } from '@/lib/routing'
+import { getGroupedRoutes, isRouteActive } from '@/lib/routing'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState()
@@ -32,7 +32,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild isActive={currentPath === item.path}>
+                    <SidebarMenuButton asChild isActive={isRouteActive(item.path, currentPath)}>
                       <Link to={item.path}>
                         <item.icon />
                         <span>{item.title}</span>

@@ -68,6 +68,16 @@ export const getGroupedRoutes = (): GroupedRoute[] => {
 }
 
 /**
+ * Whether a menu route is active for the current path: its own page and its
+ * detail pages (e.g. /events for /events/3, /persons for /persons/1/relations).
+ * The dashboard ('/') only matches itself.
+ */
+export const isRouteActive = (routePath: string, currentPath: string): boolean => {
+  if (routePath === '/') return currentPath === '/'
+  return currentPath === routePath || currentPath.startsWith(`${routePath}/`)
+}
+
+/**
  * Finds a route by its path.
  * @param path - The path to search for.
  * @returns The route info or undefined if not found.
