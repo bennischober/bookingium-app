@@ -184,15 +184,18 @@ const SearchButton = () => {
   }, [hasTypedQuery, isAnyLoading, hasRecordMatches])
   return (
     <div className="flex flex-col gap-4">
+      {/* Full search field from 1024px; an icon button below, so the top bar
+          leaves room for the breadcrumbs */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex h-8 w-72 max-w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md border border-input bg-transparent text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-72 lg:justify-start lg:px-3"
         aria-label="Alles suchen (Ctrl+K)"
+        title="Alles suchen (Ctrl+K)"
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-70" />
-        <span className="flex-1 truncate">Alles suchen...</span>
-        <kbd className="pointer-events-none rounded border border-muted-foreground/30 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-background">
+        <span className="hidden flex-1 truncate lg:inline">Alles suchen...</span>
+        <kbd className="pointer-events-none hidden rounded border border-muted-foreground/30 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-background lg:inline">
           Ctrl+K
         </kbd>
       </button>

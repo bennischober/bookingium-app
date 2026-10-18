@@ -18,7 +18,7 @@ export default function RootLayout() {
         <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
           <AppBreadcrumbs />
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <QuickCreateMenu />
             <SearchButton />
             <ShortcutsHelp />
