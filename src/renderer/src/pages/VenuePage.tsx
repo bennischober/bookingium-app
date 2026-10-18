@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, Users } from 'lucide-react'
+import { Pencil, Trash2, Upload, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
+import { ImportDialog } from '@/components/import/ImportDialog'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -26,6 +27,7 @@ export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
   const [search, setSearch] = useState('')
   const [kind, setKind] = useState<VenueKind | 'all'>('all')
+  const [importOpen, setImportOpen] = useState(false)
   const [membersEntity, setMembersEntity] = useState<{
     type: 'venue'
     id: number
@@ -209,10 +211,15 @@ export default function VenuePage() {
                 <SelectItem value="festival">Festivals</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Importieren
+            </Button>
             <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
           </div>
         }
       />
+
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <MembersSheet
         entityType="venue"
