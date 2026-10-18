@@ -7,10 +7,11 @@ import { DataTable } from '@/components/data-table'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import { Pencil, Trash2 } from 'lucide-react'
+import { FileSignature, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
+import { ManagementContractSheet } from '@/components/band/ManagementContractSheet'
 import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 import { confirmAction } from '@/lib/confirm'
@@ -25,6 +26,7 @@ export default function BandPage() {
     id: number
     name: string
   } | null>(null)
+  const [contractBand, setContractBand] = useState<{ id: number; name: string } | null>(null)
 
   const sheet = useFormSheet<BandDto>()
 
@@ -145,6 +147,11 @@ export default function BandPage() {
               onClick={() => setMembersEntity({ type: 'band', id: band.id, name: band.name })}
             />
             <RowActionButton
+              icon={FileSignature}
+              label="Managementvertrag"
+              onClick={() => setContractBand({ id: band.id, name: band.name })}
+            />
+            <RowActionButton
               icon={Pencil}
               label="Bearbeiten"
               onClick={() => sheet.openEdit(band)}
@@ -184,6 +191,8 @@ export default function BandPage() {
         total={bands.data?.total ?? 0}
         actionButton={<Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>}
       />
+
+      <ManagementContractSheet band={contractBand} onClose={() => setContractBand(null)} />
 
       <MembersSheet
         entityType="band"
