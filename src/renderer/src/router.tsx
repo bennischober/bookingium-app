@@ -16,6 +16,7 @@ import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
 import { ROUTES } from '@/lib/routing'
+import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 
 const hashHistory = createHashHistory()
@@ -46,12 +47,14 @@ const calendarRoute = createRoute({
 const bandRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.bands.path,
+  validateSearch: validateListSearch,
   component: BandPage
 })
 
 const personRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.persons.path,
+  validateSearch: validateListSearch,
   component: PersonPage
 })
 
@@ -64,36 +67,42 @@ const personRelationsRoute = createRoute({
 const companyRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.companies.path,
+  validateSearch: validateListSearch,
   component: CompanyPage
 })
 
 const bankRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.banks.path,
+  validateSearch: validateListSearch,
   component: BankPage
 })
 
 const venueRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.venues.path,
+  validateSearch: validateListSearch,
   component: VenuePage
 })
 
 const hotelRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.hotels.path,
+  validateSearch: validateListSearch,
   component: HotelPage
 })
 
 const eventRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.events.path,
+  validateSearch: validateListSearch,
   component: EventPage
 })
 
 const invoiceRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.invoices.path,
+  validateSearch: validateListSearch,
   component: InvoicePage
 })
 

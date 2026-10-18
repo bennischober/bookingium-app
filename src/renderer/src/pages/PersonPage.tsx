@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
 import { PersonDto } from 'src/main/api/schemas/person.schema'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export function PersonPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -26,6 +27,13 @@ export function PersonPage() {
 
   const formSheet = useFormSheet<PersonDto>()
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => formSheet.openCreate(),
+    onOpen: (id) =>
+      void utils.person.getById.fetch({ id }).then((person) => person && formSheet.openEdit(person))
+  })
 
   const allPersons = trpcReact.person.getAll.useQuery()
   console.log(allPersons.data)

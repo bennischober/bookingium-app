@@ -27,6 +27,7 @@ import {
   invoiceNumberLabel
 } from '@/lib/invoiceLabels'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function InvoicePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -39,6 +40,12 @@ export default function InvoicePage() {
   const sheet = useFormSheet<InvoiceDto>()
   const [openInvoiceId, setOpenInvoiceId] = useState<number | null>(null)
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => sheet.openCreate(),
+    onOpen: (id) => setOpenInvoiceId(id)
+  })
 
   const invoices = trpcReact.invoice.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,

@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -32,6 +33,9 @@ export function EventPage() {
   const navigate = useNavigate()
 
   const utils = trpcReact.useUtils()
+
+  // ?create=true from the search palette and the "+ Neu" menu
+  useListSearchActions({ onCreate: () => setWizardOpen(true) })
 
   const events = trpcReact.dealMemo.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,

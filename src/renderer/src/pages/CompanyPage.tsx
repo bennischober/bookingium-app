@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { Pencil, Trash2, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export function CompanyPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -28,6 +29,15 @@ export function CompanyPage() {
 
   const formSheet = useFormSheet<CompanyDto>()
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => formSheet.openCreate(),
+    onOpen: (id) =>
+      void utils.company.getById
+        .fetch({ id })
+        .then((company) => company && formSheet.openEdit(company))
+  })
 
   // Queries
   const companies = trpcReact.company.getAllPaginated.useQuery({

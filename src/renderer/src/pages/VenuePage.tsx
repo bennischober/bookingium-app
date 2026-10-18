@@ -11,6 +11,7 @@ import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { VenueDto } from '../../../main/api/schemas/venue.schema'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -23,6 +24,13 @@ export default function VenuePage() {
 
   const formSheet = useFormSheet<VenueDto>()
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => formSheet.openCreate(),
+    onOpen: (id) =>
+      void utils.venue.getById.fetch({ id }).then((venue) => venue && formSheet.openEdit(venue))
+  })
 
   const venues = trpcReact.venue.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,

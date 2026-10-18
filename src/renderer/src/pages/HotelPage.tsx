@@ -10,6 +10,7 @@ import { HotelForm } from '@/components/forms/HotelForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { HotelDto } from '../../../main/api/schemas/hotel.schema'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function HotelPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -17,6 +18,13 @@ export default function HotelPage() {
 
   const formSheet = useFormSheet<HotelDto>()
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => formSheet.openCreate(),
+    onOpen: (id) =>
+      void utils.hotel.getById.fetch(id).then((hotel) => hotel && formSheet.openEdit(hotel))
+  })
 
   const hotels = trpcReact.hotel.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,

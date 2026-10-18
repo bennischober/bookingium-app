@@ -14,6 +14,7 @@ import { MembersSheet } from '@/components/MembersSheet'
 import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 import { confirmAction } from '@/lib/confirm'
+import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function BandPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -33,6 +34,12 @@ export default function BandPage() {
   })
 
   const utils = trpcReact.useUtils()
+
+  // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
+  useListSearchActions({
+    onCreate: () => sheet.openCreate(),
+    onOpen: (id) => void utils.band.getById.fetch(id).then((band) => band && sheet.openEdit(band))
+  })
 
   const createBand = trpcReact.band.create.useMutation({
     onSuccess: (data) => {
