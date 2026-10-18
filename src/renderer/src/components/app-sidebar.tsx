@@ -9,8 +9,7 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail
+  SidebarMenuItem
 } from '@/components/ui/sidebar'
 import { getGroupedRoutes } from '@/lib/routing'
 
@@ -21,8 +20,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar variant="sidebar" {...props}>
-      <SidebarHeader>
-        <h1 className="text-lg font-bold">BOOKINGIUM</h1>
+      {/* Same height and bottom border as the top bar, so both line up */}
+      <SidebarHeader className="h-16 shrink-0 justify-center border-b px-4">
+        <h1 className="text-lg font-bold tracking-wide">BOOKINGIUM</h1>
       </SidebarHeader>
       <SidebarContent>
         {navGroups.map((group) => (
@@ -33,7 +33,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild isActive={currentPath === item.path}>
-                      <Link to={item.path}>{item.title}</Link>
+                      <Link to={item.path}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -42,7 +45,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarRail />
     </Sidebar>
   )
 }

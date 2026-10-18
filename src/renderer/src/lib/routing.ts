@@ -1,11 +1,25 @@
+import {
+  Building2,
+  CalendarDays,
+  FileText,
+  Guitar,
+  Hotel,
+  Landmark,
+  LayoutDashboard,
+  MapPin,
+  Music2,
+  Users,
+  type LucideIcon
+} from 'lucide-react'
+
 /**
- * A route information object containing the path, title, and group.
+ * A route information object containing the path, title, group and icon.
  */
 export type RouteInfo = {
   path: string
   title: string
   group: string
-  breadcrumb?: string // Optional custom breadcrumb label
+  icon: LucideIcon
 }
 
 /**
@@ -17,70 +31,22 @@ export type GroupedRoute = {
 }
 
 /**
- * A constant object defining the application's routes.
+ * The application's top-level pages. The order here is the menu order (and
+ * the order of the Alt+number shortcuts); the icons are shared by the menu
+ * and the search palette.
  */
 export const ROUTES = {
-  dashboard: {
-    path: '/',
-    title: '📊 Dashboard',
-    group: 'Hauptmenü',
-    breadcrumb: 'Dashboard'
-  },
-  calendar: {
-    path: '/calendar',
-    title: '📅 Kalender',
-    group: 'Hauptmenü',
-    breadcrumb: 'Kalender'
-  },
-  events: {
-    path: '/events',
-    title: '🎸 Events',
-    group: 'Produktion',
-    breadcrumb: 'Events'
-  },
-  invoices: {
-    path: '/invoices',
-    title: '📄 Rechnungen',
-    group: 'Produktion',
-    breadcrumb: 'Rechnungen'
-  },
-  bands: {
-    path: '/band',
-    title: '🥁 Bands',
-    group: 'Verzeichnis',
-    breadcrumb: 'Bands'
-  },
-  venues: {
-    path: '/venues',
-    title: '📍 Spielstätten',
-    group: 'Verzeichnis',
-    breadcrumb: 'Spielstätten'
-  },
-  hotels: {
-    path: '/hotels',
-    title: '🏨 Hotels',
-    group: 'Verzeichnis',
-    breadcrumb: 'Hotels'
-  },
-  persons: {
-    path: '/persons',
-    title: '👤 Personen',
-    group: 'Stammdaten',
-    breadcrumb: 'Personen'
-  },
-  companies: {
-    path: '/companies',
-    title: '🏢 Firmen',
-    group: 'Stammdaten',
-    breadcrumb: 'Firmen'
-  },
-  banks: {
-    path: '/banks',
-    title: '🏦 Banken',
-    group: 'Stammdaten',
-    breadcrumb: 'Banken'
-  }
-} as const
+  dashboard: { path: '/', title: 'Dashboard', group: 'Planung', icon: LayoutDashboard },
+  calendar: { path: '/calendar', title: 'Kalender', group: 'Planung', icon: CalendarDays },
+  events: { path: '/events', title: 'Events', group: 'Planung', icon: Music2 },
+  invoices: { path: '/invoices', title: 'Rechnungen', group: 'Planung', icon: FileText },
+  bands: { path: '/band', title: 'Bands', group: 'Kontakte', icon: Guitar },
+  persons: { path: '/persons', title: 'Personen', group: 'Kontakte', icon: Users },
+  companies: { path: '/companies', title: 'Firmen', group: 'Kontakte', icon: Building2 },
+  venues: { path: '/venues', title: 'Spielstätten', group: 'Kontakte', icon: MapPin },
+  hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
+  banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark }
+} as const satisfies Record<string, RouteInfo>
 
 /**
  * Groups the routes by their group property.
@@ -129,7 +95,7 @@ export const getBreadcrumbs = (path: string): Array<{ title: string; path: strin
 
       if (route) {
         breadcrumbs.push({
-          title: route.breadcrumb || route.title.replace(/[^\w\s]/g, '').trim(),
+          title: route.title,
           path: route.path
         })
       }
