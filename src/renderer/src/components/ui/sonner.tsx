@@ -9,7 +9,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps['theme']}
-      className="toaster group"
+      // Never in print output (printToPDF captures the whole window, and a
+      // toast's "Drucken" action opens a print page while it is still shown)
+      className="toaster group print:hidden!"
       toastOptions={{
         classNames: {
           toast:
