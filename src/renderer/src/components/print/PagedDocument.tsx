@@ -46,7 +46,10 @@ export function PagedDocument({
             box-shadow: none !important;
             margin: 0 !important;
           }
-          .paged-content { padding: 0 !important; }
+          /* flow-root keeps the first block's top margin (agency invoice:
+             24mm) inside; without padding it would collapse out of the
+             sheet and push the full-height page wrapper onto a blank 2nd page */
+          .paged-content { padding: 0 !important; display: flow-root; }
           @page { size: A4; margin: ${paddingMm}mm; }
         }
         @media screen {
