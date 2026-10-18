@@ -7,33 +7,16 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { ROUTE_SHORTCUTS } from '@/lib/routing'
 
-// Global keyboard shortcuts. Kept in one place so the help dialog and the
-// actual bindings can't drift apart. Alt+N jumps are registered here globally;
-// Ctrl+K (search) is registered in search-command-button.
+// Global keyboard shortcuts, listed in one place so the help dialog and the
+// bindings can't drift apart. The Alt+digit jumps follow the menu order
+// (ROUTE_SHORTCUTS); Ctrl+K (search) is registered in search-command-button.
 const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
   { keys: ['Ctrl', 'K'], description: 'Alles suchen öffnen' },
-  { keys: ['Alt', '1'], description: 'Dashboard' },
-  { keys: ['Alt', '2'], description: 'Kalender' },
-  { keys: ['Alt', '3'], description: 'Events' },
-  { keys: ['Alt', '4'], description: 'Rechnungen' },
-  { keys: ['Alt', '5'], description: 'Bands' },
-  { keys: ['Alt', '6'], description: 'Spielstätten' },
-  { keys: ['Alt', '7'], description: 'Firmen' },
-  { keys: ['Alt', '8'], description: 'Personen' },
+  ...ROUTE_SHORTCUTS.map(({ key, route }) => ({ keys: ['Alt', key], description: route.title })),
   { keys: ['?'], description: 'Diese Hilfe anzeigen' },
   { keys: ['Esc'], description: 'Dialoge schließen' }
-]
-
-const ALT_ROUTES: Array<[string, string]> = [
-  ['1', '/'],
-  ['2', '/calendar'],
-  ['3', '/events'],
-  ['4', '/invoices'],
-  ['5', '/band'],
-  ['6', '/venues'],
-  ['7', '/companies'],
-  ['8', '/persons']
 ]
 
 export function ShortcutsHelp() {
@@ -49,10 +32,10 @@ export function ShortcutsHelp() {
       }
 
       if (event.altKey && !event.ctrlKey && !event.metaKey) {
-        const route = ALT_ROUTES.find(([digit]) => event.key === digit)
-        if (route) {
+        const shortcut = ROUTE_SHORTCUTS.find(({ key }) => event.key === key)
+        if (shortcut) {
           event.preventDefault()
-          window.location.hash = '#' + route[1]
+          window.location.hash = '#' + shortcut.route.path
         }
       }
     }

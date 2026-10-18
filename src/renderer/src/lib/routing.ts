@@ -68,6 +68,16 @@ export const getGroupedRoutes = (): GroupedRoute[] => {
 }
 
 /**
+ * Alt+digit shortcuts, assigned in menu order: Alt+1 ... Alt+9, then Alt+0.
+ */
+export const ROUTE_SHORTCUTS: Array<{ key: string; route: RouteInfo }> = Object.values(ROUTES)
+  .slice(0, 10)
+  .map((route, index) => ({ key: String((index + 1) % 10), route }))
+
+export const getRouteShortcut = (path: string): string | undefined =>
+  ROUTE_SHORTCUTS.find((shortcut) => shortcut.route.path === path)?.key
+
+/**
  * Whether a menu route is active for the current path: its own page and its
  * detail pages (e.g. /events for /events/3, /persons for /persons/1/relations).
  * The dashboard ('/') only matches itself.
