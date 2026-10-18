@@ -93,7 +93,7 @@ export function ManagementShareSection({
       </div>
 
       {list.length > 0 && (
-        <ul className="divide-y rounded-md border">
+        <ul aria-label="Abgerechnete Quartale" className="divide-y rounded-md border">
           {list.map((share) => (
             <li key={share.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
               <span className="w-36 shrink-0 font-medium">
