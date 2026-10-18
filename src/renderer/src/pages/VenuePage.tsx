@@ -12,6 +12,7 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import type { VenueDto } from '../../../main/api/schemas/venue.schema'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function VenuePage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -123,34 +124,26 @@ export default function VenuePage() {
       id: 'actions',
       header: 'Aktionen',
       cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
+        <RowActions>
+          <RowActionButton
+            icon={Users}
+            label="Ansprechpartner"
             onClick={() =>
               setMembersEntity({ type: 'venue', id: row.original.id, name: row.original.name })
             }
-            title="Ansprechpartner"
-          >
-            <Users className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+          />
+          <RowActionButton
+            icon={Pencil}
+            label="Bearbeiten"
             onClick={() => formSheet.openEdit(row.original)}
-            title="Bearbeiten"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+          />
+          <RowActionButton
+            icon={Trash2}
+            label="Löschen"
+            destructive
             onClick={() => handleDelete(row.original)}
-            title="Löschen"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+          />
+        </RowActions>
       )
     }
   ]

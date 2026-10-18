@@ -15,6 +15,7 @@ import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BandPage() {
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -136,37 +137,25 @@ export default function BandPage() {
       header: 'Aktionen',
       cell: ({ row }) => {
         const band = row.original
-
         return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMembersEntity({ type: 'band', id: band.id, name: band.name })
-              }}
-              className="h-8 px-2"
-              title="Mitglieder"
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+          <RowActions>
+            <RowActionButton
+              icon={Users}
+              label="Mitglieder"
+              onClick={() => setMembersEntity({ type: 'band', id: band.id, name: band.name })}
+            />
+            <RowActionButton
+              icon={Pencil}
+              label="Bearbeiten"
               onClick={() => sheet.openEdit(band)}
-              className="h-8 px-2"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+            />
+            <RowActionButton
+              icon={Trash2}
+              label="Löschen"
+              destructive
               onClick={() => handleDelete(band.id, band.name)}
-              className="h-8 px-2 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+            />
+          </RowActions>
         )
       }
     }

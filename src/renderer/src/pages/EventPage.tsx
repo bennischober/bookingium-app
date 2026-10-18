@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -111,19 +112,14 @@ export function EventPage() {
       cell: ({ row }) => {
         const event = row.original
         return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-destructive hover:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(event.id, event.name)
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <RowActions>
+            <RowActionButton
+              icon={Trash2}
+              label="Löschen"
+              destructive
+              onClick={() => handleDelete(event.id, event.name)}
+            />
+          </RowActions>
         )
       }
     }

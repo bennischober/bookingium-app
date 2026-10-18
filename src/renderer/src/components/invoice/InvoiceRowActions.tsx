@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { Eye, Pencil, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
-import { Button } from '@/components/ui/button'
+import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { invoiceNumberLabel } from '@/lib/invoiceLabels'
 import {
   isInvoiceLocked,
@@ -38,57 +38,45 @@ export function InvoiceRowActions({
   })
 
   return (
-    <div className="flex items-center">
-      <Button
-        variant="ghost"
-        size="icon"
+    <RowActions>
+      <RowActionButton
+        icon={locked ? Eye : Pencil}
+        label={locked ? 'Anzeigen' : 'Bearbeiten'}
         onClick={() => onOpen(invoice.id)}
-        title={locked ? 'Anzeigen' : 'Bearbeiten'}
-      >
-        {locked ? <Eye className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
+      />
+      <RowActionButton
+        icon={Printer}
+        label="Drucken / Als PDF speichern"
         onClick={() =>
           navigate({
             to: '/invoices/$invoiceId/print',
             params: { invoiceId: String(invoice.id) }
           })
         }
-        title="Drucken / Als PDF speichern"
-      >
-        <Printer className="h-4 w-4" />
-      </Button>
-      {/* Disabled buttons show no tooltip, so the hint sits on a wrapper */}
-      <span
-        title={
+      />
+      <RowActionButton
+        icon={Trash2}
+        label="Entwurf löschen"
+        destructive
+        disabled={locked || deleteMutation.isPending}
+        disabledReason={
           locked
             ? 'Gestellte Rechnungen können nicht gelöscht werden – bitte stornieren'
-            : 'Entwurf löschen'
+            : undefined
         }
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={async () => {
-            if (
-              await confirmAction({
-                title: `${invoiceNumberLabel(invoice.invoiceNumber)} löschen?`,
-                description: 'Der Entwurf wird endgültig entfernt.',
-                confirmLabel: 'Löschen',
-                destructive: true
-              })
-            ) {
-              deleteMutation.mutate(invoice.id)
-            }
-          }}
-          disabled={locked || deleteMutation.isPending}
-          aria-label="Löschen"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </span>
-    </div>
+        onClick={async () => {
+          if (
+            await confirmAction({
+              title: `${invoiceNumberLabel(invoice.invoiceNumber)} löschen?`,
+              description: 'Der Entwurf wird endgültig entfernt.',
+              confirmLabel: 'Löschen',
+              destructive: true
+            })
+          ) {
+            deleteMutation.mutate(invoice.id)
+          }
+        }}
+      />
+    </RowActions>
   )
 }
