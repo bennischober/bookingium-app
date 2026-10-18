@@ -496,6 +496,69 @@ export const document = sqliteTable(
 )
 
 // ========================================
+// Management contracts (management company <-> band)
+// ========================================
+// A band can have several over time (renewals with new terms); the newest
+// is the current one. Defaults follow the agency's contract draft.
+
+export const management_contract = sqliteTable(
+  'management_contract',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    // MANAGEMENT party, fixed per contract (prefilled from the band's
+    // management company, else the default own company)
+    management_company_id: integer('management_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
+    // Contract start (date of the last signature), once known
+    start_date: text('start_date'),
+    territory: text('territory').default('örtlich unbeschränkt').notNull(),
+    term_years: integer('term_years').default(3).notNull(),
+    renewal_years: integer('renewal_years').default(1).notNull(),
+    notice_months: integer('notice_months').default(6).notNull(),
+    commission_percent: real('commission_percent').default(20).notNull(),
+    excluded_income: text('excluded_income').default('GVL und GEMA Einnahmen').notNull(),
+    statement_email: text('statement_email').default('').notNull(),
+    settlement_days: integer('settlement_days').default(30).notNull(),
+    payment_days: integer('payment_days').default(14).notNull(),
+    // Post-term share in % of the commission, years 1-3 after the end
+    post_term_year1_percent: real('post_term_year1_percent').default(30).notNull(),
+    post_term_year2_percent: real('post_term_year2_percent').default(0).notNull(),
+    post_term_year3_percent: real('post_term_year3_percent').default(0).notNull(),
+    // Member authorized to receive notices, statements and payments
+    representative_person_id: integer('representative_person_id').references(() => person.id, {
+      onDelete: 'set null'
+    }),
+    special_clauses: text('special_clauses').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+  },
+  (table) => [index('management_contract_band_idx').on(table.band_id)]
+)
+
+// Members/shareholders named in the group clause (§ 15)
+export const management_contract_member = sqliteTable(
+  'management_contract_member',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    contract_id: integer('contract_id')
+      .notNull()
+      .references(() => management_contract.id, { onDelete: 'cascade' }),
+    person_id: integer('person_id')
+      .notNull()
+      .references(() => person.id, { onDelete: 'cascade' })
+  },
+  (table) => [
+    uniqueIndex('management_contract_member_unique_idx').on(table.contract_id, table.person_id)
+  ]
+)
+
+// ========================================
 // Schema Export for Drizzle Utilities
 // ========================================
 
@@ -519,5 +582,7 @@ export const schema = {
   company_invoice_settings,
   invoice,
   invoice_party_snapshot,
-  invoice_line_item
+  invoice_line_item,
+  management_contract,
+  management_contract_member
 }

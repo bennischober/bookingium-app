@@ -15,6 +15,7 @@ import { invoiceRouter } from './routers/invoice.router'
 import { contractRouter } from './routers/contract.router'
 import { searchRouter } from './routers/search.router'
 import { dashboardRouter } from './routers/dashboard.router'
+import { managementContractRouter } from './routers/management_contract.router'
 
 const ee = new EventEmitter()
 
@@ -42,7 +43,8 @@ export const router = t.router({
   invoice: invoiceRouter,
   contract: contractRouter,
   search: searchRouter,
-  dashboard: dashboardRouter
+  dashboard: dashboardRouter,
+  managementContract: managementContractRouter
 })
 
 export type AppRouter = typeof router
