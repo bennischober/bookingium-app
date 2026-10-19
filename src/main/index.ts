@@ -23,6 +23,8 @@ import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
 import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
+import { EInvoiceService } from './services/EInvoiceService'
+import type { EInvoiceCheckDto } from './api/schemas/invoice.schema'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -224,31 +226,47 @@ const savedPdfPaths = new Set<string>()
 /**
  * IPC Handler: save the real print output of the current window as a PDF,
  * via a save dialog prefilled with the given file name (in Documents).
+ * For an invoice, the e-invoice XML is embedded when it is complete
+ * (ZUGFeRD/Factur-X); `eInvoice` tells the renderer whether it was.
  */
-ipcMain.handle('print:savePdf', async (event, { defaultFileName }: { defaultFileName: string }) => {
-  try {
-    const pdf = await printWindowToPdf(event.sender)
-    const owner = BrowserWindow.fromWebContents(event.sender)
-    const options: Electron.SaveDialogOptions = {
-      title: 'Als PDF speichern',
-      defaultPath: join(app.getPath('documents'), defaultFileName),
-      filters: [{ name: 'PDF', extensions: ['pdf'] }]
-    }
-    const result = owner
-      ? await dialog.showSaveDialog(owner, options)
-      : await dialog.showSaveDialog(options)
-    if (result.canceled || !result.filePath) return { success: true, canceled: true }
-    await writeFile(result.filePath, pdf)
-    savedPdfPaths.add(result.filePath)
-    return { success: true, canceled: false, filePath: result.filePath }
-  } catch (error) {
-    console.error('Error saving PDF:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+ipcMain.handle(
+  'print:savePdf',
+  async (
+    event,
+    { defaultFileName, invoiceId }: { defaultFileName: string; invoiceId?: number }
+  ) => {
+    try {
+      let pdf: Uint8Array = await printWindowToPdf(event.sender)
+      let eInvoice: EInvoiceCheckDto | undefined
+      if (invoiceId) {
+        const result = await container
+          .resolve(EInvoiceService)
+          .attachToPdf(invoiceId, pdf, defaultFileName.replace(/\.pdf$/i, ''))
+        pdf = result.pdf
+        eInvoice = result.eInvoice
+      }
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      const options: Electron.SaveDialogOptions = {
+        title: 'Als PDF speichern',
+        defaultPath: join(app.getPath('documents'), defaultFileName),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      }
+      const result = owner
+        ? await dialog.showSaveDialog(owner, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return { success: true, canceled: true }
+      await writeFile(result.filePath, pdf)
+      savedPdfPaths.add(result.filePath)
+      return { success: true, canceled: false, filePath: result.filePath, eInvoice }
+    } catch (error) {
+      console.error('Error saving PDF:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
     }
   }
-})
+)
 
 ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string }) => {
   if (!savedPdfPaths.has(filePath)) return { success: false, error: 'Unknown file' }

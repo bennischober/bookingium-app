@@ -21,6 +21,39 @@ type CompanyEntity = typeof company.$inferSelect
 type DealMemoEntity = typeof deal_memo.$inferSelect
 type InvoiceLineItemEntity = typeof invoice_line_item.$inferSelect
 type InvoicePartySnapshotEntity = typeof invoice_party_snapshot.$inferSelect
+type InvoicePartySnapshotValues = typeof invoice_party_snapshot.$inferInsert
+
+const EMPTY_SNAPSHOT: InvoicePartySnapshotEntity = {
+  id: 0,
+  kind: 'other',
+  source_company_id: null,
+  source_band_id: null,
+  source_person_id: null,
+  legal_name: '',
+  street: '',
+  street_number: '',
+  zip_code: '',
+  city: '',
+  country: '',
+  country_code: '',
+  vat_number: '',
+  ust_number: '',
+  tax_number: '',
+  commercial_register_no: '',
+  register_court: '',
+  website: '',
+  account_holder: '',
+  bank_name: '',
+  logo_path: '',
+  email: '',
+  phone: '',
+  iban: '',
+  bic: '',
+  contact_name: '',
+  contact_phone: '',
+  contact_email: '',
+  created_at: ''
+}
 
 type InvoiceWithRelations = InvoiceEntity & {
   company?: CompanyEntity | null
@@ -85,6 +118,7 @@ export class InvoiceMapper {
       notes: entity.notes,
       paymentTerms: entity.payment_terms,
       reverseChargeNote: entity.reverse_charge_note,
+      buyerReference: entity.buyer_reference,
       lineItems: (entity.lineItems ?? []).map((item) => this.toLineItemDto(item)),
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
@@ -124,8 +158,16 @@ export class InvoiceMapper {
       email: entity.email,
       phone: entity.phone,
       iban: entity.iban,
-      bic: entity.bic
+      bic: entity.bic,
+      contactName: entity.contact_name,
+      contactPhone: entity.contact_phone,
+      contactEmail: entity.contact_email
     }
+  }
+
+  /** Party values that are not stored yet (draft check, form preview) */
+  static toPartyPreviewDto(values: InvoicePartySnapshotValues): InvoicePartySnapshotDto {
+    return this.toPartySnapshotDto({ ...EMPTY_SNAPSHOT, ...values })
   }
 
   static toPrintDto(
@@ -141,6 +183,7 @@ export class InvoiceMapper {
       issuer: issuerSnapshot ? this.toPartySnapshotDto(issuerSnapshot) : null,
       recipient: recipientSnapshot ? this.toPartySnapshotDto(recipientSnapshot) : null,
       venueName: entity.venueName ?? null,
+      eventDate: entity.dealMemo?.date ?? null,
       managementShare: entity.managementShareBandName
         ? { bandName: entity.managementShareBandName }
         : null

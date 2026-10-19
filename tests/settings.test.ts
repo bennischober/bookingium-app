@@ -32,7 +32,11 @@ afterAll(() => {
 describe('settings', () => {
   it('fall back to defaults and keep saved values', () => {
     const service = container.resolve(SettingsService)
-    expect(service.get()).toEqual({ defaultCountry: 'DE', calendarFeedPath: '' })
+    expect(service.get()).toEqual({
+      defaultCountry: 'DE',
+      calendarFeedPath: '',
+      eInvoiceEmbed: true
+    })
     expect(service.update({ defaultCountry: 'AT' })).toMatchObject({ defaultCountry: 'AT' })
     expect(service.update({ defaultCountry: '' })).toMatchObject({ defaultCountry: '' })
     expect(container.resolve(SettingsService).get()).toMatchObject({ defaultCountry: '' })
@@ -42,7 +46,8 @@ describe('settings', () => {
     db.update(schema.app_setting).set({ value: 'not json' }).run()
     expect(container.resolve(SettingsService).get()).toEqual({
       defaultCountry: 'DE',
-      calendarFeedPath: ''
+      calendarFeedPath: '',
+      eInvoiceEmbed: true
     })
   })
 

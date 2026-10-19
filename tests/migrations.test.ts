@@ -1,4 +1,4 @@
-// Migration runner: fresh databases get the merged initial migration;
+// Migration runner: fresh databases get all migrations (the merged initial one first);
 // databases from before the merge (history ending at the old 0010) are
 // taken over as they are, with the band table repaired once.
 import { describe, it, expect, afterEach } from 'vitest'
@@ -16,7 +16,8 @@ import {
 } from '../src/main/db/migrate'
 
 const migrationsFolder = resolve(__dirname, '../src/main/db/migrations')
-const [initial] = readMigrationFiles({ migrationsFolder })
+const migrations = readMigrationFiles({ migrationsFolder })
+const [initial] = migrations
 
 let restore: (() => void) | null = null
 
@@ -59,12 +60,12 @@ function legacyDb(lastMillis = LEGACY_FINAL_MIGRATION_MILLIS): Database.Database
 }
 
 describe('runMigrations', () => {
-  it('applies the initial migration to a new database', () => {
+  it('applies all migrations to a new database', () => {
     const sqlite = openDb()
     runMigrations()
-    expect(sqlite.prepare('select hash from __drizzle_migrations').all()).toEqual([
-      { hash: initial.hash }
-    ])
+    expect(sqlite.prepare('select hash from __drizzle_migrations').all()).toEqual(
+      migrations.map(({ hash }) => ({ hash }))
+    )
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
@@ -73,7 +74,9 @@ describe('runMigrations', () => {
     runMigrations()
     runMigrations()
 
-    expect(sqlite.prepare('select count(*) as n from __drizzle_migrations').get()).toEqual({ n: 2 })
+    expect(sqlite.prepare('select count(*) as n from __drizzle_migrations').get()).toEqual({
+      n: migrations.length + 1
+    })
     expect(sqlite.prepare('select name, responsible_person_id from band').all()).toEqual([
       { name: 'Pretty Wild', responsible_person_id: 1 }
     ])

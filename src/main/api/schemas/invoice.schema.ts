@@ -37,7 +37,18 @@ export function isInvoiceLocked(status: InvoiceStatus): boolean {
 export const InvoiceRecipientKind = z.enum(['company', 'band', 'person', 'other'])
 export type InvoiceRecipientKind = z.infer<typeof InvoiceRecipientKind>
 
-export const InvoiceTaxCode = z.enum(['standard', 'reduced', 'reverse_charge', 'exempt', 'other'])
+// Stored per line; mapped to the EN 16931 VAT categories in einvoice/codes.ts
+export const InvoiceTaxCode = z.enum([
+  'standard',
+  'reduced',
+  'zero_rated',
+  'reverse_charge',
+  'exempt',
+  'intra_community',
+  'export',
+  'not_taxable',
+  'other'
+])
 export type InvoiceTaxCode = z.infer<typeof InvoiceTaxCode>
 
 export const InvoiceLineItemDto = z.object({
@@ -79,7 +90,10 @@ export const InvoicePartySnapshotDto = z.object({
   email: z.string(),
   phone: z.string(),
   iban: z.string(),
-  bic: z.string()
+  bic: z.string(),
+  contactName: z.string(),
+  contactPhone: z.string(),
+  contactEmail: z.string()
 })
 
 export type InvoicePartySnapshotDto = z.infer<typeof InvoicePartySnapshotDto>
@@ -116,6 +130,7 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   notes: z.string(),
   paymentTerms: z.string(),
   reverseChargeNote: z.string(),
+  buyerReference: z.string(),
   lineItems: z.array(InvoiceLineItemDto)
 }).extend(TimestampFields.shape)
 
@@ -126,6 +141,8 @@ export const InvoicePrintDto = z.object({
   issuer: InvoicePartySnapshotDto.nullable(),
   recipient: InvoicePartySnapshotDto.nullable(),
   venueName: z.string().nullable(),
+  // Date of the linked event (date of supply in the e-invoice)
+  eventDate: z.string().nullable(),
   // Set for a quarterly management share (billed to the band's company)
   managementShare: z.object({ bandName: z.string() }).nullable()
 })
@@ -182,6 +199,7 @@ export const CreateInvoiceInput = z.object({
   totalAmount: z.number().optional().default(0),
   paymentTerms: z.string().optional().default(''),
   reverseChargeNote: z.string().optional().default(''),
+  buyerReference: z.string().optional().default(''),
   notes: z.string().optional().default('')
 })
 
@@ -213,6 +231,7 @@ export const UpdateInvoiceInput = z.object({
   totalAmount: z.number().optional(),
   paymentTerms: z.string().optional(),
   reverseChargeNote: z.string().optional(),
+  buyerReference: z.string().optional(),
   notes: z.string().optional()
 })
 
@@ -224,3 +243,33 @@ export const SetInvoiceStatusInput = z.object({
 })
 
 export type SetInvoiceStatusInput = z.infer<typeof SetInvoiceStatusInput>
+
+// ========================================
+// E-invoice (ZUGFeRD/Factur-X)
+// ========================================
+// ready      -> issued and complete: the saved PDF carries the XML
+// draft      -> complete so far; the XML comes once the invoice is issued
+// incomplete -> `missing` lists what the e-invoice still needs
+// cancelled  -> cancelled invoices get no e-invoice
+// disabled   -> switched off in the settings
+
+export const EInvoiceState = z.enum(['ready', 'draft', 'incomplete', 'cancelled', 'disabled'])
+export type EInvoiceState = z.infer<typeof EInvoiceState>
+
+export const EInvoiceCheckDto = z.object({
+  state: EInvoiceState,
+  missing: z.array(z.string())
+})
+export type EInvoiceCheckDto = z.infer<typeof EInvoiceCheckDto>
+
+/** Issuer/recipient choice of the invoice form, to preview the frozen parties */
+export const PreviewInvoicePartiesInput = z.object({
+  dealMemoId: z.number().nullable().optional(),
+  companyId: z.number().nullable().optional(),
+  recipientKind: InvoiceRecipientKind.optional(),
+  recipientCompanyId: z.number().nullable().optional(),
+  recipientBandId: z.number().nullable().optional(),
+  recipientPersonId: z.number().nullable().optional(),
+  recipientNameOverride: z.string().optional()
+})
+export type PreviewInvoicePartiesInput = z.infer<typeof PreviewInvoicePartiesInput>

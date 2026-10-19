@@ -2,10 +2,12 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { z } from 'zod'
 import { InvoiceService } from '../../services/InvoiceService'
+import { EInvoiceService } from '../../services/EInvoiceService'
 import { InvoiceMapper } from '../mappers/invoice.mapper'
 import {
   CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
+  PreviewInvoicePartiesInput,
   SetInvoiceStatusInput,
   UpdateInvoiceInput,
   UpsertCompanyInvoiceSettingsInput
@@ -14,6 +16,7 @@ import { PaginationInput } from '../schemas/base.schema'
 
 const t = initTRPC.create()
 const invoiceService = container.resolve(InvoiceService)
+const eInvoiceService = container.resolve(EInvoiceService)
 
 export const invoiceRouter = t.router({
   getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
@@ -38,6 +41,22 @@ export const invoiceRouter = t.router({
       entity.issuerSnapshot ?? null,
       entity.recipientSnapshot ?? null
     )
+  }),
+
+  /** E-invoice state of an invoice: ready, or what is missing (print page) */
+  eInvoiceCheck: t.procedure.input(z.number()).query(async ({ input }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { xml, ...check } = await eInvoiceService.check(input)
+    return check
+  }),
+
+  /** Issuer and recipient as the form's choice would freeze them (e-invoice check) */
+  previewParties: t.procedure.input(PreviewInvoicePartiesInput).query(({ input }) => {
+    try {
+      return eInvoiceService.previewParties(input)
+    } catch {
+      return null
+    }
   }),
 
   getByDealMemoId: t.procedure.input(z.number()).query(async ({ input }) => {

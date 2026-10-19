@@ -23,8 +23,8 @@ const api = {
 
   generatePrintPreview: () => ipcRenderer.invoke('print:previewPdf'),
 
-  savePrintPdf: (defaultFileName: string) =>
-    ipcRenderer.invoke('print:savePdf', { defaultFileName }),
+  savePrintPdf: (defaultFileName: string, invoiceId?: number) =>
+    ipcRenderer.invoke('print:savePdf', { defaultFileName, invoiceId }),
 
   openSavedPdf: (filePath: string) => ipcRenderer.invoke('print:openPdf', { filePath }),
 

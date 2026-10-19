@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { ImportWorkbook } from '../main/api/schemas/import.schema'
+import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
 
 export interface DocumentAPI {
   /** Local path of a file dropped from the file manager ('' if it has none) */
@@ -28,11 +29,19 @@ export interface DocumentAPI {
     data?: Uint8Array
     error?: string
   }>
-  /** Saves the real print output via a save dialog prefilled with the file name */
-  savePrintPdf: (defaultFileName: string) => Promise<{
+  /**
+   * Saves the real print output via a save dialog prefilled with the file
+   * name; with an invoice id the e-invoice is embedded when it is complete
+   */
+  savePrintPdf: (
+    defaultFileName: string,
+    invoiceId?: number
+  ) => Promise<{
     success: boolean
     canceled?: boolean
     filePath?: string
+    /** Set for invoices: whether the e-invoice was embedded, or why not */
+    eInvoice?: EInvoiceCheckDto
     error?: string
   }>
   openSavedPdf: (filePath: string) => Promise<{ success: boolean; error?: string }>

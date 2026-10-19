@@ -14,8 +14,12 @@ import type {
   UpdateInvoiceInput
 } from '../api/schemas/invoice.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
+import { computeInvoiceAmounts, fromCents } from '../einvoice/amounts'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+type SnapshotRow = typeof schema.invoice_party_snapshot.$inferSelect
+type SnapshotValues = typeof schema.invoice_party_snapshot.$inferInsert
 
 type InvoiceListRow = {
   invoice: typeof schema.invoice.$inferSelect
@@ -36,10 +40,7 @@ type RecipientSnapshotInput = {
 
 @injectable()
 export class InvoiceRepository {
-  private roundMoney(value: number): number {
-    return Math.round((value + Number.EPSILON) * 100) / 100
-  }
-
+  /** Line items with amounts, and the invoice totals (rounded in einvoice/amounts) */
   private normalizeLineItems(
     lineItems: InvoiceLineItemInput[] | undefined,
     fallbackTotalAmount: number | undefined
@@ -54,79 +55,63 @@ export class InvoiceRepository {
               unit: 'service',
               unitPriceNet: fallbackTotalAmount ?? 0,
               taxRate: 0,
-              taxCode: 'other'
+              taxCode: 'other' as const
             }
           ]
 
-    return source.map((item, index) => {
-      const quantity = item.quantity ?? 1
-      const unit = item.unit ?? 'service'
-      const taxRate = item.taxRate ?? 0
-      const unitPriceNet = item.unitPriceNet
-      const lineNetAmount = this.roundMoney(quantity * unitPriceNet)
-      const lineTaxAmount = this.roundMoney((lineNetAmount * taxRate) / 100)
-      const lineGrossAmount = this.roundMoney(lineNetAmount + lineTaxAmount)
-
-      return {
-        position: index + 1,
-        description: item.description,
-        quantity,
-        unit,
-        unitPriceNet,
-        taxRate,
-        taxCode: item.taxCode ?? 'standard',
-        lineNetAmount,
-        lineTaxAmount,
-        lineGrossAmount
-      }
-    })
-  }
-
-  private sumTotals(normalizedLineItems: ReturnType<InvoiceRepository['normalizeLineItems']>) {
-    const subtotalNetAmount = this.roundMoney(
-      normalizedLineItems.reduce((sum, item) => sum + item.lineNetAmount, 0)
-    )
-    const subtotalTaxAmount = this.roundMoney(
-      normalizedLineItems.reduce((sum, item) => sum + item.lineTaxAmount, 0)
-    )
-    const totalGrossAmount = this.roundMoney(subtotalNetAmount + subtotalTaxAmount)
+    const lines = source.map((item) => ({
+      description: item.description,
+      quantity: item.quantity ?? 1,
+      unit: item.unit ?? 'service',
+      unitPriceNet: item.unitPriceNet,
+      taxRate: item.taxRate ?? 0,
+      taxCode: item.taxCode ?? 'standard'
+    }))
+    const amounts = computeInvoiceAmounts(lines)
 
     return {
-      subtotalNetAmount,
-      subtotalTaxAmount,
-      totalGrossAmount
+      items: lines.map((line, index) => ({
+        ...line,
+        position: index + 1,
+        lineNetAmount: fromCents(amounts.lines[index].netCents),
+        lineTaxAmount: fromCents(amounts.lines[index].taxCents),
+        lineGrossAmount: fromCents(amounts.lines[index].grossCents)
+      })),
+      totals: {
+        subtotalNetAmount: fromCents(amounts.netCents),
+        subtotalTaxAmount: fromCents(amounts.taxCents),
+        totalGrossAmount: fromCents(amounts.grossCents)
+      }
     }
   }
 
-  private createManualSnapshot(tx: Tx, kind: InvoiceRecipientKind, legalName: string) {
-    const rows = tx
-      .insert(schema.invoice_party_snapshot)
-      .values({
-        kind,
-        legal_name: legalName
-      })
-      .returning()
-      .all()
-
-    if (rows.length === 0) {
+  private insertSnapshot(tx: Tx, values: SnapshotValues) {
+    const inserted = tx.insert(schema.invoice_party_snapshot).values(values).returning().all()
+    if (inserted.length === 0) {
       throw new Error('Failed to create party snapshot')
     }
-
-    return rows[0]
+    return inserted[0]
   }
 
-  private createCompanySnapshot(tx: Tx, companyId: number) {
+  /** A company as frozen on an invoice, with its invoice contact person */
+  private companySnapshotValues(tx: Tx, companyId: number): SnapshotValues {
+    const contactPerson = alias(schema.person, 'contact_person')
+    const contactPersonContact = alias(schema.contact, 'contact_person_contact')
     const rows = tx
       .select({
         company: schema.company,
         address: schema.address,
         contact: schema.contact,
-        bank: schema.bank
+        bank: schema.bank,
+        contactPerson,
+        contactPersonContact
       })
       .from(schema.company)
       .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
       .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
       .leftJoin(schema.bank, eq(schema.company.bank_id, schema.bank.id))
+      .leftJoin(contactPerson, eq(schema.company.invoice_contact_person_id, contactPerson.id))
+      .leftJoin(contactPersonContact, eq(contactPerson.contact_id, contactPersonContact.id))
       .where(eq(schema.company.id, companyId))
       .limit(1)
       .all()
@@ -136,43 +121,42 @@ export class InvoiceRepository {
     }
 
     const row = rows[0]
-    const inserted = tx
-      .insert(schema.invoice_party_snapshot)
-      .values({
-        kind: 'company',
-        source_company_id: row.company.id,
-        legal_name: row.company.name,
-        street: row.address?.street ?? '',
-        street_number: row.address?.street_number ?? '',
-        zip_code: row.address?.zip_code ?? '',
-        city: row.address?.city ?? '',
-        country: row.address?.country ?? '',
-        country_code: row.address?.country_code ?? '',
-        vat_number: row.company.vat_number,
-        ust_number: row.company.ust_number,
-        tax_number: row.company.tax_number,
-        commercial_register_no: row.company.commercial_register_no,
-        register_court: row.company.register_court,
-        website: row.contact?.homepage ?? '',
-        account_holder: row.bank?.account_holder ?? '',
-        bank_name: row.bank?.bank_name ?? '',
-        logo_path: row.company.logo_path,
-        email: row.contact?.email ?? '',
-        phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
-        iban: row.bank?.iban ?? '',
-        bic: row.bank?.bic ?? ''
-      })
-      .returning()
-      .all()
-
-    if (inserted.length === 0) {
-      throw new Error('Failed to create company snapshot')
+    const person = row.contactPerson
+    const personContact = row.contactPersonContact
+    const companyPhone = row.contact?.phone || row.contact?.mobile_phone || ''
+    return {
+      kind: 'company',
+      source_company_id: row.company.id,
+      legal_name: row.company.name,
+      street: row.address?.street ?? '',
+      street_number: row.address?.street_number ?? '',
+      zip_code: row.address?.zip_code ?? '',
+      city: row.address?.city ?? '',
+      country: row.address?.country ?? '',
+      country_code: row.address?.country_code ?? '',
+      vat_number: row.company.vat_number,
+      ust_number: row.company.ust_number,
+      tax_number: row.company.tax_number,
+      commercial_register_no: row.company.commercial_register_no,
+      register_court: row.company.register_court,
+      website: row.contact?.homepage ?? '',
+      account_holder: row.bank?.account_holder ?? '',
+      bank_name: row.bank?.bank_name ?? '',
+      logo_path: row.company.logo_path,
+      email: row.contact?.email ?? '',
+      phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
+      iban: row.bank?.iban ?? '',
+      bic: row.bank?.bic ?? '',
+      // The contact person's own phone/e-mail, else the company's
+      contact_name: person ? `${person.first_name} ${person.last_name}`.trim() : '',
+      contact_phone: person
+        ? personContact?.phone || personContact?.mobile_phone || companyPhone
+        : '',
+      contact_email: person ? personContact?.email || row.contact?.email || '' : ''
     }
-
-    return inserted[0]
   }
 
-  private createBandSnapshot(tx: Tx, bandId: number) {
+  private bandSnapshotValues(tx: Tx, bandId: number): SnapshotValues {
     const rows = tx
       .select({
         band: schema.band,
@@ -195,36 +179,26 @@ export class InvoiceRepository {
     }
 
     const row = rows[0]
-    const inserted = tx
-      .insert(schema.invoice_party_snapshot)
-      .values({
-        kind: 'band',
-        source_band_id: row.band.id,
-        legal_name: row.band.name,
-        street: row.address?.street ?? '',
-        street_number: row.address?.street_number ?? '',
-        zip_code: row.address?.zip_code ?? '',
-        city: row.address?.city ?? '',
-        country: row.address?.country ?? '',
-        country_code: row.address?.country_code ?? '',
-        vat_number: row.company?.vat_number ?? '',
-        ust_number: row.company?.ust_number ?? '',
-        email: row.contact?.email ?? '',
-        phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
-        iban: row.bank?.iban ?? '',
-        bic: row.bank?.bic ?? ''
-      })
-      .returning()
-      .all()
-
-    if (inserted.length === 0) {
-      throw new Error('Failed to create band snapshot')
+    return {
+      kind: 'band',
+      source_band_id: row.band.id,
+      legal_name: row.band.name,
+      street: row.address?.street ?? '',
+      street_number: row.address?.street_number ?? '',
+      zip_code: row.address?.zip_code ?? '',
+      city: row.address?.city ?? '',
+      country: row.address?.country ?? '',
+      country_code: row.address?.country_code ?? '',
+      vat_number: row.company?.vat_number ?? '',
+      ust_number: row.company?.ust_number ?? '',
+      email: row.contact?.email ?? '',
+      phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
+      iban: row.bank?.iban ?? '',
+      bic: row.bank?.bic ?? ''
     }
-
-    return inserted[0]
   }
 
-  private createPersonSnapshot(tx: Tx, personId: number) {
+  private personSnapshotValues(tx: Tx, personId: number): SnapshotValues {
     const rows = tx
       .select({
         person: schema.person,
@@ -243,29 +217,97 @@ export class InvoiceRepository {
     }
 
     const row = rows[0]
-    const inserted = tx
-      .insert(schema.invoice_party_snapshot)
-      .values({
-        kind: 'person',
-        source_person_id: row.person.id,
-        legal_name: `${row.person.first_name} ${row.person.last_name}`.trim(),
-        street: row.address?.street ?? '',
-        street_number: row.address?.street_number ?? '',
-        zip_code: row.address?.zip_code ?? '',
-        city: row.address?.city ?? '',
-        country: row.address?.country ?? '',
-        country_code: row.address?.country_code ?? '',
-        email: row.contact?.email ?? '',
-        phone: row.contact?.phone ?? row.contact?.mobile_phone ?? ''
-      })
-      .returning()
-      .all()
-
-    if (inserted.length === 0) {
-      throw new Error('Failed to create person snapshot')
+    return {
+      kind: 'person',
+      source_person_id: row.person.id,
+      legal_name: `${row.person.first_name} ${row.person.last_name}`.trim(),
+      street: row.address?.street ?? '',
+      street_number: row.address?.street_number ?? '',
+      zip_code: row.address?.zip_code ?? '',
+      city: row.address?.city ?? '',
+      country: row.address?.country ?? '',
+      country_code: row.address?.country_code ?? '',
+      email: row.contact?.email ?? '',
+      phone: row.contact?.phone ?? row.contact?.mobile_phone ?? ''
     }
+  }
 
-    return inserted[0]
+  private createCompanySnapshot(tx: Tx, companyId: number) {
+    return this.insertSnapshot(tx, this.companySnapshotValues(tx, companyId))
+  }
+
+  private snapshotById(tx: Tx, id: number | null): SnapshotRow | undefined {
+    if (!id) return undefined
+    return tx
+      .select()
+      .from(schema.invoice_party_snapshot)
+      .where(eq(schema.invoice_party_snapshot.id, id))
+      .all()[0]
+  }
+
+  /**
+   * The same party with its current master data (kind and source kept).
+   * Manual recipients and parties whose record is gone stay as they were.
+   */
+  private currentSnapshotValues(tx: Tx, snapshot: SnapshotRow): SnapshotValues {
+    const has = (
+      table: typeof schema.company | typeof schema.band | typeof schema.person,
+      id: number
+    ) => tx.select({ id: table.id }).from(table).where(eq(table.id, id)).all().length > 0
+    const { kind, source_company_id, source_band_id, source_person_id } = snapshot
+    if (kind === 'company' && source_company_id && has(schema.company, source_company_id)) {
+      return this.companySnapshotValues(tx, source_company_id)
+    }
+    if (kind === 'band' && source_band_id && has(schema.band, source_band_id)) {
+      return this.bandSnapshotValues(tx, source_band_id)
+    }
+    if (kind === 'person' && source_person_id && has(schema.person, source_person_id)) {
+      return this.personSnapshotValues(tx, source_person_id)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, created_at, ...values } = snapshot
+    return values
+  }
+
+  /** Issuing freezes both parties as they are now: fresh snapshots */
+  private issueSnapshotIds(
+    tx: Tx,
+    invoiceRow: Pick<typeof schema.invoice.$inferSelect, 'company_id' | 'recipient_snapshot_id'>
+  ) {
+    const recipient = this.snapshotById(tx, invoiceRow.recipient_snapshot_id)
+    return {
+      issuer_snapshot_id: this.createCompanySnapshot(tx, invoiceRow.company_id).id,
+      recipient_snapshot_id: recipient
+        ? this.insertSnapshot(tx, this.currentSnapshotValues(tx, recipient)).id
+        : invoiceRow.recipient_snapshot_id
+    }
+  }
+
+  /** A draft's parties with their current master data, as issuing would freeze them */
+  currentParties(invoiceId: number) {
+    return db.transaction((tx) => {
+      const row = tx.select().from(schema.invoice).where(eq(schema.invoice.id, invoiceId)).all()[0]
+      if (!row) throw new Error('Invoice not found')
+      const recipient = this.snapshotById(tx, row.recipient_snapshot_id)
+      return {
+        issuer: this.companySnapshotValues(tx, row.company_id),
+        recipient: recipient ? this.currentSnapshotValues(tx, recipient) : null
+      }
+    })
+  }
+
+  /**
+   * Issuer and recipient as an invoice with this input would freeze them
+   * now; nothing is written (e-invoice check in the invoice form)
+   */
+  previewParties(input: RecipientSnapshotInput) {
+    return db.transaction((tx) => {
+      const companyId = this.resolveInvoiceCompanyId(tx, input as CreateInvoiceInput)
+      return {
+        issuer: this.companySnapshotValues(tx, companyId),
+        recipient: this.resolveRecipientValues(tx, input, companyId)
+      }
+    })
   }
 
   private resolveInvoiceCompanyId(tx: Tx, input: CreateInvoiceInput) {
@@ -310,25 +352,33 @@ export class InvoiceRepository {
   }
 
   private resolveRecipientSnapshot(tx: Tx, input: RecipientSnapshotInput, issuerCompanyId: number) {
+    return this.insertSnapshot(tx, this.resolveRecipientValues(tx, input, issuerCompanyId))
+  }
+
+  private resolveRecipientValues(
+    tx: Tx,
+    input: RecipientSnapshotInput,
+    issuerCompanyId: number
+  ): SnapshotValues {
     const kind = input.recipientKind
 
     if (kind === 'company') {
       const recipientCompanyId = input.recipientCompanyId ?? input.companyId ?? issuerCompanyId
-      return this.createCompanySnapshot(tx, recipientCompanyId)
+      return this.companySnapshotValues(tx, recipientCompanyId)
     }
 
     if (kind === 'band') {
       if (!input.recipientBandId) {
         throw new Error('recipientBandId is required when recipientKind is band')
       }
-      return this.createBandSnapshot(tx, input.recipientBandId)
+      return this.bandSnapshotValues(tx, input.recipientBandId)
     }
 
     if (kind === 'person') {
       if (!input.recipientPersonId) {
         throw new Error('recipientPersonId is required when recipientKind is person')
       }
-      return this.createPersonSnapshot(tx, input.recipientPersonId)
+      return this.personSnapshotValues(tx, input.recipientPersonId)
     }
 
     if (kind === 'other') {
@@ -336,7 +386,7 @@ export class InvoiceRepository {
       if (!manualName) {
         throw new Error('recipientNameOverride is required when recipientKind is other')
       }
-      return this.createManualSnapshot(tx, 'other', manualName)
+      return { kind: 'other', legal_name: manualName }
     }
 
     if (input.dealMemoId) {
@@ -352,16 +402,16 @@ export class InvoiceRepository {
 
       if (memoRows.length > 0) {
         if (memoRows[0].loProCompanyId) {
-          return this.createCompanySnapshot(tx, memoRows[0].loProCompanyId)
+          return this.companySnapshotValues(tx, memoRows[0].loProCompanyId)
         }
 
         if (memoRows[0].bandId) {
-          return this.createBandSnapshot(tx, memoRows[0].bandId)
+          return this.bandSnapshotValues(tx, memoRows[0].bandId)
         }
       }
     }
 
-    return this.createCompanySnapshot(tx, issuerCompanyId)
+    return this.companySnapshotValues(tx, issuerCompanyId)
   }
 
   private loadInvoiceWithRelationsTx(tx: Tx, invoiceId: number) {
@@ -644,8 +694,10 @@ export class InvoiceRepository {
     const companyId = this.resolveInvoiceCompanyId(tx, input)
     const issuerSnapshot = this.createCompanySnapshot(tx, companyId)
     const recipientSnapshot = this.resolveRecipientSnapshot(tx, input, companyId)
-    const normalizedLineItems = this.normalizeLineItems(input.lineItems, input.totalAmount)
-    const totals = this.sumTotals(normalizedLineItems)
+    const { items: normalizedLineItems, totals } = this.normalizeLineItems(
+      input.lineItems,
+      input.totalAmount
+    )
 
     const status = input.status ?? 'draft'
     // Drafts get their number when they are issued
@@ -674,6 +726,7 @@ export class InvoiceRepository {
         total_amount: totals.totalGrossAmount,
         payment_terms: input.paymentTerms ?? '',
         reverse_charge_note: input.reverseChargeNote ?? '',
+        buyer_reference: input.buyerReference ?? '',
         notes: input.notes ?? ''
       })
       .returning()
@@ -711,12 +764,12 @@ export class InvoiceRepository {
   }
 
   async update(input: UpdateInvoiceInput) {
-    const normalizedLineItems =
+    const normalized =
       'lineItems' in input && input.lineItems
         ? this.normalizeLineItems(input.lineItems, input.totalAmount)
         : null
-
-    const computedTotals = normalizedLineItems ? this.sumTotals(normalizedLineItems) : null
+    const normalizedLineItems = normalized?.items ?? null
+    const computedTotals = normalized?.totals ?? null
 
     const values: Record<string, unknown> = {
       updated_at: sql`datetime('now')`
@@ -740,6 +793,7 @@ export class InvoiceRepository {
     }
     if ('paymentTerms' in input) values.payment_terms = input.paymentTerms
     if ('reverseChargeNote' in input) values.reverse_charge_note = input.reverseChargeNote
+    if ('buyerReference' in input) values.buyer_reference = input.buyerReference
     if ('notes' in input) values.notes = input.notes
 
     return db.transaction((tx) => {
@@ -800,13 +854,22 @@ export class InvoiceRepository {
         values.recipient_snapshot_id = recipientSnapshot.id
       }
 
-      // Issuing a draft: it gets the (possibly changed) issuer's next number
+      // Issuing a draft: it gets the (possibly changed) issuer's next number,
+      // and both parties are frozen as they are now
       const issuing = values.status !== undefined && values.status !== 'draft'
       if (issuing && existing.invoice_number === null) {
         this.assertIssuable(
           (values.total_gross_amount as number | undefined) ?? existing.total_gross_amount
         )
         values.invoice_number = this.takeNextInvoiceNumber(tx, nextCompanyId)
+        Object.assign(
+          values,
+          this.issueSnapshotIds(tx, {
+            company_id: nextCompanyId,
+            recipient_snapshot_id:
+              (values.recipient_snapshot_id as number | undefined) ?? existing.recipient_snapshot_id
+          })
+        )
       }
 
       const updated = tx
@@ -863,6 +926,7 @@ export class InvoiceRepository {
       if (status !== 'draft' && existing.invoice_number === null) {
         this.assertIssuable(existing.total_gross_amount)
         values.invoice_number = this.takeNextInvoiceNumber(tx, existing.company_id)
+        Object.assign(values, this.issueSnapshotIds(tx, existing))
       }
 
       tx.update(schema.invoice).set(values).where(eq(schema.invoice.id, id)).run()

@@ -96,6 +96,10 @@ export const company = sqliteTable(
       .notNull(),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
+    // Contact person printed into e-invoices (seller contact, BG-6)
+    invoice_contact_person_id: integer('invoice_contact_person_id').references(() => person.id, {
+      onDelete: 'set null'
+    }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -348,6 +352,10 @@ export const invoice_party_snapshot = sqliteTable(
     phone: text('phone').default('').notNull(),
     iban: text('iban').default('').notNull(),
     bic: text('bic').default('').notNull(),
+    // Contact person (company's invoice contact; e-invoice seller contact)
+    contact_name: text('contact_name').default('').notNull(),
+    contact_phone: text('contact_phone').default('').notNull(),
+    contact_email: text('contact_email').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull()
@@ -391,7 +399,11 @@ export const invoice = sqliteTable(
     total_gross_amount: real('total_gross_amount').default(0).notNull(),
     total_amount: real('total_amount').default(0).notNull(),
     payment_terms: text('payment_terms').default('').notNull(),
+    // Tax note printed on the invoice; also the e-invoice exemption reason
+    // (BT-120) for reverse charge, exempt and other zero-VAT lines
     reverse_charge_note: text('reverse_charge_note').default('').notNull(),
+    // Buyer reference / Leitweg-ID (e-invoice BT-10), optional
+    buyer_reference: text('buyer_reference').default('').notNull(),
     notes: text('notes').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)

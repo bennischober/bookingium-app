@@ -157,6 +157,7 @@ export class CompanyRepository {
           signature_path: input.signaturePath || '',
           ksk_number: input.kskNumber || '',
           is_default_for_invoicing: input.isDefaultForInvoicing,
+          invoice_contact_person_id: input.invoiceContactPersonId ?? null,
           address_id: addressId,
           contact_id: contactId,
           bank_id: input.bankId || null
@@ -281,6 +282,10 @@ export class CompanyRepository {
           ksk_number: input.kskNumber ?? existingCompany.ksk_number,
           is_default_for_invoicing:
             input.isDefaultForInvoicing ?? existingCompany.is_default_for_invoicing,
+          invoice_contact_person_id:
+            'invoiceContactPersonId' in input
+              ? (input.invoiceContactPersonId ?? null)
+              : existingCompany.invoice_contact_person_id,
           address_id: addressId,
           contact_id: contactId,
           bank_id: input.bankId ?? existingCompany.bank_id,

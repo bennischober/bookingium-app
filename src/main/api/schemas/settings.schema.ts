@@ -11,7 +11,9 @@ export const AppSettings = z.object({
   // ISO code used by imports for rows without a country, '' for none
   defaultCountry: z.string().default('DE'),
   // .ics file kept up to date with all events, '' for off
-  calendarFeedPath: z.string().default('')
+  calendarFeedPath: z.string().default(''),
+  // Invoice PDFs carry the e-invoice XML (ZUGFeRD/Factur-X) when complete
+  eInvoiceEmbed: z.boolean().default(true)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 

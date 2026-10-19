@@ -35,6 +35,7 @@ export class CompanyMapper {
       signaturePath: entity.signature_path,
       kskNumber: entity.ksk_number,
       isDefaultForInvoicing: entity.is_default_for_invoicing,
+      invoiceContactPersonId: entity.invoice_contact_person_id,
       address: AddressMapper.toDto(entity.address),
       contact: ContactMapper.toDto(entity.contact),
       bank: entity.bank ? BankMapper.toDto(entity.bank) : null,

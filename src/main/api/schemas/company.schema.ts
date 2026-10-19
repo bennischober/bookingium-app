@@ -19,6 +19,8 @@ export const CompanyDto = z
     signaturePath: z.string(),
     kskNumber: z.string(),
     isDefaultForInvoicing: z.boolean(),
+    // Contact person printed into e-invoices (seller contact)
+    invoiceContactPersonId: z.number().nullable(),
     address: AddressDto.nullable(),
     contact: ContactDto.nullable(),
     bank: BankDto.nullable()
@@ -47,6 +49,7 @@ export const CreateCompanyInput = z.object({
   signaturePath: z.string().optional().default(''),
   kskNumber: z.string().optional().default(''),
   isDefaultForInvoicing: z.boolean().optional().default(false),
+  invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
   bankId: z.number().nullable().optional()
@@ -65,6 +68,7 @@ export const UpdateCompanyInput = z.object({
   signaturePath: z.string().optional(),
   kskNumber: z.string().optional(),
   isDefaultForInvoicing: z.boolean().optional(),
+  invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
   bankId: z.number().nullable().optional()
