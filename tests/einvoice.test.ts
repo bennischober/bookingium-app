@@ -14,9 +14,9 @@ import {
 } from '../src/main/einvoice/amounts'
 import { countryCodeOf, unitCodeOf, vatCategoryOf, vatIdOf } from '../src/main/einvoice/codes'
 import { prepareEInvoice, type EInvoiceInput } from '../src/main/einvoice/prepare'
+import { buyer, invoice, party } from './helpers/einvoiceFixtures'
 import { buildCiiXml } from '../src/main/einvoice/cii'
 import { embedFacturX, readFacturX } from '../src/main/einvoice/facturx'
-import type { InvoicePartySnapshotDto } from '../src/main/api/schemas/invoice.schema'
 import { EInvoiceService } from '../src/main/services/EInvoiceService'
 import { InvoiceService } from '../src/main/services/InvoiceService'
 import { CompanyService } from '../src/main/services/CompanyService'
@@ -26,89 +26,6 @@ import { SettingsService } from '../src/main/services/SettingsService'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
-
-// ========================================
-// Fixtures (fictitious data)
-// ========================================
-
-function party(overrides: Partial<InvoicePartySnapshotDto> = {}): InvoicePartySnapshotDto {
-  return {
-    id: 1,
-    kind: 'company',
-    legalName: 'Beispiel Booking GmbH',
-    street: 'Musterstraße',
-    streetNumber: '1',
-    zipCode: '10115',
-    city: 'Berlin',
-    country: 'Deutschland',
-    countryCode: 'DE',
-    vatNumber: 'DE123456789',
-    ustNumber: '',
-    taxNumber: '27/123/45678',
-    commercialRegisterNo: 'HRB 12345',
-    registerCourt: 'AG Berlin',
-    website: '',
-    accountHolder: 'Beispiel Booking GmbH',
-    bankName: 'Testbank',
-    logoPath: '',
-    email: 'rechnung@beispiel.test',
-    phone: '+49 30 123456',
-    iban: 'DE02 1203 0000 0000 2020 51',
-    bic: 'BYLADEM1001',
-    contactName: 'Erika Muster',
-    contactPhone: '+49 30 123457',
-    contactEmail: 'erika@beispiel.test',
-    ...overrides
-  }
-}
-
-const buyer = (overrides: Partial<InvoicePartySnapshotDto> = {}) =>
-  party({
-    legalName: 'Konzertveranstaltung Nord GmbH & Co. KG',
-    street: 'Hafenweg',
-    streetNumber: '7',
-    zipCode: '20095',
-    city: 'Hamburg',
-    vatNumber: 'DE987654321',
-    taxNumber: '',
-    commercialRegisterNo: '',
-    email: 'buchhaltung@nord.test',
-    iban: '',
-    bic: '',
-    contactName: '',
-    contactPhone: '',
-    contactEmail: '',
-    ...overrides
-  })
-
-function invoice(overrides: Partial<EInvoiceInput> = {}): EInvoiceInput {
-  return {
-    invoiceNumber: 1040,
-    issueDate: '2026-10-15',
-    dueDate: '2026-10-29',
-    currency: 'EUR',
-    buyerReference: '',
-    periodStartDate: null,
-    periodEndDate: null,
-    eventDate: '2026-10-10',
-    paymentTerms: 'Zahlbar innerhalb von 14 Tagen',
-    taxNote: '',
-    notes: '',
-    seller: party(),
-    buyer: buyer(),
-    lines: [
-      {
-        description: 'Gage Konzert',
-        quantity: 1,
-        unit: 'service',
-        unitPriceNet: 3000,
-        taxRate: 19,
-        taxCode: 'standard'
-      }
-    ],
-    ...overrides
-  }
-}
 
 /** Text of every <tag>…</tag> in document order */
 function all(xml: string, tag: string): string[] {
