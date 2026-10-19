@@ -124,7 +124,7 @@ export function suggestKind(sheetName: string, headers: string[]): VenueKind {
   return /\bfestivals?\b/.test(text) ? 'festival' : 'venue'
 }
 
-/** Germany for domestic lists; none for "international" sheets */
-export function suggestCountry(sheetName: string): string {
-  return /international|ausland|foreign/i.test(sheetName) ? '' : 'DE'
+/** The default country (Einstellungen) for domestic lists; none for "international" sheets */
+export function suggestCountry(sheetName: string, defaultCountry = 'DE'): string {
+  return /international|ausland|foreign/i.test(sheetName) ? '' : defaultCountry
 }

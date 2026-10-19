@@ -19,6 +19,7 @@ import { seedDatabase } from './db/seed'
 import { container } from 'tsyringe'
 import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
 import { DocumentService } from './services/DocumentService'
+import { SettingsService } from './services/SettingsService'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -268,7 +269,8 @@ ipcMain.handle('import:pickWorkbook', async (event) => {
       ? await dialog.showOpenDialog(owner, options)
       : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return { success: true, canceled: true }
-    const workbook = await readWorkbook(result.filePaths[0])
+    const { defaultCountry } = container.resolve(SettingsService).get()
+    const workbook = await readWorkbook(result.filePaths[0], defaultCountry)
     return { success: true, canceled: false, workbook }
   } catch (error) {
     console.error('Error reading workbook:', error)

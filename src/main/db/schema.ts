@@ -503,6 +503,16 @@ export const document = sqliteTable(
   ]
 )
 
+// App settings (Einstellungen) as key/value pairs; values are JSON. Typed and
+// defaulted by AppSettings in api/schemas/settings.schema.ts
+export const app_setting = sqliteTable('app_setting', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_at: text('updated_at')
+    .default(sql`(datetime('now'))`)
+    .notNull()
+})
+
 // ========================================
 // Management contracts (management company <-> band)
 // ========================================
@@ -639,5 +649,6 @@ export const schema = {
   management_contract,
   management_contract_member,
   management_share,
-  management_share_income
+  management_share_income,
+  app_setting
 }

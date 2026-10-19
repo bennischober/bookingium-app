@@ -40,6 +40,11 @@ export const companyRouter = t.router({
     return company ? CompanyMapper.toDto(company) : null
   }),
 
+  /** Default own company for invoices and contracts (null = none) */
+  setDefaultForInvoicing: t.procedure.input(z.number().nullable()).mutation(async ({ input }) => {
+    await companyService.setDefaultForInvoicing(input)
+  }),
+
   create: t.procedure.input(CreateCompanyInput).mutation(async ({ input }) => {
     const company = await companyService.createCompany(input)
     return CompanyMapper.toDto(company)

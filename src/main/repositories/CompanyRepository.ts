@@ -299,6 +299,22 @@ export class CompanyRepository {
     return result[0]
   }
 
+  /** Makes one company the default own company (or none) */
+  async setDefaultForInvoicing(companyId: number | null) {
+    db.transaction((tx) => {
+      tx.update(company).set({ is_default_for_invoicing: false }).run()
+      if (companyId !== null) {
+        const updated = tx
+          .update(company)
+          .set({ is_default_for_invoicing: true })
+          .where(eq(company.id, companyId))
+          .returning({ id: company.id })
+          .all()
+        if (updated.length === 0) throw new Error('Firma nicht gefunden')
+      }
+    })
+  }
+
   async getDefaultForInvoicing() {
     const rows = await db
       .select()

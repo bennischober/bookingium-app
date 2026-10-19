@@ -25,7 +25,7 @@ export function cellText(value: ExcelJS.CellValue): string {
   return ''
 }
 
-function readSheet(worksheet: ExcelJS.Worksheet): ImportSheet | null {
+function readSheet(worksheet: ExcelJS.Worksheet, defaultCountry: string): ImportSheet | null {
   const rows: ImportRow[] = []
   let headers: string[] | null = null
   let width = 0
@@ -55,18 +55,24 @@ function readSheet(worksheet: ExcelJS.Worksheet): ImportSheet | null {
     rows: paddedRows,
     suggestedMapping: detectMapping(paddedHeaders, paddedRows),
     suggestedKind: suggestKind(worksheet.name, paddedHeaders),
-    suggestedCountry: suggestCountry(worksheet.name)
+    suggestedCountry: suggestCountry(worksheet.name, defaultCountry)
   }
 }
 
-/** Sheets with a header row and at least one data row */
-export async function readWorkbook(filePath: string): Promise<ImportWorkbook> {
+/**
+ * Sheets with a header row and at least one data row; `defaultCountry` is
+ * suggested for domestic sheets
+ */
+export async function readWorkbook(
+  filePath: string,
+  defaultCountry = 'DE'
+): Promise<ImportWorkbook> {
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.readFile(filePath)
   const sheets: ImportSheet[] = []
   workbook.eachSheet((worksheet) => {
     if (worksheet.state !== 'visible') return
-    const sheet = readSheet(worksheet)
+    const sheet = readSheet(worksheet, defaultCountry)
     if (sheet) sheets.push(sheet)
   })
   return { fileName: basename(filePath), sheets }

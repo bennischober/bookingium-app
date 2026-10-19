@@ -40,4 +40,8 @@ export class CompanyService {
   async getDefaultForInvoicingCompany() {
     return await this.companyRepository.getDefaultForInvoicing()
   }
+
+  async setDefaultForInvoicing(companyId: number | null) {
+    await this.companyRepository.setDefaultForInvoicing(companyId)
+  }
 }
