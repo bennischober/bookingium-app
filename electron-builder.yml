@@ -1,14 +1,15 @@
-appId: com.electron.app
-productName: bookingum-app
+appId: com.bookingium.app
+productName: Bookingium
 directories:
   buildResources: build
+  output: dist
+# Allow-list: only the built app goes into the package (plus the runtime
+# dependencies electron-builder adds). Never sample_data, docs, tests,
+# tool configs or local keys.
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - out/**
+  - resources/**
+  - package.json
 asarUnpack:
   - resources/**
 extraResources:
@@ -17,32 +18,34 @@ extraResources:
     filter:
       - '**/*'
 win:
-  executableName: bookingum-app
+  executableName: Bookingium
+  target:
+    - nsis
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
+  artifactName: Bookingium-Setup-${version}.${ext}
+  # Installer with choices (folder), per user: no admin rights needed
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Bookingium
+  uninstallDisplayName: Bookingium
+  # Uninstalling keeps the data (database, documents) in %APPDATA%
+  deleteAppDataOnUninstall: false
+  installerLanguages:
+    - de_DE
+  language: '1031'
 mac:
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Bookingium-${version}.${ext}
 linux:
   target:
     - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: Benjamin Schober
+  category: Office
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Bookingium-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

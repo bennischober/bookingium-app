@@ -67,10 +67,28 @@ screenshot, since pagination bugs are invisible in screenshots).
 ## Packaging
 
 ```bash
-pnpm build:win      # Windows installer (nsis)
-pnpm build:mac      # macOS
-pnpm build:linux    # Linux (AppImage, snap, deb)
+pnpm build:win      # Windows installer: dist/Bookingium-Setup-<version>.exe
+pnpm build:mac      # macOS (dmg)
+pnpm build:linux    # Linux (AppImage)
 ```
+
+The Windows installer installs per user (no admin rights), lets you choose
+the folder and creates desktop and start menu shortcuts. Nothing else needs
+to be installed: SQLite is part of the app (`better-sqlite3`, built for
+Electron by `pnpm install`).
+
+- Data stays in `%APPDATA%\bookingum-app` (database, documents), the same
+  folder as in development; uninstalling keeps it.
+- Only the built app goes into the package (`files` allow-list in
+  `electron-builder.yml`): never `sample_data`, docs, tests or local keys.
+- `dependencies` holds only what the main process loads at runtime; renderer
+  libraries are devDependencies (Vite bundles them), which keeps the package
+  small.
+- The installer is not code-signed: Windows SmartScreen warns on first start
+  ("Weitere Informationen" › "Trotzdem ausführen") until it is signed with a
+  code-signing certificate.
+- Bump `version` in `package.json` for a new release; the installer updates
+  an existing installation in place.
 
 ## Architecture
 

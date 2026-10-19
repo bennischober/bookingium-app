@@ -166,15 +166,55 @@ importers:
 
   .:
     dependencies:
-      '@base-ui/react':
-        specifier: ^1.2.0
-        version: 1.2.0(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@electron-toolkit/preload':
         specifier: ^3.0.2
         version: 3.0.2(electron@44.7.0(supports-color@7.2.0))
       '@electron-toolkit/utils':
         specifier: ^4.0.0
         version: 4.0.0(electron@44.7.0(supports-color@7.2.0))
+      '@trpc/server':
+        specifier: ^10.45.4
+        version: 10.45.4
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.4(@types/better-sqlite3@7.6.13)(better-sqlite3@13.0.3)
+      electron-trpc:
+        specifier: ^0.7.1
+        version: 0.7.1(@trpc/client@10.45.4(@trpc/server@10.45.4))(@trpc/server@10.45.4)(electron@44.7.0(supports-color@7.2.0))(supports-color@7.2.0)
+      exceljs:
+        specifier: 4.4.0
+        version: 4.4.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      tsyringe:
+        specifier: ^4.10.0
+        version: 4.10.0
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@base-ui/react':
+        specifier: ^1.2.0
+        version: 1.2.0(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@electron-toolkit/eslint-config-prettier':
+        specifier: ^3.0.0
+        version: 3.0.0(eslint@9.39.2(jiti@2.6.1)(supports-color@7.2.0))(prettier@3.8.1)
+      '@electron-toolkit/eslint-config-ts':
+        specifier: ^3.1.0
+        version: 3.1.0(eslint@9.39.2(jiti@2.6.1)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
+      '@electron-toolkit/tsconfig':
+        specifier: ^2.0.0
+        version: 2.0.0(@types/node@22.19.7)
+      '@electron/rebuild':
+        specifier: ^4.2.1
+        version: 4.2.1(supports-color@7.2.0)
+      '@playwright/test':
+        specifier: ^1.64.0
+        version: 1.64.0
       '@radix-ui/react-context-menu':
         specifier: ^2.2.16
         version: 2.2.16(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -241,79 +281,6 @@ importers:
       '@trpc/react-query':
         specifier: ^10.45.4
         version: 10.45.4(@tanstack/react-query@4.42.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@trpc/client@10.45.4(@trpc/server@10.45.4))(@trpc/server@10.45.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@trpc/server':
-        specifier: ^10.45.4
-        version: 10.45.4
-      better-sqlite3:
-        specifier: ^13.0.3
-        version: 13.0.3
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      cmdk:
-        specifier: ^1.1.1
-        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.4(@types/better-sqlite3@7.6.13)(better-sqlite3@13.0.3)
-      electron-trpc:
-        specifier: ^0.7.1
-        version: 0.7.1(@trpc/client@10.45.4(@trpc/server@10.45.4))(@trpc/server@10.45.4)(electron@44.7.0(supports-color@7.2.0))(supports-color@7.2.0)
-      exceljs:
-        specifier: 4.4.0
-        version: 4.4.0
-      lucide-react:
-        specifier: ^0.563.0
-        version: 0.563.0(react@19.2.3)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react-day-picker:
-        specifier: ^9.13.0
-        version: 9.13.0(react@19.2.3)
-      reflect-metadata:
-        specifier: ^0.2.2
-        version: 0.2.2
-      sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      tailwind-merge:
-        specifier: ^3.4.0
-        version: 3.4.0
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
-      tsyringe:
-        specifier: ^4.10.0
-        version: 4.10.0
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@electron-toolkit/eslint-config-prettier':
-        specifier: ^3.0.0
-        version: 3.0.0(eslint@9.39.2(jiti@2.6.1)(supports-color@7.2.0))(prettier@3.8.1)
-      '@electron-toolkit/eslint-config-ts':
-        specifier: ^3.1.0
-        version: 3.1.0(eslint@9.39.2(jiti@2.6.1)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
-      '@electron-toolkit/tsconfig':
-        specifier: ^2.0.0
-        version: 2.0.0(@types/node@22.19.7)
-      '@electron/rebuild':
-        specifier: ^4.2.1
-        version: 4.2.1(supports-color@7.2.0)
-      '@playwright/test':
-        specifier: ^1.64.0
-        version: 1.64.0
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -332,6 +299,18 @@ importers:
       canvas:
         specifier: ^3.2.3
         version: 3.2.3
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
@@ -359,6 +338,12 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.4.24
         version: 0.4.26(eslint@9.39.2(jiti@2.6.1)(supports-color@7.2.0))
+      lucide-react:
+        specifier: ^0.563.0
+        version: 0.563.0(react@19.2.3)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       pdfjs-dist:
         specifier: 4.10.38
         version: 4.10.38
@@ -371,9 +356,24 @@ importers:
       react:
         specifier: ^19.2.1
         version: 19.2.3
+      react-day-picker:
+        specifier: ^9.13.0
+        version: 9.13.0(react@19.2.3)
       react-dom:
         specifier: ^19.2.1
         version: 19.2.3(react@19.2.3)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

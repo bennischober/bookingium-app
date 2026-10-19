@@ -5,12 +5,13 @@ import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 
-// Test-runner launches (playwright drives electron directly) get the bare
-// 'Electron' userData path, which points at a different (empty) database
-// than the dev/packaged app. Honor an explicit override so tests hit the
-// same database as the real app.
+// Data folder (database, documents): %APPDATA%/bookingum-app for the dev
+// and the installed app alike. Electron would derive it from the app name,
+// which is "Bookingium" when packaged. Tests pass their own temp folder.
 if (process.env.BOOKINGIUM_USER_DATA) {
   app.setPath('userData', process.env.BOOKINGIUM_USER_DATA)
+} else {
+  app.setPath('userData', join(app.getPath('appData'), 'bookingum-app'))
 }
 import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
