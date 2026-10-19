@@ -1,7 +1,7 @@
 import { basename } from 'path'
 import ExcelJS from 'exceljs'
 import type { ImportRow, ImportSheet, ImportWorkbook } from '../api/schemas/import.schema'
-import { detectMapping, suggestCountry, suggestKind } from './detectMapping'
+import { detectMappings, suggestCountry, suggestKind, suggestTarget } from './detectMapping'
 
 /** Text of a cell as the user sees it; dates as dd.mm.yyyy */
 export function cellText(value: ExcelJS.CellValue): string {
@@ -53,7 +53,9 @@ function readSheet(worksheet: ExcelJS.Worksheet, defaultCountry: string): Import
     name: worksheet.name,
     headers: paddedHeaders,
     rows: paddedRows,
-    suggestedMapping: detectMapping(paddedHeaders, paddedRows),
+    suggestedTarget: suggestTarget(worksheet.name, paddedHeaders),
+    suggestedMappings: detectMappings(paddedHeaders, paddedRows),
+    mappingRemembered: false,
     suggestedKind: suggestKind(worksheet.name, paddedHeaders),
     suggestedCountry: suggestCountry(worksheet.name, defaultCountry)
   }

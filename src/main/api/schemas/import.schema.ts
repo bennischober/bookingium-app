@@ -2,11 +2,30 @@ import { z } from 'zod'
 import { VenueKind } from './venue.schema'
 
 // ========================================
-// Spreadsheet import (venues, promoters and their contacts)
+// Spreadsheet import
 // ========================================
-// The renderer picks a workbook (main reads it), adjusts the column mapping,
-// previews the result and commits it. Each row describes a venue or festival,
-// the promoter company behind it and its contact persons.
+// The renderer picks a workbook (main reads it), chooses what the list holds
+// (import target), adjusts the column mapping, previews the result and
+// commits it. Existing records (same name) only get empty fields filled.
+
+/** What one row of the list describes */
+export const ImportTarget = z.enum(['venues', 'bands', 'companies', 'persons'])
+export type ImportTarget = z.infer<typeof ImportTarget>
+
+export const IMPORT_TARGET_LABELS: Record<ImportTarget, string> = {
+  venues: 'Spielstätten / Festivals',
+  bands: 'Bands',
+  companies: 'Firmen',
+  persons: 'Personen'
+}
+
+export const IMPORT_TARGET_DESCRIPTIONS: Record<ImportTarget, string> = {
+  venues: 'Eine Zeile pro Spielstätte oder Festival, mit Veranstalter und Ansprechpartnern.',
+  bands:
+    'Eine Zeile pro Band, mit Mitgliedern. Die Firma der Band muss schon angelegt sein; Zeilen ohne Namen ergänzen Mitglieder der Band darüber.',
+  companies: 'Eine Zeile pro Firma, mit Anschrift und Ansprechpartnern.',
+  persons: 'Eine Zeile pro Person, mit Kontaktdaten, Anschrift und optional ihrer Firma.'
+}
 
 export const ImportField = z.enum([
   'ignore',
@@ -14,8 +33,19 @@ export const ImportField = z.enum([
   'venueCity',
   'region',
   'capacity',
+  'bandName',
+  'genre',
+  'founded',
+  'members',
+  'responsiblePerson',
+  'managementCompany',
   'companyName',
   'contactPerson',
+  'personName',
+  'firstName',
+  'lastName',
+  'role',
+  'birthday',
   'email',
   'phone',
   'mobile',
@@ -30,14 +60,25 @@ export const ImportField = z.enum([
 ])
 export type ImportField = z.infer<typeof ImportField>
 
-export const IMPORT_FIELD_LABELS: Record<ImportField, string> = {
+const FIELD_LABELS: Record<ImportField, string> = {
   ignore: 'Nicht importieren',
   venueName: 'Spielstätte / Festival',
   venueCity: 'Ort der Spielstätte',
   region: 'Land / Bundesland',
   capacity: 'Kapazität / Zuschauer',
-  companyName: 'Veranstalter (Firma)',
+  bandName: 'Band',
+  genre: 'Genre',
+  founded: 'Gründung',
+  members: 'Mitglieder',
+  responsiblePerson: 'Technischer Leiter',
+  managementCompany: 'Management (Firma)',
+  companyName: 'Firma',
   contactPerson: 'Ansprechpartner',
+  personName: 'Name (Vor- und Nachname)',
+  firstName: 'Vorname',
+  lastName: 'Nachname',
+  role: 'Rolle in der Firma',
+  birthday: 'Geburtstag',
   email: 'E-Mail',
   phone: 'Telefon',
   mobile: 'Mobil',
@@ -51,8 +92,84 @@ export const IMPORT_FIELD_LABELS: Record<ImportField, string> = {
   notes: 'Anmerkung'
 }
 
+// Labels that read differently for a target
+const TARGET_FIELD_LABELS: Partial<Record<ImportTarget, Partial<Record<ImportField, string>>>> = {
+  venues: { companyName: 'Veranstalter (Firma)' },
+  bands: {
+    companyName: 'Firma der Band (muss existieren)',
+    email: 'E-Mail (Technischer Leiter)',
+    phone: 'Telefon (Technischer Leiter)',
+    mobile: 'Mobil (Technischer Leiter)'
+  }
+}
+
+export function importFieldLabel(field: ImportField, target: ImportTarget): string {
+  return TARGET_FIELD_LABELS[target]?.[field] ?? FIELD_LABELS[field]
+}
+
+const ADDRESS_FIELDS: ImportField[] = ['street', 'streetNumber', 'zipCode', 'city', 'region']
+const CONTACT_FIELDS: ImportField[] = ['email', 'phone', 'mobile']
+
+/** Fields offered per target, in menu order */
+export const IMPORT_TARGET_FIELDS: Record<ImportTarget, readonly ImportField[]> = {
+  venues: [
+    'ignore',
+    'venueName',
+    'venueCity',
+    'capacity',
+    'companyName',
+    'contactPerson',
+    ...CONTACT_FIELDS,
+    ...ADDRESS_FIELDS,
+    'taxId',
+    'homepage',
+    'month',
+    'notes'
+  ],
+  bands: [
+    'ignore',
+    'bandName',
+    'genre',
+    'founded',
+    'companyName',
+    'managementCompany',
+    'members',
+    'responsiblePerson',
+    ...CONTACT_FIELDS,
+    'notes'
+  ],
+  companies: [
+    'ignore',
+    'companyName',
+    'contactPerson',
+    ...CONTACT_FIELDS,
+    ...ADDRESS_FIELDS,
+    'taxId',
+    'homepage',
+    'notes'
+  ],
+  persons: [
+    'ignore',
+    'personName',
+    'firstName',
+    'lastName',
+    'birthday',
+    'companyName',
+    'role',
+    ...CONTACT_FIELDS,
+    ...ADDRESS_FIELDS,
+    'homepage',
+    'notes'
+  ]
+}
+
 /** Fields several columns may map to; every other field takes one column */
-export const MULTI_COLUMN_FIELDS: readonly ImportField[] = ['ignore', 'contactPerson', 'notes']
+export const MULTI_COLUMN_FIELDS: readonly ImportField[] = [
+  'ignore',
+  'contactPerson',
+  'members',
+  'notes'
+]
 
 /** Default countries offered for rows without a Land column */
 export const IMPORT_COUNTRY_OPTIONS = [
@@ -70,11 +187,22 @@ export const ImportRow = z.object({
 })
 export type ImportRow = z.infer<typeof ImportRow>
 
+const TargetMappings = z.object({
+  venues: z.array(ImportField),
+  bands: z.array(ImportField),
+  companies: z.array(ImportField),
+  persons: z.array(ImportField)
+})
+
 export const ImportSheet = z.object({
   name: z.string(),
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
-  suggestedMapping: z.array(ImportField),
+  suggestedTarget: ImportTarget,
+  // Mapping per target, detected from the headers (or remembered)
+  suggestedMappings: TargetMappings,
+  // The suggested target's mapping is one the user saved for these columns
+  mappingRemembered: z.boolean(),
   suggestedKind: VenueKind,
   // ISO code, '' for none
   suggestedCountry: z.string()
@@ -88,6 +216,7 @@ export const ImportWorkbook = z.object({
 export type ImportWorkbook = z.infer<typeof ImportWorkbook>
 
 export const ImportOptions = z.object({
+  // Venues only: Spielstätte or Festival
   kind: VenueKind,
   // ISO code used when a row names no country, '' for none
   defaultCountry: z.string()
@@ -95,6 +224,7 @@ export const ImportOptions = z.object({
 export type ImportOptions = z.infer<typeof ImportOptions>
 
 export const ImportRequest = z.object({
+  target: ImportTarget,
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
   mapping: z.array(ImportField),
@@ -117,23 +247,28 @@ export type ImportEntityRef = z.infer<typeof ImportEntityRef>
 
 export const ImportPreviewRow = z.object({
   rowNumber: z.number(),
-  // record: a venue and/or company; continuation: extra contacts for the
-  // row above; excluded: unticked by the user; orphan: contacts without a
-  // row to attach to
-  status: z.enum(['record', 'continuation', 'excluded', 'orphan']),
-  venue: ImportEntityRef.nullable(),
+  // record: imported; continuation: extra contacts/members for the row
+  // above; excluded: unticked by the user; skipped: cannot be imported
+  // (see warnings, e.g. no name or the band's company does not exist)
+  status: z.enum(['record', 'continuation', 'excluded', 'skipped']),
+  // The row's main record: venue, band, company or person (by target)
+  primary: ImportEntityRef.nullable(),
+  // Promoter, band company, or the person's company
   company: ImportEntityRef.nullable(),
+  // Contacts, members, technical lead
   persons: z.array(ImportEntityRef),
   warnings: z.array(z.string())
 })
 export type ImportPreviewRow = z.infer<typeof ImportPreviewRow>
 
 const ImportCount = z.object({ new: z.number(), existing: z.number() })
+export type ImportCount = z.infer<typeof ImportCount>
 
 export const ImportPreview = z.object({
   rows: z.array(ImportPreviewRow),
   summary: z.object({
     venues: ImportCount,
+    bands: ImportCount,
     companies: ImportCount,
     persons: ImportCount
   }),
@@ -142,12 +277,12 @@ export const ImportPreview = z.object({
 })
 export type ImportPreview = z.infer<typeof ImportPreview>
 
+const ImportOutcome = z.object({ created: z.number(), updated: z.number() })
+
 export const ImportResult = z.object({
-  venuesCreated: z.number(),
-  venuesUpdated: z.number(),
-  companiesCreated: z.number(),
-  companiesUpdated: z.number(),
-  personsCreated: z.number(),
-  personsUpdated: z.number()
+  venues: ImportOutcome,
+  bands: ImportOutcome,
+  companies: ImportOutcome,
+  persons: ImportOutcome
 })
 export type ImportResult = z.infer<typeof ImportResult>

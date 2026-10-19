@@ -122,6 +122,7 @@ const MAPPING = detectMapping(HEADERS, [])
 
 function request(cells: string[][], excludedRows: number[] = []): ImportRequest {
   return {
+    target: 'venues',
     headers: HEADERS,
     rows: toRows(cells),
     mapping: MAPPING,
@@ -130,7 +131,7 @@ function request(cells: string[][], excludedRows: number[] = []): ImportRequest 
   }
 }
 
-const NONE = { venues: [], companies: [], persons: [] }
+const NONE = { venues: [], bands: [], companies: [], persons: [] }
 
 describe('import plan', () => {
   it('attaches follow-up rows to the row above', () => {
@@ -164,7 +165,7 @@ describe('import plan', () => {
       'Soest'
     ])
     expect(plan.companies).toHaveLength(3)
-    expect(plan.preview.rows[1].venue?.action).toBe('repeat')
+    expect(plan.preview.rows[1].primary?.action).toBe('repeat')
   })
 
   it('skips unticked rows together with their follow-up rows', () => {
@@ -209,7 +210,11 @@ describe('writing the import', () => {
         ['', '', '', '', 'Anna Bauer', 'anna@diepumpe.de']
       ])
     )
-    expect(result).toMatchObject({ venuesCreated: 1, companiesCreated: 1, personsCreated: 2 })
+    expect(result).toMatchObject({
+      venues: { created: 1 },
+      companies: { created: 1 },
+      persons: { created: 2 }
+    })
 
     const venue = db.select().from(schema.venue).where(eq(schema.venue.name, 'DIE PUMPE')).get()!
     expect(venue).toMatchObject({ kind: 'venue', capacity: 500 })
@@ -278,7 +283,10 @@ describe('writing the import', () => {
         ]
       ])
     )
-    expect(result).toMatchObject({ companiesCreated: 0, companiesUpdated: 1, venuesCreated: 1 })
+    expect(result).toMatchObject({
+      companies: { created: 0, updated: 1 },
+      venues: { created: 1 }
+    })
     const company = db
       .select()
       .from(schema.company)
@@ -314,13 +322,7 @@ describe('writing the import', () => {
         ]
       ])
     )
-    expect(again).toEqual({
-      venuesCreated: 0,
-      venuesUpdated: 0,
-      companiesCreated: 0,
-      companiesUpdated: 0,
-      personsCreated: 0,
-      personsUpdated: 0
-    })
+    const nothing = { created: 0, updated: 0 }
+    expect(again).toEqual({ venues: nothing, bands: nothing, companies: nothing, persons: nothing })
   })
 })

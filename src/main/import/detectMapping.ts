@@ -1,18 +1,43 @@
-import { MULTI_COLUMN_FIELDS, type ImportField, type ImportRow } from '../api/schemas/import.schema'
+import {
+  IMPORT_TARGET_FIELDS,
+  MULTI_COLUMN_FIELDS,
+  type ImportField,
+  type ImportRow,
+  type ImportTarget
+} from '../api/schemas/import.schema'
 import type { VenueKind } from '../api/schemas/venue.schema'
 import { findCountry, isGermanStateCode, normalizeKey } from './normalize'
 
 // Header spellings (compared without case, spaces and punctuation)
 const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
-  ['venueName', ['venue', 'spielstätte', 'spielstaette', 'club', 'festival', 'halle', 'name']],
+  ['venueName', ['venue', 'spielstätte', 'spielstaette', 'club', 'festival', 'halle']],
   ['venueCity', ['city', 'w', 'wo']],
   ['region', ['land', 'bundesland', 'country', 'state', 'staat', 'region']],
   ['capacity', ['cc', 'cap', 'kapazität', 'kapazitaet', 'capacity', 'zuschauer', 'besucher']],
+  ['bandName', ['band', 'bands', 'bandname', 'künstler', 'kuenstler', 'artist', 'act']],
+  ['founded', ['gründung', 'gruendung', 'gegründet', 'gegruendet', 'gründungsjahr', 'founded']],
+  ['members', ['mitglieder', 'members', 'besetzung', 'lineup', 'musiker']],
+  ['responsiblePerson', ['tl', 'technischerleiter', 'technischeleitung']],
+  ['managementCompany', ['management', 'managementfirma']],
   [
     'companyName',
-    ['localpromoter', 'promoter', 'veranstalter', 'firma', 'company', 'organizer', 'organiser']
+    [
+      'localpromoter',
+      'promoter',
+      'veranstalter',
+      'firma',
+      'firmenname',
+      'company',
+      'organizer',
+      'organiser'
+    ]
   ],
   ['contactPerson', ['ap', 'ansprechpartner', 'kontakt', 'contact', 'kontaktperson']],
+  ['personName', ['vollständigername', 'fullname', 'person']],
+  ['firstName', ['vorname', 'firstname', 'givenname']],
+  ['lastName', ['nachname', 'lastname', 'surname', 'familienname']],
+  ['role', ['rolle', 'funktion', 'position', 'role']],
+  ['birthday', ['geburtstag', 'geburtsdatum', 'birthday', 'dateofbirth']],
   ['email', ['email', 'mail', 'emailadresse']],
   ['phone', ['telefon', 'tel', 'phone', 'telephone', 'festnetz']],
   ['mobile', ['mobil', 'mobile', 'handy', 'mobiltelefon']],
@@ -28,7 +53,6 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
     [
       'deal',
       'verantwortlich',
-      'genre',
       'termin',
       'zeitraum',
       'terminzeitraum',
@@ -44,6 +68,20 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
     ]
   ]
 ]
+
+// Headers that mean something else depending on what the list holds
+const TARGET_SYNONYMS: Record<ImportTarget, Record<string, ImportField>> = {
+  venues: { name: 'venueName', genre: 'notes' },
+  bands: { name: 'bandName', genre: 'genre', stil: 'genre', style: 'genre' },
+  companies: { name: 'companyName' },
+  persons: {
+    name: 'personName',
+    kontakt: 'personName',
+    ansprechpartner: 'personName',
+    ap: 'personName',
+    contact: 'personName'
+  }
+}
 
 const SYNONYM_LOOKUP = new Map<string, ImportField>(
   HEADER_SYNONYMS.flatMap(([field, names]) => names.map((name) => [name, field]))
@@ -70,14 +108,22 @@ export function isStateColumn(rows: ImportRow[], column: number): boolean {
 }
 
 /**
- * Suggested field per column from its header. Each single-value field is
- * used once (first column wins); headerless columns that hold data become
- * notes; "Location" is the venue's place unless a City column exists; an
- * unnamed text column right before the venue city is the venue name.
+ * Suggested field per column from its header, for one target. Each
+ * single-value field is used once (first column wins); fields the target
+ * has no place for become notes ("Club: …" in a company list); headerless
+ * columns that hold data become notes. Venue lists: "Location" is the
+ * venue's place unless a City column exists, and an unnamed text column
+ * right before the venue city is the venue name.
  */
-export function detectMapping(headers: string[], rows: ImportRow[]): ImportField[] {
+export function detectMapping(
+  headers: string[],
+  rows: ImportRow[],
+  target: ImportTarget = 'venues'
+): ImportField[] {
+  const allowed = IMPORT_TARGET_FIELDS[target]
   const mapping: ImportField[] = headers.map(() => 'ignore')
   const used = new Set<ImportField>()
+  const keys = headers.map(headerKey)
 
   const assign = (column: number, field: ImportField): void => {
     if (!MULTI_COLUMN_FIELDS.includes(field)) {
@@ -87,25 +133,33 @@ export function detectMapping(headers: string[], rows: ImportRow[]): ImportField
     mapping[column] = field
   }
 
-  headers.forEach((header, column) => {
-    const field = SYNONYM_LOOKUP.get(headerKey(header))
-    if (field) assign(column, field)
+  // Person lists with a Vorname column: "Name" is the surname
+  const targetSynonyms =
+    target === 'persons' && keys.some((key) => SYNONYM_LOOKUP.get(key) === 'firstName')
+      ? { ...TARGET_SYNONYMS.persons, name: 'lastName' as const }
+      : TARGET_SYNONYMS[target]
+
+  keys.forEach((key, column) => {
+    const field = targetSynonyms[key] ?? SYNONYM_LOOKUP.get(key)
+    if (!field) return
+    assign(column, allowed.includes(field) ? field : 'notes')
   })
 
-  // "Location": the venue's place when there is no City column, else a note
-  headers.forEach((header, column) => {
-    if (headerKey(header) !== 'location' || mapping[column] !== 'ignore') return
-    assign(column, used.has('venueCity') ? 'notes' : 'venueCity')
-  })
+  if (target === 'venues') {
+    // "Location": the venue's place when there is no City column, else a note
+    keys.forEach((key, column) => {
+      if (key !== 'location' || mapping[column] !== 'ignore') return
+      assign(column, used.has('venueCity') ? 'notes' : 'venueCity')
+    })
 
-  // Venue name in a column with a meaningless header ("B" in front of "w")
-  if (!used.has('venueName')) {
-    const cityColumn = mapping.indexOf('venueCity')
-    const candidate = cityColumn - 1
-    if (candidate >= 0 && mapping[candidate] === 'ignore') {
-      const values = columnValues(rows, candidate)
-      if (values.length > 0 && values.every((value) => !/^\d+$/.test(value))) {
-        assign(candidate, 'venueName')
+    // Venue name in a column with a meaningless header ("B" in front of "w")
+    if (!used.has('venueName')) {
+      const candidate = mapping.indexOf('venueCity') - 1
+      if (candidate >= 0 && mapping[candidate] === 'ignore') {
+        const values = columnValues(rows, candidate)
+        if (values.length > 0 && values.every((value) => !/^\d+$/.test(value))) {
+          assign(candidate, 'venueName')
+        }
       }
     }
   }
@@ -117,6 +171,40 @@ export function detectMapping(headers: string[], rows: ImportRow[]): ImportField
   })
 
   return mapping
+}
+
+/** Mapping suggestions for every target, so the dialog can switch freely */
+export function detectMappings(
+  headers: string[],
+  rows: ImportRow[]
+): Record<ImportTarget, ImportField[]> {
+  return {
+    venues: detectMapping(headers, rows, 'venues'),
+    bands: detectMapping(headers, rows, 'bands'),
+    companies: detectMapping(headers, rows, 'companies'),
+    persons: detectMapping(headers, rows, 'persons')
+  }
+}
+
+/** What the list probably holds, from its headers (then its sheet name) */
+export function suggestTarget(sheetName: string, headers: string[]): ImportTarget {
+  const fields = new Set(headers.map((header) => SYNONYM_LOOKUP.get(headerKey(header))))
+  const keys = new Set(headers.map(headerKey))
+  if (fields.has('bandName')) return 'bands'
+  // Venue lists: a venue, its place or its capacity
+  if (
+    fields.has('venueName') ||
+    fields.has('venueCity') ||
+    fields.has('capacity') ||
+    keys.has('location')
+  ) {
+    return 'venues'
+  }
+  if (fields.has('firstName') || fields.has('lastName')) return 'persons'
+  if (/band|künstler|artist/i.test(sheetName)) return 'bands'
+  if (/person|kontakt|contact/i.test(sheetName)) return 'persons'
+  if (fields.has('companyName') || /firm|compan/i.test(sheetName)) return 'companies'
+  return 'venues'
 }
 
 export function suggestKind(sheetName: string, headers: string[]): VenueKind {

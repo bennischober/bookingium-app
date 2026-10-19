@@ -63,7 +63,5 @@ test('settings page saves defaults and creates a backup', async () => {
   // Settings survive a reload
   await page.reload()
   await expect(page.getByRole('combobox', { name: 'Standardland' })).toHaveText('Österreich')
-  await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText(
-    'Soundwave Records'
-  )
+  await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText('Soundwave Records')
 })

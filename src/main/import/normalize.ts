@@ -38,21 +38,44 @@ const NAME_PREFIXES: Record<string, string> = {
 
 /**
  * "Steven Pönicke / Richard Schröder", "Elke und Johannes",
- * "GF Andreas Schmidt", "Oliver Pech\nVorsitzender" → one entry per person.
- * Text after the first line break is taken as the role.
+ * "GF Andreas Schmidt", "Oliver Pech\nVorsitzender",
+ * "John Rockstar (Gesang, Gitarre), Gesang: Sarah Keys" → one entry per
+ * person. Roles come from parentheses, a "Role:" prefix or the text after
+ * the first line break.
  */
 export function parsePersons(raw: string): ParsedPerson[] {
   const [firstLine, ...rest] = raw.split(/\r?\n/)
   const lineRole = cleanText(rest.join(' '))
 
-  return firstLine
+  // Separators inside parentheses belong to the role, not between persons
+  const groups: string[] = []
+  // (placeholder: a private-use character that never occurs in names)
+  const masked = firstLine.replace(/\(([^)]*)\)/g, (_match, inner: string) => {
+    groups.push(inner)
+    return `${groups.length - 1}`
+  })
+
+  return masked
     .split(/\s*(?:[/,;&+]|\bund\b|\boder\b|\band\b)\s*/i)
+    .map((part) => part.replace(/(\d+)/g, (_match, index) => `(${groups[index]})`))
     .map((part) => parsePerson(part, lineRole))
     .filter((person): person is ParsedPerson => person !== null)
 }
 
 function parsePerson(part: string, lineRole: string): ParsedPerson | null {
   let text = part.replace(/[:]+$/, '').trim()
+  let ownRole = ''
+  // "John Rockstar (Gesang)"
+  text = text.replace(/\(([^)]*)\)/g, (_match, inner: string) => {
+    ownRole = cleanText(inner)
+    return ' '
+  })
+  // "Gesang: John Rockstar"
+  const prefixed = text.match(/^([^:]{2,40}):\s*(.+)$/)
+  if (prefixed && !ownRole) {
+    ownRole = cleanText(prefixed[1])
+    text = prefixed[2]
+  }
   // Nicknames in quotes go to the notes: Carsten "Strubbel" Schack
   const notes: string[] = []
   text = text.replace(/["„“”']([^"„“”']+)["„“”']/g, (_match, nick: string) => {
@@ -60,7 +83,7 @@ function parsePerson(part: string, lineRole: string): ParsedPerson | null {
     return ' '
   })
   const words = cleanText(text).split(' ').filter(Boolean)
-  let role = lineRole
+  let role = ownRole || lineRole
   const prefix = words[0]?.toLowerCase().replace(/\.$/, '')
   if (words.length > 1 && prefix !== undefined && prefix in NAME_PREFIXES) {
     words.shift()
@@ -76,6 +99,19 @@ function parsePerson(part: string, lineRole: string): ParsedPerson | null {
     role,
     notes: notes.join('\n')
   }
+}
+
+/** "12.03.1985", "1985-03-12" → "1985-03-12"; '' if it is no full date */
+export function parseBirthday(raw: string): string {
+  const text = cleanText(raw)
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  const german = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  const parts = iso ? [iso[1], iso[2], iso[3]] : german ? [german[3], german[2], german[1]] : null
+  if (!parts) return ''
+  const [year, month, day] = parts
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  if (date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return ''
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
 // ----------------------------------------

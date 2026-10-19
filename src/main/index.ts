@@ -20,6 +20,7 @@ import { container } from 'tsyringe'
 import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
 import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
+import { ImportService } from './services/ImportService'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -270,7 +271,10 @@ ipcMain.handle('import:pickWorkbook', async (event) => {
       : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return { success: true, canceled: true }
     const { defaultCountry } = container.resolve(SettingsService).get()
-    const workbook = await readWorkbook(result.filePaths[0], defaultCountry)
+    // Detected mappings, or the ones used last time for the same columns
+    const workbook = container
+      .resolve(ImportService)
+      .withRememberedMappings(await readWorkbook(result.filePaths[0], defaultCountry))
     return { success: true, canceled: false, workbook }
   } catch (error) {
     console.error('Error reading workbook:', error)

@@ -72,23 +72,23 @@ export class ImportRepository {
       })
       .from(schema.person)
       .all()
-    return { venues, companies, persons }
+    const bands = db.select({ id: schema.band.id, name: schema.band.name }).from(schema.band).all()
+    return { venues, bands, companies, persons }
   }
 
   /**
    * Writes the plan in one transaction: new records are created, existing
    * ones only get their empty fields filled, and links (venue → company,
-   * contact persons) are added where missing.
+   * contact persons, band members) are added where missing.
    */
   apply(plan: ImportPlan): ImportResult {
     return db.transaction((tx) => {
+      const outcome = () => ({ created: 0, updated: 0 })
       const result: ImportResult = {
-        venuesCreated: 0,
-        venuesUpdated: 0,
-        companiesCreated: 0,
-        companiesUpdated: 0,
-        personsCreated: 0,
-        personsUpdated: 0
+        venues: outcome(),
+        bands: outcome(),
+        companies: outcome(),
+        persons: outcome()
       }
 
       // ---- Persons ----
@@ -101,13 +101,15 @@ export class ImportRepository {
             .values({
               first_name: draft.firstName,
               last_name: draft.lastName,
+              birthday: draft.birthday || null,
               notes: notes || null,
+              address_id: this.insertAddress(tx, draft.address),
               contact_id: this.insertContact(tx, draft.contact)
             })
             .returning({ id: schema.person.id })
             .get()
           personIds.set(draft.key, created.id)
-          result.personsCreated++
+          result.persons.created++
           continue
         }
         const row = tx
@@ -117,15 +119,21 @@ export class ImportRepository {
           .get()
         if (!row) throw new Error(`Person ${draft.existingId} nicht gefunden`)
         personIds.set(draft.key, row.id)
+        const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
-        const changes = emptyOnly(row, { notes, contact_id: contact.id })
+        const changes = emptyOnly(row, {
+          notes,
+          birthday: draft.birthday,
+          address_id: address.id,
+          contact_id: contact.id
+        })
         if (hasValues(changes)) {
           tx.update(schema.person)
             .set({ ...changes, updated_at: sql`datetime('now')` })
             .where(eq(schema.person.id, row.id))
             .run()
         }
-        if (contact.changed || hasValues(changes)) result.personsUpdated++
+        if (address.changed || contact.changed || hasValues(changes)) result.persons.updated++
       }
 
       // ---- Companies ----
@@ -147,7 +155,7 @@ export class ImportRepository {
             .get()
           companyIds.set(draft.key, created.id)
           this.addCompanyMembers(tx, created.id, draft.members, personIds)
-          result.companiesCreated++
+          result.companies.created++
           continue
         }
         const row = tx
@@ -174,8 +182,51 @@ export class ImportRepository {
         }
         const membersAdded = this.addCompanyMembers(tx, row.id, draft.members, personIds)
         if (address.changed || contact.changed || hasValues(changes) || membersAdded > 0) {
-          result.companiesUpdated++
+          result.companies.updated++
         }
+      }
+
+      // ---- Bands (their company already exists) ----
+      for (const draft of plan.bands) {
+        const notes = draft.notes.join('\n')
+        const responsibleId = draft.responsiblePersonKey
+          ? (personIds.get(draft.responsiblePersonKey) ?? null)
+          : null
+        if (draft.existingId === null) {
+          const created = tx
+            .insert(schema.band)
+            .values({
+              name: draft.name,
+              genre: draft.genre,
+              founded: draft.founded || null,
+              notes,
+              company_id: draft.companyId,
+              management_company_id: draft.managementCompanyId,
+              responsible_person_id: responsibleId
+            })
+            .returning({ id: schema.band.id })
+            .get()
+          this.addBandMembers(tx, created.id, draft.members, personIds)
+          result.bands.created++
+          continue
+        }
+        const row = tx.select().from(schema.band).where(eq(schema.band.id, draft.existingId)).get()
+        if (!row) throw new Error(`Band ${draft.existingId} nicht gefunden`)
+        const changes = emptyOnly(row, {
+          genre: draft.genre,
+          founded: draft.founded,
+          notes,
+          management_company_id: draft.managementCompanyId,
+          responsible_person_id: responsibleId
+        })
+        if (hasValues(changes)) {
+          tx.update(schema.band)
+            .set({ ...changes, updated_at: sql`datetime('now')` })
+            .where(eq(schema.band.id, row.id))
+            .run()
+        }
+        const membersAdded = this.addBandMembers(tx, row.id, draft.members, personIds)
+        if (hasValues(changes) || membersAdded > 0) result.bands.updated++
       }
 
       // ---- Venues ----
@@ -197,7 +248,7 @@ export class ImportRepository {
             .returning({ id: schema.venue.id })
             .get()
           this.addVenueMembers(tx, created.id, draft.members, personIds)
-          result.venuesCreated++
+          result.venues.created++
           continue
         }
         const row = tx
@@ -223,7 +274,7 @@ export class ImportRepository {
         }
         const membersAdded = this.addVenueMembers(tx, row.id, draft.members, personIds)
         if (address.changed || contact.changed || hasValues(changes) || membersAdded > 0) {
-          result.venuesUpdated++
+          result.venues.updated++
         }
       }
 
@@ -292,11 +343,32 @@ export class ImportRepository {
       if (personId === undefined) continue
       const inserted = tx
         .insert(schema.company_member)
-        .values({ company_id: companyId, person_id: personId, role })
+        .values({ company_id: companyId, person_id: personId, role: role || null })
         .onConflictDoNothing()
         .returning({ id: schema.company_member.id })
         .all()
       added += inserted.length
+    }
+    return added
+  }
+
+  /** Adds missing band members; returns how many were added */
+  private addBandMembers(
+    tx: Tx,
+    bandId: number,
+    members: Map<string, string>,
+    personIds: Map<string, number>
+  ): number {
+    let added = 0
+    for (const [personKey, role] of members) {
+      const personId = personIds.get(personKey)
+      if (personId === undefined) continue
+      added += tx
+        .insert(schema.band_member)
+        .values({ band_id: bandId, person_id: personId, role: role || null })
+        .onConflictDoNothing()
+        .returning({ id: schema.band_member.id })
+        .all().length
     }
     return added
   }

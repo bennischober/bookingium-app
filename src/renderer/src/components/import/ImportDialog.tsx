@@ -23,10 +23,15 @@ import {
 } from '@/components/ui/select'
 import {
   IMPORT_COUNTRY_OPTIONS,
-  IMPORT_FIELD_LABELS,
-  ImportField,
+  IMPORT_TARGET_DESCRIPTIONS,
+  IMPORT_TARGET_FIELDS,
+  IMPORT_TARGET_LABELS,
+  ImportTarget,
   MULTI_COLUMN_FIELDS,
+  importFieldLabel,
   type ImportEntityRef,
+  type ImportField,
+  type ImportPreview,
   type ImportRequest,
   type ImportResult,
   type ImportWorkbook
@@ -34,12 +39,75 @@ import {
 import { VENUE_KIND_LABELS, VenueKind } from '../../../../main/api/schemas/venue.schema'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
+type Entity = keyof ImportPreview['summary']
 
 const NO_COUNTRY = 'none'
 
 const KIND_PLURALS: Record<VenueKind, string> = {
   venue: 'Spielstätten',
   festival: 'Festivals'
+}
+
+/** Preview columns per target (null = column not shown) */
+const PREVIEW_COLUMNS: Record<
+  ImportTarget,
+  { primary: string | null; company: string; persons: string | null; continuation: string }
+> = {
+  venues: {
+    primary: null, // Spielstätte / Festival, by kind
+    company: 'Veranstalter',
+    persons: 'Ansprechpartner',
+    continuation: 'weiterer Kontakt zur Zeile darüber'
+  },
+  bands: {
+    primary: 'Band',
+    company: 'Firma',
+    persons: 'Mitglieder',
+    continuation: 'weitere Mitglieder der Band darüber'
+  },
+  companies: {
+    primary: null,
+    company: 'Firma',
+    persons: 'Ansprechpartner',
+    continuation: 'weiterer Kontakt zur Firma darüber'
+  },
+  persons: { primary: 'Person', company: 'Firma', persons: null, continuation: '' }
+}
+
+/** Record types a target creates, in summary order */
+function summaryEntities(target: ImportTarget, kind: VenueKind): Array<[Entity, string]> {
+  switch (target) {
+    case 'venues':
+      return [
+        ['venues', KIND_PLURALS[kind]],
+        ['companies', 'Veranstalter'],
+        ['persons', 'Ansprechpartner']
+      ]
+    case 'bands':
+      return [
+        ['bands', 'Bands'],
+        ['persons', 'Personen']
+      ]
+    case 'companies':
+      return [
+        ['companies', 'Firmen'],
+        ['persons', 'Ansprechpartner']
+      ]
+    case 'persons':
+      return [
+        ['persons', 'Personen'],
+        ['companies', 'Firmen']
+      ]
+  }
+}
+
+// "1 Band angelegt" (labels that differ in the singular)
+const SINGULAR: Record<string, string> = {
+  Spielstätten: 'Spielstätte',
+  Festivals: 'Festival',
+  Bands: 'Band',
+  Firmen: 'Firma',
+  Personen: 'Person'
 }
 
 /** Spreadsheet column letter: 0 → A, 26 → AA */
@@ -57,8 +125,9 @@ const ACTION_LABELS: Record<ImportEntityRef['action'], string> = {
   repeat: 'wie oben'
 }
 
-function EntityCell({ entity }: { entity: ImportEntityRef | null }) {
+function EntityCell({ entity, struck }: { entity: ImportEntityRef | null; struck: boolean }) {
   if (!entity) return <span className="text-muted-foreground">–</span>
+  if (struck) return <span className="line-through">{entity.label}</span>
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <span className="min-w-0 break-words">{entity.label}</span>
@@ -78,19 +147,24 @@ function EntityCell({ entity }: { entity: ImportEntityRef | null }) {
 interface ImportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** What the list holds when opened from a list page (else detected) */
+  target?: ImportTarget
 }
 
 /**
- * Imports venues/festivals, their promoter companies and contact persons from
- * an Excel sheet: pick a file, check the column mapping, review every row,
- * import. Existing records (same name) only get their empty fields filled.
+ * Imports a list from an Excel sheet: pick a file, choose what the list
+ * holds (venues, bands, companies, persons) and check the column mapping,
+ * review every row, import. Existing records (same name) only get their
+ * empty fields filled. The mapping is remembered for lists with the same
+ * columns.
  */
-export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
+export function ImportDialog({ open, onOpenChange, target: fixedTarget }: ImportDialogProps) {
   const utils = trpcReact.useUtils()
   const [step, setStep] = useState<Step>('file')
   const [picking, setPicking] = useState(false)
   const [workbook, setWorkbook] = useState<ImportWorkbook | null>(null)
   const [sheetIndex, setSheetIndex] = useState(0)
+  const [target, setTarget] = useState<ImportTarget>(fixedTarget ?? 'venues')
   const [mapping, setMapping] = useState<ImportField[]>([])
   const [kind, setKind] = useState<VenueKind>('venue')
   const [defaultCountry, setDefaultCountry] = useState('')
@@ -98,6 +172,8 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const [result, setResult] = useState<ImportResult | null>(null)
 
   const sheet = workbook?.sheets[sheetIndex] ?? null
+  const columns = PREVIEW_COLUMNS[target]
+  const primaryHeader = target === 'venues' ? VENUE_KIND_LABELS[kind] : columns.primary
 
   const reset = (): void => {
     setStep('file')
@@ -113,10 +189,18 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
 
   const selectSheet = (book: ImportWorkbook, index: number): void => {
     const next = book.sheets[index]
+    const nextTarget = fixedTarget ?? next.suggestedTarget
     setSheetIndex(index)
-    setMapping(next.suggestedMapping)
+    setTarget(nextTarget)
+    setMapping(next.suggestedMappings[nextTarget])
     setKind(next.suggestedKind)
     setDefaultCountry(next.suggestedCountry)
+    setExcluded(new Set())
+  }
+
+  const selectTarget = (next: ImportTarget): void => {
+    setTarget(next)
+    if (sheet) setMapping(sheet.suggestedMappings[next])
     setExcluded(new Set())
   }
 
@@ -145,6 +229,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
 
   const request: ImportRequest | null = sheet
     ? {
+        target,
         headers: sheet.headers,
         rows: sheet.rows,
         mapping,
@@ -164,8 +249,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
       setResult(imported)
       setStep('done')
       void utils.venue.invalidate()
+      void utils.band.invalidate()
       void utils.company.invalidate()
       void utils.person.invalidate()
+      void utils.relation.invalidate()
       void utils.search.invalidate()
     },
     onError: (error) => {
@@ -210,6 +297,8 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const importableRows =
     previewData?.rows.filter((row) => row.status === 'record' || row.status === 'continuation')
       .length ?? 0
+  const usesAddress = IMPORT_TARGET_FIELDS[target].includes('region')
+  const showRemembered = sheet?.mappingRemembered && sheet.suggestedTarget === target
 
   return (
     <Dialog
@@ -225,11 +314,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           <DialogTitle>Daten importieren</DialogTitle>
           <DialogDescription>
             {step === 'file' &&
-              'Spielstätten oder Festivals mit Veranstaltern und Ansprechpartnern aus einer Excel-Liste übernehmen.'}
-            {step === 'mapping' &&
-              'Prüfen Sie, welche Spalte wohin gehört. Die Zuordnung wurde aus den Spaltenüberschriften erkannt.'}
+              'Eine Excel-Liste mit Spielstätten, Bands, Firmen oder Personen übernehmen.'}
+            {step === 'mapping' && IMPORT_TARGET_DESCRIPTIONS[target]}
             {step === 'preview' &&
-              'Jede Zeile wird zu einer Spielstätte, einem Veranstalter und Ansprechpartnern. Vorhandene Einträge werden nur ergänzt, nie überschrieben.'}
+              'Vorhandene Einträge (gleicher Name) werden nur ergänzt, nie überschrieben. Zeilen abwählen, um sie auszulassen.'}
             {step === 'done' && 'Der Import ist abgeschlossen.'}
           </DialogDescription>
         </DialogHeader>
@@ -239,9 +327,9 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
             <p className="max-w-md text-sm text-muted-foreground">
-              Eine Zeile pro Spielstätte oder Festival, mit Spalten wie Name, Ort, Veranstalter,
-              Ansprechpartner, E-Mail, Telefon und Anschrift. Zeilen ohne Namen gelten als weitere
-              Ansprechpartner der Zeile darüber.
+              Eine Zeile pro Eintrag, mit Spaltenüberschriften wie Name, Firma, Ansprechpartner,
+              E-Mail, Telefon und Anschrift. Im nächsten Schritt wählen Sie, was die Liste enthält,
+              und prüfen die Zuordnung der Spalten.
             </p>
             <Button onClick={() => void pickFile()} disabled={picking}>
               {picking ? 'Datei wird gelesen…' : 'Excel-Datei auswählen…'}
@@ -249,10 +337,28 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           </div>
         )}
 
-        {/* ---- Step 2: mapping ---- */}
+        {/* ---- Step 2: what the list holds + column mapping ---- */}
         {step === 'mapping' && workbook && sheet && (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="import-target">Liste enthält</Label>
+                <Select
+                  value={target}
+                  onValueChange={(value) => selectTarget(value as ImportTarget)}
+                >
+                  <SelectTrigger id="import-target">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ImportTarget.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {IMPORT_TARGET_LABELS[option]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="import-sheet">Tabellenblatt</Label>
                 <Select
@@ -271,41 +377,51 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="import-kind">Importieren als</Label>
-                <Select value={kind} onValueChange={(value) => setKind(value as VenueKind)}>
-                  <SelectTrigger id="import-kind">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VenueKind.options.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {VENUE_KIND_LABELS[option]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="import-country">Land, wenn keins angegeben</Label>
-                <Select
-                  value={defaultCountry || NO_COUNTRY}
-                  onValueChange={(value) => setDefaultCountry(value === NO_COUNTRY ? '' : value)}
-                >
-                  <SelectTrigger id="import-country">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_COUNTRY}>Keins</SelectItem>
-                    {IMPORT_COUNTRY_OPTIONS.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {country.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {target === 'venues' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-kind">Importieren als</Label>
+                  <Select value={kind} onValueChange={(value) => setKind(value as VenueKind)}>
+                    <SelectTrigger id="import-kind">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VenueKind.options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {VENUE_KIND_LABELS[option]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {usesAddress && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-country">Land, wenn keins angegeben</Label>
+                  <Select
+                    value={defaultCountry || NO_COUNTRY}
+                    onValueChange={(value) => setDefaultCountry(value === NO_COUNTRY ? '' : value)}
+                  >
+                    <SelectTrigger id="import-country">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_COUNTRY}>Keins</SelectItem>
+                      {IMPORT_COUNTRY_OPTIONS.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+
+            {showRemembered && (
+              <p className="text-sm text-muted-foreground">
+                Zuordnung vom letzten Import einer Liste mit diesen Spalten übernommen.
+              </p>
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
               <table className="w-full text-sm">
@@ -313,7 +429,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                   <tr>
                     <th className="px-3 py-2 font-medium">Spalte</th>
                     <th className="px-3 py-2 font-medium">Beispielwerte</th>
-                    <th className="w-60 px-3 py-2 font-medium">Übernehmen als</th>
+                    <th className="w-64 px-3 py-2 font-medium">Übernehmen als</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,9 +464,9 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {ImportField.options.map((field) => (
+                            {IMPORT_TARGET_FIELDS[target].map((field) => (
                               <SelectItem key={field} value={field}>
-                                {IMPORT_FIELD_LABELS[field]}
+                                {importFieldLabel(field, target)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -369,17 +485,12 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {previewData && (
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                {(
-                  [
-                    [KIND_PLURALS[kind], previewData.summary.venues],
-                    ['Veranstalter', previewData.summary.companies],
-                    ['Ansprechpartner', previewData.summary.persons]
-                  ] as const
-                ).map(([label, count]) => (
-                  <div key={label} className="rounded-lg border px-3 py-2">
+                {summaryEntities(target, kind).map(([entity, label]) => (
+                  <div key={entity} className="rounded-lg border px-3 py-2">
                     <div className="text-muted-foreground">{label}</div>
                     <div className="font-medium">
-                      {count.new} neu · {count.existing} vorhanden
+                      {previewData.summary[entity].new} neu · {previewData.summary[entity].existing}{' '}
+                      vorhanden
                     </div>
                   </div>
                 ))}
@@ -408,21 +519,24 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                         <span className="sr-only">Importieren</span>
                       </th>
                       <th className="w-14 px-2 py-2 font-medium">Zeile</th>
-                      <th className="px-2 py-2 font-medium">{VENUE_KIND_LABELS[kind]}</th>
-                      <th className="px-2 py-2 font-medium">Veranstalter</th>
-                      <th className="px-2 py-2 font-medium">Ansprechpartner</th>
+                      {primaryHeader && <th className="px-2 py-2 font-medium">{primaryHeader}</th>}
+                      <th className="px-2 py-2 font-medium">{columns.company}</th>
+                      <th className="px-2 py-2 font-medium">{columns.persons ?? 'Hinweise'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewData?.rows.map((row) => {
-                      const skipped = row.status === 'excluded' || row.status === 'orphan'
+                      const notImported = row.status === 'excluded' || row.status === 'skipped'
                       return (
                         <tr
                           key={row.rowNumber}
-                          className={cn('border-t align-top', skipped && 'text-muted-foreground')}
+                          className={cn(
+                            'border-t align-top',
+                            notImported && 'text-muted-foreground'
+                          )}
                         >
                           <td className="px-3 py-2">
-                            {row.status !== 'continuation' && row.status !== 'orphan' && (
+                            {(row.status === 'record' || row.status === 'excluded') && (
                               <input
                                 type="checkbox"
                                 className="h-4 w-4 accent-primary"
@@ -434,41 +548,32 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
                           </td>
                           <td className="px-2 py-2 font-mono text-xs">{row.rowNumber}</td>
                           {row.status === 'continuation' ? (
-                            <td colSpan={2} className="px-2 py-2 text-muted-foreground">
-                              weiterer Kontakt zur Zeile darüber
+                            <td
+                              colSpan={primaryHeader ? 2 : 1}
+                              className="px-2 py-2 text-muted-foreground"
+                            >
+                              {columns.continuation}
                             </td>
                           ) : (
                             <>
-                              <td className={cn('px-2 py-2', skipped && 'line-through')}>
-                                {skipped ? (
-                                  (row.venue?.label ?? '–')
-                                ) : (
-                                  <EntityCell entity={row.venue} />
-                                )}
-                              </td>
-                              <td className={cn('px-2 py-2', skipped && 'line-through')}>
-                                {skipped ? (
-                                  (row.company?.label ?? '–')
-                                ) : (
-                                  <EntityCell entity={row.company} />
-                                )}
+                              {primaryHeader && (
+                                <td className="px-2 py-2">
+                                  <EntityCell entity={row.primary} struck={notImported} />
+                                </td>
+                              )}
+                              <td className="px-2 py-2">
+                                <EntityCell entity={row.company} struck={notImported} />
                               </td>
                             </>
                           )}
                           <td className="px-2 py-2">
                             <div className="flex flex-col gap-1">
-                              {row.persons.length === 0 && !skipped && (
+                              {columns.persons && row.persons.length === 0 && !notImported && (
                                 <span className="text-muted-foreground">–</span>
                               )}
-                              {row.persons.map((person, index) =>
-                                skipped ? (
-                                  <span key={index} className="line-through">
-                                    {person.label}
-                                  </span>
-                                ) : (
-                                  <EntityCell key={index} entity={person} />
-                                )
-                              )}
+                              {row.persons.map((person, index) => (
+                                <EntityCell key={index} entity={person} struck={notImported} />
+                              ))}
                               {row.warnings.map((warning) => (
                                 <span
                                   key={warning}
@@ -495,18 +600,13 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <CheckCircle2 className="h-12 w-12 text-primary" />
             <div className="space-y-1 text-sm">
-              <p>
-                <strong>{result.venuesCreated}</strong> {KIND_PLURALS[kind]} angelegt,{' '}
-                <strong>{result.venuesUpdated}</strong> ergänzt
-              </p>
-              <p>
-                <strong>{result.companiesCreated}</strong> Veranstalter angelegt,{' '}
-                <strong>{result.companiesUpdated}</strong> ergänzt
-              </p>
-              <p>
-                <strong>{result.personsCreated}</strong> Ansprechpartner angelegt,{' '}
-                <strong>{result.personsUpdated}</strong> ergänzt
-              </p>
+              {summaryEntities(target, kind).map(([entity, label]) => (
+                <p key={entity}>
+                  <strong>{result[entity].created}</strong>{' '}
+                  {result[entity].created === 1 ? (SINGULAR[label] ?? label) : label} angelegt,{' '}
+                  <strong>{result[entity].updated}</strong> ergänzt
+                </p>
+              ))}
             </div>
           </div>
         )}
