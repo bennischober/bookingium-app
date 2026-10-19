@@ -42,7 +42,77 @@ export function AddressLines({ address }: { address: AddressDto | null }) {
   )
 }
 
-type EventColumn<T> = { header: string; cell: (event: T) => React.ReactNode }
+/** Label/value rows inside an info card; empty values are left out */
+export function Fields({ fields }: { fields: [string, string | null | undefined][] }) {
+  const filled = fields.filter(([, value]) => value)
+  if (filled.length === 0) return <Empty />
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+      {filled.map(([label, value]) => (
+        <div key={label} className="contents">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="break-words">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** `className` applies to the header and the cells (e.g. text-right) */
+export type Column<T> = { header: string; cell: (row: T) => React.ReactNode; className?: string }
+
+/** A list as a table; a click on a row opens it */
+export function RowTable<T extends { id: number }>({
+  label,
+  rows,
+  isLoading,
+  loading,
+  empty,
+  columns,
+  onRowClick
+}: {
+  label: string
+  rows: T[] | undefined
+  isLoading: boolean
+  loading: string
+  empty: string
+  columns: Column<T>[]
+  onRowClick: (row: T) => void
+}) {
+  if (isLoading) return <p className="text-sm text-muted-foreground">{loading}</p>
+  if (!rows?.length) return <p className="text-sm text-muted-foreground">{empty}</p>
+
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm" aria-label={label}>
+        <thead className="bg-muted text-left">
+          <tr>
+            {columns.map((column) => (
+              <th key={column.header} className={cn('px-3 py-2 font-medium', column.className)}>
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.id}
+              className="cursor-pointer border-t hover:bg-muted/50"
+              onClick={() => onRowClick(row)}
+            >
+              {columns.map((column) => (
+                <td key={column.header} className={cn('px-3 py-2', column.className)}>
+                  {column.cell(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 /**
  * Events as a table, newest first as delivered; a click opens the event.
@@ -59,53 +129,36 @@ export function EventsTable<T extends DealMemoListItemDto>({
   events: T[] | undefined
   isLoading: boolean
   empty: string
-  columns: EventColumn<T>[]
+  columns: Column<T>[]
 }) {
   const navigate = useNavigate()
-
-  if (isLoading) return <p className="text-sm text-muted-foreground">Events werden geladen…</p>
-  if (!events?.length) return <p className="text-sm text-muted-foreground">{empty}</p>
-
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm" aria-label={label}>
-        <thead className="bg-muted text-left">
-          <tr>
-            <th className="px-3 py-2 font-medium">Datum</th>
-            <th className="px-3 py-2 font-medium">Event</th>
-            {columns.map((column) => (
-              <th key={column.header} className="px-3 py-2 font-medium">
-                {column.header}
-              </th>
-            ))}
-            <th className="px-3 py-2 font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event) => (
-            <tr
-              key={event.id}
-              className="cursor-pointer border-t hover:bg-muted/50"
-              onClick={() =>
-                navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
-              }
-            >
-              <td className="whitespace-nowrap px-3 py-2">{formatShortDate(event.date)}</td>
-              <td className="px-3 py-2 font-medium">{event.name}</td>
-              {columns.map((column) => (
-                <td key={column.header} className="px-3 py-2">
-                  {column.cell(event)}
-                </td>
-              ))}
-              <td className="px-3 py-2">
-                <Badge variant="outline" className={cn(STATUS_STYLES[event.status] ?? '')}>
-                  {STATUS_LABELS[event.status] ?? event.status}
-                </Badge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <RowTable
+      label={label}
+      rows={events}
+      isLoading={isLoading}
+      loading="Events werden geladen…"
+      empty={empty}
+      columns={[
+        {
+          header: 'Datum',
+          cell: (event) => formatShortDate(event.date),
+          className: 'whitespace-nowrap'
+        },
+        { header: 'Event', cell: (event) => event.name, className: 'font-medium' },
+        ...columns,
+        {
+          header: 'Status',
+          cell: (event) => (
+            <Badge variant="outline" className={cn(STATUS_STYLES[event.status] ?? '')}>
+              {STATUS_LABELS[event.status] ?? event.status}
+            </Badge>
+          )
+        }
+      ]}
+      onRowClick={(event) =>
+        navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
+      }
+    />
   )
 }

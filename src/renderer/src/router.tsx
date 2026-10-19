@@ -10,6 +10,8 @@ import BankPage from '@/pages/BankPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
 import BandDetailPage from '@/pages/BandDetailPage'
+import CompanyDetailPage from '@/pages/CompanyDetailPage'
+import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import PersonRelationsPage from '@/pages/PersonRelationsPage'
@@ -22,6 +24,8 @@ import { trackNavigationHistory } from '@/lib/navigationHistory'
 import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 import { isBandTab, type BandTab } from '@/components/band/constants'
+import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
+import { isVenueTab, type VenueTab } from '@/components/venue/constants'
 
 const hashHistory = createHashHistory()
 // Back/forward buttons in the top bar
@@ -132,6 +136,24 @@ const bandDetailRoute = createRoute({
   component: BandDetailPage
 })
 
+const companyDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/companies/$companyId',
+  validateSearch: (search: Record<string, unknown>): { tab?: CompanyTab } => ({
+    tab: isCompanyTab(search.tab) ? search.tab : undefined
+  }),
+  component: CompanyDetailPage
+})
+
+const venueDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/venues/$venueId',
+  validateSearch: (search: Record<string, unknown>): { tab?: VenueTab } => ({
+    tab: isVenueTab(search.tab) ? search.tab : undefined
+  }),
+  component: VenueDetailPage
+})
+
 // Chrome-free layout for print views (PDF output must not contain app UI)
 const printLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -171,7 +193,9 @@ const routeTree = rootRoute.addChildren([
     eventRoute,
     invoiceRoute,
     eventHubRoute,
-    bandDetailRoute
+    bandDetailRoute,
+    companyDetailRoute,
+    venueDetailRoute
   ]),
   printLayoutRoute.addChildren([
     invoicePrintRoute,

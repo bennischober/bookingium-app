@@ -28,7 +28,11 @@ function OverviewTab({ band }: { band: BandDto }) {
     if (id === null || name === null)
       return <span className="text-muted-foreground">{fallback}</span>
     return (
-      <Link to="/companies" search={{ open: id }} className="font-medium hover:underline">
+      <Link
+        to="/companies/$companyId"
+        params={{ companyId: String(id) }}
+        className="font-medium hover:underline"
+      >
         {name}
       </Link>
     )
@@ -175,7 +179,8 @@ export default function BandDetailPage() {
         }
         className="flex-1"
       >
-        <TabsList className="mb-6 max-w-full overflow-x-auto">
+        {/* Tabs wrap onto a second row in narrow windows */}
+        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="members">Mitglieder</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
