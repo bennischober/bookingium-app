@@ -75,7 +75,7 @@ English.
 | -------------------------------------------------- | -------------------------------------------------------------- |
 | Invoice / invoice number                           | Rechnung / Rechnungsnr.                                        |
 | Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                          |
-| Status draft / issued / paid / overdue / cancelled | Entwurf / Gestellt / Bezahlt / Überfällig / Storniert (Storno) |
+| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno) |
 | Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                             |
 | Line items                                         | Positionen                                                     |
 | Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                  |
