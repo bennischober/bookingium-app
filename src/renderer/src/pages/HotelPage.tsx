@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -155,7 +156,12 @@ export default function HotelPage() {
         searchPlaceholder="Hotels filtern..."
         isLoading={hotels.isLoading}
         total={hotels.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neues Hotel anlegen</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="hotels" search={search} />
+            <Button onClick={() => formSheet.openCreate()}>+ Neues Hotel anlegen</Button>
+          </div>
+        }
       />
 
       <FormSheet

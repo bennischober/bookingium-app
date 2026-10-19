@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -217,6 +218,7 @@ export default function VenuePage() {
                 <SelectItem value="festival">Festivals</SelectItem>
               </SelectContent>
             </Select>
+            <ExportButton list="venues" search={search} kind={kind === 'all' ? undefined : kind} />
             <ImportButton target="venues" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
           </div>

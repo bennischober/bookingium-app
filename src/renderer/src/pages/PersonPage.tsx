@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { Users } from 'lucide-react'
@@ -179,6 +180,7 @@ export function PersonPage() {
         total={persons.data?.total ?? 0}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="persons" search={search} />
             <ImportButton target="persons" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>
           </div>

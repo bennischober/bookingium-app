@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -138,7 +139,12 @@ export default function InvoicePage() {
             searchPlaceholder="Rechnungen filtern..."
             isLoading={invoices.isLoading}
             total={invoices.data?.total ?? 0}
-            actionButton={<Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>}
+            actionButton={
+              <div className="flex flex-wrap items-center gap-2">
+                <ExportButton list="invoices" search={search} />
+                <Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>
+              </div>
+            }
           />
         </div>
       </div>

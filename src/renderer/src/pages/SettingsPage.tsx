@@ -1,6 +1,7 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
-import { DatabaseBackup, FolderOpen, Upload } from 'lucide-react'
+import { DatabaseBackup, Download, FolderOpen, Upload } from 'lucide-react'
+import { useExportToast } from '@/components/export/ExportButton'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,11 @@ function DataCard() {
       toast.error('Ordner konnte nicht geöffnet werden', { description: error.message })
   })
   const openBackup = trpcReact.settings.openBackup.useMutation()
+  const showExport = useExportToast()
+  const exportAll = trpcReact.dataExport.exportAll.useMutation({
+    onSuccess: showExport,
+    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
+  })
   const createBackup = trpcReact.settings.createBackup.useMutation({
     onSuccess: (result) => {
       if (result.canceled || !result.folder) return
@@ -125,7 +131,9 @@ function DataCard() {
     <Card>
       <CardHeader>
         <CardTitle>Daten</CardTitle>
-        <CardDescription>Listen importieren, Daten sichern und Speicherort.</CardDescription>
+        <CardDescription>
+          Listen importieren und exportieren, Daten sichern und Speicherort.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -137,6 +145,24 @@ function DataCard() {
           </div>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" /> Daten importieren…
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium">Export</p>
+            <p className="text-sm text-muted-foreground">
+              Alle Listen als Excel-Datei, ein Tabellenblatt je Liste. Einzelne Listen lassen sich
+              auf ihrer Seite exportieren.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => exportAll.mutate()}
+            disabled={exportAll.isPending}
+          >
+            <Download className="h-4 w-4" />
+            {exportAll.isPending ? 'Wird exportiert…' : 'Alles exportieren…'}
           </Button>
         </div>
 

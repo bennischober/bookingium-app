@@ -9,8 +9,15 @@ export function ImportButton({ target }: { target: ImportTarget }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4" /> Importieren
+      <Button
+        variant="outline"
+        aria-label="Importieren"
+        title="Excel-Liste importieren"
+        onClick={() => setOpen(true)}
+      >
+        <Upload className="h-4 w-4" />
+        {/* Icon only in narrow windows; the name stays for screen readers */}
+        <span className="hidden lg:inline">Importieren</span>
       </Button>
       <ImportDialog open={open} onOpenChange={setOpen} target={target} />
     </>

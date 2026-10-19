@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
@@ -199,6 +200,7 @@ export default function BandPage() {
         total={bands.data?.total ?? 0}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="bands" search={search} />
             <ImportButton target="bands" />
             <Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>
           </div>

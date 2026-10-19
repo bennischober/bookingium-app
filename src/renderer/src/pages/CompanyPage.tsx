@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
@@ -221,6 +222,7 @@ export function CompanyPage() {
         total={companies.data?.total ?? 0}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="companies" search={search} />
             <ImportButton target="companies" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>
           </div>

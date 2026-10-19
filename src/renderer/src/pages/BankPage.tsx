@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import type { z } from 'zod'
@@ -157,7 +158,12 @@ export default function BankPage() {
         searchPlaceholder="Banken filtern..."
         isLoading={banks.isLoading}
         total={banks.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Bank anlegen</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="banks" search={search} />
+            <Button onClick={() => formSheet.openCreate()}>+ Neue Bank anlegen</Button>
+          </div>
+        }
       />
 
       <FormSheet

@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/export/ExportButton'
 import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -149,7 +150,12 @@ export function EventPage() {
         searchPlaceholder="Events filtern…"
         isLoading={events.isLoading}
         total={events.data?.total ?? 0}
-        actionButton={<Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="events" search={search} />
+            <Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>
+          </div>
+        }
         onRowClick={(event) =>
           navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
         }
