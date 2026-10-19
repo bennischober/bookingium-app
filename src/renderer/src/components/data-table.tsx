@@ -7,8 +7,18 @@ import {
   type PaginationState,
   type OnChangeFn
 } from '@tanstack/react-table'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { useSyncedState } from '@/hooks/useSyncedState'
+import { PAGE_SIZES } from '@/hooks/useTablePagination'
 import { cn } from '@/lib/utils'
 
 // The 'actions' column hugs its buttons at the right edge of the table
@@ -41,6 +51,43 @@ function useHorizontalOverflow() {
   }, [])
 
   return { frameRef, overflowing }
+}
+
+/** "Seite [ 3 ] von 32": type a page number, Enter (or leaving the field) jumps */
+function PageJump({
+  page,
+  pageCount,
+  onJump
+}: {
+  page: number
+  pageCount: number
+  onJump: (page: number) => void
+}) {
+  const [input, setInput] = useSyncedState(String(page))
+  const commit = () => {
+    const target = Math.min(Math.max(Math.trunc(Number(input)) || page, 1), pageCount)
+    setInput(String(target))
+    if (target !== page) onJump(target)
+  }
+  return (
+    <span className="flex items-center gap-1.5 px-1 text-sm">
+      Seite
+      <Input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+        className="h-8 w-16 px-2 text-center"
+        aria-label="Seite"
+      />
+      von {pageCount}
+    </span>
+  )
 }
 
 interface DataTableProps<TData> {
@@ -84,6 +131,15 @@ export function DataTable<TData>({
     onPaginationChange
   })
   const { frameRef, overflowing } = useHorizontalOverflow()
+
+  // Fewer pages than the current one (search, deletes, bigger pages): show
+  // the last page instead of an empty one
+  const lastPageIndex = Math.max(pageCount - 1, 0)
+  useEffect(() => {
+    if (!isLoading && pageCount > 0 && pagination.pageIndex > lastPageIndex) {
+      onPaginationChange({ ...pagination, pageIndex: lastPageIndex })
+    }
+  }, [isLoading, pageCount, lastPageIndex, pagination, onPaginationChange])
 
   return (
     <div className="flex flex-col w-full">
@@ -180,35 +236,82 @@ export function DataTable<TData>({
       </div>
 
       {/* Pagination — wraps gracefully at narrow widths */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
-        <div className="text-sm text-muted-foreground">
-          {total > 0 && (
-            <>
-              Zeige {pagination.pageIndex * pagination.pageSize + 1} bis{' '}
-              {Math.min((pagination.pageIndex + 1) * pagination.pageSize, total)} von {total}{' '}
-              Einträgen
-            </>
-          )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <span>
+            {total > 0
+              ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
+                  (pagination.pageIndex + 1) * pagination.pageSize,
+                  total
+                )} von ${total}`
+              : '0 Einträge'}
+          </span>
+          <label className="flex items-center gap-2">
+            Pro Seite
+            <Select
+              value={String(pagination.pageSize)}
+              onValueChange={(value) =>
+                onPaginationChange({ pageIndex: 0, pageSize: Number(value) })
+              }
+            >
+              <SelectTrigger className="h-8 w-[4.5rem]" aria-label="Einträge pro Seite">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZES.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
-            size="sm"
+            size="icon-sm"
+            onClick={() => table.firstPage()}
+            disabled={!table.getCanPreviousPage()}
+            aria-label="Erste Seite"
+            title="Erste Seite"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Vorherige Seite"
+            title="Vorherige Seite"
           >
-            &lt; Zurück
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm">
-            Seite {pagination.pageIndex + 1} von {pageCount || 1}
-          </span>
+          <PageJump
+            page={pagination.pageIndex + 1}
+            pageCount={Math.max(pageCount, 1)}
+            onJump={(page) => table.setPageIndex(page - 1)}
+          />
           <Button
             variant="outline"
-            size="sm"
+            size="icon-sm"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            aria-label="Nächste Seite"
+            title="Nächste Seite"
           >
-            Weiter &gt;
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => table.lastPage()}
+            disabled={!table.getCanNextPage()}
+            aria-label="Letzte Seite"
+            title="Letzte Seite"
+          >
+            <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

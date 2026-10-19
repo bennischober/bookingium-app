@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { Users } from 'lucide-react'
 import { useState } from 'react'
@@ -20,7 +21,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export function PersonPage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('persons')
   const [search, setSearch] = useState('')
   const [relationsSheetOpen, setRelationsSheetOpen] = useState(false)
   const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(

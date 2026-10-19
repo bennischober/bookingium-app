@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
@@ -21,7 +22,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BandPage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('bands')
   const [search, setSearch] = useState('')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'band'

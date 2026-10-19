@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
@@ -19,7 +20,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BankPage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('banks')
   const [search, setSearch] = useState('')
 
   const formSheet = useFormSheet<BankDto>()

@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -20,7 +21,7 @@ import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/i
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function InvoicePage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('invoices')
   const [search, setSearch] = useState('')
 
   // Create uses the form sheet; existing invoices open in the edit sheet

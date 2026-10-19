@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -25,7 +26,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function VenuePage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('venues')
   const [search, setSearch] = useState('')
   const [kind, setKind] = useState<VenueKind | 'all'>('all')
   const [membersEntity, setMembersEntity] = useState<{

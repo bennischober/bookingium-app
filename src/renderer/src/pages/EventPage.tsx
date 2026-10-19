@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
@@ -28,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function EventPage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('events')
   const [search, setSearch] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
   const navigate = useNavigate()

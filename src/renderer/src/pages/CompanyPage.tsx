@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/hooks/useTablePagination'
 import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -22,7 +23,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export function CompanyPage() {
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useTablePagination('companies')
   const [search, setSearch] = useState('')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'company'
