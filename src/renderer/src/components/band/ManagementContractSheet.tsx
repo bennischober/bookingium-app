@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Printer, Trash2 } from 'lucide-react'
@@ -284,22 +285,18 @@ function ContractForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Management</Label>
-          <Select
-            value={form.managementCompanyId ? String(form.managementCompanyId) : ''}
-            onValueChange={(value) => set('managementCompanyId', Number(value))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Firma auswählen" />
-            </SelectTrigger>
-            <SelectContent>
-              {(companies.data ?? []).map((company) => (
-                <SelectItem key={company.id} value={String(company.id)}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="mc-management">Management</Label>
+          <SearchableSelect
+            id="mc-management"
+            value={form.managementCompanyId || null}
+            onChange={(value) => value !== null && set('managementCompanyId', value)}
+            options={(companies.data ?? []).map((company) => ({
+              value: company.id,
+              label: company.name
+            }))}
+            placeholder="Firma auswählen"
+            searchPlaceholder="Firma suchen…"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="mc-start">Vertragsbeginn</Label>

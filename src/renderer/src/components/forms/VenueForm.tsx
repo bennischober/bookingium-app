@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useForm } from '@tanstack/react-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -209,25 +210,18 @@ export function VenueForm({
             {companies.isLoading ? (
               <p className="text-sm text-muted-foreground">Firmen werden geladen...</p>
             ) : companies.data && companies.data.length > 0 ? (
-              <Select
-                value={field.state.value ? String(field.state.value) : 'none'}
-                onValueChange={(value) =>
-                  field.handleChange(value === 'none' ? null : Number(value))
-                }
+              <SearchableSelect
+                id={field.name}
+                value={field.state.value}
+                onChange={field.handleChange}
+                options={companies.data.map((company) => ({
+                  value: company.id,
+                  label: company.name
+                }))}
+                noneLabel="Keine"
+                searchPlaceholder="Firma suchen…"
                 disabled={isSubmitting}
-              >
-                <SelectTrigger id={field.name}>
-                  <SelectValue placeholder="Firma auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Keine</SelectItem>
-                  {companies.data.map((company) => (
-                    <SelectItem key={company.id} value={String(company.id)}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             ) : (
               <p className="text-sm text-muted-foreground">Keine Firmen gefunden.</p>
             )}

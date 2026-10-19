@@ -1,16 +1,10 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useForm } from '@tanstack/react-form'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
@@ -364,22 +358,18 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
               {banks.isLoading ? (
                 <p className="text-sm text-muted-foreground">Banken werden geladen...</p>
               ) : banks.data && banks.data.length > 0 ? (
-                <Select
-                  value={field.state.value?.toString() || ''}
-                  onValueChange={(value) => field.handleChange(value ? Number(value) : null)}
-                >
-                  <SelectTrigger id="bankId">
-                    <SelectValue placeholder="Bank auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Keine</SelectItem>
-                    {banks.data.map((bank) => (
-                      <SelectItem key={bank.id} value={bank.id.toString()}>
-                        {bank.bankName} - {bank.accountHolder}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  id="bankId"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  options={banks.data.map((bank) => ({
+                    value: bank.id,
+                    label: bank.bankName,
+                    hint: bank.accountHolder
+                  }))}
+                  noneLabel="Keine"
+                  searchPlaceholder="Bank suchen…"
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Keine Banken vorhanden. Legen Sie zuerst eine Bank auf der Banken-Seite an.

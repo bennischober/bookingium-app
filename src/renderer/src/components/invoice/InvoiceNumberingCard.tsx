@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -5,13 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 
 /** Next invoice number per issuing company (Einstellungen › Rechnungen) */
 export function InvoiceNumberingCard() {
@@ -82,21 +76,17 @@ export function InvoiceNumberingCard() {
       <CardContent className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
         <div className="space-y-2">
           <Label htmlFor="numbering-company">Firma</Label>
-          <Select
-            value={settingsCompanyId?.toString() ?? ''}
-            onValueChange={(value) => setSettingsCompanyId(Number(value))}
-          >
-            <SelectTrigger id="numbering-company">
-              <SelectValue placeholder="Firma auswählen" />
-            </SelectTrigger>
-            <SelectContent>
-              {(companies.data ?? []).map((company) => (
-                <SelectItem key={company.id} value={company.id.toString()}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="numbering-company"
+            value={settingsCompanyId}
+            onChange={(value) => value !== null && setSettingsCompanyId(value)}
+            options={(companies.data ?? []).map((company) => ({
+              value: company.id,
+              label: company.name
+            }))}
+            placeholder="Firma auswählen"
+            searchPlaceholder="Firma suchen…"
+          />
         </div>
 
         <div className="space-y-2">

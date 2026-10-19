@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -423,23 +424,19 @@ export function InvoiceForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Event-Verknüpfung (optional)</Label>
-              <Select
-                value={dealMemoId?.toString() ?? 'none'}
-                onValueChange={(value) => setDealMemoId(value === 'none' ? null : Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Event auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Keine Event-Verknüpfung</SelectItem>
-                  {(events.data?.items ?? []).map((event) => (
-                    <SelectItem key={event.id} value={event.id.toString()}>
-                      {event.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="invoice-event">Event-Verknüpfung (optional)</Label>
+              <SearchableSelect
+                id="invoice-event"
+                value={dealMemoId}
+                onChange={setDealMemoId}
+                options={(events.data?.items ?? []).map((event) => ({
+                  value: event.id,
+                  label: event.name,
+                  hint: event.date
+                }))}
+                noneLabel="Keine Event-Verknüpfung"
+                searchPlaceholder="Event suchen…"
+              />
             </div>
 
             <div className="space-y-2">
@@ -447,7 +444,8 @@ export function InvoiceForm({
                 text="Rechnungssteller"
                 info="Wer bekommt das Geld? Dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
               />
-              <Select
+              <SearchableSelect<string>
+                aria-label="Rechnungssteller"
                 value={
                   companyId !== undefined
                     ? companyId === null
@@ -455,31 +453,18 @@ export function InvoiceForm({
                       : companyId.toString()
                     : 'auto'
                 }
-                onValueChange={(value) => {
-                  if (value === 'auto') {
-                    setCompanyId(undefined)
-                    return
-                  }
-                  if (value === 'none') {
-                    setCompanyId(null)
-                    return
-                  }
-                  setCompanyId(Number(value))
+                onChange={(value) => {
+                  if (value === null || value === 'auto') setCompanyId(undefined)
+                  else if (value === 'none') setCompanyId(null)
+                  else setCompanyId(Number(value))
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto (Event/Standard)</SelectItem>
-                  <SelectItem value="none">Keine explizite Auswahl</SelectItem>
-                  {(companies.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={[
+                  { value: 'auto', label: 'Auto (Event/Standard)' },
+                  { value: 'none', label: 'Keine explizite Auswahl' },
+                  ...(companies.data ?? []).map((c) => ({ value: c.id.toString(), label: c.name }))
+                ]}
+                searchPlaceholder="Firma suchen…"
+              />
             </div>
           </div>
 
@@ -511,67 +496,46 @@ export function InvoiceForm({
 
           {recipientKind === 'company' && (
             <div className="space-y-2">
-              <Label>Empfänger-Firma</Label>
-              <Select
-                value={recipientCompanyId === null ? 'none' : recipientCompanyId.toString()}
-                onValueChange={(value) =>
-                  setRecipientCompanyId(value === 'none' ? null : Number(value))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Automatisch" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Automatisch</SelectItem>
-                  {(companies.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="invoice-recipient-company">Empfänger-Firma</Label>
+              <SearchableSelect
+                id="invoice-recipient-company"
+                value={recipientCompanyId}
+                onChange={setRecipientCompanyId}
+                options={(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+                noneLabel="Automatisch"
+                searchPlaceholder="Firma suchen…"
+              />
             </div>
           )}
 
           {recipientKind === 'band' && (
             <div className="space-y-2">
-              <Label>Empfänger-Band</Label>
-              <Select
-                value={recipientBandId?.toString() ?? ''}
-                onValueChange={(value) => setRecipientBandId(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Band auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(bands.data ?? []).map((b) => (
-                    <SelectItem key={b.id} value={b.id.toString()}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="invoice-recipient-band">Empfänger-Band</Label>
+              <SearchableSelect
+                id="invoice-recipient-band"
+                value={recipientBandId}
+                onChange={setRecipientBandId}
+                options={(bands.data ?? []).map((b) => ({ value: b.id, label: b.name }))}
+                placeholder="Band auswählen"
+                searchPlaceholder="Band suchen…"
+              />
             </div>
           )}
 
           {recipientKind === 'person' && (
             <div className="space-y-2">
-              <Label>Empfänger-Person</Label>
-              <Select
-                value={recipientPersonId?.toString() ?? ''}
-                onValueChange={(value) => setRecipientPersonId(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Person auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(persons.data ?? []).map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.firstName} {p.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="invoice-recipient-person">Empfänger-Person</Label>
+              <SearchableSelect
+                id="invoice-recipient-person"
+                value={recipientPersonId}
+                onChange={setRecipientPersonId}
+                options={(persons.data ?? []).map((p) => ({
+                  value: p.id,
+                  label: `${p.firstName} ${p.lastName}`.trim()
+                }))}
+                placeholder="Person auswählen"
+                searchPlaceholder="Person suchen…"
+              />
             </div>
           )}
 

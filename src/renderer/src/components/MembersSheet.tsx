@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,13 +21,6 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { confirmAction } from '@/lib/confirm'
 
 type MemberEntityType = 'band' | 'company' | 'venue'
@@ -315,19 +309,18 @@ export function MembersPanel({
           <div className="space-y-4">
             {editingId === null && (
               <div className="space-y-2">
-                <Label>Person</Label>
-                <Select value={personId} onValueChange={setPersonId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Person auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(persons.data ?? []).map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        {p.firstName} {p.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="member-person">Person</Label>
+                <SearchableSelect<string>
+                  id="member-person"
+                  value={personId || null}
+                  onChange={(value) => setPersonId(value ?? '')}
+                  options={(persons.data ?? []).map((p) => ({
+                    value: p.id.toString(),
+                    label: `${p.firstName} ${p.lastName}`.trim()
+                  }))}
+                  placeholder="Person auswählen"
+                  searchPlaceholder="Person suchen…"
+                />
               </div>
             )}
             <div className="space-y-2">

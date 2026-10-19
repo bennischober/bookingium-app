@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useEffect, useRef, useState } from 'react'
 import { trpcReact } from '@/lib/trpc'
 import { useSyncedState } from '@/hooks/useSyncedState'
@@ -15,13 +16,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Euro, FileText, FileSignature } from 'lucide-react'
 import { toast } from 'sonner'
@@ -49,6 +43,10 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   )
 
   const companies = trpcReact.company.getListItems.useQuery()
+  const companyOptions = (companies.data ?? []).map((company) => ({
+    value: company.id,
+    label: company.name
+  }))
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
   const invoices = trpcReact.invoice.getByDealMemoId.useQuery(event.id)
 
@@ -307,25 +305,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 <p className="text-xs text-muted-foreground">Leer oder 0 = keine MwSt. ausweisen</p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Vertreten durch (Management)</Label>
-                <Select
-                  value={representingCompanyId === null ? 'none' : representingCompanyId.toString()}
-                  onValueChange={(value) =>
-                    setRepresentingCompanyId(value === 'none' ? null : Number(value))
-                  }
-                >
-                  <SelectTrigger className="max-w-md">
-                    <SelectValue placeholder="Management auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Standard: {defaultRepresentationName}</SelectItem>
-                    {(companies.data ?? []).map((company) => (
-                      <SelectItem key={company.id} value={company.id.toString()}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="event-representing-company">Vertreten durch (Management)</Label>
+                <SearchableSelect
+                  id="event-representing-company"
+                  className="max-w-md"
+                  value={representingCompanyId}
+                  onChange={setRepresentingCompanyId}
+                  options={companyOptions}
+                  noneLabel={`Standard: ${defaultRepresentationName}`}
+                  searchPlaceholder="Firma suchen…"
+                />
                 <p className="text-xs text-muted-foreground">
                   Vertritt die Band in diesem Vertrag (Briefkopf, „vertreten durch“, Unterschrift
                   VP1). Nur setzen, wenn es vom Management der Band abweicht.
@@ -382,31 +371,15 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
 
           {isEditing ? (
             <div className="space-y-2 max-w-md">
-              <Label>Rechnungssteller für dieses Event</Label>
-              <Select
-                value={invoiceCompanyId === null ? 'none' : invoiceCompanyId.toString()}
-                onValueChange={(value) => {
-                  if (value === 'none') {
-                    setInvoiceCompanyId(null)
-                    return
-                  }
-                  setInvoiceCompanyId(Number(value))
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Rechnungssteller auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    Keine explizite Auswahl (Standard-Fallback verwenden)
-                  </SelectItem>
-                  {(companies.data ?? []).map((company) => (
-                    <SelectItem key={company.id} value={company.id.toString()}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="event-invoice-company">Rechnungssteller für dieses Event</Label>
+              <SearchableSelect
+                id="event-invoice-company"
+                value={invoiceCompanyId}
+                onChange={setInvoiceCompanyId}
+                options={companyOptions}
+                noneLabel="Keine explizite Auswahl (Standard-Fallback verwenden)"
+                searchPlaceholder="Firma suchen…"
+              />
               <p className="text-xs text-muted-foreground">
                 Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die
                 Standard-Firma zurück.

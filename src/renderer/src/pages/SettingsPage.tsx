@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { DatabaseBackup, FolderOpen, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -52,25 +53,18 @@ function GeneralCard() {
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="settings-own-company">Eigene Firma</Label>
-          <Select
-            value={defaultCompany.data ? String(defaultCompany.data.id) : NONE}
-            onValueChange={(value) =>
-              setDefaultCompany.mutate(value === NONE ? null : Number(value))
-            }
+          <SearchableSelect
+            id="settings-own-company"
+            value={defaultCompany.data?.id ?? null}
+            onChange={(value) => setDefaultCompany.mutate(value)}
+            options={(companies.data ?? []).map((company) => ({
+              value: company.id,
+              label: company.name
+            }))}
+            noneLabel="Keine"
+            searchPlaceholder="Firma suchen…"
             disabled={defaultCompany.isLoading || setDefaultCompany.isPending}
-          >
-            <SelectTrigger id="settings-own-company">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Keine</SelectItem>
-              {(companies.data ?? []).map((company) => (
-                <SelectItem key={company.id} value={String(company.id)}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
           <p className="text-xs text-muted-foreground">
             Stellt Rechnungen aus und vertritt Bands ohne eigenes Management in Verträgen.
           </p>

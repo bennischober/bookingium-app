@@ -3,13 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { trpcReact } from '@/lib/trpc'
 import type {
   BandDto,
@@ -35,6 +29,10 @@ export function BandForm({
 }: BandFormProps) {
   // Fetch companies + persons for dropdowns
   const companies = trpcReact.company.getListItems.useQuery()
+  const companyOptions = (companies.data ?? []).map((company) => ({
+    value: company.id,
+    label: company.name
+  }))
   const persons = trpcReact.person.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
 
@@ -135,22 +133,15 @@ export function BandForm({
             {companies.isLoading ? (
               <div className="text-sm text-muted-foreground">Firmen werden geladen...</div>
             ) : companies.data && companies.data.length > 0 ? (
-              <Select
-                value={field.state.value.toString()}
-                onValueChange={(value) => field.handleChange(parseInt(value))}
+              <SearchableSelect
+                id={field.name}
+                value={field.state.value || null}
+                onChange={(value) => field.handleChange(value ?? 0)}
+                options={companyOptions}
+                placeholder="Firma auswählen"
+                searchPlaceholder="Firma suchen…"
                 disabled={isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Firma auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.data.map((company) => (
-                    <SelectItem key={company.id} value={company.id.toString()}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             ) : (
               <div className="text-sm text-destructive">
                 Keine Firmen vorhanden. Bitte legen Sie zuerst eine Firma an.
@@ -171,25 +162,18 @@ export function BandForm({
             {persons.isLoading ? (
               <div className="text-sm text-muted-foreground">Personen werden geladen...</div>
             ) : persons.data && persons.data.length > 0 ? (
-              <Select
-                value={field.state.value ? field.state.value.toString() : 'none'}
-                onValueChange={(value) =>
-                  field.handleChange(value === 'none' ? null : parseInt(value))
-                }
+              <SearchableSelect
+                id={field.name}
+                value={field.state.value}
+                onChange={field.handleChange}
+                options={(persons.data ?? []).map((person) => ({
+                  value: person.id,
+                  label: `${person.firstName} ${person.lastName}`.trim()
+                }))}
+                noneLabel="Kein TL hinterlegt"
+                searchPlaceholder="Person suchen…"
                 disabled={isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="TL auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Kein TL hinterlegt</SelectItem>
-                  {persons.data.map((person) => (
-                    <SelectItem key={person.id} value={person.id.toString()}>
-                      {person.firstName} {person.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             ) : (
               <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
             )}
@@ -205,27 +189,15 @@ export function BandForm({
         {(field) => (
           <div className="space-y-2">
             <Label htmlFor={field.name}>Management (vertreten durch)</Label>
-            <Select
-              value={field.state.value ? field.state.value.toString() : 'none'}
-              onValueChange={(value) =>
-                field.handleChange(value === 'none' ? null : parseInt(value))
-              }
+            <SearchableSelect
+              id={field.name}
+              value={field.state.value}
+              onChange={field.handleChange}
+              options={companyOptions}
+              noneLabel={`Standard (${defaultCompany.data?.name ?? 'keine Standard-Firma'})`}
+              searchPlaceholder="Firma suchen…"
               disabled={isSubmitting || companies.isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Management auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  Standard ({defaultCompany.data?.name ?? 'keine Standard-Firma'})
-                </SelectItem>
-                {(companies.data ?? []).map((company) => (
-                  <SelectItem key={company.id} value={company.id.toString()}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
             <p className="text-xs text-muted-foreground">
               Vertritt die Band in Konzertverträgen (Briefkopf, „vertreten durch“, Unterschrift
               VP1). Einzelne Events können das überschreiben.

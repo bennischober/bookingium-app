@@ -1,3 +1,4 @@
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,13 +17,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { confirmAction } from '@/lib/confirm'
 
 type RelationType = 'band' | 'company' | 'venue'
@@ -413,22 +407,17 @@ export default function PersonRelationsPage() {
           <div className="space-y-4 py-4">
             {dialogMode === 'add' && (
               <div>
-                <Label>{getEntityLabel()}</Label>
-                <Select
-                  value={formData.entityId}
-                  onValueChange={(value) => setFormData({ ...formData, entityId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Auswählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getEntityOptions().map((entity) => (
-                      <SelectItem key={entity.id} value={entity.id.toString()}>
-                        {entity.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="relation-entity">{getEntityLabel()}</Label>
+                <SearchableSelect<string>
+                  id="relation-entity"
+                  value={formData.entityId || null}
+                  onChange={(value) => setFormData({ ...formData, entityId: value ?? '' })}
+                  options={getEntityOptions().map((entity) => ({
+                    value: entity.id.toString(),
+                    label: entity.name
+                  }))}
+                  placeholder="Auswählen…"
+                />
               </div>
             )}
             <div>
