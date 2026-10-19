@@ -35,7 +35,7 @@ English.
 | Create / New / Add                    | Anlegen / Neu / Hinzufügen                               |
 | Edit / Delete / Save / Cancel / Close | Bearbeiten / Löschen / Speichern / Abbrechen / Schließen |
 | Actions                               | Aktionen                                                 |
-| Page X of Y / per page                | Seite X von Y / Pro Seite                                |
+| 311 venues / found / loaded           | 311 Spielstätten / … gefunden / … geladen                |
 | Import / Export / Backup              | Importieren / Exportieren / Sicherung                    |
 | Print / Save as PDF                   | Drucken / Als PDF speichern                              |
 | Notes                                 | Anmerkungen                                              |

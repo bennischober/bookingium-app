@@ -50,7 +50,7 @@ src/renderer/src/      React app
     print/, contract/, invoice/                     A4 print documents
   lib/                 trpc client, routing (ROUTES, menu groups, shortcuts),
                        navigationHistory, confirm dialog, label helpers
-  hooks/               useFormSheet, useListSearchActions, useTablePagination, …
+  hooks/               useFormSheet, useListSearchActions, useListQuery, …
 tests/
   *.test.ts            Unit tests (in-memory SQLite, real migrations)
   e2e/                 Playwright against the built app (fresh temp data folder)
@@ -120,7 +120,8 @@ Databases from before the merge are taken over by `upgradeLegacyDatabase` in
 3. **zod schemas** — `src/main/api/schemas/<object>.schema.ts`: `XDto`,
    `CreateXInput`, `UpdateXInput` (explicit object with plain `.optional()`
    keys — never `.partial()` of an input with defaults), `PaginatedXResponse`.
-4. **Repository** — `@injectable()` class with `getAllPaginated`, `getById`,
+4. **Repository** — `@injectable()` class with `getAllPaginated` (bounds via
+   `listPage`, order via `listOrder` from `listQuery.ts`), `getById`,
    `create`, `update`, `delete`. Transactions are **synchronous callbacks**.
 5. **Service** — `@injectable()`, constructor injection, thin methods. Call
    `scheduleCalendarUpdate()` after changes if the object shows up in the
@@ -131,11 +132,19 @@ Databases from before the merge are taken over by `upgradeLegacyDatabase` in
    `src/main/api/router.ts`.
 8. **Form** — `components/forms/XForm.tsx` (TanStack Form; BankForm is the
    minimal example). Pick related records with `SearchableSelect`.
-9. **List page** — `pages/XPage.tsx` with `DataTable`, `useTablePagination`,
-   `FormSheet`/`useFormSheet`, `useListSearchActions` (`?create`/`?open` from
-   the search palette); add `ExportButton` (and an import type if lists of
-   it get imported). Register the route under the `_app` layout in
-   `router.tsx` and add it to `ROUTES` in `lib/routing.ts`.
+9. **List page** — `pages/XPage.tsx`: one continuous list. Query with
+   `trpcReact.x.getAllPaginated.useInfiniteQuery({ pageSize: LIST_CHUNK_SIZE,
+search, ...sortInput }, infiniteListOptions)` and `useListSorting` (order
+   remembered per list); pass `listRows`/`listTotal`, `hasNextPage`/
+   `fetchNextPage` and the sorting to `DataTable`, which pins toolbar, column
+   headers and status line and loads more near the end. Column ids must be
+   sort keys of the repository's `listOrder` map (else `enableSorting:
+false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
+   the remaining height. Add `FormSheet`/`useFormSheet`,
+   `useListSearchActions` (`?create`/`?open` from the search palette) and
+   `ExportButton` (and an import type if lists of it get imported). Register
+   the route under the `_app` layout in `router.tsx` and add it to `ROUTES`
+   in `lib/routing.ts`.
 10. **Detail page** (records with relations) — `/x/$xId` with tabs kept in
     `?tab=`, built from panels (`MembersPanel`, `DocumentsPanel`, …); row
     click opens it, the pencil keeps the sheet; add the name to the

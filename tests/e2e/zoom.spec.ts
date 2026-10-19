@@ -37,11 +37,10 @@ test('dashboard and events table stay usable at 150% zoom', async () => {
     await page.waitForSelector('table', { timeout: 10_000 })
     await page.screenshot({ path: 'tests/e2e/__screenshots__/zoom150-events.png' })
 
-    // Table must not be clipped: the table container scrolls horizontally
-    const scrollable = await page.evaluate(() => {
-      const el = document.querySelector('.overflow-x-auto')
-      if (!el) return false
-      return el.scrollWidth >= el.clientWidth || el.scrollWidth > 0
+    // Table must not be clipped: its frame scrolls (both ways)
+    const scrollable = await page.getByTestId('list-scroll').evaluate((el) => {
+      const style = getComputedStyle(el)
+      return style.overflowX === 'auto' && style.overflowY === 'auto' && el.scrollWidth > 0
     })
     expect(scrollable).toBe(true)
   } finally {
@@ -60,7 +59,10 @@ test('band members sheet loads and shows members', async () => {
     await page.waitForSelector('text=Dashboard', { timeout: 15_000 })
     await page.goto(`${page.url().split('#')[0]}#/band`)
     await page.waitForSelector('table', { timeout: 10_000 })
-    await page.locator('table tbody tr button[title="Mitglieder"]').first().click()
+    await page
+      .locator('table tbody tr', { hasText: 'The Electric Waves' })
+      .locator('button[title="Mitglieder"]')
+      .click()
 
     // Members must appear (not stuck on the loading text)
     await page.waitForSelector('text=John Rockstar', { timeout: 10_000 })

@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
 import { Users } from 'lucide-react'
 import { useState } from 'react'
@@ -22,7 +28,10 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export function PersonPage() {
-  const [pagination, setPagination] = useTablePagination('persons')
+  const { sorting, setSorting, sortInput } = useListSorting('persons', {
+    id: 'lastName',
+    desc: false
+  })
   const [search, setSearch] = useState('')
   const [relationsSheetOpen, setRelationsSheetOpen] = useState(false)
   const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(
@@ -43,11 +52,14 @@ export function PersonPage() {
   console.log(allPersons.data)
 
   // Queries
-  const persons = trpcReact.person.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const persons = trpcReact.person.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   // Mutations
   const createMutation = trpcReact.person.create.useMutation({
@@ -156,7 +168,7 @@ export function PersonPage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Personen</h1>
         <p className="text-sm text-muted-foreground">
@@ -166,21 +178,22 @@ export function PersonPage() {
 
       <DataTable
         columns={columns}
-        data={persons.data?.items ?? []}
-        pageCount={persons.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(persons.data)}
+        itemLabel={{ singular: 'Person', plural: 'Personen' }}
+        hasMore={persons.hasNextPage ?? false}
+        isLoadingMore={persons.isFetchingNextPage}
+        onLoadMore={() => void persons.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Personen filtern..."
         isLoading={persons.isLoading}
-        total={persons.data?.total ?? 0}
+        total={listTotal(persons.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportButton list="persons" search={search} />
+            <ExportButton list="persons" sort={sortInput} search={search} />
             <ImportButton target="persons" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>
           </div>

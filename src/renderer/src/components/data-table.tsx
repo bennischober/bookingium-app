@@ -4,21 +4,11 @@ import {
   getCoreRowModel,
   flexRender,
   type ColumnDef,
-  type PaginationState,
-  type OnChangeFn
+  type OnChangeFn,
+  type SortingState
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useSyncedState } from '@/hooks/useSyncedState'
-import { PAGE_SIZES } from '@/hooks/useTablePagination'
 import { cn } from '@/lib/utils'
 
 // The 'actions' column hugs its buttons at the right edge of the table
@@ -34,7 +24,7 @@ const ACTIONS_BODY_BG =
 // Separates the pinned column from content scrolled underneath it
 const PINNED_SHADOW = 'shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.25)]'
 
-/** Whether the table is wider than its scroll frame (i.e. scrolls) */
+/** Whether the table is wider than its scroll frame (i.e. scrolls sideways) */
 function useHorizontalOverflow() {
   const frameRef = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
@@ -53,69 +43,51 @@ function useHorizontalOverflow() {
   return { frameRef, overflowing }
 }
 
-/** "Seite [ 3 ] von 32": type a page number, Enter (or leaving the field) jumps */
-function PageJump({
-  page,
-  pageCount,
-  onJump
-}: {
-  page: number
-  pageCount: number
-  onJump: (page: number) => void
-}) {
-  const [input, setInput] = useSyncedState(String(page))
-  const commit = () => {
-    const target = Math.min(Math.max(Math.trunc(Number(input)) || page, 1), pageCount)
-    setInput(String(target))
-    if (target !== page) onJump(target)
-  }
-  return (
-    <span className="flex items-center gap-1.5 px-1 text-sm">
-      Seite
-      <Input
-        type="number"
-        min={1}
-        max={pageCount}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit()
-        }}
-        className="h-8 w-16 px-2 text-center"
-        aria-label="Seite"
-      />
-      von {pageCount}
-    </span>
-  )
-}
-
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[]
+  /** The rows loaded so far */
   data: TData[]
-  pageCount: number
-  pagination: PaginationState
-  onPaginationChange: OnChangeFn<PaginationState>
+  /** All rows matching the search/filter (shown in the status line) */
+  total: number
+  /** "311 Spielstätten" / "1 Spielstätte" */
+  itemLabel: { singular: string; plural: string }
+  isLoading?: boolean
+  /** More rows can be loaded (they load when the end scrolls into view) */
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
+  /** Server-side sorting by column id; omitted = headers not sortable */
+  sorting?: SortingState
+  onSortingChange?: OnChangeFn<SortingState>
+  /** A search or filter narrows the list (status line says so) */
+  filtered?: boolean
   search?: string
   onSearchChange?: (search: string) => void
   searchPlaceholder?: string
-  isLoading?: boolean
-  total?: number
   actionButton?: React.ReactNode
   onRowClick?: (row: TData) => void
 }
 
+/**
+ * A list as one continuous, scrolling table: toolbar on top, column headers
+ * pinned while the rows scroll, more rows loaded near the end, a status line
+ * at the bottom. Fills the height its parent gives it (flex column).
+ */
 export function DataTable<TData>({
   columns,
   data,
-  pageCount,
-  pagination,
-  onPaginationChange,
+  total,
+  itemLabel,
+  isLoading = false,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+  sorting,
+  onSortingChange,
+  filtered = false,
   search = '',
   onSearchChange,
   searchPlaceholder = 'Suchen...',
-  isLoading = false,
-  total = 0,
   actionButton,
   onRowClick
 }: DataTableProps<TData>) {
@@ -123,35 +95,48 @@ export function DataTable<TData>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    pageCount,
-    state: {
-      pagination
-    },
-    onPaginationChange
+    manualSorting: true,
+    enableSorting: Boolean(onSortingChange),
+    enableSortingRemoval: false,
+    sortDescFirst: false,
+    state: { sorting: sorting ?? [] },
+    onSortingChange
   })
   const { frameRef, overflowing } = useHorizontalOverflow()
 
-  // Fewer pages than the current one (search, deletes, bigger pages): show
-  // the last page instead of an empty one
-  const lastPageIndex = Math.max(pageCount - 1, 0)
+  // A new order or search starts at the top
+  const sortKey = JSON.stringify(sorting ?? [])
   useEffect(() => {
-    if (!isLoading && pageCount > 0 && pagination.pageIndex > lastPageIndex) {
-      onPaginationChange({ ...pagination, pageIndex: lastPageIndex })
-    }
-  }, [isLoading, pageCount, lastPageIndex, pagination, onPaginationChange])
+    frameRef.current?.scrollTo({ top: 0 })
+  }, [sortKey, search, frameRef])
+
+  // Load the next rows once the end of the list comes near
+  const sentinelRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    const frame = frameRef.current
+    if (!sentinel || !frame || !hasMore || !onLoadMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && !isLoadingMore) onLoadMore()
+      },
+      { root: frame, rootMargin: '300px 0px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, isLoadingMore, onLoadMore, frameRef, data.length])
 
   return (
-    <div className="flex flex-col w-full">
-      {/* Search and Action Button — wraps at narrow widths (150% zoom) */}
+    <div className="flex min-h-0 w-full flex-1 flex-col">
+      {/* Search and actions — wrap at narrow widths */}
       {(onSearchChange || actionButton) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
           {onSearchChange ? (
             <Input
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="max-w-sm w-full sm:w-auto"
+              className="w-full max-w-sm sm:w-auto"
             />
           ) : (
             <div />
@@ -160,30 +145,66 @@ export function DataTable<TData>({
         </div>
       )}
 
-      {/* Table — horizontal scroll instead of squeezing at high zoom
-          (e.g. Windows 150% scaling on laptops) */}
-      <div ref={frameRef} className="border rounded-lg overflow-x-auto">
+      {/* The only part that scrolls (both ways): headers stay pinned on top,
+          the actions column on the right */}
+      <div
+        ref={frameRef}
+        className="min-h-0 flex-1 overflow-auto rounded-lg border"
+        data-testid="list-scroll"
+      >
         <table className="w-full min-w-[640px]">
-          <thead className="bg-muted">
+          <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className={cn(
-                      'px-4 py-3 text-left text-sm font-medium whitespace-nowrap',
-                      header.column.id === ACTIONS_COLUMN_ID && [
-                        ACTIONS_CELL_CLASS,
-                        ACTIONS_HEAD_BG,
-                        overflowing && PINNED_SHADOW
-                      ]
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const isActions = header.column.id === ACTIONS_COLUMN_ID
+                  const canSort = header.column.getCanSort()
+                  const sorted = header.column.getIsSorted()
+                  const label = header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())
+                  return (
+                    <th
+                      key={header.id}
+                      aria-sort={
+                        sorted === 'asc'
+                          ? 'ascending'
+                          : sorted === 'desc'
+                            ? 'descending'
+                            : undefined
+                      }
+                      className={cn(
+                        'sticky top-0 z-10 bg-muted px-4 py-3 text-left text-sm font-medium whitespace-nowrap shadow-[inset_0_-1px_0_var(--border)]',
+                        isActions && [
+                          ACTIONS_CELL_CLASS,
+                          ACTIONS_HEAD_BG,
+                          'z-20',
+                          overflowing && PINNED_SHADOW
+                        ]
+                      )}
+                    >
+                      {canSort ? (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground"
+                          title="Sortieren"
+                        >
+                          {label}
+                          {sorted === 'asc' ? (
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          ) : sorted === 'desc' ? (
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
+                          )}
+                        </button>
+                      ) : (
+                        label
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
             ))}
           </thead>
@@ -231,89 +252,32 @@ export function DataTable<TData>({
                 </tr>
               ))
             )}
+            {hasMore && !isLoading && (
+              <tr ref={sentinelRef}>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-3 text-center text-sm text-muted-foreground"
+                >
+                  {isLoadingMore ? 'Weitere werden geladen…' : ''}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination — wraps gracefully at narrow widths */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-          <span>
-            {total > 0
-              ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min(
-                  (pagination.pageIndex + 1) * pagination.pageSize,
-                  total
-                )} von ${total}`
-              : '0 Einträge'}
-          </span>
-          <label className="flex items-center gap-2">
-            Pro Seite
-            <Select
-              value={String(pagination.pageSize)}
-              onValueChange={(value) =>
-                onPaginationChange({ pageIndex: 0, pageSize: Number(value) })
-              }
-            >
-              <SelectTrigger className="h-8 w-[4.5rem]" aria-label="Einträge pro Seite">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.firstPage()}
-            disabled={!table.getCanPreviousPage()}
-            aria-label="Erste Seite"
-            title="Erste Seite"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            aria-label="Vorherige Seite"
-            title="Vorherige Seite"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <PageJump
-            page={pagination.pageIndex + 1}
-            pageCount={Math.max(pageCount, 1)}
-            onJump={(page) => table.setPageIndex(page - 1)}
-          />
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            aria-label="Nächste Seite"
-            title="Nächste Seite"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => table.lastPage()}
-            disabled={!table.getCanNextPage()}
-            aria-label="Letzte Seite"
-            title="Letzte Seite"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* Status line */}
+      <div className="mt-2 flex shrink-0 items-center justify-between gap-2 text-sm text-muted-foreground">
+        <span role="status">
+          {isLoading
+            ? 'Lädt…'
+            : `${total.toLocaleString('de-DE')} ${total === 1 ? itemLabel.singular : itemLabel.plural}${
+                filtered ? ' gefunden' : ''
+              }`}
+        </span>
+        {hasMore && (
+          <span>{data.length.toLocaleString('de-DE')} geladen – weitere beim Scrollen</span>
+        )}
       </div>
     </div>
   )

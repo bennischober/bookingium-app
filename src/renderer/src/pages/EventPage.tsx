@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
@@ -30,7 +36,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function EventPage() {
-  const [pagination, setPagination] = useTablePagination('events')
+  const { sorting, setSorting, sortInput } = useListSorting('events', { id: 'date', desc: false })
   const [search, setSearch] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
   const navigate = useNavigate()
@@ -40,11 +46,14 @@ export function EventPage() {
   // ?create=true from the search palette and the "+ Neu" menu
   useListSearchActions({ onCreate: () => setWizardOpen(true) })
 
-  const events = trpcReact.dealMemo.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const events = trpcReact.dealMemo.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   const deleteMutation = trpcReact.dealMemo.delete.useMutation({
     onSuccess: () => {
@@ -128,7 +137,7 @@ export function EventPage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Events</h1>
         <p className="text-sm text-muted-foreground">
@@ -138,21 +147,22 @@ export function EventPage() {
 
       <DataTable
         columns={columns}
-        data={events.data?.items ?? []}
-        pageCount={events.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(events.data)}
+        itemLabel={{ singular: 'Event', plural: 'Events' }}
+        hasMore={events.hasNextPage ?? false}
+        isLoadingMore={events.isFetchingNextPage}
+        onLoadMore={() => void events.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Events filtern…"
         isLoading={events.isLoading}
-        total={events.data?.total ?? 0}
+        total={listTotal(events.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportButton list="events" search={search} />
+            <ExportButton list="events" sort={sortInput} search={search} />
             <Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>
           </div>
         }

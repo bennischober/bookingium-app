@@ -1,35 +1,23 @@
 import { Download } from 'lucide-react'
 import { toast } from 'sonner'
+import { useExportToast } from './useExportToast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import type { ExportList } from '../../../../main/api/schemas/export.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
 
-/** Toast after an export, with "Öffnen" for the written file */
-export function useExportToast() {
-  const openExport = trpcReact.dataExport.openExport.useMutation({
-    onError: (error) =>
-      toast.error('Datei konnte nicht geöffnet werden', { description: error.message })
-  })
-  return (result: { canceled: boolean; filePath: string | null; rows: number }) => {
-    if (result.canceled || !result.filePath) return
-    const filePath = result.filePath
-    toast.success(`${result.rows} ${result.rows === 1 ? 'Zeile' : 'Zeilen'} exportiert`, {
-      description: filePath,
-      action: { label: 'Öffnen', onClick: () => openExport.mutate(filePath) }
-    })
-  }
-}
-
-/** "Exportieren" on a list page: the list as shown (search/filter, all pages) */
+/** "Exportieren" on a list page: the whole list as shown (search, filter, order) */
 export function ExportButton({
   list,
   search,
-  kind
+  kind,
+  sort
 }: {
   list: ExportList
   search?: string
   kind?: VenueKind
+  /** The grid's sort order, so the file has the same order */
+  sort?: { sortBy?: string; sortDir?: 'asc' | 'desc' }
 }) {
   const showResult = useExportToast()
   const exportList = trpcReact.dataExport.exportList.useMutation({
@@ -41,11 +29,11 @@ export function ExportButton({
     <Button
       variant="outline"
       aria-label="Exportieren"
-      onClick={() => exportList.mutate({ list, search: search || undefined, kind })}
+      onClick={() => exportList.mutate({ list, search: search || undefined, kind, ...sort })}
       disabled={exportList.isPending}
       title={
         search || kind
-          ? 'Gefilterte Liste als Excel-Datei speichern (alle Seiten)'
+          ? 'Gefilterte Liste als Excel-Datei speichern'
           : 'Liste als Excel-Datei speichern'
       }
     >

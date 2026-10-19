@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -27,7 +33,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function VenuePage() {
-  const [pagination, setPagination] = useTablePagination('venues')
+  const { sorting, setSorting, sortInput } = useListSorting('venues', { id: 'name', desc: false })
   const [search, setSearch] = useState('')
   const [kind, setKind] = useState<VenueKind | 'all'>('all')
   const [membersEntity, setMembersEntity] = useState<{
@@ -47,12 +53,15 @@ export default function VenuePage() {
       void utils.venue.getById.fetch({ id }).then((venue) => venue && formSheet.openEdit(venue))
   })
 
-  const venues = trpcReact.venue.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined,
-    kind: kind === 'all' ? undefined : kind
-  })
+  const venues = trpcReact.venue.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      kind: kind === 'all' ? undefined : kind,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   const createMutation = trpcReact.venue.create.useMutation({
     onSuccess: (venue) => {
@@ -174,7 +183,7 @@ export default function VenuePage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Spielstätten</h1>
         <p className="text-sm text-muted-foreground">
@@ -184,29 +193,33 @@ export default function VenuePage() {
 
       <DataTable
         columns={columns}
-        data={venues.data?.items ?? []}
-        pageCount={venues.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(venues.data)}
+        itemLabel={
+          kind === 'festival'
+            ? { singular: 'Festival', plural: 'Festivals' }
+            : { singular: 'Spielstätte', plural: 'Spielstätten' }
+        }
+        hasMore={venues.hasNextPage ?? false}
+        isLoadingMore={venues.isFetchingNextPage}
+        onLoadMore={() => void venues.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search) || kind !== 'all'}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Spielstätten filtern..."
         // A click opens the venue page; the pencil keeps the quick-edit sheet
         onRowClick={(venue) =>
           navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
         }
         isLoading={venues.isLoading}
-        total={venues.data?.total ?? 0}
+        total={listTotal(venues.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={kind}
               onValueChange={(value) => {
                 setKind(value as VenueKind | 'all')
-                setPagination((prev) => ({ ...prev, pageIndex: 0 }))
               }}
             >
               <SelectTrigger className="w-40" aria-label="Art filtern">
@@ -218,7 +231,12 @@ export default function VenuePage() {
                 <SelectItem value="festival">Festivals</SelectItem>
               </SelectContent>
             </Select>
-            <ExportButton list="venues" search={search} kind={kind === 'all' ? undefined : kind} />
+            <ExportButton
+              list="venues"
+              sort={sortInput}
+              search={search}
+              kind={kind === 'all' ? undefined : kind}
+            />
             <ImportButton target="venues" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
           </div>

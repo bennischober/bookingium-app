@@ -10,12 +10,14 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 export default function RootLayout() {
   return (
-    <SidebarProvider defaultOpen={true}>
+    // Fixed frame (window height): only the content area scrolls, so list
+    // pages can pin their toolbar, column headers and status line
+    <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       {/* Fixed-width sidebar; the content column may shrink below its
           content's width (min-w-0), so wide tables scroll inside their own
           frame instead of widening the window and squeezing the sidebar */}
       <AppSidebar collapsible="none" className="shrink-0" />
-      <SidebarInset className="min-w-0">
+      <SidebarInset className="min-h-0 min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
           <div className="flex min-w-0 items-center gap-2">
             <HistoryNav />
@@ -29,7 +31,7 @@ export default function RootLayout() {
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-auto" data-testid="content-scroll">
           <Outlet />
         </div>
       </SidebarInset>

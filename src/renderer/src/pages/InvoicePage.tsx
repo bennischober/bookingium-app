@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -22,7 +28,10 @@ import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/i
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 
 export default function InvoicePage() {
-  const [pagination, setPagination] = useTablePagination('invoices')
+  const { sorting, setSorting, sortInput } = useListSorting('invoices', {
+    id: 'issueDate',
+    desc: true
+  })
   const [search, setSearch] = useState('')
 
   // Create uses the form sheet; existing invoices open in the edit sheet
@@ -37,11 +46,14 @@ export default function InvoicePage() {
     onOpen: (id) => setOpenInvoiceId(id)
   })
 
-  const invoices = trpcReact.invoice.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const invoices = trpcReact.invoice.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   const createMutation = trpcReact.invoice.create.useMutation({
     onSuccess: (created) => {
@@ -59,7 +71,7 @@ export default function InvoicePage() {
       toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
   })
 
-  const rows = useMemo(() => invoices.data?.items ?? [], [invoices.data?.items])
+  const rows = useMemo(() => listRows(invoices.data), [invoices.data])
 
   const columns: ColumnDef<InvoiceListItemDto>[] = [
     {
@@ -114,7 +126,7 @@ export default function InvoicePage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6 gap-6">
+    <div className="flex h-full min-h-0 w-full flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-bold mb-2">Rechnungen</h1>
         <p className="text-sm text-muted-foreground">
@@ -123,31 +135,28 @@ export default function InvoicePage() {
         </p>
       </div>
 
-      <div>
-        <div>
-          <DataTable
-            columns={columns}
-            data={rows}
-            pageCount={invoices.data?.totalPages ?? 0}
-            pagination={pagination}
-            onPaginationChange={setPagination}
-            search={search}
-            onSearchChange={(value) => {
-              setSearch(value)
-              setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-            }}
-            searchPlaceholder="Rechnungen filtern..."
-            isLoading={invoices.isLoading}
-            total={invoices.data?.total ?? 0}
-            actionButton={
-              <div className="flex flex-wrap items-center gap-2">
-                <ExportButton list="invoices" search={search} />
-                <Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>
-              </div>
-            }
-          />
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
+        hasMore={invoices.hasNextPage ?? false}
+        isLoadingMore={invoices.isFetchingNextPage}
+        onLoadMore={() => void invoices.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Rechnungen filtern..."
+        isLoading={invoices.isLoading}
+        total={listTotal(invoices.data)}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton list="invoices" sort={sortInput} search={search} />
+            <Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>
+          </div>
+        }
+      />
 
       <FormSheet
         isOpen={sheet.isOpen}

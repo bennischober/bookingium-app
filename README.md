@@ -23,8 +23,8 @@ Built with Electron, React and TypeScript.
 - **Export** of every list to Excel, a **calendar file** (.ics) of all events
   kept up to date, **backups** of database and documents
 - **Calendar**, **dashboard**, **search everything** (Ctrl+K), back/forward
-  navigation (Alt+←/→), searchable pickers, grids with page size and page
-  jump
+  navigation (Alt+←/→), searchable pickers, lists that scroll as one
+  table (pinned headers, sortable columns, more rows load while scrolling)
 - Local SQLite database (Drizzle ORM), migrations on startup
 
 ## Development

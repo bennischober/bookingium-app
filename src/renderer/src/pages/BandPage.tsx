@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
@@ -23,7 +29,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BandPage() {
-  const [pagination, setPagination] = useTablePagination('bands')
+  const { sorting, setSorting, sortInput } = useListSorting('bands', { id: 'name', desc: false })
   const [search, setSearch] = useState('')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'band'
@@ -35,11 +41,14 @@ export default function BandPage() {
   const sheet = useFormSheet<BandDto>()
   const navigate = useNavigate()
 
-  const bands = trpcReact.band.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const bands = trpcReact.band.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   const utils = trpcReact.useUtils()
 
@@ -174,7 +183,7 @@ export default function BandPage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Bands</h1>
         <p className="text-sm text-muted-foreground">Verwalten Sie Ihre Künstler und Kontakte.</p>
@@ -182,25 +191,26 @@ export default function BandPage() {
 
       <DataTable
         columns={columns}
-        data={bands.data?.items ?? []}
-        pageCount={bands.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(bands.data)}
+        itemLabel={{ singular: 'Band', plural: 'Bands' }}
+        hasMore={bands.hasNextPage ?? false}
+        isLoadingMore={bands.isFetchingNextPage}
+        onLoadMore={() => void bands.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Bands filtern..."
         // A click opens the band page; the pencil keeps the quick-edit sheet
         onRowClick={(band) =>
           navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
         }
         isLoading={bands.isLoading}
-        total={bands.data?.total ?? 0}
+        total={listTotal(bands.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportButton list="bands" search={search} />
+            <ExportButton list="bands" sort={sortInput} search={search} />
             <ImportButton target="bands" />
             <Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>
           </div>

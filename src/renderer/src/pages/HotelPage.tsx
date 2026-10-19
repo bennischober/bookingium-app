@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2 } from 'lucide-react'
@@ -16,7 +22,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function HotelPage() {
-  const [pagination, setPagination] = useTablePagination('hotels')
+  const { sorting, setSorting, sortInput } = useListSorting('hotels', { id: 'name', desc: false })
   const [search, setSearch] = useState('')
 
   const formSheet = useFormSheet<HotelDto>()
@@ -29,11 +35,14 @@ export default function HotelPage() {
       void utils.hotel.getById.fetch(id).then((hotel) => hotel && formSheet.openEdit(hotel))
   })
 
-  const hotels = trpcReact.hotel.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const hotels = trpcReact.hotel.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   const createMutation = trpcReact.hotel.create.useMutation({
     onSuccess: (hotel) => {
@@ -136,7 +145,7 @@ export default function HotelPage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Hotels</h1>
         <p className="text-sm text-muted-foreground">Unterkünfte für Tours und Events verwalten.</p>
@@ -144,21 +153,22 @@ export default function HotelPage() {
 
       <DataTable
         columns={columns}
-        data={hotels.data?.items ?? []}
-        pageCount={hotels.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(hotels.data)}
+        itemLabel={{ singular: 'Hotel', plural: 'Hotels' }}
+        hasMore={hotels.hasNextPage ?? false}
+        isLoadingMore={hotels.isFetchingNextPage}
+        onLoadMore={() => void hotels.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Hotels filtern..."
         isLoading={hotels.isLoading}
-        total={hotels.data?.total ?? 0}
+        total={listTotal(hotels.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportButton list="hotels" search={search} />
+            <ExportButton list="hotels" sort={sortInput} search={search} />
             <Button onClick={() => formSheet.openCreate()}>+ Neues Hotel anlegen</Button>
           </div>
         }

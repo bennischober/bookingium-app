@@ -1,5 +1,11 @@
 import { ExportButton } from '@/components/export/ExportButton'
-import { useTablePagination } from '@/hooks/useTablePagination'
+import {
+  LIST_CHUNK_SIZE,
+  infiniteListOptions,
+  listRows,
+  listTotal,
+  useListSorting
+} from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -24,7 +30,10 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export function CompanyPage() {
-  const [pagination, setPagination] = useTablePagination('companies')
+  const { sorting, setSorting, sortInput } = useListSorting('companies', {
+    id: 'name',
+    desc: false
+  })
   const [search, setSearch] = useState('')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'company'
@@ -46,11 +55,14 @@ export function CompanyPage() {
   })
 
   // Queries
-  const companies = trpcReact.company.getAllPaginated.useQuery({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
-    search: search || undefined
-  })
+  const companies = trpcReact.company.getAllPaginated.useInfiniteQuery(
+    {
+      pageSize: LIST_CHUNK_SIZE,
+      search: search || undefined,
+      ...sortInput
+    },
+    infiniteListOptions
+  )
 
   // Mutations
   const createMutation = trpcReact.company.create.useMutation({
@@ -194,7 +206,7 @@ export function CompanyPage() {
   ]
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Firmen</h1>
         <p className="text-sm text-muted-foreground">
@@ -204,25 +216,26 @@ export function CompanyPage() {
 
       <DataTable
         columns={columns}
-        data={companies.data?.items ?? []}
-        pageCount={companies.data?.totalPages ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={listRows(companies.data)}
+        itemLabel={{ singular: 'Firma', plural: 'Firmen' }}
+        hasMore={companies.hasNextPage ?? false}
+        isLoadingMore={companies.isFetchingNextPage}
+        onLoadMore={() => void companies.fetchNextPage()}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        filtered={Boolean(search)}
         search={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-        }}
+        onSearchChange={setSearch}
         searchPlaceholder="Firmen filtern..."
         // A click opens the company page; the pencil keeps the quick-edit sheet
         onRowClick={(company) =>
           navigate({ to: '/companies/$companyId', params: { companyId: String(company.id) } })
         }
         isLoading={companies.isLoading}
-        total={companies.data?.total ?? 0}
+        total={listTotal(companies.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportButton list="companies" search={search} />
+            <ExportButton list="companies" sort={sortInput} search={search} />
             <ImportButton target="companies" />
             <Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>
           </div>
