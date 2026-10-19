@@ -1,60 +1,32 @@
-# Lists of TODOs and future improvements for the app
+# Open items
 
-## Done (2026-10-11 autonomous sessions)
+Done work lives in the git history; this list only holds what is still open.
 
-- Members visibility from entity sides (Bands → Mitglieder, Companies →
-  Mitarbeiter, Venues → Ansprechpartner) via shared MembersSheet
-- Dashboard performance: SQL-computed stats endpoint + react-query defaults
-  fixed (staleTime, no refetch-on-focus, retry 1)
-- 150% zoom resilience: DataTable horizontal scroll + e2e zoom screenshots
-- Search trigger redesigned (input-style with kbd chip)
-- Keyboard shortcuts: Alt+1..8 page jumps, ? help dialog with button in
-  header
-- PDF creation logic for invoices AND contracts (print-to-PDF via React
-  components) — invoice templates unified (one agency layout, DE/EN),
-  contract rebuilt from the old repo's proven PDFContract structure incl.
-  TL (Technischer Leiter) and signature images
-- "Search anything" enhanced: dedicated `search` tRPC router with LIKE
-  queries on indexed columns + lightweight result payloads; UI queries on
-  demand (no prefetch on Ctrl+K); FTS5 deliberately left as a future option
-  for larger datasets
-- Architecture/DX: docs/ARCHITECTURE.md with the end-to-end recipe for
-  adding a business object + decided coding guidelines; InvoicePage split
-  (form -> components/forms/InvoiceForm.tsx, helpers -> lib/invoiceLabels.ts)
-- README rewritten with real project information
-- Test infrastructure: vitest unit suite (21 tests, in-memory SQLite) and
-  Playwright e2e suite (5 tests) incl. real printToPDF output verification
-- Dashboard shows content on fresh databases (seed dates relative to today)
+## Product
 
-## Open
+- **Code signing** for the Windows installer (SmartScreen warns until the
+  installer is signed with a code-signing certificate).
+- **App icon:** `build/icon.*` and `resources/icon.png` are still the
+  electron-vite defaults.
+- **Auto-update** (electron-updater) once there is a place to publish
+  releases.
+- **Calendar subscription in Outlook/Google:** the calendar file needs a web
+  address there (e.g. a direct download link from OneDrive/Dropbox) — to be
+  tried with the real setup.
+- **Person detail page** (bands, companies, venues have one; persons still
+  use the relations page).
 
-- **CSV import** (next up; blocked on input — see docs/SESSION_QUESTIONS.md
-  question 1: target objects, example files, template vs column-mapping UI,
-  duplicate handling)
-- Further enhance "search anything" (FTS5, per-object hot entries, context
-  weighting) — see docs/SESSION_QUESTIONS.md for the strategy notes
-- Dependabot PRs on GitHub: 16 open PRs are superseded by our dependency
-  commits and should be closed (needs web UI access / gh CLI)
-- Dependabot alerts: 2 moderate dev-only findings remain (esbuild via
-  drizzle-kit's @esbuild-kit loader — serve mode only, not used; sprintf-js —
-  no fixed release). Revisit when drizzle-kit drops the legacy loader.
-- Split large components further when working on them (InvoicePage is now
-  312 lines; FinancialsTab/ItineraryTab/DocumentsTab are 370-470 lines each,
-  acceptable)
-- Possibly: drag-and-drop for the documents tab, PDF preview embedded in the
-  documents tab, invoice download counter, document version history
-  (from docs/IMPLEMENTATION_COMPLETE.md future list)
+## Data
 
-## Old prompts (answered)
+- Persons imported before role parsing existed carry the role in the name
+  ("Booking: Lea Grötzinger", "Geschäftsführer: Thilo Ziegler"); clean up
+  by hand or with a one-off fix.
 
-1. `deal` field semantics — ANSWERED: the field stores the deal terms as
-   free text (e.g. "70/30") and is displayed in the FinancialsTab
-   ("Konditionen") and in the contract (§2). Structured guarantee data lives
-   in guarantee_amount/guarantee_vat_rate (added 2026-10). No schema change
-   needed.
-   The "general edit mode" idea (view vs edit distinction) is partially
-   implemented: the event hub has an explicit edit mode with save/discard;
-   other pages still use inline FormSheets.
-2. Search strategy — ANSWERED: on-demand debounced search (>= 2 chars) via
-   the dedicated search router; LIKE on indexed columns; per-type limit 4,
-   total cap 24; recent searches persisted; FTS5 as future option.
+## Technical
+
+- `calendar.tsx` and `sidebar.tsx` (generated ui components) still use
+  Tailwind v3's `w-[--var]` syntax, which v4 ignores; harmless today, fix
+  when touching them (it changes their look).
+- Search: FTS5 instead of LIKE once the data gets large.
+- Dependabot: close superseded PRs; two moderate dev-only alerts (esbuild via
+  drizzle-kit's legacy loader, sprintf-js) until upstream fixes.

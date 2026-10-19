@@ -2,7 +2,7 @@ import type { InvoiceStatus } from '../../../main/api/schemas/invoice.schema'
 
 // Display labels and badge styles for stored invoice status values.
 // The stored values themselves are never translated (see
-// docs/UI_MIGRATION_GLOSSARY.md).
+// docs/UI_LANGUAGE.md).
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: 'Entwurf',
   issued: 'gestellt',

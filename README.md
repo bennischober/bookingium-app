@@ -1,28 +1,31 @@
-# bookingum-app
+# Bookingium
 
-A local-first desktop app for concert booking and event management in the
-music industry — bands, venues, hotels, deal memos, invoices, contracts and
-documents, all on-device.
+A local-first desktop app for concert booking and band management —
+events, contracts, invoices, bands, venues and contacts, all on-device.
+German UI.
 
 Built with Electron, React and TypeScript.
 
 ## Features
 
-- **Events** (deal memos) with detail hub: overview, documents, financials,
-  itinerary
-- **Invoices** with per-company numbering, line items, tax handling, and
-  print-to-PDF output (German/English agency templates)
-- **Contracts** (concert engagement contracts) generated from deal memos as
-  print-ready PDFs, incl. signature images
-- **Master data**: bands (incl. members, technical director), persons and
-  their relations, companies (with logo/signature, legal footer data),
-  venues, hotels, banks
-- **Calendar** with month/week/day views
-- **Search everything** (Ctrl+K): pages, actions and records via dedicated
-  LIKE-based search
-- **Dashboard** with upcoming events, pending confirmations and open
-  invoices
-- Local SQLite database (Drizzle ORM), migrations on startup, German UI
+- **Events** with detail page: overview, itinerary, financials, documents;
+  concert contracts as print-ready PDFs (incl. signature images)
+- **Invoices** with per-company numbering on issue, line items, tax handling,
+  Storno, print-to-PDF (German/English agency templates)
+- **Bands** with detail page: members, events, management contracts (print)
+  and quarterly management-share invoices, documents
+- **Companies and venues/festivals** with detail pages (contacts, bands,
+  events, invoices, documents); **persons** with their relations
+- **Documents** for events, bands, companies and venues in readable folders
+  (`documents/bands/3-pretty-wild/…`), drag and drop
+- **Import** of Excel lists (venues/festivals, bands, companies, persons)
+  with detected column mapping, preview and duplicate matching
+- **Export** of every list to Excel, a **calendar file** (.ics) of all events
+  kept up to date, **backups** of database and documents
+- **Calendar**, **dashboard**, **search everything** (Ctrl+K), back/forward
+  navigation (Alt+←/→), searchable pickers, grids with page size and page
+  jump
+- Local SQLite database (Drizzle ORM), migrations on startup
 
 ## Development
 
@@ -50,8 +53,8 @@ pnpm test           # unit tests (vitest, in-memory SQLite)
 pnpm lint           # eslint (0 errors expected)
 pnpm typecheck      # tsc for node and web configs
 pnpm build          # typecheck + electron-vite build
-npx playwright test # e2e (needs pnpm build first): boots the app,
-                    # verifies navigation and the contract print output
+npx playwright test # e2e (needs pnpm build first): the built app with the
+                    # main workflows (import, export, documents, print, …)
 ```
 
 Each e2e app launch gets a fresh, temporary data folder that the app migrates
@@ -98,9 +101,7 @@ guidelines.
 
 ## Project docs
 
-- `docs/TODOS.md` — roadmap and open items
-- `docs/ARCHITECTURE.md` — developer guide
-- `docs/UI_MIGRATION_GLOSSARY.md` — binding German UI terminology
-- `docs/SESSION_QUESTIONS.md` — decisions and open questions
-- `docs/DOCUMENT_FEATURE.md`, `docs/IMPLEMENTATION_COMPLETE.md`,
-  `docs/RELATIONSHIP_PATTERNS.md` — feature notes from earlier iterations
+- `docs/ARCHITECTURE.md` — developer guide: structure, data on disk,
+  migrations, the end-to-end recipe, coding guidelines
+- `docs/UI_LANGUAGE.md` — German UI rules and glossary
+- `docs/TODOS.md` — open items
