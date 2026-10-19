@@ -1,5 +1,6 @@
 import { injectable } from 'tsyringe'
 import { eq, like, or, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { CreateBandInput, UpdateBandInput } from '../api/schemas/band.schema'
@@ -12,8 +13,8 @@ export class BandRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     // Build where clause for search
     const whereClause = search
@@ -33,6 +34,19 @@ export class BandRepository {
       .select()
       .from(schema.band)
       .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            name: [schema.band.name],
+            genre: [schema.band.genre],
+            founded: [schema.band.founded],
+            notes: [schema.band.notes]
+          },
+          { key: 'name', dir: 'asc' },
+          schema.band.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
 

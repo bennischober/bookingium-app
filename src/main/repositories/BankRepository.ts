@@ -1,4 +1,5 @@
 import { eq, like, or, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { bank } from '../db/schema'
@@ -12,8 +13,8 @@ export class BankRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     // Build where clause for search
     const whereClause = search
@@ -33,7 +34,25 @@ export class BankRepository {
     const total = countResult[0]?.count || 0
 
     // Get paginated data
-    const items = await db.select().from(bank).where(whereClause).limit(pageSize).offset(offset)
+    const items = await db
+      .select()
+      .from(bank)
+      .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            bankName: [bank.bank_name],
+            accountHolder: [bank.account_holder],
+            iban: [bank.iban],
+            bic: [bank.bic]
+          },
+          { key: 'bankName', dir: 'asc' },
+          bank.id
+        )
+      )
+      .limit(pageSize)
+      .offset(offset)
 
     return {
       items,

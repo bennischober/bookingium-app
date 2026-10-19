@@ -1,5 +1,6 @@
 import { injectable } from 'tsyringe'
 import { desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
@@ -8,8 +9,8 @@ import type { PaginationInput } from '../api/schemas/base.schema'
 @injectable()
 export class DealMemoRepository {
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     const whereClause = search ? like(schema.deal_memo.name, `%${search}%`) : undefined
 
@@ -26,7 +27,20 @@ export class DealMemoRepository {
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
       .where(whereClause)
-      .orderBy(schema.deal_memo.date)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            name: [schema.deal_memo.name],
+            date: [schema.deal_memo.date],
+            bandName: [schema.band.name],
+            venueName: [schema.venue.name],
+            status: [schema.deal_memo.status]
+          },
+          { key: 'date', dir: 'asc' },
+          schema.deal_memo.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
 

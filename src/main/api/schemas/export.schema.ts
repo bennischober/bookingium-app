@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { VenueKind } from './venue.schema'
+import { SortDirection } from './base.schema'
 
 // ========================================
 // Excel export of the lists
@@ -34,7 +35,10 @@ export const ExportListInput = z.object({
   list: ExportList,
   search: z.string().optional(),
   // Spielstätten only
-  kind: VenueKind.optional()
+  kind: VenueKind.optional(),
+  // The grid's sort order
+  sortBy: z.string().optional(),
+  sortDir: SortDirection.optional()
 })
 export type ExportListInput = z.infer<typeof ExportListInput>
 

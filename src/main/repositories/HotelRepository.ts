@@ -1,4 +1,5 @@
 import { eq, like, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -23,8 +24,8 @@ export class HotelRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
     const whereClause = search ? like(schema.hotel.name, `%${search}%`) : undefined
 
     const countResult = await db
@@ -40,9 +41,21 @@ export class HotelRepository {
       .leftJoin(schema.address, eq(schema.hotel.address_id, schema.address.id))
       .leftJoin(schema.contact, eq(schema.hotel.contact_id, schema.contact.id))
       .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            name: [schema.hotel.name],
+            address: [schema.address.city],
+            contact: [schema.contact.email],
+            notes: [schema.hotel.notes]
+          },
+          { key: 'name', dir: 'asc' },
+          schema.hotel.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
-      .orderBy(schema.hotel.name)
 
     return {
       items: rows.map((row) => ({

@@ -109,7 +109,12 @@ export class ExportService {
 
   /** One list with the grid's search/filter, every page */
   async table(input: ExportListInput): Promise<ListTable> {
-    const query = { ...ALL, search: input.search || undefined }
+    const query = {
+      ...ALL,
+      search: input.search || undefined,
+      sortBy: input.sortBy,
+      sortDir: input.sortDir
+    }
     const name = EXPORT_LIST_LABELS[input.list]
 
     switch (input.list) {

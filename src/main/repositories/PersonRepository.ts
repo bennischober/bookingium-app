@@ -1,4 +1,5 @@
 import { eq, like, or, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -23,8 +24,8 @@ export class PersonRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     // Build where clause for search
     const whereClause = search
@@ -49,6 +50,19 @@ export class PersonRepository {
       .leftJoin(schema.address, eq(schema.person.address_id, schema.address.id))
       .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
       .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            firstName: [schema.person.first_name, schema.person.last_name],
+            lastName: [schema.person.last_name, schema.person.first_name],
+            contact: [schema.contact.email],
+            address: [schema.address.city]
+          },
+          { key: 'lastName', dir: 'asc' },
+          schema.person.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
 

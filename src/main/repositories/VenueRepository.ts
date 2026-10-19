@@ -1,4 +1,5 @@
 import { and, eq, like, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -28,8 +29,8 @@ export class VenueRepository {
   }
 
   async getAllPaginated(pagination: VenuePaginationInput) {
-    const { page, pageSize, search, kind } = pagination
-    const offset = (page - 1) * pageSize
+    const { search, kind } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     const whereClause = and(
       search ? like(schema.venue.name, `%${search}%`) : undefined,
@@ -50,9 +51,23 @@ export class VenueRepository {
       .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
       .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
       .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            name: [schema.venue.name],
+            kind: [schema.venue.kind, schema.venue.name],
+            company: [schema.company.name],
+            address: [schema.address.city],
+            capacity: [schema.venue.capacity],
+            notes: [schema.venue.notes]
+          },
+          { key: 'name', dir: 'asc' },
+          schema.venue.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
-      .orderBy(schema.venue.name)
 
     const items = rows.map((row) => ({
       ...row.venue,

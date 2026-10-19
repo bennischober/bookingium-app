@@ -1,5 +1,6 @@
 import { injectable } from 'tsyringe'
 import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { alias } from 'drizzle-orm/sqlite-core'
@@ -399,8 +400,8 @@ export class InvoiceRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     const whereClause = search
       ? or(
@@ -437,7 +438,23 @@ export class InvoiceRepository {
         eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
       )
       .where(whereClause)
-      .orderBy(desc(schema.invoice.created_at), desc(schema.invoice.id))
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            invoiceNumber: [schema.invoice.invoice_number],
+            companyName: [schema.company.name],
+            recipientName: [schema.invoice_party_snapshot.legal_name],
+            periodLabel: [schema.invoice.period_label],
+            dealMemoName: [schema.deal_memo.name],
+            issueDate: [schema.invoice.issue_date, schema.invoice.created_at],
+            status: [schema.invoice.status],
+            totalAmount: [schema.invoice.total_amount]
+          },
+          { key: 'issueDate', dir: 'desc' },
+          schema.invoice.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
 

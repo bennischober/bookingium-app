@@ -1,5 +1,6 @@
 import { injectable } from 'tsyringe'
 import { eq, like, or, sql } from 'drizzle-orm'
+import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { company, address, contact, bank } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
@@ -24,8 +25,8 @@ export class CompanyRepository {
   }
 
   async getAllPaginated(pagination: PaginationInput) {
-    const { page, pageSize, search } = pagination
-    const offset = (page - 1) * pageSize
+    const { search } = pagination
+    const { page, pageSize, offset } = listPage(pagination)
 
     // Build where clause for search
     const whereClause = search ? or(like(company.name, `%${search}%`)) : undefined
@@ -46,6 +47,20 @@ export class CompanyRepository {
       .leftJoin(contact, eq(company.contact_id, contact.id))
       .leftJoin(bank, eq(company.bank_id, bank.id))
       .where(whereClause)
+      .orderBy(
+        ...listOrder(
+          pagination,
+          {
+            name: [company.name],
+            vatNumber: [company.vat_number],
+            contact: [contact.email],
+            address: [address.city],
+            bank: [bank.bank_name]
+          },
+          { key: 'name', dir: 'asc' },
+          company.id
+        )
+      )
       .limit(pageSize)
       .offset(offset)
 
