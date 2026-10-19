@@ -399,7 +399,9 @@ const SearchButton = () => {
                     value={`${band.label} ${band.sublabel ?? ''} band artist`}
                     keywords={['artist']}
                     onSelect={() =>
-                      runAndClose(() => navigate({ to: band.route, search: { open: band.id } }))
+                      runAndClose(() =>
+                        navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
+                      )
                     }
                   >
                     <Guitar />

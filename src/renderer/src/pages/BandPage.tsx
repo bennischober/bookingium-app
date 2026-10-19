@@ -1,5 +1,6 @@
 import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { z } from 'zod'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ export default function BandPage() {
   const [contractBand, setContractBand] = useState<{ id: number; name: string } | null>(null)
 
   const sheet = useFormSheet<BandDto>()
+  const navigate = useNavigate()
 
   const bands = trpcReact.band.getAllPaginated.useQuery({
     page: pagination.pageIndex + 1,
@@ -187,6 +189,10 @@ export default function BandPage() {
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
         searchPlaceholder="Bands filtern..."
+        // A click opens the band page; the pencil keeps the quick-edit sheet
+        onRowClick={(band) =>
+          navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
+        }
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
         actionButton={<Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>}

@@ -107,8 +107,8 @@ export class SearchService {
         id: band.id,
         label: band.name,
         sublabel: band.genre || null,
-        route: '/band',
-        routeParams: null
+        route: '/band/$bandId',
+        routeParams: { bandId: String(band.id) }
       })),
       ...companies.map((company) => ({
         type: 'company' as const,

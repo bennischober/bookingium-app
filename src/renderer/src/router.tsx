@@ -9,6 +9,7 @@ import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
+import BandDetailPage from '@/pages/BandDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import PersonRelationsPage from '@/pages/PersonRelationsPage'
@@ -20,6 +21,7 @@ import { ROUTES } from '@/lib/routing'
 import { trackNavigationHistory } from '@/lib/navigationHistory'
 import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
+import { isBandTab, type BandTab } from '@/components/band/constants'
 
 const hashHistory = createHashHistory()
 // Back/forward buttons in the top bar
@@ -121,6 +123,15 @@ const eventHubRoute = createRoute({
   component: EventHubPage
 })
 
+const bandDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/band/$bandId',
+  validateSearch: (search: Record<string, unknown>): { tab?: BandTab } => ({
+    tab: isBandTab(search.tab) ? search.tab : undefined
+  }),
+  component: BandDetailPage
+})
+
 // Chrome-free layout for print views (PDF output must not contain app UI)
 const printLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -159,7 +170,8 @@ const routeTree = rootRoute.addChildren([
     hotelRoute,
     eventRoute,
     invoiceRoute,
-    eventHubRoute
+    eventHubRoute,
+    bandDetailRoute
   ]),
   printLayoutRoute.addChildren([
     invoicePrintRoute,

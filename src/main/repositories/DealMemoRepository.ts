@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { eq, like, sql } from 'drizzle-orm'
+import { desc, eq, like, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
@@ -43,6 +43,18 @@ export class DealMemoRepository {
       pageSize,
       totalPages: Math.ceil(total / pageSize)
     }
+  }
+
+  /** A band's events, newest first */
+  async listByBand(bandId: number) {
+    const rows = await db
+      .select()
+      .from(schema.deal_memo)
+      .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
+      .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .where(eq(schema.deal_memo.band_id, bandId))
+      .orderBy(desc(schema.deal_memo.date))
+    return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
   }
 
   async getById(id: number) {

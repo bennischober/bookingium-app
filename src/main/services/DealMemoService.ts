@@ -12,6 +12,10 @@ export class DealMemoService {
     return await this.dealMemoRepository.getAllPaginated(pagination)
   }
 
+  async listDealMemosByBand(bandId: number) {
+    return await this.dealMemoRepository.listByBand(bandId)
+  }
+
   async getDealMemoById(id: number) {
     return await this.dealMemoRepository.getById(id)
   }

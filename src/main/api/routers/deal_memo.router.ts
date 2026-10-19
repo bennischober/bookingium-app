@@ -18,6 +18,11 @@ export const dealMemoRouter = t.router({
     }
   }),
 
+  /** A band's events, newest first (band page) */
+  listByBand: t.procedure.input(z.number()).query(async ({ input }) => {
+    return DealMemoMapper.toListItemDtoList(await dealMemoService.listDealMemosByBand(input))
+  }),
+
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const memo = await dealMemoService.getDealMemoById(input)
     if (!memo) throw new TRPCError({ code: 'NOT_FOUND' })

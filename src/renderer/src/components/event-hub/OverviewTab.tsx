@@ -139,7 +139,7 @@ export function OverviewTab({
           onSwap={handleSwapBand}
           isSaving={updateMutation.isPending}
           nullable={false}
-          href="/band"
+          href={`/band/${event.bandId}`}
           empty="Keine Band zugewiesen"
         />
         <SwappableEntityCard
