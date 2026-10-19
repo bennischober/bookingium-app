@@ -25,59 +25,59 @@ English.
 
 ### Navigation and general
 
-| English | German |
-|---|---|
-| Settings | Einstellungen |
-| Venues | Spielstätten |
-| Persons / Companies / Banks | Personen / Firmen / Banken |
-| Search everything | Alles suchen |
-| Back / Forward | Zurück / Vorwärts |
-| Create / New / Add | Anlegen / Neu / Hinzufügen |
+| English                               | German                                                   |
+| ------------------------------------- | -------------------------------------------------------- |
+| Settings                              | Einstellungen                                            |
+| Venues                                | Spielstätten                                             |
+| Persons / Companies / Banks           | Personen / Firmen / Banken                               |
+| Search everything                     | Alles suchen                                             |
+| Back / Forward                        | Zurück / Vorwärts                                        |
+| Create / New / Add                    | Anlegen / Neu / Hinzufügen                               |
 | Edit / Delete / Save / Cancel / Close | Bearbeiten / Löschen / Speichern / Abbrechen / Schließen |
-| Actions | Aktionen |
-| Page X of Y / per page | Seite X von Y / Pro Seite |
-| Import / Export / Backup | Importieren / Exportieren / Sicherung |
-| Print / Save as PDF | Drucken / Als PDF speichern |
-| Notes | Anmerkungen |
-| Loading … | … wird geladen / Lädt … |
-| No results | Keine Treffer / Keine Ergebnisse gefunden |
+| Actions                               | Aktionen                                                 |
+| Page X of Y / per page                | Seite X von Y / Pro Seite                                |
+| Import / Export / Backup              | Importieren / Exportieren / Sicherung                    |
+| Print / Save as PDF                   | Drucken / Als PDF speichern                              |
+| Notes                                 | Anmerkungen                                              |
+| Loading …                             | … wird geladen / Lädt …                                  |
+| No results                            | Keine Treffer / Keine Ergebnisse gefunden                |
 
 ### People and organisations
 
-| English | German |
-|---|---|
-| Venue / Festival (venue kind) | Spielstätte / Festival |
-| Promoter (company behind a venue) | Veranstalter |
-| Contact person | Ansprechpartner |
-| Members (band) | Mitglieder |
-| Technical lead | Technischer Leiter (TL) |
-| Management company ("represented by") | Management (vertreten durch) |
-| Own company (issues invoices) | Eigene Firma |
-| VAT id / tax number | USt-IdNr. / Steuernummer |
+| English                                     | German                                              |
+| ------------------------------------------- | --------------------------------------------------- |
+| Venue / Festival (venue kind)               | Spielstätte / Festival                              |
+| Promoter (company behind a venue)           | Veranstalter                                        |
+| Contact person                              | Ansprechpartner                                     |
+| Members (band)                              | Mitglieder                                          |
+| Technical lead                              | Technischer Leiter (TL)                             |
+| Management company ("represented by")       | Management (vertreten durch)                        |
+| Own company (issues invoices)               | Eigene Firma                                        |
+| VAT id / tax number                         | USt-IdNr. / Steuernummer                            |
 | Street / No. / ZIP / City / State / Country | Straße / Hausnummer / PLZ / Ort / Bundesland / Land |
-| Email / Phone / Mobile / Website | E-Mail / Telefon / Mobil / Website |
-| Founded / Capacity | Gründung / Kapazität |
+| Email / Phone / Mobile / Website            | E-Mail / Telefon / Mobil / Website                  |
+| Founded / Capacity                          | Gründung / Kapazität                                |
 
 ### Events and documents
 
-| English | German |
-|---|---|
-| Overview / Itinerary / Financials / Documents | Übersicht / Tagesablauf / Finanzen / Dokumente |
-| Status confirmed / pending / cancelled | Bestätigt / Ausstehend / Storniert |
-| Concert contract | Vertrag (Auftrittsvertrag) |
-| Management contract / management share | Managementvertrag / Managementbeteiligung |
-| Document types | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Sonstiges |
-| Show in folder / Open folder | Im Ordner anzeigen / Ordner öffnen |
+| English                                       | German                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| Overview / Itinerary / Financials / Documents | Übersicht / Tagesablauf / Finanzen / Dokumente                          |
+| Status confirmed / pending / cancelled        | Bestätigt / Ausstehend / Storniert                                      |
+| Concert contract                              | Vertrag (Auftrittsvertrag)                                              |
+| Management contract / management share        | Managementvertrag / Managementbeteiligung                               |
+| Document types                                | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Sonstiges |
+| Show in folder / Open folder                  | Im Ordner anzeigen / Ordner öffnen                                      |
 
 ### Invoices
 
-| English | German |
-|---|---|
-| Invoice / invoice number | Rechnung / Rechnungsnr. |
-| Issuer / recipient | Rechnungssteller / Rechnungsempfänger |
+| English                                            | German                                                         |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                        |
+| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                          |
 | Status draft / issued / paid / overdue / cancelled | Entwurf / Gestellt / Bezahlt / Überfällig / Storniert (Storno) |
-| Issue date / due date / period | Rechnungsdatum / Fällig / Zeitraum |
-| Line items | Positionen |
-| Net / VAT / gross | Netto / MwSt. (USt.) / Brutto |
-| Payment terms | Zahlungsbedingungen |
-| Invoice numbering | Rechnungsnummerierung |
+| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                             |
+| Line items                                         | Positionen                                                     |
+| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                  |
+| Payment terms                                      | Zahlungsbedingungen                                            |
+| Invoice numbering                                  | Rechnungsnummerierung                                          |

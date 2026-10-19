@@ -5,17 +5,17 @@ end-to-end, and the coding guidelines.
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Shell | Electron 44 (main + preload + renderer processes) |
-| Build | electron-vite (vite 7), TypeScript 5.9, electron-builder (NSIS) |
-| UI | React 19, Tailwind 4, shadcn-style components (Radix/Base UI, cmdk), TanStack Router (hash history) |
-| Data flow | tRPC v10 (electron-trpc over IPC) + TanStack Query v4 |
-| Database | SQLite (better-sqlite3) via Drizzle ORM, tsyringe DI |
-| Validation | zod v4 (DTOs double as API contracts) |
-| Files | exceljs (import/export), pdf.js (print preview) |
-| Tests | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF) |
-| Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml) |
+| Layer           | Technology                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Shell           | Electron 44 (main + preload + renderer processes)                                                   |
+| Build           | electron-vite (vite 7), TypeScript 5.9, electron-builder (NSIS)                                     |
+| UI              | React 19, Tailwind 4, shadcn-style components (Radix/Base UI, cmdk), TanStack Router (hash history) |
+| Data flow       | tRPC v10 (electron-trpc over IPC) + TanStack Query v4                                               |
+| Database        | SQLite (better-sqlite3) via Drizzle ORM, tsyringe DI                                                |
+| Validation      | zod v4 (DTOs double as API contracts)                                                               |
+| Files           | exceljs (import/export), pdf.js (print preview)                                                     |
+| Tests           | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF)                                  |
+| Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml)                                              |
 
 ## Process architecture
 
