@@ -1,11 +1,11 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeElectronTRPC } from 'electron-trpc/main'
 
 // Custom APIs for renderer
 const api = {
-  uploadDocument: (eventId: number, sourcePath: string, targetFileName: string) =>
-    ipcRenderer.invoke('document:upload', { eventId, sourcePath, targetFileName }),
+  // Local path of a dropped file (File.path no longer exists since Electron 32)
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   openDocument: (filePath: string) => ipcRenderer.invoke('document:open', { filePath }),
 

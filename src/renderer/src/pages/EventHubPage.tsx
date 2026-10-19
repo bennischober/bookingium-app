@@ -6,18 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
+import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
-import { DocumentsTab } from '@/components/event-hub/DocumentsTab'
+import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { isEventTab } from '@/components/event-hub/constants'
-
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Ausstehend',
-  cancelled: 'Storniert'
-}
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
@@ -207,7 +201,7 @@ export function EventHubPage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab event={event} />
+          <DocumentsPanel ownerType="event" ownerId={event.id} />
         </TabsContent>
       </Tabs>
     </div>

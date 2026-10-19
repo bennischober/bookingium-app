@@ -65,4 +65,32 @@ describe('runMigrations', () => {
       sqlite.close()
     }
   })
+
+  it('turns event documents into owner documents (0009) and deletes them with the owner', () => {
+    const sqlite = new Database(join(workDir, 'documents.db'))
+    const restore = useTestDb(drizzle(sqlite, { schema }) as Db, sqlite)
+    try {
+      setMigrationsFolder(migrationsUpTo('0009_document_owner'))
+      runMigrations()
+      sqlite.exec(`
+        INSERT INTO company (id, name) VALUES (1, 'Band GbR');
+        INSERT INTO band (id, name, company_id) VALUES (1, 'Pretty Wild', 1);
+        INSERT INTO deal_memo (id, name, date, band_id) VALUES (7, 'München', '2026-06-11', 1);
+        INSERT INTO document (deal_memo_id, file_name, file_type, file_path, file_size)
+          VALUES (7, 'vertrag.pdf', 'application/pdf', 'events/7/vertrag.pdf', 10);
+      `)
+
+      setMigrationsFolder(migrationsFolder)
+      runMigrations()
+
+      expect(sqlite.prepare('select owner_type, owner_id, file_path from document').all()).toEqual([
+        { owner_type: 'event', owner_id: 7, file_path: 'events/7/vertrag.pdf' }
+      ])
+      sqlite.exec('DELETE FROM deal_memo WHERE id = 7')
+      expect(sqlite.prepare('select count(*) as n from document').get()).toEqual({ n: 0 })
+    } finally {
+      restore()
+      sqlite.close()
+    }
+  })
 })

@@ -11,22 +11,20 @@ import { existsSync } from 'fs'
  * - Linux: ~/.config/<app-name>
  * Outside the Electron runtime (tests), falls back to the OS temp directory.
  */
+let storageBaseOverride: string | null = null
+
+/** Tests point the storage at a temp folder; null restores the default */
+export function setStorageBasePath(path: string | null): void {
+  storageBaseOverride = path
+}
+
 export function getStorageBasePath(): string {
+  if (storageBaseOverride) return storageBaseOverride
   try {
     return join(app.getPath('userData'), 'storage')
   } catch {
     return join(process.env.TMP || process.env.TEMP || '/tmp', 'bookingum-test', 'storage')
   }
-}
-
-/**
- * Gets the directory for a specific event's documents.
- * Creates the directory if it doesn't exist.
- */
-export async function getEventStoragePath(eventId: number): Promise<string> {
-  const eventPath = join(getStorageBasePath(), 'events', String(eventId))
-  await ensureDirectoryExists(eventPath)
-  return eventPath
 }
 
 /**
@@ -55,24 +53,6 @@ export function validateFilePath(basePath: string, filePath: string): boolean {
  */
 function sep(): string {
   return process.platform === 'win32' ? '\\' : '/'
-}
-
-/**
- * Copies a file from source to the event's storage directory.
- * Returns a relative path that can be stored in the database.
- */
-export async function copyFileToEventStorage(
-  sourcePath: string,
-  eventId: number,
-  targetFileName: string
-): Promise<string> {
-  const eventPath = await getEventStoragePath(eventId)
-  const targetPath = join(eventPath, targetFileName)
-
-  await copyFile(sourcePath, targetPath)
-
-  // Return a relative path for storage in the database
-  return join('events', String(eventId), targetFileName)
 }
 
 /**

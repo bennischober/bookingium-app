@@ -2,17 +2,8 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type { ImportWorkbook } from '../main/api/schemas/import.schema'
 
 export interface DocumentAPI {
-  uploadDocument: (
-    eventId: number,
-    sourcePath: string,
-    targetFileName: string
-  ) => Promise<{
-    success: boolean
-    relativePath?: string
-    fileName?: string
-    fileSize?: number
-    error?: string
-  }>
+  /** Local path of a file dropped from the file manager ('' if it has none) */
+  getPathForFile: (file: File) => string
   openDocument: (filePath: string) => Promise<{ success: boolean; error?: string }>
   revealDocumentInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>
   showOpenDialog: () => Promise<{

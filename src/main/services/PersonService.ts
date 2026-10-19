@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { removeOwnerFolder } from '../utils/documentStorage'
 import { PersonRepository } from '../repositories/PersonRepository'
 import type { CreatePersonInput, UpdatePersonInput } from '../api/schemas/person.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
@@ -29,5 +30,7 @@ export class PersonService {
 
   async deletePerson(id: number) {
     await this.personRepository.delete(id)
+    // Rows go with the owner (trigger); the files are removed here
+    await removeOwnerFolder('person', id).catch((error) => console.error(error))
   }
 }

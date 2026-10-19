@@ -1,41 +1,101 @@
 import { injectable } from 'tsyringe'
-import { eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import type { CreateDocumentInput, UpdateDocumentInput } from '../api/schemas/document.schema'
+import type { DocumentOwnerType, UpdateDocumentInput } from '../api/schemas/document.schema'
+
+type NewDocument = typeof schema.document.$inferInsert
 
 @injectable()
 export class DocumentRepository {
-  async getByDealMemoId(dealMemoId: number) {
-    const documents = await db
+  async listByOwner(ownerType: DocumentOwnerType, ownerId: number) {
+    return db
       .select()
       .from(schema.document)
-      .where(eq(schema.document.deal_memo_id, dealMemoId))
-      .orderBy(schema.document.uploaded_at)
+      .where(and(eq(schema.document.owner_type, ownerType), eq(schema.document.owner_id, ownerId)))
+      .orderBy(asc(schema.document.uploaded_at), asc(schema.document.id))
+  }
 
-    return documents
+  /** Documents of all events of a band, newest event first */
+  async listEventDocumentsForBand(bandId: number) {
+    const rows = await db
+      .select({
+        document: schema.document,
+        eventName: schema.deal_memo.name,
+        eventDate: schema.deal_memo.date
+      })
+      .from(schema.document)
+      .innerJoin(
+        schema.deal_memo,
+        and(
+          eq(schema.document.owner_type, 'event'),
+          eq(schema.document.owner_id, schema.deal_memo.id)
+        )
+      )
+      .where(eq(schema.deal_memo.band_id, bandId))
+      .orderBy(desc(schema.deal_memo.date), asc(schema.document.uploaded_at))
+    return rows.map((row) => ({
+      ...row.document,
+      eventName: row.eventName,
+      eventDate: row.eventDate
+    }))
+  }
+
+  async listAll() {
+    return db.select().from(schema.document).orderBy(asc(schema.document.id))
   }
 
   async getById(id: number) {
     const documents = await db.select().from(schema.document).where(eq(schema.document.id, id))
-
     return documents[0] || null
   }
 
-  async create(input: CreateDocumentInput) {
-    const result = await db
-      .insert(schema.document)
-      .values({
-        deal_memo_id: input.dealMemoId,
-        file_name: input.fileName,
-        file_type: input.fileType,
-        file_path: input.filePath,
-        document_type: input.documentType || 'other',
-        file_size: input.fileSize,
-        uploaded_by: input.uploadedBy || null
-      })
-      .returning()
+  /**
+   * Readable name of the owner for its folder ("2026-06-11 The New Roses
+   * München"), or null if the owner does not exist
+   */
+  async ownerLabel(ownerType: DocumentOwnerType, ownerId: number): Promise<string | null> {
+    switch (ownerType) {
+      case 'event': {
+        const [row] = await db
+          .select({ name: schema.deal_memo.name, date: schema.deal_memo.date })
+          .from(schema.deal_memo)
+          .where(eq(schema.deal_memo.id, ownerId))
+        return row ? `${row.date} ${row.name}` : null
+      }
+      case 'band': {
+        const [row] = await db
+          .select({ name: schema.band.name })
+          .from(schema.band)
+          .where(eq(schema.band.id, ownerId))
+        return row?.name ?? null
+      }
+      case 'company': {
+        const [row] = await db
+          .select({ name: schema.company.name })
+          .from(schema.company)
+          .where(eq(schema.company.id, ownerId))
+        return row?.name ?? null
+      }
+      case 'venue': {
+        const [row] = await db
+          .select({ name: schema.venue.name })
+          .from(schema.venue)
+          .where(eq(schema.venue.id, ownerId))
+        return row?.name ?? null
+      }
+      case 'person': {
+        const [row] = await db
+          .select({ first: schema.person.first_name, last: schema.person.last_name })
+          .from(schema.person)
+          .where(eq(schema.person.id, ownerId))
+        return row ? `${row.first} ${row.last}`.trim() : null
+      }
+    }
+  }
 
+  async create(values: NewDocument) {
+    const result = await db.insert(schema.document).values(values).returning()
     return result[0]
   }
 
@@ -61,11 +121,11 @@ export class DocumentRepository {
     return result[0]
   }
 
-  async delete(id: number) {
-    await db.delete(schema.document).where(eq(schema.document.id, id))
+  async updateFilePath(id: number, filePath: string) {
+    await db.update(schema.document).set({ file_path: filePath }).where(eq(schema.document.id, id))
   }
 
-  async deleteByFilePath(filePath: string) {
-    await db.delete(schema.document).where(eq(schema.document.file_path, filePath))
+  async delete(id: number) {
+    await db.delete(schema.document).where(eq(schema.document.id, id))
   }
 }

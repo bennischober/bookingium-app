@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { removeOwnerFolder } from '../utils/documentStorage'
 import { CompanyRepository } from '../repositories/CompanyRepository'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
@@ -31,7 +32,9 @@ export class CompanyService {
   }
 
   async deleteCompany(id: number) {
-    return await this.companyRepository.delete(id)
+    const deleted = await this.companyRepository.delete(id)
+    await removeOwnerFolder('company', id).catch((error) => console.error(error))
+    return deleted
   }
 
   async getDefaultForInvoicingCompany() {

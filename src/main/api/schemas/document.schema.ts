@@ -1,17 +1,44 @@
 import { z } from 'zod'
 import { createPaginatedResponse } from './base.schema'
 
-export const DocumentType = z.enum(['deal_memo', 'contract', 'rider', 'invoice', 'other'])
+/** Records documents can belong to ('event' = deal memo) */
+export const DOCUMENT_OWNER_TYPES = ['event', 'band', 'company', 'venue', 'person'] as const
+export const DocumentOwnerType = z.enum(DOCUMENT_OWNER_TYPES)
+export type DocumentOwnerType = z.infer<typeof DocumentOwnerType>
+
+export const DocumentType = z.enum([
+  'deal_memo',
+  'contract',
+  'rider',
+  'stage_plot',
+  'press',
+  'photo',
+  'invoice',
+  'other'
+])
 export type DocumentType = z.infer<typeof DocumentType>
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  deal_memo: 'Deal Memo',
+  contract: 'Vertrag',
+  rider: 'Rider',
+  stage_plot: 'Stageplot',
+  press: 'Presse',
+  photo: 'Foto',
+  invoice: 'Rechnung',
+  other: 'Sonstiges'
+}
 
 /**
  * Document DTO for list/detail views.
  */
 export const DocumentDto = z.object({
   id: z.number(),
-  dealMemoId: z.number(),
+  ownerType: DocumentOwnerType,
+  ownerId: z.number(),
   fileName: z.string(),
   fileType: z.string(),
+  // Relative to the storage folder
   filePath: z.string(),
   documentType: z.string(),
   fileSize: z.number(),
@@ -23,24 +50,33 @@ export const DocumentDto = z.object({
 
 export type DocumentDto = z.infer<typeof DocumentDto>
 
+/** A document of one of a band's events (read-only on the band page) */
+export const EventDocumentDto = DocumentDto.extend({
+  eventName: z.string(),
+  eventDate: z.string()
+})
+
+export type EventDocumentDto = z.infer<typeof EventDocumentDto>
+
 export const PaginatedDocumentResponse = createPaginatedResponse(DocumentDto)
 export type PaginatedDocumentResponse = z.infer<typeof PaginatedDocumentResponse>
 
-/**
- * Input for creating a document.
- * The file itself is handled separately via the file upload endpoint.
- */
-export const CreateDocumentInput = z.object({
-  dealMemoId: z.number(),
-  fileName: z.string().min(1),
-  fileType: z.string(),
-  filePath: z.string(),
-  documentType: DocumentType.default('other'),
-  fileSize: z.number().positive(),
-  uploadedBy: z.string().optional()
+export const DocumentOwnerInput = z.object({
+  ownerType: DocumentOwnerType,
+  ownerId: z.number()
 })
 
-export type CreateDocumentInput = z.infer<typeof CreateDocumentInput>
+export type DocumentOwnerInput = z.infer<typeof DocumentOwnerInput>
+
+/**
+ * Copies a local file into the owner's document folder and records it.
+ */
+export const UploadDocumentInput = DocumentOwnerInput.extend({
+  sourcePath: z.string().min(1),
+  documentType: DocumentType.default('other')
+})
+
+export type UploadDocumentInput = z.infer<typeof UploadDocumentInput>
 
 /**
  * Input for updating a document.

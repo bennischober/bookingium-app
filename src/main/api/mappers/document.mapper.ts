@@ -9,7 +9,8 @@ export class DocumentMapper {
   static toDto(document: typeof schema.document.$inferSelect): DocumentDto {
     return {
       id: document.id,
-      dealMemoId: document.deal_memo_id,
+      ownerType: document.owner_type,
+      ownerId: document.owner_id,
       fileName: document.file_name,
       fileType: document.file_type,
       filePath: document.file_path,

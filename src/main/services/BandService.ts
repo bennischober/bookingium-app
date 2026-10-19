@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { removeOwnerFolder } from '../utils/documentStorage'
 import { BandRepository } from '../repositories/BandRepository'
 import { CreateBandInput, UpdateBandInput } from '../api/schemas/band.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
@@ -31,6 +32,8 @@ export class BandService {
   }
 
   async deleteBand(id: number) {
-    return await this.bandRepository.delete(id)
+    const deleted = await this.bandRepository.delete(id)
+    await removeOwnerFolder('band', id).catch((error) => console.error(error))
+    return deleted
   }
 }

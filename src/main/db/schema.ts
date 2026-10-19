@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
+import { DOCUMENT_OWNER_TYPES } from '../api/schemas/document.schema'
 
 // ========================================
 // Normalized Reference Tables
@@ -468,16 +469,21 @@ export const itinerary = sqliteTable(
   ]
 )
 
-// Document table - stores metadata for files associated with deal memos/events
+// Document owners: the record a file belongs to (DOCUMENT_OWNER_TYPES, 'event' =
+// deal memo). Kept generic (type + id instead of one foreign key per owner)
+// so more owners need no table change; triggers in migration 0009 delete the
+// rows when the owner is deleted.
+
+// Document table - metadata of files stored under storage/documents/
 export const document = sqliteTable(
   'document',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    deal_memo_id: integer('deal_memo_id')
-      .notNull()
-      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    owner_type: text('owner_type', { enum: DOCUMENT_OWNER_TYPES }).notNull(),
+    owner_id: integer('owner_id').notNull(),
     file_name: text('file_name').notNull(),
     file_type: text('file_type').notNull(),
+    // Relative to the storage folder, e.g. documents/bands/3-pretty-wild/rider.pdf
     file_path: text('file_path').notNull(),
     document_type: text('document_type').notNull().default('other'),
     file_size: integer('file_size').notNull(),
@@ -491,7 +497,7 @@ export const document = sqliteTable(
     updated_at: text('updated_at')
   },
   (table) => [
-    index('document_deal_memo_idx').on(table.deal_memo_id),
+    index('document_owner_idx').on(table.owner_type, table.owner_id),
     index('document_type_idx').on(table.document_type),
     index('document_uploaded_at_idx').on(table.uploaded_at)
   ]

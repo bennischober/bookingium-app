@@ -4,6 +4,12 @@ export const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200'
 }
 
+export const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Bestätigt',
+  pending: 'Ausstehend',
+  cancelled: 'Storniert'
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('de-DE', {
     weekday: 'long',

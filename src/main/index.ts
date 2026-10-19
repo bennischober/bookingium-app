@@ -16,15 +16,9 @@ import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
 import { runMigrations } from './db/migrate'
 import { seedDatabase } from './db/seed'
-import {
-  copyFileToEventStorage,
-  getDocumentFullPath,
-  generateUniqueFileName,
-  getEventStoragePath,
-  getFileInfo,
-  copyLogoToStorage,
-  deleteLogoFile
-} from './utils/fileStorage'
+import { container } from 'tsyringe'
+import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
+import { DocumentService } from './services/DocumentService'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -64,45 +58,6 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
-
-/**
- * IPC Handler for file uploads
- * Handles copying a file from temp/source location to the event storage directory
- */
-ipcMain.handle(
-  'document:upload',
-  async (
-    _event,
-    {
-      eventId,
-      sourcePath,
-      targetFileName
-    }: { eventId: number; sourcePath: string; targetFileName: string }
-  ) => {
-    try {
-      // Generate unique filename if needed (handles collisions)
-      const eventStoragePath = await getEventStoragePath(eventId)
-      const uniqueFileName = generateUniqueFileName(eventStoragePath, targetFileName)
-
-      // Copy file to event storage
-      const relativePath = await copyFileToEventStorage(sourcePath, eventId, uniqueFileName)
-      const fileInfo = await getFileInfo(relativePath)
-
-      return {
-        success: true,
-        relativePath,
-        fileName: uniqueFileName,
-        fileSize: fileInfo?.size ?? 0
-      }
-    } catch (error) {
-      console.error('Error uploading document:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
-    }
-  }
-)
 
 /**
  * IPC Handler for opening files
@@ -339,6 +294,14 @@ app.whenReady().then(async () => {
   })
 
   runMigrations()
+  // Files from the old storage/events/<id>/ layout move to storage/documents/
+  await container
+    .resolve(DocumentService)
+    .relocateLegacyFiles()
+    .then(({ moved, missing }) => {
+      if (moved || missing) console.log(`Documents relocated: ${moved} moved, ${missing} missing`)
+    })
+    .catch((error) => console.error('Relocating documents failed:', error))
   await seedDatabase().catch((error) => {
     console.error('Database seeding failed:', error)
   })

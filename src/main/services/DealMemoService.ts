@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { removeOwnerFolder } from '../utils/documentStorage'
 import { DealMemoRepository } from '../repositories/DealMemoRepository'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
@@ -25,5 +26,7 @@ export class DealMemoService {
 
   async deleteDealMemo(id: number) {
     await this.dealMemoRepository.delete(id)
+    // Rows go with the owner (trigger); the files are removed here
+    await removeOwnerFolder('event', id).catch((error) => console.error(error))
   }
 }

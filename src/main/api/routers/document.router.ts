@@ -1,26 +1,41 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { z } from 'zod'
+import { shell } from 'electron'
 import { DocumentService } from '../../services/DocumentService'
 import { DocumentMapper } from '../mappers/document.mapper'
-import { CreateDocumentInput, UpdateDocumentInput } from '../schemas/document.schema'
-import { deleteDocumentFile, getDocumentFullPath } from '../../utils/fileStorage'
+import {
+  DocumentOwnerInput,
+  UpdateDocumentInput,
+  UploadDocumentInput
+} from '../schemas/document.schema'
 
 const t = initTRPC.create()
 const documentService = container.resolve(DocumentService)
 
+const badRequest = (error: unknown, fallback: string) =>
+  new TRPCError({
+    code: 'BAD_REQUEST',
+    message: error instanceof Error ? error.message : fallback
+  })
+
 export const documentRouter = t.router({
-  /**
-   * Get all documents for a specific deal memo/event.
-   */
-  getByDealMemoId: t.procedure.input(z.number()).query(async ({ input }) => {
-    const documents = await documentService.getByDealMemoId(input)
+  /** Documents of one record (event, band, company, venue, person) */
+  listByOwner: t.procedure.input(DocumentOwnerInput).query(async ({ input }) => {
+    const documents = await documentService.listByOwner(input.ownerType, input.ownerId)
     return DocumentMapper.toDtoList(documents)
   }),
 
-  /**
-   * Get a specific document by ID.
-   */
+  /** Documents of a band's events, for the band's Dokumente tab */
+  listEventDocumentsForBand: t.procedure.input(z.number()).query(async ({ input }) => {
+    const documents = await documentService.listEventDocumentsForBand(input)
+    return documents.map((doc) => ({
+      ...DocumentMapper.toDto(doc),
+      eventName: doc.eventName,
+      eventDate: doc.eventDate
+    }))
+  }),
+
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const document = await documentService.getById(input)
     if (!document) {
@@ -29,23 +44,13 @@ export const documentRouter = t.router({
     return DocumentMapper.toDto(document)
   }),
 
-  /**
-   * Create a document record after a file has been uploaded/copied.
-   * The file should already exist at the specified filePath.
-   */
-  create: t.procedure.input(CreateDocumentInput).mutation(async ({ input }) => {
-    // Validate that the file exists before creating the database record
+  /** Copies a local file into the owner's folder and records it */
+  upload: t.procedure.input(UploadDocumentInput).mutation(async ({ input }) => {
     try {
-      await getDocumentFullPath(input.filePath)
-    } catch {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Invalid file path'
-      })
+      return DocumentMapper.toDto(await documentService.upload(input))
+    } catch (error) {
+      throw badRequest(error, 'Upload fehlgeschlagen')
     }
-
-    const document = await documentService.createDocument(input)
-    return DocumentMapper.toDto(document)
   }),
 
   /**
@@ -60,21 +65,21 @@ export const documentRouter = t.router({
    * Delete a document (both the file and the database record).
    */
   delete: t.procedure.input(z.number()).mutation(async ({ input: documentId }) => {
-    const document = await documentService.getById(documentId)
+    const document = await documentService.deleteDocument(documentId)
     if (!document) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
     }
+  }),
 
-    // Delete the physical file
+  /** Opens the owner's document folder in the file manager */
+  openOwnerFolder: t.procedure.input(DocumentOwnerInput).mutation(async ({ input }) => {
     try {
-      await deleteDocumentFile(document.file_path)
+      const folder = await documentService.ownerFolder(input.ownerType, input.ownerId)
+      const error = await shell.openPath(folder)
+      if (error) throw new Error(error)
     } catch (error) {
-      console.error(`Failed to delete file for document ${documentId}:`, error)
-      // Don't throw - the DB record should still be deleted even if file deletion fails
+      throw badRequest(error, 'Ordner konnte nicht geöffnet werden')
     }
-
-    // Delete the database record
-    await documentService.deleteDocument(documentId)
   }),
 
   /**
@@ -82,19 +87,10 @@ export const documentRouter = t.router({
    * Returns the full file system path; the renderer should request the file through IPC.
    */
   getFilePath: t.procedure.input(z.number()).query(async ({ input: documentId }) => {
-    const document = await documentService.getById(documentId)
-    if (!document) {
+    const result = await documentService.getFullPath(documentId)
+    if (!result) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
     }
-
-    try {
-      const fullPath = await getDocumentFullPath(document.file_path)
-      return { filePath: fullPath, fileName: document.file_name }
-    } catch {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to get file path'
-      })
-    }
+    return result
   })
 })
