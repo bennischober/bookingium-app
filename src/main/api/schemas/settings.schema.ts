@@ -9,12 +9,24 @@ import { z } from 'zod'
 
 export const AppSettings = z.object({
   // ISO code used by imports for rows without a country, '' for none
-  defaultCountry: z.string().default('DE')
+  defaultCountry: z.string().default('DE'),
+  // .ics file kept up to date with all events, '' for off
+  calendarFeedPath: z.string().default('')
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
 export const UpdateAppSettingsInput = AppSettings.partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>
+
+export const CalendarFeedStatusDto = z.object({
+  // '' when off
+  path: z.string(),
+  // ISO timestamp of the last write in this session
+  lastWrittenAt: z.string().nullable(),
+  events: z.number(),
+  error: z.string().nullable()
+})
+export type CalendarFeedStatusDto = z.infer<typeof CalendarFeedStatusDto>
 
 export const DataLocationsDto = z.object({
   dataFolder: z.string(),

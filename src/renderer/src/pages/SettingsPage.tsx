@@ -1,6 +1,6 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
-import { DatabaseBackup, Download, FolderOpen, Upload } from 'lucide-react'
+import { CalendarDays, DatabaseBackup, Download, FolderOpen, RefreshCw, Upload } from 'lucide-react'
 import { useExportToast } from '@/components/export/ExportButton'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -17,6 +17,7 @@ import {
 import { InvoiceNumberingCard } from '@/components/invoice/InvoiceNumberingCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
+import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
 const NONE = 'none'
 
@@ -96,6 +97,102 @@ function GeneralCard() {
             Für importierte Einträge ohne Land (außer bei Tabellen namens „international“).
           </p>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The .ics file kept up to date for calendar subscriptions */
+function CalendarCard() {
+  const utils = trpcReact.useUtils()
+  const status = trpcReact.calendar.status.useQuery()
+  const onStatus = (next: CalendarFeedStatusDto) => {
+    utils.calendar.status.setData(undefined, next)
+    if (next.error)
+      toast.error('Kalender-Datei konnte nicht geschrieben werden', { description: next.error })
+  }
+  const choose = trpcReact.calendar.chooseFeedFile.useMutation({
+    onSuccess: (next) => {
+      onStatus(next)
+      if (next.path && !next.error) toast.success('Kalender-Datei wird jetzt aktuell gehalten')
+    }
+  })
+  const update = trpcReact.calendar.updateFeed.useMutation({
+    onSuccess: (next) => {
+      onStatus(next)
+      if (!next.error) toast.success('Kalender-Datei aktualisiert')
+    }
+  })
+  const disable = trpcReact.calendar.disableFeed.useMutation({ onSuccess: onStatus })
+  const reveal = trpcReact.calendar.revealFeedFile.useMutation()
+  const exportOnce = trpcReact.calendar.exportOnce.useMutation({
+    onSuccess: (result) => {
+      if (!result.canceled) toast.success(`${result.events} Events exportiert`)
+    },
+    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
+  })
+
+  const feed = status.data
+  const active = Boolean(feed?.path)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Kalender</CardTitle>
+        <CardDescription>
+          Alle Events als Kalender-Datei (.ics), die Bookingium bei jeder Änderung neu schreibt.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {active && feed ? (
+          <div className="space-y-1 text-sm">
+            <p className="truncate font-mono text-xs" title={feed.path}>
+              {feed.path}
+            </p>
+            <p className="text-muted-foreground">
+              {feed.lastWrittenAt
+                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events`
+                : 'Wird beim nächsten Ändern eines Events geschrieben.'}
+            </p>
+            {feed.error && <p className="text-destructive">{feed.error}</p>}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Aus – keine Kalender-Datei festgelegt.</p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
+            <CalendarDays className="h-4 w-4" />
+            {active ? 'Andere Datei…' : 'Datei festlegen…'}
+          </Button>
+          {active && (
+            <>
+              <Button variant="outline" onClick={() => update.mutate()} disabled={update.isPending}>
+                <RefreshCw className="h-4 w-4" /> Jetzt aktualisieren
+              </Button>
+              <Button variant="outline" onClick={() => reveal.mutate()}>
+                <FolderOpen className="h-4 w-4" /> Im Ordner zeigen
+              </Button>
+              <Button variant="ghost" onClick={() => disable.mutate()}>
+                Ausschalten
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => exportOnce.mutate()}
+            disabled={exportOnce.isPending}
+          >
+            <Download className="h-4 w-4" /> Einmalig exportieren…
+          </Button>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Abonnieren: Thunderbird kann die Datei direkt abonnieren. Outlook und Google Kalender
+          brauchen eine Web-Adresse – z. B. die Datei in einem OneDrive- oder Dropbox-Ordner ablegen
+          und deren direkten Download-Link abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum
+          Importieren (ohne spätere Aktualisierung).
+        </p>
       </CardContent>
     </Card>
   )
@@ -218,6 +315,7 @@ export default function SettingsPage() {
       <div className="max-w-4xl space-y-6">
         <GeneralCard />
         <InvoiceNumberingCard />
+        <CalendarCard />
         <DataCard />
       </div>
     </div>

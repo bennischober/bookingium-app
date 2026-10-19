@@ -32,15 +32,18 @@ afterAll(() => {
 describe('settings', () => {
   it('fall back to defaults and keep saved values', () => {
     const service = container.resolve(SettingsService)
-    expect(service.get()).toEqual({ defaultCountry: 'DE' })
-    expect(service.update({ defaultCountry: 'AT' })).toEqual({ defaultCountry: 'AT' })
-    expect(service.update({ defaultCountry: '' })).toEqual({ defaultCountry: '' })
-    expect(container.resolve(SettingsService).get()).toEqual({ defaultCountry: '' })
+    expect(service.get()).toEqual({ defaultCountry: 'DE', calendarFeedPath: '' })
+    expect(service.update({ defaultCountry: 'AT' })).toMatchObject({ defaultCountry: 'AT' })
+    expect(service.update({ defaultCountry: '' })).toMatchObject({ defaultCountry: '' })
+    expect(container.resolve(SettingsService).get()).toMatchObject({ defaultCountry: '' })
   })
 
   it('ignore unreadable stored values', () => {
     db.update(schema.app_setting).set({ value: 'not json' }).run()
-    expect(container.resolve(SettingsService).get()).toEqual({ defaultCountry: 'DE' })
+    expect(container.resolve(SettingsService).get()).toEqual({
+      defaultCountry: 'DE',
+      calendarFeedPath: ''
+    })
   })
 
   it('switch the default own company', async () => {

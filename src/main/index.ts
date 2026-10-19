@@ -21,6 +21,7 @@ import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/
 import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
 import { ImportService } from './services/ImportService'
+import { CalendarFeedService } from './services/CalendarFeedService'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -308,6 +309,8 @@ app.whenReady().then(async () => {
       if (moved || missing) console.log(`Documents relocated: ${moved} moved, ${missing} missing`)
     })
     .catch((error) => console.error('Relocating documents failed:', error))
+  // Calendar file (Einstellungen › Kalender): refresh with the current events
+  void container.resolve(CalendarFeedService).update()
   await seedDatabase().catch((error) => {
     console.error('Database seeding failed:', error)
   })

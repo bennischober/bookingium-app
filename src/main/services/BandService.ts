@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { removeOwnerFolder } from '../utils/documentStorage'
 import { BandRepository } from '../repositories/BandRepository'
 import { CreateBandInput, UpdateBandInput } from '../api/schemas/band.schema'
@@ -32,12 +33,15 @@ export class BandService {
   }
 
   async updateBand(data: UpdateBandInput) {
-    return await this.bandRepository.update(data)
+    const result = await this.bandRepository.update(data)
+    scheduleCalendarUpdate()
+    return result
   }
 
   async deleteBand(id: number) {
     const deleted = await this.bandRepository.delete(id)
     await removeOwnerFolder('band', id).catch((error) => console.error(error))
+    scheduleCalendarUpdate()
     return deleted
   }
 }

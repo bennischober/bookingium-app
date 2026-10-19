@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { removeOwnerFolder } from '../utils/documentStorage'
 import { DealMemoRepository } from '../repositories/DealMemoRepository'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
@@ -29,16 +30,21 @@ export class DealMemoService {
   }
 
   async createDealMemo(input: CreateDealMemoInput) {
-    return await this.dealMemoRepository.create(input)
+    const result = await this.dealMemoRepository.create(input)
+    scheduleCalendarUpdate()
+    return result
   }
 
   async updateDealMemo(input: UpdateDealMemoInput) {
-    return await this.dealMemoRepository.update(input)
+    const result = await this.dealMemoRepository.update(input)
+    scheduleCalendarUpdate()
+    return result
   }
 
   async deleteDealMemo(id: number) {
     await this.dealMemoRepository.delete(id)
     // Rows go with the owner (trigger); the files are removed here
     await removeOwnerFolder('event', id).catch((error) => console.error(error))
+    scheduleCalendarUpdate()
   }
 }

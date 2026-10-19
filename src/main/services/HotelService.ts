@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { HotelRepository } from '../repositories/HotelRepository'
 import type { CreateHotelInput, UpdateHotelInput } from '../api/schemas/hotel.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
@@ -24,10 +25,13 @@ export class HotelService {
   }
 
   async updateHotel(input: UpdateHotelInput) {
-    return await this.hotelRepository.update(input)
+    const result = await this.hotelRepository.update(input)
+    scheduleCalendarUpdate()
+    return result
   }
 
   async deleteHotel(id: number) {
     await this.hotelRepository.delete(id)
+    scheduleCalendarUpdate()
   }
 }
