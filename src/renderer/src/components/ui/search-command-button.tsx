@@ -63,7 +63,11 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
   '/venues': { description: 'Spielstättenverzeichnis öffnen', aliases: ['locations'] },
   '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
-  '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] }
+  '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
+  '/settings': {
+    description: 'Eigene Firma, Rechnungsnummern, Import und Sicherung',
+    aliases: ['settings', 'optionen', 'import', 'backup', 'sicherung']
+  }
 }
 
 const ROUTE_COMMANDS = Object.values(ROUTES).map((route) => ({

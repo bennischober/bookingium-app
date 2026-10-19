@@ -20,7 +20,7 @@ test('app boots and shows the dashboard', async () => {
 
 test('sidebar navigation to Rechnungen works', async () => {
   await h.page.click('text=Rechnungen')
-  await h.page.waitForSelector('text=Rechnungsnummerierung', { timeout: 10_000 })
+  await h.page.waitForSelector('text=Rechnungsnr.', { timeout: 10_000 })
 })
 
 test('events list renders and event hub opens', async () => {

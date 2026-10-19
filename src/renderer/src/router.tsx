@@ -10,6 +10,7 @@ import BankPage from '@/pages/BankPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
 import BandDetailPage from '@/pages/BandDetailPage'
+import SettingsPage from '@/pages/SettingsPage'
 import CompanyDetailPage from '@/pages/CompanyDetailPage'
 import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
@@ -154,6 +155,12 @@ const venueDetailRoute = createRoute({
   component: VenueDetailPage
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.settings.path,
+  component: SettingsPage
+})
+
 // Chrome-free layout for print views (PDF output must not contain app UI)
 const printLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -194,6 +201,7 @@ const routeTree = rootRoute.addChildren([
     invoiceRoute,
     eventHubRoute,
     bandDetailRoute,
+    settingsRoute,
     companyDetailRoute,
     venueDetailRoute
   ]),

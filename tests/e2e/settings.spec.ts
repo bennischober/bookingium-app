@@ -1,0 +1,69 @@
+// E2E: Einstellungen – own company, default country, invoice numbering,
+// import entry point and a backup into a chosen folder.
+import { test, expect } from '@playwright/test'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { launchApp, type AppHandle } from './helpers/launch'
+
+let h: AppHandle
+let backupTarget: string
+
+test.beforeAll(async () => {
+  backupTarget = mkdtempSync(join(tmpdir(), 'bookingum-backup-'))
+  h = await launchApp()
+  await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
+})
+
+test.afterAll(async () => {
+  await h.close()
+  rmSync(backupTarget, { recursive: true, force: true })
+})
+
+test('settings page saves defaults and creates a backup', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
+
+  // Own company: seeded default, switchable
+  const ownCompany = page.getByRole('combobox', { name: 'Eigene Firma' })
+  await expect(ownCompany).toHaveText('Live Music Berlin GmbH')
+  await ownCompany.click()
+  await page.getByRole('option', { name: 'Soundwave Records' }).click()
+  await expect(page.getByText('Eigene Firma gespeichert')).toBeVisible()
+  await expect(ownCompany).toHaveText('Soundwave Records')
+
+  const country = page.getByRole('combobox', { name: 'Standardland' })
+  await expect(country).toHaveText('Deutschland')
+  await country.click()
+  await page.getByRole('option', { name: 'Österreich' }).click()
+  await expect(page.getByText('Einstellung gespeichert')).toBeVisible()
+
+  // Invoice numbering per company
+  await expect(page.getByRole('combobox', { name: 'Firma', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Nächste Rechnungsnummer')).toBeVisible()
+
+  // Import opens the import dialog
+  await page.getByRole('button', { name: 'Daten importieren…' }).click()
+  const importDialog = page.getByRole('dialog', { name: 'Daten importieren' })
+  await expect(importDialog).toBeVisible()
+  await importDialog.getByRole('button', { name: 'Close' }).click()
+
+  // Backup into the chosen folder
+  await h.app.evaluate(({ dialog }, path) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+  }, backupTarget)
+  await page.getByRole('button', { name: 'Sicherung erstellen…' }).click()
+  await expect(page.getByText('Sicherung erstellt')).toBeVisible()
+  const [folder] = readdirSync(backupTarget)
+  expect(folder).toMatch(/^Bookingium-Sicherung \d{4}-\d{2}-\d{2} \d{2}-\d{2}$/)
+  expect(existsSync(join(backupTarget, folder, 'bookingum.db'))).toBe(true)
+  expect(existsSync(join(backupTarget, folder, 'LIESMICH.txt'))).toBe(true)
+
+  // Settings survive a reload
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Standardland' })).toHaveText('Österreich')
+  await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText(
+    'Soundwave Records'
+  )
+})

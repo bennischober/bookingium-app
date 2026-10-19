@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MapPin,
   Music2,
+  Settings,
   Users,
   type LucideIcon
 } from 'lucide-react'
@@ -45,7 +46,8 @@ export const ROUTES = {
   companies: { path: '/companies', title: 'Firmen', group: 'Kontakte', icon: Building2 },
   venues: { path: '/venues', title: 'Spielstätten', group: 'Kontakte', icon: MapPin },
   hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
-  banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark }
+  banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark },
+  settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
 } as const satisfies Record<string, RouteInfo>
 
 /**
