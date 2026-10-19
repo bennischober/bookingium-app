@@ -1,5 +1,6 @@
 import { AppSidebar } from '@/components/app-sidebar'
 import { AppBreadcrumbs } from '@/components/layout/app-breadcrumbs'
+import { HistoryNav } from '@/components/layout/history-nav'
 import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from '@tanstack/react-router'
@@ -16,7 +17,10 @@ export default function RootLayout() {
       <AppSidebar collapsible="none" className="shrink-0" />
       <SidebarInset className="min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
-          <AppBreadcrumbs />
+          <div className="flex min-w-0 items-center gap-2">
+            <HistoryNav />
+            <AppBreadcrumbs />
+          </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <QuickCreateMenu />

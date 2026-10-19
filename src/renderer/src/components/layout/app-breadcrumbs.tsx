@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
   Breadcrumb,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { ROUTES, isRouteActive } from '@/lib/routing'
 import { trpcReact } from '@/lib/trpc'
+import { setCurrentPageLabel } from '@/lib/navigationHistory'
 
 /** `name`: an entity name - the only crumbs that may shorten ("…") */
 type Crumb = { title: string; path?: string; name?: boolean }
@@ -45,6 +46,13 @@ export function AppBreadcrumbs() {
     })
     crumbs.push({ title: 'Beziehungen' })
   }
+
+  // Names the page in the back/forward history once the entity name is loaded
+  const label = crumbs.map((crumb) => crumb.title).join(' › ')
+  const loaded = !crumbs.some((crumb) => crumb.title === '…')
+  useEffect(() => {
+    if (label && loaded) setCurrentPageLabel(pathname, label)
+  }, [pathname, label, loaded])
 
   return (
     <Breadcrumb className="min-w-0">

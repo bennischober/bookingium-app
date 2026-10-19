@@ -17,10 +17,13 @@ import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
 import ManagementContractPrintPage from '@/pages/ManagementContractPrintPage'
 import { ROUTES } from '@/lib/routing'
+import { trackNavigationHistory } from '@/lib/navigationHistory'
 import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 
 const hashHistory = createHashHistory()
+// Back/forward buttons in the top bar
+trackNavigationHistory(hashHistory)
 
 // The root route is a pass-through. App chrome (sidebar, header) lives in the
 // pathless `_app` layout route so that chrome-free routes (e.g. invoice print)

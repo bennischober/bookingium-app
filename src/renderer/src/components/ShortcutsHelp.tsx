@@ -15,6 +15,8 @@ import { ROUTE_SHORTCUTS } from '@/lib/routing'
 // (ROUTE_SHORTCUTS); Ctrl+K (search) is registered in search-command-button.
 const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
   { keys: ['Ctrl', 'K'], description: 'Alles suchen öffnen' },
+  { keys: ['Alt', '←'], description: 'Zurück' },
+  { keys: ['Alt', '→'], description: 'Vorwärts' },
   ...ROUTE_SHORTCUTS.map(({ key, route }) => ({ keys: ['Alt', key], description: route.title })),
   { keys: ['?'], description: 'Diese Hilfe anzeigen' },
   { keys: ['Esc'], description: 'Dialoge schließen' }
