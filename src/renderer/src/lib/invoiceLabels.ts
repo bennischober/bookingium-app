@@ -31,9 +31,8 @@ export function formatMoney(value: number, currency: string): string {
   }).format(value)
 }
 
-export function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}
+// Cent rounding shared with the stored totals and the e-invoice
+export { roundMoney } from '../../../main/einvoice/amounts'
 
 export function parseNumber(value: string, fallback = 0): number {
   const parsed = Number(value)

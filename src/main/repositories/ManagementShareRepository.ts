@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { InvoiceRepository } from './InvoiceRepository'
+import { roundMoney } from '../einvoice/amounts'
 import {
   managementShareAmount,
   quarterDates,
@@ -15,8 +16,6 @@ function addDays(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split('-').map(Number)
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
 }
-
-const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100
 
 @injectable()
 export class ManagementShareRepository {

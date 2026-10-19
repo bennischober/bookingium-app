@@ -18,6 +18,7 @@ import {
   type InvoiceTemplate
 } from '@/components/invoice/InvoiceDocument'
 import type { InvoicePrintDto } from '../../../main/api/schemas/invoice.schema'
+import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 
 // Display labels for the template dropdown (DB/template values stay untouched)
 const TEMPLATE_LABELS: Record<InvoiceTemplate, string> = {
@@ -48,6 +49,9 @@ export default function InvoicePrintPage() {
   })
 
   const data = printQuery.data
+  const eInvoice = trpcReact.invoice.eInvoiceCheck.useQuery(id, {
+    enabled: Number.isFinite(id) && id > 0
+  })
 
   // Default template once data arrives; the user can override afterwards via
   // the dropdown (state adjustment during render, per "You Might Not Need an
@@ -136,9 +140,15 @@ export default function InvoicePrintPage() {
               ))}
             </SelectContent>
           </Select>
-          <PrintActions fileName={fileName} />
+          <PrintActions fileName={fileName} invoiceId={invoice.id} />
         </div>
       </div>
+
+      {eInvoice.data && (
+        <div className="mx-auto mb-4 w-[210mm] print:hidden">
+          <EInvoiceStatus check={eInvoice.data} />
+        </div>
+      )}
 
       <InvoiceDocument data={data} template={template} logoUrl={logoUrl} />
     </div>

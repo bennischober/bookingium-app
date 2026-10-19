@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { roundMoney } from '../../einvoice/amounts'
 import { TimestampFields } from './base.schema'
 import { ContractPartySchema } from './contract.schema'
 
@@ -103,8 +104,7 @@ export function quarterDates(year: number, quarter: number): { start: string; en
 
 /** The management's net share: commission % of the band's net income, rounded to cents */
 export function managementShareAmount(incomeTotal: number, commissionPercent: number): number {
-  // income × % / 100 is the amount in euros, so income × % is it in cents
-  return Math.round(incomeTotal * commissionPercent + Number.EPSILON) / 100
+  return roundMoney((incomeTotal * commissionPercent) / 100)
 }
 
 export const ManagementShareIncomeInput = z.object({

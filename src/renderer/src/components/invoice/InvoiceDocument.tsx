@@ -3,6 +3,7 @@ import type {
   InvoicePrintDto
 } from '../../../../main/api/schemas/invoice.schema'
 import { PagedDocument } from '../print/PagedDocument'
+import { unitLabelOf } from '../../../../main/einvoice/codes'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -468,7 +469,7 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
               <td className="py-2 pr-2">{item.position}</td>
               <td className="py-2 pr-2">{item.description}</td>
               <td className="py-2 pr-2 text-right">{formatQuantity(item.quantity)}</td>
-              <td className="py-2 pr-2">{item.unit}</td>
+              <td className="py-2 pr-2">{unitLabelOf(item.unit)}</td>
               <td className="py-2 pr-2 text-right">
                 {formatMoney(item.lineNetAmount, invoice.currency)}
               </td>

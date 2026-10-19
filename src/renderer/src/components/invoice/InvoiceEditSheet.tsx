@@ -20,6 +20,7 @@ import {
   type InvoiceStatus
 } from '../../../../main/api/schemas/invoice.schema'
 import { confirmAction } from '@/lib/confirm'
+import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 
 const STATUS_ACTION_LABELS: Partial<Record<InvoiceStatus, string>> = {
   issued: 'Wieder offen (gestellt)',
@@ -126,6 +127,8 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
       toast.error('Status konnte nicht geändert werden', { description: error.message })
   })
 
+  const eInvoice = trpcReact.invoice.eInvoiceCheck.useQuery(invoice.id)
+
   const nextStatuses = nextInvoiceStatuses(invoice.status)
   const canCancel = nextStatuses.includes('cancelled')
 
@@ -156,6 +159,9 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
         <Field label="Fällig am" value={invoice.dueDate ?? '-'} />
         <Field label="Zeitraum" value={invoice.periodLabel || '-'} />
         <Field label="Event" value={invoice.dealMemoName ?? '-'} />
+        {invoice.buyerReference && (
+          <Field label="Käuferreferenz / Leitweg-ID" value={invoice.buyerReference} />
+        )}
       </dl>
 
       <Separator />
@@ -178,6 +184,8 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
           </span>
         </div>
       </div>
+
+      {eInvoice.data && <EInvoiceStatus check={eInvoice.data} />}
 
       {nextStatuses.length > 0 && (
         <>

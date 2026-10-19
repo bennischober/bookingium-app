@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import { trpcReact } from '@/lib/trpc'
+import { InfoLabel } from '@/components/InfoLabel'
 
 import type { z } from 'zod'
 import type { CompanyDto, CreateCompanyInput } from '../../../../main/api/schemas/company.schema'
@@ -67,6 +68,7 @@ function LogoPreview({ path }: { path: string }) {
 export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
   // Fetch banks for dropdown
   const banks = trpcReact.bank.getListItems.useQuery()
+  const persons = trpcReact.person.getListItems.useQuery()
   const [logoPreview, setLogoPreview] = useState<string>(company?.logoPath || '')
   const [signaturePreview, setSignaturePreview] = useState<string>(company?.signaturePath || '')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -117,6 +119,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       logoPath: company?.logoPath || '',
       signaturePath: company?.signaturePath || '',
       bankId: company?.bank?.id || null,
+      invoiceContactPersonId: company?.invoiceContactPersonId ?? null,
       address: {
         street: company?.address?.street || '',
         streetNumber: company?.address?.streetNumber || '',
@@ -375,6 +378,29 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
                   Keine Banken vorhanden. Legen Sie zuerst eine Bank auf der Banken-Seite an.
                 </p>
               )}
+            </div>
+          )}
+        </form.Field>
+
+        <form.Field name="invoiceContactPersonId">
+          {(field) => (
+            <div className="space-y-2">
+              <InfoLabel
+                htmlFor="invoiceContactPersonId"
+                text="Ansprechpartner für Rechnungen (optional)"
+                info="Steht in der E-Rechnung als Kontakt: Name, Telefon und E-Mail der Person (sonst die der Firma)."
+              />
+              <SearchableSelect
+                id="invoiceContactPersonId"
+                value={field.state.value}
+                onChange={field.handleChange}
+                options={(persons.data ?? []).map((person) => ({
+                  value: person.id,
+                  label: `${person.firstName} ${person.lastName}`.trim()
+                }))}
+                noneLabel="Keiner"
+                searchPlaceholder="Person suchen…"
+              />
             </div>
           )}
         </form.Field>

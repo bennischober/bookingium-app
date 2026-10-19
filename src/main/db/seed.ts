@@ -808,15 +808,37 @@ export async function seedDatabase() {
       )
     }
 
+    // Full snapshots of both demo companies: invoice 1040 is a complete
+    // e-invoice (ZUGFeRD), the others lack recipient data
+    const snapshotOf = (
+      source: typeof company2,
+      sourceAddress: typeof companyAddress2,
+      sourceContact: typeof companyContact2,
+      sourceBank: typeof bank1
+    ) => ({
+      kind: 'company',
+      source_company_id: source.id,
+      legal_name: source.name,
+      street: sourceAddress.street,
+      street_number: sourceAddress.street_number,
+      zip_code: sourceAddress.zip_code,
+      city: sourceAddress.city,
+      country: sourceAddress.country,
+      country_code: sourceAddress.country_code,
+      vat_number: source.vat_number,
+      ust_number: source.ust_number,
+      website: sourceContact.homepage ?? '',
+      email: sourceContact.email,
+      phone: sourceContact.phone ?? '',
+      account_holder: sourceBank.account_holder,
+      bank_name: sourceBank.bank_name,
+      iban: sourceBank.iban,
+      bic: sourceBank.bic
+    })
+
     const [issuerSnapshot1] = await db
       .insert(invoice_party_snapshot)
-      .values({
-        kind: 'company',
-        source_company_id: company2.id,
-        legal_name: company2.name,
-        vat_number: company2.vat_number,
-        ust_number: company2.ust_number
-      })
+      .values(snapshotOf(company2, companyAddress2, companyContact2, bank1))
       .returning()
 
     const [issuerSnapshot2] = await db
@@ -832,11 +854,7 @@ export async function seedDatabase() {
 
     const [recipientSnapshotCompany] = await db
       .insert(invoice_party_snapshot)
-      .values({
-        kind: 'company',
-        source_company_id: company1.id,
-        legal_name: company1.name
-      })
+      .values(snapshotOf(company1, companyAddress1, companyContact1, bank2))
       .returning()
 
     const [recipientSnapshotBand] = await db

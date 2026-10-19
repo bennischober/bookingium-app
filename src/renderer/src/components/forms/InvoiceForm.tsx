@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
-import { INVOICE_STATUS_LABELS, formatMoney, parseNumber, roundMoney } from '@/lib/invoiceLabels'
+import { INVOICE_STATUS_LABELS, formatMoney, parseNumber } from '@/lib/invoiceLabels'
 import { Button } from '@/components/ui/button'
 import { InfoLabel } from '@/components/InfoLabel'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,20 @@ import type {
   InvoiceTaxCode
 } from '../../../../main/api/schemas/invoice.schema'
 import { confirmAction } from '@/lib/confirm'
+import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import {
+  computeInvoiceAmounts,
+  fromCents,
+  lineNetCents,
+  vatCents
+} from '../../../../main/einvoice/amounts'
+import {
+  INVOICE_UNITS,
+  TAX_CODES,
+  TAX_CODE_LABELS,
+  unitLabelOf
+} from '../../../../main/einvoice/codes'
+import { prepareEInvoice } from '../../../../main/einvoice/prepare'
 
 export type InvoiceLineDraft = {
   description: string
@@ -40,21 +54,12 @@ export type InvoiceLineDraft = {
 // invoice (paid, overdue, Storno).
 const INVOICE_STATUS: InvoiceStatus[] = ['draft', 'issued']
 const INVOICE_RECIPIENT_KIND: InvoiceRecipientKind[] = ['company', 'band', 'person', 'other']
-const TAX_CODES: InvoiceTaxCode[] = ['standard', 'reduced', 'reverse_charge', 'exempt', 'other']
 
 const RECIPIENT_KIND_LABELS: Record<InvoiceRecipientKind, string> = {
   company: 'Firma',
   band: 'Band',
   person: 'Person',
   other: 'Sonstige'
-}
-
-const TAX_CODE_LABELS: Record<InvoiceTaxCode, string> = {
-  standard: 'Regelsatz',
-  reduced: 'ermäßigt',
-  reverse_charge: 'Reverse Charge',
-  exempt: 'steuerfrei',
-  other: 'sonstig'
 }
 
 const EMPTY_LINE: InvoiceLineDraft = {
@@ -99,22 +104,13 @@ function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemInput[] {
       ]
 }
 
+// Same rounding as the stored totals and the e-invoice (einvoice/amounts)
 function computeTotals(lines: InvoiceLineItemInput[]) {
-  const subtotalNetAmount = roundMoney(
-    lines.reduce((sum, line) => sum + line.quantity * line.unitPriceNet, 0)
-  )
-  const subtotalTaxAmount = roundMoney(
-    lines.reduce((sum, line) => {
-      const lineNet = line.quantity * line.unitPriceNet
-      return sum + (lineNet * line.taxRate) / 100
-    }, 0)
-  )
-  const totalGrossAmount = roundMoney(subtotalNetAmount + subtotalTaxAmount)
-
+  const amounts = computeInvoiceAmounts(lines)
   return {
-    subtotalNetAmount,
-    subtotalTaxAmount,
-    totalGrossAmount
+    subtotalNetAmount: fromCents(amounts.netCents),
+    subtotalTaxAmount: fromCents(amounts.taxCents),
+    totalGrossAmount: fromCents(amounts.grossCents)
   }
 }
 
@@ -148,6 +144,7 @@ export function InvoiceForm({
     totalAmount?: number
     paymentTerms?: string
     reverseChargeNote?: string
+    buyerReference?: string
     notes?: string
   }) => void
   onUpdate: (payload: {
@@ -170,6 +167,7 @@ export function InvoiceForm({
     totalAmount?: number
     paymentTerms?: string
     reverseChargeNote?: string
+    buyerReference?: string
     notes?: string
   }) => void
   isSubmitting: boolean
@@ -230,6 +228,9 @@ export function InvoiceForm({
   const [reverseChargeNote, setReverseChargeNote] = useState(
     mode === 'edit' ? (invoice?.reverseChargeNote ?? '') : ''
   )
+  const [buyerReference, setBuyerReference] = useState(
+    mode === 'edit' ? (invoice?.buyerReference ?? '') : ''
+  )
   const [notes, setNotes] = useState(mode === 'edit' ? (invoice?.notes ?? '') : '')
   const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => {
     if (mode === 'edit' && invoice) {
@@ -259,6 +260,62 @@ export function InvoiceForm({
 
   const normalizedLines = useMemo(() => normalizeLineItems(lineItems), [lineItems])
   const totals = useMemo(() => computeTotals(normalizedLines), [normalizedLines])
+
+  // E-invoice check with the parties as issuing would freeze them
+  const settings = trpcReact.settings.get.useQuery()
+  const eInvoiceEnabled = settings.data?.eInvoiceEmbed ?? false
+  const parties = trpcReact.invoice.previewParties.useQuery(
+    {
+      dealMemoId,
+      companyId: companyId ?? null,
+      recipientKind,
+      recipientCompanyId,
+      recipientBandId,
+      recipientPersonId,
+      recipientNameOverride: recipientKind === 'other' ? recipientNameOverride.trim() : undefined
+    },
+    { enabled: eInvoiceEnabled && step === 'finalize' }
+  )
+  const eInvoiceCheck = useMemo(() => {
+    if (!parties.data) return null
+    const result = prepareEInvoice(
+      {
+        invoiceNumber: null,
+        issueDate,
+        dueDate: dueDate || null,
+        currency,
+        buyerReference,
+        periodStartDate: periodStartDate || null,
+        periodEndDate: periodEndDate || null,
+        eventDate: events.data?.items.find((event) => event.id === dealMemoId)?.date ?? null,
+        paymentTerms,
+        taxNote: reverseChargeNote,
+        notes,
+        seller: parties.data.issuer,
+        buyer: parties.data.recipient,
+        lines: normalizedLines
+      },
+      { ignoreNumber: true }
+    )
+    return {
+      state: result.complete ? ('draft' as const) : ('incomplete' as const),
+      missing: result.missing
+    }
+  }, [
+    parties.data,
+    issueDate,
+    dueDate,
+    currency,
+    buyerReference,
+    periodStartDate,
+    periodEndDate,
+    events.data,
+    dealMemoId,
+    paymentTerms,
+    reverseChargeNote,
+    notes,
+    normalizedLines
+  ])
 
   const setLine = (patch: Partial<InvoiceLineDraft>) => {
     setLineEditor((prev) => ({ ...prev, ...patch }))
@@ -341,6 +398,7 @@ export function InvoiceForm({
       totalAmount: totals.totalGrossAmount,
       paymentTerms,
       reverseChargeNote,
+      buyerReference: buyerReference.trim(),
       notes
     }
 
@@ -577,6 +635,20 @@ export function InvoiceForm({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <InfoLabel
+              htmlFor="invoice-buyer-reference"
+              text="Käuferreferenz / Leitweg-ID (optional)"
+              info="Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung."
+            />
+            <Input
+              id="invoice-buyer-reference"
+              value={buyerReference}
+              onChange={(e) => setBuyerReference(e.target.value)}
+              placeholder="z. B. 04011000-12345-34"
+            />
+          </div>
+
           <div className="flex justify-end">
             <Button type="button" onClick={() => setStep('lines')}>
               Weiter: Positionen
@@ -598,8 +670,9 @@ export function InvoiceForm({
               const quantity = parseNumber(line.quantity, 1)
               const unitPrice = parseNumber(line.unitPriceNet, 0)
               const taxRate = parseNumber(line.taxRate, 0)
-              const net = roundMoney(quantity * unitPrice)
-              const gross = roundMoney(net + (net * taxRate) / 100)
+              const netCents = lineNetCents(quantity, unitPrice)
+              const net = fromCents(netCents)
+              const gross = fromCents(netCents + vatCents(netCents, taxRate))
 
               return (
                 <div
@@ -609,8 +682,8 @@ export function InvoiceForm({
                   <div>
                     <p className="font-medium text-sm">{line.description || 'Ohne Bezeichnung'}</p>
                     <p className="text-xs text-muted-foreground">
-                      {quantity} x {formatMoney(unitPrice, currency)} ({taxRate}% MwSt.,{' '}
-                      {TAX_CODE_LABELS[line.taxCode]})
+                      {quantity} {unitLabelOf(line.unit)} x {formatMoney(unitPrice, currency)} (
+                      {taxRate}% MwSt., {TAX_CODE_LABELS[line.taxCode]})
                     </p>
                     <p className="text-xs mt-1">
                       Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}
@@ -665,11 +738,23 @@ export function InvoiceForm({
                 />
               </div>
               <div className="space-y-1">
-                <Label>Einheit</Label>
-                <Input
-                  value={lineEditor.unit}
-                  onChange={(e) => setLine({ unit: e.target.value })}
-                />
+                <Label htmlFor="invoice-line-unit">Einheit</Label>
+                <Select value={lineEditor.unit} onValueChange={(value) => setLine({ unit: value })}>
+                  <SelectTrigger id="invoice-line-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INVOICE_UNITS.map((unit) => (
+                      <SelectItem key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </SelectItem>
+                    ))}
+                    {/* Free-text unit of an older invoice stays selectable */}
+                    {!INVOICE_UNITS.some((unit) => unit.value === lineEditor.unit) && (
+                      <SelectItem value={lineEditor.unit}>{lineEditor.unit}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Netto-Einzelpreis</Label>
@@ -765,11 +850,16 @@ export function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Reverse-Charge-Hinweis</Label>
+            <InfoLabel
+              htmlFor="invoice-tax-note"
+              text="Steuerhinweis"
+              info="Steht auf der Rechnung, z. B. „Steuerschuldnerschaft des Leistungsempfängers“ oder der Grund einer Steuerbefreiung (§ 4 Nr. 20 a UStG). Die E-Rechnung übernimmt ihn als Befreiungsgrund."
+            />
             <Input
+              id="invoice-tax-note"
               value={reverseChargeNote}
               onChange={(e) => setReverseChargeNote(e.target.value)}
-              placeholder="Optionaler Steuerhinweis"
+              placeholder="Reverse Charge oder Grund der Steuerbefreiung"
             />
           </div>
 
@@ -777,6 +867,8 @@ export function InvoiceForm({
             <Label>Anmerkungen</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
+
+          {eInvoiceEnabled && eInvoiceCheck && <EInvoiceStatus check={eInvoiceCheck} />}
 
           <div className="flex justify-between gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setStep('lines')}>

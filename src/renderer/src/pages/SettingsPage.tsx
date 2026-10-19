@@ -15,6 +15,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { InvoiceNumberingCard } from '@/components/invoice/InvoiceNumberingCard'
+import { EInvoiceCard } from '@/components/invoice/EInvoiceCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -315,6 +316,7 @@ export default function SettingsPage() {
       <div className="max-w-4xl space-y-6">
         <GeneralCard />
         <InvoiceNumberingCard />
+        <EInvoiceCard />
         <CalendarCard />
         <DataCard />
       </div>
