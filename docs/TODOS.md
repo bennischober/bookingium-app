@@ -4,26 +4,26 @@ Done work lives in the git history; this list only holds what is still open.
 
 ## Deadlines
 
-- **E-Rechnung — start in 2027, must be live by 1 Jan 2028.** From 2028
-  every German business has to send domestic B2B invoices as e-invoices
-  (2027 only above €800k turnover; Kleinunternehmer under §19 UStG and
-  invoices up to €250 are exempt — confirm the status with the
-  Steuerberater). Plan:
-  - ZUGFeRD/Factur-X, profile EN 16931: the current invoice PDF with
-    `factur-x.xml` (CII syntax) embedded via `pdf-lib`; switch in Settings
-    ("E-Rechnung in PDF einbetten"). XML and PDF come from the same data.
-  - Missing fields: buyer reference / Leitweg-ID, e-mail addresses of
-    seller and buyer, seller contact person (name, phone, e-mail), UN/ECE
-    unit codes (`C62`, `LS`, …), exemption reason for E/AE lines.
-  - Map `tax_code` to the categories S/Z/E/AE/K/G; amounts are `real`, so
-    round to cents in one place — validators recompute every total.
-  - Check before issuing ("Für die E-Rechnung fehlt: …").
-  - Tests against the KoSIT validator (free, Java; dev/CI only).
-  - `printToPDF` output is not strict PDF/A-3; fine for receiving software
-    (it reads the XML), a strict checker flags it. No Ghostscript (AGPL).
-  - Before starting: real invoices as test cases, and the VAT cases in use
-    (7 %/19 % on fees, reverse charge for foreign artists/promoters) from
-    the Steuerberater.
+- **E-Rechnung — must be live by 1 Jan 2028.** Invoice PDFs already carry
+  a ZUGFeRD/Factur-X XML (EN 16931) when the invoice is complete (see
+  ARCHITECTURE.md › E-invoices). Left to do:
+  - Confirm the VAT cases with the Steuerberater: 7 %/19 % on fees;
+    reverse charge (AE) for EU promoters vs. „nicht steuerbar“ (O) for
+    non-EU ones; § 4 Nr. 20 a UStG exemption (E) for artists; management
+    shares at 0 % are created as „steuerfrei“ and need the reason in the
+    Steuerhinweis; Kleinunternehmer status (2027: only above €800k
+    turnover; invoices up to €250 are exempt).
+  - Run real invoices (sample_data) through the check before 2028.
+  - `printToPDF` output is not strict PDF/A-3 (no output intent/ICC
+    profile); receiving software reads the XML, a strict PDF/A checker
+    flags the file. No Ghostscript (AGPL).
+  - Cancelled invoices get no XML; a Storno as e-invoice would be a credit
+    note (type 381) referring to the original.
+  - XRechnung for public-sector buyers only if needed: it additionally
+    requires the business process (BT-23), a Leitweg-ID, payment
+    instructions and the seller contact (BR-DE-1/2/15, PEPPOL-R001).
+  - KoSIT validation runs on demand (`tests/einvoice.kosit.test.ts`); wire
+    it into CI once there is one.
 
 ## Product
 

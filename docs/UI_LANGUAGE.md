@@ -71,13 +71,23 @@ English.
 
 ### Invoices
 
-| English                                            | German                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------- |
-| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                        |
-| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                          |
-| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno) |
-| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                             |
-| Line items                                         | Positionen                                                     |
-| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                  |
-| Payment terms                                      | Zahlungsbedingungen                                            |
-| Invoice numbering                                  | Rechnungsnummerierung                                          |
+| English                                            | German                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------- |
+| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                          |
+| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                            |
+| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno)   |
+| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                               |
+| Line items                                         | Positionen                                                       |
+| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                    |
+| Payment terms                                      | Zahlungsbedingungen                                              |
+| Invoice numbering                                  | Rechnungsnummerierung                                            |
+| E-invoice (ZUGFeRD)                                | E-Rechnung                                                       |
+| What the e-invoice still needs                     | Für die E-Rechnung fehlt: …                                      |
+| Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                      |
+| Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                    |
+| Invoice contact person                             | Ansprechpartner für Rechnungen                                   |
+| Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)        |
+| Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                  |
+| `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                  |
+| `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                    |
+| `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig |

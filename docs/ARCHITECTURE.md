@@ -13,7 +13,7 @@ end-to-end, and the coding guidelines.
 | Data flow       | tRPC v10 (electron-trpc over IPC) + TanStack Query v4                                               |
 | Database        | SQLite (better-sqlite3) via Drizzle ORM, tsyringe DI                                                |
 | Validation      | zod v4 (DTOs double as API contracts)                                                               |
-| Files           | exceljs (import/export), pdf.js (print preview)                                                     |
+| Files           | exceljs (import/export), pdf.js (print preview), pdf-lib (e-invoice in the PDF)                     |
 | Tests           | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF)                                  |
 | Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml)                                              |
 
@@ -32,6 +32,9 @@ src/main/              Main process
   import/              Spreadsheet import: read workbook, detect columns,
                        rows -> plan (pure, unit-tested)
   calendar/            iCalendar builder (pure)
+  einvoice/            E-invoice (ZUGFeRD/Factur-X): amounts (cent rounding),
+                       codes, completeness check, CII XML (pure, shared with
+                       the renderer); facturx.ts embeds it with pdf-lib
   utils/               fileStorage (storage root, logos), documentStorage
                        (documents/<type>/<id>-<name>/ folders)
   index.ts             Window, IPC handlers (print, files, import picker), startup
@@ -189,3 +192,36 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   contracts render from **live master data** (drafted before the event).
 - Verification: `npx playwright test` writes the real PDF and page PNGs to
   `tests/e2e/__screenshots__/` — inspect the PDF, not just the screenshot.
+- Issuing a draft re-takes both snapshots, so an invoice freezes the
+  parties as they are when it gets its number.
+
+## E-invoices (ZUGFeRD/Factur-X)
+
+„Als PDF speichern“ on an invoice sends its id along (`print:savePdf`);
+`EInvoiceService.attachToPdf` embeds `factur-x.xml` (CII, profile EN 16931,
+XMP metadata, AF relationship Alternative) into the printed PDF when the
+invoice is issued, complete and the setting `eInvoiceEmbed` is on.
+Otherwise the PDF is saved as printed and the toast says what is missing.
+
+- **One source:** the XML is built from the same print data as the PDF
+  (snapshots, line items, stored totals) via `eInvoiceInputOf`.
+- **Check first:** `prepareEInvoice` returns either the prepared data or
+  the list „Für die E-Rechnung fehlt: …“. Everything the XML contains is
+  derived there; `buildCiiXml` only writes it. Add a field by adding it to
+  the check (with its German message) and then to the XML.
+- **Rounding:** `einvoice/amounts.ts` is the only place money is rounded:
+  line net = qty × price, VAT once per rate, totals from cents. The
+  repository, the invoice form and the XML use it. Stored totals that
+  differ (older invoices) block the XML instead of contradicting the PDF.
+- **Mapping:** tax codes -> VAT categories, units -> UN/ECE Rec 20, default
+  exemption reasons (VATEX) live in `einvoice/codes.ts`. The tax note
+  (`reverse_charge_note`, „Steuerhinweis“) is the exemption reason.
+- **Drafts** are checked with the parties' current master data
+  (`currentParties`); the invoice form checks live via
+  `invoice.previewParties`. Drafts and cancelled invoices get no XML.
+- **Validation:** unit tests recompute the BR-CO sums. With Java and the
+  KoSIT downloads, `KOSIT_VALIDATOR=…/validator-<v>-standalone.jar
+KOSIT_CONFIG=…/xrechnung-…-configuration (unzipped) pnpm test` also runs
+  the official validator (scenario „EN16931 (CII)“) over the samples in
+  `tests/helpers/einvoiceFixtures.ts`; the e2e test leaves the XML of a
+  real export in `tests/e2e/__screenshots__/einvoice-1040.xml`.
