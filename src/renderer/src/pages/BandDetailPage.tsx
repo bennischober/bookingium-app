@@ -2,9 +2,7 @@ import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
-import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
@@ -14,27 +12,8 @@ import { ManagementContractPanel } from '@/components/band/ManagementContractShe
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { EventDocumentsList } from '@/components/documents/EventDocumentsList'
 import { isBandTab } from '@/components/band/constants'
-import { STATUS_LABELS, STATUS_STYLES } from '@/components/event-hub/constants'
+import { EventsTable, InfoCard } from '@/components/detail/DetailParts'
 import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
-
-function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-sm">{children}</div>
-    </div>
-  )
-}
 
 /** Overview: who the band is, who bills and represents it */
 function OverviewTab({ band }: { band: BandDto }) {
@@ -90,48 +69,15 @@ function OverviewTab({ band }: { band: BandDto }) {
 
 /** The band's events, newest first; a click opens the event */
 function EventsTab({ bandId }: { bandId: number }) {
-  const navigate = useNavigate()
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId)
-
-  if (events.isLoading)
-    return <p className="text-sm text-muted-foreground">Events werden geladen…</p>
-  if (!events.data?.length) {
-    return <p className="text-sm text-muted-foreground">Noch keine Events für diese Band.</p>
-  }
-
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm" aria-label="Events der Band">
-        <thead className="bg-muted text-left">
-          <tr>
-            <th className="px-3 py-2 font-medium">Datum</th>
-            <th className="px-3 py-2 font-medium">Event</th>
-            <th className="px-3 py-2 font-medium">Spielstätte</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.data.map((event) => (
-            <tr
-              key={event.id}
-              className="cursor-pointer border-t hover:bg-muted/50"
-              onClick={() =>
-                navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
-              }
-            >
-              <td className="whitespace-nowrap px-3 py-2">{formatShortDate(event.date)}</td>
-              <td className="px-3 py-2 font-medium">{event.name}</td>
-              <td className="px-3 py-2">{event.venueName ?? '–'}</td>
-              <td className="px-3 py-2">
-                <Badge variant="outline" className={cn(STATUS_STYLES[event.status] ?? '')}>
-                  {STATUS_LABELS[event.status] ?? event.status}
-                </Badge>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <EventsTable
+      label="Events der Band"
+      events={events.data}
+      isLoading={events.isLoading}
+      empty="Noch keine Events für diese Band."
+      columns={[{ header: 'Spielstätte', cell: (event) => event.venueName ?? '–' }]}
+    />
   )
 }
 
