@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Keyboard } from 'lucide-react'
 import {
   Dialog,
@@ -21,6 +22,7 @@ const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
 
 export function ShortcutsHelp() {
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -35,14 +37,15 @@ export function ShortcutsHelp() {
         const shortcut = ROUTE_SHORTCUTS.find(({ key }) => event.key === key)
         if (shortcut) {
           event.preventDefault()
-          window.location.hash = '#' + shortcut.route.path
+          // Through the router, so the jump is a regular history entry
+          void navigate({ to: shortcut.route.path })
         }
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [navigate])
 
   return (
     <>
