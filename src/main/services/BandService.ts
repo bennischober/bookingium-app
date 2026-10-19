@@ -27,6 +27,10 @@ export class BandService {
     return await this.bandRepository.create(data)
   }
 
+  async listBandsByCompany(companyId: number) {
+    return await this.bandRepository.listByCompany(companyId)
+  }
+
   async updateBand(data: UpdateBandInput) {
     return await this.bandRepository.update(data)
   }

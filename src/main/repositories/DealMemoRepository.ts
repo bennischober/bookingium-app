@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { desc, eq, like, sql } from 'drizzle-orm'
+import { desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
@@ -45,16 +45,36 @@ export class DealMemoRepository {
     }
   }
 
-  /** A band's events, newest first */
-  async listByBand(bandId: number) {
+  /** Events matching `where`, newest first, with band and venue */
+  private async listWhere(where: SQL | undefined) {
     const rows = await db
       .select()
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
-      .where(eq(schema.deal_memo.band_id, bandId))
-      .orderBy(desc(schema.deal_memo.date))
+      .where(where)
+      .orderBy(desc(schema.deal_memo.date), desc(schema.deal_memo.id))
     return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
+  }
+
+  /** A band's events, newest first */
+  async listByBand(bandId: number) {
+    return this.listWhere(eq(schema.deal_memo.band_id, bandId))
+  }
+
+  /** Events at a venue, newest first */
+  async listByVenue(venueId: number) {
+    return this.listWhere(eq(schema.deal_memo.venue_id, venueId))
+  }
+
+  /** Events where the company is the local promoter or the invoice company, newest first */
+  async listByCompany(companyId: number) {
+    return this.listWhere(
+      or(
+        eq(schema.deal_memo.lopro_company_id, companyId),
+        eq(schema.deal_memo.invoice_company_id, companyId)
+      )
+    )
   }
 
   async getById(id: number) {

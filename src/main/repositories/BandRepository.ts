@@ -45,6 +45,17 @@ export class BandRepository {
     }
   }
 
+  /** Bands the company owns or manages, by name */
+  async listByCompany(companyId: number) {
+    return await db
+      .select()
+      .from(schema.band)
+      .where(
+        or(eq(schema.band.company_id, companyId), eq(schema.band.management_company_id, companyId))
+      )
+      .orderBy(schema.band.name)
+  }
+
   async getById(id: number) {
     const result = await db.select().from(schema.band).where(eq(schema.band.id, id))
     return result[0] || null

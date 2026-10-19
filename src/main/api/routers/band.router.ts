@@ -29,6 +29,11 @@ export const bandRouter = t.router({
     }
   }),
 
+  /** Bands a company owns or manages (company page) */
+  listByCompany: t.procedure.input(z.number()).query(async ({ input }) => {
+    return BandMapper.toDtoList(await bandService.listBandsByCompany(input))
+  }),
+
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const band = await bandService.getBandById(input)
     if (!band) throw new TRPCError({ code: 'NOT_FOUND' })

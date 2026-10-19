@@ -16,6 +16,14 @@ export class DealMemoService {
     return await this.dealMemoRepository.listByBand(bandId)
   }
 
+  async listDealMemosByVenue(venueId: number) {
+    return await this.dealMemoRepository.listByVenue(venueId)
+  }
+
+  async listDealMemosByCompany(companyId: number) {
+    return await this.dealMemoRepository.listByCompany(companyId)
+  }
+
   async getDealMemoById(id: number) {
     return await this.dealMemoRepository.getById(id)
   }

@@ -23,6 +23,17 @@ export const dealMemoRouter = t.router({
     return DealMemoMapper.toListItemDtoList(await dealMemoService.listDealMemosByBand(input))
   }),
 
+  /** Events at a venue, newest first (venue page) */
+  listByVenue: t.procedure.input(z.number()).query(async ({ input }) => {
+    return DealMemoMapper.toListItemDtoList(await dealMemoService.listDealMemosByVenue(input))
+  }),
+
+  /** Events where a company is LoPro or invoice company, newest first (company page) */
+  listByCompany: t.procedure.input(z.number()).query(async ({ input }) => {
+    const memos = await dealMemoService.listDealMemosByCompany(input)
+    return memos.map((memo) => DealMemoMapper.toDto(memo))
+  }),
+
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const memo = await dealMemoService.getDealMemoById(input)
     if (!memo) throw new TRPCError({ code: 'NOT_FOUND' })

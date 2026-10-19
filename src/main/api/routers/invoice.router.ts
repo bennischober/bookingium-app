@@ -45,6 +45,11 @@ export const invoiceRouter = t.router({
     return InvoiceMapper.toListItemDtoList(entities)
   }),
 
+  /** Invoices a company issued or received (company page) */
+  listByCompany: t.procedure.input(z.number()).query(async ({ input }) => {
+    return InvoiceMapper.toListItemDtoList(await invoiceService.listInvoicesByCompany(input))
+  }),
+
   create: t.procedure.input(CreateInvoiceInput).mutation(async ({ input }) => {
     try {
       const entity = await invoiceService.createInvoice(input)

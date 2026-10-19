@@ -19,6 +19,10 @@ export class VenueService {
     return await this.venueRepository.getAllPaginated(pagination)
   }
 
+  async listVenuesByCompany(companyId: number) {
+    return await this.venueRepository.listByCompany(companyId)
+  }
+
   async getVenueById(id: number) {
     return await this.venueRepository.getById(id)
   }

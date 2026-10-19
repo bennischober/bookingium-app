@@ -879,6 +879,37 @@ export class InvoiceRepository {
     }))
   }
 
+  /**
+   * Invoices a company issued (invoice.company_id) or received (recipient
+   * snapshot taken from that company), newest first
+   */
+  async listByCompany(companyId: number) {
+    const rows = await db
+      .select()
+      .from(schema.invoice)
+      .leftJoin(schema.company, eq(schema.invoice.company_id, schema.company.id))
+      .leftJoin(schema.deal_memo, eq(schema.invoice.deal_memo_id, schema.deal_memo.id))
+      .leftJoin(
+        schema.invoice_party_snapshot,
+        eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
+      )
+      .where(
+        or(
+          eq(schema.invoice.company_id, companyId),
+          eq(schema.invoice_party_snapshot.source_company_id, companyId)
+        )
+      )
+      .orderBy(desc(schema.invoice.issue_date), desc(schema.invoice.id))
+
+    return rows.map((row) => ({
+      ...row.invoice,
+      company: row.company,
+      dealMemo: row.deal_memo,
+      recipientSnapshot: row.invoice_party_snapshot,
+      lineItems: []
+    }))
+  }
+
   async findByCompanyAndInvoiceNumber(companyId: number, invoiceNumber: number) {
     const rows = await db
       .select()

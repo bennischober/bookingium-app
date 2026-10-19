@@ -70,6 +70,25 @@ export class VenueRepository {
     }
   }
 
+  /** Venues run by a company (venue.company_id), by name */
+  async listByCompany(companyId: number) {
+    const rows = await db
+      .select()
+      .from(schema.venue)
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
+      .where(eq(schema.venue.company_id, companyId))
+      .orderBy(schema.venue.name)
+
+    return rows.map((row) => ({
+      ...row.venue,
+      address: row.address,
+      contact: row.contact,
+      company: row.company
+    }))
+  }
+
   async getById(id: number) {
     const rows = await db
       .select()

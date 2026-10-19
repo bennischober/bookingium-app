@@ -39,6 +39,10 @@ export class InvoiceService {
     return await this.invoiceRepository.getByDealMemoId(dealMemoId)
   }
 
+  async listInvoicesByCompany(companyId: number) {
+    return await this.invoiceRepository.listByCompany(companyId)
+  }
+
   async createInvoice(input: CreateInvoiceInput) {
     if (input.status === 'cancelled') {
       throw new Error('Eine neue Rechnung kann nicht direkt storniert angelegt werden')

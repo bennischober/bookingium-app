@@ -27,6 +27,11 @@ export const venueRouter = t.router({
     }
   }),
 
+  /** Venues run by a company (company page) */
+  listByCompany: t.procedure.input(z.number()).query(async ({ input }) => {
+    return VenueMapper.toDtoList(await venueService.listVenuesByCompany(input))
+  }),
+
   getById: t.procedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
     const venue = await venueService.getVenueById(input.id)
     return venue ? VenueMapper.toDto(venue) : null
