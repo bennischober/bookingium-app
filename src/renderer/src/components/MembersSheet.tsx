@@ -40,23 +40,23 @@ type MemberRow = {
 }
 
 /**
- * Side sheet listing the persons assigned to a band/company/venue, with
- * add/edit-role/remove. Reuses the relation router's member CRUD from the
- * entity side (the Persons relations page covers the person-side view).
+ * Persons assigned to a band/company/venue, with add/edit-role/remove.
+ * Reuses the relation router's member CRUD from the entity side (the Persons
+ * relations page covers the person-side view). Shown in MembersSheet and on
+ * detail pages.
  */
-export function MembersSheet({
+export function MembersPanel({
   entityType,
   entityId,
-  entityName,
-  open,
-  onOpenChange
+  open = true
 }: {
   entityType: MemberEntityType
   entityId: number | null
-  entityName: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  // Queries only run while shown
+  open?: boolean
 }) {
+  const entityLabel =
+    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Spielstätte'
   const utils = trpcReact.useUtils()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -241,7 +241,7 @@ export function MembersSheet({
 
   const handleRemove = async (member: MemberRow) => {
     const confirmed = await confirmAction({
-      title: `${member.personName} aus ${entityName} entfernen?`,
+      title: `${member.personName} aus der ${entityLabel} entfernen?`,
       confirmLabel: 'Entfernen',
       destructive: true
     })
@@ -255,67 +255,54 @@ export function MembersSheet({
     }
   }
 
-  const entityLabel =
-    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Spielstätte'
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Mitglieder: {entityName}
-          </SheetTitle>
-          <SheetDescription>Personen, die dieser {entityLabel} zugeordnet sind.</SheetDescription>
-        </SheetHeader>
+    <>
+      <div className="space-y-3">
+        <Button size="sm" variant="outline" onClick={openAdd} className="w-full">
+          <Plus className="h-4 w-4 mr-2" />
+          Person hinzufügen
+        </Button>
 
-        <div className="mt-4 space-y-3 px-4">
-          <Button size="sm" variant="outline" onClick={openAdd} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Person hinzufügen
-          </Button>
-
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Mitglieder werden geladen...</p>
-          ) : members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Noch keine Mitglieder.</p>
-          ) : (
-            members.map((member) => (
-              <div key={member.id} className="flex items-center justify-between p-3 border rounded">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{member.personName}</p>
-                  {member.role && (
-                    <Badge variant="secondary" className="mt-1">
-                      {member.role}
-                    </Badge>
-                  )}
-                  {member.notes && (
-                    <p className="text-xs text-muted-foreground mt-1">{member.notes}</p>
-                  )}
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEdit(member)}
-                    title="Rolle bearbeiten"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemove(member)}
-                    title="Entfernen"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Mitglieder werden geladen...</p>
+        ) : members.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Noch keine Mitglieder.</p>
+        ) : (
+          members.map((member) => (
+            <div key={member.id} className="flex items-center justify-between p-3 border rounded">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{member.personName}</p>
+                {member.role && (
+                  <Badge variant="secondary" className="mt-1">
+                    {member.role}
+                  </Badge>
+                )}
+                {member.notes && (
+                  <p className="text-xs text-muted-foreground mt-1">{member.notes}</p>
+                )}
               </div>
-            ))
-          )}
-        </div>
-      </SheetContent>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openEdit(member)}
+                  title="Rolle bearbeiten"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemove(member)}
+                  title="Entfernen"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -364,6 +351,41 @@ export function MembersSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  )
+}
+
+/** Side sheet with the members of a band/company/venue */
+export function MembersSheet({
+  entityType,
+  entityId,
+  entityName,
+  open,
+  onOpenChange
+}: {
+  entityType: MemberEntityType
+  entityId: number | null
+  entityName: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const entityLabel =
+    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Spielstätte'
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Mitglieder: {entityName}
+          </SheetTitle>
+          <SheetDescription>Personen, die dieser {entityLabel} zugeordnet sind.</SheetDescription>
+        </SheetHeader>
+        <div className="mt-4 px-4">
+          <MembersPanel entityType={entityType} entityId={entityId} open={open} />
+        </div>
+      </SheetContent>
     </Sheet>
   )
 }

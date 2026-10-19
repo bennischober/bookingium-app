@@ -41,17 +41,9 @@ function contractLabel(contract: ManagementContractDto, isCurrent: boolean): str
  * terms, print it, bill quarterly management shares from it, or start a
  * new one (a copy of the current terms).
  */
-export function ManagementContractSheet({
-  band,
-  onClose
-}: {
-  band: { id: number; name: string } | null
-  onClose: () => void
-}) {
+export function ManagementContractPanel({ bandId }: { bandId: number }) {
   const utils = trpcReact.useUtils()
-  const contracts = trpcReact.managementContract.listByBand.useQuery(band?.id ?? 0, {
-    enabled: band !== null
-  })
+  const contracts = trpcReact.managementContract.listByBand.useQuery(bandId)
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const list = contracts.data ?? []
@@ -59,7 +51,7 @@ export function ManagementContractSheet({
 
   const createMutation = trpcReact.managementContract.createForBand.useMutation({
     onSuccess: (created) => {
-      void utils.managementContract.listByBand.invalidate(band?.id)
+      void utils.managementContract.listByBand.invalidate(bandId)
       setSelectedId(created.id)
       toast.success(
         list.length > 0
@@ -71,74 +63,77 @@ export function ManagementContractSheet({
       toast.error('Vertrag konnte nicht angelegt werden', { description: error.message })
   })
 
+  return contracts.isLoading ? (
+    <p className="text-sm text-muted-foreground">Verträge werden geladen…</p>
+  ) : !selected ? (
+    <div className="space-y-3 rounded-md border border-dashed p-6 text-center">
+      <p className="text-sm text-muted-foreground">
+        Für diese Band gibt es noch keinen Managementvertrag.
+      </p>
+      <Button onClick={() => createMutation.mutate(bandId)} disabled={createMutation.isPending}>
+        + Vertrag anlegen
+      </Button>
+    </div>
+  ) : (
+    <div className="space-y-5">
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-2">
+          <Label>Vertrag</Label>
+          <Select
+            value={String(selected.id)}
+            onValueChange={(value) => setSelectedId(Number(value))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {list.map((contract, index) => (
+                <SelectItem key={contract.id} value={String(contract.id)}>
+                  {contractLabel(contract, index === 0)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => createMutation.mutate(bandId)}
+          disabled={createMutation.isPending}
+          title="Neuer Vertrag mit den Konditionen des aktuellen"
+        >
+          + Neuer Vertrag
+        </Button>
+      </div>
+
+      <Separator />
+
+      <ContractForm
+        key={selected.id}
+        bandId={bandId}
+        contract={selected}
+        onDeleted={() => setSelectedId(null)}
+      />
+    </div>
+  )
+}
+
+/** Side sheet with a band's management contracts (Bands list) */
+export function ManagementContractSheet({
+  band,
+  onClose
+}: {
+  band: { id: number; name: string } | null
+  onClose: () => void
+}) {
   return (
     <FormSheet
       isOpen={band !== null}
-      onClose={() => {
-        setSelectedId(null)
-        onClose()
-      }}
+      onClose={onClose}
       mode="edit"
       title={`Managementvertrag – ${band?.name ?? ''}`}
       description="Konditionen des Managementvertrags zwischen Management und Band."
     >
-      {contracts.isLoading ? (
-        <p className="text-sm text-muted-foreground">Verträge werden geladen…</p>
-      ) : !selected ? (
-        <div className="space-y-3 rounded-md border border-dashed p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Für diese Band gibt es noch keinen Managementvertrag.
-          </p>
-          <Button
-            onClick={() => band && createMutation.mutate(band.id)}
-            disabled={createMutation.isPending}
-          >
-            + Vertrag anlegen
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-2">
-              <Label>Vertrag</Label>
-              <Select
-                value={String(selected.id)}
-                onValueChange={(value) => setSelectedId(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {list.map((contract, index) => (
-                    <SelectItem key={contract.id} value={String(contract.id)}>
-                      {contractLabel(contract, index === 0)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => band && createMutation.mutate(band.id)}
-              disabled={createMutation.isPending}
-              title="Neuer Vertrag mit den Konditionen des aktuellen"
-            >
-              + Neuer Vertrag
-            </Button>
-          </div>
-
-          <Separator />
-
-          {band && (
-            <ContractForm
-              key={selected.id}
-              bandId={band.id}
-              contract={selected}
-              onDeleted={() => setSelectedId(null)}
-            />
-          )}
-        </div>
-      )}
+      {band && <ManagementContractPanel key={band.id} bandId={band.id} />}
     </FormSheet>
   )
 }
