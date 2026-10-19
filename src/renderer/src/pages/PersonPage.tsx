@@ -1,3 +1,4 @@
+import { ImportButton } from '@/components/import/ImportButton'
 import { Users } from 'lucide-react'
 import { useState } from 'react'
 import type { z } from 'zod'
@@ -175,7 +176,12 @@ export function PersonPage() {
         searchPlaceholder="Personen filtern..."
         isLoading={persons.isLoading}
         total={persons.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportButton target="persons" />
+            <Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>
+          </div>
+        }
       />
 
       <FormSheet

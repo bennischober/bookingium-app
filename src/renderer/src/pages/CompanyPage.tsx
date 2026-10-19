@@ -1,3 +1,4 @@
+import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { z } from 'zod'
@@ -217,7 +218,12 @@ export function CompanyPage() {
         }
         isLoading={companies.isLoading}
         total={companies.data?.total ?? 0}
-        actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportButton target="companies" />
+            <Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>
+          </div>
+        }
       />
 
       <MembersSheet

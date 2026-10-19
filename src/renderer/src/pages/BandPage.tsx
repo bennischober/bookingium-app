@@ -1,3 +1,4 @@
+import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -195,7 +196,12 @@ export default function BandPage() {
         }
         isLoading={bands.isLoading}
         total={bands.data?.total ?? 0}
-        actionButton={<Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>}
+        actionButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportButton target="bands" />
+            <Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>
+          </div>
+        }
       />
 
       <ManagementContractSheet band={contractBand} onClose={() => setContractBand(null)} />
