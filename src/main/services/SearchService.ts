@@ -115,8 +115,8 @@ export class SearchService {
         id: company.id,
         label: company.name,
         sublabel: company.city || null,
-        route: '/companies',
-        routeParams: null
+        route: '/companies/$companyId',
+        routeParams: { companyId: String(company.id) }
       })),
       ...persons.map((person) => ({
         type: 'person' as const,
@@ -131,8 +131,8 @@ export class SearchService {
         id: venue.id,
         label: venue.name,
         sublabel: venue.city || null,
-        route: '/venues',
-        routeParams: null
+        route: '/venues/$venueId',
+        routeParams: { venueId: String(venue.id) }
       })),
       ...hotels.map((hotel) => ({
         type: 'hotel' as const,

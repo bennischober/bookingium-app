@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2, Upload, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
@@ -35,6 +36,7 @@ export default function VenuePage() {
   } | null>(null)
 
   const formSheet = useFormSheet<VenueDto>()
+  const navigate = useNavigate()
   const utils = trpcReact.useUtils()
 
   // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
@@ -191,6 +193,10 @@ export default function VenuePage() {
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
         searchPlaceholder="Spielstätten filtern..."
+        // A click opens the venue page; the pencil keeps the quick-edit sheet
+        onRowClick={(venue) =>
+          navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
+        }
         isLoading={venues.isLoading}
         total={venues.data?.total ?? 0}
         actionButton={

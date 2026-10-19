@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -29,6 +30,7 @@ export function CompanyPage() {
   } | null>(null)
 
   const formSheet = useFormSheet<CompanyDto>()
+  const navigate = useNavigate()
   const utils = trpcReact.useUtils()
 
   // ?create=true / ?open=<id> from the search palette and the "+ Neu" menu
@@ -209,6 +211,10 @@ export function CompanyPage() {
           setPagination((prev) => ({ ...prev, pageIndex: 0 }))
         }}
         searchPlaceholder="Firmen filtern..."
+        // A click opens the company page; the pencil keeps the quick-edit sheet
+        onRowClick={(company) =>
+          navigate({ to: '/companies/$companyId', params: { companyId: String(company.id) } })
+        }
         isLoading={companies.isLoading}
         total={companies.data?.total ?? 0}
         actionButton={<Button onClick={() => formSheet.openCreate()}>+ Neue Firma anlegen</Button>}

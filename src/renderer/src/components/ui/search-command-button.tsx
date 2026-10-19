@@ -383,7 +383,10 @@ const SearchButton = () => {
                     keywords={['company']}
                     onSelect={() =>
                       runAndClose(() =>
-                        navigate({ to: company.route, search: { open: company.id } })
+                        navigate({
+                          to: '/companies/$companyId',
+                          params: { companyId: String(company.id) }
+                        })
                       )
                     }
                   >
@@ -416,7 +419,9 @@ const SearchButton = () => {
                     value={`${venue.label} ${venue.sublabel ?? ''} venue location`}
                     keywords={['location']}
                     onSelect={() =>
-                      runAndClose(() => navigate({ to: venue.route, search: { open: venue.id } }))
+                      runAndClose(() =>
+                        navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
+                      )
                     }
                   >
                     <MapPin />

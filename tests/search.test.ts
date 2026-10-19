@@ -43,7 +43,8 @@ describe('SearchService', () => {
     const company = results.find((r) => r.type === 'company')
     expect(company).toBeDefined()
     expect(company?.label).toBe('Searchbeat Records')
-    expect(company?.route).toBe('/companies')
+    expect(company?.route).toBe('/companies/$companyId')
+    expect(company?.routeParams).toEqual({ companyId: String(company?.id) })
   })
 
   it('finds bands by name and events by name', async () => {

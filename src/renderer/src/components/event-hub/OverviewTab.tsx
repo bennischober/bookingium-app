@@ -155,6 +155,7 @@ export function OverviewTab({
           onSwap={handleSwapVenue}
           isSaving={updateMutation.isPending}
           nullable={true}
+          href={event.venueId ? `/venues/${event.venueId}` : undefined}
           empty="Keine Spielstätte zugewiesen"
         />
       </div>
@@ -192,7 +193,7 @@ export function OverviewTab({
             onSwap={handleSwapCompany}
             isSaving={updateMutation.isPending}
             nullable={true}
-            href="/companies"
+            href={event.loProCompanyId ? `/companies/${event.loProCompanyId}` : undefined}
             empty="Keine Firma zugewiesen"
           />
         </div>
