@@ -1,2 +1,0 @@
-ALTER TABLE `band` ADD `management_company_id` integer REFERENCES company(id) ON DELETE set null;--> statement-breakpoint
-ALTER TABLE `deal_memo` ADD `representing_company_id` integer REFERENCES company(id) ON DELETE set null;

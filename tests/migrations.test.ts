@@ -1,96 +1,89 @@
-// Migration runner test: drizzle-kit table rebuilds (DROP + rename) must not
-// cascade-delete child rows. Migration 0004 rebuilds `invoice`; without the
-// runner disabling foreign keys, every invoice_line_item row was lost.
-import { describe, it, expect, afterAll } from 'vitest'
+// Migration runner: fresh databases get the merged initial migration;
+// databases from before the merge (history ending at the old 0010) are
+// taken over as they are, with the band table repaired once.
+import { describe, it, expect, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
-import { join, resolve } from 'path'
-import { tmpdir } from 'os'
+import { readMigrationFiles } from 'drizzle-orm/migrator'
+import { resolve } from 'path'
 import { schema } from '../src/main/db/schema'
-import { useTestDb, type Db } from '../src/main/db/index'
-import { runMigrations, setMigrationsFolder } from '../src/main/db/migrate'
+// Not a React hook (just named use…)
+import { useTestDb as swapInTestDb, type Db } from '../src/main/db/index'
+import {
+  LEGACY_FINAL_MIGRATION_MILLIS,
+  runMigrations,
+  setMigrationsFolder
+} from '../src/main/db/migrate'
 
 const migrationsFolder = resolve(__dirname, '../src/main/db/migrations')
-const workDir = mkdtempSync(join(tmpdir(), 'bookingum-migrations-'))
+const [initial] = readMigrationFiles({ migrationsFolder })
 
-/** Copy of the migrations folder whose journal stops before `tag` */
-function migrationsUpTo(tag: string): string {
-  const folder = join(workDir, 'partial')
-  cpSync(migrationsFolder, folder, { recursive: true })
-  const journalPath = join(folder, 'meta/_journal.json')
-  const journal = JSON.parse(readFileSync(journalPath, 'utf-8'))
-  const stop = journal.entries.findIndex((entry: { tag: string }) => entry.tag === tag)
-  journal.entries = journal.entries.slice(0, stop)
-  writeFileSync(journalPath, JSON.stringify(journal))
-  return folder
+let restore: (() => void) | null = null
+
+function openDb(): Database.Database {
+  const sqlite = new Database(':memory:')
+  restore = swapInTestDb(drizzle(sqlite, { schema }) as Db, sqlite)
+  setMigrationsFolder(migrationsFolder)
+  return sqlite
 }
 
-afterAll(() => {
+afterEach(() => {
   setMigrationsFolder(null)
-  rmSync(workDir, { recursive: true, force: true })
+  restore?.()
+  restore = null
 })
 
+/**
+ * A database as it was before the merge: the same tables, history ending
+ * at the old 0010 migration
+ */
+function legacyDb(lastMillis = LEGACY_FINAL_MIGRATION_MILLIS): Database.Database {
+  const sqlite = openDb()
+  sqlite.pragma('foreign_keys = OFF')
+  for (const sql of initial.sql) sqlite.exec(sql)
+  sqlite.exec(
+    'CREATE TABLE __drizzle_migrations (id integer PRIMARY KEY AUTOINCREMENT, hash text NOT NULL, created_at numeric)'
+  )
+  sqlite
+    .prepare('insert into __drizzle_migrations (hash, created_at) values (?, ?)')
+    .run('legacy', lastMillis)
+  sqlite.exec(`
+    INSERT INTO company (id, name) VALUES (1, 'Band GbR');
+    INSERT INTO person (id, first_name, last_name) VALUES (1, 'Tom', 'Technik');
+    INSERT INTO band (id, name, company_id, responsible_person_id) VALUES (1, 'Pretty Wild', 1, 1);
+    INSERT INTO document (owner_type, owner_id, file_name, file_type, file_path, file_size)
+      VALUES ('band', 1, 'rider.pdf', 'application/pdf', 'documents/bands/1-pretty-wild/rider.pdf', 1);
+  `)
+  sqlite.pragma('foreign_keys = ON')
+  return sqlite
+}
+
 describe('runMigrations', () => {
-  it('keeps invoice line items when 0004 rebuilds the invoice table', async () => {
-    const sqlite = new Database(join(workDir, 'test.db'))
-    const restore = useTestDb(drizzle(sqlite, { schema }) as Db, sqlite)
-    try {
-      // Database as it was before 0004, with an issued invoice + line items.
-      // Raw SQL: today's services expect today's schema.
-      setMigrationsFolder(migrationsUpTo('0004_invoice_number_on_issue'))
-      runMigrations()
-      sqlite.exec(`
-        INSERT INTO company (id, name) VALUES (1, 'Old GmbH');
-        INSERT INTO invoice (id, invoice_number, company_id, status) VALUES (1, 1001, 1, 'issued');
-        INSERT INTO invoice_line_item (invoice_id, description) VALUES (1, 'A'), (1, 'B');
-      `)
-      const count = () =>
-        (sqlite.prepare('select count(*) as n from invoice_line_item').get() as { n: number }).n
-      expect(count()).toBe(2)
-
-      setMigrationsFolder(migrationsFolder)
-      runMigrations()
-
-      expect(count()).toBe(2)
-      const column = sqlite
-        .prepare(
-          "select \"notnull\" from pragma_table_info('invoice') where name = 'invoice_number'"
-        )
-        .get() as { notnull: number }
-      expect(column.notnull).toBe(0)
-      expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
-    } finally {
-      restore()
-      sqlite.close()
-    }
+  it('applies the initial migration to a new database', () => {
+    const sqlite = openDb()
+    runMigrations()
+    expect(sqlite.prepare('select hash from __drizzle_migrations').all()).toEqual([
+      { hash: initial.hash }
+    ])
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
-  it('turns event documents into owner documents (0009) and deletes them with the owner', () => {
-    const sqlite = new Database(join(workDir, 'documents.db'))
-    const restore = useTestDb(drizzle(sqlite, { schema }) as Db, sqlite)
-    try {
-      setMigrationsFolder(migrationsUpTo('0009_document_owner'))
-      runMigrations()
-      sqlite.exec(`
-        INSERT INTO company (id, name) VALUES (1, 'Band GbR');
-        INSERT INTO band (id, name, company_id) VALUES (1, 'Pretty Wild', 1);
-        INSERT INTO deal_memo (id, name, date, band_id) VALUES (7, 'München', '2026-06-11', 1);
-        INSERT INTO document (deal_memo_id, file_name, file_type, file_path, file_size)
-          VALUES (7, 'vertrag.pdf', 'application/pdf', 'events/7/vertrag.pdf', 10);
-      `)
+  it('takes over a database from before the merge, keeping its data', () => {
+    const sqlite = legacyDb()
+    runMigrations()
+    runMigrations()
 
-      setMigrationsFolder(migrationsFolder)
-      runMigrations()
+    expect(sqlite.prepare('select count(*) as n from __drizzle_migrations').get()).toEqual({ n: 2 })
+    expect(sqlite.prepare('select name, responsible_person_id from band').all()).toEqual([
+      { name: 'Pretty Wild', responsible_person_id: 1 }
+    ])
+    // Band rebuilt with its trigger: deleting it removes its documents
+    sqlite.exec('DELETE FROM band WHERE id = 1')
+    expect(sqlite.prepare('select count(*) as n from document').get()).toEqual({ n: 0 })
+  })
 
-      expect(sqlite.prepare('select owner_type, owner_id, file_path from document').all()).toEqual([
-        { owner_type: 'event', owner_id: 7, file_path: 'events/7/vertrag.pdf' }
-      ])
-      sqlite.exec('DELETE FROM deal_memo WHERE id = 7')
-      expect(sqlite.prepare('select count(*) as n from document').get()).toEqual({ n: 0 })
-    } finally {
-      restore()
-      sqlite.close()
-    }
+  it('refuses databases from an even older pre-release', () => {
+    legacyDb(LEGACY_FINAL_MIGRATION_MILLIS - 1)
+    expect(() => runMigrations()).toThrow('älteren Vorabversion')
   })
 })

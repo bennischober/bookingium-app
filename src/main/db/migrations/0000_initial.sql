@@ -12,6 +12,12 @@ CREATE TABLE `address` (
 --> statement-breakpoint
 CREATE INDEX `address_city_idx` ON `address` (`city`);--> statement-breakpoint
 CREATE INDEX `address_country_idx` ON `address` (`country`);--> statement-breakpoint
+CREATE TABLE `app_setting` (
+	`key` text PRIMARY KEY NOT NULL,
+	`value` text NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `band` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
@@ -19,9 +25,13 @@ CREATE TABLE `band` (
 	`founded` text,
 	`notes` text DEFAULT '' NOT NULL,
 	`company_id` integer NOT NULL,
+	`responsible_person_id` integer,
+	`management_company_id` integer,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
-	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`responsible_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`management_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `band_name_idx` ON `band` (`name`);--> statement-breakpoint
@@ -55,6 +65,12 @@ CREATE TABLE `company` (
 	`bank_id` integer,
 	`vat_number` text DEFAULT '' NOT NULL,
 	`ust_number` text DEFAULT '' NOT NULL,
+	`tax_number` text DEFAULT '' NOT NULL,
+	`commercial_register_no` text DEFAULT '' NOT NULL,
+	`register_court` text DEFAULT '' NOT NULL,
+	`logo_path` text DEFAULT '' NOT NULL,
+	`signature_path` text DEFAULT '' NOT NULL,
+	`ksk_number` text DEFAULT '' NOT NULL,
 	`is_default_for_invoicing` integer DEFAULT false NOT NULL,
 	`address_id` integer,
 	`contact_id` integer,
@@ -114,9 +130,13 @@ CREATE TABLE `deal_memo` (
 	`performance_duration` text DEFAULT '',
 	`performance_time` text DEFAULT '',
 	`performance_information` text DEFAULT '',
+	`guarantee_amount` real,
+	`guarantee_vat_rate` real,
+	`contract_notes` text DEFAULT '',
 	`lopro_person_id` integer,
 	`lopro_company_id` integer,
 	`invoice_company_id` integer,
+	`representing_company_id` integer,
 	`band_id` integer NOT NULL,
 	`venue_id` integer,
 	`hotel_id` integer,
@@ -125,6 +145,7 @@ CREATE TABLE `deal_memo` (
 	FOREIGN KEY (`lopro_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`lopro_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`invoice_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`representing_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`venue_id`) REFERENCES `venue`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`hotel_id`) REFERENCES `hotel`(`id`) ON UPDATE no action ON DELETE set null
@@ -138,7 +159,8 @@ CREATE INDEX `deal_memo_invoice_company_idx` ON `deal_memo` (`invoice_company_id
 CREATE INDEX `deal_memo_status_idx` ON `deal_memo` (`status`);--> statement-breakpoint
 CREATE TABLE `document` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`deal_memo_id` integer NOT NULL,
+	`owner_type` text NOT NULL,
+	`owner_id` integer NOT NULL,
 	`file_name` text NOT NULL,
 	`file_type` text NOT NULL,
 	`file_path` text NOT NULL,
@@ -147,11 +169,10 @@ CREATE TABLE `document` (
 	`uploaded_at` text DEFAULT (datetime('now')) NOT NULL,
 	`uploaded_by` text,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	`updated_at` text,
-	FOREIGN KEY (`deal_memo_id`) REFERENCES `deal_memo`(`id`) ON UPDATE no action ON DELETE cascade
+	`updated_at` text
 );
 --> statement-breakpoint
-CREATE INDEX `document_deal_memo_idx` ON `document` (`deal_memo_id`);--> statement-breakpoint
+CREATE INDEX `document_owner_idx` ON `document` (`owner_type`,`owner_id`);--> statement-breakpoint
 CREATE INDEX `document_type_idx` ON `document` (`document_type`);--> statement-breakpoint
 CREATE INDEX `document_uploaded_at_idx` ON `document` (`uploaded_at`);--> statement-breakpoint
 CREATE TABLE `hotel` (
@@ -169,7 +190,7 @@ CREATE TABLE `hotel` (
 CREATE INDEX `hotel_name_idx` ON `hotel` (`name`);--> statement-breakpoint
 CREATE TABLE `invoice` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`invoice_number` integer NOT NULL,
+	`invoice_number` integer,
 	`company_id` integer NOT NULL,
 	`issuer_snapshot_id` integer,
 	`recipient_snapshot_id` integer,
@@ -237,6 +258,13 @@ CREATE TABLE `invoice_party_snapshot` (
 	`country_code` text(2) DEFAULT '' NOT NULL,
 	`vat_number` text DEFAULT '' NOT NULL,
 	`ust_number` text DEFAULT '' NOT NULL,
+	`tax_number` text DEFAULT '' NOT NULL,
+	`commercial_register_no` text DEFAULT '' NOT NULL,
+	`register_court` text DEFAULT '' NOT NULL,
+	`website` text DEFAULT '' NOT NULL,
+	`account_holder` text DEFAULT '' NOT NULL,
+	`bank_name` text DEFAULT '' NOT NULL,
+	`logo_path` text DEFAULT '' NOT NULL,
 	`email` text DEFAULT '' NOT NULL,
 	`phone` text DEFAULT '' NOT NULL,
 	`iban` text DEFAULT '' NOT NULL,
@@ -270,6 +298,68 @@ CREATE TABLE `itinerary` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `itinerary_deal_memo_idx` ON `itinerary` (`deal_memo_id`);--> statement-breakpoint
+CREATE TABLE `management_contract` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`band_id` integer NOT NULL,
+	`management_company_id` integer,
+	`start_date` text,
+	`territory` text DEFAULT 'örtlich unbeschränkt' NOT NULL,
+	`term_years` integer DEFAULT 3 NOT NULL,
+	`renewal_years` integer DEFAULT 1 NOT NULL,
+	`notice_months` integer DEFAULT 6 NOT NULL,
+	`commission_percent` real DEFAULT 20 NOT NULL,
+	`excluded_income` text DEFAULT 'GVL und GEMA Einnahmen' NOT NULL,
+	`statement_email` text DEFAULT '' NOT NULL,
+	`settlement_days` integer DEFAULT 30 NOT NULL,
+	`payment_days` integer DEFAULT 14 NOT NULL,
+	`post_term_year1_percent` real DEFAULT 30 NOT NULL,
+	`post_term_year2_percent` real DEFAULT 0 NOT NULL,
+	`post_term_year3_percent` real DEFAULT 0 NOT NULL,
+	`representative_person_id` integer,
+	`special_clauses` text DEFAULT '' NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`updated_at` text,
+	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`management_company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`representative_person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `management_contract_band_idx` ON `management_contract` (`band_id`);--> statement-breakpoint
+CREATE TABLE `management_contract_member` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`contract_id` integer NOT NULL,
+	`person_id` integer NOT NULL,
+	FOREIGN KEY (`contract_id`) REFERENCES `management_contract`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`person_id`) REFERENCES `person`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `management_contract_member_unique_idx` ON `management_contract_member` (`contract_id`,`person_id`);--> statement-breakpoint
+CREATE TABLE `management_share` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`invoice_id` integer NOT NULL,
+	`band_id` integer NOT NULL,
+	`management_contract_id` integer,
+	`year` integer NOT NULL,
+	`quarter` integer NOT NULL,
+	`commission_percent` real NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`invoice_id`) REFERENCES `invoice`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`band_id`) REFERENCES `band`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`management_contract_id`) REFERENCES `management_contract`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `management_share_invoice_unique_idx` ON `management_share` (`invoice_id`);--> statement-breakpoint
+CREATE INDEX `management_share_band_period_idx` ON `management_share` (`band_id`,`year`,`quarter`);--> statement-breakpoint
+CREATE TABLE `management_share_income` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`share_id` integer NOT NULL,
+	`position` integer NOT NULL,
+	`description` text NOT NULL,
+	`net_amount` real NOT NULL,
+	FOREIGN KEY (`share_id`) REFERENCES `management_share`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `management_share_income_share_idx` ON `management_share_income` (`share_id`);--> statement-breakpoint
 CREATE TABLE `person` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`first_name` text NOT NULL,
@@ -288,6 +378,7 @@ CREATE INDEX `person_name_idx` ON `person` (`first_name`,`last_name`);--> statem
 CREATE TABLE `venue` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
+	`kind` text DEFAULT 'venue' NOT NULL,
 	`capacity` integer,
 	`notes` text DEFAULT '' NOT NULL,
 	`address_id` integer,
@@ -314,3 +405,25 @@ CREATE TABLE `venue_member` (
 --> statement-breakpoint
 CREATE INDEX `venue_member_venue_idx` ON `venue_member` (`venue_id`);--> statement-breakpoint
 CREATE INDEX `venue_member_person_idx` ON `venue_member` (`person_id`);
+--> statement-breakpoint
+-- Deleting an owner deletes its document rows (the files are removed by the
+-- app); one trigger per owner type
+CREATE TRIGGER `document_owner_event_deleted` AFTER DELETE ON `deal_memo` BEGIN
+	DELETE FROM `document` WHERE `owner_type` = 'event' AND `owner_id` = OLD.`id`;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `document_owner_band_deleted` AFTER DELETE ON `band` BEGIN
+	DELETE FROM `document` WHERE `owner_type` = 'band' AND `owner_id` = OLD.`id`;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `document_owner_company_deleted` AFTER DELETE ON `company` BEGIN
+	DELETE FROM `document` WHERE `owner_type` = 'company' AND `owner_id` = OLD.`id`;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `document_owner_venue_deleted` AFTER DELETE ON `venue` BEGIN
+	DELETE FROM `document` WHERE `owner_type` = 'venue' AND `owner_id` = OLD.`id`;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `document_owner_person_deleted` AFTER DELETE ON `person` BEGIN
+	DELETE FROM `document` WHERE `owner_type` = 'person' AND `owner_id` = OLD.`id`;
+END;

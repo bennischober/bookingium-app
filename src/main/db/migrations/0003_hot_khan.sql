@@ -1,1 +1,0 @@
-ALTER TABLE `band` ADD `responsible_person_id` integer REFERENCES person(id);
