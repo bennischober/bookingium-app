@@ -183,6 +183,7 @@ export class InvoiceMapper {
     entity: InvoiceWithRelations & {
       venueName?: string | null
       managementShareBandName?: string | null
+      eventBandName?: string | null
     },
     issuerSnapshot: InvoicePartySnapshotEntity | null,
     recipientSnapshot: InvoicePartySnapshotEntity | null
@@ -195,7 +196,8 @@ export class InvoiceMapper {
       eventDate: entity.dealMemo?.date ?? null,
       managementShare: entity.managementShareBandName
         ? { bandName: entity.managementShareBandName }
-        : null
+        : null,
+      bandName: entity.managementShareBandName ?? entity.eventBandName ?? null
     }
   }
 }

@@ -152,7 +152,7 @@ test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
   // Agency template: the (negative) VAT line, not the reverse charge note
   await page.getByRole('combobox').first().click()
   await page.getByRole('option', { name: 'Agentur (Deutsch)' }).click()
-  await expect(page.locator('.paged-source')).toContainText('zzgl. 19 % Ust.:')
+  await expect(page.locator('.paged-source')).toContainText('zzgl. 19 % USt.:')
   await expect(page.locator('.paged-source')).not.toContainText('Reverse Charge')
   await expect(page.locator('.paged-source')).toContainText(
     'Der Betrag wird mit der Rechnung Nr. 1040 verrechnet.'

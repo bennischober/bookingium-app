@@ -35,6 +35,8 @@ src/main/              Main process
   einvoice/            E-invoice (ZUGFeRD/Factur-X): amounts (cent rounding),
                        codes, completeness check, CII XML (pure, shared with
                        the renderer); facturx.ts embeds it with pdf-lib
+  invoice/             What printed invoices must say about VAT and the
+                       service date (pure, used by the invoice templates)
   payment/             EPC payment QR code text (pure, used by the invoice
                        templates)
   utils/               fileStorage (storage root, logos), documentStorage
@@ -200,9 +202,18 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   `payment/epcQr.ts` builds the text (version 002, BIC optional, gross
   total, „Rechnung 1040“/„Invoice 1040“ as reference, max 331 bytes);
   `PaymentQr` draws it as an inline SVG path, synchronously, so every print
-  has it. Only issued/paid/overdue invoices in EUR with a valid issuer IBAN
-  (mod 97) get one — no drafts, cancelled invoices or Stornorechnungen.
-  The e2e test scans the code from the saved PDF.
+  has it, at 21 mm left of the totals (the whitespace around it is the
+  quiet zone). Only issued/paid/overdue invoices in EUR with a valid issuer
+  IBAN (mod 97) get one — no drafts, cancelled invoices or
+  Stornorechnungen. The e2e test scans the code from the saved PDF.
+- **Mandatory content** (§ 14 Abs. 4 UStG) comes from
+  `invoice/taxSummary.ts`, shared by all templates: VAT per rate and per
+  0 % reason with its net amount when there is more than one group, the
+  Steuerhinweis (else the standard wording for reverse charge, intra-EU,
+  export, not taxable) under the totals, the buyer's VAT ID for reverse
+  charge and intra-Community supplies, and the service date (period, else
+  event date, else „entspricht Rechnungsdatum“). Check a template change
+  against these before shipping it.
 
 ## E-invoices (ZUGFeRD/Factur-X)
 

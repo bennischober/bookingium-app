@@ -166,7 +166,10 @@ export const InvoicePrintDto = z.object({
   // Date of the linked event (date of supply in the e-invoice)
   eventDate: z.string().nullable(),
   // Set for a quarterly management share (billed to the band's company)
-  managementShare: z.object({ bandName: z.string() }).nullable()
+  managementShare: z.object({ bandName: z.string() }).nullable(),
+  // The artist the invoice is about: the management share's band, else the
+  // linked event's band
+  bandName: z.string().nullable()
 })
 
 export type InvoicePrintDto = z.infer<typeof InvoicePrintDto>

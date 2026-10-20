@@ -627,6 +627,7 @@ export class InvoiceRepository {
   async getByIdWithSnapshots(id: number) {
     const issuerSnapshot = alias(schema.invoice_party_snapshot, 'issuer_snapshot')
     const recipientSnapshot = alias(schema.invoice_party_snapshot, 'recipient_snapshot')
+    const eventBand = alias(schema.band, 'event_band')
 
     const rows = await db
       .select()
@@ -634,6 +635,7 @@ export class InvoiceRepository {
       .leftJoin(schema.company, eq(schema.invoice.company_id, schema.company.id))
       .leftJoin(schema.deal_memo, eq(schema.invoice.deal_memo_id, schema.deal_memo.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(eventBand, eq(schema.deal_memo.band_id, eventBand.id))
       .leftJoin(issuerSnapshot, eq(schema.invoice.issuer_snapshot_id, issuerSnapshot.id))
       .leftJoin(recipientSnapshot, eq(schema.invoice.recipient_snapshot_id, recipientSnapshot.id))
       .leftJoin(schema.management_share, eq(schema.management_share.invoice_id, schema.invoice.id))
@@ -660,6 +662,8 @@ export class InvoiceRepository {
       venueName: row.venue?.name ?? null,
       // Quarterly management share: the band it was billed for
       managementShareBandName: row.band?.name ?? null,
+      // Linked event: the band that played
+      eventBandName: row.event_band?.name ?? null,
       issuerSnapshot: row.issuer_snapshot,
       recipientSnapshot: row.recipient_snapshot,
       lineItems

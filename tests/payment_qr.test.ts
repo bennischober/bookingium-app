@@ -36,7 +36,8 @@ function printData(invoice: Partial<InvoiceDto> = {}, issuer = party()): Invoice
     recipient: party({ legalName: 'Veranstalter GmbH' }),
     venueName: null,
     eventDate: null,
-    managementShare: null
+    managementShare: null,
+    bandName: null
   }
 }
 

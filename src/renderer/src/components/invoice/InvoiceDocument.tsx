@@ -4,6 +4,15 @@ import type {
 } from '../../../../main/api/schemas/invoice.schema'
 import { PagedDocument } from '../print/PagedDocument'
 import { unitLabelOf } from '../../../../main/einvoice/codes'
+import { fromCents } from '../../../../main/einvoice/amounts'
+import {
+  needsBuyerVatId,
+  serviceDateOf,
+  taxNoteOf,
+  vatGroupLabel,
+  vatGroups,
+  type Lang
+} from '../../../../main/invoice/taxSummary'
 import { PaymentQr } from './PaymentQr'
 
 // ========================================
@@ -41,12 +50,6 @@ function formatQuantity(value: number): string {
   return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(value)
 }
 
-// Highest distinct tax rate across line items, used for "zzgl. X % Ust." labels
-function dominantTaxRate(data: InvoicePrintDto): number {
-  const rates = data.invoice.lineItems.map((item) => item.taxRate).filter((rate) => rate > 0)
-  return rates.length > 0 ? Math.max(...rates) : 0
-}
-
 // Stornorechnung: number and date of the invoice it cancels
 function cancellationOf(data: InvoicePrintDto): { number: string; date: string } | null {
   const { invoice } = data
@@ -57,36 +60,48 @@ function cancellationOf(data: InvoicePrintDto): { number: string; date: string }
   }
 }
 
-function formatPeriod(data: InvoicePrintDto): string {
-  if (data.invoice.periodLabel) return data.invoice.periodLabel
-  const start = formatDate(data.invoice.periodStartDate)
-  const end = formatDate(data.invoice.periodEndDate)
-  if (start && end) return `${start} – ${end}`
-  return start || end || '-'
-}
-
 // ========================================
 // Shared pieces
 // ========================================
 
 function Logo({ src }: { src?: string }) {
   if (!src) return null
-  // In-flow, right-aligned within the page padding; ~22mm tall like the reference
-  return <img src={src} alt="" className="mb-8 ml-auto max-h-[22mm] max-w-[70mm] object-contain" />
+  // Top right within the page padding; ~22mm tall like the reference
+  return <img src={src} alt="" className="max-h-[22mm] max-w-[70mm] object-contain" />
+}
+
+// Issuer in one small line above the recipient (return address of a window
+// envelope letter, DIN 5008)
+function SenderLine({ issuer }: { issuer: InvoicePartySnapshotDto | null }) {
+  if (!issuer) return null
+  const parts = [
+    issuer.legalName,
+    [issuer.street, issuer.streetNumber].filter(Boolean).join(' ').trim(),
+    [issuer.zipCode, issuer.city].filter(Boolean).join(' ').trim()
+  ].filter(Boolean)
+  return (
+    <div className="mb-2 inline-block border-b border-neutral-400 text-[7.5pt] text-neutral-600">
+      {parts.join(' · ')}
+    </div>
+  )
 }
 
 // Shows the country only for foreign recipients (matches the reference docs:
-// domestic recipients get no country line, cross-border ones do)
+// domestic recipients get no country line, cross-border ones do). The VAT ID
+// is printed when the invoice needs it (reverse charge, § 14a UStG).
 function AddressBlock({
   party,
-  issuerCountryCode
+  issuerCountryCode,
+  vatIdLabel
 }: {
   party: InvoicePartySnapshotDto | null
   issuerCountryCode?: string
+  vatIdLabel?: string
 }) {
   if (!party) return null
   const isForeign =
     issuerCountryCode && party.countryCode && issuerCountryCode !== party.countryCode
+  const vatId = party.vatNumber || party.ustNumber
   return (
     <div className="text-[10pt] leading-snug">
       <div>{party.legalName}</div>
@@ -101,8 +116,89 @@ function AddressBlock({
         </div>
       )}
       {isForeign && party.country && <div>{party.country}</div>}
+      {vatIdLabel && vatId && (
+        <div className="mt-1">
+          {vatIdLabel}: {vatId}
+        </div>
+      )}
     </div>
   )
+}
+
+// Net total, VAT per rate (and per reason at 0 %), gross total. With one
+// VAT group the net total is its base; with several each line names it.
+function Totals({
+  data,
+  lang,
+  labels,
+  className
+}: {
+  data: InvoicePrintDto
+  lang: Lang
+  labels: { net: string; total: string }
+  className: string
+}) {
+  const { invoice } = data
+  const money = (value: number) => formatMoney(value, invoice.currency)
+  const groups = vatGroups(data)
+  return (
+    <div className={className}>
+      <div className="flex justify-between gap-4 border-t border-neutral-400 py-1">
+        <span>{labels.net}</span>
+        <span>{money(invoice.subtotalNetAmount)}</span>
+      </div>
+      {groups.map((group) => (
+        <div key={`${group.rate}-${group.taxCode}`} className="flex justify-between gap-4 py-1">
+          <span>
+            {vatGroupLabel(group, groups.length === 1, lang, (cents) => money(fromCents(cents)))}
+            {labels.net.endsWith(':') && ':'}
+          </span>
+          <span className="whitespace-nowrap">
+            {money(groups.length === 1 ? invoice.subtotalTaxAmount : fromCents(group.taxCents))}
+          </span>
+        </div>
+      ))}
+      <div className="flex justify-between gap-4 border-t border-neutral-400 py-1 font-bold">
+        <span>{labels.total}</span>
+        <span>{money(invoice.totalGrossAmount)}</span>
+      </div>
+    </div>
+  )
+}
+
+// Payment QR code on the left, totals on the right: the free space next to
+// the totals takes the code, so it costs no height
+function TotalsRow({
+  data,
+  lang,
+  paymentQr,
+  labels,
+  totalsClassName
+}: {
+  data: InvoicePrintDto
+  lang: Lang
+  paymentQr: boolean
+  labels: { net: string; total: string }
+  totalsClassName: string
+}) {
+  return (
+    <div className="mt-6 flex break-inside-avoid items-start gap-6">
+      {paymentQr && <PaymentQr data={data} lang={lang} />}
+      <Totals
+        data={data}
+        lang={lang}
+        labels={labels}
+        className={`ml-auto shrink-0 ${totalsClassName}`}
+      />
+    </div>
+  )
+}
+
+// Steuerhinweis (exemption reason, reverse charge) right under the totals
+function TaxNote({ data, lang }: { data: InvoicePrintDto; lang: Lang }) {
+  const note = taxNoteOf(data, lang)
+  if (!note) return null
+  return <p className="mt-3 text-[9pt]">{note}</p>
 }
 
 // Centered small-print footer. One data-driven layout for both languages:
@@ -233,13 +329,14 @@ function MetaBand({ columns, values }: { columns: string[]; values: string[] }) 
 
 type AgencyStrings = {
   heading: string
-  meta: [string, string, string, string, string]
+  // Artist, place of performance, invoice date, invoice no. (the service
+  // date column is named by serviceDateOf)
+  meta: { artist: string; place: string; date: string; number: string }
   intro: string
   items: [string, string, string]
   sumNet: string
-  plusVat: (rate: string) => string
-  reverseCharge: string
   total: string
+  vatId: string
   paymentDue: (date: string) => string
   thanks: string
   // Stornorechnung
@@ -252,13 +349,17 @@ type AgencyStrings = {
 const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
   de: {
     heading: 'RECHNUNG',
-    meta: ['Künstler', 'Zeitraum', 'Leistungsort', 'Rechnungsdatum', 'Rechnung Nr.'],
+    meta: {
+      artist: 'Künstler',
+      place: 'Leistungsort',
+      date: 'Rechnungsdatum',
+      number: 'Rechnung Nr.'
+    },
     intro: 'Hiermit berechnen wir vereinbarungsgemäß:',
     items: ['Leistung', 'Mwst.', 'Netto'],
     sumNet: 'Summe Netto:',
-    plusVat: (rate) => `zzgl. ${rate} % Ust.:`,
-    reverseCharge: 'Reverse Charge Procedure applies',
     total: 'Gesamtbetrag:',
+    vatId: 'USt-IdNr.',
     paymentDue: (date) => `Bitte überweisen Sie den Betrag bis zum ${date} auf unser Konto.`,
     thanks: 'Wir bedanken uns recht herzlich für die gute Zusammenarbeit.',
     cancellationHeading: 'STORNORECHNUNG',
@@ -268,13 +369,17 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
   },
   en: {
     heading: 'INVOICE',
-    meta: ['Artist', 'Period', 'Place of performance', 'Invoice date', 'Invoice No.'],
+    meta: {
+      artist: 'Artist',
+      place: 'Place of performance',
+      date: 'Invoice date',
+      number: 'Invoice No.'
+    },
     intro: 'Herewith we charge our agreed services:',
     items: ['Performance', 'VAT', 'Net'],
     sumNet: 'Sum Net:',
-    plusVat: (rate) => `plus ${rate} % VAT:`,
-    reverseCharge: 'Reverse Charge Procedure applies',
     total: 'Sum total:',
+    vatId: 'VAT ID',
     paymentDue: (date) => `Please transfer the amount until ${date} to our account.`,
     cancellationHeading: 'CREDIT NOTE',
     cancellationIntro: 'Herewith we cancel:',
@@ -287,9 +392,10 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
 
 // Single agency layout for both languages (cleaner design of the two
 // reference documents, independent of the issuing company):
-// logo top-right, recipient block, underlined heading, hatch-shaded meta band
-// with 5 columns (incl. place of performance), 3-column items table,
-// stacked totals with rules above Summe Netto and the total,
+// logo top-right next to the recipient block (sender line above it, at the
+// window position of a DIN 5008 letter), underlined heading, hatch-shaded
+// meta band (artist, service date, place, invoice date and number),
+// 3-column items table, payment QR code next to the totals, tax note,
 // closing sentence, centered data-driven footer
 function AgencyTemplate({
   data,
@@ -305,30 +411,33 @@ function AgencyTemplate({
   const { invoice, issuer, recipient } = data
   const t = AGENCY_STRINGS[lang]
   const cancels = cancellationOf(data)
-  const taxRate = dominantTaxRate(data)
-  // Negative on a Stornorechnung
-  const hasVat = invoice.subtotalTaxAmount !== 0
+  const serviceDate = serviceDateOf(data, lang)
 
   return (
     <>
-      <Logo src={logoUrl} />
-
-      <div className="mt-[24mm]">
-        <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
+      <div className="flex items-start justify-between gap-8">
+        <div className="pt-[38mm]">
+          <SenderLine issuer={issuer} />
+          <AddressBlock
+            party={recipient}
+            issuerCountryCode={issuer?.countryCode}
+            vatIdLabel={needsBuyerVatId(data) ? t.vatId : undefined}
+          />
+        </div>
+        <Logo src={logoUrl} />
       </div>
 
-      <div className="mt-[16mm] text-[16pt] font-bold">
+      <div className="mt-[10mm] text-[16pt] font-bold">
         {cancels ? t.cancellationHeading : t.heading}
       </div>
       {cancels && <div className="mt-1 text-[10pt]">{t.cancels(cancels.number, cancels.date)}</div>}
 
       <MetaBand
-        columns={t.meta}
+        columns={[t.meta.artist, serviceDate.label, t.meta.place, t.meta.date, t.meta.number]}
         values={[
-          // A management share goes to the band's company but names the band,
-          // performed at the management's seat (like the agency's invoices)
-          data.managementShare?.bandName ?? invoice.recipientName,
-          formatPeriod(data),
+          data.bandName || '-',
+          serviceDate.value,
+          // A management share is performed at the management's seat
           data.venueName || (data.managementShare && issuer?.city) || '-',
           formatDate(invoice.issueDate),
           invoice.invoiceNumber === null
@@ -367,7 +476,12 @@ function AgencyTemplate({
         <tbody>
           {invoice.lineItems.map((item) => (
             <tr key={item.id} className="border-b border-neutral-300">
-              <td className="px-2 py-1 align-top">{item.description}</td>
+              <td className="px-2 py-1 align-top">
+                {/* Quantity is part of the service description unless it is
+                    one (minus one on a Stornorechnung) */}
+                {Math.abs(item.quantity) !== 1 && `${formatQuantity(item.quantity)} × `}
+                {item.description}
+              </td>
               <td className="px-2 py-1 align-top">{formatQuantity(item.taxRate)} %</td>
               <td className="px-2 py-1 text-right align-top">
                 {formatMoney(item.lineNetAmount, invoice.currency)}
@@ -377,38 +491,22 @@ function AgencyTemplate({
         </tbody>
       </table>
 
-      {/* Rules only above Summe Netto and the total, like the reference */}
-      <div className="mt-6 ml-auto w-[90mm] break-inside-avoid text-[10pt]">
-        <div className="flex justify-between border-t border-neutral-400 py-1">
-          <span>{t.sumNet}</span>
-          <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
-        </div>
-        {hasVat ? (
-          <div className="flex justify-between py-1">
-            <span>{t.plusVat(formatQuantity(taxRate))}</span>
-            <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
-          </div>
-        ) : (
-          <div className="flex justify-between py-1">
-            <span>{invoice.reverseChargeNote || t.reverseCharge}</span>
-            <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
-          </div>
-        )}
-        <div className="flex justify-between border-t border-neutral-400 py-1 font-bold">
-          <span>{t.total}</span>
-          <span>{formatMoney(invoice.totalGrossAmount, invoice.currency)}</span>
-        </div>
-      </div>
+      <TotalsRow
+        data={data}
+        lang={lang}
+        paymentQr={paymentQr}
+        labels={{ net: t.sumNet, total: t.total }}
+        totalsClassName="w-[90mm] text-[10pt]"
+      />
+      <TaxNote data={data} lang={lang} />
 
-      <p className="mt-6 text-[10pt]">
+      <p className="mt-4 text-[10pt]">
         {cancels
           ? t.offset(cancels.number)
           : invoice.dueDate
             ? t.paymentDue(formatDate(invoice.dueDate))
             : t.thanks}
       </p>
-
-      {paymentQr && <PaymentQr data={data} lang={lang} />}
 
       {invoice.notes && <p className="mt-4 text-[9pt] text-neutral-700">{invoice.notes}</p>}
 
@@ -424,6 +522,7 @@ function AgencyTemplate({
 function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQr: boolean }) {
   const { invoice, issuer, recipient } = data
   const cancels = cancellationOf(data)
+  const serviceDate = serviceDateOf(data, 'de')
   return (
     <>
       <div className="flex justify-between items-start">
@@ -467,13 +566,17 @@ function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQ
         <div className="w-1/2">
           <div className="text-[10pt] leading-snug">
             <div className="font-semibold mb-1">Rechnungsempfänger</div>
-            <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
+            <AddressBlock
+              party={recipient}
+              issuerCountryCode={issuer?.countryCode}
+              vatIdLabel={needsBuyerVatId(data) ? 'USt-IdNr.' : undefined}
+            />
           </div>
         </div>
         <div className="w-1/2 text-[10pt] leading-snug">
-          {data.managementShare && (
+          {data.bandName && (
             <div>
-              <span className="font-semibold">Künstler:</span> {data.managementShare.bandName}
+              <span className="font-semibold">Künstler:</span> {data.bandName}
             </div>
           )}
           {invoice.dealMemoName && (
@@ -481,17 +584,14 @@ function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQ
               <span className="font-semibold">Event:</span> {invoice.dealMemoName}
             </div>
           )}
-          {invoice.periodLabel && (
+          {invoice.periodLabel && serviceDate.value !== invoice.periodLabel && (
             <div>
               <span className="font-semibold">Zeitraum:</span> {invoice.periodLabel}
             </div>
           )}
-          {(invoice.periodStartDate || invoice.periodEndDate) && (
-            <div>
-              <span className="font-semibold">Leistungszeitraum:</span>{' '}
-              {formatDate(invoice.periodStartDate)} – {formatDate(invoice.periodEndDate)}
-            </div>
-          )}
+          <div>
+            <span className="font-semibold">{serviceDate.label}:</span> {serviceDate.value}
+          </div>
         </div>
       </div>
 
@@ -530,23 +630,16 @@ function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQ
         </tbody>
       </table>
 
-      <div className="mt-6 ml-auto w-[70mm] break-inside-avoid text-[10pt]">
-        <div className="flex justify-between py-1">
-          <span>Zwischensumme (netto)</span>
-          <span>{formatMoney(invoice.subtotalNetAmount, invoice.currency)}</span>
-        </div>
-        <div className="flex justify-between py-1">
-          <span>MwSt.</span>
-          <span>{formatMoney(invoice.subtotalTaxAmount, invoice.currency)}</span>
-        </div>
-        <div className="flex justify-between border-t border-neutral-400 py-2 font-bold text-[11pt]">
-          <span>Gesamt</span>
-          <span>{formatMoney(invoice.totalGrossAmount, invoice.currency)}</span>
-        </div>
-      </div>
+      <TotalsRow
+        data={data}
+        lang="de"
+        paymentQr={paymentQr}
+        labels={{ net: 'Zwischensumme (netto)', total: 'Gesamt' }}
+        totalsClassName="w-[85mm] text-[10pt]"
+      />
+      <TaxNote data={data} lang="de" />
 
-      <div className="mt-8 space-y-2 text-[9pt] text-neutral-700">
-        {invoice.reverseChargeNote && <p>{invoice.reverseChargeNote}</p>}
+      <div className="mt-4 space-y-2 text-[9pt] text-neutral-700">
         {invoice.paymentTerms && (
           <p>
             <span className="font-semibold text-black">Zahlungsbedingungen: </span>
@@ -560,8 +653,6 @@ function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQ
           </p>
         )}
       </div>
-
-      {paymentQr && <PaymentQr data={data} lang="de" />}
 
       <CenteredLegalFooter issuer={issuer} lang="de" />
     </>
