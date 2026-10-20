@@ -5,7 +5,7 @@
 import 'reflect-metadata'
 import { describe, it, expect } from 'vitest'
 import { container } from 'tsyringe'
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
 import {
   computeInvoiceAmounts,
   formatCents,
@@ -470,6 +470,17 @@ describe('Factur-X PDF', () => {
     expect(String(spec.get(PDFName.of('AFRelationship')))).toBe('/Alternative')
     const file = spec.lookup(PDFName.of('EF'), PDFDict).lookup(PDFName.of('F'), PDFRawStream)
     expect(String(file.dict.get(PDFName.of('Subtype')))).toBe('/text#2Fxml')
+    // PDF/A: sRGB output intent with a valid ICC header, file identifier
+    const intent = loaded.catalog.lookup(PDFName.of('OutputIntents'), PDFArray).lookup(0, PDFDict)
+    expect(String(intent.get(PDFName.of('S')))).toBe('/GTS_PDFA1')
+    const icc = decodePDFRawStream(
+      intent.lookup(PDFName.of('DestOutputProfile'), PDFRawStream)
+    ).decode()
+    const iccHeader = Buffer.from(icc)
+    expect(iccHeader.readUInt32BE(0)).toBe(icc.length)
+    expect(iccHeader.toString('latin1', 12, 24)).toBe('mntrRGB XYZ ')
+    expect(iccHeader.toString('latin1', 36, 40)).toBe('acsp')
+    expect(loaded.context.trailerInfo.ID).toBeDefined()
   })
 })
 
