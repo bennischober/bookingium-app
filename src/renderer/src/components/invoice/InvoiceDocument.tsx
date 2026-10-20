@@ -4,6 +4,7 @@ import type {
 } from '../../../../main/api/schemas/invoice.schema'
 import { PagedDocument } from '../print/PagedDocument'
 import { unitLabelOf } from '../../../../main/einvoice/codes'
+import { PaymentQr } from './PaymentQr'
 
 // ========================================
 // Template catalog (hardcoded by design)
@@ -293,11 +294,13 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
 function AgencyTemplate({
   data,
   lang,
-  logoUrl
+  logoUrl,
+  paymentQr
 }: {
   data: InvoicePrintDto
   lang: 'de' | 'en'
   logoUrl?: string
+  paymentQr: boolean
 }) {
   const { invoice, issuer, recipient } = data
   const t = AGENCY_STRINGS[lang]
@@ -405,6 +408,8 @@ function AgencyTemplate({
             : t.thanks}
       </p>
 
+      {paymentQr && <PaymentQr data={data} lang={lang} />}
+
       {invoice.notes && <p className="mt-4 text-[9pt] text-neutral-700">{invoice.notes}</p>}
 
       <CenteredLegalFooter issuer={issuer} lang={lang} />
@@ -416,7 +421,7 @@ function AgencyTemplate({
 // Standard template
 // ========================================
 
-function StandardTemplate({ data }: { data: InvoicePrintDto }) {
+function StandardTemplate({ data, paymentQr }: { data: InvoicePrintDto; paymentQr: boolean }) {
   const { invoice, issuer, recipient } = data
   const cancels = cancellationOf(data)
   return (
@@ -556,6 +561,8 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
         )}
       </div>
 
+      {paymentQr && <PaymentQr data={data} lang="de" />}
+
       <CenteredLegalFooter issuer={issuer} lang="de" />
     </>
   )
@@ -568,11 +575,14 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
 export function InvoiceDocument({
   data,
   template,
-  logoUrl
+  logoUrl,
+  paymentQr = true
 }: {
   data: InvoicePrintDto
   template: InvoiceTemplate
   logoUrl?: string
+  /** EPC payment QR code on payable invoices (setting) */
+  paymentQr?: boolean
 }) {
   // Drafts and cancelled invoices carry a watermark on every print
   const watermark =
@@ -599,9 +609,13 @@ export function InvoiceDocument({
         </div>
       )}
 
-      {template === 'standard' && <StandardTemplate data={data} />}
-      {template === 'agency-de' && <AgencyTemplate data={data} lang="de" logoUrl={logoUrl} />}
-      {template === 'agency-en' && <AgencyTemplate data={data} lang="en" logoUrl={logoUrl} />}
+      {template === 'standard' && <StandardTemplate data={data} paymentQr={paymentQr} />}
+      {template === 'agency-de' && (
+        <AgencyTemplate data={data} lang="de" logoUrl={logoUrl} paymentQr={paymentQr} />
+      )}
+      {template === 'agency-en' && (
+        <AgencyTemplate data={data} lang="en" logoUrl={logoUrl} paymentQr={paymentQr} />
+      )}
     </PagedDocument>
   )
 }

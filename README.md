@@ -11,7 +11,8 @@ Built with Electron, React and TypeScript.
 - **Events** with detail page: overview, itinerary, financials, documents;
   concert contracts as print-ready PDFs (incl. signature images)
 - **Invoices** with per-company numbering on issue, line items, tax handling,
-  Storno, print-to-PDF (German/English agency templates)
+  Storno, print-to-PDF (German/English agency templates) with embedded
+  e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps
 - **Bands** with detail page: members, events, management contracts (print)
   and quarterly management-share invoices, documents
 - **Companies and venues/festivals** with detail pages (contacts, bands,

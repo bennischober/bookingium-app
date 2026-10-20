@@ -86,6 +86,7 @@ English.
 | Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                      |
 | Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                    |
 | Invoice contact person                             | Ansprechpartner für Rechnungen                                   |
+| Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“           |
 | XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                            |
 | Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                          |
 | Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar             |

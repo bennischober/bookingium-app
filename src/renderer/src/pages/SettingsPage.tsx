@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { InvoiceNumberingCard } from '@/components/invoice/InvoiceNumberingCard'
 import { EInvoiceCard } from '@/components/invoice/EInvoiceCard'
+import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -317,6 +318,7 @@ export default function SettingsPage() {
         <GeneralCard />
         <InvoiceNumberingCard />
         <EInvoiceCard />
+        <PaymentQrCard />
         <CalendarCard />
         <DataCard />
       </div>

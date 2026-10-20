@@ -13,7 +13,9 @@ export const AppSettings = z.object({
   // .ics file kept up to date with all events, '' for off
   calendarFeedPath: z.string().default(''),
   // Invoice PDFs carry the e-invoice XML (ZUGFeRD/Factur-X) when complete
-  eInvoiceEmbed: z.boolean().default(true)
+  eInvoiceEmbed: z.boolean().default(true),
+  // Payable invoices carry the EPC payment QR code ("GiroCode")
+  paymentQr: z.boolean().default(true)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
