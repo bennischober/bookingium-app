@@ -81,11 +81,12 @@ describe('VAT groups', () => {
     const [standard] = vatGroups(printData([line({ lineNetAmount: 1500 })]))
     expect(vatGroupLabel(standard, true, 'de', euro)).toBe('zzgl. 19 % USt.')
     expect(vatGroupLabel(standard, false, 'de', euro)).toBe('19 % USt. auf 1500.00 €')
-    expect(vatGroupLabel(standard, false, 'en', euro)).toBe('19 % VAT on 1500.00 €')
+    expect(vatGroupLabel(standard, false, 'en', euro)).toBe('19% VAT on 1500.00 €')
+    expect(vatGroupLabel(standard, true, 'en', euro)).toBe('plus 19% VAT')
 
     const [exempt] = vatGroups(printData([line({ taxRate: 0, taxCode: 'exempt' })]))
     expect(vatGroupLabel(exempt, false, 'de', euro)).toBe('0 % USt. (steuerfrei) auf 100.00 €')
-    expect(vatGroupLabel(exempt, true, 'en', euro)).toBe('0 % VAT (exempt)')
+    expect(vatGroupLabel(exempt, true, 'en', euro)).toBe('0% VAT (exempt)')
   })
 })
 

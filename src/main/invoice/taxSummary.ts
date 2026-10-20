@@ -67,18 +67,22 @@ export function vatGroupLabel(
   lang: Lang,
   formatMoney: (cents: number) => string
 ): string {
-  const rate = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(group.rate)
+  const number = new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
+    maximumFractionDigits: 2
+  }).format(group.rate)
+  // "19 %" in German, "19%" in English
+  const rate = lang === 'en' ? `${number}%` : `${number} %`
   const on = single
     ? ''
     : lang === 'en'
       ? ` on ${formatMoney(group.netCents)}`
       : ` auf ${formatMoney(group.netCents)}`
   if (group.rate > 0) {
-    if (single) return lang === 'en' ? `plus ${rate} % VAT` : `zzgl. ${rate} % USt.`
-    return lang === 'en' ? `${rate} % VAT${on}` : `${rate} % USt.${on}`
+    if (single) return lang === 'en' ? `plus ${rate} VAT` : `zzgl. ${rate} USt.`
+    return lang === 'en' ? `${rate} VAT${on}` : `${rate} USt.${on}`
   }
   const why = lang === 'en' ? ZERO_LABELS_EN[group.taxCode] : TAX_CODE_LABELS[group.taxCode]
-  return lang === 'en' ? `0 % VAT (${why})${on}` : `0 % USt. (${why})${on}`
+  return lang === 'en' ? `0% VAT (${why})${on}` : `0 % USt. (${why})${on}`
 }
 
 // Standard wording for the categories that have one (English for the

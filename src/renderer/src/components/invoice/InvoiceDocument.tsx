@@ -31,8 +31,11 @@ export type InvoiceTemplate = (typeof INVOICE_TEMPLATES)[number]['value']
 // Formatting helpers
 // ========================================
 
-function formatMoney(value: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
+// German invoices "3.500,00 €", English ones "€3,500.00"
+const NUMBER_LOCALE: Record<Lang, string> = { de: 'de-DE', en: 'en-GB' }
+
+function formatMoney(value: number, currency: string, lang: Lang = 'de'): string {
+  return new Intl.NumberFormat(NUMBER_LOCALE[lang], {
     style: 'currency',
     currency: currency || 'EUR'
   }).format(value)
@@ -46,8 +49,13 @@ function formatDate(iso: string | null | undefined): string {
   return `${day}.${month}.${year}`
 }
 
-function formatQuantity(value: number): string {
-  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(value)
+function formatQuantity(value: number, lang: Lang = 'de'): string {
+  return new Intl.NumberFormat(NUMBER_LOCALE[lang], { maximumFractionDigits: 3 }).format(value)
+}
+
+/** "19 %" in German, "19%" in English */
+function formatRate(rate: number, lang: Lang): string {
+  return lang === 'en' ? `${formatQuantity(rate, lang)}%` : `${formatQuantity(rate)} %`
 }
 
 // Stornorechnung: number and date of the invoice it cancels
@@ -139,7 +147,7 @@ function Totals({
   className: string
 }) {
   const { invoice } = data
-  const money = (value: number) => formatMoney(value, invoice.currency)
+  const money = (value: number) => formatMoney(value, invoice.currency, lang)
   const groups = vatGroups(data)
   return (
     <div className={className}>
@@ -380,12 +388,12 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
       date: 'Invoice date',
       number: 'Invoice No.'
     },
-    intro: 'Herewith we charge our agreed services:',
-    items: ['Performance', 'VAT', 'Net'],
-    sumNet: 'Sum Net:',
-    total: 'Sum total:',
+    intro: 'As agreed, we invoice the following services:',
+    items: ['Service', 'VAT', 'Net'],
+    sumNet: 'Net total:',
+    total: 'Total:',
     vatId: 'VAT ID',
-    paymentDue: (date) => `Please transfer the amount until ${date} to our account.`,
+    paymentDue: (date) => `Please transfer the amount by ${date} to our account.`,
     cancellationHeading: 'CREDIT NOTE',
     cancellationIntro: 'Herewith we cancel:',
     cancels: (number, date) => `Cancellation of invoice no. ${number} dated ${date}`,
@@ -484,12 +492,12 @@ function AgencyTemplate({
               <td className="px-2 py-1 align-top">
                 {/* Quantity is part of the service description unless it is
                     one (minus one on a Stornorechnung) */}
-                {Math.abs(item.quantity) !== 1 && `${formatQuantity(item.quantity)} × `}
+                {Math.abs(item.quantity) !== 1 && `${formatQuantity(item.quantity, lang)} × `}
                 {item.description}
               </td>
-              <td className="px-2 py-1 align-top">{formatQuantity(item.taxRate)} %</td>
+              <td className="px-2 py-1 align-top">{formatRate(item.taxRate, lang)}</td>
               <td className="px-2 py-1 text-right align-top">
-                {formatMoney(item.lineNetAmount, invoice.currency)}
+                {formatMoney(item.lineNetAmount, invoice.currency, lang)}
               </td>
             </tr>
           ))}
