@@ -159,7 +159,7 @@ export function InvoiceEmailCard() {
           <p className="text-xs text-muted-foreground">{MAIL_PROGRAM_HINTS[mailProgram]}</p>
         </div>
 
-        {/* Side by side when the card is wide enough (it may sit in a column) */}
+        {/* Side by side when the card is wide enough */}
         <div className="grid grid-cols-1 gap-6 @3xl:grid-cols-2">
           {(['de', 'en'] as const).map((lang) => (
             <TemplateFields

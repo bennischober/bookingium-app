@@ -89,6 +89,7 @@ test('the setting switches the QR code off', async () => {
   const { page } = h
   await leavePrintPage()
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   const toggle = page.getByRole('switch', { name: 'QR-Code zum Bezahlen auf Rechnungen' })
   await expect(toggle).toBeChecked()
   await toggle.click()
@@ -99,5 +100,6 @@ test('the setting switches the QR code off', async () => {
 
   await leavePrintPage()
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   await page.getByRole('switch', { name: 'QR-Code zum Bezahlen auf Rechnungen' }).click()
 })

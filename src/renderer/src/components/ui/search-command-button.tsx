@@ -13,17 +13,22 @@ import {
 import {
   Building2,
   Calendar,
+  CalendarDays,
   CirclePlus,
+  DatabaseBackup,
   FileText,
   Guitar,
   Hotel,
+  Mail,
   MapPin,
   Music2,
   Search,
-  User
+  User,
+  type LucideIcon
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { ROUTES } from '@/lib/routing'
+import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
 
 type StaticRoute = (typeof ROUTES)[keyof typeof ROUTES]['path']
@@ -35,6 +40,8 @@ type RecentCommand = {
   path?: StaticRoute
   /** e.g. { create: true } for "new …" actions (see useListSearchActions) */
   search?: ListSearch
+  /** Settings tab for a "/settings" command */
+  settingsTab?: SettingsTab
   eventId?: number
 }
 
@@ -64,10 +71,49 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
   '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
   '/settings': {
-    description: 'Eigene Firma, Rechnungsnummern, Import und Sicherung',
-    aliases: ['settings', 'optionen', 'import', 'backup', 'sicherung']
+    description: 'Allgemein, Rechnungen, E-Mail, Kalender und Daten',
+    aliases: ['settings', 'optionen']
   }
 }
+
+// Straight to one settings tab
+const SETTINGS_COMMANDS: Array<{
+  tab: SettingsTab
+  label: string
+  icon: LucideIcon
+  aliases: string[]
+}> = [
+  {
+    tab: 'general',
+    label: 'Eigene Firma und Standardland',
+    icon: Building2,
+    aliases: ['own company', 'land', 'country']
+  },
+  {
+    tab: 'invoices',
+    label: 'Rechnungsnummern und E-Rechnung',
+    icon: FileText,
+    aliases: ['nummernkreis', 'invoice number', 'zugferd', 'xrechnung', 'qr-code', 'girocode']
+  },
+  {
+    tab: 'email',
+    label: 'E-Mail-Vorlagen und Mailprogramm',
+    icon: Mail,
+    aliases: ['email template', 'outlook', 'thunderbird']
+  },
+  {
+    tab: 'calendar',
+    label: 'Kalender-Datei',
+    icon: CalendarDays,
+    aliases: ['ics', 'abonnieren', 'calendar feed', 'subscribe']
+  },
+  {
+    tab: 'data',
+    label: 'Import, Export und Sicherung',
+    icon: DatabaseBackup,
+    aliases: ['backup', 'excel', 'datenordner', 'data folder']
+  }
+]
 
 const ROUTE_COMMANDS = Object.values(ROUTES).map((route) => ({
   ...route,
@@ -218,6 +264,12 @@ const SearchButton = () => {
                     key={recent.id}
                     value={recent.label}
                     onSelect={() => {
+                      if (recent.type === 'route' && recent.settingsTab) {
+                        const tab = recent.settingsTab
+                        runAndClose(() => navigate({ to: '/settings', search: { tab } }), recent)
+                        return
+                      }
+
                       if (recent.type === 'route' && recent.path) {
                         const { path, search } = recent
                         runAndClose(() => navigate({ to: path, search: search ?? {} }), recent)
@@ -305,6 +357,31 @@ const SearchButton = () => {
               <span>Neue Rechnung anlegen</span>
               <CommandShortcut>Rechnungen</CommandShortcut>
             </CommandItem>
+          </CommandGroup>
+
+          <CommandSeparator />
+
+          <CommandGroup heading="Einstellungen">
+            {SETTINGS_COMMANDS.map((command) => (
+              <CommandItem
+                key={command.tab}
+                value={`${command.label} Einstellungen ${SETTINGS_TAB_LABELS[command.tab]}`}
+                keywords={['settings', ...command.aliases]}
+                onSelect={() =>
+                  runAndClose(() => navigate({ to: '/settings', search: { tab: command.tab } }), {
+                    id: `settings:${command.tab}`,
+                    label: command.label,
+                    type: 'route',
+                    path: '/settings',
+                    settingsTab: command.tab
+                  })
+                }
+              >
+                <command.icon />
+                <span>{command.label}</span>
+                <CommandShortcut>{SETTINGS_TAB_LABELS[command.tab]}</CommandShortcut>
+              </CommandItem>
+            ))}
           </CommandGroup>
 
           {hasTypedQuery && (

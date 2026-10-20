@@ -28,6 +28,7 @@ import { isBandTab, type BandTab } from '@/components/band/constants'
 import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
 import { isPersonTab, type PersonTab } from '@/components/person/constants'
+import { isSettingsTab, type SettingsTab } from '@/components/settings/constants'
 
 const hashHistory = createHashHistory()
 // Back/forward buttons in the top bar
@@ -162,6 +163,9 @@ const venueDetailRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.settings.path,
+  validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => ({
+    tab: isSettingsTab(search.tab) ? search.tab : undefined
+  }),
   component: SettingsPage
 })
 

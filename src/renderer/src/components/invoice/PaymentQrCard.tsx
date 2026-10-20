@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
-/** Payment QR code switch (Einstellungen › Zahlung per QR-Code) */
+/** Payment QR code switch (Einstellungen › Rechnungen) */
 export function PaymentQrCard() {
   const utils = trpcReact.useUtils()
   const settings = trpcReact.settings.get.useQuery()

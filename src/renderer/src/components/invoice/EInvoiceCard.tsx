@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
-/** E-invoice switch (Einstellungen › E-Rechnung) */
+/** E-invoice switch (Einstellungen › Rechnungen) */
 export function EInvoiceCard() {
   const utils = trpcReact.useUtils()
   const settings = trpcReact.settings.get.useQuery()

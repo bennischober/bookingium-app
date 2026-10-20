@@ -51,13 +51,14 @@ src/preload/           contextBridge API (window.api: print, documents, logos,
                        import picker, dropped file paths)
 src/renderer/src/      React app
   pages/               List pages, detail pages (/band/:id, /companies/:id,
-                       /venues/:id, /persons/:id, /events/:id), Einstellungen,
-                       print pages
+                       /venues/:id, /persons/:id, /events/:id), Einstellungen
+                       (tabs Allgemein, Rechnungen, E-Mail, Kalender, Daten),
+                       print pages. The active tab lives in the URL (?tab=)
   components/
     ui/                shadcn-style primitives (+ searchable-select)
     forms/             Business object forms (TanStack Form)
-    event-hub/, band/, company/, venue/, person/, detail/
-                       Detail page tabs and parts
+    event-hub/, band/, company/, venue/, person/, settings/, detail/
+                       Page tabs and parts
     documents/, import/, export/                    Shared feature panels
     layout/            Top bar: back/forward, breadcrumbs, quick create, search
     print/, contract/, invoice/                     A4 print documents

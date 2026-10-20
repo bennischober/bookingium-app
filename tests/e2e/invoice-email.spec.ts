@@ -77,6 +77,7 @@ test('creates the email with the PDF and marks the invoice', async () => {
 test('uses the subject from the settings', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'E-Mail' }).click()
   for (const lang of ['de', 'en']) {
     const subject = page.locator(`#settings-email-subject-${lang}`)
     await subject.fill(`Abrechnung {Rechnungsnummer} von {Absender} ({Fällig})`)

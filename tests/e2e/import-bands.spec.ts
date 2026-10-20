@@ -44,6 +44,7 @@ test.afterAll(async () => {
 test('imports a band list with members from the settings page', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Daten' }).click()
   await page.getByRole('button', { name: 'Daten importieren…' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })

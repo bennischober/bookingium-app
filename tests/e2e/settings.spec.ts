@@ -40,10 +40,12 @@ test('settings page saves defaults and creates a backup', async () => {
   await expect(page.getByText('Einstellung gespeichert')).toBeVisible()
 
   // Invoice numbering per company
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   await expect(page.getByRole('combobox', { name: 'Firma', exact: true })).toBeVisible()
   await expect(page.getByLabel('Nächste Rechnungsnummer')).toBeVisible()
 
   // Import opens the import dialog
+  await page.getByRole('tab', { name: 'Daten' }).click()
   await page.getByRole('button', { name: 'Daten importieren…' }).click()
   const importDialog = page.getByRole('dialog', { name: 'Daten importieren' })
   await expect(importDialog).toBeVisible()
@@ -60,8 +62,27 @@ test('settings page saves defaults and creates a backup', async () => {
   expect(existsSync(join(backupTarget, folder, 'bookingum.db'))).toBe(true)
   expect(existsSync(join(backupTarget, folder, 'LIESMICH.txt'))).toBe(true)
 
-  // Settings survive a reload
+  // Settings survive a reload; the tab is kept in the URL
   await page.reload()
+  await expect(page.getByRole('tab', { name: 'Daten' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Allgemein' }).click()
   await expect(page.getByRole('combobox', { name: 'Standardland' })).toHaveText('Österreich')
   await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText('Soundwave Records')
+})
+
+test('the search palette opens a settings tab', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Dashboard' }).first().click()
+  await page.keyboard.press('Control+k')
+  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill('Vorlagen')
+  await page.getByRole('option', { name: /E-Mail-Vorlagen und Mailprogramm/ }).click()
+  await expect(page.getByRole('tab', { name: 'E-Mail' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('#settings-email-subject-de')).toBeVisible()
+
+  // The sidebar link always opens the first tab
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await expect(page.getByRole('tab', { name: 'Allgemein' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
 })

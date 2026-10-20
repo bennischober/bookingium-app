@@ -109,6 +109,7 @@ test('the setting switches the e-invoice off', async () => {
   const { page } = h
   await leavePrintPage()
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   const toggle = page.getByRole('switch', { name: 'E-Rechnung (ZUGFeRD) in PDF einbetten' })
   await expect(toggle).toBeChecked()
   await toggle.click()
@@ -125,6 +126,7 @@ test('the setting switches the e-invoice off', async () => {
 
   await leavePrintPage()
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   await page.getByRole('switch', { name: 'E-Rechnung (ZUGFeRD) in PDF einbetten' }).click()
 })
 

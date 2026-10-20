@@ -28,6 +28,8 @@ English.
 | English                               | German                                                   |
 | ------------------------------------- | -------------------------------------------------------- |
 | Settings                              | Einstellungen                                            |
+| Settings tabs                         | Allgemein / Rechnungen / E-Mail / Kalender / Daten       |
+| Defaults (general settings card)      | Voreinstellungen                                         |
 | Venues                                | Spielstätten                                             |
 | Persons / Companies / Banks           | Personen / Firmen / Banken                               |
 | Search everything                     | Alles suchen                                             |

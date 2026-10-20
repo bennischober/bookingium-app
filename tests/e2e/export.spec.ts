@@ -48,6 +48,7 @@ test('exports the filtered list and all lists', async () => {
   expect(sheet.getRow(2).getCell(1).value).toBe('Berghain')
 
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Daten' }).click()
   const allFile = await saveTo('Alles.xlsx')
   await page.getByRole('button', { name: 'Alles exportieren…' }).click()
   await expect(page.getByText(/Zeilen exportiert/)).toBeVisible()

@@ -28,6 +28,7 @@ test('keeps the calendar file up to date', async () => {
   }, file)
 
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Kalender' }).click()
   await page.getByRole('button', { name: 'Datei festlegen…' }).click()
   await expect(page.getByText('Kalender-Datei wird jetzt aktuell gehalten')).toBeVisible()
   await expect(page.getByText(/Zuletzt geschrieben .* · 3 Events/)).toBeVisible()
@@ -48,6 +49,7 @@ test('keeps the calendar file up to date', async () => {
 
   // Off: the setting is cleared, the file stays
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Kalender' }).click()
   await page.getByRole('button', { name: 'Ausschalten' }).click()
   await expect(page.getByText('Aus – keine Kalender-Datei festgelegt.')).toBeVisible()
   expect(existsSync(file)).toBe(true)

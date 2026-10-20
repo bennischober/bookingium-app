@@ -1,5 +1,6 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { CalendarDays, DatabaseBackup, Download, FolderOpen, RefreshCw, Upload } from 'lucide-react'
 import { useExportToast } from '@/components/export/useExportToast'
 import { toast } from 'sonner'
@@ -7,6 +8,8 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { isSettingsTab, SETTINGS_TAB_LABELS, SETTINGS_TABS } from '@/components/settings/constants'
 import {
   Select,
   SelectContent,
@@ -52,8 +55,8 @@ function GeneralCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Allgemein</CardTitle>
-        <CardDescription>Voreinstellungen für Rechnungen, Verträge und Importe.</CardDescription>
+        <CardTitle>Voreinstellungen</CardTitle>
+        <CardDescription>Gelten für Rechnungen, Verträge und Importe.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="space-y-2">
@@ -306,29 +309,58 @@ function DataCard() {
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as { tab?: string }
+  const activeTab = isSettingsTab(search.tab) ? search.tab : 'general'
+
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
       <div>
         <h1 className="mb-2 text-2xl font-bold">Einstellungen</h1>
         <p className="text-sm text-muted-foreground">
-          Voreinstellungen, Rechnungsnummern und Datenverwaltung.
+          Voreinstellungen, Rechnungen, E-Mail, Kalender und Datenverwaltung.
         </p>
       </div>
 
-      {/* Two columns of about equal height on wide screens */}
-      <div className="grid max-w-4xl grid-cols-1 items-start gap-6 2xl:max-w-400 2xl:grid-cols-2">
-        <div className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) =>
+          // replace: switching tabs should not pile up history entries
+          navigate({
+            to: '/settings',
+            search: { tab: isSettingsTab(tab) && tab !== 'general' ? tab : undefined },
+            replace: true
+          })
+        }
+        className="max-w-4xl"
+      >
+        {/* Tabs wrap onto a second row in narrow windows */}
+        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
+          {SETTINGS_TABS.map((tab) => (
+            <TabsTrigger key={tab} value={tab}>
+              {SETTINGS_TAB_LABELS[tab]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6">
           <GeneralCard />
+        </TabsContent>
+        <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />
           <EInvoiceCard />
           <PaymentQrCard />
-          <CalendarCard />
-        </div>
-        <div className="space-y-6">
+        </TabsContent>
+        <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
+        </TabsContent>
+        <TabsContent value="calendar" className="space-y-6">
+          <CalendarCard />
+        </TabsContent>
+        <TabsContent value="data" className="space-y-6">
           <DataCard />
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
