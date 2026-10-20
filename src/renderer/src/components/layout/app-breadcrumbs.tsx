@@ -25,7 +25,7 @@ export function AppBreadcrumbs() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   const eventMatch = pathname.match(/^\/events\/(\d+)/)
-  const personMatch = pathname.match(/^\/persons\/(\d+)\/relations/)
+  const personMatch = pathname.match(/^\/persons\/(\d+)/)
   const bandMatch = pathname.match(/^\/band\/(\d+)/)
   const companyMatch = pathname.match(/^\/companies\/(\d+)/)
   const venueMatch = pathname.match(/^\/venues\/(\d+)/)
@@ -59,10 +59,9 @@ export function AppBreadcrumbs() {
   if (venueId !== null) crumbs.push({ title: venue.data?.name ?? '…', name: true })
   if (personId !== null) {
     crumbs.push({
-      title: person.data ? `${person.data.firstName} ${person.data.lastName}` : '…',
+      title: person.data ? `${person.data.firstName} ${person.data.lastName}`.trim() : '…',
       name: true
     })
-    crumbs.push({ title: 'Beziehungen' })
   }
 
   // Names the page in the back/forward history once the entity name is loaded

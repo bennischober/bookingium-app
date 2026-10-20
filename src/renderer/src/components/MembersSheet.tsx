@@ -1,5 +1,6 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -35,9 +36,9 @@ type MemberRow = {
 
 /**
  * Persons assigned to a band/company/venue, with add/edit-role/remove.
- * Reuses the relation router's member CRUD from the entity side (the Persons
- * relations page covers the person-side view). Shown in MembersSheet and on
- * detail pages.
+ * Reuses the relation router's member CRUD from the entity side (the person
+ * page's PersonMembershipsPanel covers the person side). Names link to the
+ * person page. Shown in MembersSheet and on detail pages.
  */
 export function MembersPanel({
   entityType,
@@ -265,7 +266,13 @@ export function MembersPanel({
           members.map((member) => (
             <div key={member.id} className="flex items-center justify-between p-3 border rounded">
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{member.personName}</p>
+                <Link
+                  to="/persons/$personId"
+                  params={{ personId: String(member.personId) }}
+                  className="block truncate font-medium hover:underline"
+                >
+                  {member.personName}
+                </Link>
                 {member.role && (
                   <Badge variant="secondary" className="mt-1">
                     {member.role}

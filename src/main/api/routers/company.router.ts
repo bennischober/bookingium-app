@@ -30,6 +30,11 @@ export const companyRouter = t.router({
     }
   }),
 
+  /** Companies naming a person as invoice contact (person page) */
+  listByInvoiceContact: t.procedure.input(z.number()).query(async ({ input }) => {
+    return CompanyMapper.toDtoList(await companyService.listCompaniesByInvoiceContact(input))
+  }),
+
   getById: t.procedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
     const company = await companyService.getCompanyById(input.id)
     return company ? CompanyMapper.toDto(company) : null

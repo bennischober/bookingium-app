@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, like, or, sql, type SQL } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -1119,6 +1119,21 @@ export class InvoiceRepository {
    * snapshot taken from that company), newest first
    */
   async listByCompany(companyId: number) {
+    return this.listWhere(
+      or(
+        eq(schema.invoice.company_id, companyId),
+        eq(schema.invoice_party_snapshot.source_company_id, companyId)
+      )
+    )
+  }
+
+  /** Invoices addressed to a person (recipient snapshot taken from that person), newest first */
+  async listByRecipientPerson(personId: number) {
+    return this.listWhere(eq(schema.invoice_party_snapshot.source_person_id, personId))
+  }
+
+  /** Invoices matching `where` (may filter on the recipient snapshot), newest first */
+  private async listWhere(where: SQL | undefined) {
     const rows = await db
       .select()
       .from(schema.invoice)
@@ -1128,12 +1143,7 @@ export class InvoiceRepository {
         schema.invoice_party_snapshot,
         eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
       )
-      .where(
-        or(
-          eq(schema.invoice.company_id, companyId),
-          eq(schema.invoice_party_snapshot.source_company_id, companyId)
-        )
-      )
+      .where(where)
       .orderBy(desc(schema.invoice.issue_date), desc(schema.invoice.id))
 
     return this.withCancellationLinks(

@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { asc, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { UpdateManagementContractInput } from '../api/schemas/management_contract.schema'
@@ -41,6 +41,25 @@ export class ManagementContractRepository {
       .select()
       .from(schema.management_contract)
       .where(eq(schema.management_contract.band_id, bandId))
+      .orderBy(desc(schema.management_contract.id))
+    return this.withMembers(rows)
+  }
+
+  /** Contracts naming the person as member (§ 15) or representative, newest first */
+  async listByPerson(personId: number): Promise<ManagementContractEntity[]> {
+    const memberOf = db
+      .select({ id: schema.management_contract_member.contract_id })
+      .from(schema.management_contract_member)
+      .where(eq(schema.management_contract_member.person_id, personId))
+    const rows = await db
+      .select()
+      .from(schema.management_contract)
+      .where(
+        or(
+          eq(schema.management_contract.representative_person_id, personId),
+          inArray(schema.management_contract.id, memberOf)
+        )
+      )
       .orderBy(desc(schema.management_contract.id))
     return this.withMembers(rows)
   }

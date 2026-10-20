@@ -7,11 +7,9 @@ import {
   useListSorting
 } from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
-import { Users } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { z } from 'zod'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { PersonRelations } from '@/components/PersonRelations'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -33,10 +31,7 @@ export function PersonPage() {
     desc: false
   })
   const [search, setSearch] = useState('')
-  const [relationsSheetOpen, setRelationsSheetOpen] = useState(false)
-  const [selectedPersonForRelations, setSelectedPersonForRelations] = useState<PersonDto | null>(
-    null
-  )
+  const navigate = useNavigate()
 
   const formSheet = useFormSheet<PersonDto>()
   const utils = trpcReact.useUtils()
@@ -47,9 +42,6 @@ export function PersonPage() {
     onOpen: (id) =>
       void utils.person.getById.fetch({ id }).then((person) => person && formSheet.openEdit(person))
   })
-
-  const allPersons = trpcReact.person.getAll.useQuery()
-  console.log(allPersons.data)
 
   // Queries
   const persons = trpcReact.person.getAllPaginated.useInfiniteQuery(
@@ -144,14 +136,6 @@ export function PersonPage() {
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
-            icon={Users}
-            label="Beziehungen anzeigen"
-            onClick={() => {
-              setSelectedPersonForRelations(row.original)
-              setRelationsSheetOpen(true)
-            }}
-          />
-          <RowActionButton
             icon={Pencil}
             label="Bearbeiten"
             onClick={() => formSheet.openEdit(row.original)}
@@ -189,6 +173,10 @@ export function PersonPage() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Personen filtern..."
+        // A click opens the person page; the pencil keeps the quick-edit sheet
+        onRowClick={(person) =>
+          navigate({ to: '/persons/$personId', params: { personId: String(person.id) } })
+        }
         isLoading={persons.isLoading}
         total={listTotal(persons.data)}
         actionButton={
@@ -217,20 +205,6 @@ export function PersonPage() {
           onCancel={formSheet.close}
         />
       </FormSheet>
-
-      <Sheet open={relationsSheetOpen} onOpenChange={setRelationsSheetOpen}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Beziehungen der Person</SheetTitle>
-          </SheetHeader>
-          {selectedPersonForRelations && (
-            <PersonRelations
-              personId={selectedPersonForRelations.id}
-              personName={`${selectedPersonForRelations.firstName} ${selectedPersonForRelations.lastName}`}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

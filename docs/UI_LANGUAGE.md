@@ -50,7 +50,12 @@ English.
 | Promoter (company behind a venue)           | Veranstalter                                        |
 | Contact person                              | Ansprechpartner                                     |
 | Members (band)                              | Mitglieder                                          |
+| A person's memberships / roles              | Zugehörigkeiten / Rollen                            |
+| Member of / assigned to (person page)       | Mitglied in / Zugehörig zu                          |
+| Add to band / company / venue               | Zur Band / Firma / Spielstätte hinzufügen           |
 | Technical lead                              | Technischer Leiter (TL)                             |
+| LoPro contact / TL of the band (event role) | LoPro-Kontakt / TL der Band                         |
+| Contract role member / representative       | Mitglied / Bevollmächtigt                           |
 | Management company ("represented by")       | Management (vertreten durch)                        |
 | Own company (issues invoices)               | Eigene Firma                                        |
 | VAT id / tax number                         | USt-IdNr. / Steuernummer                            |

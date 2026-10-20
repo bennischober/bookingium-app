@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
+import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
@@ -32,6 +32,12 @@ import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 /** Overview: address, contact, tax and register data, bank, invoicing */
 function OverviewTab({ company }: { company: CompanyDto }) {
   const { contact, bank } = company
+  const persons = trpcReact.person.getListItems.useQuery(undefined, {
+    enabled: company.invoiceContactPersonId !== null
+  })
+  const invoiceContact = persons.data?.find(
+    (person) => person.id === company.invoiceContactPersonId
+  )
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <InfoCard label="Adresse">
@@ -74,6 +80,18 @@ function OverviewTab({ company }: { company: CompanyDto }) {
           <span className="font-medium">Standardfirma für Rechnungen</span>
         ) : (
           <Empty>Nicht die Standardfirma für Rechnungen</Empty>
+        )}
+        {invoiceContact && (
+          <div className="mt-1">
+            <span className="text-muted-foreground">Ansprechpartner für Rechnungen: </span>
+            <Link
+              to="/persons/$personId"
+              params={{ personId: String(invoiceContact.id) }}
+              className="font-medium hover:underline"
+            >
+              {`${invoiceContact.firstName} ${invoiceContact.lastName}`.trim()}
+            </Link>
+          </div>
         )}
       </InfoCard>
       <InfoCard label="Anmerkungen">

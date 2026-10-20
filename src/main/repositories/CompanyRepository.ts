@@ -24,6 +24,25 @@ export class CompanyRepository {
     }))
   }
 
+  /** Companies naming the person as invoice contact (e-invoice seller contact), by name */
+  async listByInvoiceContact(personId: number) {
+    const rows = await db
+      .select()
+      .from(company)
+      .leftJoin(address, eq(company.address_id, address.id))
+      .leftJoin(contact, eq(company.contact_id, contact.id))
+      .leftJoin(bank, eq(company.bank_id, bank.id))
+      .where(eq(company.invoice_contact_person_id, personId))
+      .orderBy(company.name)
+
+    return rows.map((row) => ({
+      ...row.company,
+      address: row.address,
+      contact: row.contact,
+      bank: row.bank
+    }))
+  }
+
   async getAllPaginated(pagination: PaginationInput) {
     const { search } = pagination
     const { page, pageSize, offset } = listPage(pagination)

@@ -26,8 +26,6 @@ Done work lives in the git history; this list only holds what is still open.
 - **Calendar subscription in Outlook/Google:** the calendar file needs a web
   address there (e.g. a direct download link from OneDrive/Dropbox) — to be
   tried with the real setup.
-- **Person detail page** (bands, companies, venues have one; persons still
-  use the relations page).
 
 ## Data
 

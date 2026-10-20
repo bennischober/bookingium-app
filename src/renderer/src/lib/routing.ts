@@ -81,7 +81,7 @@ export const getRouteShortcut = (path: string): string | undefined =>
 
 /**
  * Whether a menu route is active for the current path: its own page and its
- * detail pages (e.g. /events for /events/3, /persons for /persons/1/relations).
+ * detail pages (e.g. /events for /events/3, /persons for /persons/1).
  * The dashboard ('/') only matches itself.
  */
 export const isRouteActive = (routePath: string, currentPath: string): boolean => {

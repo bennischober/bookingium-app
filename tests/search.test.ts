@@ -5,6 +5,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { container } from 'tsyringe'
 import { SearchService } from '../src/main/services/SearchService'
 import { CompanyService } from '../src/main/services/CompanyService'
+import { PersonService } from '../src/main/services/PersonService'
 import { BandRepository } from '../src/main/repositories/BandRepository'
 import { DealMemoRepository } from '../src/main/repositories/DealMemoRepository'
 
@@ -54,6 +55,17 @@ describe('SearchService', () => {
     expect(band?.label).toBe('The Searchers')
     expect(event?.label).toBe('Searchfest Open Air')
     expect(event?.routeParams).toEqual({ eventId: event?.id.toString() })
+  })
+
+  it('opens persons on their person page', async () => {
+    const person = await container
+      .resolve(PersonService)
+      .createPerson({ firstName: 'Searchy', lastName: 'McFind' })
+    const { results } = await service.search('Searchy')
+    const hit = results.find((r) => r.type === 'person')
+    expect(hit?.label).toBe('Searchy McFind')
+    expect(hit?.route).toBe('/persons/$personId')
+    expect(hit?.routeParams).toEqual({ personId: String(person.id) })
   })
 
   it('is case-insensitive', async () => {

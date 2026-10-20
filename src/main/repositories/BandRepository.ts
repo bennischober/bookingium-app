@@ -70,6 +70,15 @@ export class BandRepository {
       .orderBy(schema.band.name)
   }
 
+  /** Bands whose technical director (TL) the person is, by name */
+  async listByResponsiblePerson(personId: number) {
+    return await db
+      .select()
+      .from(schema.band)
+      .where(eq(schema.band.responsible_person_id, personId))
+      .orderBy(schema.band.name)
+  }
+
   async getById(id: number) {
     const result = await db.select().from(schema.band).where(eq(schema.band.id, id))
     return result[0] || null

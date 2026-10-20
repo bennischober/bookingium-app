@@ -19,6 +19,10 @@ export class CompanyService {
     return await this.companyRepository.getAllPaginated(pagination)
   }
 
+  async listCompaniesByInvoiceContact(personId: number) {
+    return await this.companyRepository.listByInvoiceContact(personId)
+  }
+
   async getCompanyById(id: number) {
     return await this.companyRepository.getById(id)
   }

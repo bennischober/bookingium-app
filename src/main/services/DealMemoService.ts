@@ -25,6 +25,10 @@ export class DealMemoService {
     return await this.dealMemoRepository.listByCompany(companyId)
   }
 
+  async listDealMemosByPerson(personId: number) {
+    return await this.dealMemoRepository.listByPerson(personId)
+  }
+
   async getDealMemoById(id: number) {
     return await this.dealMemoRepository.getById(id)
   }

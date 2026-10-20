@@ -180,7 +180,7 @@ export function OverviewTab({
             onSwap={handleSwapPerson}
             isSaving={updateMutation.isPending}
             nullable={true}
-            href="/persons"
+            href={event.loProPersonId ? `/persons/${event.loProPersonId}` : undefined}
             empty="Kein Kontakt zugewiesen"
           />
           <SwappableEntityCard

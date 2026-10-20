@@ -91,6 +91,16 @@ export class DealMemoRepository {
     )
   }
 
+  /** Events where the person is the LoPro contact or the band's TL, newest first */
+  async listByPerson(personId: number) {
+    return this.listWhere(
+      or(
+        eq(schema.deal_memo.lopro_person_id, personId),
+        eq(schema.band.responsible_person_id, personId)
+      )
+    )
+  }
+
   async getById(id: number) {
     const rows = await db
       .select()

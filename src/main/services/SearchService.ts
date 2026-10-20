@@ -123,7 +123,7 @@ export class SearchService {
         id: person.id,
         label: `${person.firstName} ${person.lastName}`,
         sublabel: null,
-        route: '/persons/$personId/relations',
+        route: '/persons/$personId',
         routeParams: { personId: String(person.id) }
       })),
       ...venues.map((venue) => ({

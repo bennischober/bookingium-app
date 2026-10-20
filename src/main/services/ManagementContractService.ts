@@ -17,6 +17,10 @@ export class ManagementContractService {
     return await this.repository.listByBand(bandId)
   }
 
+  async listByPerson(personId: number) {
+    return await this.repository.listByPerson(personId)
+  }
+
   async createForBand(bandId: number) {
     return await this.repository.createForBand(bandId)
   }

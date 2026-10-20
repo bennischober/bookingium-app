@@ -46,9 +46,13 @@ function OverviewTab({ band }: { band: BandDto }) {
       </InfoCard>
       <InfoCard label="Technischer Leiter">
         {responsible ? (
-          <span className="font-medium">
+          <Link
+            to="/persons/$personId"
+            params={{ personId: String(responsible.id) }}
+            className="font-medium hover:underline"
+          >
             {responsible.firstName} {responsible.lastName}
-          </span>
+          </Link>
         ) : (
           <span className="text-muted-foreground">–</span>
         )}

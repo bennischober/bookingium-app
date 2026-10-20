@@ -22,6 +22,11 @@ export const managementContractRouter = t.router({
     return ManagementContractMapper.toDtoList(await service.listByBand(input))
   }),
 
+  /** Contracts naming a person as member or representative (person page) */
+  listByPerson: t.procedure.input(z.number()).query(async ({ input }) => {
+    return ManagementContractMapper.toDtoList(await service.listByPerson(input))
+  }),
+
   /** New contract for a band (copy of its latest, or the draft defaults) */
   createForBand: t.procedure.input(z.number()).mutation(async ({ input }) => {
     try {

@@ -20,8 +20,7 @@ import {
   MapPin,
   Music2,
   Search,
-  User,
-  Users
+  User
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { ROUTES } from '@/lib/routing'
@@ -58,7 +57,7 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/band': { description: 'Künstlerverzeichnis öffnen', aliases: ['artists'] },
   '/persons': {
     description: 'Personen-Stammdaten öffnen',
-    aliases: ['contacts', 'person relations', 'relations']
+    aliases: ['contacts', 'people', 'kontakte']
   },
   '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
   '/venues': { description: 'Spielstättenverzeichnis öffnen', aliases: ['locations'] },
@@ -305,22 +304,6 @@ const SearchButton = () => {
               <CirclePlus />
               <span>Neue Rechnung anlegen</span>
               <CommandShortcut>Rechnungen</CommandShortcut>
-            </CommandItem>
-            <CommandItem
-              value="person relations"
-              keywords={['relations', 'contacts relationships']}
-              onSelect={() =>
-                runAndClose(() => navigate({ to: '/persons' }), {
-                  id: 'route:/persons:relations',
-                  label: 'Personen-Beziehungen öffnen',
-                  type: 'route',
-                  path: '/persons'
-                })
-              }
-            >
-              <Users />
-              <span>Personen-Beziehungen öffnen</span>
-              <CommandShortcut>Personen</CommandShortcut>
             </CommandItem>
           </CommandGroup>
 

@@ -15,7 +15,7 @@ import CompanyDetailPage from '@/pages/CompanyDetailPage'
 import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
-import PersonRelationsPage from '@/pages/PersonRelationsPage'
+import PersonDetailPage from '@/pages/PersonDetailPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
@@ -27,6 +27,7 @@ import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 import { isBandTab, type BandTab } from '@/components/band/constants'
 import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
+import { isPersonTab, type PersonTab } from '@/components/person/constants'
 
 const hashHistory = createHashHistory()
 // Back/forward buttons in the top bar
@@ -69,10 +70,13 @@ const personRoute = createRoute({
   component: PersonPage
 })
 
-const personRelationsRoute = createRoute({
+const personDetailRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
-  path: '/persons/$personId/relations',
-  component: PersonRelationsPage
+  path: '/persons/$personId',
+  validateSearch: (search: Record<string, unknown>): { tab?: PersonTab } => ({
+    tab: isPersonTab(search.tab) ? search.tab : undefined
+  }),
+  component: PersonDetailPage
 })
 
 const companyRoute = createRoute({
@@ -192,7 +196,7 @@ const routeTree = rootRoute.addChildren([
     calendarRoute,
     bandRoute,
     personRoute,
-    personRelationsRoute,
+    personDetailRoute,
     companyRoute,
     bankRoute,
     venueRoute,

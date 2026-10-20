@@ -34,6 +34,12 @@ export const dealMemoRouter = t.router({
     return memos.map((memo) => DealMemoMapper.toDto(memo))
   }),
 
+  /** Events where a person is LoPro contact or the band's TL, newest first (person page) */
+  listByPerson: t.procedure.input(z.number()).query(async ({ input }) => {
+    const memos = await dealMemoService.listDealMemosByPerson(input)
+    return memos.map((memo) => DealMemoMapper.toDto(memo))
+  }),
+
   getById: t.procedure.input(z.number()).query(async ({ input }) => {
     const memo = await dealMemoService.getDealMemoById(input)
     if (!memo) throw new TRPCError({ code: 'NOT_FOUND' })

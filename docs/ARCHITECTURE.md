@@ -51,11 +51,13 @@ src/preload/           contextBridge API (window.api: print, documents, logos,
                        import picker, dropped file paths)
 src/renderer/src/      React app
   pages/               List pages, detail pages (/band/:id, /companies/:id,
-                       /venues/:id, /events/:id), Einstellungen, print pages
+                       /venues/:id, /persons/:id, /events/:id), Einstellungen,
+                       print pages
   components/
     ui/                shadcn-style primitives (+ searchable-select)
     forms/             Business object forms (TanStack Form)
-    event-hub/, band/, company/, venue/, detail/   Detail page tabs and parts
+    event-hub/, band/, company/, venue/, person/, detail/
+                       Detail page tabs and parts
     documents/, import/, export/                    Shared feature panels
     layout/            Top bar: back/forward, breadcrumbs, quick create, search
     print/, contract/, invoice/                     A4 print documents
@@ -159,7 +161,10 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
 10. **Detail page** (records with relations) — `/x/$xId` with tabs kept in
     `?tab=`, built from panels (`MembersPanel`, `DocumentsPanel`, …); row
     click opens it, the pencil keeps the sheet; add the name to the
-    breadcrumbs (`layout/app-breadcrumbs.tsx`).
+    breadcrumbs (`layout/app-breadcrumbs.tsx`). Lists of linked records come
+    from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
+    `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page
+    edits memberships from the person's side (`PersonMembershipsPanel`).
 11. **Seed** (optional demo data) — `src/main/db/seed.ts`; real master data
     only in the gitignored `sample_data/internal-seed.json`.
 12. **Tests** — unit tests in `tests/`, an e2e spec in `tests/e2e/`.

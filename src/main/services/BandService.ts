@@ -32,6 +32,10 @@ export class BandService {
     return await this.bandRepository.listByCompany(companyId)
   }
 
+  async listBandsByResponsiblePerson(personId: number) {
+    return await this.bandRepository.listByResponsiblePerson(personId)
+  }
+
   async updateBand(data: UpdateBandInput) {
     const result = await this.bandRepository.update(data)
     scheduleCalendarUpdate()
