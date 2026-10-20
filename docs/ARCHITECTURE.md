@@ -246,10 +246,23 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   original. It is issued and never changes; the dashboard does not count
   it as open. As an e-invoice it is a credit note (type 381, positive
   amounts) referring to the original's number and date (BT-25/26).
-- **Validation:** unit tests recompute the BR-CO sums. Opt-in, with Java:
-  `KOSIT_VALIDATOR=…/validator-<v>-standalone.jar
-KOSIT_CONFIG=…/xrechnung-…-configuration (unzipped)` runs the official
-  KoSIT validator over the samples in `tests/helpers/einvoiceFixtures.ts`
-  (EN 16931 and XRechnung scenarios); `VERAPDF=…/verapdf(.bat)` checks the
-  PDFs the e2e test leaves in `tests/e2e/__screenshots__/einvoice-*.pdf`
-  as PDF/A-3b.
+- **Validation:** unit tests recompute the BR-CO sums. The official
+  validators run with `pnpm validate:einvoice` (needs Java 11+ on the
+  PATH): `scripts/einvoice-tools.mjs` downloads pinned, SHA-256-checked
+  versions into the gitignored `.tools/` (KoSIT validator 1.6.3, XRechnung
+  configuration 2026-08-31, veraPDF greenfield 1.30.3 via a headless
+  izpack install; about 44 MB, once), builds, runs
+  `tests/e2e/einvoice.spec.ts` and then both opt-in tests, and fails
+  unless both ran and passed. `tests/einvoice.kosit.test.ts` runs the KoSIT
+  validator over the samples in `tests/helpers/einvoiceFixtures.ts` (EN
+  16931 and XRechnung scenarios); `tests/einvoice.verapdf.test.ts` checks
+  the PDFs the e2e test leaves in `tests/e2e/__screenshots__/einvoice-*.pdf`
+  as PDF/A-3b. `node scripts/einvoice-tools.mjs setup` only installs and
+  prints `KOSIT_VALIDATOR`, `KOSIT_CONFIG` and `VERAPDF` for running the
+  tests by hand. To update a tool, change its URL and hash in the script.
+  Java CLIs get `stdio: 'pipe'`: with an inherited stdin they fail on
+  Windows („Unzulässige Funktion“). The validators are dev/CI tools: the
+  electron-builder `files` allow-list keeps `.tools/` and `scripts/` out
+  of the package. We stay with these Java reference implementations on
+  purpose: there is no JS veraPDF, and a JS rebuild of KoSIT would drift
+  from the official rules.
