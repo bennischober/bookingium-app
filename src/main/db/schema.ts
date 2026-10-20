@@ -566,6 +566,38 @@ export const contact_list = sqliteTable('contact_list', {
     .notNull()
 })
 
+// Follow-ups (Wiedervorlagen): a date and a note, optionally on one record
+// (at most one of the *_id columns is set; none = a general follow-up).
+// Open while done_at is null.
+export const follow_up = sqliteTable(
+  'follow_up',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    due_date: text('due_date').notNull(), // YYYY-MM-DD
+    note: text('note').notNull(),
+    done_at: text('done_at'),
+    event_id: integer('event_id').references(() => deal_memo.id, { onDelete: 'cascade' }),
+    band_id: integer('band_id').references(() => band.id, { onDelete: 'cascade' }),
+    venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'cascade' }),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'cascade' }),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'cascade' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('follow_up_open_idx').on(table.done_at, table.due_date),
+    index('follow_up_event_idx').on(table.event_id),
+    index('follow_up_band_idx').on(table.band_id),
+    index('follow_up_venue_idx').on(table.venue_id),
+    index('follow_up_company_idx').on(table.company_id),
+    index('follow_up_person_idx').on(table.person_id)
+  ]
+)
+
 // ========================================
 // Management contracts (management company <-> band)
 // ========================================
@@ -704,5 +736,6 @@ export const schema = {
   management_share,
   management_share_income,
   app_setting,
-  contact_list
+  contact_list,
+  follow_up
 }

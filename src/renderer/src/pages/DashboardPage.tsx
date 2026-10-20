@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
+import { FollowUpsCard } from '@/components/follow-ups/FollowUpsCard'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -110,6 +111,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <FollowUpsCard />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>

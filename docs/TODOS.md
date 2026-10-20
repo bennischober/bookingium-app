@@ -25,6 +25,8 @@ Done work lives in the git history; this list only holds what is still open.
 - **Verteiler: local promoters.** Lists draw on venues only (own address,
   Ansprechpartner, Veranstalter); LoPro companies and persons of events
   could be a further recipient type if lists to promoters are needed.
+- **Wiedervorlagen:** not in the calendar or the calendar feed yet, and done
+  ones have no history view; both if they turn out to be missed.
 - **Calendar subscription in Outlook/Google:** the calendar file needs a web
   address there (e.g. a direct download link from OneDrive/Dropbox) — to be
   tried with the real setup.

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -132,6 +133,7 @@ export function EventHubPage() {
                   <FileSignature className="h-3.5 w-3.5" />
                   Vertrag
                 </Button>
+                <FollowUpButton record={{ type: 'event', id: event.id, name: event.name }} />
                 <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />
                   Bearbeiten
@@ -150,6 +152,8 @@ export function EventHubPage() {
           </p>
         )}
       </div>
+
+      <RecordFollowUps record={{ type: 'event', id: event.id, name: event.name }} />
 
       {/* ── Tabs ── */}
       <Tabs

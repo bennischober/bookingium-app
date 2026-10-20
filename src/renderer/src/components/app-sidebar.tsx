@@ -8,10 +8,13 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
 import { getGroupedRoutes, getRouteShortcut, isRouteActive } from '@/lib/routing'
+import { countDue } from '@/lib/followUps'
+import { trpcReact } from '@/lib/trpc'
 // The app icon's source, so the sidebar always shows the same mark
 import logoUrl from '../../../../build/icon.svg'
 
@@ -19,6 +22,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
   const navGroups = getGroupedRoutes()
+  // Follow-ups due today or overdue, as a count on the Dashboard item
+  const followUps = trpcReact.followUp.listOpen.useQuery()
+  const dueCount = countDue(followUps.data ?? [])
 
   return (
     <Sidebar variant="sidebar" {...props}>
@@ -51,6 +57,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
+                    {item.path === '/' && dueCount > 0 && (
+                      <SidebarMenuBadge
+                        title={`${dueCount} ${dueCount === 1 ? 'Wiedervorlage' : 'Wiedervorlagen'} fällig`}
+                        className="bg-primary/15 text-primary"
+                      >
+                        {dueCount}
+                        <span className="sr-only"> Wiedervorlagen fällig</span>
+                      </SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

@@ -340,3 +340,23 @@ bulk sending belongs in a newsletter service that handles unsubscribes.
 - **Saved lists** (`contact_list`) store the filters as JSON, not the
   addresses: a saved list always shows the current contacts. Unreadable
   filters fall back to "everything".
+
+## Follow-ups (Wiedervorlagen)
+
+A follow-up is a due date with a note (`follow_up`, `followUp` router,
+`FollowUpService`), either on one record or general.
+
+- **On a record:** event (deal memo), band, venue, company or person, as
+  nullable foreign keys with `ON DELETE CASCADE` (unlike documents'
+  `owner_type`/`owner_id`): a follow-up goes with its record. At most one
+  is set; none means general.
+- **Done** sets `done_at` instead of deleting, so the toast's "Rückgängig"
+  brings it back. Only open ones are listed; "Löschen" in the edit dialog
+  removes one for good.
+- **Where it shows** (`components/follow-ups`): a "Wiedervorlage" button
+  and the record's open follow-ups above the tabs on each detail page; the
+  Dashboard card (overdue, today, the next 14 days, the rest behind "weitere
+  später anzeigen"; "+ Wiedervorlage" for a general one); and the count of
+  those due today or earlier on the Dashboard menu item.
+- **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
+  "Heute" follows the computer's clock, not UTC.

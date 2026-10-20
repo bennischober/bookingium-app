@@ -79,6 +79,17 @@ English.
 | Write email (BCC) / Copy addresses | E-Mail schreiben / Adressen kopieren      |
 | Export CSV                         | CSV exportieren                           |
 
+### Follow-ups
+
+| English                          | German                                      |
+| -------------------------------- | ------------------------------------------- |
+| Follow-up / new follow-up        | Wiedervorlage / Neue Wiedervorlage          |
+| Due on / note                    | Fällig am / Notiz                           |
+| Overdue since / today / tomorrow | Überfällig seit / Heute / Morgen            |
+| Done (tick off) / undo           | Erledigt / Rückgängig                       |
+| General (not on a record)        | Allgemein                                   |
+| Quick picks                      | Morgen, In 3 Tagen, In 1 Woche, In 2 Wochen |
+
 ### Events and documents
 
 | English                                       | German                                                                  |

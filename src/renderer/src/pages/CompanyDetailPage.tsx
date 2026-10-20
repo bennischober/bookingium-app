@@ -7,6 +7,7 @@ import { formatShortDate } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
+import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
@@ -322,17 +323,22 @@ export default function CompanyDetailPage() {
               </p>
             )}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-1 shrink-0 gap-1.5"
-            onClick={() => sheet.openEdit(company)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Bearbeiten
-          </Button>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <FollowUpButton record={{ type: 'company', id: company.id, name: company.name }} />
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => sheet.openEdit(company)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Bearbeiten
+            </Button>
+          </div>
         </div>
       </div>
+
+      <RecordFollowUps record={{ type: 'company', id: company.id, name: company.name }} />
 
       <Tabs
         value={activeTab}

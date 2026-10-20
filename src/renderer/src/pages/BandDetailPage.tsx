@@ -3,6 +3,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
@@ -158,17 +159,22 @@ export default function BandDetailPage() {
             <h1 className="text-2xl font-bold">{band.name}</h1>
             {band.genre && <p className="mt-1 text-sm text-muted-foreground">{band.genre}</p>}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-1 shrink-0 gap-1.5"
-            onClick={() => sheet.openEdit(band)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Bearbeiten
-          </Button>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <FollowUpButton record={{ type: 'band', id: band.id, name: band.name }} />
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => sheet.openEdit(band)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Bearbeiten
+            </Button>
+          </div>
         </div>
       </div>
+
+      <RecordFollowUps record={{ type: 'band', id: band.id, name: band.name }} />
 
       <Tabs
         value={activeTab}

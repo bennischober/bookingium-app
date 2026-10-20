@@ -3,6 +3,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
@@ -147,17 +148,22 @@ export default function VenueDetailPage() {
               {[VENUE_KIND_LABELS[venue.kind], venue.address?.city].filter(Boolean).join(' · ')}
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-1 shrink-0 gap-1.5"
-            onClick={() => sheet.openEdit(venue)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Bearbeiten
-          </Button>
+          <div className="mt-1 flex shrink-0 items-center gap-2">
+            <FollowUpButton record={{ type: 'venue', id: venue.id, name: venue.name }} />
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => sheet.openEdit(venue)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Bearbeiten
+            </Button>
+          </div>
         </div>
       </div>
+
+      <RecordFollowUps record={{ type: 'venue', id: venue.id, name: venue.name }} />
 
       <Tabs
         value={activeTab}
