@@ -135,7 +135,7 @@ export function InvoiceEmailCard() {
           senden sie im Mailprogramm.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="@container space-y-6">
         <div className="max-w-sm space-y-2">
           <Label htmlFor="settings-mail-program">Mailprogramm</Label>
           <Select
@@ -159,7 +159,8 @@ export function InvoiceEmailCard() {
           <p className="text-xs text-muted-foreground">{MAIL_PROGRAM_HINTS[mailProgram]}</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Side by side when the card is wide enough (it may sit in a column) */}
+        <div className="grid grid-cols-1 gap-6 @3xl:grid-cols-2">
           {(['de', 'en'] as const).map((lang) => (
             <TemplateFields
               key={lang}

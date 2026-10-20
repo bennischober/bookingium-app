@@ -142,7 +142,8 @@ export default function InvoicePrintPage() {
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Select value={template} onValueChange={(value) => setTemplate(value as InvoiceTemplate)}>
-            <SelectTrigger className="w-[190px]">
+            {/* Looks like the outline buttons next to it */}
+            <SelectTrigger className="h-8 w-[190px] rounded-lg border-border bg-background font-medium shadow-none hover:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50">
               <SelectValue placeholder="Vorlage" />
             </SelectTrigger>
             <SelectContent>

@@ -315,14 +315,19 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="max-w-4xl space-y-6">
-        <GeneralCard />
-        <InvoiceNumberingCard />
-        <EInvoiceCard />
-        <PaymentQrCard />
-        <InvoiceEmailCard />
-        <CalendarCard />
-        <DataCard />
+      {/* Two columns of about equal height on wide screens */}
+      <div className="grid max-w-4xl grid-cols-1 items-start gap-6 2xl:max-w-400 2xl:grid-cols-2">
+        <div className="space-y-6">
+          <GeneralCard />
+          <InvoiceNumberingCard />
+          <EInvoiceCard />
+          <PaymentQrCard />
+          <CalendarCard />
+        </div>
+        <div className="space-y-6">
+          <InvoiceEmailCard />
+          <DataCard />
+        </div>
       </div>
     </div>
   )
