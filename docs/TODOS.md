@@ -11,8 +11,9 @@ Done work lives in the git history; this list only holds what is still open.
   § 4 Nr. 20 a UStG via the Steuerhinweis presets, management shares at
   0 % need the reason in the Steuerhinweis. Left to do:
   - Run real invoices (sample_data) through the check before 2028.
-  - KoSIT and veraPDF run on demand (`tests/einvoice.kosit.test.ts`,
-    `tests/einvoice.verapdf.test.ts`); wire them into CI once there is one.
+  - KoSIT and veraPDF run on demand with `pnpm validate:einvoice`; wire
+    that command into CI once there is one (runner with Java 11+, cache
+    `.tools/`; the e2e step needs a display, e.g. xvfb on Linux).
 
 ## Product
 
