@@ -24,7 +24,11 @@ import { SettingsService } from './services/SettingsService'
 import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
+import { InvoiceService } from './services/InvoiceService'
 import type { EInvoiceCheckDto } from './api/schemas/invoice.schema'
+import { InvoiceMapper } from './api/mappers/invoice.mapper'
+import { invoiceEmail, type Lang } from './mail/invoiceEmail'
+import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 
 function createWindow(): void {
@@ -195,14 +199,24 @@ ipcMain.handle('logo:getDataUrl', async (_event, { relativePath }: { relativePat
  * IPC Handler: generate the real print output (printToPDF) of the current
  * window. Used by the print pages' exact preview.
  */
+// One print job per window at a time: printToPDF fails ("Printing failed")
+// while another one runs, e.g. a save or email during the preview
+const printQueues = new WeakMap<Electron.WebContents, Promise<unknown>>()
+
 // A4 with 20mm margins (0.787in), mirroring the sheet padding / @page CSS
 function printWindowToPdf(wc: Electron.WebContents): Promise<Buffer> {
-  return wc.printToPDF({
-    landscape: false,
-    printBackground: true,
-    pageSize: 'A4',
-    margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
-  })
+  const job = (printQueues.get(wc) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() =>
+      wc.printToPDF({
+        landscape: false,
+        printBackground: true,
+        pageSize: 'A4',
+        margins: { top: 0.787, bottom: 0.787, left: 0.787, right: 0.787 }
+      })
+    )
+  printQueues.set(wc, job)
+  return job
 }
 
 ipcMain.handle('print:previewPdf', async (event) => {
@@ -220,6 +234,20 @@ ipcMain.handle('print:previewPdf', async (event) => {
   }
 })
 
+/**
+ * The window's print output; for an invoice with the e-invoice XML embedded
+ * when it is complete (ZUGFeRD/Factur-X)
+ */
+async function documentPdf(
+  wc: Electron.WebContents,
+  fileName: string,
+  invoiceId?: number
+): Promise<{ pdf: Uint8Array; eInvoice?: EInvoiceCheckDto }> {
+  const pdf = await printWindowToPdf(wc)
+  if (!invoiceId) return { pdf }
+  return container.resolve(EInvoiceService).attachToPdf(invoiceId, pdf, fileName)
+}
+
 // Only PDFs saved through print:savePdf may be opened via print:openPdf
 const savedPdfPaths = new Set<string>()
 
@@ -236,15 +264,11 @@ ipcMain.handle(
     { defaultFileName, invoiceId }: { defaultFileName: string; invoiceId?: number }
   ) => {
     try {
-      let pdf: Uint8Array = await printWindowToPdf(event.sender)
-      let eInvoice: EInvoiceCheckDto | undefined
-      if (invoiceId) {
-        const result = await container
-          .resolve(EInvoiceService)
-          .attachToPdf(invoiceId, pdf, defaultFileName.replace(/\.pdf$/i, ''))
-        pdf = result.pdf
-        eInvoice = result.eInvoice
-      }
+      const { pdf, eInvoice } = await documentPdf(
+        event.sender,
+        defaultFileName.replace(/\.pdf$/i, ''),
+        invoiceId
+      )
       const owner = BrowserWindow.fromWebContents(event.sender)
       const options: Electron.SaveDialogOptions = {
         title: 'Als PDF speichern',
@@ -299,6 +323,51 @@ ipcMain.handle(
     }
   }
 )
+
+/**
+ * IPC Handler: "Per E-Mail senden" — writes the invoice PDF (with e-invoice)
+ * and an .eml draft, opens it in the mail program (see mail/openEmail.ts)
+ * and remembers the email on the invoice
+ */
+ipcMain.handle(
+  'invoice:email',
+  async (
+    event,
+    { invoiceId, fileName, lang }: { invoiceId: number; fileName: string; lang: Lang }
+  ) => {
+    try {
+      const invoiceService = container.resolve(InvoiceService)
+      const entity = await invoiceService.getInvoicePrintData(invoiceId)
+      if (!entity) return { success: false, error: 'Rechnung nicht gefunden' }
+      const data = InvoiceMapper.toPrintDto(
+        entity,
+        entity.issuerSnapshot ?? null,
+        entity.recipientSnapshot ?? null
+      )
+      const settings = container.resolve(SettingsService).get()
+      const draft = invoiceEmail(
+        data,
+        lang,
+        lang === 'en' ? settings.invoiceEmailEn : settings.invoiceEmailDe
+      )
+      const name = fileName.replace(/\.pdf$/i, '')
+      const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
+      const result = await openEmail({ draft, pdf, fileName: name, setting: settings.mailProgram })
+      invoiceService.markInvoiceEmailed(invoiceId, draft.to)
+      return { success: true, ...result, to: draft.to, eInvoice }
+    } catch (error) {
+      console.error('Error creating invoice email:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+ipcMain.handle('mail:showFile', (_event, { filePath }: { filePath: string }) => {
+  showEmailFile(filePath)
+})
 
 ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string }) => {
   if (!savedPdfPaths.has(filePath)) return { success: false, error: 'Unknown file' }

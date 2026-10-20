@@ -7,7 +7,12 @@ import { InvoiceForm } from '@/components/forms/InvoiceForm'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { INVOICE_STATUS_LABELS, formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
+import {
+  INVOICE_STATUS_LABELS,
+  emailedLabel,
+  formatMoney,
+  invoiceNumberLabel
+} from '@/lib/invoiceLabels'
 import {
   isInvoiceLocked,
   nextInvoiceStatuses,
@@ -181,6 +186,9 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
         <Field label="Event" value={invoice.dealMemoName ?? '-'} />
         {invoice.buyerReference && (
           <Field label="Käuferreferenz / Leitweg-ID" value={invoice.buyerReference} />
+        )}
+        {invoice.emailedAt && (
+          <Field label="E-Mail" value={emailedLabel(invoice).replace(/^E-Mail /, '')} />
         )}
       </dl>
 

@@ -984,6 +984,14 @@ export class InvoiceRepository {
     })
   }
 
+  /** Records that the invoice's email was created (not a content change) */
+  markEmailed(id: number, to: string) {
+    db.update(schema.invoice)
+      .set({ emailed_at: sql`datetime('now')`, emailed_to: to })
+      .where(eq(schema.invoice.id, id))
+      .run()
+  }
+
   /** Changes only the status; assigns the number when a draft is issued */
   async setStatus(id: number, status: InvoiceStatus) {
     return db.transaction((tx) => {

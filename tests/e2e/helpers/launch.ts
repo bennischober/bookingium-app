@@ -43,7 +43,9 @@ export async function launchApp(): Promise<AppHandle> {
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      BOOKINGIUM_USER_DATA: userData.dir
+      BOOKINGIUM_USER_DATA: userData.dir,
+      // Per E-Mail senden: write the files only, never open a mail program
+      BOOKINGIUM_NO_LAUNCH: '1'
     }
   })
 

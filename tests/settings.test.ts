@@ -12,12 +12,27 @@ import { schema } from '../src/main/db/schema'
 import { SettingsService, backupFolderName } from '../src/main/services/SettingsService'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
+import {
+  AppSettings,
+  DEFAULT_INVOICE_EMAIL,
+  UpdateAppSettingsInput
+} from '../src/main/api/schemas/settings.schema'
 
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
 
 let root: string
+
+const DEFAULTS = {
+  defaultCountry: 'DE',
+  calendarFeedPath: '',
+  eInvoiceEmbed: true,
+  paymentQr: true,
+  mailProgram: 'auto',
+  invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
+  invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en
+}
 
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), 'bookingum-settings-'))
@@ -32,25 +47,29 @@ afterAll(() => {
 describe('settings', () => {
   it('fall back to defaults and keep saved values', () => {
     const service = container.resolve(SettingsService)
-    expect(service.get()).toEqual({
-      defaultCountry: 'DE',
-      calendarFeedPath: '',
-      eInvoiceEmbed: true,
-      paymentQr: true
-    })
+    expect(service.get()).toEqual(DEFAULTS)
     expect(service.update({ defaultCountry: 'AT' })).toMatchObject({ defaultCountry: 'AT' })
     expect(service.update({ defaultCountry: '' })).toMatchObject({ defaultCountry: '' })
     expect(container.resolve(SettingsService).get()).toMatchObject({ defaultCountry: '' })
   })
 
+  it('change only the given keys', () => {
+    const service = container.resolve(SettingsService)
+    service.update({ calendarFeedPath: 'C:\\Kalender\\bookingium.ics', defaultCountry: 'AT' })
+    // As the settings router receives it: no defaults for the other keys
+    const input = UpdateAppSettingsInput.parse({ paymentQr: false })
+    expect(input).toEqual({ paymentQr: false })
+    expect(service.update(input)).toMatchObject({
+      calendarFeedPath: 'C:\\Kalender\\bookingium.ics',
+      defaultCountry: 'AT',
+      paymentQr: false
+    })
+    expect(Object.keys(UpdateAppSettingsInput.shape)).toEqual(Object.keys(AppSettings.shape))
+  })
+
   it('ignore unreadable stored values', () => {
     db.update(schema.app_setting).set({ value: 'not json' }).run()
-    expect(container.resolve(SettingsService).get()).toEqual({
-      defaultCountry: 'DE',
-      calendarFeedPath: '',
-      eInvoiceEmbed: true,
-      paymentQr: true
-    })
+    expect(container.resolve(SettingsService).get()).toEqual(DEFAULTS)
   })
 
   it('switch the default own company', async () => {

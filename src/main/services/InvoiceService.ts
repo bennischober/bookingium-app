@@ -96,6 +96,11 @@ export class InvoiceService {
     return await this.invoiceRepository.upsertCompanyInvoiceSettings(input)
   }
 
+  /** Remembers that "Per E-Mail senden" created the invoice's email */
+  markInvoiceEmailed(id: number, to: string) {
+    this.invoiceRepository.markEmailed(id, to)
+  }
+
   private async requireInvoice(id: number) {
     const existing = await this.invoiceRepository.getById(id)
     if (!existing) throw new Error('Rechnung nicht gefunden')

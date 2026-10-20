@@ -24,6 +24,19 @@ export function invoiceNumberLabel(invoiceNumber: number | null): string {
   return invoiceNumber === null ? 'Entwurf' : `#${invoiceNumber}`
 }
 
+/**
+ * "Per E-Mail senden" of an invoice: "E-Mail erstellt am 20.10.2026 an
+ * x@y.de", '' when there was none (emailedAt is SQLite UTC "YYYY-MM-DD HH:MM:SS")
+ */
+export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: string }): string {
+  if (!invoice.emailedAt) return ''
+  const date = new Date(`${invoice.emailedAt.replace(' ', 'T')}Z`)
+  const day = Number.isNaN(date.getTime())
+    ? invoice.emailedAt
+    : date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return `E-Mail erstellt am ${day}${invoice.emailedTo ? ` an ${invoice.emailedTo}` : ''}`
+}
+
 export function formatMoney(value: number, currency: string): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',

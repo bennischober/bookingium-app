@@ -108,7 +108,9 @@ export class InvoiceMapper {
       subtotalNetAmount: entity.subtotal_net_amount,
       subtotalTaxAmount: entity.subtotal_tax_amount,
       totalGrossAmount: entity.total_gross_amount,
-      totalAmount: entity.total_amount
+      totalAmount: entity.total_amount,
+      emailedAt: entity.emailed_at,
+      emailedTo: entity.emailed_to
     }
   }
 

@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { ImportWorkbook } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
+import type { MailMethod } from '../main/mail/mailProgram'
 
 export interface DocumentAPI {
   /** Local path of a file dropped from the file manager ('' if it has none) */
@@ -56,6 +57,26 @@ export interface DocumentAPI {
     eInvoice?: EInvoiceCheckDto
     error?: string
   }>
+  /**
+   * "Per E-Mail senden": writes the PDF and an email draft and opens it in
+   * the mail program; `method` says how (see mail/mailProgram.ts)
+   */
+  sendInvoiceEmail: (
+    invoiceId: number,
+    fileName: string,
+    lang: 'de' | 'en'
+  ) => Promise<{
+    success: boolean
+    method?: MailMethod
+    /** The attached PDF, kept in the app's E-Mail folder */
+    pdfPath?: string
+    /** Recipient address, '' when the recipient has none */
+    to?: string
+    eInvoice?: EInvoiceCheckDto
+    error?: string
+  }>
+  /** Shows a file of sendInvoiceEmail in Explorer */
+  showEmailFile: (filePath: string) => Promise<void>
   /** Open dialog for an Excel file; returns its sheets for the import dialog */
   pickImportWorkbook: () => Promise<{
     success: boolean

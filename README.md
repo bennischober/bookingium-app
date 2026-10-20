@@ -12,7 +12,8 @@ Built with Electron, React and TypeScript.
   concert contracts as print-ready PDFs (incl. signature images)
 - **Invoices** with per-company numbering on issue, line items, tax handling,
   Storno, print-to-PDF (German/English agency templates) with embedded
-  e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps
+  e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps;
+  „Per E-Mail senden“ opens the email with the PDF in Outlook or Thunderbird
 - **Bands** with detail page: members, events, management contracts (print)
   and quarterly management-share invoices, documents
 - **Companies and venues/festivals** with detail pages (contacts, bands,

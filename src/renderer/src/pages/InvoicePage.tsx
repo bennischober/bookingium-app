@@ -8,6 +8,7 @@ import {
 } from '@/hooks/useListQuery'
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -18,7 +19,7 @@ import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'
 import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
 import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
-import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
+import { emailedLabel, formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 
@@ -101,12 +102,20 @@ export default function InvoicePage() {
       header: 'Status',
       cell: ({ row }) => {
         const invoice = row.original
+        const emailed = emailedLabel(invoice)
         return (
-          <InvoiceStatusBadge
-            status={invoice.status}
-            kind={invoice.kind}
-            cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
-          />
+          <span className="inline-flex items-center gap-1.5">
+            <InvoiceStatusBadge
+              status={invoice.status}
+              kind={invoice.kind}
+              cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
+            />
+            {emailed && (
+              <Mail className="h-3.5 w-3.5 text-muted-foreground" aria-label={emailed} role="img">
+                <title>{emailed}</title>
+              </Mail>
+            )}
+          </span>
         )
       }
     },

@@ -422,6 +422,10 @@ export const invoice = sqliteTable(
       { onDelete: 'set null' }
     ),
     notes: text('notes').default('').notNull(),
+    // Last time "Per E-Mail senden" created the email (datetime, UTC) and
+    // to which address ('' when the recipient had none)
+    emailed_at: text('emailed_at'),
+    emailed_to: text('emailed_to').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

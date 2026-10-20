@@ -31,6 +31,11 @@ const api = {
   saveEInvoiceXml: (invoiceId: number, defaultFileName: string) =>
     ipcRenderer.invoke('einvoice:saveXml', { invoiceId, defaultFileName }),
 
+  sendInvoiceEmail: (invoiceId: number, fileName: string, lang: 'de' | 'en') =>
+    ipcRenderer.invoke('invoice:email', { invoiceId, fileName, lang }),
+
+  showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
+
   pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 

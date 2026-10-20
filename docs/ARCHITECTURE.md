@@ -39,9 +39,13 @@ src/main/              Main process
                        service date (pure, used by the invoice templates)
   payment/             EPC payment QR code text (pure, used by the invoice
                        templates)
+  mail/                "Per E-Mail senden": email text from the template,
+                       .eml writer, mail program choice (pure); openEmail.ts
+                       writes the files and opens the mail program
   utils/               fileStorage (storage root, logos), documentStorage
                        (documents/<type>/<id>-<name>/ folders)
-  index.ts             Window, IPC handlers (print, files, import picker), startup
+  index.ts             Window, IPC handlers (print, invoice email, files,
+                       import picker), startup
 
 src/preload/           contextBridge API (window.api: print, documents, logos,
                        import picker, dropped file paths)
@@ -206,6 +210,18 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   quiet zone). Only issued/paid/overdue invoices in EUR with a valid issuer
   IBAN (mod 97) get one — no drafts, cancelled invoices or
   Stornorechnungen. The e2e test scans the code from the saved PDF.
+- **Invoice email** („Per E-Mail senden“ on the print page, not for
+  drafts): main prints the PDF (with e-invoice), fills the template from the
+  settings (`invoiceEmailDe`/`invoiceEmailEn`, by the print template's
+  language; {Platzhalter} in `mail/invoiceEmail.ts`) and writes PDF and
+  .eml (`X-Unsent: 1`) to `<userData>/E-Mail` (kept 30 days). The
+  setting `mailProgram` (default `auto`: by the program Windows opens
+  mailto: with) picks the way: classic Outlook opens the .eml as a draft
+  (`OUTLOOK.EXE /eml`), Thunderbird composes with the PDF attached
+  (`-compose`), any other program (new Outlook) gets a mailto: link and
+  Explorer shows the PDF to drag in, no program: the folder opens. The
+  invoice keeps `emailed_at`/`emailed_to`. No email is ever sent by the
+  app. e2e runs set `BOOKINGIUM_NO_LAUNCH=1` (files only).
 - **Mandatory content** (§ 14 Abs. 4 UStG) comes from
   `invoice/taxSummary.ts`, shared by all templates: VAT per rate and per
   0 % reason with its net amount when there is more than one group, the

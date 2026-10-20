@@ -20,6 +20,7 @@ import {
 } from '@/components/invoice/InvoiceDocument'
 import type { InvoicePrintDto } from '../../../main/api/schemas/invoice.schema'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 
 // Display labels for the template dropdown (DB/template values stay untouched)
 const TEMPLATE_LABELS: Record<InvoiceTemplate, string> = {
@@ -139,9 +140,9 @@ export default function InvoicePrintPage() {
         >
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Select value={template} onValueChange={(value) => setTemplate(value as InvoiceTemplate)}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-[190px]">
               <SelectValue placeholder="Vorlage" />
             </SelectTrigger>
             <SelectContent>
@@ -156,6 +157,14 @@ export default function InvoicePrintPage() {
             <Button variant="outline" onClick={() => void saveXRechnung(invoice.id, fileName)}>
               <FileCode className="h-4 w-4" /> XRechnung (XML)
             </Button>
+          )}
+          {/* Drafts have no number yet and are not sent */}
+          {invoice.status !== 'draft' && (
+            <InvoiceEmailButton
+              invoiceId={invoice.id}
+              fileName={fileName}
+              lang={template === 'agency-en' ? 'en' : 'de'}
+            />
           )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />
         </div>

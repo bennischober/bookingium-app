@@ -136,7 +136,10 @@ export const InvoiceListItemDto = z.object({
   subtotalNetAmount: z.number(),
   subtotalTaxAmount: z.number(),
   totalGrossAmount: z.number(),
-  totalAmount: z.number()
+  totalAmount: z.number(),
+  // Last "Per E-Mail senden" (datetime, UTC) and the address, '' for none
+  emailedAt: z.string().nullable(),
+  emailedTo: z.string()
 })
 
 export type InvoiceListItemDto = z.infer<typeof InvoiceListItemDto>

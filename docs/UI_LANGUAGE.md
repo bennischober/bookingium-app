@@ -88,6 +88,10 @@ English.
 | Invoice contact person                             | Ansprechpartner für Rechnungen                                   |
 | Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“           |
 | XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                            |
+| Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.       |
+| Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / … |
+| Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}        |
+| Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                               |
 | Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                          |
 | Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar             |
 | Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)        |
