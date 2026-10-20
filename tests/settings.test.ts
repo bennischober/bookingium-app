@@ -35,7 +35,8 @@ describe('settings', () => {
     expect(service.get()).toEqual({
       defaultCountry: 'DE',
       calendarFeedPath: '',
-      eInvoiceEmbed: true
+      eInvoiceEmbed: true,
+      paymentQr: true
     })
     expect(service.update({ defaultCountry: 'AT' })).toMatchObject({ defaultCountry: 'AT' })
     expect(service.update({ defaultCountry: '' })).toMatchObject({ defaultCountry: '' })
@@ -47,7 +48,8 @@ describe('settings', () => {
     expect(container.resolve(SettingsService).get()).toEqual({
       defaultCountry: 'DE',
       calendarFeedPath: '',
-      eInvoiceEmbed: true
+      eInvoiceEmbed: true,
+      paymentQr: true
     })
   })
 

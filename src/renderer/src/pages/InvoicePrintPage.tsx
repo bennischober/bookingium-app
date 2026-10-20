@@ -63,6 +63,7 @@ export default function InvoicePrintPage() {
   const eInvoice = trpcReact.invoice.eInvoiceCheck.useQuery(id, {
     enabled: Number.isFinite(id) && id > 0
   })
+  const settings = trpcReact.settings.get.useQuery()
 
   // Default template once data arrives; the user can override afterwards via
   // the dropdown (state adjustment during render, per "You Might Not Need an
@@ -166,7 +167,12 @@ export default function InvoicePrintPage() {
         </div>
       )}
 
-      <InvoiceDocument data={data} template={template} logoUrl={logoUrl} />
+      <InvoiceDocument
+        data={data}
+        template={template}
+        logoUrl={logoUrl}
+        paymentQr={settings.data?.paymentQr ?? true}
+      />
     </div>
   )
 }
