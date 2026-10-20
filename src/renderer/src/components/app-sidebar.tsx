@@ -12,6 +12,8 @@ import {
   SidebarMenuItem
 } from '@/components/ui/sidebar'
 import { getGroupedRoutes, getRouteShortcut, isRouteActive } from '@/lib/routing'
+// The app icon's source, so the sidebar always shows the same mark
+import logoUrl from '../../../../build/icon.svg'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState()
@@ -22,7 +24,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar variant="sidebar" {...props}>
       {/* Same height and bottom border as the top bar, so both line up */}
       <SidebarHeader className="h-16 shrink-0 justify-center border-b px-4">
-        <h1 className="text-lg font-bold tracking-wide">BOOKINGIUM</h1>
+        <Link
+          to="/"
+          className="flex w-fit items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title="Zum Dashboard"
+        >
+          <img src={logoUrl} alt="" className="size-7" />
+          <h1 className="text-lg font-bold">Bookingium</h1>
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         {navGroups.map((group) => (

@@ -6,7 +6,6 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from '@tanstack/react-router'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 export default function RootLayout() {
   return (
@@ -25,10 +24,11 @@ export default function RootLayout() {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <QuickCreateMenu />
+            {/* Most used first: search, then the main action, then help apart */}
             <SearchButton />
+            <QuickCreateMenu />
+            <div className="mx-1 h-6 w-px bg-border" aria-hidden />
             <ShortcutsHelp />
-            <ThemeToggle />
           </div>
         </header>
         <div className="flex min-h-0 min-w-0 flex-1 overflow-auto" data-testid="content-scroll">

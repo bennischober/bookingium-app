@@ -86,3 +86,18 @@ test('the search palette opens a settings tab', async () => {
     'true'
   )
 })
+
+test('the colour scheme is set in settings, the logo leads home', async () => {
+  const { page } = h
+  const html = page.locator('html')
+  await page.getByRole('radio', { name: 'Dunkel' }).click()
+  await expect(html).toHaveClass(/\bdark\b/)
+  await page.reload()
+  await expect(html).toHaveClass(/\bdark\b/)
+  await expect(page.getByRole('radio', { name: 'Dunkel' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Hell' }).click()
+  await expect(html).not.toHaveClass(/\bdark\b/)
+
+  await page.getByRole('link', { name: 'Bookingium' }).click()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+})

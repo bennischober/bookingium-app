@@ -19,7 +19,8 @@ end-to-end, and the coding guidelines.
 
 The app icon's source is `build/icon.svg`. After changing it, `pnpm icons`
 (`scripts/generate-icons.mjs`) rewrites `build/icon.ico`, `.icns`, `.png`
-and `resources/icon.png` (the window icon on Windows and Linux).
+and `resources/icon.png` (the window icon on Windows and Linux). The sidebar
+header imports the SVG itself, as the logo that links to the Dashboard.
 
 ## Process architecture
 
@@ -64,7 +65,7 @@ src/renderer/src/      React app
     event-hub/, band/, company/, venue/, person/, settings/, detail/
                        Page tabs and parts
     documents/, import/, export/                    Shared feature panels
-    layout/            Top bar: back/forward, breadcrumbs, quick create, search
+    layout/            Top bar: back/forward, breadcrumbs, search, quick create
     print/, contract/, invoice/                     A4 print documents
   lib/                 trpc client, routing (ROUTES, menu groups, shortcuts),
                        navigationHistory, confirm dialog, label helpers

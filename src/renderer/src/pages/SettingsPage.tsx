@@ -22,6 +22,7 @@ import { EInvoiceCard } from '@/components/invoice/EInvoiceCard'
 import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
+import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -318,7 +319,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="mb-2 text-2xl font-bold">Einstellungen</h1>
         <p className="text-sm text-muted-foreground">
-          Voreinstellungen, Rechnungen, E-Mail, Kalender und Datenverwaltung.
+          Voreinstellungen, Darstellung, Rechnungen, E-Mail, Kalender und Datenverwaltung.
         </p>
       </div>
 
@@ -345,6 +346,7 @@ export default function SettingsPage() {
 
         <TabsContent value="general" className="space-y-6">
           <GeneralCard />
+          <AppearanceCard />
         </TabsContent>
         <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />
