@@ -90,12 +90,18 @@ describe('VAT groups', () => {
 })
 
 describe('tax note', () => {
-  it('prints the invoice’s Steuerhinweis', () => {
+  it('prints the invoice’s Steuerhinweis, presets translated on English invoices', () => {
     const data = printData([line({ taxRate: 0, taxCode: 'exempt' })], {
       reverseChargeNote: 'Steuerfrei nach § 4 Nr. 20 a UStG'
     })
     expect(taxNoteOf(data, 'de')).toBe('Steuerfrei nach § 4 Nr. 20 a UStG')
-    expect(taxNoteOf(data, 'en')).toBe('Steuerfrei nach § 4 Nr. 20 a UStG')
+    expect(taxNoteOf(data, 'en')).toBe(
+      'Steuerfrei nach § 4 Nr. 20 a UStG / VAT-exempt under Section 4 No. 20(a) of the German VAT Act'
+    )
+    const own = printData([line({ taxRate: 0, taxCode: 'exempt' })], {
+      reverseChargeNote: 'Eigener Text'
+    })
+    expect(taxNoteOf(own, 'en')).toBe('Eigener Text')
   })
 
   it('falls back to the standard wording of reverse charge and co.', () => {

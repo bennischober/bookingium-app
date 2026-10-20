@@ -285,10 +285,15 @@ function CenteredLegalFooter({
   )
 }
 
-// Hatch-shaded header cell style (Word-style diagonal stripes, like the reference)
+// Hatch-shaded header cell style (Word-style diagonal stripes, like the
+// reference). A tiled SVG, not a CSS gradient: Chromium sometimes prints
+// repeating gradients as function-based shadings (ShadingType 1), which
+// pdf.js (the preview) can't draw and fills pink.
+const HATCH_TILE =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='3' height='3'>" +
+  "<path d='M-1 1L1 -1M0 3L3 0M2 4L4 2' stroke='#e0e0e0' stroke-width='1'/></svg>"
 const HATCH_STYLE = {
-  backgroundImage:
-    'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 3px)'
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(HATCH_TILE)}")`
 }
 
 // Gray meta band (Kuenstler | Zeitraum | ... / Artist | Period | ...).
@@ -356,7 +361,7 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
       number: 'Rechnung Nr.'
     },
     intro: 'Hiermit berechnen wir vereinbarungsgemäß:',
-    items: ['Leistung', 'Mwst.', 'Netto'],
+    items: ['Leistung', 'USt.', 'Netto'],
     sumNet: 'Summe Netto:',
     total: 'Gesamtbetrag:',
     vatId: 'USt-IdNr.',

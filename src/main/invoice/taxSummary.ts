@@ -8,7 +8,12 @@
 
 import type { InvoicePrintDto, InvoiceTaxCode } from '../api/schemas/invoice.schema'
 import { toCents, vatCents } from '../einvoice/amounts'
-import { DEFAULT_EXEMPTION, TAX_CODE_LABELS, vatCategoryOf } from '../einvoice/codes'
+import {
+  DEFAULT_EXEMPTION,
+  TAX_CODE_LABELS,
+  TAX_NOTE_PRESETS,
+  vatCategoryOf
+} from '../einvoice/codes'
 
 export type Lang = 'de' | 'en'
 
@@ -91,7 +96,11 @@ const DEFAULT_NOTE_EN: Partial<Record<string, string>> = {
  */
 export function taxNoteOf(data: InvoicePrintDto, lang: Lang): string | null {
   const note = data.invoice.reverseChargeNote.trim()
-  if (note) return note
+  if (note) {
+    // A preset gets its translation on English invoices; own text stays as typed
+    const preset = TAX_NOTE_PRESETS.find((candidate) => candidate.text === note)
+    return lang === 'en' && preset ? `${note} / ${preset.en}` : note
+  }
   const defaults = new Set<string>()
   for (const item of data.invoice.lineItems) {
     if (item.taxRate !== 0) continue

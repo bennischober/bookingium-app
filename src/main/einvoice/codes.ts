@@ -212,13 +212,23 @@ export function isEuCountry(countryCode: string): boolean {
 
 /**
  * One-click texts for the invoice's tax note (Steuerhinweis), which is
- * printed and becomes the e-invoice exemption reason
+ * printed and becomes the e-invoice exemption reason. The English template
+ * prints `en` after the German text (the legal wording stays German).
  */
 export const TAX_NOTE_PRESETS = [
   {
     label: 'Reverse Charge',
-    text: 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)'
+    text: 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)',
+    en: 'Reverse charge: VAT to be accounted for by the recipient'
   },
-  { label: '§ 4 Nr. 20 a UStG', text: 'Steuerfrei nach § 4 Nr. 20 a UStG' },
-  { label: 'Nicht steuerbar', text: 'Nicht im Inland steuerbare Leistung' }
+  {
+    label: '§ 4 Nr. 20 a UStG',
+    text: 'Steuerfrei nach § 4 Nr. 20 a UStG',
+    en: 'VAT-exempt under Section 4 No. 20(a) of the German VAT Act'
+  },
+  {
+    label: 'Nicht steuerbar',
+    text: 'Nicht im Inland steuerbare Leistung',
+    en: 'Service not taxable in Germany'
+  }
 ] as const
