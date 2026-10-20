@@ -9,6 +9,7 @@ import { router } from './router'
 import { ThemeProvider } from './components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost'
+import { FollowUpDialogHost } from '@/components/follow-ups/FollowUpDialogHost'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ function AppRoot() {
             <RouterProvider router={router} />
             <Toaster />
             <ConfirmDialogHost />
+            <FollowUpDialogHost />
           </ThemeProvider>
         </QueryClientProvider>
       </trpcReact.Provider>

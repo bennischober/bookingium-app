@@ -346,7 +346,8 @@ bulk sending belongs in a newsletter service that handles unsubscribes.
 A follow-up is a due date with a note (`follow_up`, `followUp` router,
 `FollowUpService`), either on one record or general.
 
-- **On a record:** event (deal memo), band, venue, company or person, as
+- **On a record:** event (deal memo), band, venue, company, person or
+  invoice, as
   nullable foreign keys with `ON DELETE CASCADE` (unlike documents'
   `owner_type`/`owner_id`): a follow-up goes with its record. At most one
   is set; none means general.
@@ -357,6 +358,14 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   and the record's open follow-ups above the tabs on each detail page; the
   Dashboard card (overdue, today, the next 14 days, the rest behind "weitere
   später anzeigen"; "+ Wiedervorlage" for a general one); and the count of
-  those due today or earlier on the Dashboard menu item.
+  those due today or earlier on the Dashboard menu item. Invoices have no
+  page of their own, so theirs sit in the invoice sheet, and the Dashboard
+  links to `/invoices?open=<id>`.
+- **Offered, not made:** saving something unfinished (an invoice draft, an
+  event still "Ausstehend") shows "Wiedervorlage setzen" in the success
+  toast (`useFollowUpNudge`), unless the record already has an open
+  follow-up. The click opens the dialog with a note prefilled, through
+  `openFollowUpDialog()` and the `FollowUpDialogHost` at the app root, so it
+  works after the sheet or wizard that saved has closed.
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.

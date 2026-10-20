@@ -16,6 +16,7 @@ import { Music2, MapPin, User, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
+import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatDate } from './constants'
@@ -86,11 +87,19 @@ export function OverviewTab({
   }))
 
   // ── Shared update mutation ──
+  const nudgeFollowUp = useFollowUpNudge()
   const updateMutation = trpcReact.dealMemo.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (updated) => {
       utils.dealMemo.getById.invalidate(event.id)
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event aktualisiert')
+      if (updated.status === 'pending') {
+        void nudgeFollowUp('Event aktualisiert', {
+          record: { type: 'event', id: updated.id, name: updated.name },
+          note: 'Zusage einholen'
+        })
+      } else {
+        toast.success('Event aktualisiert')
+      }
       onSaved()
     },
     onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })

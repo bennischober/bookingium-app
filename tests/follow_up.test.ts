@@ -99,6 +99,49 @@ describe('FollowUpService', () => {
     ).toBe(false)
   })
 
+  it('is on an invoice: a draft by its recipient, gone with the draft', () => {
+    const companyId = db
+      .insert(schema.company)
+      .values({ name: 'Live Music Berlin GmbH' })
+      .returning()
+      .get().id
+    const recipientId = db
+      .insert(schema.invoice_party_snapshot)
+      .values({ kind: 'company', legal_name: 'Club Kesselhaus' })
+      .returning()
+      .get().id
+    const draftId = db
+      .insert(schema.invoice)
+      .values({ company_id: companyId, recipient_snapshot_id: recipientId })
+      .returning()
+      .get().id
+    const issuedId = db
+      .insert(schema.invoice)
+      .values({ company_id: companyId, invoice_number: 12, status: 'issued' })
+      .returning()
+      .get().id
+
+    service().create({
+      dueDate: '2026-10-27',
+      note: 'Gage nachtragen',
+      record: { type: 'invoice', id: draftId }
+    })
+    service().create({
+      dueDate: '2026-11-20',
+      note: 'Zahlung prüfen',
+      record: { type: 'invoice', id: issuedId }
+    })
+    expect(service().listOpenByRecord('invoice', draftId)[0].record).toEqual({
+      type: 'invoice',
+      id: draftId,
+      name: 'Rechnungsentwurf · Club Kesselhaus'
+    })
+    expect(service().listOpenByRecord('invoice', issuedId)[0].record?.name).toBe('Rechnung #12')
+
+    db.delete(schema.invoice).where(eq(schema.invoice.id, draftId)).run()
+    expect(service().listOpenByRecord('invoice', draftId)).toEqual([])
+  })
+
   it('needs a date and a note', () => {
     expect(CreateFollowUpInput.safeParse({ dueDate: '', note: 'x' }).success).toBe(false)
     expect(CreateFollowUpInput.safeParse({ dueDate: '2026-10-22', note: '  ' }).success).toBe(false)

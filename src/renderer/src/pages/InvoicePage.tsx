@@ -19,7 +19,13 @@ import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'
 import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
 import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
-import { emailedLabel, formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
+import {
+  emailedLabel,
+  formatMoney,
+  invoiceFollowUpName,
+  invoiceNumberLabel
+} from '@/lib/invoiceLabels'
+import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 
@@ -51,17 +57,21 @@ export default function InvoicePage() {
     infiniteListOptions
   )
 
+  const nudgeFollowUp = useFollowUpNudge()
   const createMutation = trpcReact.invoice.create.useMutation({
     onSuccess: (created) => {
       utils.invoice.invalidate()
       utils.dealMemo.getById.invalidate()
       utils.dashboard.invalidate()
       sheet.close()
-      toast.success(
-        created.status === 'draft'
-          ? 'Entwurf angelegt'
-          : `Rechnung ${invoiceNumberLabel(created.invoiceNumber)} gestellt`
-      )
+      if (created.status === 'draft') {
+        void nudgeFollowUp('Entwurf angelegt', {
+          record: { type: 'invoice', id: created.id, name: invoiceFollowUpName(created) },
+          note: 'Entwurf vervollständigen'
+        })
+      } else {
+        toast.success(`Rechnung ${invoiceNumberLabel(created.invoiceNumber)} gestellt`)
+      }
     },
     onError: (error) =>
       toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })

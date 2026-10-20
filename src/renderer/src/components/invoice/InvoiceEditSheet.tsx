@@ -11,6 +11,7 @@ import {
   INVOICE_STATUS_LABELS,
   emailedLabel,
   formatMoney,
+  invoiceFollowUpName,
   invoiceNumberLabel
 } from '@/lib/invoiceLabels'
 import {
@@ -21,6 +22,8 @@ import {
 } from '../../../../main/api/schemas/invoice.schema'
 import { confirmAction } from '@/lib/confirm'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
+import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 
 const STATUS_ACTION_LABELS: Partial<Record<InvoiceStatus, string>> = {
   issued: 'Wieder offen (gestellt)',
@@ -56,16 +59,20 @@ export function InvoiceEditSheet({
   })
   const invoice = invoiceId !== null ? invoiceQuery.data : undefined
   const locked = invoice ? isInvoiceLocked(invoice.status) : false
+  const nudgeFollowUp = useFollowUpNudge()
 
   const updateMutation = trpcReact.invoice.update.useMutation({
     onSuccess: (updated) => {
       invalidateInvoices()
       onClose()
-      toast.success(
-        updated.status === 'draft'
-          ? 'Entwurf gespeichert'
-          : `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} gestellt`
-      )
+      if (updated.status === 'draft') {
+        void nudgeFollowUp('Entwurf gespeichert', {
+          record: { type: 'invoice', id: updated.id, name: invoiceFollowUpName(updated) },
+          note: 'Entwurf vervollständigen'
+        })
+      } else {
+        toast.success(`Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} gestellt`)
+      }
     },
     onError: (error) =>
       toast.error('Rechnung konnte nicht gespeichert werden', { description: error.message })
@@ -94,19 +101,38 @@ export function InvoiceEditSheet({
           {invoiceQuery.isError ? 'Rechnung nicht gefunden.' : 'Rechnung wird geladen…'}
         </p>
       ) : locked ? (
-        <LockedInvoicePanel invoice={invoice} onClose={onClose} />
+        <>
+          <InvoiceFollowUps invoice={invoice} />
+          <LockedInvoicePanel invoice={invoice} onClose={onClose} />
+        </>
       ) : (
-        <InvoiceForm
-          key={`edit-${invoice.id}`}
-          mode="edit"
-          invoice={invoice}
-          onCancel={onClose}
-          onCreate={() => {}}
-          onUpdate={(payload) => updateMutation.mutate(payload)}
-          isSubmitting={updateMutation.isPending}
-        />
+        <>
+          <InvoiceFollowUps invoice={invoice} />
+          <InvoiceForm
+            key={`edit-${invoice.id}`}
+            mode="edit"
+            invoice={invoice}
+            onCancel={onClose}
+            onCreate={() => {}}
+            onUpdate={(payload) => updateMutation.mutate(payload)}
+            isSubmitting={updateMutation.isPending}
+          />
+        </>
       )}
     </FormSheet>
+  )
+}
+
+/** The invoice's follow-ups (it has no page of its own, so they sit here) */
+function InvoiceFollowUps({ invoice }: { invoice: InvoiceDto }) {
+  const record = { type: 'invoice', id: invoice.id, name: invoiceFollowUpName(invoice) } as const
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <FollowUpButton record={record} />
+      </div>
+      <RecordFollowUps record={record} />
+    </>
   )
 }
 
@@ -119,7 +145,7 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
       invalidateInvoices()
       const stornoId = updated.cancelledByInvoiceId
       if (updated.status === 'cancelled' && stornoId) {
-        // Closed, so the toast's action is reachable (the sheet is modal)
+        // Closed: the cancelled invoice is done with, the toast leads on
         onClose()
         toast.success(
           `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} storniert – Stornorechnung ${invoiceNumberLabel(updated.cancelledByInvoiceNumber)} erstellt`,

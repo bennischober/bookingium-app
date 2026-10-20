@@ -1,6 +1,6 @@
 // E2E: follow-ups (Wiedervorlagen) – created on a band, shown on its page,
-// on the Dashboard and as the sidebar count; done with undo, edited, deleted,
-// and a general one from the Dashboard.
+// on the Dashboard and as the sidebar count; done with undo, edited, deleted;
+// a general one from the Dashboard; and one offered on saving an invoice draft.
 import { test, expect } from '@playwright/test'
 import { launchApp, type AppHandle } from './helpers/launch'
 
@@ -101,4 +101,54 @@ test('a general follow-up from the Dashboard', async () => {
   await dialog.getByLabel('Notiz').press('Control+Enter')
   await expect(page.getByRole('button', { name: 'Erledigt: Festivalsaison planen' })).toBeVisible()
   await expect(page.getByText(/· Allgemein/)).toBeVisible()
+})
+
+test('saving an invoice draft offers a follow-up, shown in the sheet', async () => {
+  const { page } = h
+  const record = 'Rechnungsentwurf · Midnight Symphony'
+  const draftRow = page
+    .locator('tr')
+    .filter({ has: page.getByRole('cell', { name: 'Entwurf', exact: true }) })
+  const saveDraft = async () => {
+    await draftRow.getByRole('button', { name: 'Bearbeiten' }).click()
+    await page.getByRole('button', { name: 'Weiter: Positionen' }).click()
+    await page.getByRole('button', { name: 'Weiter: Abschließen' }).click()
+    await page.getByRole('button', { name: 'Entwurf speichern' }).click()
+  }
+  const toast = page.locator('[data-sonner-toast]', { hasText: 'Entwurf gespeichert' })
+
+  // The last test's toasts first, so the texts below are this test's
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 })
+  await page.getByRole('link', { name: 'Rechnungen' }).first().click()
+  await saveDraft()
+  // Offered in the toast, created only on click, with a prefilled note
+  await toast.getByRole('button', { name: 'Wiedervorlage setzen' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Neue Wiedervorlage' })
+  await expect(dialog).toContainText(`Zu ${record}`)
+  await expect(dialog.getByLabel('Notiz')).toHaveValue('Entwurf vervollständigen')
+  await dialog.getByLabel('Fällig am').fill(today())
+  await dialog.getByRole('button', { name: 'Speichern' }).click()
+  await expect(page.getByText('Wiedervorlage angelegt')).toBeVisible()
+
+  // On the Dashboard, linking back to the draft, which opens in its sheet
+  await page.getByRole('link', { name: 'Bookingium' }).click()
+  await page.getByRole('link', { name: record }).click()
+  const sheet = page.getByRole('dialog', { name: 'Entwurf bearbeiten' })
+  const strip = sheet.getByRole('region', { name: 'Wiedervorlagen' })
+  await expect(strip).toContainText('Entwurf vervollständigen')
+  await page.keyboard.press('Escape')
+
+  // Saved again with a follow-up open: no second offer
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 })
+  await saveDraft()
+  await expect(toast).toBeVisible()
+  await expect(toast.getByRole('button', { name: 'Wiedervorlage setzen' })).toHaveCount(0)
+
+  // Done from the sheet
+  await draftRow.getByRole('button', { name: 'Bearbeiten' }).click()
+  await strip.getByRole('button', { name: 'Erledigt: Entwurf vervollständigen' }).click()
+  await expect(strip).toHaveCount(0)
+  // The toast's undo works over the open sheet, which stays open
+  await page.getByRole('button', { name: 'Rückgängig' }).click()
+  await expect(strip).toContainText('Entwurf vervollständigen')
 })

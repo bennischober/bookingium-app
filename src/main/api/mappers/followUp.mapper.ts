@@ -39,6 +39,13 @@ export class FollowUpMapper {
       const name = `${row.personFirstName ?? ''} ${row.personLastName}`.trim()
       return { type: 'person', id: followUp.person_id, name }
     }
+    if (followUp.invoice_id !== null) {
+      // Drafts have no number yet
+      const invoice =
+        row.invoiceNumber === null ? 'Rechnungsentwurf' : `Rechnung #${row.invoiceNumber}`
+      const name = row.invoiceRecipient ? `${invoice} · ${row.invoiceRecipient}` : invoice
+      return { type: 'invoice', id: followUp.invoice_id, name }
+    }
     return null
   }
 }

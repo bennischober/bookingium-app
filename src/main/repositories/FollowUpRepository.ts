@@ -13,7 +13,8 @@ const RECORD_COLUMNS = {
   band: schema.follow_up.band_id,
   venue: schema.follow_up.venue_id,
   company: schema.follow_up.company_id,
-  person: schema.follow_up.person_id
+  person: schema.follow_up.person_id,
+  invoice: schema.follow_up.invoice_id
 } as const satisfies Record<FollowUpRecordType, unknown>
 
 const RECORD_KEYS = {
@@ -21,7 +22,8 @@ const RECORD_KEYS = {
   band: 'band_id',
   venue: 'venue_id',
   company: 'company_id',
-  person: 'person_id'
+  person: 'person_id',
+  invoice: 'invoice_id'
 } as const satisfies Record<FollowUpRecordType, keyof typeof schema.follow_up.$inferInsert>
 
 /** A follow-up with the names of the record it is on */
@@ -39,7 +41,9 @@ export class FollowUpRepository {
         venueName: schema.venue.name,
         companyName: schema.company.name,
         personFirstName: schema.person.first_name,
-        personLastName: schema.person.last_name
+        personLastName: schema.person.last_name,
+        invoiceNumber: schema.invoice.invoice_number,
+        invoiceRecipient: schema.invoice_party_snapshot.legal_name
       })
       .from(schema.follow_up)
       .leftJoin(schema.deal_memo, eq(schema.follow_up.event_id, schema.deal_memo.id))
@@ -47,6 +51,11 @@ export class FollowUpRepository {
       .leftJoin(schema.venue, eq(schema.follow_up.venue_id, schema.venue.id))
       .leftJoin(schema.company, eq(schema.follow_up.company_id, schema.company.id))
       .leftJoin(schema.person, eq(schema.follow_up.person_id, schema.person.id))
+      .leftJoin(schema.invoice, eq(schema.follow_up.invoice_id, schema.invoice.id))
+      .leftJoin(
+        schema.invoice_party_snapshot,
+        eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
+      )
       .where(where)
       .orderBy(asc(schema.follow_up.due_date), asc(schema.follow_up.id))
       .all()

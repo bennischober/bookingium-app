@@ -581,6 +581,7 @@ export const follow_up = sqliteTable(
     venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'cascade' }),
     company_id: integer('company_id').references(() => company.id, { onDelete: 'cascade' }),
     person_id: integer('person_id').references(() => person.id, { onDelete: 'cascade' }),
+    invoice_id: integer('invoice_id').references(() => invoice.id, { onDelete: 'cascade' }),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -594,7 +595,8 @@ export const follow_up = sqliteTable(
     index('follow_up_band_idx').on(table.band_id),
     index('follow_up_venue_idx').on(table.venue_id),
     index('follow_up_company_idx').on(table.company_id),
-    index('follow_up_person_idx').on(table.person_id)
+    index('follow_up_person_idx').on(table.person_id),
+    index('follow_up_invoice_idx').on(table.invoice_id)
   ]
 )
 

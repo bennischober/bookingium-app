@@ -24,15 +24,22 @@ type Props = {
   followUp?: FollowUpDto
   /** Create on this record; without it (and without followUp) a general one */
   record?: FollowUpRecord & { name: string }
+  /** Prefilled note when creating */
+  initialNote?: string
 }
 
 /** Create or edit a follow-up (Wiedervorlage): a due date and a note */
-export function FollowUpDialog({ open, onOpenChange, followUp, record }: Props) {
+export function FollowUpDialog({ open, onOpenChange, followUp, record, initialNote }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         {/* Mounted per opening, so the form starts fresh each time */}
-        <FollowUpForm followUp={followUp} record={record} onDone={() => onOpenChange(false)} />
+        <FollowUpForm
+          followUp={followUp}
+          record={record}
+          initialNote={initialNote}
+          onDone={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   )
@@ -41,11 +48,12 @@ export function FollowUpDialog({ open, onOpenChange, followUp, record }: Props) 
 function FollowUpForm({
   followUp,
   record,
+  initialNote,
   onDone
-}: Pick<Props, 'followUp' | 'record'> & { onDone: () => void }) {
+}: Pick<Props, 'followUp' | 'record' | 'initialNote'> & { onDone: () => void }) {
   const today = localIsoDate()
   const [dueDate, setDueDate] = useState(followUp?.dueDate ?? addDays(today, 7))
-  const [note, setNote] = useState(followUp?.note ?? '')
+  const [note, setNote] = useState(followUp?.note ?? initialNote ?? '')
 
   const utils = trpcReact.useUtils()
   const onSuccess = (message: string) => {

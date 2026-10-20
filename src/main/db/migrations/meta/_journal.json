@@ -43,6 +43,13 @@
       "when": 1792521290078,
       "tag": "0005_follow_ups",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792522426031,
+      "tag": "0006_follow_up_invoices",
+      "breakpoints": true
     }
   ]
 }

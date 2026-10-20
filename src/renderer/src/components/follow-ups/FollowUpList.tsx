@@ -73,6 +73,13 @@ function RecordLink({ record }: { record: NonNullable<FollowUpDto['record']> }) 
           {record.name}
         </Link>
       )
+    case 'invoice':
+      // No page of its own: the invoices list opens it in the sheet
+      return (
+        <Link to="/invoices" search={{ open: record.id }} className={className}>
+          {record.name}
+        </Link>
+      )
   }
 }
 

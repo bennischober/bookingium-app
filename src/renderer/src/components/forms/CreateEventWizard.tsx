@@ -23,6 +23,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { cn } from '@/lib/utils'
+import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -423,9 +424,19 @@ export function CreateEventWizard({
 
   const utils = trpcReact.useUtils()
 
+  const nudgeFollowUp = useFollowUpNudge()
+
   const createMemo = trpcReact.dealMemo.create.useMutation({
     onSuccess: (memo) => {
-      toast.success('Event erstellt', { description: `"${form.name}" wurde hinzugefügt.` })
+      if (memo.status === 'pending') {
+        // Not confirmed yet: offer a reminder to follow up on it
+        void nudgeFollowUp(`Event "${memo.name}" erstellt`, {
+          record: { type: 'event', id: memo.id, name: memo.name },
+          note: 'Zusage einholen'
+        })
+      } else {
+        toast.success('Event erstellt', { description: `"${form.name}" wurde hinzugefügt.` })
+      }
       utils.dealMemo.getAllPaginated.invalidate()
       handleClose()
       onSuccess(memo as unknown as DealMemoListItemDto)

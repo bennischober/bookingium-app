@@ -24,6 +24,16 @@ export function invoiceNumberLabel(invoiceNumber: number | null): string {
   return invoiceNumber === null ? 'Entwurf' : `#${invoiceNumber}`
 }
 
+/** How a follow-up names the invoice it is on (as the main process does) */
+export function invoiceFollowUpName(invoice: {
+  invoiceNumber: number | null
+  recipientName: string
+}): string {
+  const label =
+    invoice.invoiceNumber === null ? 'Rechnungsentwurf' : `Rechnung #${invoice.invoiceNumber}`
+  return invoice.recipientName ? `${label} · ${invoice.recipientName}` : label
+}
+
 /**
  * "Per E-Mail senden" of an invoice: "E-Mail erstellt am 20.10.2026 an
  * x@y.de", '' when there was none (emailedAt is SQLite UTC "YYYY-MM-DD HH:MM:SS")

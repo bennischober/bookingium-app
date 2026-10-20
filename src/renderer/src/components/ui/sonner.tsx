@@ -12,6 +12,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // Never in print output (printToPDF captures the whole window, and a
       // toast's "Drucken" action opens a print page while it is still shown)
       className="toaster group print:hidden!"
+      // Clickable over modal sheets and dialogs too (they turn off pointer
+      // events on the page behind them; see keepOpenOnToast)
+      style={{ pointerEvents: 'auto' }}
       toastOptions={{
         classNames: {
           toast:

@@ -88,6 +88,7 @@ English.
 | Overdue since / today / tomorrow | Überfällig seit / Heute / Morgen            |
 | Done (tick off) / undo           | Erledigt / Rückgängig                       |
 | General (not on a record)        | Allgemein                                   |
+| Set a follow-up (toast action)   | Wiedervorlage setzen                        |
 | Quick picks                      | Morgen, In 3 Tagen, In 1 Woche, In 2 Wochen |
 
 ### Events and documents
