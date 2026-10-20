@@ -45,6 +45,17 @@ export interface DocumentAPI {
     error?: string
   }>
   openSavedPdf: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  /** Saves an invoice's e-invoice (XRechnung) as XML via a save dialog */
+  saveEInvoiceXml: (
+    invoiceId: number,
+    defaultFileName: string
+  ) => Promise<{
+    success: boolean
+    canceled?: boolean
+    filePath?: string
+    eInvoice?: EInvoiceCheckDto
+    error?: string
+  }>
   /** Open dialog for an Excel file; returns its sheets for the import dialog */
   pickImportWorkbook: () => Promise<{
     success: boolean

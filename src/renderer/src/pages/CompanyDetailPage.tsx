@@ -4,14 +4,9 @@ import { toast } from 'sonner'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { formatShortDate } from '@/lib/utils'
-import {
-  INVOICE_STATUS_LABELS,
-  INVOICE_STATUS_STYLES,
-  formatMoney,
-  invoiceNumberLabel
-} from '@/lib/invoiceLabels'
+import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
@@ -214,9 +209,11 @@ function InvoicesTab({ companyId }: { companyId: number }) {
         {
           header: 'Status',
           cell: (invoice) => (
-            <Badge variant="outline" className={INVOICE_STATUS_STYLES[invoice.status]}>
-              {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-            </Badge>
+            <InvoiceStatusBadge
+              status={invoice.status}
+              kind={invoice.kind}
+              cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
+            />
           )
         },
         {

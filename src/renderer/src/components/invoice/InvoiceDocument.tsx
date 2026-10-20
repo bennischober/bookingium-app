@@ -46,6 +46,16 @@ function dominantTaxRate(data: InvoicePrintDto): number {
   return rates.length > 0 ? Math.max(...rates) : 0
 }
 
+// Stornorechnung: number and date of the invoice it cancels
+function cancellationOf(data: InvoicePrintDto): { number: string; date: string } | null {
+  const { invoice } = data
+  if (invoice.kind !== 'cancellation') return null
+  return {
+    number: String(invoice.cancelsInvoiceNumber ?? ''),
+    date: formatDate(invoice.cancelsInvoiceIssueDate)
+  }
+}
+
 function formatPeriod(data: InvoicePrintDto): string {
   if (data.invoice.periodLabel) return data.invoice.periodLabel
   const start = formatDate(data.invoice.periodStartDate)
@@ -231,6 +241,11 @@ type AgencyStrings = {
   total: string
   paymentDue: (date: string) => string
   thanks: string
+  // Stornorechnung
+  cancellationHeading: string
+  cancellationIntro: string
+  cancels: (number: string, date: string) => string
+  offset: (number: string) => string
 }
 
 const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
@@ -244,7 +259,11 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
     reverseCharge: 'Reverse Charge Procedure applies',
     total: 'Gesamtbetrag:',
     paymentDue: (date) => `Bitte überweisen Sie den Betrag bis zum ${date} auf unser Konto.`,
-    thanks: 'Wir bedanken uns recht herzlich für die gute Zusammenarbeit.'
+    thanks: 'Wir bedanken uns recht herzlich für die gute Zusammenarbeit.',
+    cancellationHeading: 'STORNORECHNUNG',
+    cancellationIntro: 'Hiermit stornieren wir:',
+    cancels: (number, date) => `Storno zu Rechnung Nr. ${number} vom ${date}`,
+    offset: (number) => `Der Betrag wird mit der Rechnung Nr. ${number} verrechnet.`
   },
   en: {
     heading: 'INVOICE',
@@ -256,6 +275,10 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
     reverseCharge: 'Reverse Charge Procedure applies',
     total: 'Sum total:',
     paymentDue: (date) => `Please transfer the amount until ${date} to our account.`,
+    cancellationHeading: 'CREDIT NOTE',
+    cancellationIntro: 'Herewith we cancel:',
+    cancels: (number, date) => `Cancellation of invoice no. ${number} dated ${date}`,
+    offset: (number) => `This amount is offset against invoice no. ${number}.`,
     thanks:
       'We would like to thank you for your cooperation and ask you to transfer the money to our account.'
   }
@@ -278,8 +301,10 @@ function AgencyTemplate({
 }) {
   const { invoice, issuer, recipient } = data
   const t = AGENCY_STRINGS[lang]
+  const cancels = cancellationOf(data)
   const taxRate = dominantTaxRate(data)
-  const hasVat = invoice.subtotalTaxAmount > 0
+  // Negative on a Stornorechnung
+  const hasVat = invoice.subtotalTaxAmount !== 0
 
   return (
     <>
@@ -289,7 +314,10 @@ function AgencyTemplate({
         <AddressBlock party={recipient} issuerCountryCode={issuer?.countryCode} />
       </div>
 
-      <div className="mt-[16mm] text-[16pt] font-bold">{t.heading}</div>
+      <div className="mt-[16mm] text-[16pt] font-bold">
+        {cancels ? t.cancellationHeading : t.heading}
+      </div>
+      {cancels && <div className="mt-1 text-[10pt]">{t.cancels(cancels.number, cancels.date)}</div>}
 
       <MetaBand
         columns={t.meta}
@@ -308,7 +336,7 @@ function AgencyTemplate({
         ]}
       />
 
-      <p className="mt-6 text-[10pt]">{t.intro}</p>
+      <p className="mt-6 text-[10pt]">{cancels ? t.cancellationIntro : t.intro}</p>
 
       <table className="mt-4 w-full border-collapse text-[9.5pt]">
         <thead>
@@ -370,7 +398,11 @@ function AgencyTemplate({
       </div>
 
       <p className="mt-6 text-[10pt]">
-        {invoice.dueDate ? t.paymentDue(formatDate(invoice.dueDate)) : t.thanks}
+        {cancels
+          ? t.offset(cancels.number)
+          : invoice.dueDate
+            ? t.paymentDue(formatDate(invoice.dueDate))
+            : t.thanks}
       </p>
 
       {invoice.notes && <p className="mt-4 text-[9pt] text-neutral-700">{invoice.notes}</p>}
@@ -386,6 +418,7 @@ function AgencyTemplate({
 
 function StandardTemplate({ data }: { data: InvoicePrintDto }) {
   const { invoice, issuer, recipient } = data
+  const cancels = cancellationOf(data)
   return (
     <>
       <div className="flex justify-between items-start">
@@ -407,8 +440,15 @@ function StandardTemplate({ data }: { data: InvoicePrintDto }) {
           )}
         </div>
         <div className="text-right">
-          <div className="text-[20pt] font-bold tracking-wide">RECHNUNG</div>
+          <div className="text-[20pt] font-bold tracking-wide">
+            {cancels ? 'STORNORECHNUNG' : 'RECHNUNG'}
+          </div>
           <div className="mt-2 text-[10pt]">
+            {cancels && (
+              <div>
+                zu Rechnung Nr. {cancels.number} vom {cancels.date}
+              </div>
+            )}
             <div>Nr. {invoice.invoiceNumber ?? 'Entwurf'}</div>
             <div>Datum: {formatDate(invoice.issueDate)}</div>
             {invoice.dueDate && <div>Fällig: {formatDate(invoice.dueDate)}</div>}

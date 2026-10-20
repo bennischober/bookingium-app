@@ -95,6 +95,7 @@ export class ManagementShareRepository {
         paymentTerms: `Zahlbar innerhalb von ${contract.payment_days} Tagen nach Rechnungsdatum`,
         reverseChargeNote: '',
         buyerReference: '',
+        xrechnung: false,
         notes: ''
       })
 

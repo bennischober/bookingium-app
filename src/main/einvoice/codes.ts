@@ -174,3 +174,51 @@ export function vatIdOf(value: string): string | null {
   const compact = value.replace(/[\s.-]/g, '').toUpperCase()
   return /^[A-Z]{2}[0-9A-Z+*]{2,13}$/.test(compact) ? compact : null
 }
+
+// EU member states (ISO codes; Greece is GR here, EL only in VAT ids)
+const EU_COUNTRIES = new Set([
+  'AT',
+  'BE',
+  'BG',
+  'CY',
+  'CZ',
+  'DE',
+  'DK',
+  'EE',
+  'ES',
+  'FI',
+  'FR',
+  'GR',
+  'HR',
+  'HU',
+  'IE',
+  'IT',
+  'LT',
+  'LU',
+  'LV',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SE',
+  'SI',
+  'SK'
+])
+
+export function isEuCountry(countryCode: string): boolean {
+  return EU_COUNTRIES.has(countryCode.toUpperCase())
+}
+
+/**
+ * One-click texts for the invoice's tax note (Steuerhinweis), which is
+ * printed and becomes the e-invoice exemption reason
+ */
+export const TAX_NOTE_PRESETS = [
+  {
+    label: 'Reverse Charge',
+    text: 'Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge)'
+  },
+  { label: '§ 4 Nr. 20 a UStG', text: 'Steuerfrei nach § 4 Nr. 20 a UStG' },
+  { label: 'Nicht steuerbar', text: 'Nicht im Inland steuerbare Leistung' }
+] as const

@@ -69,7 +69,10 @@ describe.skipIf(!validator || !config)('KoSIT validator', () => {
         findings.map((match) => match[1]),
         file
       ).toEqual([])
-      expect(report, file).toContain('EN16931 (CII)')
+      // Plain samples run the EN 16931 scenario, XRechnung ones the XRechnung one
+      expect(report, file).toContain(
+        file.includes('xrechnung') ? 'EN16931 XRechnung (CII)' : 'EN16931 (CII)'
+      )
       expect(report, file).toMatch(/<rep:assessment>\s*<rep:accept>/)
     }
     const rejected = readFileSync(join(out, 'tampered-report.xml'), 'utf-8')

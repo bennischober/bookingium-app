@@ -14,16 +14,11 @@ import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import { Badge } from '@/components/ui/badge'
+import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'
 import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
 import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
-import {
-  INVOICE_STATUS_LABELS,
-  INVOICE_STATUS_STYLES,
-  formatMoney,
-  invoiceNumberLabel
-} from '@/lib/invoiceLabels'
+import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 
@@ -105,11 +100,13 @@ export default function InvoicePage() {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.original.status
+        const invoice = row.original
         return (
-          <Badge variant="outline" className={INVOICE_STATUS_STYLES[status]}>
-            {INVOICE_STATUS_LABELS[status]}
-          </Badge>
+          <InvoiceStatusBadge
+            status={invoice.status}
+            kind={invoice.kind}
+            cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
+          />
         )
       }
     },

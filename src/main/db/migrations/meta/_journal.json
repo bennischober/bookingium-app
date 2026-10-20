@@ -15,6 +15,13 @@
       "when": 1792438446269,
       "tag": "0001_e_invoice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792480496452,
+      "tag": "0002_xrechnung_storno",
+      "breakpoints": true
     }
   ]
 }

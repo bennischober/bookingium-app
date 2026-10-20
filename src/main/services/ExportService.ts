@@ -282,7 +282,9 @@ export class ExportService {
             invoice.recipientName,
             text(invoice.dealMemoName),
             text(invoice.periodLabel),
-            STATUS_LABELS[invoice.status] ?? invoice.status,
+            invoice.kind === 'cancellation'
+              ? `Storno zu ${invoice.cancelsInvoiceNumber ?? '?'}`
+              : (STATUS_LABELS[invoice.status] ?? invoice.status),
             invoice.subtotalNetAmount,
             invoice.subtotalTaxAmount,
             invoice.totalGrossAmount,

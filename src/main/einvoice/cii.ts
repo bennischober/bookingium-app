@@ -6,6 +6,10 @@ import type { PreparedEInvoice, PreparedParty, PreparedVatGroup } from './prepar
 
 /** Guideline id of the EN 16931 profile (Factur-X "EN 16931", ZUGFeRD "COMFORT") */
 export const EN16931_GUIDELINE = 'urn:cen.eu:en16931:2017'
+/** XRechnung 3.0 (German public sector CIUS) and its business process (BT-23) */
+export const XRECHNUNG_GUIDELINE =
+  'urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0'
+const PEPPOL_BILLING_PROCESS = 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0'
 
 function escapeXml(value: string): string {
   return value
@@ -174,7 +178,16 @@ export function buildCiiXml(invoice: PreparedEInvoice): string {
       el('ram:TaxTotalAmount', formatCents(totals.taxCents), ` currencyID="${currency}"`),
       el('ram:GrandTotalAmount', formatCents(totals.grossCents)),
       el('ram:DuePayableAmount', formatCents(totals.grossCents))
-    )
+    ),
+    invoice.precedingInvoice
+      ? group(
+          'ram:InvoiceReferencedDocument',
+          el('ram:IssuerAssignedID', invoice.precedingInvoice.number),
+          '<ram:FormattedIssueDateTime><qdt:DateTimeString format="102">' +
+            invoice.precedingInvoice.issueDate.replace(/-/g, '') +
+            '</qdt:DateTimeString></ram:FormattedIssueDateTime>'
+        )
+      : ''
   )
 
   return (
@@ -186,12 +199,21 @@ export function buildCiiXml(invoice: PreparedEInvoice): string {
     ' xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">' +
     group(
       'rsm:ExchangedDocumentContext',
-      group('ram:GuidelineSpecifiedDocumentContextParameter', el('ram:ID', EN16931_GUIDELINE))
+      invoice.xrechnung
+        ? group(
+            'ram:BusinessProcessSpecifiedDocumentContextParameter',
+            el('ram:ID', PEPPOL_BILLING_PROCESS)
+          )
+        : '',
+      group(
+        'ram:GuidelineSpecifiedDocumentContextParameter',
+        el('ram:ID', invoice.xrechnung ? XRECHNUNG_GUIDELINE : EN16931_GUIDELINE)
+      )
     ) +
     group(
       'rsm:ExchangedDocument',
       el('ram:ID', invoice.number),
-      el('ram:TypeCode', '380'),
+      el('ram:TypeCode', invoice.typeCode),
       date('ram:IssueDateTime', invoice.issueDate),
       ...invoice.notes.map((note) => group('ram:IncludedNote', el('ram:Content', note)))
     ) +

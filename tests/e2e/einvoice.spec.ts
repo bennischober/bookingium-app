@@ -27,17 +27,22 @@ async function leavePrintPage() {
   if (h.page.url().includes('/print')) {
     await h.page.getByRole('button', { name: 'Zurück' }).click()
   }
+  // Toasts sit over the row buttons at the bottom right until they expire
+  await expect(h.page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 })
 }
 
 /** A toast (not the e-invoice panel, which uses similar words) */
 const toast = (text: string) => h.page.locator('[data-sonner-toast]', { hasText: text })
 
+/** The list row whose number cell is exactly this ("#1040", not "Storno zu #1040") */
+const invoiceRow = (label: string) =>
+  h.page.locator('tr').filter({ has: h.page.getByRole('cell', { name: label, exact: true }) })
+
 async function openPrintPage(invoiceLabel: string) {
   const { page } = h
   await leavePrintPage()
   await page.getByRole('link', { name: 'Rechnungen' }).first().click()
-  await page
-    .locator('tr', { hasText: invoiceLabel })
+  await invoiceRow(invoiceLabel)
     .getByRole('button', { name: 'Drucken / Als PDF speichern' })
     .click()
   await page.waitForURL(/invoices\/\d+\/print/)
@@ -121,4 +126,56 @@ test('the setting switches the e-invoice off', async () => {
   await leavePrintPage()
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
   await page.getByRole('switch', { name: 'E-Rechnung (ZUGFeRD) in PDF einbetten' }).click()
+})
+
+test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
+  const { page } = h
+  await leavePrintPage()
+  await page.getByRole('link', { name: 'Rechnungen' }).first().click()
+  await invoiceRow('#1040').getByRole('button', { name: 'Anzeigen' }).click()
+  await page.getByRole('button', { name: 'Stornieren' }).click()
+  await page
+    .getByRole('dialog', { name: 'Rechnung #1040 stornieren?' })
+    .getByRole('button', { name: 'Stornieren' })
+    .click()
+  const created = toast('Stornorechnung #1042 erstellt')
+  await expect(created).toBeVisible()
+  await created.getByRole('button', { name: 'Drucken / PDF' }).click()
+
+  await page.waitForURL(/invoices\/\d+\/print/)
+  await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+  const text = (await page.locator('.paged-source').textContent()) ?? ''
+  expect(text).toContain('STORNORECHNUNG')
+  expect(text).toContain('zu Rechnung Nr. 1040')
+  expect(text).toContain('-4.200,00')
+
+  // Agency template: the (negative) VAT line, not the reverse charge note
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option', { name: 'Agentur (Deutsch)' }).click()
+  await expect(page.locator('.paged-source')).toContainText('zzgl. 19 % Ust.:')
+  await expect(page.locator('.paged-source')).not.toContainText('Reverse Charge')
+  await expect(page.locator('.paged-source')).toContainText(
+    'Der Betrag wird mit der Rechnung Nr. 1040 verrechnet.'
+  )
+  expect(await page.title()).toMatch(/^Stornorechnung_1042_/)
+  await expect(page.getByRole('status', { name: 'E-Rechnung' })).toContainText(
+    'E-Rechnung vollständig'
+  )
+
+  const file = await saveTo('Stornorechnung_1042.pdf')
+  await page.getByRole('button', { name: 'Als PDF speichern' }).click()
+  await expect(toast('PDF mit E-Rechnung gespeichert')).toBeVisible()
+  const pdf = new Uint8Array(readFileSync(file))
+  const xml = (await readFacturX(pdf)) ?? ''
+  expect(xml).toContain('<ram:ID>1042</ram:ID><ram:TypeCode>381</ram:TypeCode>')
+  expect(xml).toContain('<ram:IssuerAssignedID>1040</ram:IssuerAssignedID>')
+  expect(xml).toContain('<ram:GrandTotalAmount>4200.00</ram:GrandTotalAmount>')
+  const dir = resolve(process.cwd(), 'tests/e2e/__screenshots__')
+  writeFileSync(resolve(dir, 'einvoice-storno-1042.pdf'), pdf)
+  writeFileSync(resolve(dir, 'einvoice-storno-1042.xml'), xml)
+
+  // The cancelled invoice itself gets no e-invoice any more
+  await leavePrintPage()
+  await openPrintPage('#1040')
+  await expect(page.getByText('Stornierte Rechnungen erhalten keine E-Rechnung')).toBeVisible()
 })

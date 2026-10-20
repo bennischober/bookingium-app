@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -19,6 +19,19 @@ import { computeInvoiceAmounts, fromCents } from '../einvoice/amounts'
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 type SnapshotRow = typeof schema.invoice_party_snapshot.$inferSelect
+type InvoiceRow = typeof schema.invoice.$inferSelect
+
+/** A Stornorechnung's original, or an invoice's Stornorechnung */
+type CancellationLinks = {
+  cancelsInvoice: { id: number; invoice_number: number | null; issue_date: string } | null
+  cancelledBy: { id: number; invoice_number: number | null } | null
+}
+
+/** "2026-10-16" -> "16.10.2026" */
+function germanDate(iso: string): string {
+  const [year, month, day] = iso.split('-')
+  return `${day}.${month}.${year}`
+}
 type SnapshotValues = typeof schema.invoice_party_snapshot.$inferInsert
 
 type InvoiceListRow = {
@@ -414,6 +427,52 @@ export class InvoiceRepository {
     return this.companySnapshotValues(tx, issuerCompanyId)
   }
 
+  /** Adds the Stornorechnung links (one extra query for all rows) */
+  private withCancellationLinks<T extends Pick<InvoiceRow, 'id' | 'cancels_invoice_id'>>(
+    reader: Pick<Tx, 'select'>,
+    rows: T[]
+  ): Array<T & CancellationLinks> {
+    const ids = rows.map((row) => row.id)
+    const originalIds = rows
+      .map((row) => row.cancels_invoice_id)
+      .filter((id): id is number => id !== null)
+    const related =
+      rows.length === 0
+        ? []
+        : reader
+            .select({
+              id: schema.invoice.id,
+              invoice_number: schema.invoice.invoice_number,
+              issue_date: schema.invoice.issue_date,
+              cancels_invoice_id: schema.invoice.cancels_invoice_id
+            })
+            .from(schema.invoice)
+            .where(
+              or(
+                inArray(schema.invoice.id, originalIds),
+                inArray(schema.invoice.cancels_invoice_id, ids)
+              )
+            )
+            .all()
+    return rows.map((row) => {
+      const original = related.find((other) => other.id === row.cancels_invoice_id)
+      const cancellation = related.find((other) => other.cancels_invoice_id === row.id)
+      return {
+        ...row,
+        cancelsInvoice: original
+          ? {
+              id: original.id,
+              invoice_number: original.invoice_number,
+              issue_date: original.issue_date
+            }
+          : null,
+        cancelledBy: cancellation
+          ? { id: cancellation.id, invoice_number: cancellation.invoice_number }
+          : null
+      }
+    })
+  }
+
   private loadInvoiceWithRelationsTx(tx: Tx, invoiceId: number) {
     const rows = tx
       .select()
@@ -440,13 +499,15 @@ export class InvoiceRepository {
       .all()
 
     const row = rows[0]
-    return {
-      ...row.invoice,
-      company: row.company,
-      dealMemo: row.deal_memo,
-      recipientSnapshot: row.invoice_party_snapshot,
-      lineItems
-    }
+    return this.withCancellationLinks(tx, [
+      {
+        ...row.invoice,
+        company: row.company,
+        dealMemo: row.deal_memo,
+        recipientSnapshot: row.invoice_party_snapshot,
+        lineItems
+      }
+    ])[0]
   }
 
   async getAllPaginated(pagination: PaginationInput) {
@@ -508,13 +569,16 @@ export class InvoiceRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = rows.map((row) => ({
-      ...row.invoice,
-      company: row.company,
-      dealMemo: row.deal_memo,
-      recipientSnapshot: row.invoice_party_snapshot,
-      lineItems: []
-    }))
+    const items = this.withCancellationLinks(
+      db,
+      rows.map((row) => ({
+        ...row.invoice,
+        company: row.company,
+        dealMemo: row.deal_memo,
+        recipientSnapshot: row.invoice_party_snapshot,
+        lineItems: []
+      }))
+    )
 
     return {
       items,
@@ -549,13 +613,15 @@ export class InvoiceRepository {
       .orderBy(asc(schema.invoice_line_item.position), asc(schema.invoice_line_item.id))
 
     const row = rows[0]
-    return {
-      ...row.invoice,
-      company: row.company,
-      dealMemo: row.deal_memo,
-      recipientSnapshot: row.invoice_party_snapshot,
-      lineItems
-    }
+    return this.withCancellationLinks(db, [
+      {
+        ...row.invoice,
+        company: row.company,
+        dealMemo: row.deal_memo,
+        recipientSnapshot: row.invoice_party_snapshot,
+        lineItems
+      }
+    ])[0]
   }
 
   async getByIdWithSnapshots(id: number) {
@@ -586,8 +652,9 @@ export class InvoiceRepository {
       .orderBy(asc(schema.invoice_line_item.position), asc(schema.invoice_line_item.id))
 
     const row = rows[0]
+    const [links] = this.withCancellationLinks(db, [row.invoice])
     return {
-      ...row.invoice,
+      ...links,
       company: row.company,
       dealMemo: row.deal_memo,
       venueName: row.venue?.name ?? null,
@@ -727,6 +794,7 @@ export class InvoiceRepository {
         payment_terms: input.paymentTerms ?? '',
         reverse_charge_note: input.reverseChargeNote ?? '',
         buyer_reference: input.buyerReference ?? '',
+        xrechnung: input.xrechnung ?? false,
         notes: input.notes ?? ''
       })
       .returning()
@@ -794,6 +862,7 @@ export class InvoiceRepository {
     if ('paymentTerms' in input) values.payment_terms = input.paymentTerms
     if ('reverseChargeNote' in input) values.reverse_charge_note = input.reverseChargeNote
     if ('buyerReference' in input) values.buyer_reference = input.buyerReference
+    if ('xrechnung' in input) values.xrechnung = input.xrechnung
     if ('notes' in input) values.notes = input.notes
 
     return db.transaction((tx) => {
@@ -930,8 +999,78 @@ export class InvoiceRepository {
       }
 
       tx.update(schema.invoice).set(values).where(eq(schema.invoice.id, id)).run()
+      if (
+        status === 'cancelled' &&
+        existing.kind === 'invoice' &&
+        existing.invoice_number !== null
+      ) {
+        this.createCancellationTx(tx, existing)
+      }
       return this.loadInvoiceWithRelationsTx(tx, id)
     })
+  }
+
+  /**
+   * The Stornorechnung of a cancelled invoice: its own next number, the
+   * same (frozen) parties and lines with negated quantities and amounts, so
+   * the two add up to zero. Issued right away; it never changes.
+   */
+  private createCancellationTx(tx: Tx, original: InvoiceRow) {
+    const lines = tx
+      .select()
+      .from(schema.invoice_line_item)
+      .where(eq(schema.invoice_line_item.invoice_id, original.id))
+      .orderBy(asc(schema.invoice_line_item.position), asc(schema.invoice_line_item.id))
+      .all()
+
+    const [created] = tx
+      .insert(schema.invoice)
+      .values({
+        invoice_number: this.takeNextInvoiceNumber(tx, original.company_id),
+        company_id: original.company_id,
+        issuer_snapshot_id: original.issuer_snapshot_id,
+        recipient_snapshot_id: original.recipient_snapshot_id,
+        deal_memo_id: original.deal_memo_id,
+        period_start_date: original.period_start_date,
+        period_end_date: original.period_end_date,
+        period_label: original.period_label,
+        issue_date: new Date().toISOString().slice(0, 10),
+        due_date: null,
+        status: 'issued',
+        currency: original.currency,
+        subtotal_net_amount: -original.subtotal_net_amount,
+        subtotal_tax_amount: -original.subtotal_tax_amount,
+        total_gross_amount: -original.total_gross_amount,
+        total_amount: -original.total_amount,
+        payment_terms: `Storno der Rechnung Nr. ${original.invoice_number} vom ${germanDate(original.issue_date)}`,
+        reverse_charge_note: original.reverse_charge_note,
+        buyer_reference: original.buyer_reference,
+        xrechnung: original.xrechnung,
+        kind: 'cancellation',
+        cancels_invoice_id: original.id,
+        notes: ''
+      })
+      .returning()
+      .all()
+
+    for (const line of lines) {
+      tx.insert(schema.invoice_line_item)
+        .values({
+          invoice_id: created.id,
+          position: line.position,
+          description: line.description,
+          quantity: -line.quantity,
+          unit: line.unit,
+          unit_price_net: line.unit_price_net,
+          line_net_amount: -line.line_net_amount,
+          tax_rate: line.tax_rate,
+          tax_code: line.tax_code,
+          line_tax_amount: -line.line_tax_amount,
+          line_gross_amount: -line.line_gross_amount
+        })
+        .run()
+    }
+    return created
   }
 
   async delete(id: number) {
@@ -951,13 +1090,16 @@ export class InvoiceRepository {
       .where(eq(schema.invoice.deal_memo_id, dealMemoId))
       .orderBy(desc(schema.invoice.created_at), desc(schema.invoice.id))
 
-    return rows.map((row) => ({
-      ...row.invoice,
-      company: row.company,
-      dealMemo: row.deal_memo,
-      recipientSnapshot: row.invoice_party_snapshot,
-      lineItems: []
-    }))
+    return this.withCancellationLinks(
+      db,
+      rows.map((row) => ({
+        ...row.invoice,
+        company: row.company,
+        dealMemo: row.deal_memo,
+        recipientSnapshot: row.invoice_party_snapshot,
+        lineItems: []
+      }))
+    )
   }
 
   /**
@@ -982,13 +1124,16 @@ export class InvoiceRepository {
       )
       .orderBy(desc(schema.invoice.issue_date), desc(schema.invoice.id))
 
-    return rows.map((row) => ({
-      ...row.invoice,
-      company: row.company,
-      dealMemo: row.deal_memo,
-      recipientSnapshot: row.invoice_party_snapshot,
-      lineItems: []
-    }))
+    return this.withCancellationLinks(
+      db,
+      rows.map((row) => ({
+        ...row.invoice,
+        company: row.company,
+        dealMemo: row.deal_memo,
+        recipientSnapshot: row.invoice_party_snapshot,
+        lineItems: []
+      }))
+    )
   }
 
   async findByCompanyAndInvoiceNumber(companyId: number, invoiceNumber: number) {

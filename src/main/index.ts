@@ -268,6 +268,38 @@ ipcMain.handle(
   }
 )
 
+/**
+ * IPC Handler: save an invoice's e-invoice as a bare XML file (XRechnung
+ * for portals of public-sector buyers), via a save dialog
+ */
+ipcMain.handle(
+  'einvoice:saveXml',
+  async (event, { invoiceId, defaultFileName }: { invoiceId: number; defaultFileName: string }) => {
+    try {
+      const { xml, ...eInvoice } = await container.resolve(EInvoiceService).check(invoiceId)
+      if (!xml) return { success: true, canceled: true, eInvoice }
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      const options: Electron.SaveDialogOptions = {
+        title: 'E-Rechnung als XML speichern',
+        defaultPath: join(app.getPath('documents'), defaultFileName),
+        filters: [{ name: 'XML', extensions: ['xml'] }]
+      }
+      const result = owner
+        ? await dialog.showSaveDialog(owner, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return { success: true, canceled: true, eInvoice }
+      await writeFile(result.filePath, xml, 'utf-8')
+      return { success: true, canceled: false, filePath: result.filePath, eInvoice }
+    } catch (error) {
+      console.error('Error saving e-invoice XML:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
 ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string }) => {
   if (!savedPdfPaths.has(filePath)) return { success: false, error: 'Unknown file' }
   const error = await shell.openPath(filePath)

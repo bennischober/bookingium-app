@@ -10,7 +10,9 @@ export type InvoiceStatus = z.infer<typeof InvoiceStatus>
 // draft     -> editable, deletable, no number yet
 // issued    -> number assigned, content locked; status can still move
 //              between issued/paid/overdue, or to cancelled (Storno)
-// cancelled -> final; the invoice and its number stay on record
+// cancelled -> final; the invoice and its number stay on record, and a
+//              Stornorechnung (kind cancellation) with its own number
+//              offsets it. Stornorechnungen are issued and never change.
 
 const INVOICE_STATUS_TRANSITIONS: Record<InvoiceStatus, readonly InvoiceStatus[]> = {
   draft: ['issued'],
@@ -20,13 +22,23 @@ const INVOICE_STATUS_TRANSITIONS: Record<InvoiceStatus, readonly InvoiceStatus[]
   cancelled: []
 }
 
+export const InvoiceKind = z.enum(['invoice', 'cancellation'])
+export type InvoiceKind = z.infer<typeof InvoiceKind>
+
 /** Statuses an invoice in `from` may move to (excluding staying put) */
-export function nextInvoiceStatuses(from: InvoiceStatus): readonly InvoiceStatus[] {
-  return INVOICE_STATUS_TRANSITIONS[from]
+export function nextInvoiceStatuses(
+  from: InvoiceStatus,
+  kind: InvoiceKind = 'invoice'
+): readonly InvoiceStatus[] {
+  return kind === 'cancellation' ? [] : INVOICE_STATUS_TRANSITIONS[from]
 }
 
-export function canChangeInvoiceStatus(from: InvoiceStatus, to: InvoiceStatus): boolean {
-  return from === to || INVOICE_STATUS_TRANSITIONS[from].includes(to)
+export function canChangeInvoiceStatus(
+  from: InvoiceStatus,
+  to: InvoiceStatus,
+  kind: InvoiceKind = 'invoice'
+): boolean {
+  return from === to || nextInvoiceStatuses(from, kind).includes(to)
 }
 
 /** Only drafts may be edited or deleted; everything else is on record */
@@ -102,6 +114,9 @@ export const InvoiceListItemDto = z.object({
   id: z.number(),
   // null while the invoice is a draft (assigned on issue)
   invoiceNumber: z.number().nullable(),
+  kind: InvoiceKind,
+  // Stornorechnung: number of the invoice it cancels
+  cancelsInvoiceNumber: z.number().nullable(),
   companyId: z.number(),
   companyName: z.string(),
   recipientKind: InvoiceRecipientKind,
@@ -131,6 +146,13 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   paymentTerms: z.string(),
   reverseChargeNote: z.string(),
   buyerReference: z.string(),
+  xrechnung: z.boolean(),
+  // Stornorechnung: the invoice it cancels
+  cancelsInvoiceId: z.number().nullable(),
+  cancelsInvoiceIssueDate: z.string().nullable(),
+  // Cancelled invoice: its Stornorechnung
+  cancelledByInvoiceId: z.number().nullable(),
+  cancelledByInvoiceNumber: z.number().nullable(),
   lineItems: z.array(InvoiceLineItemDto)
 }).extend(TimestampFields.shape)
 
@@ -200,6 +222,7 @@ export const CreateInvoiceInput = z.object({
   paymentTerms: z.string().optional().default(''),
   reverseChargeNote: z.string().optional().default(''),
   buyerReference: z.string().optional().default(''),
+  xrechnung: z.boolean().optional().default(false),
   notes: z.string().optional().default('')
 })
 
@@ -232,6 +255,7 @@ export const UpdateInvoiceInput = z.object({
   paymentTerms: z.string().optional(),
   reverseChargeNote: z.string().optional(),
   buyerReference: z.string().optional(),
+  xrechnung: z.boolean().optional(),
   notes: z.string().optional()
 })
 
@@ -258,7 +282,9 @@ export type EInvoiceState = z.infer<typeof EInvoiceState>
 
 export const EInvoiceCheckDto = z.object({
   state: EInvoiceState,
-  missing: z.array(z.string())
+  missing: z.array(z.string()),
+  // XRechnung profile (public-sector buyers) instead of plain EN 16931
+  xrechnung: z.boolean()
 })
 export type EInvoiceCheckDto = z.infer<typeof EInvoiceCheckDto>
 

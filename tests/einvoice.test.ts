@@ -14,7 +14,7 @@ import {
 } from '../src/main/einvoice/amounts'
 import { countryCodeOf, unitCodeOf, vatCategoryOf, vatIdOf } from '../src/main/einvoice/codes'
 import { prepareEInvoice, type EInvoiceInput } from '../src/main/einvoice/prepare'
-import { buyer, invoice, party } from './helpers/einvoiceFixtures'
+import { EINVOICE_SAMPLES, buyer, invoice, party } from './helpers/einvoiceFixtures'
 import { buildCiiXml } from '../src/main/einvoice/cii'
 import { embedFacturX, readFacturX } from '../src/main/einvoice/facturx'
 import { EInvoiceService } from '../src/main/services/EInvoiceService'
@@ -284,6 +284,41 @@ describe('completeness check', () => {
     expect(one(xml, 'ram:ExemptionReasonCode')).toBe('VATEX-EU-O')
   })
 
+  it('asks for "nicht steuerbar" instead of reverse charge outside the EU', () => {
+    const lines = [
+      {
+        description: 'Gage',
+        quantity: 1,
+        unit: 'service',
+        unitPriceNet: 1000,
+        taxRate: 0,
+        taxCode: 'reverse_charge' as const
+      }
+    ]
+    const swiss = buyer({ countryCode: 'CH', vatNumber: 'CHE123456789' })
+    expect(prepareEInvoice(invoice({ lines, buyer: swiss })).missing).toEqual([
+      '„nicht steuerbar“ statt „Reverse Charge“ (Empfänger außerhalb der EU)'
+    ])
+    const austrian = buyer({ countryCode: 'AT', vatNumber: 'ATU12345678' })
+    expect(prepareEInvoice(invoice({ lines, buyer: austrian })).complete).toBe(true)
+  })
+
+  it('needs Leitweg-ID, contact, IBAN and buyer e-mail for XRechnung', () => {
+    const result = prepareEInvoice(
+      invoice({
+        xrechnung: true,
+        seller: party({ contactPhone: '', iban: '' }),
+        buyer: buyer({ email: '' })
+      })
+    )
+    expect(result.missing).toEqual([
+      'Leitweg-ID (für die XRechnung)',
+      'Rechnungssteller: Ansprechpartner für Rechnungen mit Telefon und E-Mail (XRechnung)',
+      'Rechnungssteller: IBAN (XRechnung)',
+      'Rechnungsempfänger: E-Mail (XRechnung)'
+    ])
+  })
+
   it('refuses totals that differ from the lines (old rounding)', () => {
     const result = prepareEInvoice(
       invoice({ storedTotals: { net: 3000, tax: 570.01, gross: 3570.01 } })
@@ -419,6 +454,28 @@ describe('CII XML', () => {
     expect(all(xml, 'ram:CalculatedAmount')).toEqual(['0.00', '34.58'])
     expect(one(xml, 'ram:GrandTotalAmount')).toBe('2016.58')
     expectConsistentTotals(xml)
+  })
+
+  it('writes a Stornorechnung as credit note (381) referring to the invoice', () => {
+    const xml = xmlOf(EINVOICE_SAMPLES['credit-note'])
+    expect(xml).toContain('<ram:ID>1042</ram:ID><ram:TypeCode>381</ram:TypeCode>')
+    expect(xml).toContain(
+      '<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>1040</ram:IssuerAssignedID>' +
+        '<ram:FormattedIssueDateTime><qdt:DateTimeString format="102">20261015'
+    )
+    expect(one(xml, 'ram:GrandTotalAmount')).toBe('3570.00')
+    expectConsistentTotals(xml)
+  })
+
+  it('writes XRechnung with its guideline and business process', () => {
+    const xml = xmlOf(EINVOICE_SAMPLES.xrechnung)
+    expect(xml).toContain(
+      '<ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>'
+    )
+    expect(xml).toContain(
+      '<ram:ID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</ram:ID>'
+    )
+    expect(one(xml, 'ram:BuyerReference')).toBe('991-01234-56')
   })
 
   it('writes intra-community supplies (K) with ship-to country', () => {
@@ -623,6 +680,67 @@ describe('EInvoiceService', () => {
     const issued = await service.check(draft.id)
     expect(issued.state).toBe('ready')
     expect(issued.xml).toContain('<ram:LineOne>Hafenweg 7</ram:LineOne>')
+  })
+
+  it('cancels with a Stornorechnung: own number, negative copy, credit note', async () => {
+    const { issuer, recipient } = await setup()
+    const invoices = container.resolve(InvoiceService)
+    const service = container.resolve(EInvoiceService)
+    const original = await invoices.createInvoice({
+      companyId: issuer.id,
+      recipientKind: 'company',
+      recipientCompanyId: recipient.id,
+      status: 'issued',
+      dueDate: '2026-11-01',
+      xrechnung: false,
+      lineItems: [
+        ...lineItems,
+        {
+          description: 'Fahrt',
+          quantity: 3,
+          unit: 'km',
+          unitPriceNet: 0.3,
+          taxRate: 19,
+          taxCode: 'standard' as const
+        }
+      ]
+    })
+    await invoices.setInvoiceStatus(original.id, 'cancelled')
+
+    const cancelled = await invoices.getInvoiceById(original.id)
+    expect(cancelled?.status).toBe('cancelled')
+    expect(cancelled?.cancelledBy?.invoice_number).toBe((original.invoice_number ?? 0) + 1)
+    const storno = await invoices.getInvoiceById(cancelled!.cancelledBy!.id)
+    expect(storno).toMatchObject({
+      kind: 'cancellation',
+      status: 'issued',
+      invoice_number: (original.invoice_number ?? 0) + 1,
+      cancels_invoice_id: original.id,
+      total_gross_amount: -original.total_gross_amount,
+      subtotal_tax_amount: -original.subtotal_tax_amount,
+      issuer_snapshot_id: original.issuer_snapshot_id
+    })
+    expect(storno?.payment_terms).toMatch(/^Storno der Rechnung Nr\. \d+ vom \d{2}\.\d{2}\.\d{4}$/)
+    expect(storno?.lineItems.map((line) => line.quantity)).toEqual([-1, -3])
+    expect(
+      original.total_gross_amount + storno!.total_gross_amount,
+      'invoice and Storno add up to zero'
+    ).toBe(0)
+
+    const check = await service.check(storno!.id)
+    expect(check.state).toBe('ready')
+    expect(check.xml).toContain('<ram:TypeCode>381</ram:TypeCode>')
+    expect(check.xml).toContain(
+      `<ram:IssuerAssignedID>${original.invoice_number}</ram:IssuerAssignedID>`
+    )
+    expect(check.xml).toContain('<ram:BilledQuantity unitCode="KMT">3</ram:BilledQuantity>')
+    expectConsistentTotals(check.xml!)
+
+    // A Stornorechnung never changes, and is not cancelled again
+    await expect(invoices.setInvoiceStatus(storno!.id, 'paid')).rejects.toThrow('Stornorechnung')
+    await expect(invoices.setInvoiceStatus(storno!.id, 'cancelled')).rejects.toThrow(
+      'Stornorechnung'
+    )
   })
 
   it('previews the parties of the form and follows the setting', async () => {

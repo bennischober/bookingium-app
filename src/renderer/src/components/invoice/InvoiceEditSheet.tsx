@@ -4,15 +4,10 @@ import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { FormSheet } from '@/components/form-sheet'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'
-import { Badge } from '@/components/ui/badge'
+import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import {
-  INVOICE_STATUS_LABELS,
-  INVOICE_STATUS_STYLES,
-  formatMoney,
-  invoiceNumberLabel
-} from '@/lib/invoiceLabels'
+import { INVOICE_STATUS_LABELS, formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import {
   isInvoiceLocked,
   nextInvoiceStatuses,
@@ -117,6 +112,25 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
   const statusMutation = trpcReact.invoice.setStatus.useMutation({
     onSuccess: (updated) => {
       invalidateInvoices()
+      const stornoId = updated.cancelledByInvoiceId
+      if (updated.status === 'cancelled' && stornoId) {
+        // Closed, so the toast's action is reachable (the sheet is modal)
+        onClose()
+        toast.success(
+          `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} storniert – Stornorechnung ${invoiceNumberLabel(updated.cancelledByInvoiceNumber)} erstellt`,
+          {
+            action: {
+              label: 'Drucken / PDF',
+              onClick: () =>
+                navigate({
+                  to: '/invoices/$invoiceId/print',
+                  params: { invoiceId: String(stornoId) }
+                })
+            }
+          }
+        )
+        return
+      }
       toast.success(
         updated.status === 'cancelled'
           ? `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} storniert`
@@ -129,7 +143,7 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
 
   const eInvoice = trpcReact.invoice.eInvoiceCheck.useQuery(invoice.id)
 
-  const nextStatuses = nextInvoiceStatuses(invoice.status)
+  const nextStatuses = nextInvoiceStatuses(invoice.status, invoice.kind)
   const canCancel = nextStatuses.includes('cancelled')
 
   return (
@@ -137,9 +151,13 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
       <div className="flex items-start gap-3 rounded-md border bg-muted/40 p-3 text-sm">
         <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p>
-          {invoice.status === 'cancelled'
-            ? 'Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten.'
-            : 'Diese Rechnung ist gestellt und kann nicht mehr geändert oder gelöscht werden. Für Korrekturen bitte stornieren und eine neue Rechnung anlegen.'}
+          {invoice.kind === 'cancellation'
+            ? `Diese Stornorechnung gleicht Rechnung ${invoiceNumberLabel(invoice.cancelsInvoiceNumber)} aus. Sie bleibt, wie sie ist.`
+            : invoice.status === 'cancelled'
+              ? invoice.cancelledByInvoiceNumber
+                ? `Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten; ausgeglichen wird sie durch die Stornorechnung ${invoiceNumberLabel(invoice.cancelledByInvoiceNumber)}.`
+                : 'Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten.'
+              : 'Diese Rechnung ist gestellt und kann nicht mehr geändert oder gelöscht werden. Für Korrekturen bitte stornieren und eine neue Rechnung anlegen.'}
         </p>
       </div>
 
@@ -148,9 +166,11 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
         <div>
           <dt className="text-xs text-muted-foreground">Status</dt>
           <dd className="mt-0.5">
-            <Badge variant="outline" className={INVOICE_STATUS_STYLES[invoice.status]}>
-              {INVOICE_STATUS_LABELS[invoice.status]}
-            </Badge>
+            <InvoiceStatusBadge
+              status={invoice.status}
+              kind={invoice.kind}
+              cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
+            />
           </dd>
         </div>
         <Field label="Rechnungssteller" value={invoice.companyName} />
@@ -215,7 +235,7 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
                     await confirmAction({
                       title: `Rechnung ${invoiceNumberLabel(invoice.invoiceNumber)} stornieren?`,
                       description:
-                        'Die Rechnung bleibt mit ihrer Nummer erhalten. Das lässt sich nicht rückgängig machen.',
+                        'Die Rechnung bleibt mit ihrer Nummer erhalten. Eine Stornorechnung mit der nächsten Rechnungsnummer gleicht sie aus. Das lässt sich nicht rückgängig machen.',
                       confirmLabel: 'Stornieren',
                       destructive: true
                     })

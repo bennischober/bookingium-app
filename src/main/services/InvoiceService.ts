@@ -5,6 +5,7 @@ import {
   isInvoiceLocked,
   type CreateInvoiceInput,
   type CreateInvoiceForDealMemoInput,
+  type InvoiceKind,
   type InvoiceStatus,
   type UpsertCompanyInvoiceSettingsInput,
   type UpdateInvoiceInput
@@ -62,14 +63,19 @@ export class InvoiceService {
         'Gestellte Rechnungen können nicht mehr bearbeitet werden – nur der Status lässt sich ändern'
       )
     }
-    if (input.status) this.assertStatusChange(existing.status as InvoiceStatus, input.status)
+    if (input.status) {
+      this.assertStatusChange(existing.status as InvoiceStatus, input.status, 'invoice')
+    }
     return await this.invoiceRepository.update(input)
   }
 
-  /** Status-only change (issue, mark paid/overdue, Storno) */
+  /**
+   * Status-only change (issue, mark paid/overdue, Storno). Cancelling an
+   * issued invoice also creates its Stornorechnung.
+   */
   async setInvoiceStatus(id: number, status: InvoiceStatus) {
     const existing = await this.requireInvoice(id)
-    this.assertStatusChange(existing.status as InvoiceStatus, status)
+    this.assertStatusChange(existing.status as InvoiceStatus, status, existing.kind as InvoiceKind)
     return await this.invoiceRepository.setStatus(id, status)
   }
 
@@ -96,8 +102,13 @@ export class InvoiceService {
     return existing
   }
 
-  private assertStatusChange(from: InvoiceStatus, to: InvoiceStatus) {
-    if (!canChangeInvoiceStatus(from, to)) {
+  private assertStatusChange(from: InvoiceStatus, to: InvoiceStatus, kind: InvoiceKind) {
+    if (kind === 'cancellation' && from !== to) {
+      throw new Error(
+        'Eine Stornorechnung bleibt, wie sie ist – ihr Status lässt sich nicht ändern'
+      )
+    }
+    if (!canChangeInvoiceStatus(from, to, kind)) {
       throw new Error(
         `Statuswechsel von „${STATUS_LABELS[from]}“ zu „${STATUS_LABELS[to]}“ ist nicht erlaubt`
       )

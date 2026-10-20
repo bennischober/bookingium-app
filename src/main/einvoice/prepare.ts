@@ -9,6 +9,7 @@ import {
   DEFAULT_EXEMPTION,
   TAX_CODE_LABELS,
   countryCodeOf,
+  isEuCountry,
   needsExemptionReason,
   unitCodeOf,
   unitLabelOf,
@@ -47,6 +48,10 @@ export type EInvoiceInput = {
   lines: EInvoiceLineInput[]
   /** Totals stored on the invoice (shown on the PDF); must match the lines */
   storedTotals?: { net: number; tax: number; gross: number }
+  /** Stornorechnung: a credit note (381) for this invoice; amounts positive */
+  cancels?: { invoiceNumber: number | null; issueDate: string | null } | null
+  /** XRechnung (public-sector buyers) instead of plain EN 16931 */
+  xrechnung?: boolean
 }
 
 export type PreparedParty = {
@@ -87,6 +92,11 @@ export type PreparedVatGroup = {
 }
 
 export type PreparedEInvoice = {
+  /** 380 commercial invoice, 381 credit note (Stornorechnung) */
+  typeCode: '380' | '381'
+  /** The invoice a credit note refers to (BT-25/BT-26) */
+  precedingInvoice: { number: string; issueDate: string } | null
+  xrechnung: boolean
   number: string
   issueDate: string
   dueDate: string | null
@@ -275,6 +285,10 @@ export function prepareEInvoice(
         : 'Rechnungssteller: USt-IdNr. oder Handelsregisternummer'
     )
   }
+  // Policy: services to buyers outside the EU are not taxable here (O)
+  if (buyer?.countryCode && categories.has('AE') && !isEuCountry(buyer.countryCode)) {
+    missing.push('„nicht steuerbar“ statt „Reverse Charge“ (Empfänger außerhalb der EU)')
+  }
   if (categories.has('O') && categories.size > 1) {
     missing.push('„nicht steuerbar“ nur ohne andere Steuerschlüssel in derselben Rechnung')
   }
@@ -307,18 +321,42 @@ export function prepareEInvoice(
     missing.push('Beträge der Rechnung passend zu den Positionen (Rundung weicht ab)')
   }
 
+  const cancels = input.cancels ?? null
+  if (cancels && (cancels.invoiceNumber === null || !cancels.issueDate)) {
+    missing.push('Nummer und Datum der stornierten Rechnung')
+  }
+
+  // XRechnung (CIUS of the German public sector): BR-DE-1/2/5/6/7/15,
+  // PEPPOL-EN16931-R010 (buyer electronic address)
+  const iban = (input.seller?.iban ?? '').replace(/\s/g, '').toUpperCase()
+  if (input.xrechnung) {
+    if (!text(input.buyerReference)) missing.push('Leitweg-ID (für die XRechnung)')
+    const contact = seller?.contact
+    if (seller && (!contact?.name || !contact.phone || !contact.email)) {
+      missing.push(
+        'Rechnungssteller: Ansprechpartner für Rechnungen mit Telefon und E-Mail (XRechnung)'
+      )
+    }
+    if (seller && !iban) missing.push('Rechnungssteller: IBAN (XRechnung)')
+    if (buyer && !buyer.email) missing.push('Rechnungsempfänger: E-Mail (XRechnung)')
+  }
+
   if (missing.length > 0 || !seller || !buyer) {
     return { complete: false, missing, prepared: null }
   }
 
   // "Not subject to VAT" invoices carry no VAT ids (BR-O-2 … BR-O-4)
   const notSubject = categories.has('O')
-  const iban = (input.seller?.iban ?? '').replace(/\s/g, '').toUpperCase()
 
   return {
     complete: true,
     missing: [],
     prepared: {
+      typeCode: cancels ? '381' : '380',
+      precedingInvoice: cancels
+        ? { number: String(cancels.invoiceNumber), issueDate: cancels.issueDate ?? '' }
+        : null,
+      xrechnung: input.xrechnung ?? false,
       number: String(input.invoiceNumber ?? ''),
       issueDate: input.issueDate,
       dueDate: input.dueDate && ISO_DATE.test(input.dueDate) ? input.dueDate : null,

@@ -214,5 +214,24 @@ export const EINVOICE_SAMPLES: Record<string, EInvoiceInput> = {
         taxCode: 'standard'
       }
     ]
+  }),
+  'credit-note': invoice({
+    invoiceNumber: 1042,
+    paymentTerms: 'Storno der Rechnung Nr. 1040 vom 15.10.2026',
+    dueDate: null,
+    cancels: { invoiceNumber: 1040, issueDate: '2026-10-15' }
+  }),
+  xrechnung: invoice({
+    xrechnung: true,
+    buyerReference: '991-01234-56',
+    buyer: buyer({ legalName: 'Stadt Musterstadt, Kulturamt' })
+  }),
+  'xrechnung-credit-note': invoice({
+    xrechnung: true,
+    invoiceNumber: 1043,
+    buyerReference: '991-01234-56',
+    dueDate: null,
+    paymentTerms: 'Storno der Rechnung Nr. 1041 vom 15.10.2026',
+    cancels: { invoiceNumber: 1041, issueDate: '2026-10-15' }
   })
 }

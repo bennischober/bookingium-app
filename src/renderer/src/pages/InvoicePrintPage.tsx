@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, FileCode } from 'lucide-react'
+import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { PrintActions } from '@/components/print/PrintActions'
@@ -35,6 +36,16 @@ function suggestTemplate(data: InvoicePrintDto | undefined): InvoiceTemplate {
     return 'agency-en'
   }
   return 'standard'
+}
+
+/** Saves the bare XRechnung XML (upload portals of public-sector buyers) */
+async function saveXRechnung(invoiceId: number, fileName: string) {
+  const result = await window.api.saveEInvoiceXml(invoiceId, `${fileName}.xml`)
+  if (!result.success) {
+    toast.error('XRechnung konnte nicht gespeichert werden', { description: result.error })
+  } else if (!result.canceled && result.filePath) {
+    toast.success('XRechnung gespeichert', { description: result.filePath })
+  }
 }
 
 export default function InvoicePrintPage() {
@@ -108,7 +119,7 @@ export default function InvoicePrintPage() {
   // "Rechnung_2026783_The New Roses_Managementbeteiligung 4. Quartal 2025"
   const { invoice } = data
   const fileName = buildFileName([
-    'Rechnung',
+    invoice.kind === 'cancellation' ? 'Stornorechnung' : 'Rechnung',
     invoice.invoiceNumber ?? 'Entwurf',
     data.managementShare?.bandName || data.recipient?.legalName || invoice.recipientName,
     data.managementShare ? `Managementbeteiligung ${invoice.periodLabel}` : null,
@@ -140,6 +151,11 @@ export default function InvoicePrintPage() {
               ))}
             </SelectContent>
           </Select>
+          {eInvoice.data?.xrechnung && eInvoice.data.state === 'ready' && (
+            <Button variant="outline" onClick={() => void saveXRechnung(invoice.id, fileName)}>
+              <FileCode className="h-4 w-4" /> XRechnung (XML)
+            </Button>
+          )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />
         </div>
       </div>

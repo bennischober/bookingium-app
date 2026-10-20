@@ -4,17 +4,12 @@ import { trpcReact } from '@/lib/trpc'
 import { useSyncedState } from '@/hooks/useSyncedState'
 import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
 import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
-import {
-  INVOICE_STATUS_LABELS,
-  INVOICE_STATUS_STYLES,
-  formatMoney,
-  invoiceNumberLabel
-} from '@/lib/invoiceLabels'
+import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Euro, FileText, FileSignature } from 'lucide-react'
@@ -448,9 +443,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={INVOICE_STATUS_STYLES[invoice.status]}>
-                          {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-                        </Badge>
+                        <InvoiceStatusBadge
+                          status={invoice.status}
+                          kind={invoice.kind}
+                          cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
+                        />
                         <span className="text-sm font-semibold">
                           {formatMoney(invoice.totalAmount, invoice.currency)}
                         </span>

@@ -63,7 +63,14 @@ export class DashboardService {
             amount: sql<number>`coalesce(sum(${schema.invoice.total_amount}), 0)`
           })
           .from(schema.invoice)
-          .where(and(ne(schema.invoice.status, 'paid'), ne(schema.invoice.status, 'cancelled'))),
+          // Stornorechnungen offset their invoice and are never open
+          .where(
+            and(
+              ne(schema.invoice.status, 'paid'),
+              ne(schema.invoice.status, 'cancelled'),
+              eq(schema.invoice.kind, 'invoice')
+            )
+          ),
         db
           .select({ n: count() })
           .from(schema.invoice)
@@ -71,6 +78,7 @@ export class DashboardService {
             and(
               ne(schema.invoice.status, 'paid'),
               ne(schema.invoice.status, 'cancelled'),
+              eq(schema.invoice.kind, 'invoice'),
               isNotNull(schema.invoice.due_date),
               lt(schema.invoice.due_date, todayStr)
             )

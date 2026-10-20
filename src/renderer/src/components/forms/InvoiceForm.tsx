@@ -1,6 +1,6 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { INVOICE_STATUS_LABELS, formatMoney, parseNumber } from '@/lib/invoiceLabels'
@@ -9,6 +9,7 @@ import { InfoLabel } from '@/components/InfoLabel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import {
 import {
   INVOICE_UNITS,
   TAX_CODES,
+  TAX_NOTE_PRESETS,
   TAX_CODE_LABELS,
   unitLabelOf
 } from '../../../../main/einvoice/codes'
@@ -145,6 +147,7 @@ export function InvoiceForm({
     paymentTerms?: string
     reverseChargeNote?: string
     buyerReference?: string
+    xrechnung?: boolean
     notes?: string
   }) => void
   onUpdate: (payload: {
@@ -168,6 +171,7 @@ export function InvoiceForm({
     paymentTerms?: string
     reverseChargeNote?: string
     buyerReference?: string
+    xrechnung?: boolean
     notes?: string
   }) => void
   isSubmitting: boolean
@@ -231,6 +235,13 @@ export function InvoiceForm({
   const [buyerReference, setBuyerReference] = useState(
     mode === 'edit' ? (invoice?.buyerReference ?? '') : ''
   )
+  const [xrechnung, setXrechnung] = useState(
+    mode === 'edit' ? (invoice?.xrechnung ?? false) : false
+  )
+  // E-invoice details are rarely needed: folded away unless in use
+  const [eInvoiceDetailsOpen, setEInvoiceDetailsOpen] = useState(
+    Boolean(buyerReference) || xrechnung
+  )
   const [notes, setNotes] = useState(mode === 'edit' ? (invoice?.notes ?? '') : '')
   const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => {
     if (mode === 'edit' && invoice) {
@@ -293,13 +304,15 @@ export function InvoiceForm({
         notes,
         seller: parties.data.issuer,
         buyer: parties.data.recipient,
-        lines: normalizedLines
+        lines: normalizedLines,
+        xrechnung
       },
       { ignoreNumber: true }
     )
     return {
       state: result.complete ? ('draft' as const) : ('incomplete' as const),
-      missing: result.missing
+      missing: result.missing,
+      xrechnung
     }
   }, [
     parties.data,
@@ -314,7 +327,8 @@ export function InvoiceForm({
     paymentTerms,
     reverseChargeNote,
     notes,
-    normalizedLines
+    normalizedLines,
+    xrechnung
   ])
 
   const setLine = (patch: Partial<InvoiceLineDraft>) => {
@@ -399,6 +413,7 @@ export function InvoiceForm({
       paymentTerms,
       reverseChargeNote,
       buyerReference: buyerReference.trim(),
+      xrechnung,
       notes
     }
 
@@ -635,18 +650,58 @@ export function InvoiceForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <InfoLabel
-              htmlFor="invoice-buyer-reference"
-              text="Käuferreferenz / Leitweg-ID (optional)"
-              info="Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung."
-            />
-            <Input
-              id="invoice-buyer-reference"
-              value={buyerReference}
-              onChange={(e) => setBuyerReference(e.target.value)}
-              placeholder="z. B. 04011000-12345-34"
-            />
+          <div className="rounded-md border">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
+              aria-expanded={eInvoiceDetailsOpen}
+              onClick={() => setEInvoiceDetailsOpen((open) => !open)}
+            >
+              <span>
+                E-Rechnung: Käuferreferenz, XRechnung
+                {!eInvoiceDetailsOpen && (buyerReference || xrechnung) && (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {[buyerReference, xrechnung && 'XRechnung'].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${eInvoiceDetailsOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {eInvoiceDetailsOpen && (
+              <div className="space-y-4 border-t px-3 py-3">
+                <div className="space-y-2">
+                  <InfoLabel
+                    htmlFor="invoice-buyer-reference"
+                    text="Käuferreferenz / Leitweg-ID (optional)"
+                    info="Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung."
+                  />
+                  <Input
+                    id="invoice-buyer-reference"
+                    value={buyerReference}
+                    onChange={(e) => setBuyerReference(e.target.value)}
+                    placeholder="z. B. 04011000-12345-34"
+                  />
+                </div>
+                <div className="flex items-start gap-3">
+                  <Switch
+                    id="invoice-xrechnung"
+                    checked={xrechnung}
+                    onCheckedChange={setXrechnung}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="invoice-xrechnung">XRechnung (öffentlicher Auftraggeber)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Für Behörden und andere öffentliche Stellen: braucht die Leitweg-ID, einen
+                      Ansprechpartner mit Telefon und E-Mail, die IBAN und die E-Mail des
+                      Empfängers. Das PDF enthält dann die XRechnung; für Portale lässt sie sich
+                      auch als XML speichern.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end">
@@ -861,6 +916,20 @@ export function InvoiceForm({
               onChange={(e) => setReverseChargeNote(e.target.value)}
               placeholder="Reverse Charge oder Grund der Steuerbefreiung"
             />
+            <div className="flex flex-wrap gap-2">
+              {TAX_NOTE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title={preset.text}
+                  onClick={() => setReverseChargeNote(preset.text)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -56,6 +56,8 @@ const EMPTY_SNAPSHOT: InvoicePartySnapshotEntity = {
 }
 
 type InvoiceWithRelations = InvoiceEntity & {
+  cancelsInvoice?: { id: number; invoice_number: number | null; issue_date: string } | null
+  cancelledBy?: { id: number; invoice_number: number | null } | null
   company?: CompanyEntity | null
   dealMemo?: DealMemoEntity | null
   issuerSnapshot?: InvoicePartySnapshotEntity | null
@@ -84,6 +86,8 @@ export class InvoiceMapper {
     return {
       id: entity.id,
       invoiceNumber: entity.invoice_number,
+      kind: entity.kind as InvoiceListItemDto['kind'],
+      cancelsInvoiceNumber: entity.cancelsInvoice?.invoice_number ?? null,
       companyId: entity.company_id,
       companyName: entity.company?.name ?? 'Unknown company',
       recipientKind:
@@ -119,6 +123,11 @@ export class InvoiceMapper {
       paymentTerms: entity.payment_terms,
       reverseChargeNote: entity.reverse_charge_note,
       buyerReference: entity.buyer_reference,
+      xrechnung: entity.xrechnung,
+      cancelsInvoiceId: entity.cancelsInvoice?.id ?? null,
+      cancelsInvoiceIssueDate: entity.cancelsInvoice?.issue_date ?? null,
+      cancelledByInvoiceId: entity.cancelledBy?.id ?? null,
+      cancelledByInvoiceNumber: entity.cancelledBy?.invoice_number ?? null,
       lineItems: (entity.lineItems ?? []).map((item) => this.toLineItemDto(item)),
       createdAt: entity.created_at,
       updatedAt: entity.updated_at

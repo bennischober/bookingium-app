@@ -1,4 +1,12 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  index,
+  uniqueIndex,
+  type AnySQLiteColumn
+} from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 import { DOCUMENT_OWNER_TYPES } from '../api/schemas/document.schema'
 
@@ -404,6 +412,15 @@ export const invoice = sqliteTable(
     reverse_charge_note: text('reverse_charge_note').default('').notNull(),
     // Buyer reference / Leitweg-ID (e-invoice BT-10), optional
     buyer_reference: text('buyer_reference').default('').notNull(),
+    // E-invoice as XRechnung (public-sector buyers) instead of plain EN 16931
+    xrechnung: integer('xrechnung', { mode: 'boolean' }).default(false).notNull(),
+    // invoice | cancellation (Stornorechnung: negative copy of the invoice
+    // it cancels, own number, e-invoice type 381)
+    kind: text('kind').default('invoice').notNull(),
+    cancels_invoice_id: integer('cancels_invoice_id').references(
+      (): AnySQLiteColumn => invoice.id,
+      { onDelete: 'set null' }
+    ),
     notes: text('notes').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
@@ -417,6 +434,7 @@ export const invoice = sqliteTable(
     index('invoice_status_idx').on(table.status),
     index('invoice_issue_date_idx').on(table.issue_date),
     index('invoice_period_start_idx').on(table.period_start_date),
+    index('invoice_cancels_invoice_idx').on(table.cancels_invoice_id),
     uniqueIndex('invoice_company_invoice_number_unique_idx').on(
       table.company_id,
       table.invoice_number

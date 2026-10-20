@@ -28,6 +28,9 @@ const api = {
 
   openSavedPdf: (filePath: string) => ipcRenderer.invoke('print:openPdf', { filePath }),
 
+  saveEInvoiceXml: (invoiceId: number, defaultFileName: string) =>
+    ipcRenderer.invoke('einvoice:saveXml', { invoiceId, defaultFileName }),
+
   pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 

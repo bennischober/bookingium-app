@@ -26,10 +26,13 @@ export class EInvoiceService {
     const entity = await this.invoiceRepository.getByIdWithSnapshots(invoiceId)
     if (!entity) throw new Error('Rechnung nicht gefunden')
 
+    const xrechnung = entity.xrechnung
     if (!this.settingsService.get().eInvoiceEmbed) {
-      return { state: 'disabled', missing: [], xml: null }
+      return { state: 'disabled', missing: [], xrechnung, xml: null }
     }
-    if (entity.status === 'cancelled') return { state: 'cancelled', missing: [], xml: null }
+    if (entity.status === 'cancelled') {
+      return { state: 'cancelled', missing: [], xrechnung, xml: null }
+    }
 
     const data = InvoiceMapper.toPrintDto(
       entity,
@@ -47,13 +50,18 @@ export class EInvoiceService {
         }),
         { ignoreNumber: true }
       )
-      return { state: result.complete ? 'draft' : 'incomplete', missing: result.missing, xml: null }
+      return {
+        state: result.complete ? 'draft' : 'incomplete',
+        missing: result.missing,
+        xrechnung,
+        xml: null
+      }
     }
 
     const result = prepareEInvoice(eInvoiceInputOf(data))
     return result.complete
-      ? { state: 'ready', missing: [], xml: buildCiiXml(result.prepared) }
-      : { state: 'incomplete', missing: result.missing, xml: null }
+      ? { state: 'ready', missing: [], xrechnung, xml: buildCiiXml(result.prepared) }
+      : { state: 'incomplete', missing: result.missing, xrechnung, xml: null }
   }
 
   /**
@@ -68,12 +76,17 @@ export class EInvoiceService {
     const { xml, ...check } = await this.check(invoiceId)
     if (!xml) return { pdf, eInvoice: check }
     try {
-      return { pdf: await embedFacturX(pdf, xml, { title }), eInvoice: check }
+      const profile = check.xrechnung ? 'XRECHNUNG' : 'EN 16931'
+      return { pdf: await embedFacturX(pdf, xml, { title, profile }), eInvoice: check }
     } catch (error) {
       console.error('Embedding the e-invoice failed:', error)
       return {
         pdf,
-        eInvoice: { state: 'incomplete', missing: ['E-Rechnung konnte nicht eingebettet werden'] }
+        eInvoice: {
+          ...check,
+          state: 'incomplete',
+          missing: ['E-Rechnung konnte nicht eingebettet werden']
+        }
       }
     }
   }
