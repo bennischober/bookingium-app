@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:einvoice": "node scripts/einvoice-tools.mjs validate",
+    "icons": "electron scripts/generate-icons.mjs",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",

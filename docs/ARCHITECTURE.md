@@ -17,6 +17,10 @@ end-to-end, and the coding guidelines.
 | Tests           | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF)                                  |
 | Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml)                                              |
 
+The app icon's source is `build/icon.svg`. After changing it, `pnpm icons`
+(`scripts/generate-icons.mjs`) rewrites `build/icon.ico`, `.icns`, `.png`
+and `resources/icon.png` (the window icon on Windows and Linux).
+
 ## Process architecture
 
 ```

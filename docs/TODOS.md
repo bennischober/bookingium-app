@@ -10,7 +10,8 @@ Done work lives in the git history; this list only holds what is still open.
   cases settled: non-EU buyers „nicht steuerbar“ (the check enforces it),
   § 4 Nr. 20 a UStG via the Steuerhinweis presets, management shares at
   0 % need the reason in the Steuerhinweis. Left to do:
-  - Run real invoices (sample_data) through the check before 2028.
+  - Run real invoices through the check before 2028 (waits for the first
+    real invoices; none exist yet).
   - KoSIT and veraPDF run on demand with `pnpm validate:einvoice`; wire
     that command into CI once there is one (runner with Java 11+, cache
     `.tools/`; the e2e step needs a display, e.g. xvfb on Linux).
@@ -19,8 +20,6 @@ Done work lives in the git history; this list only holds what is still open.
 
 - **Code signing** for the Windows installer (SmartScreen warns until the
   installer is signed with a code-signing certificate).
-- **App icon:** `build/icon.*` and `resources/icon.png` are still the
-  electron-vite defaults.
 - **Auto-update** (electron-updater) once there is a place to publish
   releases.
 - **Calendar subscription in Outlook/Google:** the calendar file needs a web
@@ -30,8 +29,9 @@ Done work lives in the git history; this list only holds what is still open.
 ## Data
 
 - Persons imported before role parsing existed carry the role in the name
-  ("Booking: Lea Grötzinger", "Geschäftsführer: Thilo Ziegler"); clean up
-  by hand or with a one-off fix.
+  ("Booking: Lea Grötzinger", "Geschäftsführer: Thilo Ziegler"). Decided:
+  clean up the data once (move the role onto the membership), the importer
+  stays as it is.
 
 ## Technical
 
