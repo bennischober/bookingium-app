@@ -198,8 +198,8 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
 ## E-invoices (ZUGFeRD/Factur-X)
 
 „Als PDF speichern“ on an invoice sends its id along (`print:savePdf`);
-`EInvoiceService.attachToPdf` embeds `factur-x.xml` (CII, profile EN 16931,
-XMP metadata, AF relationship Alternative) into the printed PDF when the
+`EInvoiceService.attachToPdf` embeds the XML (CII, profile EN 16931, or
+XRechnung when the invoice is flagged) into the printed PDF when the
 invoice is issued, complete and the setting `eInvoiceEmbed` is on.
 Otherwise the PDF is saved as printed and the toast says what is missing.
 
@@ -214,14 +214,33 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   repository, the invoice form and the XML use it. Stored totals that
   differ (older invoices) block the XML instead of contradicting the PDF.
 - **Mapping:** tax codes -> VAT categories, units -> UN/ECE Rec 20, default
-  exemption reasons (VATEX) live in `einvoice/codes.ts`. The tax note
-  (`reverse_charge_note`, „Steuerhinweis“) is the exemption reason.
+  exemption reasons (VATEX), EU countries and the Steuerhinweis presets
+  live in `einvoice/codes.ts`. The tax note (`reverse_charge_note`,
+  „Steuerhinweis“) is the exemption reason. Reverse charge to a buyer
+  outside the EU is refused: those services are „nicht steuerbar“ (O).
 - **Drafts** are checked with the parties' current master data
   (`currentParties`); the invoice form checks live via
   `invoice.previewParties`. Drafts and cancelled invoices get no XML.
-- **Validation:** unit tests recompute the BR-CO sums. With Java and the
-  KoSIT downloads, `KOSIT_VALIDATOR=…/validator-<v>-standalone.jar
-KOSIT_CONFIG=…/xrechnung-…-configuration (unzipped) pnpm test` also runs
-  the official validator (scenario „EN16931 (CII)“) over the samples in
-  `tests/helpers/einvoiceFixtures.ts`; the e2e test leaves the XML of a
-  real export in `tests/e2e/__screenshots__/einvoice-1040.xml`.
+- **PDF/A-3b:** `facturx.ts` adds what Chromium's output lacks: an sRGB
+  output intent (ICC profile built in `srgbIcc.ts`, nothing shipped) and a
+  trailer ID, plus the Factur-X XMP. File name `factur-x.xml`, or
+  `xrechnung.xml` with conformance level XRECHNUNG.
+- **XRechnung** (`invoice.xrechnung`, folded away in the invoice form):
+  XRechnung guideline id and business process (BT-23), and the check
+  additionally requires Leitweg-ID, seller contact with phone and e-mail,
+  IBAN and buyer e-mail. The print page offers the bare XML for portals
+  (`einvoice:saveXml`).
+- **Stornorechnung:** cancelling an issued invoice (status `cancelled`)
+  creates an invoice of kind `cancellation` in the same transaction: next
+  number, same snapshots, lines with negated quantities and amounts
+  (invoice + Storno = 0 in lists and exports), `cancels_invoice_id` to the
+  original. It is issued and never changes; the dashboard does not count
+  it as open. As an e-invoice it is a credit note (type 381, positive
+  amounts) referring to the original's number and date (BT-25/26).
+- **Validation:** unit tests recompute the BR-CO sums. Opt-in, with Java:
+  `KOSIT_VALIDATOR=…/validator-<v>-standalone.jar
+KOSIT_CONFIG=…/xrechnung-…-configuration (unzipped)` runs the official
+  KoSIT validator over the samples in `tests/helpers/einvoiceFixtures.ts`
+  (EN 16931 and XRechnung scenarios); `VERAPDF=…/verapdf(.bat)` checks the
+  PDFs the e2e test leaves in `tests/e2e/__screenshots__/einvoice-*.pdf`
+  as PDF/A-3b.

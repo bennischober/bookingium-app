@@ -86,6 +86,9 @@ English.
 | Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                      |
 | Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                    |
 | Invoice contact person                             | Ansprechpartner für Rechnungen                                   |
+| XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                            |
+| Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                          |
+| Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar             |
 | Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)        |
 | Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                  |
 | `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                  |

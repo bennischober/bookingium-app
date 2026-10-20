@@ -4,26 +4,15 @@ Done work lives in the git history; this list only holds what is still open.
 
 ## Deadlines
 
-- **E-Rechnung — must be live by 1 Jan 2028.** Invoice PDFs already carry
-  a ZUGFeRD/Factur-X XML (EN 16931) when the invoice is complete (see
-  ARCHITECTURE.md › E-invoices). Left to do:
-  - Confirm the VAT cases with the Steuerberater: 7 %/19 % on fees;
-    reverse charge (AE) for EU promoters vs. „nicht steuerbar“ (O) for
-    non-EU ones; § 4 Nr. 20 a UStG exemption (E) for artists; management
-    shares at 0 % are created as „steuerfrei“ and need the reason in the
-    Steuerhinweis; Kleinunternehmer status (2027: only above €800k
-    turnover; invoices up to €250 are exempt).
+- **E-Rechnung — must be live by 1 Jan 2028.** Built: ZUGFeRD/Factur-X
+  (EN 16931) in PDF/A-3b invoice PDFs, XRechnung per invoice,
+  Stornorechnung as credit note (see ARCHITECTURE.md › E-invoices). VAT
+  cases settled: non-EU buyers „nicht steuerbar“ (the check enforces it),
+  § 4 Nr. 20 a UStG via the Steuerhinweis presets, management shares at
+  0 % need the reason in the Steuerhinweis. Left to do:
   - Run real invoices (sample_data) through the check before 2028.
-  - `printToPDF` output is not strict PDF/A-3 (no output intent/ICC
-    profile); receiving software reads the XML, a strict PDF/A checker
-    flags the file. No Ghostscript (AGPL).
-  - Cancelled invoices get no XML; a Storno as e-invoice would be a credit
-    note (type 381) referring to the original.
-  - XRechnung for public-sector buyers only if needed: it additionally
-    requires the business process (BT-23), a Leitweg-ID, payment
-    instructions and the seller contact (BR-DE-1/2/15, PEPPOL-R001).
-  - KoSIT validation runs on demand (`tests/einvoice.kosit.test.ts`); wire
-    it into CI once there is one.
+  - KoSIT and veraPDF run on demand (`tests/einvoice.kosit.test.ts`,
+    `tests/einvoice.verapdf.test.ts`); wire them into CI once there is one.
 
 ## Product
 
