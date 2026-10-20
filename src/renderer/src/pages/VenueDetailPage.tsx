@@ -17,7 +17,7 @@ import {
   type VenueDto
 } from '../../../main/api/schemas/venue.schema'
 
-/** Overview: kind, capacity, address, contact, promoter company, notes */
+/** Overview: kind, capacity, genres, address, contact, promoter company, notes */
 function OverviewTab({ venue }: { venue: VenueDto }) {
   const { contact } = venue
   return (
@@ -25,6 +25,7 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
       <InfoCard label="Art / Kapazität">
         {VENUE_KIND_LABELS[venue.kind]}
         {venue.capacity ? ` · ${venue.capacity.toLocaleString('de-DE')} Personen` : ''}
+        {venue.genres && <p className="text-muted-foreground">Genres: {venue.genres}</p>}
       </InfoCard>
       <InfoCard label="Firma (Veranstalter)">
         {venue.company ? (

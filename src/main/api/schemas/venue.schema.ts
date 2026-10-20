@@ -13,12 +13,33 @@ export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
   festival: 'Festival'
 }
 
+// Genre tags are free text, comma-separated; stored trimmed and deduplicated
+// (case-insensitive) as "Metal, Rock"
+export function splitGenres(value: string): string[] {
+  const seen = new Set<string>()
+  const tags: string[] = []
+  for (const raw of value.split(/[,;]/)) {
+    const tag = raw.trim()
+    if (tag && !seen.has(tag.toLowerCase())) {
+      seen.add(tag.toLowerCase())
+      tags.push(tag)
+    }
+  }
+  return tags
+}
+
+/** " Rock;metal " -> "Rock, metal" (how genres are stored) */
+export const normalizeGenres = (value: string): string => splitGenres(value).join(', ')
+
+const GenresInput = z.string().transform(normalizeGenres)
+
 export const VenueDto = z
   .object({
     id: z.number(),
     name: z.string(),
     kind: VenueKind,
     capacity: z.number().nullable(),
+    genres: z.string(),
     notes: z.string(),
     address: AddressDto.nullable(),
     contact: ContactDto.nullable(),
@@ -42,6 +63,7 @@ export const CreateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   kind: VenueKind.default('venue'),
   capacity: z.number().nullable().optional(),
+  genres: GenresInput.default(''),
   notes: z.string().default(''),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
@@ -57,6 +79,8 @@ export const UpdateVenueInput = z.object({
   name: z.string().min(1, 'Name is required'),
   kind: VenueKind.default('venue'),
   capacity: z.number().nullable().optional(),
+  // Optional: callers that don't send it keep the stored tags
+  genres: GenresInput.optional(),
   notes: z.string().default(''),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),

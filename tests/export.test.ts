@@ -26,6 +26,7 @@ describe('list export', () => {
         name: `Club ${i}`,
         kind: i % 3 === 0 ? 'festival' : 'venue',
         capacity: i * 100,
+        genres: i % 3 === 0 ? ' Rock;metal ' : '',
         notes: '',
         companyId: promoter.id,
         address: {
@@ -43,10 +44,11 @@ describe('list export', () => {
 
     const all = await service().table({ list: 'venues' })
     expect(all.rows).toHaveLength(15)
-    expect(all.columns.map((column) => column.header).slice(0, 4)).toEqual([
+    expect(all.columns.map((column) => column.header).slice(0, 5)).toEqual([
       'Spielstätte',
       'Art',
       'Kapazität',
+      'Genres',
       'Veranstalter'
     ])
 
@@ -58,7 +60,12 @@ describe('list export', () => {
       'Club 6',
       'Club 9'
     ])
-    expect(festivals.rows[0].slice(1, 4)).toEqual(['Festival', 1200, 'Rock Promotion GmbH'])
+    expect(festivals.rows[0].slice(1, 5)).toEqual([
+      'Festival',
+      1200,
+      'Rock, metal',
+      'Rock Promotion GmbH'
+    ])
 
     const searched = await service().table({ list: 'venues', search: 'Club 1' })
     expect(searched.rows).toHaveLength(7) // Club 1, 10–15

@@ -3,6 +3,7 @@ import { listOrder, listPage } from './listQuery'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { normalizeGenres } from '../api/schemas/venue.schema'
 import type {
   CreateVenueInput,
   UpdateVenueInput,
@@ -151,6 +152,7 @@ export class VenueRepository {
             email: input.contact.email,
             phone: input.contact.phone,
             mobile_phone: input.contact.mobilePhone,
+            no_advertising: input.contact.noAdvertising,
             homepage: input.contact.homepage
           })
           .returning()
@@ -164,6 +166,7 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
+          genres: normalizeGenres(input.genres ?? ''),
           notes: input.notes,
           address_id: addressId,
           company_id: input.companyId ?? null,
@@ -241,6 +244,7 @@ export class VenueRepository {
               email: input.contact.email,
               phone: input.contact.phone,
               mobile_phone: input.contact.mobilePhone,
+              no_advertising: input.contact.noAdvertising,
               homepage: input.contact.homepage
             })
             .where(eq(schema.contact.id, existingVenue.contact_id))
@@ -253,6 +257,7 @@ export class VenueRepository {
               email: input.contact.email,
               phone: input.contact.phone,
               mobile_phone: input.contact.mobilePhone,
+              no_advertising: input.contact.noAdvertising,
               homepage: input.contact.homepage
             })
             .returning()
@@ -266,6 +271,7 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
+          genres: input.genres === undefined ? undefined : normalizeGenres(input.genres),
           notes: input.notes,
           address_id: addressId ?? null,
           company_id: input.companyId !== undefined ? input.companyId : existingVenue.company_id,

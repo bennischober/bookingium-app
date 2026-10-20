@@ -154,6 +154,7 @@ export class CompanyRepository {
             email: input.contact.email,
             phone: input.contact.phone,
             mobile_phone: input.contact.mobilePhone,
+            no_advertising: input.contact.noAdvertising,
             homepage: input.contact.homepage
           })
           .returning()
@@ -264,6 +265,7 @@ export class CompanyRepository {
               email: input.contact.email,
               phone: input.contact.phone,
               mobile_phone: input.contact.mobilePhone,
+              no_advertising: input.contact.noAdvertising,
               homepage: input.contact.homepage
             })
             .where(eq(contact.id, contactId))
@@ -276,6 +278,7 @@ export class CompanyRepository {
               email: input.contact.email,
               phone: input.contact.phone,
               mobile_phone: input.contact.mobilePhone,
+              no_advertising: input.contact.noAdvertising,
               homepage: input.contact.homepage
             })
             .returning()

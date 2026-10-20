@@ -54,3 +54,24 @@ export function thunderbirdComposeArg(
     `attachment=${quote(attachmentUrl)}`
   ].join(',')
 }
+
+// Longest mailto: link sent to the mail program; Windows and some programs
+// cut longer ones off
+export const MAX_MAILTO_LENGTH = 2000
+
+/** Classic Outlook splits addresses at ';' only, the others at ',' */
+export function addressSeparator(method: MailMethod): string {
+  return method === 'outlook' ? ';' : ','
+}
+
+/**
+ * A new email with the addresses in BCC (mailing lists). Null when the link
+ * would be too long; the caller then copies the addresses for pasting instead.
+ */
+export function bccMailtoUrl(emails: string[], method: MailMethod): string | null {
+  const bcc = emails
+    .map((email) => encodeURIComponent(email).replace(/%40/g, '@'))
+    .join(addressSeparator(method))
+  const url = `mailto:?bcc=${bcc}`
+  return url.length <= MAX_MAILTO_LENGTH ? url : null
+}

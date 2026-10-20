@@ -12,7 +12,8 @@ export class ContactMapper {
       email: entity.email,
       phone: entity.phone ?? '',
       mobilePhone: entity.mobile_phone ?? '',
-      homepage: entity.homepage ?? ''
+      homepage: entity.homepage ?? '',
+      noAdvertising: entity.no_advertising
     }
   }
 }

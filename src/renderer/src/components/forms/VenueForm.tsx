@@ -46,6 +46,7 @@ export function VenueForm({
       name: initialData?.name ?? '',
       kind: initialData?.kind ?? ('venue' as VenueKind),
       capacity: initialData?.capacity?.toString() ?? '',
+      genres: initialData?.genres ?? '',
       notes: initialData?.notes ?? '',
       companyId: initialData?.company?.id ?? null,
       address: {
@@ -62,18 +63,22 @@ export function VenueForm({
         email: initialData?.contact?.email ?? '',
         phone: initialData?.contact?.phone ?? '',
         mobilePhone: initialData?.contact?.mobilePhone ?? '',
-        homepage: initialData?.contact?.homepage ?? ''
+        homepage: initialData?.contact?.homepage ?? '',
+        noAdvertising: initialData?.contact?.noAdvertising ?? false
       }
     },
     onSubmit: async ({ value }) => {
       const parsedCapacity = value.capacity.trim() ? Number(value.capacity) : null
       const capacity = Number.isNaN(parsedCapacity) ? null : parsedCapacity
       const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
-      const hasContact = Object.values(value.contact).some((entry) => entry.trim().length > 0)
+      const { noAdvertising, ...contactFields } = value.contact
+      const hasContact =
+        noAdvertising || Object.values(contactFields).some((entry) => entry.trim().length > 0)
       const basePayload = {
         name: value.name.trim(),
         kind: value.kind,
         capacity,
+        genres: value.genres,
         notes: value.notes.trim(),
         companyId: value.companyId,
         ...(hasAddress ? { address: value.address } : {}),
@@ -186,6 +191,25 @@ export function VenueForm({
         )}
       </form.Field>
 
+      <form.Field name="genres">
+        {(field) => (
+          <div className="space-y-2">
+            <Label htmlFor={field.name}>Genres</Label>
+            <Input
+              id={field.name}
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              placeholder="z. B. Metal, Rock"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Mit Komma trennen; wird für die Verteiler genutzt.
+            </p>
+          </div>
+        )}
+      </form.Field>
+
       <form.Field name="notes">
         {(field) => (
           <div className="space-y-2">
@@ -233,7 +257,7 @@ export function VenueForm({
       <AddressFormFields form={form} />
 
       <Separator />
-      <ContactFormFields form={form} />
+      <ContactFormFields form={form} showNoAdvertising />
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

@@ -38,7 +38,8 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
         email: person?.contact?.email || '',
         phone: person?.contact?.phone || '',
         mobilePhone: person?.contact?.mobilePhone || '',
-        homepage: person?.contact?.homepage || ''
+        homepage: person?.contact?.homepage || '',
+        noAdvertising: person?.contact?.noAdvertising ?? false
       }
     },
     onSubmit: async ({ value }) => {
@@ -133,7 +134,7 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
 
       <Separator />
 
-      <ContactFormFields form={form} />
+      <ContactFormFields form={form} showNoAdvertising />
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>

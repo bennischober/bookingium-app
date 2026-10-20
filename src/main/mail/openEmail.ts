@@ -2,7 +2,7 @@
 // the ways). The PDF and the .eml are kept in <userData>/E-Mail so the
 // draft's attachment still exists when it is sent later; files older than
 // 30 days are removed.
-import { app, shell } from 'electron'
+import { app, clipboard, shell } from 'electron'
 import { execFile, spawn } from 'child_process'
 import { existsSync } from 'fs'
 import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises'
@@ -10,7 +10,14 @@ import { dirname, join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import type { MailProgramSetting } from '../api/schemas/settings.schema'
 import { buildEml, mailtoUrl, type EmailDraft } from './eml'
-import { isProgramPath, mailMethodOf, thunderbirdComposeArg, type MailMethod } from './mailProgram'
+import {
+  addressSeparator,
+  bccMailtoUrl,
+  isProgramPath,
+  mailMethodOf,
+  thunderbirdComposeArg,
+  type MailMethod
+} from './mailProgram'
 
 export type OpenEmailResult = {
   method: MailMethod
@@ -136,4 +143,28 @@ export async function openEmail({
 /** Opens the folder with the saved emails (toast action) */
 export function showEmailFile(pdfPath: string): void {
   if (dirname(resolve(pdfPath)) === emailFolder()) shell.showItemInFolder(pdfPath)
+}
+
+/** The mail program's way of listing several addresses */
+export async function mailAddressSeparator(setting: MailProgramSetting): Promise<string> {
+  const method = setting === 'auto' ? mailMethodOf(await mailtoHandlerPath()) : setting
+  return addressSeparator(method)
+}
+
+/**
+ * Opens a new email with the addresses in BCC. When they don't fit in a
+ * mailto: link, an empty email opens and the addresses go to the clipboard
+ * for pasting into BCC; returns whether they are in the email.
+ */
+export async function openBccEmail(
+  emails: string[],
+  setting: MailProgramSetting
+): Promise<boolean> {
+  const handler = await mailtoHandlerPath()
+  const method: MailMethod = setting === 'auto' ? mailMethodOf(handler) : setting
+  const url = bccMailtoUrl(emails, method)
+  if (!url) clipboard.writeText(emails.join(`${addressSeparator(method)} `))
+  // e2e tests: no mail program
+  if (process.env.BOOKINGIUM_NO_LAUNCH !== '1') await shell.openExternal(url ?? 'mailto:')
+  return url !== null
 }

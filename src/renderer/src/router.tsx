@@ -15,6 +15,7 @@ import CompanyDetailPage from '@/pages/CompanyDetailPage'
 import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
+import ContactListPage from '@/pages/ContactListPage'
 import PersonDetailPage from '@/pages/PersonDetailPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
@@ -106,6 +107,12 @@ const hotelRoute = createRoute({
   path: ROUTES.hotels.path,
   validateSearch: validateListSearch,
   component: HotelPage
+})
+
+const contactListRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.contactLists.path,
+  component: ContactListPage
 })
 
 const eventRoute = createRoute({
@@ -205,6 +212,7 @@ const routeTree = rootRoute.addChildren([
     bankRoute,
     venueRoute,
     hotelRoute,
+    contactListRoute,
     eventRoute,
     invoiceRoute,
     eventHubRoute,

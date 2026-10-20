@@ -134,7 +134,8 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
         email: company?.contact?.email || '',
         phone: company?.contact?.phone || '',
         mobilePhone: company?.contact?.mobilePhone || '',
-        homepage: company?.contact?.homepage || ''
+        homepage: company?.contact?.homepage || '',
+        noAdvertising: company?.contact?.noAdvertising ?? false
       }
     },
     onSubmit: async ({ value }) => {
@@ -427,7 +428,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
 
       <Separator />
 
-      <ContactFormFields form={form} />
+      <ContactFormFields form={form} showNoAdvertising />
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>

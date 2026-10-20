@@ -29,6 +29,13 @@
       "when": 1792498955641,
       "tag": "0003_invoice_email",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792516603270,
+      "tag": "0004_contact_lists",
+      "breakpoints": true
     }
   ]
 }

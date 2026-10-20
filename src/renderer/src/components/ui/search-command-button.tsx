@@ -69,6 +69,10 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
   '/venues': { description: 'Spielstättenverzeichnis öffnen', aliases: ['locations'] },
   '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
+  '/contact-lists': {
+    description: 'Empfänger für Rundmails und Newsletter',
+    aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']
+  },
   '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
   '/settings': {
     description: 'Allgemein, Rechnungen, E-Mail, Kalender und Daten',

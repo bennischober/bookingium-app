@@ -42,7 +42,9 @@ export const contact = sqliteTable(
     email: text('email').default('').notNull(),
     phone: text('phone'),
     mobile_phone: text('mobile_phone'),
-    homepage: text('homepage')
+    homepage: text('homepage'),
+    // Werbewiderspruch: never put this address on a mailing list (§ 7 UWG)
+    no_advertising: integer('no_advertising', { mode: 'boolean' }).default(false).notNull()
   },
   (table) => [index('contact_email_idx').on(table.email)]
 )
@@ -198,6 +200,8 @@ export const venue = sqliteTable(
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
+    // Comma-separated genre tags ("Metal, Rock"); used by the mailing lists
+    genres: text('genres').default('').notNull(),
     notes: text('notes').default('').notNull(),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     // owner, but not required
@@ -547,6 +551,21 @@ export const app_setting = sqliteTable('app_setting', {
     .notNull()
 })
 
+// Saved mailing lists (Verteiler): a name plus the filter, stored as JSON
+// (ContactListFilters in api/schemas/contactList.schema.ts). Lists are
+// dynamic: recipients are computed from the current data on every load.
+export const contact_list = sqliteTable('contact_list', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  filters: text('filters').default('{}').notNull(),
+  created_at: text('created_at')
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  updated_at: text('updated_at')
+    .default(sql`(datetime('now'))`)
+    .notNull()
+})
+
 // ========================================
 // Management contracts (management company <-> band)
 // ========================================
@@ -684,5 +703,6 @@ export const schema = {
   management_contract_member,
   management_share,
   management_share_income,
-  app_setting
+  app_setting,
+  contact_list
 }

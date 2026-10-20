@@ -64,6 +64,20 @@ English.
 | Street / No. / ZIP / City / State / Country | Straße / Hausnummer / PLZ / Ort / Bundesland / Land |
 | Email / Phone / Mobile / Website            | E-Mail / Telefon / Mobil / Website                  |
 | Founded / Capacity                          | Gründung / Kapazität                                |
+| Genres (venue tags, comma-separated)        | Genres                                              |
+
+### Mailing lists
+
+| English                            | German                                    |
+| ---------------------------------- | ----------------------------------------- |
+| Mailing list                       | Verteiler                                 |
+| New / saved mailing list           | Neuer Verteiler / gespeicherter Verteiler |
+| Opted out of advertising           | Keine Werbung                             |
+| Take back in (after opting out)    | Wieder aufnehmen                          |
+| Recipient (filter)                 | Empfänger                                 |
+| Booked / never booked              | Schon gebucht / Noch nie gebucht          |
+| Write email (BCC) / Copy addresses | E-Mail schreiben / Adressen kopieren      |
+| Export CSV                         | CSV exportieren                           |
 
 ### Events and documents
 
@@ -78,31 +92,31 @@ English.
 
 ### Invoices
 
-| English                                            | German                                                           |
-| -------------------------------------------------- | ---------------------------------------------------------------- |
-| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                          |
-| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                            |
-| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno)   |
-| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                               |
-| Line items                                         | Positionen                                                       |
-| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                    |
-| Payment terms                                      | Zahlungsbedingungen                                              |
-| Invoice numbering                                  | Rechnungsnummerierung                                            |
-| E-invoice (ZUGFeRD)                                | E-Rechnung                                                       |
-| What the e-invoice still needs                     | Für die E-Rechnung fehlt: …                                      |
-| Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                      |
-| Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                    |
-| Invoice contact person                             | Ansprechpartner für Rechnungen                                   |
-| Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“           |
-| XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                            |
-| Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.       |
+| English                                            | German                                                            |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                           |
+| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                             |
+| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno)    |
+| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                                |
+| Line items                                         | Positionen                                                        |
+| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                     |
+| Payment terms                                      | Zahlungsbedingungen                                               |
+| Invoice numbering                                  | Rechnungsnummerierung                                             |
+| E-invoice (ZUGFeRD)                                | E-Rechnung                                                        |
+| What the e-invoice still needs                     | Für die E-Rechnung fehlt: …                                       |
+| Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                       |
+| Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                     |
+| Invoice contact person                             | Ansprechpartner für Rechnungen                                    |
+| Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“            |
+| XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                             |
+| Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.        |
 | Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / … |
-| Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}        |
-| Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                               |
-| Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                          |
-| Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar             |
-| Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)        |
-| Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                  |
-| `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                  |
-| `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                    |
-| `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig |
+| Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}         |
+| Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                                |
+| Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                           |
+| Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar              |
+| Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)         |
+| Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                   |
+| `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                   |
+| `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                     |
+| `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig  |

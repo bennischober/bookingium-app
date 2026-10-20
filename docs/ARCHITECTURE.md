@@ -303,3 +303,39 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   of the package. We stay with these Java reference implementations on
   purpose: there is no JS veraPDF, and a JS rebuild of KoSIT would drift
   from the official rules.
+
+## Mailing lists (Verteiler)
+
+The Verteiler page (`ContactListPage`, `contactList` router,
+`ContactListService`) collects email addresses for newsletters and round
+mails. Bookingium sends nothing itself: German law (§ 7 UWG) only allows
+advertising emails with consent or an existing business relationship, and
+bulk sending belongs in a newsletter service that handles unsubscribes.
+
+- **Sources:** every venue and festival gives up to three kinds of
+  recipient: its own address (Spielstätte/Festival), its Ansprechpartner
+  (venue members) and its Veranstalter (the owning company's own email).
+  Local promoters (LoPro) of events are not included yet.
+- **Filters** apply to the venue (`venueMatches`): kind, recipient type,
+  country, state, PLZ prefixes, capacity (a bound excludes venues without
+  capacity), genre and bookings. A venue's genres are its own tags
+  (`venue.genres`, stored as "Rock, Punk" via `normalizeGenres`) plus the
+  genres of bands with a non-cancelled event there; "gebucht" means such an
+  event (of one band, when chosen). Empty filters mean no restriction.
+- **One row per address** (case-insensitive): a person's name wins over a
+  venue name, the row lists all matched venues and the largest capacity.
+- **Keine Werbung:** `contact.no_advertising`, a switch in the person,
+  company and venue forms and the ⊘ action on the page. Any contact with
+  the address marked keeps it off every list; the page shows those as
+  excluded and can take them back in.
+- **Out of the app:** „E-Mail schreiben“ opens a new email with the list
+  in BCC (`openBccEmail`; `;` between addresses for classic Outlook, `,`
+  otherwise). Links over 2000 characters get cut off by Windows, so then an
+  empty email opens and the addresses go to the clipboard. „Adressen
+  kopieren“ copies them; „CSV exportieren“ writes a UTF-8, comma-separated
+  file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma, Spielstätte,
+  Ort, Land, Art) for Brevo, CleverReach or Mailchimp. All three rebuild
+  the list in main, so the screen can't be stale.
+- **Saved lists** (`contact_list`) store the filters as JSON, not the
+  addresses: a saved list always shows the current contacts. Unreadable
+  filters fall back to "everything".
