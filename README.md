@@ -1,10 +1,32 @@
+<div align="center">
+
+<img src="build/icon.svg" alt="Bookingium logo" width="112" height="112" />
+
 # Bookingium
 
-A local-first desktop app for concert booking and band management —
-events, contracts, invoices, bands, venues and contacts, all on-device.
+**Concert booking and band management — local-first, on your desktop.**
+
+Events, contracts, invoices, bands, venues and contacts, all on-device.
 German UI.
 
-Built with Electron, React and TypeScript.
+![Electron](https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
+![Platforms](https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey)
+
+[Features](#features) · [Getting started](#getting-started) · [Quality gates](#quality-gates) · [Packaging](#packaging) · [Docs](#documentation)
+
+</div>
+
+---
+
+## Why Bookingium
+
+- **Local-first** — one SQLite file and plain folders on your machine. No account, no cloud, no subscription.
+- **Built for German booking agencies** — concert contracts, invoices with ZUGFeRD/XRechnung and payment QR codes, German UI.
+- **Everything in one place** — from the first inquiry to the signed contract, the invoice and the follow-up.
 
 ## Features
 
@@ -29,7 +51,7 @@ Built with Electron, React and TypeScript.
   table (pinned headers, sortable columns, more rows load while scrolling)
 - Local SQLite database (Drizzle ORM), migrations on startup
 
-## Development
+## Getting started
 
 Requirements: Node.js 24 (nvm-windows works), pnpm 12 (activated via
 `corepack enable pnpm` once per node version).
@@ -97,13 +119,15 @@ Electron by `pnpm install`).
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — process layout, data
-flow, the recipe for adding a business object end-to-end, and the coding
-guidelines.
+Electron main process (SQLite via Drizzle, tRPC over IPC) and a React
+renderer. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the process
+layout, data flow, the recipe for adding a business object end-to-end, and
+the coding guidelines.
 
-## Project docs
+## Documentation
 
-- `docs/ARCHITECTURE.md` — developer guide: structure, data on disk,
-  migrations, the end-to-end recipe, coding guidelines
-- `docs/UI_LANGUAGE.md` — German UI rules and glossary
-- `docs/TODOS.md` — open items
+| Document | What's in it |
+| --- | --- |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, data on disk, migrations, the end-to-end recipe, coding guidelines |
+| [UI_LANGUAGE.md](docs/UI_LANGUAGE.md) | German UI rules and glossary |
+| [TODOS.md](docs/TODOS.md) | Open items and roadmap |
