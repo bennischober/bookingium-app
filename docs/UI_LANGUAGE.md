@@ -93,14 +93,15 @@ English.
 
 ### Events and documents
 
-| English                                       | German                                                                  |
-| --------------------------------------------- | ----------------------------------------------------------------------- |
-| Overview / Itinerary / Financials / Documents | Übersicht / Tagesablauf / Finanzen / Dokumente                          |
-| Status confirmed / pending / cancelled        | Bestätigt / Ausstehend / Storniert                                      |
-| Concert contract                              | Vertrag (Auftrittsvertrag)                                              |
-| Management contract / management share        | Managementvertrag / Managementbeteiligung                               |
-| Document types                                | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Sonstiges |
-| Show in folder / Open folder                  | Im Ordner anzeigen / Ordner öffnen                                      |
+| English                                       | German                                                                              |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Overview / Itinerary / Financials / Documents | Übersicht / Tagesablauf / Finanzen / Dokumente                                      |
+| Status confirmed / pending / cancelled        | Bestätigt / Ausstehend / Storniert                                                  |
+| Concert contract                              | Vertrag (Auftrittsvertrag)                                                          |
+| Management contract / management share        | Managementvertrag / Managementbeteiligung                                           |
+| Document types                                | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Abrechnung, Sonstiges |
+| Show settlement (from the Veranstalter)       | Abrechnung                                                                          |
+| Show in folder / Open folder                  | Im Ordner anzeigen / Ordner öffnen                                                  |
 
 ### Invoices
 

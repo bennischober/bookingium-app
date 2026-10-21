@@ -27,13 +27,6 @@ Done work lives in the git history; this list only holds what is still open.
 - **Verteiler: local promoters.** Lists draw on venues only (own address,
   Ansprechpartner, Veranstalter); LoPro companies and persons of events
   could be a further recipient type if lists to promoters are needed.
-- **Show settlement (Abrechnung)** per event, with the promoter (decided).
-  The deal type differs per event (fixed fee, % of the door, versus deal,
-  fee plus bonus), so each event would pick its own. Still open, best
-  answered from two or three real settlements: which deductions (free cost
-  lines such as Hallenmiete, ticketing fees, VAT, GEMA, KSK,
-  Ausländersteuer) and what comes out of it (a printable Abrechnung, an
-  invoice draft from the result, or numbers on the event only).
 - **Wiedervorlagen:** not in the calendar or the calendar feed yet, and done
   ones have no history view; both if they turn out to be missed.
 - **Calendar subscription in Outlook/Google:** the calendar file needs a web

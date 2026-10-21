@@ -14,6 +14,7 @@ export const DocumentType = z.enum([
   'press',
   'photo',
   'invoice',
+  'settlement', // show settlement, provided by the Veranstalter
   'other'
 ])
 export type DocumentType = z.infer<typeof DocumentType>
@@ -26,6 +27,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   press: 'Presse',
   photo: 'Foto',
   invoice: 'Rechnung',
+  settlement: 'Abrechnung',
   other: 'Sonstiges'
 }
 
