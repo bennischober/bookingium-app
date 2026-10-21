@@ -28,6 +28,7 @@ import { validateListSearch } from '@/hooks/useListSearchActions'
 import { isEventTab, type EventTab } from '@/components/event-hub/constants'
 import { isBandTab, type BandTab } from '@/components/band/constants'
 import { isCompanyTab, type CompanyTab } from '@/components/company/constants'
+import type { ReminderKind } from '../../main/api/schemas/invoice.schema'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
 import { isPersonTab, type PersonTab } from '@/components/person/constants'
 import { isSettingsTab, type SettingsTab } from '@/components/settings/constants'
@@ -193,6 +194,10 @@ const printLayoutRoute = createRoute({
 const invoicePrintRoute = createRoute({
   getParentRoute: () => printLayoutRoute,
   path: '/invoices/$invoiceId/print',
+  // ?email=reminder|dunning: opened to send a Zahlungserinnerung or Mahnung
+  validateSearch: (search: Record<string, unknown>): { email?: ReminderKind } => ({
+    email: search.email === 'reminder' || search.email === 'dunning' ? search.email : undefined
+  }),
   component: InvoicePrintPage
 })
 

@@ -129,6 +129,12 @@ English.
 | Invoice history on its page                        | Verlauf                                                           |
 | History entries                                    | Angelegt / Gestellt / E-Mail erstellt / Als bezahlt markiert      |
 | History entries (cont.)                            | Als überfällig markiert / Wieder offen (gestellt) / Storniert     |
+| Payment reminder / dunning letter                  | Zahlungserinnerung / Mahnung (2. Mahnung, …)                      |
+| Offer the next one (page header, Dashboard)        | Zahlungserinnerung senden… / Mahnung senden…                      |
+| Its button on the print page                       | Zahlungserinnerung per E-Mail senden / Mahnung per E-Mail senden  |
+| Dashboard card / overdue since                     | Überfällige Rechnungen / Fällig seit 14.10.2026                   |
+| Payment deadline in the reminder text              | Frist ({Frist}: in 7 Tagen)                                       |
+| History entries for reminders                      | Zahlungserinnerung erstellt / Mahnung erstellt                    |
 | Stornorechnung's first entry                       | Gestellt als Storno zu Rechnung #1040                             |
 | Back to the list from a detail page                | Alle Rechnungen (Alle Firmen, …)                                  |
 | Draft sheet title                                  | Entwurf bearbeiten                                                |

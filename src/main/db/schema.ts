@@ -479,7 +479,7 @@ export const invoice_line_item = sqliteTable(
 )
 
 // Each email "Per E-Mail senden" created for an invoice (the app never sends
-// it itself)
+// it itself): the invoice, or a payment reminder about it
 export const invoice_email = sqliteTable(
   'invoice_email',
   {
@@ -487,6 +487,8 @@ export const invoice_email = sqliteTable(
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
+    // invoice | reminder (Zahlungserinnerung) | dunning (Mahnung)
+    kind: text('kind').default('invoice').notNull(),
     // Prefilled recipient address, '' when the recipient had none
     to: text('to').default('').notNull(),
     created_at: text('created_at')

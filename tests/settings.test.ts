@@ -14,7 +14,9 @@ import { CompanyService } from '../src/main/services/CompanyService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
 import {
   AppSettings,
+  DEFAULT_DUNNING_EMAIL,
   DEFAULT_INVOICE_EMAIL,
+  DEFAULT_REMINDER_EMAIL,
   UpdateAppSettingsInput
 } from '../src/main/api/schemas/settings.schema'
 
@@ -31,7 +33,11 @@ const DEFAULTS = {
   paymentQr: true,
   mailProgram: 'auto',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
-  invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en
+  invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,
+  reminderEmailDe: DEFAULT_REMINDER_EMAIL.de,
+  reminderEmailEn: DEFAULT_REMINDER_EMAIL.en,
+  dunningEmailDe: DEFAULT_DUNNING_EMAIL.de,
+  dunningEmailEn: DEFAULT_DUNNING_EMAIL.en
 }
 
 beforeAll(() => {

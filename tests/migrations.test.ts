@@ -85,6 +85,9 @@ describe('runMigrations', () => {
     expect(sqlite.prepare('select invoice_id, "to", created_at from invoice_email').all()).toEqual([
       { invoice_id: 1, to: 'x@club.de', created_at: '2026-10-19 08:30:00' }
     ])
+    // Emails from before the reminders were the invoice's own
+    for (const { sql } of migrations.slice(emails + 1)) for (const s of sql) sqlite.exec(s)
+    expect(sqlite.prepare('select kind from invoice_email').all()).toEqual([{ kind: 'invoice' }])
   })
 
   it('starts the Verlauf with the issue date and the status each invoice has', () => {

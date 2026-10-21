@@ -10,7 +10,9 @@ import {
 } from '../../db/schema'
 import type {
   InvoiceDto,
+  InvoiceEmailDto,
   InvoiceListItemDto,
+  OverdueInvoiceDto,
   CompanyInvoiceSettingsDto,
   InvoiceLineItemDto,
   InvoicePartySnapshotDto,
@@ -138,16 +140,28 @@ export class InvoiceMapper {
       cancelledByInvoiceId: entity.cancelledBy?.id ?? null,
       cancelledByInvoiceNumber: entity.cancelledBy?.invoice_number ?? null,
       lineItems: (entity.lineItems ?? []).map((item) => this.toLineItemDto(item)),
-      emails: (entity.emails ?? []).map((email) => ({
-        createdAt: email.created_at,
-        to: email.to
-      })),
+      emails: (entity.emails ?? []).map((email) => this.toEmailDto(email)),
       statusChanges: (entity.statusChanges ?? []).map((change) => ({
         status: change.status as InvoiceStatus,
         createdAt: change.created_at
       })),
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
+    }
+  }
+
+  static toEmailDto(entity: InvoiceEmailEntity): InvoiceEmailDto {
+    return {
+      kind: entity.kind as InvoiceEmailDto['kind'],
+      createdAt: entity.created_at,
+      to: entity.to
+    }
+  }
+
+  static toOverdueDto(entity: InvoiceWithRelations): OverdueInvoiceDto {
+    return {
+      ...this.toListItemDto(entity),
+      emails: (entity.emails ?? []).map((email) => this.toEmailDto(email))
     }
   }
 

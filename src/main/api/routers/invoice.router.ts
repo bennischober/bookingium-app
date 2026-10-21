@@ -69,6 +69,14 @@ export const invoiceRouter = t.router({
     return InvoiceMapper.toListItemDtoList(await invoiceService.listInvoicesByCompany(input))
   }),
 
+  /** Overdue invoices to chase, with their reminders (Dashboard); input: local today */
+  listOverdue: t.procedure
+    .input(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .query(async ({ input }) => {
+      const entities = await invoiceService.listOverdueInvoices(input)
+      return entities.map((entity) => InvoiceMapper.toOverdueDto(entity))
+    }),
+
   /** Invoices addressed to a person (person page) */
   listByPerson: t.procedure.input(z.number()).query(async ({ input }) => {
     return InvoiceMapper.toListItemDtoList(

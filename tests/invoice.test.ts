@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import { container } from 'tsyringe'
 import { InvoiceService } from '../src/main/services/InvoiceService'
 import { CompanyService } from '../src/main/services/CompanyService'
+import { DashboardService } from '../src/main/services/DashboardService'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -259,6 +260,85 @@ describe('InvoiceService', () => {
       expect(loaded?.emails.map((email) => email.to)).toEqual(['', 'buchhaltung@club.de'])
       expect(loaded?.emailed_to).toBe('')
       expect(loaded?.emailed_at).toBe(loaded?.emails[0].created_at)
+    })
+
+    it('lists open invoices past their due date, longest overdue first, with their reminders', async () => {
+      const { invoices, company } = await setup()
+      const create = (input: { status?: 'draft' | 'issued'; dueDate?: string | null }) =>
+        invoices.createInvoice({
+          companyId: company.id,
+          status: 'issued',
+          lineItems: line,
+          ...input
+        })
+      const late = await create({ dueDate: '2026-10-01' })
+      const later = await create({ dueDate: '2026-09-15' })
+      await create({ dueDate: '2026-10-21' }) // due today: not yet
+      await create({ dueDate: null }) // no due date: only when marked
+      await create({ status: 'draft', dueDate: '2026-09-01' }) // drafts are not open
+      const marked = await create({ dueDate: null })
+      await invoices.setInvoiceStatus(marked.id, 'overdue')
+      const paid = await create({ dueDate: '2026-09-01' })
+      await invoices.setInvoiceStatus(paid.id, 'paid')
+      const cancelled = await create({ dueDate: '2026-09-01' })
+      await invoices.setInvoiceStatus(cancelled.id, 'cancelled')
+
+      invoices.markInvoiceEmailed(later.id, 'x@club.de')
+      invoices.markInvoiceEmailed(later.id, 'x@club.de', 'reminder')
+      const overdue = (await invoices.listOverdueInvoices('2026-10-21')).filter(
+        (invoice) => invoice.company_id === company.id
+      )
+      // No due date sorts by its issue date (today)
+      expect(overdue.map((invoice) => invoice.id)).toEqual([later.id, late.id, marked.id])
+      // Only the reminders, not the invoice's own email
+      expect(overdue[0].emails.map((email) => email.kind)).toEqual(['reminder'])
+    })
+
+    it('the Dashboard counts open and overdue invoices, never drafts', async () => {
+      const { invoices, company } = await setup()
+      const dashboard = container.resolve(DashboardService)
+      const before = await dashboard.getStats()
+      for (const [status, dueDate] of [
+        ['issued', '2000-01-01'],
+        ['issued', '2999-01-01'],
+        ['draft', '2000-01-01']
+      ] as const) {
+        await invoices.createInvoice({ companyId: company.id, status, dueDate, lineItems: line })
+      }
+
+      const after = await dashboard.getStats()
+      expect(after.openInvoicesCount - before.openInvoicesCount).toBe(2)
+      expect(after.openInvoiceAmount - before.openInvoiceAmount).toBe(200)
+      expect(after.overdueInvoicesCount - before.overdueInvoicesCount).toBe(1)
+    })
+
+    it('a reminder marks the invoice überfällig, and only open invoices get one', async () => {
+      const { invoices, company } = await setup()
+      const issued = await invoices.createInvoice({
+        companyId: company.id,
+        status: 'issued',
+        dueDate: '2026-10-01',
+        lineItems: line
+      })
+      invoices.markInvoiceEmailed(issued.id, 'invoice@club.de')
+
+      invoices.markInvoiceEmailed(issued.id, 'x@club.de', 'reminder')
+      invoices.markInvoiceEmailed(issued.id, 'x@club.de', 'dunning')
+      const loaded = await invoices.getInvoiceById(issued.id)
+      expect(loaded?.status).toBe('overdue')
+      // Logged once, for the Verlauf
+      expect(loaded?.statusChanges.map((change) => change.status)).toEqual(['issued', 'overdue'])
+      expect(loaded?.emails.map((email) => email.kind)).toEqual(['dunning', 'reminder', 'invoice'])
+      // The list keeps the invoice's own email
+      expect(loaded?.emailed_to).toBe('invoice@club.de')
+
+      expect(() => invoices.assertRemindable({ kind: 'invoice', status: 'overdue' })).not.toThrow()
+      for (const status of ['draft', 'paid', 'cancelled'] as const) {
+        expect(() => invoices.assertRemindable({ kind: 'invoice', status })).toThrow(
+          /nur für offene Rechnungen/
+        )
+      }
+      expect(() => invoices.assertRemindable({ kind: 'cancellation', status: 'issued' })).toThrow()
     })
 
     it('logs each status the invoice moves to, for its Verlauf', async () => {

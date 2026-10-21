@@ -31,8 +31,12 @@ const api = {
   saveEInvoiceXml: (invoiceId: number, defaultFileName: string) =>
     ipcRenderer.invoke('einvoice:saveXml', { invoiceId, defaultFileName }),
 
-  sendInvoiceEmail: (invoiceId: number, fileName: string, lang: 'de' | 'en') =>
-    ipcRenderer.invoke('invoice:email', { invoiceId, fileName, lang }),
+  sendInvoiceEmail: (
+    invoiceId: number,
+    fileName: string,
+    lang: 'de' | 'en',
+    kind: 'invoice' | 'reminder' | 'dunning' = 'invoice'
+  ) => ipcRenderer.invoke('invoice:email', { invoiceId, fileName, lang, kind }),
 
   showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
 

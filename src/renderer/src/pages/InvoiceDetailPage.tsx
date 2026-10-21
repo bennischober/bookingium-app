@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { ArrowLeft, Ban, Lock, Mail, Printer } from 'lucide-react'
+import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,10 @@ import { confirmAction } from '@/lib/confirm'
 import { formatShortDate } from '@/lib/utils'
 import { useInvalidateInvoices } from '@/hooks/useInvalidateInvoices'
 import { invoiceHistory } from '@/lib/invoiceHistory'
+import { localIsoDate } from '@/lib/followUps'
 import {
   INVOICE_STATUS_LABELS,
+  REMINDER_ACTION_LABELS,
   formatMoney,
   invoiceFollowUpName,
   invoiceMomentLabel,
@@ -22,6 +24,7 @@ import {
 import {
   isInvoiceLocked,
   nextInvoiceStatuses,
+  nextReminderKind,
   type InvoiceDto,
   type InvoiceStatus
 } from '../../../main/api/schemas/invoice.schema'
@@ -80,6 +83,8 @@ export default function InvoiceDetailPage() {
   // The email is created on the print page, from the template chosen there
   const toPrint = () =>
     navigate({ to: '/invoices/$invoiceId/print', params: { invoiceId: String(invoice.id) } })
+  // Overdue: the Zahlungserinnerung, after it a Mahnung (sent from the print page too)
+  const reminder = nextReminderKind(invoice, localIsoDate())
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col p-6">
@@ -115,6 +120,22 @@ export default function InvoiceDetailPage() {
           </div>
           <div className="mt-1 flex shrink-0 flex-wrap items-center gap-2">
             <FollowUpButton record={record} />
+            {reminder && (
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() =>
+                  navigate({
+                    to: '/invoices/$invoiceId/print',
+                    params: { invoiceId: String(invoice.id) },
+                    search: { email: reminder }
+                  })
+                }
+              >
+                <BellRing className="h-3.5 w-3.5" />
+                {REMINDER_ACTION_LABELS[reminder]}
+              </Button>
+            )}
             <Button size="sm" variant="outline" className="gap-1.5" onClick={toPrint}>
               <Mail className="h-3.5 w-3.5" />
               Per E-Mail senden…

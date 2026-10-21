@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { FollowUpsCard } from '@/components/follow-ups/FollowUpsCard'
+import { OverdueInvoicesCard } from '@/components/invoice/OverdueInvoicesCard'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -113,6 +114,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <OverdueInvoicesCard />
 
       <FollowUpsCard />
 

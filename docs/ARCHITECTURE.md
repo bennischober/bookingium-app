@@ -245,6 +245,20 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   current status. Drafts have no page: they are edited in the sheet of the
   invoice list (`/invoices?open=<id>`), and the page sends a draft there;
   `useOpenInvoice` picks the page or the sheet for links to an invoice.
+- **Payment reminders:** an invoice is overdue when it is marked
+  überfällig, or gestellt with its due date before today (local day;
+  `overdueInvoiceWhere` in the repository, `nextReminderKind` in
+  `invoice.schema.ts`, Stornorechnungen never). Its next step is a
+  Zahlungserinnerung, after any reminder a Mahnung. The Dashboard card
+  „Überfällige Rechnungen“ (`invoice.listOverdue`, longest overdue first,
+  hidden when empty) and the invoice page offer it; both open the print
+  page with `?email=reminder|dunning`, whose button creates the email like
+  the invoice email, from its own template (`reminderEmailDe/En`,
+  `dunningEmailDe/En`; `EMAIL_TEMPLATES` maps kind and language to the
+  setting; {Frist} is today + 7 days). The `invoice_email` row carries its
+  `kind` (invoice/reminder/dunning) for the Verlauf; a reminder marks a
+  gestellt invoice überfällig and leaves `emailed_at`/`emailed_to` alone.
+  Fees and default interest (Mahngebühren, Verzugszinsen) are not part of it.
 - **Mandatory content** (§ 14 Abs. 4 UStG) comes from
   `invoice/taxSummary.ts`, shared by all templates: VAT per rate and per
   0 % reason with its net amount when there is more than one group, the

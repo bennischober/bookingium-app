@@ -25,6 +25,39 @@ const INVOICE_STATUS_TRANSITIONS: Record<InvoiceStatus, readonly InvoiceStatus[]
 export const InvoiceKind = z.enum(['invoice', 'cancellation'])
 export type InvoiceKind = z.infer<typeof InvoiceKind>
 
+// What "Per E-Mail senden" created: the invoice itself, a Zahlungserinnerung
+// or a Mahnung about it
+export const InvoiceEmailKind = z.enum(['invoice', 'reminder', 'dunning'])
+export type InvoiceEmailKind = z.infer<typeof InvoiceEmailKind>
+/** Zahlungserinnerung (the first) or Mahnung (every one after it) */
+export type ReminderKind = Exclude<InvoiceEmailKind, 'invoice'>
+
+/** Only open invoices (not Stornorechnungen) get payment reminders */
+export function canRemind(invoice: { kind: InvoiceKind; status: InvoiceStatus }): boolean {
+  return invoice.kind === 'invoice' && (invoice.status === 'issued' || invoice.status === 'overdue')
+}
+
+/**
+ * The payment reminder an invoice is due for: a Zahlungserinnerung first,
+ * a Mahnung after that; none while it isn't overdue (marked overdue, or
+ * "gestellt" past its due date; `today` is the local calendar day)
+ */
+export function nextReminderKind(
+  invoice: {
+    kind: InvoiceKind
+    status: InvoiceStatus
+    dueDate: string | null
+    emails: Array<{ kind: InvoiceEmailKind }>
+  },
+  today: string
+): ReminderKind | null {
+  if (!canRemind(invoice)) return null
+  const overdue =
+    invoice.status === 'overdue' || (invoice.dueDate !== null && invoice.dueDate < today)
+  if (!overdue) return null
+  return invoice.emails.some((email) => email.kind !== 'invoice') ? 'dunning' : 'reminder'
+}
+
 /** Statuses an invoice in `from` may move to (excluding staying put) */
 export function nextInvoiceStatuses(
   from: InvoiceStatus,
@@ -144,6 +177,20 @@ export const InvoiceListItemDto = z.object({
 
 export type InvoiceListItemDto = z.infer<typeof InvoiceListItemDto>
 
+export const InvoiceEmailDto = z.object({
+  kind: InvoiceEmailKind,
+  createdAt: z.string(),
+  to: z.string()
+})
+export type InvoiceEmailDto = z.infer<typeof InvoiceEmailDto>
+
+/** An invoice to chase (Dashboard), with the payment reminders sent so far */
+export const OverdueInvoiceDto = InvoiceListItemDto.extend({
+  // Zahlungserinnerungen and Mahnungen, oldest first
+  emails: z.array(InvoiceEmailDto)
+})
+export type OverdueInvoiceDto = z.infer<typeof OverdueInvoiceDto>
+
 export const InvoiceDto = InvoiceListItemDto.extend({
   notes: z.string(),
   paymentTerms: z.string(),
@@ -158,7 +205,7 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   cancelledByInvoiceNumber: z.number().nullable(),
   lineItems: z.array(InvoiceLineItemDto),
   // Every "Per E-Mail senden", latest first (datetime, UTC; '' for no address)
-  emails: z.array(z.object({ createdAt: z.string(), to: z.string() })),
+  emails: z.array(InvoiceEmailDto),
   // Each status it moved to, in order (datetime UTC; a plain date for the
   // ones from before the Verlauf existed)
   statusChanges: z.array(z.object({ status: InvoiceStatus, createdAt: z.string() }))

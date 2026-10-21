@@ -27,8 +27,10 @@ describe('invoiceHistory', () => {
       ],
       // latest first, as the invoice carries them
       emails: [
-        { createdAt: '2026-10-21 12:00:00', to: '' },
-        { createdAt: '2026-10-02 08:30:00', to: 'x@club.de' }
+        { kind: 'dunning', createdAt: '2026-10-24 12:00:00', to: 'x@club.de' },
+        { kind: 'reminder', createdAt: '2026-10-21 12:00:00', to: 'x@club.de' },
+        { kind: 'invoice', createdAt: '2026-10-21 11:00:00', to: '' },
+        { kind: 'invoice', createdAt: '2026-10-02 08:30:00', to: 'x@club.de' }
       ],
       cancelledByInvoiceId: 7,
       cancelledByInvoiceNumber: 1041
@@ -41,13 +43,15 @@ describe('invoiceHistory', () => {
       { at: '2026-10-02 08:30:00', label: 'E-Mail erstellt', detail: 'an x@club.de' },
       { at: '2026-10-20 09:00:00', label: 'Als überfällig markiert' },
       { at: '2026-10-20 09:05:00', label: 'Wieder offen (gestellt)' },
-      { at: '2026-10-21 12:00:00', label: 'E-Mail erstellt' },
+      { at: '2026-10-21 11:00:00', label: 'E-Mail erstellt' },
+      { at: '2026-10-21 12:00:00', label: 'Zahlungserinnerung erstellt', detail: 'an x@club.de' },
       { at: '2026-10-22 10:00:00', label: 'Als bezahlt markiert' },
       {
         at: '2026-10-23 10:00:00',
         label: 'Storniert',
         link: { invoiceId: 7, label: 'Stornorechnung #1041' }
-      }
+      },
+      { at: '2026-10-24 12:00:00', label: 'Mahnung erstellt', detail: 'an x@club.de' }
     ])
   })
 

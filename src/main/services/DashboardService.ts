@@ -1,7 +1,8 @@
 import { injectable } from 'tsyringe'
-import { and, count, eq, gte, isNotNull, lt, lte, ne, sql } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, lt, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { overdueInvoiceWhere } from '../repositories/InvoiceRepository'
 import type { DashboardStatsDto } from '../api/routers/dashboard.router'
 
 @injectable()
@@ -14,6 +15,8 @@ export class DashboardService {
   async getStats(): Promise<DashboardStatsDto> {
     const today = new Date()
     const todayStr = today.toISOString().slice(0, 10)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const localToday = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
     const in7Days = new Date(today)
     in7Days.setDate(in7Days.getDate() + 7)
     const in7DaysStr = in7Days.toISOString().slice(0, 10)
@@ -63,26 +66,16 @@ export class DashboardService {
             amount: sql<number>`coalesce(sum(${schema.invoice.total_amount}), 0)`
           })
           .from(schema.invoice)
-          // Stornorechnungen offset their invoice and are never open
+          // Drafts aren't billed yet; Stornorechnungen offset their invoice
+          // and are never open
           .where(
             and(
-              ne(schema.invoice.status, 'paid'),
-              ne(schema.invoice.status, 'cancelled'),
+              inArray(schema.invoice.status, ['issued', 'overdue']),
               eq(schema.invoice.kind, 'invoice')
             )
           ),
-        db
-          .select({ n: count() })
-          .from(schema.invoice)
-          .where(
-            and(
-              ne(schema.invoice.status, 'paid'),
-              ne(schema.invoice.status, 'cancelled'),
-              eq(schema.invoice.kind, 'invoice'),
-              isNotNull(schema.invoice.due_date),
-              lt(schema.invoice.due_date, todayStr)
-            )
-          ),
+        // The same invoices as the Dashboard's overdue list (local day)
+        db.select({ n: count() }).from(schema.invoice).where(overdueInvoiceWhere(localToday)),
         db.select({ n: count() }).from(schema.band),
         db.select({ n: count() }).from(schema.venue),
         db.select({ n: count() }).from(schema.company),

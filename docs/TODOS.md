@@ -22,9 +22,8 @@ Done work lives in the git history; this list only holds what is still open.
   installer is signed with a code-signing certificate).
 - **Auto-update** (electron-updater) once there is a place to publish
   releases.
-- **Payment reminders.** Overdue invoices listed, then a
-  Zahlungserinnerung and later a Mahnung, each from a template like the
-  invoice email, offered on the invoice page and entered in its Verlauf.
+- **Mahngebühren / Verzugszinsen** on a Mahnung, if they are wanted: the
+  reminders are emails only, with no amount added.
 - **Verteiler: local promoters.** Lists draw on venues only (own address,
   Ansprechpartner, Veranstalter); LoPro companies and persons of events
   could be a further recipient type if lists to promoters are needed.

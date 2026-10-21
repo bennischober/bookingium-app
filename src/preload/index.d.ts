@@ -59,12 +59,14 @@ export interface DocumentAPI {
   }>
   /**
    * "Per E-Mail senden": writes the PDF and an email draft and opens it in
-   * the mail program; `method` says how (see mail/mailProgram.ts)
+   * the mail program; `method` says how (see mail/mailProgram.ts). `kind`
+   * reminder/dunning sends a Zahlungserinnerung/Mahnung instead.
    */
   sendInvoiceEmail: (
     invoiceId: number,
     fileName: string,
-    lang: 'de' | 'en'
+    lang: 'de' | 'en',
+    kind?: 'invoice' | 'reminder' | 'dunning'
   ) => Promise<{
     success: boolean
     method?: MailMethod

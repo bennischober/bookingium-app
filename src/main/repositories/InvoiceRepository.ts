@@ -1,5 +1,18 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, inArray, like, or, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  like,
+  lt,
+  ne,
+  or,
+  sql,
+  type SQL
+} from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -8,6 +21,7 @@ import type {
   CreateInvoiceInput,
   CreateInvoiceForDealMemoInput,
   InvoiceLineItemInput,
+  InvoiceEmailKind,
   InvoiceRecipientKind,
   InvoiceStatus,
   UpsertCompanyInvoiceSettingsInput,
@@ -49,6 +63,25 @@ type RecipientSnapshotInput = {
   recipientBandId?: number | null
   recipientPersonId?: number | null
   recipientNameOverride?: string
+}
+
+/**
+ * Invoices to chase: marked overdue, or still "gestellt" past their due
+ * date (`today`: the local calendar day). Not drafts, paid or cancelled
+ * ones, nor Stornorechnungen.
+ */
+export function overdueInvoiceWhere(today: string): SQL | undefined {
+  return and(
+    eq(schema.invoice.kind, 'invoice'),
+    or(
+      eq(schema.invoice.status, 'overdue'),
+      and(
+        eq(schema.invoice.status, 'issued'),
+        isNotNull(schema.invoice.due_date),
+        lt(schema.invoice.due_date, today)
+      )
+    )
+  )
 }
 
 @injectable()
@@ -992,14 +1025,32 @@ export class InvoiceRepository {
     })
   }
 
-  /** Records that the invoice's email was created (not a content change) */
-  markEmailed(id: number, to: string) {
+  /**
+   * Records that an email was created (not a content change). The invoice
+   * itself also goes on the invoice for the list's envelope; a payment
+   * reminder marks an invoice still "gestellt" as overdue.
+   */
+  markEmailed(id: number, to: string, kind: InvoiceEmailKind = 'invoice') {
     db.transaction((tx) => {
-      const email = tx.insert(schema.invoice_email).values({ invoice_id: id, to }).returning().get()
-      tx.update(schema.invoice)
-        .set({ emailed_at: email.created_at, emailed_to: to })
-        .where(eq(schema.invoice.id, id))
-        .run()
+      const email = tx
+        .insert(schema.invoice_email)
+        .values({ invoice_id: id, to, kind })
+        .returning()
+        .get()
+      if (kind === 'invoice') {
+        tx.update(schema.invoice)
+          .set({ emailed_at: email.created_at, emailed_to: to })
+          .where(eq(schema.invoice.id, id))
+          .run()
+        return
+      }
+      const marked = tx
+        .update(schema.invoice)
+        .set({ status: 'overdue', updated_at: sql`datetime('now')` })
+        .where(and(eq(schema.invoice.id, id), eq(schema.invoice.status, 'issued')))
+        .returning({ id: schema.invoice.id })
+        .all()
+      if (marked.length > 0) this.logStatusTx(tx, id, 'overdue')
     })
   }
 
@@ -1170,8 +1221,43 @@ export class InvoiceRepository {
     return this.listWhere(eq(schema.invoice_party_snapshot.source_person_id, personId))
   }
 
+  /**
+   * Overdue invoices, longest overdue first, each with the payment reminders
+   * sent so far (oldest first)
+   */
+  async listOverdue(today: string) {
+    const invoices = await this.listWhere(overdueInvoiceWhere(today), [
+      asc(sql`coalesce(${schema.invoice.due_date}, ${schema.invoice.issue_date})`),
+      asc(schema.invoice.id)
+    ])
+    const reminders =
+      invoices.length === 0
+        ? []
+        : db
+            .select()
+            .from(schema.invoice_email)
+            .where(
+              and(
+                inArray(
+                  schema.invoice_email.invoice_id,
+                  invoices.map((invoice) => invoice.id)
+                ),
+                ne(schema.invoice_email.kind, 'invoice')
+              )
+            )
+            .orderBy(asc(schema.invoice_email.created_at), asc(schema.invoice_email.id))
+            .all()
+    return invoices.map((invoice) => ({
+      ...invoice,
+      emails: reminders.filter((email) => email.invoice_id === invoice.id)
+    }))
+  }
+
   /** Invoices matching `where` (may filter on the recipient snapshot), newest first */
-  private async listWhere(where: SQL | undefined) {
+  private async listWhere(
+    where: SQL | undefined,
+    orderBy: SQL[] = [desc(schema.invoice.issue_date), desc(schema.invoice.id)]
+  ) {
     const rows = await db
       .select()
       .from(schema.invoice)
@@ -1182,7 +1268,7 @@ export class InvoiceRepository {
         eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
       )
       .where(where)
-      .orderBy(desc(schema.invoice.issue_date), desc(schema.invoice.id))
+      .orderBy(...orderBy)
 
     return this.withCancellationLinks(
       db,

@@ -2,9 +2,11 @@ import { inject, injectable } from 'tsyringe'
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
 import {
   canChangeInvoiceStatus,
+  canRemind,
   isInvoiceLocked,
   type CreateInvoiceInput,
   type CreateInvoiceForDealMemoInput,
+  type InvoiceEmailKind,
   type InvoiceKind,
   type InvoiceStatus,
   type UpsertCompanyInvoiceSettingsInput,
@@ -100,9 +102,21 @@ export class InvoiceService {
     return await this.invoiceRepository.upsertCompanyInvoiceSettings(input)
   }
 
-  /** Remembers that "Per E-Mail senden" created the invoice's email */
-  markInvoiceEmailed(id: number, to: string) {
-    this.invoiceRepository.markEmailed(id, to)
+  /** Overdue invoices with their payment reminders (`today`: local calendar day) */
+  async listOverdueInvoices(today: string) {
+    return await this.invoiceRepository.listOverdue(today)
+  }
+
+  /** Before a payment reminder is created: only for open invoices */
+  assertRemindable(invoice: { kind: InvoiceKind; status: InvoiceStatus }) {
+    if (!canRemind(invoice)) {
+      throw new Error('Zahlungserinnerungen und Mahnungen gibt es nur für offene Rechnungen')
+    }
+  }
+
+  /** Remembers that "Per E-Mail senden" created the invoice's email or a reminder */
+  markInvoiceEmailed(id: number, to: string, kind: InvoiceEmailKind = 'invoice') {
+    this.invoiceRepository.markEmailed(id, to, kind)
   }
 
   private async requireInvoice(id: number) {

@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
-import { trpcReact } from '@/lib/trpc'
+import { useInvalidateInvoices } from '@/hooks/useInvalidateInvoices'
 import { Button } from '@/components/ui/button'
 import type { MailMethod } from '../../../../main/mail/mailProgram'
+import type { ReminderKind } from '../../../../main/api/schemas/invoice.schema'
+
+const LABELS: Record<ReminderKind, string> = {
+  reminder: 'Zahlungserinnerung per E-Mail senden',
+  dunning: 'Mahnung per E-Mail senden'
+}
 
 const TITLES: Record<MailMethod, string> = {
   outlook: 'E-Mail in Outlook geöffnet',
@@ -22,29 +28,32 @@ const HINTS: Record<MailMethod, string> = {
 /**
  * "Per E-Mail senden" of the invoice print page: the main process writes the
  * PDF (with e-invoice) and an email draft from the template in the settings
- * and opens it in the mail program
+ * and opens it in the mail program. With `kind` the email is a
+ * Zahlungserinnerung or Mahnung, with the invoice attached again.
  */
 export function InvoiceEmailButton({
   invoiceId,
   fileName,
-  lang
+  lang,
+  kind
 }: {
   invoiceId: number
   fileName: string
   lang: 'de' | 'en'
+  kind?: ReminderKind
 }) {
   const [sending, setSending] = useState(false)
-  const utils = trpcReact.useUtils()
+  const invalidateInvoices = useInvalidateInvoices()
 
   const send = async () => {
     setSending(true)
     try {
-      const result = await window.api.sendInvoiceEmail(invoiceId, fileName, lang)
+      const result = await window.api.sendInvoiceEmail(invoiceId, fileName, lang, kind)
       if (!result.success || !result.method || !result.pdfPath) {
         toast.error('E-Mail konnte nicht erstellt werden', { description: result.error })
         return
       }
-      void utils.invoice.invalidate()
+      invalidateInvoices()
       const pdfPath = result.pdfPath
       const action = {
         label: 'Ordner öffnen',
@@ -64,8 +73,8 @@ export function InvoiceEmailButton({
   }
 
   return (
-    <Button variant="outline" onClick={() => void send()} disabled={sending}>
-      <Mail className="h-4 w-4" /> Per E-Mail senden
+    <Button variant={kind ? 'default' : 'outline'} onClick={() => void send()} disabled={sending}>
+      <Mail className="h-4 w-4" /> {kind ? LABELS[kind] : 'Per E-Mail senden'}
     </Button>
   )
 }

@@ -1,5 +1,5 @@
 import type { InvoiceDto } from '../../../main/api/schemas/invoice.schema'
-import { invoiceNumberLabel } from './invoiceLabels'
+import { INVOICE_EMAIL_LABELS, invoiceNumberLabel } from './invoiceLabels'
 
 /** One line of an invoice's Verlauf */
 export type InvoiceHistoryEntry = {
@@ -26,7 +26,7 @@ type HistorySource = Pick<
 
 /**
  * The invoice's Verlauf, oldest first: created, each status it moved to,
- * each email. Same-moment entries keep that order (a plain date counts as
+ * each email (the invoice's, Zahlungserinnerungen, Mahnungen). Same-moment entries keep that order (a plain date counts as
  * the start of its day).
  */
 export function invoiceHistory(invoice: HistorySource): InvoiceHistoryEntry[] {
@@ -70,7 +70,7 @@ export function invoiceHistory(invoice: HistorySource): InvoiceHistoryEntry[] {
   const emails = [...invoice.emails].reverse().map(
     (email): InvoiceHistoryEntry => ({
       at: email.createdAt,
-      label: 'E-Mail erstellt',
+      label: INVOICE_EMAIL_LABELS[email.kind],
       ...(email.to && { detail: `an ${email.to}` })
     })
   )

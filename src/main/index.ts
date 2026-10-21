@@ -25,7 +25,8 @@ import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
 import { InvoiceService } from './services/InvoiceService'
-import type { EInvoiceCheckDto } from './api/schemas/invoice.schema'
+import type { EInvoiceCheckDto, InvoiceEmailKind } from './api/schemas/invoice.schema'
+import { EMAIL_TEMPLATES } from './api/schemas/settings.schema'
 import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
@@ -328,13 +329,19 @@ ipcMain.handle(
 /**
  * IPC Handler: "Per E-Mail senden" — writes the invoice PDF (with e-invoice)
  * and an .eml draft, opens it in the mail program (see mail/openEmail.ts)
- * and remembers the email on the invoice
+ * and remembers the email on the invoice. `kind` reminder or dunning sends
+ * a Zahlungserinnerung or Mahnung about an open invoice instead.
  */
 ipcMain.handle(
   'invoice:email',
   async (
     event,
-    { invoiceId, fileName, lang }: { invoiceId: number; fileName: string; lang: Lang }
+    {
+      invoiceId,
+      fileName,
+      lang,
+      kind = 'invoice'
+    }: { invoiceId: number; fileName: string; lang: Lang; kind?: InvoiceEmailKind }
   ) => {
     try {
       const invoiceService = container.resolve(InvoiceService)
@@ -345,16 +352,13 @@ ipcMain.handle(
         entity.issuerSnapshot ?? null,
         entity.recipientSnapshot ?? null
       )
+      if (kind !== 'invoice') invoiceService.assertRemindable(data.invoice)
       const settings = container.resolve(SettingsService).get()
-      const draft = invoiceEmail(
-        data,
-        lang,
-        lang === 'en' ? settings.invoiceEmailEn : settings.invoiceEmailDe
-      )
+      const draft = invoiceEmail(data, lang, settings[EMAIL_TEMPLATES[kind][lang].key])
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
       const result = await openEmail({ draft, pdf, fileName: name, setting: settings.mailProgram })
-      invoiceService.markInvoiceEmailed(invoiceId, draft.to)
+      invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind)
       return { success: true, ...result, to: draft.to, eInvoice }
     } catch (error) {
       console.error('Error creating invoice email:', error)

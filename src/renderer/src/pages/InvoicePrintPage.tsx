@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
+import { useParams, useNavigate, useRouter, useCanGoBack, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, FileCode } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -18,7 +18,7 @@ import {
   INVOICE_TEMPLATES,
   type InvoiceTemplate
 } from '@/components/invoice/InvoiceDocument'
-import type { InvoicePrintDto } from '../../../main/api/schemas/invoice.schema'
+import type { InvoicePrintDto, ReminderKind } from '../../../main/api/schemas/invoice.schema'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 
@@ -51,6 +51,8 @@ async function saveXRechnung(invoiceId: number, fileName: string) {
 
 export default function InvoicePrintPage() {
   const { invoiceId } = useParams({ strict: false })
+  // Opened to send a Zahlungserinnerung or Mahnung (from the invoice page or Dashboard)
+  const { email: reminder } = useSearch({ strict: false }) as { email?: ReminderKind }
   const navigate = useNavigate()
   const router = useRouter()
   const canGoBack = useCanGoBack()
@@ -165,6 +167,7 @@ export default function InvoicePrintPage() {
               invoiceId={invoice.id}
               fileName={fileName}
               lang={template === 'agency-en' ? 'en' : 'de'}
+              kind={reminder}
             />
           )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />

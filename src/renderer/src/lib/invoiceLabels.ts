@@ -1,4 +1,8 @@
-import type { InvoiceStatus } from '../../../main/api/schemas/invoice.schema'
+import type {
+  InvoiceEmailKind,
+  InvoiceStatus,
+  ReminderKind
+} from '../../../main/api/schemas/invoice.schema'
 
 // Display labels and badge styles for stored invoice status values.
 // The stored values themselves are never translated (see
@@ -48,9 +52,17 @@ export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: str
   return `E-Mail erstellt am ${day}${invoice.emailedTo ? ` an ${invoice.emailedTo}` : ''}`
 }
 
-/** One of an invoice's emails: "20.10.2026, 14:32 an x@y.de" (local time) */
-export function invoiceEmailLabel(email: { createdAt: string; to: string }): string {
-  return `${invoiceMomentLabel(email.createdAt)}${email.to ? ` an ${email.to}` : ''}`
+/** An invoice's email in its Verlauf, by what it was */
+export const INVOICE_EMAIL_LABELS: Record<InvoiceEmailKind, string> = {
+  invoice: 'E-Mail erstellt',
+  reminder: 'Zahlungserinnerung erstellt',
+  dunning: 'Mahnung erstellt'
+}
+
+/** The button for an overdue invoice's next reminder (see nextReminderKind) */
+export const REMINDER_ACTION_LABELS: Record<ReminderKind, string> = {
+  reminder: 'Zahlungserinnerung senden…',
+  dunning: 'Mahnung senden…'
 }
 
 /**

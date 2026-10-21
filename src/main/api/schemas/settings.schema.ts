@@ -35,6 +35,65 @@ export const DEFAULT_INVOICE_EMAIL: Record<'de' | 'en', EmailTemplate> = {
   }
 }
 
+export const DEFAULT_REMINDER_EMAIL: Record<'de' | 'en', EmailTemplate> = {
+  de: {
+    subject: 'Zahlungserinnerung: {Dokument} {Rechnungsnummer} – {Band}',
+    body:
+      'Guten Tag,\n\n' +
+      'sicher ist es im Alltag untergegangen: Unsere {Dokument} {Rechnungsnummer} vom {Rechnungsdatum} über {Betrag} war am {Fällig} fällig. ' +
+      'Bitte überweisen Sie den Betrag bis zum {Frist}. Die Rechnung finden Sie noch einmal im Anhang.\n\n' +
+      'Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese E-Mail bitte als gegenstandslos.\n\n' +
+      'Mit freundlichen Grüßen\n{Absender}'
+  },
+  en: {
+    subject: 'Payment reminder: {Dokument} {Rechnungsnummer} – {Band}',
+    body:
+      'Hello,\n\n' +
+      'this may have slipped through: our {Dokument} {Rechnungsnummer} of {Rechnungsdatum} for {Betrag} was due on {Fällig}. ' +
+      'Please transfer the amount by {Frist}; the invoice is attached again.\n\n' +
+      'If you have already paid, please disregard this email.\n\n' +
+      'Kind regards\n{Absender}'
+  }
+}
+
+export const DEFAULT_DUNNING_EMAIL: Record<'de' | 'en', EmailTemplate> = {
+  de: {
+    subject: 'Mahnung: {Dokument} {Rechnungsnummer} – {Band}',
+    body:
+      'Guten Tag,\n\n' +
+      'zu unserer {Dokument} {Rechnungsnummer} vom {Rechnungsdatum} über {Betrag}, fällig am {Fällig}, konnten wir trotz Zahlungserinnerung noch keinen Zahlungseingang feststellen.\n\n' +
+      'Bitte überweisen Sie den offenen Betrag bis spätestens {Frist}. Die Rechnung finden Sie noch einmal im Anhang.\n\n' +
+      'Sollten Sie die Zahlung inzwischen veranlasst haben, betrachten Sie diese E-Mail bitte als gegenstandslos.\n\n' +
+      'Mit freundlichen Grüßen\n{Absender}'
+  },
+  en: {
+    subject: 'Overdue notice: {Dokument} {Rechnungsnummer} – {Band}',
+    body:
+      'Hello,\n\n' +
+      'despite our payment reminder, we have not yet received payment for our {Dokument} {Rechnungsnummer} of {Rechnungsdatum} for {Betrag}, due on {Fällig}.\n\n' +
+      'Please transfer the outstanding amount by {Frist} at the latest; the invoice is attached again.\n\n' +
+      'If you have paid in the meantime, please disregard this email.\n\n' +
+      'Kind regards\n{Absender}'
+  }
+}
+
+// Each email template: settings key and default, by what the email is
+// (invoice, Zahlungserinnerung, Mahnung) and its language
+export const EMAIL_TEMPLATES = {
+  invoice: {
+    de: { key: 'invoiceEmailDe', fallback: DEFAULT_INVOICE_EMAIL.de },
+    en: { key: 'invoiceEmailEn', fallback: DEFAULT_INVOICE_EMAIL.en }
+  },
+  reminder: {
+    de: { key: 'reminderEmailDe', fallback: DEFAULT_REMINDER_EMAIL.de },
+    en: { key: 'reminderEmailEn', fallback: DEFAULT_REMINDER_EMAIL.en }
+  },
+  dunning: {
+    de: { key: 'dunningEmailDe', fallback: DEFAULT_DUNNING_EMAIL.de },
+    en: { key: 'dunningEmailEn', fallback: DEFAULT_DUNNING_EMAIL.en }
+  }
+} as const
+
 export const AppSettings = z.object({
   // ISO code used by imports for rows without a country, '' for none
   defaultCountry: z.string().default('DE'),
@@ -48,7 +107,12 @@ export const AppSettings = z.object({
   mailProgram: MailProgramSetting.default('auto'),
   // Subject and text of invoice emails, per template language; {Platzhalter}
   invoiceEmailDe: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.de),
-  invoiceEmailEn: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.en)
+  invoiceEmailEn: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.en),
+  // The same for Zahlungserinnerungen and Mahnungen
+  reminderEmailDe: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.de),
+  reminderEmailEn: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.en),
+  dunningEmailDe: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.de),
+  dunningEmailEn: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.en)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
@@ -63,7 +127,11 @@ export const UpdateAppSettingsInput = z
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
     invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
-    invoiceEmailEn: shape.invoiceEmailEn.unwrap()
+    invoiceEmailEn: shape.invoiceEmailEn.unwrap(),
+    reminderEmailDe: shape.reminderEmailDe.unwrap(),
+    reminderEmailEn: shape.reminderEmailEn.unwrap(),
+    dunningEmailDe: shape.dunningEmailDe.unwrap(),
+    dunningEmailEn: shape.dunningEmailEn.unwrap()
   })
   .partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>
