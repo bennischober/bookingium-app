@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ROUTES } from '@/lib/routing'
@@ -17,15 +17,41 @@ const CREATE_ITEMS = [
   { label: 'Bank', route: ROUTES.banks }
 ]
 
-/** Top bar "+ Neu": create any record without navigating there first */
+/** Alt + „+“ (main keyboard or numpad) or Ctrl+N */
+function isCreateShortcut(event: KeyboardEvent): boolean {
+  if (event.metaKey) return false
+  if (event.altKey && !event.ctrlKey) return event.key === '+' || event.code === 'NumpadAdd'
+  return event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'n'
+}
+
+/**
+ * Top bar "+ Neu": create any record without navigating there first.
+ * Its shortcut creates what the list page shows (a band on Bands); on any
+ * other page it opens this menu.
+ */
 export function QuickCreateMenu() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!isCreateShortcut(event)) return
+      event.preventDefault()
+      // Not over an open dialog or sheet (its form would be left behind)
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return
+      const item = CREATE_ITEMS.find(({ route }) => route.path === pathname)
+      if (item) void navigate({ to: item.route.path, search: { create: true } })
+      else setOpen(true)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [navigate, pathname])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" aria-label="Neu anlegen">
+        <Button size="sm" aria-label="Neu anlegen" title="Neu anlegen (Alt + „+“ oder Ctrl+N)">
           + Neu
         </Button>
       </PopoverTrigger>

@@ -12,9 +12,12 @@ import { ROUTE_SHORTCUTS } from '@/lib/routing'
 
 // Global keyboard shortcuts, listed in one place so the help dialog and the
 // bindings can't drift apart. The Alt+digit jumps follow the menu order
-// (ROUTE_SHORTCUTS); Ctrl+K (search) is registered in search-command-button.
+// (ROUTE_SHORTCUTS); Ctrl+K (search) is registered in search-command-button,
+// Alt + „+“ / Ctrl+N (new) in quick-create-menu.
 const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
   { keys: ['Ctrl', 'K'], description: 'Alles suchen öffnen' },
+  { keys: ['Alt', '+'], description: 'Neu anlegen (auf Listen: deren Art, sonst Auswahl)' },
+  { keys: ['Ctrl', 'N'], description: 'Neu anlegen (wie Alt + „+“)' },
   { keys: ['Alt', '←'], description: 'Zurück' },
   { keys: ['Alt', '→'], description: 'Vorwärts' },
   ...ROUTE_SHORTCUTS.map(({ key, route }) => ({ keys: ['Alt', key], description: route.title })),

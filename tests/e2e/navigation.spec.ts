@@ -1,5 +1,5 @@
 // E2E: back/forward in the top bar across pages and records, the Alt+←/→
-// shortcuts and the history list on right-click.
+// shortcuts, the history list on right-click and the "new" shortcut.
 import { test, expect } from '@playwright/test'
 import { launchApp, type AppHandle } from './helpers/launch'
 
@@ -62,4 +62,37 @@ test('goes back and forward across pages and records', async () => {
   await expect(forward).toBeEnabled()
   await page.getByRole('link', { name: 'Rechnungen' }).first().click()
   await expect(forward).toBeDisabled()
+})
+
+test('Alt + „+“ / Ctrl+N creates what the list shows, elsewhere offers the + Neu menu', async () => {
+  const { page } = h
+  const crumbs = page.getByRole('navigation', { name: 'breadcrumb' })
+
+  // Dashboard: the menu to pick from
+  await page.getByRole('link', { name: 'Dashboard' }).first().click()
+  await expect(crumbs).toContainText('Dashboard')
+  await page.keyboard.press('Alt++')
+  const menu = page.getByRole('menu', { name: 'Neu anlegen' })
+  await expect(menu).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+
+  // Bands: a new band
+  await page.getByRole('link', { name: 'Bands' }).first().click()
+  await expect(crumbs).toContainText('Bands')
+  await page.keyboard.press('Control+n')
+  const sheet = page.getByRole('dialog', { name: 'Neue Band anlegen' })
+  await expect(sheet).toBeVisible()
+  // Not again over the open sheet
+  await page.keyboard.press('Alt++')
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(sheet).toHaveCount(0)
+
+  // Events: the new-event wizard
+  await page.getByRole('link', { name: 'Events' }).first().click()
+  await expect(crumbs).toContainText('Events')
+  await page.keyboard.press('Alt++')
+  await expect(page.getByRole('dialog', { name: 'Neues Event anlegen' })).toBeVisible()
+  await page.keyboard.press('Escape')
 })
