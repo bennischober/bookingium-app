@@ -8,6 +8,10 @@
 //               via mailto:, the PDF selected in Explorer to drag in
 //   files       no mail program: email and PDF are saved, their folder opens
 //
+// "Automatisch" goes by the program Windows opens mailto: links with; when
+// none is set up, by an installed classic Outlook or Thunderbird
+// (openEmail.ts looks them up), and only without both by 'files'.
+//
 // Pure (no Node or Electron APIs) so it can be unit tested.
 import type { MailProgramSetting } from '../api/schemas/settings.schema'
 import type { EmailDraft } from './eml'
@@ -30,6 +34,20 @@ export function mailMethodOf(handlerPath: string): MailMethod {
   if (exe === 'thunderbird.exe') return 'thunderbird'
   if (!exe || exe === 'openwith.exe') return 'files'
   return 'mailto'
+}
+
+/** Programs "Automatisch" looks for when Windows has no mailto: program, in this order */
+export const INSTALLED_MAIL_PROGRAMS = ['outlook', 'thunderbird'] as const
+
+/** Executable file names, as Windows' "App Paths" lists them */
+export const PROGRAM_EXE: Record<(typeof INSTALLED_MAIL_PROGRAMS)[number], string> = {
+  outlook: 'OUTLOOK.EXE',
+  thunderbird: 'thunderbird.exe'
+}
+
+/** Arguments that open a mailto: link, the way Windows starts the program for one */
+export function mailtoProgramArgs(method: 'outlook' | 'thunderbird', url: string): string[] {
+  return method === 'outlook' ? ['/c', 'ipm.note', '/m', url] : ['-osint', '-compose', url]
 }
 
 /** Whether `path` is the executable of the given program */

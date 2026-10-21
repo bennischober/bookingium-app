@@ -2,7 +2,12 @@
 // (decoded again here), the mailto: link and how each mail program is used.
 import { describe, it, expect } from 'vitest'
 import { buildEml, encodeHeader, mailtoUrl, type EmailDraft } from '../src/main/mail/eml'
-import { isProgramPath, mailMethodOf, thunderbirdComposeArg } from '../src/main/mail/mailProgram'
+import {
+  isProgramPath,
+  mailMethodOf,
+  mailtoProgramArgs,
+  thunderbirdComposeArg
+} from '../src/main/mail/mailProgram'
 import {
   fillPlaceholders,
   invoiceEmail,
@@ -238,6 +243,15 @@ describe('mail program', () => {
     expect(thunderbirdComposeArg({ ...draft, to: '' }, 'a.txt', 'file:///a.pdf')).not.toContain(
       'to='
     )
+  })
+
+  it('opens a mailto: link the way Windows starts the program', () => {
+    expect(mailtoProgramArgs('thunderbird', 'mailto:?bcc=a@x.de')).toEqual([
+      '-osint',
+      '-compose',
+      'mailto:?bcc=a@x.de'
+    ])
+    expect(mailtoProgramArgs('outlook', 'mailto:')).toEqual(['/c', 'ipm.note', '/m', 'mailto:'])
   })
 })
 

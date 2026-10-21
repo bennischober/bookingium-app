@@ -32,7 +32,7 @@ const MAIL_PROGRAMS: Array<{ value: MailProgramSetting; label: string }> = [
 ]
 
 const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
-  auto: 'Nach dem Mailprogramm, das Windows für E-Mail-Links nutzt.',
+  auto: 'Nach dem Mailprogramm, das Windows für E-Mail-Links nutzt, sonst ein installiertes Outlook (klassisch) oder Thunderbird.',
   outlook: 'Öffnet die E-Mail mit PDF als Entwurf.',
   thunderbird: 'Öffnet eine neue E-Mail mit PDF im Anhang.',
   mailto:

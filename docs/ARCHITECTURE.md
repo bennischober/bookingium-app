@@ -227,7 +227,8 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   language; {Platzhalter} in `mail/invoiceEmail.ts`) and writes PDF and
   .eml (`X-Unsent: 1`) to `<userData>/E-Mail` (kept 30 days). The
   setting `mailProgram` (default `auto`: by the program Windows opens
-  mailto: with) picks the way: classic Outlook opens the .eml as a draft
+  mailto: with; without one, an installed classic Outlook or Thunderbird
+  from Windows' „App Paths“) picks the way: classic Outlook opens the .eml as a draft
   (`OUTLOOK.EXE /eml`), Thunderbird composes with the PDF attached
   (`-compose`), any other program (new Outlook) gets a mailto: link and
   Explorer shows the PDF to drag in, no program: the folder opens. Each

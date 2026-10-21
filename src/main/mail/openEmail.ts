@@ -11,10 +11,13 @@ import { pathToFileURL } from 'url'
 import type { MailProgramSetting } from '../api/schemas/settings.schema'
 import { buildEml, mailtoUrl, type EmailDraft } from './eml'
 import {
+  INSTALLED_MAIL_PROGRAMS,
+  PROGRAM_EXE,
   addressSeparator,
   bccMailtoUrl,
   isProgramPath,
   mailMethodOf,
+  mailtoProgramArgs,
   thunderbirdComposeArg,
   type MailMethod
 } from './mailProgram'
@@ -72,6 +75,37 @@ function appPathOf(exe: string): Promise<string> {
   )
 }
 
+type MailProgram = {
+  method: MailMethod
+  /** The program Windows opens mailto: links with, '' when there is none */
+  handler: string
+  /** Executable of classic Outlook or Thunderbird, '' when not found */
+  programPath: string
+}
+
+/**
+ * The mail program to use: the setting, or for "Automatisch" the mailto:
+ * program; when Windows has none (or one that is gone: it then offers
+ * OpenWith.exe), an installed classic Outlook or Thunderbird
+ */
+async function mailProgram(setting: MailProgramSetting): Promise<MailProgram> {
+  const handler = await mailtoHandlerPath()
+  const method = setting === 'auto' ? mailMethodOf(handler) : setting
+  if (method === 'outlook' || method === 'thunderbird') {
+    const programPath = isProgramPath(handler, method)
+      ? handler
+      : await appPathOf(PROGRAM_EXE[method])
+    return { method, handler, programPath }
+  }
+  if (setting === 'auto' && method === 'files') {
+    for (const program of INSTALLED_MAIL_PROGRAMS) {
+      const programPath = await appPathOf(PROGRAM_EXE[program])
+      if (programPath) return { method: program, handler, programPath }
+    }
+  }
+  return { method, handler, programPath: '' }
+}
+
 /** Starts a program without waiting for it; false if it could not start */
 function launch(path: string, args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
@@ -110,12 +144,11 @@ export async function openEmail({
   // e2e tests: files only, no programs or Explorer windows
   if (process.env.BOOKINGIUM_NO_LAUNCH === '1') return { method: 'files', pdfPath, folder }
 
-  const handler = await mailtoHandlerPath()
-  let method: MailMethod = setting === 'auto' ? mailMethodOf(handler) : setting
+  const program = await mailProgram(setting)
+  const { handler, programPath } = program
+  let method = program.method
 
   if (method === 'outlook' || method === 'thunderbird') {
-    const exe = method === 'outlook' ? 'OUTLOOK.EXE' : 'thunderbird.exe'
-    const programPath = isProgramPath(handler, method) ? handler : await appPathOf(exe)
     let started = false
     if (programPath && method === 'outlook') {
       started = await launch(programPath, ['/eml', emlPath])
@@ -147,8 +180,7 @@ export function showEmailFile(pdfPath: string): void {
 
 /** The mail program's way of listing several addresses */
 export async function mailAddressSeparator(setting: MailProgramSetting): Promise<string> {
-  const method = setting === 'auto' ? mailMethodOf(await mailtoHandlerPath()) : setting
-  return addressSeparator(method)
+  return addressSeparator((await mailProgram(setting)).method)
 }
 
 /**
@@ -160,11 +192,16 @@ export async function openBccEmail(
   emails: string[],
   setting: MailProgramSetting
 ): Promise<boolean> {
-  const handler = await mailtoHandlerPath()
-  const method: MailMethod = setting === 'auto' ? mailMethodOf(handler) : setting
+  const { method, programPath } = await mailProgram(setting)
   const url = bccMailtoUrl(emails, method)
   if (!url) clipboard.writeText(emails.join(`${addressSeparator(method)} `))
   // e2e tests: no mail program
-  if (process.env.BOOKINGIUM_NO_LAUNCH !== '1') await shell.openExternal(url ?? 'mailto:')
+  if (process.env.BOOKINGIUM_NO_LAUNCH === '1') return url !== null
+  // Classic Outlook or Thunderbird directly, also when it isn't the mailto: program
+  const started =
+    (method === 'outlook' || method === 'thunderbird') &&
+    programPath !== '' &&
+    (await launch(programPath, mailtoProgramArgs(method, url ?? 'mailto:')))
+  if (!started) await shell.openExternal(url ?? 'mailto:')
   return url !== null
 }
