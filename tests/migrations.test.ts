@@ -69,6 +69,24 @@ describe('runMigrations', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 
+  it('starts the email history with the email each invoice remembered', () => {
+    const sqlite = openDb()
+    const emails = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('CREATE TABLE `invoice_email`'))
+    )
+    for (const { sql } of migrations.slice(0, emails)) for (const s of sql) sqlite.exec(s)
+    sqlite.exec(`
+      insert into company (id, name) values (1, 'Issuer GmbH');
+      insert into invoice (id, company_id, emailed_at, emailed_to)
+        values (1, 1, '2026-10-19 08:30:00', 'x@club.de'), (2, 1, null, '');
+    `)
+    for (const s of migrations[emails].sql) sqlite.exec(s)
+
+    expect(sqlite.prepare('select invoice_id, "to", created_at from invoice_email').all()).toEqual([
+      { invoice_id: 1, to: 'x@club.de', created_at: '2026-10-19 08:30:00' }
+    ])
+  })
+
   it('takes over a database from before the merge, keeping its data', () => {
     const sqlite = legacyDb()
     runMigrations()

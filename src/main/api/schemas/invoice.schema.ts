@@ -156,7 +156,9 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   // Cancelled invoice: its Stornorechnung
   cancelledByInvoiceId: z.number().nullable(),
   cancelledByInvoiceNumber: z.number().nullable(),
-  lineItems: z.array(InvoiceLineItemDto)
+  lineItems: z.array(InvoiceLineItemDto),
+  // Every "Per E-Mail senden", latest first (datetime, UTC; '' for no address)
+  emails: z.array(z.object({ createdAt: z.string(), to: z.string() }))
 }).extend(TimestampFields.shape)
 
 export type InvoiceDto = z.infer<typeof InvoiceDto>

@@ -103,3 +103,20 @@ test('uses the subject from the settings', async () => {
     .poll(subject, { timeout: 30_000 })
     .toMatch(/^Abrechnung 1040 von .+ \(\d\d\.\d\d\.\d{4}\)$/)
 })
+
+test('lists every email in the invoice sheet, latest first', async () => {
+  const { page } = h
+  await page.getByRole('button', { name: 'Zurück' }).click()
+  await page.getByRole('link', { name: 'Rechnungen' }).first().click()
+  await page
+    .locator('tr')
+    .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
+    .getByRole('button', { name: 'Anzeigen' })
+    .click()
+  const emails = page.getByRole('dialog').getByRole('list', { name: 'E-Mails' })
+  // One per "Per E-Mail senden" of the tests above
+  await expect(emails.getByRole('listitem')).toHaveCount(2)
+  await expect(emails.getByRole('listitem').first()).toHaveText(
+    /^\d\d\.\d\d\.\d{4}, \d\d:\d\d( an .+@.+)?$/
+  )
+})

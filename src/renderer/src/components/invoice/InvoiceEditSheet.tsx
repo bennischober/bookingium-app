@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   INVOICE_STATUS_LABELS,
-  emailedLabel,
+  invoiceEmailLabel,
   formatMoney,
   invoiceFollowUpName,
   invoiceNumberLabel
@@ -213,8 +213,19 @@ function LockedInvoicePanel({ invoice, onClose }: { invoice: InvoiceDto; onClose
         {invoice.buyerReference && (
           <Field label="Käuferreferenz / Leitweg-ID" value={invoice.buyerReference} />
         )}
-        {invoice.emailedAt && (
-          <Field label="E-Mail" value={emailedLabel(invoice).replace(/^E-Mail /, '')} />
+        {invoice.emails.length > 0 && (
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">
+              {invoice.emails.length === 1 ? 'E-Mail erstellt' : 'E-Mails erstellt'}
+            </dt>
+            <dd className="mt-0.5">
+              <ul aria-label="E-Mails">
+                {invoice.emails.map((email, index) => (
+                  <li key={index}>{invoiceEmailLabel(email)}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
         )}
       </dl>
 

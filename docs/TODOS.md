@@ -29,8 +29,7 @@ Done work lives in the git history; this list only holds what is still open.
   e-invoice check. Drafts stay in the edit sheet; linked from the list, the
   Dashboard and the event's Finanzen tab. Built together with reminders for
   overdue invoices (Zahlungserinnerung, then Mahnung, from a template).
-  First step: keep every email sent instead of overwriting
-  `emailed_at`/`emailed_to`, which today hold only the latest one address.
+  The emails are kept already (`invoice_email`).
 - **Verteiler: local promoters.** Lists draw on venues only (own address,
   Ansprechpartner, Veranstalter); LoPro companies and persons of events
   could be a further recipient type if lists to promoters are needed.

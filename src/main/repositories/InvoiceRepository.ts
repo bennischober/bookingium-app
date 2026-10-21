@@ -505,7 +505,8 @@ export class InvoiceRepository {
         company: row.company,
         dealMemo: row.deal_memo,
         recipientSnapshot: row.invoice_party_snapshot,
-        lineItems
+        lineItems,
+        emails: this.listEmails(tx, invoiceId)
       }
     ])[0]
   }
@@ -619,7 +620,8 @@ export class InvoiceRepository {
         company: row.company,
         dealMemo: row.deal_memo,
         recipientSnapshot: row.invoice_party_snapshot,
-        lineItems
+        lineItems,
+        emails: this.listEmails(db, id)
       }
     ])[0]
   }
@@ -986,10 +988,23 @@ export class InvoiceRepository {
 
   /** Records that the invoice's email was created (not a content change) */
   markEmailed(id: number, to: string) {
-    db.update(schema.invoice)
-      .set({ emailed_at: sql`datetime('now')`, emailed_to: to })
-      .where(eq(schema.invoice.id, id))
-      .run()
+    db.transaction((tx) => {
+      const email = tx.insert(schema.invoice_email).values({ invoice_id: id, to }).returning().get()
+      tx.update(schema.invoice)
+        .set({ emailed_at: email.created_at, emailed_to: to })
+        .where(eq(schema.invoice.id, id))
+        .run()
+    })
+  }
+
+  /** The invoice's emails, latest first */
+  private listEmails(reader: Pick<Tx, 'select'>, invoiceId: number) {
+    return reader
+      .select()
+      .from(schema.invoice_email)
+      .where(eq(schema.invoice_email.invoice_id, invoiceId))
+      .orderBy(desc(schema.invoice_email.created_at), desc(schema.invoice_email.id))
+      .all()
   }
 
   /** Changes only the status; assigns the number when a draft is issued */

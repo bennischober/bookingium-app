@@ -426,8 +426,8 @@ export const invoice = sqliteTable(
       { onDelete: 'set null' }
     ),
     notes: text('notes').default('').notNull(),
-    // Last time "Per E-Mail senden" created the email (datetime, UTC) and
-    // to which address ('' when the recipient had none)
+    // Latest of the invoice's emails (all of them in invoice_email), for the
+    // list: when "Per E-Mail senden" created it (datetime, UTC), to whom
     emailed_at: text('emailed_at'),
     emailed_to: text('emailed_to').default('').notNull(),
     created_at: text('created_at')
@@ -476,6 +476,24 @@ export const invoice_line_item = sqliteTable(
     index('invoice_line_item_invoice_idx').on(table.invoice_id),
     index('invoice_line_item_position_idx').on(table.invoice_id, table.position)
   ]
+)
+
+// Each email "Per E-Mail senden" created for an invoice (the app never sends
+// it itself)
+export const invoice_email = sqliteTable(
+  'invoice_email',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    // Prefilled recipient address, '' when the recipient had none
+    to: text('to').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [index('invoice_email_invoice_idx').on(table.invoice_id)]
 )
 
 export const itinerary = sqliteTable(
@@ -733,6 +751,7 @@ export const schema = {
   invoice,
   invoice_party_snapshot,
   invoice_line_item,
+  invoice_email,
   management_contract,
   management_contract_member,
   management_share,

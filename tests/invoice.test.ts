@@ -245,6 +245,22 @@ describe('InvoiceService', () => {
       await expect(invoices.deleteInvoice(issued.id)).rejects.toThrow(/Nur Entwürfe/)
     })
 
+    it('keeps every email, the latest also on the invoice for the list', async () => {
+      const { invoices, company } = await setup()
+      const issued = await invoices.createInvoice({
+        companyId: company.id,
+        status: 'issued',
+        lineItems: line
+      })
+
+      invoices.markInvoiceEmailed(issued.id, 'buchhaltung@club.de')
+      invoices.markInvoiceEmailed(issued.id, '')
+      const loaded = await invoices.getInvoiceById(issued.id)
+      expect(loaded?.emails.map((email) => email.to)).toEqual(['', 'buchhaltung@club.de'])
+      expect(loaded?.emailed_to).toBe('')
+      expect(loaded?.emailed_at).toBe(loaded?.emails[0].created_at)
+    })
+
     it('rejects skipping the issue step or going back to draft', async () => {
       const { invoices, company } = await setup()
       const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })

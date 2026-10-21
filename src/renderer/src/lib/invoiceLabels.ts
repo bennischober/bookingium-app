@@ -40,11 +40,30 @@ export function invoiceFollowUpName(invoice: {
  */
 export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: string }): string {
   if (!invoice.emailedAt) return ''
-  const date = new Date(`${invoice.emailedAt.replace(' ', 'T')}Z`)
-  const day = Number.isNaN(date.getTime())
-    ? invoice.emailedAt
-    : date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const day = localDateTime(invoice.emailedAt, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
   return `E-Mail erstellt am ${day}${invoice.emailedTo ? ` an ${invoice.emailedTo}` : ''}`
+}
+
+/** One of an invoice's emails: "20.10.2026, 14:32 an x@y.de" (local time) */
+export function invoiceEmailLabel(email: { createdAt: string; to: string }): string {
+  const when = localDateTime(email.createdAt, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  return `${when}${email.to ? ` an ${email.to}` : ''}`
+}
+
+/** SQLite UTC "YYYY-MM-DD HH:MM:SS" in local time, as is if unreadable */
+function localDateTime(utc: string, options: Intl.DateTimeFormatOptions): string {
+  const date = new Date(`${utc.replace(' ', 'T')}Z`)
+  return Number.isNaN(date.getTime()) ? utc : date.toLocaleString('de-DE', options)
 }
 
 export function formatMoney(value: number, currency: string): string {

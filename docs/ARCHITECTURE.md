@@ -230,9 +230,11 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   mailto: with) picks the way: classic Outlook opens the .eml as a draft
   (`OUTLOOK.EXE /eml`), Thunderbird composes with the PDF attached
   (`-compose`), any other program (new Outlook) gets a mailto: link and
-  Explorer shows the PDF to drag in, no program: the folder opens. The
-  invoice keeps `emailed_at`/`emailed_to`. No email is ever sent by the
-  app. e2e runs set `BOOKINGIUM_NO_LAUNCH=1` (files only).
+  Explorer shows the PDF to drag in, no program: the folder opens. Each
+  email is a row in `invoice_email` (time, prefilled address), listed in
+  the locked invoice's sheet; the latest is also on the invoice
+  (`emailed_at`/`emailed_to`) for the list's envelope. No email is ever
+  sent by the app. e2e runs set `BOOKINGIUM_NO_LAUNCH=1` (files only).
 - **Mandatory content** (§ 14 Abs. 4 UStG) comes from
   `invoice/taxSummary.ts`, shared by all templates: VAT per rate and per
   0 % reason with its net amount when there is more than one group, the

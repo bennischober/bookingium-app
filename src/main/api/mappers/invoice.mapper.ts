@@ -4,6 +4,7 @@ import {
   company,
   deal_memo,
   invoice_line_item,
+  invoice_email,
   invoice_party_snapshot
 } from '../../db/schema'
 import type {
@@ -20,6 +21,7 @@ type CompanyInvoiceSettingsEntity = typeof company_invoice_settings.$inferSelect
 type CompanyEntity = typeof company.$inferSelect
 type DealMemoEntity = typeof deal_memo.$inferSelect
 type InvoiceLineItemEntity = typeof invoice_line_item.$inferSelect
+type InvoiceEmailEntity = typeof invoice_email.$inferSelect
 type InvoicePartySnapshotEntity = typeof invoice_party_snapshot.$inferSelect
 type InvoicePartySnapshotValues = typeof invoice_party_snapshot.$inferInsert
 
@@ -63,6 +65,7 @@ type InvoiceWithRelations = InvoiceEntity & {
   issuerSnapshot?: InvoicePartySnapshotEntity | null
   recipientSnapshot?: InvoicePartySnapshotEntity | null
   lineItems?: InvoiceLineItemEntity[]
+  emails?: InvoiceEmailEntity[]
 }
 
 export class InvoiceMapper {
@@ -131,6 +134,10 @@ export class InvoiceMapper {
       cancelledByInvoiceId: entity.cancelledBy?.id ?? null,
       cancelledByInvoiceNumber: entity.cancelledBy?.invoice_number ?? null,
       lineItems: (entity.lineItems ?? []).map((item) => this.toLineItemDto(item)),
+      emails: (entity.emails ?? []).map((email) => ({
+        createdAt: email.created_at,
+        to: email.to
+      })),
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }
