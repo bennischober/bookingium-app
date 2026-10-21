@@ -158,7 +158,10 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   cancelledByInvoiceNumber: z.number().nullable(),
   lineItems: z.array(InvoiceLineItemDto),
   // Every "Per E-Mail senden", latest first (datetime, UTC; '' for no address)
-  emails: z.array(z.object({ createdAt: z.string(), to: z.string() }))
+  emails: z.array(z.object({ createdAt: z.string(), to: z.string() })),
+  // Each status it moved to, in order (datetime UTC; a plain date for the
+  // ones from before the Verlauf existed)
+  statusChanges: z.array(z.object({ status: InvoiceStatus, createdAt: z.string() }))
 }).extend(TimestampFields.shape)
 
 export type InvoiceDto = z.infer<typeof InvoiceDto>

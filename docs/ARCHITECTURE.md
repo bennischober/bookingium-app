@@ -232,9 +232,19 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   (`-compose`), any other program (new Outlook) gets a mailto: link and
   Explorer shows the PDF to drag in, no program: the folder opens. Each
   email is a row in `invoice_email` (time, prefilled address), listed in
-  the locked invoice's sheet; the latest is also on the invoice
+  the invoice's Verlauf; the latest is also on the invoice
   (`emailed_at`/`emailed_to`) for the list's envelope. No email is ever
   sent by the app. e2e runs set `BOOKINGIUM_NO_LAUNCH=1` (files only).
+- **Invoice page** (`/invoices/$invoiceId`, `InvoiceDetailPage`): one per
+  issued invoice, with its data, the e-invoice check, the status changes it
+  still allows (Stornieren included) and a „Verlauf“ (`lib/invoiceHistory.ts`):
+  created, each status change and each email, oldest first. Every status
+  an invoice moves to is a row in `invoice_status_change`, written by the
+  repository wherever the status changes (create, update, `setStatus`, the
+  Stornorechnung); the migration started it with the issue date and the
+  current status. Drafts have no page: they are edited in the sheet of the
+  invoice list (`/invoices?open=<id>`), and the page sends a draft there;
+  `useOpenInvoice` picks the page or the sheet for links to an invoice.
 - **Mandatory content** (§ 14 Abs. 4 UStG) comes from
   `invoice/taxSummary.ts`, shared by all templates: VAT per rate and per
   0 % reason with its net amount when there is more than one group, the
@@ -360,9 +370,9 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   and the record's open follow-ups above the tabs on each detail page; the
   Dashboard card (overdue, today, the next 14 days, the rest behind "weitere
   später anzeigen"; "+ Wiedervorlage" for a general one); and the count of
-  those due today or earlier on the Dashboard menu item. Invoices have no
-  page of their own, so theirs sit in the invoice sheet, and the Dashboard
-  links to `/invoices?open=<id>`.
+  those due today or earlier on the Dashboard menu item. An invoice's sit
+  on its page, a draft's in its sheet; the Dashboard links to the page,
+  which hands a draft to the sheet.
 - **Offered, not made:** saving something unfinished (an invoice draft, an
   event still "Ausstehend") shows "Wiedervorlage setzen" in the success
   toast (`useFollowUpNudge`), unless the record already has an open

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { FileText, Plus, Printer, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
+import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -64,6 +65,7 @@ export function ManagementShareSection({
   beforeBilling: () => Promise<boolean>
 }) {
   const navigate = useNavigate()
+  const openInvoice = useOpenInvoice()
   const shares = trpcReact.managementContract.listSharesByBand.useQuery(bandId)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -123,7 +125,10 @@ export function ManagementShareSection({
                   icon={FileText}
                   label="Rechnung öffnen"
                   onClick={() =>
-                    void navigate({ to: '/invoices', search: { open: share.invoiceId } })
+                    void openInvoice({
+                      id: share.invoiceId,
+                      status: share.invoiceStatus as InvoiceStatus
+                    })
                   }
                 />
                 <RowActionButton

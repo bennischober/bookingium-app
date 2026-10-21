@@ -142,7 +142,13 @@ test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
     .click()
   const created = toast('Stornorechnung #1042 erstellt')
   await expect(created).toBeVisible()
-  await created.getByRole('button', { name: 'Drucken / PDF' }).click()
+  // The cancelled invoice's Verlauf leads to its Stornorechnung, and back
+  const history = page.getByRole('list', { name: 'Verlauf' })
+  await expect(history.getByRole('listitem').last()).toContainText('Storniert Stornorechnung #1042')
+  await created.getByRole('button', { name: 'Anzeigen' }).click()
+  await expect(page.getByRole('heading', { name: 'Stornorechnung #1042' })).toBeVisible()
+  await expect(history).toContainText('Gestellt als Storno zu Rechnung #1040')
+  await page.getByRole('button', { name: 'Drucken / PDF' }).click()
 
   await page.waitForURL(/invoices\/\d+\/print/)
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })

@@ -50,14 +50,25 @@ export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: str
 
 /** One of an invoice's emails: "20.10.2026, 14:32 an x@y.de" (local time) */
 export function invoiceEmailLabel(email: { createdAt: string; to: string }): string {
-  const when = localDateTime(email.createdAt, {
+  return `${invoiceMomentLabel(email.createdAt)}${email.to ? ` an ${email.to}` : ''}`
+}
+
+/**
+ * When something happened to an invoice: "20.10.2026, 14:32" (local time)
+ * for a SQLite UTC datetime, "20.10.2026" for a plain date
+ */
+export function invoiceMomentLabel(at: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(at)) {
+    const [year, month, day] = at.split('-')
+    return `${day}.${month}.${year}`
+  }
+  return localDateTime(at, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   })
-  return `${when}${email.to ? ` an ${email.to}` : ''}`
 }
 
 /** SQLite UTC "YYYY-MM-DD HH:MM:SS" in local time, as is if unreadable */

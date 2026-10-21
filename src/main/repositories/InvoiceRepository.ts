@@ -506,7 +506,8 @@ export class InvoiceRepository {
         dealMemo: row.deal_memo,
         recipientSnapshot: row.invoice_party_snapshot,
         lineItems,
-        emails: this.listEmails(tx, invoiceId)
+        emails: this.listEmails(tx, invoiceId),
+        statusChanges: this.listStatusChanges(tx, invoiceId)
       }
     ])[0]
   }
@@ -621,7 +622,8 @@ export class InvoiceRepository {
         dealMemo: row.deal_memo,
         recipientSnapshot: row.invoice_party_snapshot,
         lineItems,
-        emails: this.listEmails(db, id)
+        emails: this.listEmails(db, id),
+        statusChanges: this.listStatusChanges(db, id)
       }
     ])[0]
   }
@@ -811,6 +813,7 @@ export class InvoiceRepository {
     }
 
     const invoiceId = created[0].id
+    if (status !== 'draft') this.logStatusTx(tx, invoiceId, status)
 
     for (const item of normalizedLineItems) {
       tx.insert(schema.invoice_line_item)
@@ -957,6 +960,9 @@ export class InvoiceRepository {
       if (updated.length === 0) {
         throw new Error('Invoice not found')
       }
+      if (values.status !== undefined && values.status !== existing.status) {
+        this.logStatusTx(tx, input.id, values.status as InvoiceStatus)
+      }
 
       if (normalizedLineItems) {
         tx.delete(schema.invoice_line_item)
@@ -1007,6 +1013,21 @@ export class InvoiceRepository {
       .all()
   }
 
+  /** The statuses the invoice moved to, in order */
+  private listStatusChanges(reader: Pick<Tx, 'select'>, invoiceId: number) {
+    return reader
+      .select()
+      .from(schema.invoice_status_change)
+      .where(eq(schema.invoice_status_change.invoice_id, invoiceId))
+      .orderBy(asc(schema.invoice_status_change.created_at), asc(schema.invoice_status_change.id))
+      .all()
+  }
+
+  /** Adds the status the invoice moved to to its Verlauf */
+  private logStatusTx(tx: Tx, invoiceId: number, status: InvoiceStatus) {
+    tx.insert(schema.invoice_status_change).values({ invoice_id: invoiceId, status }).run()
+  }
+
   /** Changes only the status; assigns the number when a draft is issued */
   async setStatus(id: number, status: InvoiceStatus) {
     return db.transaction((tx) => {
@@ -1026,6 +1047,7 @@ export class InvoiceRepository {
       }
 
       tx.update(schema.invoice).set(values).where(eq(schema.invoice.id, id)).run()
+      if (status !== existing.status) this.logStatusTx(tx, id, status)
       if (
         status === 'cancelled' &&
         existing.kind === 'invoice' &&
@@ -1079,6 +1101,7 @@ export class InvoiceRepository {
       })
       .returning()
       .all()
+    this.logStatusTx(tx, created.id, 'issued')
 
     for (const line of lines) {
       tx.insert(schema.invoice_line_item)

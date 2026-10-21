@@ -73,10 +73,10 @@ test('company page shows contacts, bands, events, invoices and documents', async
     'von Live Music Berlin GmbH'
   )
   await expect(invoices.locator('tr', { hasText: 'an Midnight Symphony' })).toContainText('Entwurf')
-  // An invoice opens its print view; back returns to the tab
+  // An invoice opens its page; back returns to the tab
   await invoices.locator('tr', { hasText: '#1040' }).click()
-  await page.waitForURL(/invoices\/\d+\/print/)
-  await page.getByRole('button', { name: 'Zurück', exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
+  await page.getByRole('button', { name: 'Zurück', exact: true }).click()
   await expect(page.getByRole('table', { name: 'Rechnungen der Firma' })).toBeVisible()
 
   // Company document: copied into documents/companies/<id>-soundwave-records/

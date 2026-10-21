@@ -22,14 +22,9 @@ Done work lives in the git history; this list only holds what is still open.
   installer is signed with a code-signing certificate).
 - **Auto-update** (electron-updater) once there is a place to publish
   releases.
-- **Invoice page and payment reminders.** One page per issued invoice:
-  header (number, status, recipient, amount; Drucken/PDF, Per E-Mail senden,
-  Wiedervorlage, Stornieren), a „Verlauf“ (created, issued, each email with
-  its recipients, reminders, paid, Storno) and the positions with the
-  e-invoice check. Drafts stay in the edit sheet; linked from the list, the
-  Dashboard and the event's Finanzen tab. Built together with reminders for
-  overdue invoices (Zahlungserinnerung, then Mahnung, from a template).
-  The emails are kept already (`invoice_email`).
+- **Payment reminders.** Overdue invoices listed, then a
+  Zahlungserinnerung and later a Mahnung, each from a template like the
+  invoice email, offered on the invoice page and entered in its Verlauf.
 - **Verteiler: local promoters.** Lists draw on venues only (own address,
   Ansprechpartner, Veranstalter); LoPro companies and persons of events
   could be a further recipient type if lists to promoters are needed.

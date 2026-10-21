@@ -519,7 +519,11 @@ const SearchButton = () => {
                     keywords={['invoice', 'rechnung']}
                     onSelect={() =>
                       runAndClose(() =>
-                        navigate({ to: invoice.route, search: { open: invoice.id } })
+                        // The page hands a draft on to the sheet of the list
+                        navigate({
+                          to: '/invoices/$invoiceId',
+                          params: { invoiceId: String(invoice.id) }
+                        })
                       )
                     }
                   >

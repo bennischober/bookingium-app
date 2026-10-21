@@ -18,6 +18,7 @@ import HotelPage from '@/pages/HotelPage'
 import ContactListPage from '@/pages/ContactListPage'
 import PersonDetailPage from '@/pages/PersonDetailPage'
 import InvoicePage from '@/pages/InvoicePage'
+import InvoiceDetailPage from '@/pages/InvoiceDetailPage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
 import ManagementContractPrintPage from '@/pages/ManagementContractPrintPage'
@@ -129,6 +130,12 @@ const invoiceRoute = createRoute({
   component: InvoicePage
 })
 
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/invoices/$invoiceId',
+  component: InvoiceDetailPage
+})
+
 const eventHubRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/events/$eventId',
@@ -215,6 +222,7 @@ const routeTree = rootRoute.addChildren([
     contactListRoute,
     eventRoute,
     invoiceRoute,
+    invoiceDetailRoute,
     eventHubRoute,
     bandDetailRoute,
     settingsRoute,

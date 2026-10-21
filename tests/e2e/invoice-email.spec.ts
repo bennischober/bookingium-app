@@ -104,7 +104,7 @@ test('uses the subject from the settings', async () => {
     .toMatch(/^Abrechnung 1040 von .+ \(\d\d\.\d\d\.\d{4}\)$/)
 })
 
-test('lists every email in the invoice sheet, latest first', async () => {
+test('shows the emails and status changes in the Verlauf of the invoice page', async () => {
   const { page } = h
   await page.getByRole('button', { name: 'Zurück' }).click()
   await page.getByRole('link', { name: 'Rechnungen' }).first().click()
@@ -113,10 +113,21 @@ test('lists every email in the invoice sheet, latest first', async () => {
     .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
     .getByRole('button', { name: 'Anzeigen' })
     .click()
-  const emails = page.getByRole('dialog').getByRole('list', { name: 'E-Mails' })
+  await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
+  const history = page.getByRole('list', { name: 'Verlauf' }).getByRole('listitem')
+  await expect(history.first()).toContainText('Angelegt')
   // One per "Per E-Mail senden" of the tests above
-  await expect(emails.getByRole('listitem')).toHaveCount(2)
-  await expect(emails.getByRole('listitem').first()).toHaveText(
-    /^\d\d\.\d\d\.\d{4}, \d\d:\d\d( an .+@.+)?$/
-  )
+  const emails = history.filter({ hasText: 'E-Mail erstellt' })
+  await expect(emails).toHaveCount(2)
+  await expect(emails.first()).toContainText(/\d\d\.\d\d\.\d{4}, \d\d:\d\d/)
+
+  await page.getByRole('button', { name: 'Als bezahlt markieren' }).click()
+  await expect(history.last()).toContainText('Als bezahlt markiert')
+  await expect(page.getByText('bezahlt', { exact: true }).first()).toBeVisible()
+
+  // The email itself is created on the print page, with its template
+  await page.getByRole('button', { name: 'Per E-Mail senden…' }).click()
+  await page.waitForURL(/invoices\/\d+\/print/)
+  await page.getByRole('button', { name: 'Zurück' }).click()
+  await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
 })

@@ -125,6 +125,13 @@ English.
 | Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / … |
 | Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}         |
 | Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                                |
+| Open an invoice (Dashboard, management share)      | Rechnung öffnen; page header „Per E-Mail senden…“ (to print page) |
+| Invoice history on its page                        | Verlauf                                                           |
+| History entries                                    | Angelegt / Gestellt / E-Mail erstellt / Als bezahlt markiert      |
+| History entries (cont.)                            | Als überfällig markiert / Wieder offen (gestellt) / Storniert     |
+| Stornorechnung's first entry                       | Gestellt als Storno zu Rechnung #1040                             |
+| Back to the list from a detail page                | Alle Rechnungen (Alle Firmen, …)                                  |
+| Draft sheet title                                  | Entwurf bearbeiten                                                |
 | Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                           |
 | Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar              |
 | Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)         |

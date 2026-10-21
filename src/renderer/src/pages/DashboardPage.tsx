@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
+import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +44,7 @@ function formatDate(iso: string): string {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const openInvoice = useOpenInvoice()
 
   // One SQL-computed stats call (single IPC round-trip, tiny payload)
   const statsQuery = trpcReact.dashboard.getStats.useQuery()
@@ -249,6 +251,9 @@ export default function DashboardPage() {
                     <span className="text-sm font-semibold">
                       {formatMoney(invoice.totalAmount, invoice.currency)}
                     </span>
+                    <Button variant="outline" onClick={() => openInvoice(invoice)}>
+                      Rechnung öffnen
+                    </Button>
                   </div>
                 </div>
               ))}

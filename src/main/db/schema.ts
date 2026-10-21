@@ -496,6 +496,24 @@ export const invoice_email = sqliteTable(
   (table) => [index('invoice_email_invoice_idx').on(table.invoice_id)]
 )
 
+// Each status an invoice moved to (issued, paid, overdue, back to issued,
+// cancelled), for its Verlauf
+export const invoice_status_change = sqliteTable(
+  'invoice_status_change',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    // datetime (UTC); a plain date for the ones carried over by the migration
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [index('invoice_status_change_invoice_idx').on(table.invoice_id)]
+)
+
 export const itinerary = sqliteTable(
   'itinerary',
   {
@@ -752,6 +770,7 @@ export const schema = {
   invoice_party_snapshot,
   invoice_line_item,
   invoice_email,
+  invoice_status_change,
   management_contract,
   management_contract_member,
   management_share,

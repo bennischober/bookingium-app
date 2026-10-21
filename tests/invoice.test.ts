@@ -261,6 +261,36 @@ describe('InvoiceService', () => {
       expect(loaded?.emailed_at).toBe(loaded?.emails[0].created_at)
     })
 
+    it('logs each status the invoice moves to, for its Verlauf', async () => {
+      const { invoices, company } = await setup()
+      const statuses = async (id: number) =>
+        (await invoices.getInvoiceById(id))?.statusChanges.map((change) => change.status)
+
+      const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })
+      expect(await statuses(draft.id)).toEqual([])
+      // Saving the draft without a status change logs nothing
+      await invoices.updateInvoice({ id: draft.id, notes: 'x', status: 'draft' })
+      expect(await statuses(draft.id)).toEqual([])
+
+      await invoices.updateInvoice({ id: draft.id, status: 'issued' })
+      await invoices.setInvoiceStatus(draft.id, 'overdue')
+      await invoices.setInvoiceStatus(draft.id, 'issued')
+      await invoices.setInvoiceStatus(draft.id, 'issued')
+      await invoices.setInvoiceStatus(draft.id, 'paid')
+      const cancelled = await invoices.setInvoiceStatus(draft.id, 'cancelled')
+      expect(await statuses(draft.id)).toEqual(['issued', 'overdue', 'issued', 'paid', 'cancelled'])
+      expect(cancelled.statusChanges[0].created_at).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/)
+
+      // The Stornorechnung is issued right away, as is an invoice created issued
+      expect(await statuses(cancelled.cancelledBy!.id)).toEqual(['issued'])
+      const issued = await invoices.createInvoice({
+        companyId: company.id,
+        status: 'issued',
+        lineItems: line
+      })
+      expect(issued.statusChanges.map((change) => change.status)).toEqual(['issued'])
+    })
+
     it('rejects skipping the issue step or going back to draft', async () => {
       const { invoices, company } = await setup()
       const draft = await invoices.createInvoice({ companyId: company.id, lineItems: line })

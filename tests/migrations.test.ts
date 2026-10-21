@@ -87,6 +87,37 @@ describe('runMigrations', () => {
     ])
   })
 
+  it('starts the Verlauf with the issue date and the status each invoice has', () => {
+    const sqlite = openDb()
+    const changes = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('CREATE TABLE `invoice_status_change`'))
+    )
+    for (const { sql } of migrations.slice(0, changes)) for (const s of sql) sqlite.exec(s)
+    sqlite.exec(`
+      insert into company (id, name) values (1, 'Issuer GmbH');
+      insert into invoice (id, company_id, status, issue_date, created_at, updated_at) values
+        (1, 1, 'draft', '2026-10-01', '2026-10-01 08:00:00', null),
+        (2, 1, 'issued', '2026-10-02', '2026-10-01 08:00:00', '2026-10-02 09:00:00'),
+        (3, 1, 'paid', '2026-10-03', '2026-10-01 08:00:00', '2026-10-20 10:00:00'),
+        (4, 1, 'cancelled', '2026-10-04', '2026-10-04 08:00:00', null);
+    `)
+    for (const s of migrations[changes].sql) sqlite.exec(s)
+
+    expect(
+      sqlite
+        .prepare(
+          'select invoice_id, status, created_at from invoice_status_change order by invoice_id, id'
+        )
+        .all()
+    ).toEqual([
+      { invoice_id: 2, status: 'issued', created_at: '2026-10-02' },
+      { invoice_id: 3, status: 'issued', created_at: '2026-10-03' },
+      { invoice_id: 3, status: 'paid', created_at: '2026-10-20 10:00:00' },
+      { invoice_id: 4, status: 'issued', created_at: '2026-10-04' },
+      { invoice_id: 4, status: 'cancelled', created_at: '2026-10-04 08:00:00' }
+    ])
+  })
+
   it('takes over a database from before the merge, keeping its data', () => {
     const sqlite = legacyDb()
     runMigrations()

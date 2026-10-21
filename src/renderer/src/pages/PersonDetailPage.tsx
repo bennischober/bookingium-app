@@ -3,6 +3,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
+import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -263,7 +264,7 @@ function ContractsTab({ personId }: { personId: number }) {
 
 /** Invoices addressed to the person; a click opens the print view */
 function InvoicesTab({ personId }: { personId: number }) {
-  const navigate = useNavigate()
+  const openInvoice = useOpenInvoice()
   const invoices = trpcReact.invoice.listByPerson.useQuery(personId)
   return (
     <RowTable
@@ -301,9 +302,7 @@ function InvoicesTab({ personId }: { personId: number }) {
           className: 'whitespace-nowrap text-right'
         }
       ]}
-      onRowClick={(invoice) =>
-        navigate({ to: '/invoices/$invoiceId/print', params: { invoiceId: String(invoice.id) } })
-      }
+      onRowClick={openInvoice}
     />
   )
 }

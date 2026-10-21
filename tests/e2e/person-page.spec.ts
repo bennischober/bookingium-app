@@ -76,10 +76,10 @@ test('person page shows memberships, events, invoices and documents', async () =
   await page.getByRole('tab', { name: 'Rechnungen' }).click()
   const invoices = page.getByRole('table', { name: 'Rechnungen an die Person' })
   await expect(invoices.locator('tr', { hasText: '#1041' })).toContainText('Live Music Berlin')
-  // An invoice opens its print view; back returns to the tab
+  // An invoice opens its page; back returns to the tab
   await invoices.locator('tr', { hasText: '#1041' }).click()
-  await page.waitForURL(/invoices\/\d+\/print/)
-  await page.getByRole('button', { name: 'Zurück', exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: 'Rechnung #1041' })).toBeVisible()
+  await page.getByRole('button', { name: 'Zurück', exact: true }).click()
   await expect(page.getByRole('table', { name: 'Rechnungen an die Person' })).toBeVisible()
 
   // Person document: copied into documents/persons/<id>-tom-manager/

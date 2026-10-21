@@ -12,14 +12,15 @@ import { confirmAction } from '@/lib/confirm'
 
 /**
  * Open / print / delete buttons of an invoice row (invoice list and an
- * event's Finanzen tab). Issued invoices open read-only and can't be
- * deleted - they are cancelled from the sheet instead.
+ * event's Finanzen tab). Drafts open in the caller's sheet; issued invoices
+ * open on their page and can't be deleted - they are cancelled there.
  */
 export function InvoiceRowActions({
   invoice,
   onOpen
 }: {
   invoice: InvoiceListItemDto
+  /** Opens a draft */
   onOpen: (invoiceId: number) => void
 }) {
   const navigate = useNavigate()
@@ -42,7 +43,11 @@ export function InvoiceRowActions({
       <RowActionButton
         icon={locked ? Eye : Pencil}
         label={locked ? 'Anzeigen' : 'Bearbeiten'}
-        onClick={() => onOpen(invoice.id)}
+        onClick={() =>
+          locked
+            ? navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(invoice.id) } })
+            : onOpen(invoice.id)
+        }
       />
       <RowActionButton
         icon={Printer}
