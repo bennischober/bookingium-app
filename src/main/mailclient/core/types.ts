@@ -193,10 +193,15 @@ export interface Api {
 
   // compose (sandbox only)
   getContacts(partial: string): Promise<{ name: string; email: string }[]>;
-  saveDraft(draft: DraftInput, draftId?: number): Promise<number>;
-  sendMail(mail: DraftInput): Promise<{ messageId: string }>;
+  /** Stores the draft in Drafts and returns its UID there; `replaceUid` (the UID an earlier
+   *  save returned, or SavedDraft.uid) is removed once the new version is stored */
+  saveDraft(draft: DraftInput, replaceUid?: number | null): Promise<number>;
+  /** `draftUid`: the saved draft this mail was written in, removed once it is sent */
+  sendMail(mail: DraftInput, draftUid?: number | null): Promise<{ messageId: string }>;
   deleteDraft(id: number): Promise<void>;
-  getDraft(id: number): Promise<DraftInput & { id: number }>;
+  /** Moves the saved draft with this UID (from saveDraft) to Trash */
+  discardDraft(uid: number): Promise<void>;
+  getDraft(id: number): Promise<SavedDraft>;
 
   // --- Task 4 additions (optional for implementors, additive) ---
   // write-path observability + recovery: the op journal surfaced to the UI
@@ -243,7 +248,14 @@ export type DraftInput = {
   references: string[];
   attachments: { filename: string; contentType: string; base64: string }[];
   signature?: string;
+  /** Message (DB id) this one answers: it gets \Answered once the reply is sent */
+  repliesTo?: number | null;
+  /** Message (DB id) whose attachments go along (forward) */
+  forwardsFrom?: number | null;
 };
+
+/** A draft opened again: its own content, attachments included, and where it is stored */
+export type SavedDraft = DraftInput & { id: number; uid: number };
 
 // Transport interface (used by the UI to obtain an Api instance).
 // `Api[K]` includes optional methods (Task 3 additions), hence the `-?` and

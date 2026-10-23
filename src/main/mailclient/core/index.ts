@@ -20,9 +20,9 @@ import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_gu
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
-import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary } from './types.js';
+import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
+import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
-import crypto from 'crypto';
 
 export type Logger = {
   info?: (msg: string) => void;
@@ -453,6 +453,9 @@ export class MailCore implements Api {
         e.store.journalUpdate(opId, { state: 'unknown', error: result.reason });
         break;
       case 'failed':
+        // a send the server took but that could not be filed in Sent is marked done by
+        // the engine: back to pending, a replay would send it a second time
+        if (op.state === 'done') break;
         e.store.journalUpdate(opId, { state: 'pending', error: result.reason });
         break;
     }
@@ -577,19 +580,11 @@ export class MailCore implements Api {
     return this.entry(accountId).store.searchContacts(partial);
   }
 
-  async saveDraft(draft: DraftInput, draftId?: number, accountId?: string): Promise<number> {
+  async saveDraft(draft: DraftInput, replaceUid?: number | null, accountId?: string): Promise<number> {
     const e = this.writableEntry(accountId);
-    const draftsFolder = e.store.allFolders().find(f => f.special_use === '\\Drafts')
-      ?? e.store.getFolderByPath('Entwürfe');
-    if (!draftsFolder) throw new Error('no Drafts folder found');
-    const raw = this.buildMimeMessage(e, draft, { draft: true });
-    let oldUid: number | undefined;
-    if (draftId != null) {
-      const kv = e.store.db.prepare('SELECT value FROM kv WHERE key = ?').get(`draft:${draftId}`) as { value: string } | undefined;
-      if (kv) {
-        try { oldUid = (JSON.parse(kv.value) as { uid?: number }).uid; } catch { /* ignore */ }
-      }
-    }
+    const draftsFolder = this.draftsFolder(e);
+    const { raw } = await this.buildMimeMessage(e, draft, { draft: true });
+    const oldUid = replaceUid ?? undefined;
     const opId = e.store.journalEnqueue({
       accountId: e.config.id, kind: 'draft_save',
       folderPath: draftsFolder.imap_path, folderUidValidity: draftsFolder.uid_validity ?? undefined,
@@ -602,39 +597,65 @@ export class MailCore implements Api {
     await this.applyOpResult(e, opId, result);
     const updated = e.store.journalGet(opId);
     const appendedUid = updated ? (JSON.parse(updated.payload || '{}') as { appendedUid?: number }).appendedUid : undefined;
-    if (!appendedUid) throw new Error('draft APPEND failed (no uid recorded)');
-    e.store.db.prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
-      .run(`draft:${draftId ?? 'new'}`, JSON.stringify({ uid: appendedUid, folder: draftsFolder.imap_path, at: this.clock() }));
+    if (!appendedUid) {
+      // the editor still holds the draft and saves it again; a queued copy would come back later
+      e.store.journalUpdate(opId, { state: 'cancelled' });
+      throw new Error(`draft not saved: ${'reason' in result ? result.reason : result.outcome}`);
+    }
+    e.writes.requestResync(draftsFolder.imap_path);
     return appendedUid;
   }
 
-  async sendMail(mail: DraftInput, accountId?: string): Promise<{ messageId: string }> {
+  async sendMail(mail: DraftInput, draftUid?: number | null, accountId?: string): Promise<{ messageId: string }> {
     const e = this.writableEntry(accountId);
-    const raw = this.buildMimeMessage(e, mail, { draft: false });
-    const messageId = (raw.toString('latin1').match(/^Message-ID:\s*<([^>]+)>/im)?.[1]) || '';
-    if (!messageId) throw new Error('internal: Message-ID missing from built MIME');
-    const mimeNoBcc = this.stripBccHeader(raw);
+    if (!mail.to.length && !mail.cc.length && !mail.bcc.length) throw new ComposeError('Kein Empfänger angegeben');
+    const { raw, messageId } = await this.buildMimeMessage(e, mail, { draft: false });
+    const head = raw.subarray(0, raw.indexOf('\r\n\r\n')).toString('latin1');
+    if (/^Bcc:/im.test(head)) throw new Error('internal: Bcc header in a mail to send');
     const envelope = {
+      from: e.options.email ?? e.config.user,
       to: mail.to.map(a => a.email),
       cc: mail.cc.map(a => a.email),
       bcc: mail.bcc.map(a => a.email),
     };
     const sentFolder = e.store.allFolders().find(f => f.special_use === '\\Sent')
       ?? e.store.getFolderByPath('Gesendete Objekte');
+    const draftsFolder = draftUid != null ? this.draftsFolder(e) : null;
     const opId = e.store.journalEnqueue({
       accountId: e.config.id, kind: 'send', messageId,
       payload: {
-        mime: mimeNoBcc.toString('base64'), messageId, envelope,
+        mime: raw.toString('base64'), messageId, envelope,
         sentFolderPath: sentFolder?.imap_path ?? null,
+        draft: draftsFolder && { path: draftsFolder.imap_path, uid: draftUid, uidValidity: draftsFolder.uid_validity },
       },
     });
     const op = e.store.journalGet(opId)!;
     e.store.journalUpdate(opId, { state: 'running' });
     const result = await e.writes.execute({ ...op, state: 'running' });
     await this.applyOpResult(e, opId, result);
-    if (result.outcome === 'failed') throw new Error(`send failed (queued for retry): ${result.reason}`);
-    if (result.outcome === 'conflict') throw new Error(`send needs resolution: ${result.reason}`);
+    if (result.outcome === 'failed' && e.store.journalGet(opId)?.state !== 'done') {
+      // refused before the server took it: nothing went out, the editor stays open with
+      // the mail, and sending again is a new op (a queued one would go out unasked later)
+      e.store.journalUpdate(opId, { state: 'cancelled' });
+      throw new Error(`Senden fehlgeschlagen: ${result.reason}`);
+    }
+    if (result.outcome === 'conflict' || result.outcome === 'unknown') {
+      throw new Error(`Versand unklar, bitte im Ordner Gesendet prüfen: ${result.reason}`);
+    }
+    if (sentFolder) e.writes.requestResync(sentFolder.imap_path);
+    if (draftsFolder) e.writes.requestResync(draftsFolder.imap_path);
+    if (mail.repliesTo != null) {
+      // best effort: the reply is out either way
+      await this.replayOps(e, this.planFlagOp(e, [mail.repliesTo], { add: ['\\Answered'] })).catch(() => { });
+    }
     return { messageId };
+  }
+
+  private draftsFolder(e: AccountEntry) {
+    const folder = e.store.allFolders().find(f => f.special_use === '\\Drafts')
+      ?? e.store.getFolderByPath('Entwürfe');
+    if (!folder) throw new Error('no Drafts folder found');
+    return folder;
   }
 
   async deleteDraft(id: number, accountId?: string): Promise<void> {
@@ -652,21 +673,42 @@ export class MailCore implements Api {
     await this.replayOps(e, [opId]);
   }
 
-  async getDraft(id: number, accountId?: string): Promise<DraftInput & { id: number }> {
+  async discardDraft(uid: number, accountId?: string): Promise<void> {
+    const e = this.writableEntry(accountId);
+    const folder = this.draftsFolder(e);
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id, kind: 'draft_delete',
+      folderPath: folder.imap_path, folderUidValidity: folder.uid_validity ?? undefined, uid,
+      targetFolderPath: e.store.allFolders().find(f => f.special_use === '\\Trash')?.imap_path ?? 'Trash',
+    });
+    await this.replayOps(e, [opId]);
+  }
+
+  async getDraft(id: number, accountId?: string): Promise<SavedDraft> {
     const e = this.entry(accountId);
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`draft ${id} not found`);
+    // from the stored source, not the row: the row has no Bcc and no attachment content
+    const parsed = await simpleParser(fs.readFileSync(path.join(e.config.dataDir, row.file_path)));
+    const list = (field: typeof parsed.to) => (Array.isArray(field) ? field : field ? [field] : [])
+      .flatMap(a => a.value)
+      .filter(a => a.address)
+      .map(a => ({ name: a.name || '', email: a.address! }));
+    const refs = parsed.references;
     return {
       id,
-      to: this.safeJson(row.to_json, []),
-      cc: this.safeJson(row.cc_json, []),
-      bcc: [],
-      subject: row.subject,
-      bodyText: row.body_text,
-      bodyHtml: row.body_html,
-      inReplyTo: row.in_reply_to,
-      references: this.safeJson(row.references_json, []),
-      attachments: [],
+      uid: row.uid,
+      to: list(parsed.to),
+      cc: list(parsed.cc),
+      bcc: list(parsed.bcc),
+      subject: parsed.subject ?? '',
+      bodyText: parsed.text ?? '',
+      bodyHtml: parsed.html || null,
+      inReplyTo: parsed.inReplyTo ?? null,
+      references: Array.isArray(refs) ? refs : refs ? refs.split(/\s+/).filter(Boolean) : [],
+      attachments: (parsed.attachments || [])
+        .filter(a => a.contentDisposition !== 'inline' || !a.contentId)
+        .map(a => ({ filename: a.filename || 'Anhang', contentType: a.contentType, base64: a.content.toString('base64') })),
     };
   }
 
@@ -765,37 +807,24 @@ export class MailCore implements Api {
     try { return JSON.parse(s) as T; } catch { return fallback; }
   }
 
-  private buildMimeMessage(e: AccountEntry, mail: DraftInput, opts: { draft: boolean }): Buffer {
-    const addr = (a: { name: string; email: string }[]) =>
-      a.map(x => x.name ? `${x.name.replace(/[",;]/g, '')} <${x.email}>` : x.email).join(', ');
-    const fromEmail = e.options.email ?? e.config.user;
-    const headers: string[] = [
-      `From: ${addr([{ name: fromEmail.split('@')[0], email: fromEmail }])}`,
-      `To: ${addr(mail.to)}`,
-    ];
-    if (mail.cc.length) headers.push(`Cc: ${addr(mail.cc)}`);
-    if (mail.bcc.length) headers.push(`Bcc: ${addr(mail.bcc)}`);
-    const subj = mail.subject
-      ? `=?UTF-8?B?${Buffer.from(mail.subject, 'utf8').toString('base64')}?=`
-      : '(no subject)';
-    headers.push(`Subject: ${subj}`);
-    headers.push(`Date: ${new Date(this.clock()).toUTCString()}`);
-    headers.push(`Message-ID: <${crypto.randomUUID()}@mail-client.local>`);
-    if (mail.inReplyTo) headers.push(`In-Reply-To: ${mail.inReplyTo}`);
-    if (mail.references.length) headers.push(`References: ${mail.references.join(' ')}`);
-    headers.push('MIME-Version: 1.0');
-    headers.push('Content-Type: text/plain; charset=utf-8');
-    headers.push('Content-Transfer-Encoding: base64');
-    if (opts.draft) headers.push('X-Mail-Client-Draft: yes');
-    const bodyB64 = Buffer.from(mail.bodyText, 'utf8').toString('base64');
-    const wrapped = bodyB64.replace(/(.{76})/g, '$1\r\n');
-    return Buffer.from(headers.join('\r\n') + '\r\n\r\n' + wrapped + '\r\n');
+  private async buildMimeMessage(e: AccountEntry, mail: DraftInput, opts: { draft: boolean }): Promise<ComposedMime> {
+    const extraAttachments = mail.forwardsFrom != null ? await this.attachmentsOf(e, mail.forwardsFrom) : [];
+    return composeMime(mail, {
+      from: { name: '', email: e.options.email ?? e.config.user },
+      date: new Date(this.clock()),
+      draft: opts.draft,
+      extraAttachments,
+    });
   }
 
-  private stripBccHeader(raw: Buffer): Buffer {
-    const text = raw.toString('latin1');
-    const stripped = text.replace(/^Bcc:.*?\r?\n(?:[ \t]+.*?\r?\n)*/im, '');
-    return Buffer.from(stripped, 'latin1');
+  /** The attachments of a stored message as files, inline images (part of its HTML) left out */
+  private async attachmentsOf(e: AccountEntry, id: number): Promise<{ filename: string; contentType: string; content: Buffer }[]> {
+    const row = e.store.getMessage(id);
+    if (!row) throw new Error(`message ${id} not found`);
+    const parsed = await simpleParser(fs.readFileSync(path.join(e.config.dataDir, row.file_path)));
+    return (parsed.attachments || [])
+      .filter(a => a.contentDisposition !== 'inline' || !a.contentId)
+      .map(a => ({ filename: a.filename || 'Anhang', contentType: a.contentType, content: a.content }));
   }
 
   private opToSummary(op: JournalRow): OpSummary {

@@ -357,7 +357,9 @@ export class WriteEngine {
   private async doSend(op: JournalRow): Promise<OpResult> {
     const payload = JSON.parse(op.payload || '{}') as {
       mime: string; messageId: string; sentFolderPath: string;
-      envelope: { to: string[]; cc: string[]; bcc: string[] };
+      envelope: { from?: string; to: string[]; cc: string[]; bcc: string[] };
+      /** The saved draft this mail was written in; it goes once the mail is sent */
+      draft?: { path: string; uid: number; uidValidity: string | null };
     };
     const mimeBuf = Buffer.from(payload.mime, 'base64');
     if (op.state === 'unknown') {
@@ -381,7 +383,10 @@ export class WriteEngine {
       });
       await transporter.sendMail({
         raw: mimeBuf,
-        envelope: { from: '', to: [...payload.envelope.to, ...payload.envelope.cc, ...payload.envelope.bcc] },
+        envelope: {
+          from: payload.envelope.from ?? '',
+          to: [...payload.envelope.to, ...payload.envelope.cc, ...payload.envelope.bcc],
+        },
       });
     } catch (e) {
       const msg = (e as Error).message || '';
@@ -397,11 +402,23 @@ export class WriteEngine {
     }
     // SMTP acked. Now file into Sent (retryable separately — never re-send)
     const filed = await this.appendToSent(op, payload, mimeBuf);
+    if (payload.draft) await this.removeSentDraft(payload.draft);
     if (filed === true) return { outcome: 'done' };
     // sent but not filed: record sent state durably first — a later append retry must
     // not resend; resolution probe finds it via Message-ID
     this.store.journalUpdate(op.id, { state: 'done', error: `sent, but sent-append failed: ${filed}` });
     return { outcome: 'failed', reason: `sent-append: ${filed} (already delivered — will file, not resend)` };
+  }
+
+  /** Best effort: the mail is out, a draft left behind is only clutter */
+  private async removeSentDraft(draft: { path: string; uid: number; uidValidity: string | null }): Promise<void> {
+    const client = await this.sandboxClient().catch(() => null);
+    if (!client) return;
+    try {
+      await this.removeDraft(client, draft.path, draft.uid, draft.uidValidity);
+    } catch { /* see above */ } finally {
+      await client.logout().catch(() => { });
+    }
   }
 
   /** Probe the Sent folder for a Message-ID ('sent' | 'absent' | 'unavailable'). */
@@ -461,32 +478,48 @@ export class WriteEngine {
   private async doDraftSave(op: JournalRow): Promise<OpResult> {
     const payload = JSON.parse(op.payload || '{}') as { mime: string; oldUid?: number; appendedUid?: number };
     const mimeBuf = Buffer.from(payload.mime, 'base64');
-    const draftsPath = this.store.allFolders().find(f => f.special_use?.includes('Drafts'))?.imap_path || 'Drafts';
+    const draftsPath = op.folder_path
+      || this.store.allFolders().find(f => f.special_use?.includes('Drafts'))?.imap_path || 'Drafts';
     const client = await this.sandboxClient();
     try {
-      const appended = await client.append(draftsPath, mimeBuf, ['\\Draft'], this.clock());
-      // record the new uid durably (crash after APPEND → replay finds the copy and
-      // must NOT append twice: resume path checks appendedUid first)
-      if (appended && typeof appended === 'object' && appended.uid) {
+      // record the new uid durably: a replay after a crash past the APPEND finds it and
+      // must NOT append a second copy
+      if (!payload.appendedUid) {
+        const appended = await client.append(draftsPath, mimeBuf, ['\\Seen', '\\Draft'], this.clock());
+        if (!appended || typeof appended !== 'object' || !appended.uid) {
+          return { outcome: 'failed', reason: 'draft APPEND returned no uid (no UIDPLUS?)' };
+        }
         payload.appendedUid = Number(appended.uid);
         this.store.journalUpdate(op.id, { payload });
       }
-      // remove the previous version with the same safety checks (uid given)
-      if (payload.oldUid != null && op.folder_path) {
-        const pf = await this.preflight({ ...op, uid: payload.oldUid, folder_path: op.folder_path }, client);
-        if (pf.ok) {
-          await client.messageDelete(String(payload.oldUid), { uid: true });
-        }
-        // previous draft gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5)
+      // previous version gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5)
+      if (payload.oldUid != null) {
+        await this.removeDraft(client, draftsPath, payload.oldUid, op.folder_uidvalidity);
       }
       return { outcome: 'done' };
     } catch (e) {
-      // crash-resume: if the APPEND already happened (appendedUid recorded) but the
-      // old version wasn't cleaned, the op is done from a data perspective
-      if (payload.appendedUid) return { outcome: 'done', detail: 'resumed: draft already appended' };
+      // the new version is stored; an old one left behind is only clutter
+      if (payload.appendedUid) return { outcome: 'done', detail: 'draft appended, old version kept' };
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) };
     } finally {
       await client.logout().catch(() => { });
     }
+  }
+
+  /** Permanently removes one saved version of a draft: only in the Drafts folder it was
+   *  saved to (same UIDVALIDITY), only a message flagged \Draft, only by UID EXPUNGE. */
+  private async removeDraft(client: ImapFlow, draftsPath: string, uid: number, uidValidity: string | null): Promise<string> {
+    const mb = await client.mailboxOpen(draftsPath);
+    if (uidValidity && String(mb.uidValidity) !== uidValidity) return 'UIDVALIDITY changed';
+    const caps = [...(client as unknown as { capabilities: Set<string> }).capabilities].map(c => (Array.isArray(c) ? c[0] : c));
+    if (!caps.includes('UIDPLUS')) return 'no UIDPLUS';
+    let isDraft: boolean | null = null;
+    for await (const m of client.fetch(String(uid), { uid: true, flags: true }, { uid: true })) {
+      isDraft = m.flags?.has('\\Draft') ?? false;
+    }
+    if (isDraft === null) return 'absent';
+    if (!isDraft) return 'not a draft';
+    await client.messageDelete(String(uid), { uid: true });
+    return 'removed';
   }
 }
