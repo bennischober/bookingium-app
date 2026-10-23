@@ -11,6 +11,7 @@ import type BetterSqlite3 from 'better-sqlite3';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { runMigrations } from './migrations.js';
 
 
 export type Flags = { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean };
@@ -107,142 +108,15 @@ export class Store {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
     this.db.pragma('foreign_keys = ON');
-    this.migrate();
+    try {
+      runMigrations(this.db);
+    } catch (err) {
+      // never leave a half-opened DB behind (Windows keeps the file locked)
+      this.db.close();
+      throw err;
+    }
   }
   readonly dataDirResolved: string;
-
-  private migrate() {
-    this.db.exec(`
-CREATE TABLE IF NOT EXISTS folders (
-  id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL,
-  imap_path TEXT NOT NULL,
-  delimiter TEXT NOT NULL DEFAULT '/',
-  special_use TEXT,
-  uid_validity TEXT,
-  uid_next INTEGER,
-  highest_modseq TEXT,
-  last_sync_at TEXT,
-  -- Task 3 (no-CONDSTORE servers): tiered flag refresh — when this folder last had
-  -- ALL of its flags fetched (FETCH 1:* FLAGS). NULL = never.
-  last_flag_sweep TEXT,
-  UNIQUE(account_id, imap_path)
-);
-
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY,
-  account_id TEXT NOT NULL,
-  folder_id TEXT NOT NULL REFERENCES folders(id),
-  uid INTEGER NOT NULL,
-  message_key TEXT NOT NULL UNIQUE,
-  file_path TEXT NOT NULL,
-  message_id TEXT,
-  in_reply_to TEXT,
-  references_json TEXT NOT NULL DEFAULT '[]',
-  thread_id TEXT,
-  date TEXT,
-  internal_date TEXT,
-  subject TEXT NOT NULL DEFAULT '',
-  from_name TEXT NOT NULL DEFAULT '',
-  from_email TEXT NOT NULL DEFAULT '',
-  to_json TEXT NOT NULL DEFAULT '[]',
-  cc_json TEXT NOT NULL DEFAULT '[]',
-  bcc_json TEXT NOT NULL DEFAULT '[]',
-  flags_json TEXT NOT NULL DEFAULT '{}',
-  modseq TEXT,
-  has_attachments INTEGER NOT NULL DEFAULT 0,
-  attachments_json TEXT NOT NULL DEFAULT '[]',
-  size_bytes INTEGER NOT NULL DEFAULT 0,
-  body_text TEXT NOT NULL DEFAULT '',
-  body_html TEXT,
-  snippet TEXT NOT NULL DEFAULT '',
-  parsed_ok INTEGER NOT NULL DEFAULT 1,
-  parse_error TEXT,
-  sort_date TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_messages_folder ON messages(folder_id, uid);
-CREATE INDEX IF NOT EXISTS idx_messages_date ON messages(date);
-CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_email);
-CREATE INDEX IF NOT EXISTS idx_messages_msgid ON messages(message_id);
-CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
--- NOTE: idx_messages_sort (folder_id, sort_date DESC) is created AFTER the sort_date
--- migration below, because existing DBs get the column via ALTER TABLE there.
-
-CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(
-  subject, from_name, from_email, to_json, body_text, attachments_json,
-  content='messages', content_rowid='id',
-  tokenize='unicode61 remove_diacritics 2'
-);
-CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
-  INSERT INTO fts(rowid, subject, from_name, from_email, to_json, body_text, attachments_json)
-  VALUES (new.id, new.subject, new.from_name, new.from_email, new.to_json, new.body_text, new.attachments_json);
-END;
-CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-  INSERT INTO fts(fts, rowid, subject, from_name, from_email, to_json, body_text, attachments_json)
-  VALUES ('delete', old.id, old.subject, old.from_name, old.from_email, old.to_json, old.body_text, old.attachments_json);
-END;
--- deliberately NO update trigger (see Store.updateMessage: DELETE+INSERT pattern)
-
-CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
-CREATE TABLE IF NOT EXISTS contacts (
-  email TEXT PRIMARY KEY,
-  name TEXT,
-  last_seen TEXT
-);
-`);
-    // migration for DBs created before sort_date existed
-    const hasSort = this.db.prepare("SELECT COUNT(*) c FROM pragma_table_info('messages') WHERE name = 'sort_date'").get() as { c: number };
-    if (!hasSort.c) {
-      this.db.exec(`ALTER TABLE messages ADD COLUMN sort_date TEXT;
-        UPDATE messages SET sort_date = COALESCE(date, internal_date);`);
-    }
-    // needs the column (created above for old DBs; present from CREATE for new ones)
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sort ON messages(folder_id, sort_date DESC)`);
-    // Task 3: vocabulary table for prefix-cost pre-checks. A slow typist fires one
-    // search per prefix ("v"*, "ve"*, "ver"*…); German prefixes over 32k mails build
-    // doclists in the hundreds of thousands and block the single thread for 10s+ per
-    // query (measured 2026-10-23). fts5vocab lets us estimate the doclist size with a
-    // cheap B-tree range scan BEFORE running the pathological MATCH.
-    this.db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS fts_vocab USING fts5vocab('fts', 'row')`);
-    // global search sorts across ALL folders by sort_date; without this index SQLite
-    // materializes every matching row (each ~75 KB with overflow pages) into a temp
-    // B-tree before sorting — measured 1.2-2.1 s on 20k hits. With it, the planner can
-    // walk rows already in sort order and test the FTS predicate per row, stopping after
-    // LIMIT rows (measured <10 ms for the first page).
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sort_date ON messages(sort_date DESC)`);
-    // migration for DBs created before last_flag_sweep existed (Task 3, flag tiers)
-    const hasSweep = this.db.prepare("SELECT COUNT(*) c FROM pragma_table_info('folders') WHERE name = 'last_flag_sweep'").get() as { c: number };
-    if (!hasSweep.c) {
-      this.db.exec(`ALTER TABLE folders ADD COLUMN last_flag_sweep TEXT`);
-    }
-    // Task 4: prune debounce column
-    const hasAbsent = this.db.prepare("SELECT COUNT(*) c FROM pragma_table_info('folders') WHERE name = 'list_absent_since'").get() as { c: number };
-    if (!hasAbsent.c) {
-      this.db.exec(`ALTER TABLE folders ADD COLUMN list_absent_since TEXT`);
-    }
-    // Task 4: operation journal (write path). Journal-first: every user action is
-    // committed here BEFORE any server contact; crash-safe via WAL. See
-    // docs/WRITE_PATH.md §1 for the state machine and rationale.
-    this.db.exec(`CREATE TABLE IF NOT EXISTS op_journal (
-      id TEXT PRIMARY KEY,
-      account_id TEXT NOT NULL,
-      kind TEXT NOT NULL,
-      state TEXT NOT NULL DEFAULT 'pending',
-      folder_path TEXT,
-      folder_uidvalidity TEXT,
-      uid INTEGER,
-      message_key TEXT,
-      message_id TEXT,
-      payload TEXT,
-      target_folder_path TEXT,
-      attempts INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      error TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_ops_state ON op_journal(state, created_at);
-    CREATE INDEX IF NOT EXISTS idx_ops_folder ON op_journal(account_id, folder_path, state);`);
-  }
 
   messageKey(accountId: string, folderId: string, uidValidity: string, uid: number): string {
     // folderId is part of the key: UIDVALIDITY is per-mailbox and can coincide across
