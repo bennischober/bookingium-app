@@ -186,6 +186,40 @@ test('the mail page shows folders, messages and a sandboxed reader', async () =>
   await expect(page.getByText(/\d+ Treffer · \d+ ms/)).toBeVisible()
 })
 
+test('the mail panes can be resized and keep their width', async () => {
+  const { page } = h
+  await openMailPage()
+  const list = page.getByRole('region', { name: 'Postfachliste' })
+  const splitter = page.getByRole('separator', { name: 'Breite der Nachrichtenliste' })
+  const width = async () => Math.round((await list.boundingBox())!.width)
+  await expect(splitter).toBeVisible({ timeout: 30_000 })
+  const before = await width()
+
+  const box = (await splitter.boundingBox())!
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 60, y, { steps: 5 })
+  await page.mouse.up()
+  expect(await width()).toBe(before + 60)
+
+  await splitter.press('ArrowLeft')
+  expect(await width()).toBe(before + 44)
+
+  // Remembered across a reload
+  await openMailPage()
+  await expect.poll(width).toBe(before + 44)
+
+  await splitter.dblclick()
+  expect(await width()).toBe(352)
+
+  // Clickable rows and buttons show the hand cursor
+  const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
+  await expect(row).toHaveCSS('cursor', 'pointer', { timeout: 30_000 })
+  await expect(page.getByRole('button', { name: 'Filter' })).toHaveCSS('cursor', 'pointer')
+})
+
 test('a read-only account refuses writes', async () => {
   test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
   // Plain text is accepted for a production account on loopback only

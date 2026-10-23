@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Lock, Pause, Play, RefreshCw, Search, WifiOff, X } from 'lucide-react'
+import { Lock, Mail, Pause, Play, RefreshCw, Search, WifiOff, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
@@ -20,12 +20,17 @@ import {
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
 import { MessageView } from '@/components/mail/MessageView'
+import { PaneResizer } from '@/components/mail/PaneResizer'
+import { useStoredWidth } from '@/hooks/useStoredWidth'
 import { flattenFolders, folderLabel, isInbox, isTrash, messageKey } from '@/components/mail/format'
 import type { SearchFilters, SyncStatus } from '../../../main/mailclient/core/types'
 
 const PAGE_SIZE = 100
 // Shorter queries match too much to be useful (FTS prefix search)
 const MIN_QUERY_LENGTH = 3
+// Pane widths in px; the user can drag them, see PaneResizer
+const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
+const LIST_PANE = { initial: 352, min: 260, max: 720 }
 
 type ExtraFilters = { from: string; after: string; before: string; hasAttachment: boolean }
 const NO_FILTERS: ExtraFilters = { from: '', after: '', before: '', hasAttachment: false }
@@ -170,6 +175,16 @@ export default function MailPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [facetFolderId, setFacetFolderId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const [folderWidth, setFolderWidth] = useStoredWidth(
+    'mail.folderPaneWidth',
+    FOLDER_PANE.initial,
+    FOLDER_PANE
+  )
+  const [listWidth, setListWidth] = useStoredWidth(
+    'mail.listPaneWidth',
+    LIST_PANE.initial,
+    LIST_PANE
+  )
 
   const ready = Boolean(account) && workerStatus.data?.running === true
 
@@ -459,7 +474,8 @@ export default function MailPage() {
 
       <div className="flex min-h-0 flex-1">
         <nav
-          className="hidden w-56 shrink-0 overflow-auto border-r p-2 lg:block"
+          className="hidden shrink-0 overflow-auto p-2 lg:block"
+          style={{ width: folderWidth }}
           aria-label="Ordnerliste"
         >
           {folders.isLoading ? (
@@ -472,9 +488,20 @@ export default function MailPage() {
             />
           )}
         </nav>
+        <PaneResizer
+          label="Breite der Ordnerliste"
+          className="hidden lg:block"
+          width={folderWidth}
+          defaultWidth={FOLDER_PANE.initial}
+          min={FOLDER_PANE.min}
+          max={FOLDER_PANE.max}
+          onResize={setFolderWidth}
+        />
 
         <section
-          className="flex w-72 shrink-0 flex-col border-r xl:w-[22rem]"
+          // The reader keeps at least a third of the window
+          className="flex max-w-[45vw] shrink-0 flex-col"
+          style={{ width: listWidth }}
           aria-label="Postfachliste"
         >
           <div className="space-y-2 border-b p-2">
@@ -619,6 +646,14 @@ export default function MailPage() {
             )}
           </div>
         </section>
+        <PaneResizer
+          label="Breite der Nachrichtenliste"
+          width={listWidth}
+          defaultWidth={LIST_PANE.initial}
+          min={LIST_PANE.min}
+          max={LIST_PANE.max}
+          onResize={setListWidth}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           {selectedId !== null ? (
@@ -637,7 +672,10 @@ export default function MailPage() {
               onArchive={hasArchive ? (id) => void moveAway(id, 'archive') : undefined}
             />
           ) : (
-            <p className="m-auto text-sm text-muted-foreground">Keine E-Mail ausgewählt.</p>
+            <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="size-10 stroke-1" aria-hidden />
+              <p>Keine E-Mail ausgewählt.</p>
+            </div>
           )}
         </div>
       </div>

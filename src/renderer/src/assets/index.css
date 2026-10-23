@@ -154,6 +154,19 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Clickable controls show the hand cursor; Tailwind v4 resets buttons to
+     the arrow. Utilities such as cursor-default still win over this. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  label:has(> input[type='checkbox'], > input[type='radio']) {
+    cursor: pointer;
+  }
 }
 
 /* ========================================

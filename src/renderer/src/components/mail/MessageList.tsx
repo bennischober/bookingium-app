@@ -57,6 +57,27 @@ export function MessageList({
       ?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
 
+  // Load the next page when the end of the list scrolls into view; the
+  // button stays for keyboard users and as a fallback
+  const moreRef = useRef<HTMLLIElement>(null)
+  const loadMore = useRef(onLoadMore)
+  useEffect(() => {
+    loadMore.current = onLoadMore
+  })
+  useEffect(() => {
+    const target = moreRef.current
+    if (!target || !hasMore || loadingMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore.current()
+      },
+      // The parent is the scroll box; the margin starts loading a bit early
+      { root: listRef.current?.parentElement, rootMargin: '400px 0px' }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, items.length])
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     const index = items.findIndex((m) => m.id === selectedId)
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -81,7 +102,7 @@ export function MessageList({
       aria-label="Nachrichten"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="outline-none"
+      className="group outline-none"
     >
       {items.map((m) => {
         const selected = m.id === selectedId
@@ -93,8 +114,11 @@ export function MessageList({
             data-message-id={m.id}
             onClick={() => onSelect(m.id)}
             className={cn(
-              'cursor-default border-b px-3 py-2 text-sm',
-              selected ? 'bg-primary/10' : 'hover:bg-muted/60'
+              'cursor-pointer border-b px-3 py-2 text-sm',
+              selected
+                ? // An accent bar, and a ring while the list has keyboard focus
+                  'bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)] group-focus-visible:ring-2 group-focus-visible:ring-ring/50 group-focus-visible:ring-inset'
+                : 'hover:bg-muted/60'
             )}
           >
             <div className="flex items-baseline gap-2">
@@ -116,7 +140,7 @@ export function MessageList({
                   aria-label="Anhang"
                 />
               )}
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                 {formatListDate(m.date ?? m.internalDate)}
               </span>
             </div>
@@ -130,7 +154,7 @@ export function MessageList({
         )
       })}
       {hasMore && (
-        <li className="p-2 text-center">
+        <li ref={moreRef} className="p-2 text-center">
           <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loadingMore}>
             {loadingMore ? 'Wird geladen…' : 'Weitere laden'}
           </Button>
