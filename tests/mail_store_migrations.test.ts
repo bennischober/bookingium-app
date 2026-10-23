@@ -13,7 +13,7 @@ import {
   StoreVersionError,
   type Migration
 } from '../src/main/mailclient/core/migrations'
-import { Store } from '../src/main/mailclient/core/store'
+import { Store, type MessageRow } from '../src/main/mailclient/core/store'
 
 const ACCOUNT = 'acc'
 
@@ -134,13 +134,22 @@ describe('mail store migrations', () => {
     expect(
       store.db.prepare(`SELECT rowid FROM fts WHERE fts MATCH 'testbetreff'`).all()
     ).toHaveLength(1)
+
+    // migration 2: the body left the messages table and is still found
+    expect(columns(store.db, 'messages')).not.toContain('body_text')
+    expect(store.getByKey('k7')).toMatchObject({ body_text: 'Platzhalter', body_html: null })
+    expect(
+      store.db.prepare(`SELECT rowid FROM fts WHERE fts MATCH 'platzhalter'`).all()
+    ).toHaveLength(1)
   })
 
   it('adopts an unversioned store that already has the whole schema', () => {
     const dir = tempDir()
-    const first = open(dir)
-    first.db.prepare(`INSERT INTO kv (key, value) VALUES ('marker', 'kept')`).run()
-    first.db.pragma('user_version = 0')
+    // the newest schema from before versioning is what migration 1 builds
+    const first = new Database(dbFile(dir))
+    runMigrations(first, MIGRATIONS.slice(0, 1))
+    first.prepare(`INSERT INTO kv (key, value) VALUES ('marker', 'kept')`).run()
+    first.pragma('user_version = 0')
     first.close()
 
     const store = open(dir)
@@ -220,5 +229,100 @@ describe('runMigrations', () => {
   it('numbers the shipped migrations 1..n', () => {
     expect(MIGRATIONS.map((m) => m.version)).toEqual(MIGRATIONS.map((_, i) => i + 1))
     expect(SCHEMA_VERSION).toBe(MIGRATIONS.length)
+  })
+})
+
+describe('message bodies (migration 2)', () => {
+  let n = 0
+  function message(folderId: string, subject: string, body: string): Omit<MessageRow, 'id'> {
+    n++
+    return {
+      account_id: ACCOUNT,
+      folder_id: folderId,
+      uid: n,
+      message_key: `key-${n}`,
+      file_path: `key-${n}.eml`,
+      message_id: null,
+      in_reply_to: null,
+      references_json: '[]',
+      thread_id: null,
+      date: '2026-03-04T05:06:07.000Z',
+      internal_date: null,
+      subject,
+      from_name: '',
+      from_email: '',
+      to_json: '[]',
+      cc_json: '[]',
+      bcc_json: '[]',
+      flags_json: '{}',
+      modseq: null,
+      has_attachments: 0,
+      attachments_json: '[]',
+      size_bytes: 0,
+      body_text: body,
+      body_html: `<p>${body}</p>`,
+      snippet: '',
+      parsed_ok: 1,
+      parse_error: null
+    }
+  }
+
+  function storeWithFolder(): { store: Store; folderId: string } {
+    const store = open(tempDir())
+    const folder = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
+    return { store, folderId: folder.id }
+  }
+
+  const hits = (store: Store, word: string): number[] =>
+    store
+      .search({ matchExpr: store.ftsEscapeUserQuery(word), limit: 50, offset: 0 })
+      .rows.map((r) => r.id)
+
+  it('stores the body apart and finds it through search and snippets', () => {
+    const { store, folderId } = storeWithFolder()
+    const id = store.insertMessage(message(folderId, 'Betreff eins', 'Zitronenkuchen am Freitag'))
+
+    expect(
+      store.db.prepare('SELECT body_text, body_html FROM message_bodies WHERE id = ?').get(id)
+    ).toEqual({
+      body_text: 'Zitronenkuchen am Freitag',
+      body_html: '<p>Zitronenkuchen am Freitag</p>'
+    })
+    expect(store.getMessage(id)).toMatchObject({
+      subject: 'Betreff eins',
+      body_text: 'Zitronenkuchen am Freitag'
+    })
+    expect(hits(store, 'zitronen')).toEqual([id])
+    expect(store.searchSnippets(store.ftsEscapeUserQuery('zitronen'), [id])[id]).toContain(
+      '[Zitronenkuchen]'
+    )
+    // lists stay slim
+    expect(store.listByFolder(folderId, 0, 10)[0]).not.toHaveProperty('body_text')
+    expect(store.ftsIntegrityCheck()).toBe(true)
+  })
+
+  it('reindexes a changed body', () => {
+    const { store, folderId } = storeWithFolder()
+    const id = store.insertMessage(message(folderId, 'Betreff zwei', 'Apfelstrudel'))
+    store.updateMessage(id, { body_text: 'Kirschtorte', body_html: null })
+
+    expect(store.getMessage(id)).toMatchObject({ body_text: 'Kirschtorte', body_html: null })
+    expect(hits(store, 'apfelstrudel')).toEqual([])
+    expect(hits(store, 'kirschtorte')).toEqual([id])
+    expect(store.ftsIntegrityCheck()).toBe(true)
+  })
+
+  it('removes body and index entry with the message, also on a plain DELETE', () => {
+    const { store, folderId } = storeWithFolder()
+    const a = store.insertMessage(message(folderId, 'Betreff drei', 'Pflaumenmus'))
+    const b = store.insertMessage(message(folderId, 'Betreff vier', 'Pflaumenmus'))
+
+    store.deleteMessages([a])
+    // the sync's folder swap deletes rows with raw SQL
+    store.db.prepare('DELETE FROM messages WHERE id = ?').run(b)
+
+    expect(store.db.prepare('SELECT COUNT(*) AS n FROM message_bodies').get()).toEqual({ n: 0 })
+    expect(hits(store, 'pflaumenmus')).toEqual([])
+    expect(store.ftsIntegrityCheck()).toBe(true)
   })
 })

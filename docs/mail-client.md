@@ -17,6 +17,8 @@ Goal: a purpose-specific client — fast local search, correspondence tied to cu
   Link to app entities through `mail_link(entity_type, entity_id, message_key)`, keyed by Message-ID based key, not by UID.
 - **Schema versions:** each account DB counts its schema in `PRAGMA user_version` (`core/migrations.ts`). Migrations are append-only and
   run one per transaction; a DB written by a newer build is refused instead of opened. Migration 1 adopts the unversioned DBs from before.
+- **Bodies apart from headers:** `messages` holds what lists, sorting and filters need; text and HTML live in `message_bodies` (same id,
+  deleted with the message). Search still covers the body: the FTS index reads it through the `fts_source` view.
 - **Mail core** lives in `src/main/mailclient/core/` and has no Electron or bookingum imports. It talks to the host only through
   `createMailCore(options)` (data dir, account config, credentials provider, logger, clock) and the `Api` interface in `core/api.ts`.
 - **Process model:** the core runs in an Electron utility process (better-sqlite3 is synchronous; sync and indexing must not block the

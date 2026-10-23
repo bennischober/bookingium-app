@@ -226,26 +226,41 @@ export class Store {
   }
 
   // message helpers ----------------------------------------------------------
+  /** Row, body and FTS entry in one transaction: every message has exactly one of each
+   * (the delete trigger relies on it, see migration 2). */
   insertMessage(m: Omit<MessageRow, 'id'> & { sort_date?: string | null }): number {
     const withSort = { ...m, sort_date: m.sort_date ?? m.date ?? m.internal_date ?? null };
-    const info = this.db.prepare(`INSERT INTO messages (
-      account_id, folder_id, uid, message_key, file_path, message_id, in_reply_to, references_json, thread_id,
-      date, internal_date, sort_date, subject, from_name, from_email, to_json, cc_json, bcc_json, flags_json, modseq,
-      has_attachments, attachments_json, size_bytes, body_text, body_html, snippet, parsed_ok, parse_error)
-      VALUES (@account_id, @folder_id, @uid, @message_key, @file_path, @message_id, @in_reply_to, @references_json, @thread_id,
-      @date, @internal_date, @sort_date, @subject, @from_name, @from_email, @to_json, @cc_json, @bcc_json, @flags_json, @modseq,
-      @has_attachments, @attachments_json, @size_bytes, @body_text, @body_html, @snippet, @parsed_ok, @parse_error)`)
-      .run(withSort);
-    return Number(info.lastInsertRowid);
+    const tx = this.db.transaction(() => {
+      const info = this.db.prepare(`INSERT INTO messages (
+        account_id, folder_id, uid, message_key, file_path, message_id, in_reply_to, references_json, thread_id,
+        date, internal_date, sort_date, subject, from_name, from_email, to_json, cc_json, bcc_json, flags_json, modseq,
+        has_attachments, attachments_json, size_bytes, snippet, parsed_ok, parse_error)
+        VALUES (@account_id, @folder_id, @uid, @message_key, @file_path, @message_id, @in_reply_to, @references_json, @thread_id,
+        @date, @internal_date, @sort_date, @subject, @from_name, @from_email, @to_json, @cc_json, @bcc_json, @flags_json, @modseq,
+        @has_attachments, @attachments_json, @size_bytes, @snippet, @parsed_ok, @parse_error)`)
+        .run(withSort);
+      const id = Number(info.lastInsertRowid);
+      const body = { id, body_text: m.body_text ?? '', body_html: m.body_html ?? null };
+      this.db.prepare('INSERT INTO message_bodies (id, body_text, body_html) VALUES (@id, @body_text, @body_html)').run(body);
+      this.db.prepare(`INSERT INTO fts(rowid, subject, from_name, from_email, to_json, body_text, attachments_json)
+        VALUES (@id, @subject, @from_name, @from_email, @to_json, @body_text, @attachments_json)`)
+        .run({ ...withSort, ...body });
+      return id;
+    });
+    return tx();
   }
 
+  /** Full row including the body; lists read the slim messages columns instead. */
   getMessage(id: number): MessageRow | undefined {
-    return this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as MessageRow | undefined;
+    return this.db.prepare(`${Store.FULL_ROW} WHERE m.id = ?`).get(id) as MessageRow | undefined;
   }
 
   getByKey(messageKey: string): MessageRow | undefined {
-    return this.db.prepare('SELECT * FROM messages WHERE message_key = ?').get(messageKey) as MessageRow | undefined;
+    return this.db.prepare(`${Store.FULL_ROW} WHERE m.message_key = ?`).get(messageKey) as MessageRow | undefined;
   }
+
+  private static readonly FULL_ROW = `SELECT m.*, COALESCE(b.body_text, '') AS body_text, b.body_html AS body_html
+    FROM messages m LEFT JOIN message_bodies b ON b.id = m.id`;
 
   /**
    * Update a message row while keeping its stable row id and keeping the external-content
@@ -267,12 +282,15 @@ export class Store {
       date=@date, internal_date=@internal_date, sort_date=@sort_date, subject=@subject, from_name=@from_name, from_email=@from_email,
       to_json=@to_json, cc_json=@cc_json, bcc_json=@bcc_json, flags_json=@flags_json, modseq=@modseq,
       has_attachments=@has_attachments, attachments_json=@attachments_json, size_bytes=@size_bytes,
-      body_text=@body_text, body_html=@body_html, snippet=@snippet, parsed_ok=@parsed_ok, parse_error=@parse_error
+      snippet=@snippet, parsed_ok=@parsed_ok, parse_error=@parse_error
       WHERE id=@id`);
+    const body = this.db.prepare(`INSERT INTO message_bodies (id, body_text, body_html) VALUES (@id, @body_text, @body_html)
+      ON CONFLICT(id) DO UPDATE SET body_text=excluded.body_text, body_html=excluded.body_html`);
     const tx = this.db.transaction(() => {
       ftsDelete.run(row);
       update.run({ ...merged, sort_date: merged.sort_date ?? merged.date ?? merged.internal_date ?? null });
-      ftsInsert.run(merged);
+      body.run({ id, body_text: merged.body_text ?? '', body_html: merged.body_html ?? null });
+      ftsInsert.run({ ...merged, body_text: merged.body_text ?? '' });
     });
     tx();
   }

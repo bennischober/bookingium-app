@@ -198,8 +198,57 @@ CREATE TABLE IF NOT EXISTS contacts (
   CREATE INDEX IF NOT EXISTS idx_ops_folder ON op_journal(account_id, folder_path, state);`);
 }
 
+/**
+ * 2: bodies leave the messages table. A row was ~75 KB with its text and HTML on overflow
+ * pages, so every list query, sort and flag sweep dragged them along. Now
+ * message_bodies holds them (same id, one row per message, deleted with it), and
+ * messages keeps only what lists and search filters need.
+ *
+ * The FTS index is external-content and reads column values back (snippet(),
+ * integrity-check, rebuild), so it now reads them through the fts_source view. Index
+ * writes stay explicit in Store (insert, update) apart from the delete trigger, which
+ * runs BEFORE the delete so the body is still there to take out of the index. Every
+ * message is indexed with COALESCE(body, ''), in the view and in the trigger alike.
+ */
+function splitBodies(db: BetterSqlite3.Database): void {
+  db.exec(`
+CREATE TABLE message_bodies (
+  id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+  body_text TEXT NOT NULL DEFAULT '',
+  body_html TEXT
+);
+INSERT INTO message_bodies (id, body_text, body_html) SELECT id, body_text, body_html FROM messages;
+
+-- the index and its triggers name the old columns; they go first and are rebuilt below
+DROP TRIGGER IF EXISTS messages_ai;
+DROP TRIGGER IF EXISTS messages_ad;
+DROP TABLE IF EXISTS fts_vocab;
+DROP TABLE IF EXISTS fts;
+ALTER TABLE messages DROP COLUMN body_text;
+ALTER TABLE messages DROP COLUMN body_html;
+
+CREATE VIEW fts_source AS
+  SELECT m.id AS id, m.subject AS subject, m.from_name AS from_name, m.from_email AS from_email,
+    m.to_json AS to_json, COALESCE(b.body_text, '') AS body_text, m.attachments_json AS attachments_json
+  FROM messages m LEFT JOIN message_bodies b ON b.id = m.id;
+CREATE VIRTUAL TABLE fts USING fts5(
+  subject, from_name, from_email, to_json, body_text, attachments_json,
+  content='fts_source', content_rowid='id',
+  tokenize='unicode61 remove_diacritics 2'
+);
+INSERT INTO fts(fts) VALUES('rebuild');
+CREATE VIRTUAL TABLE fts_vocab USING fts5vocab('fts', 'row');
+CREATE TRIGGER messages_bd BEFORE DELETE ON messages BEGIN
+  INSERT INTO fts(fts, rowid, subject, from_name, from_email, to_json, body_text, attachments_json)
+  VALUES ('delete', old.id, old.subject, old.from_name, old.from_email, old.to_json,
+    COALESCE((SELECT body_text FROM message_bodies WHERE id = old.id), ''), old.attachments_json);
+END;
+`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
+  { version: 2, name: 'split bodies', up: splitBodies },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
