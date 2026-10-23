@@ -3,7 +3,7 @@
 // email prototype (docker compose, ports 10143/10144/1025). Skipped when the
 // sandbox is not running. Never touches a real mailbox.
 import { test, expect } from '@playwright/test'
-import { connect } from 'net'
+import { connect, createServer, type AddressInfo } from 'net'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
@@ -85,16 +85,25 @@ test.afterAll(async () => {
 })
 
 type Account = { id: string; kind: string }
+type Saved = { test: { ok: boolean; stage?: string }; account?: Account }
+
+/** Saves through the connection test; fails the test when the server refuses the settings */
+async function saveAccount(input: Record<string, unknown>): Promise<Account> {
+  const saved = await trpc<Saved>('mutation', 'mail.accounts.save', input)
+  expect(saved.test).toMatchObject({ ok: true })
+  return saved.account!
+}
 type Folder = { id: string; path: string; totalCount: number; children: Folder[] }
 
 let sandboxId: string
 let readOnlyId: string | undefined
 
 test('a sandbox account is saved with an encrypted password', async () => {
-  const account = await trpc<Account>('mutation', 'mail.accounts.save', {
+  const account = await saveAccount({
     kind: 'sandbox',
     host: SANDBOX.host,
     port: SANDBOX.port,
+    security: 'none',
     user: SANDBOX_USER,
     email: SANDBOX_USER,
     password: SANDBOX_PASS
@@ -179,10 +188,12 @@ test('the mail page shows folders, messages and a sandboxed reader', async () =>
 
 test('a read-only account refuses writes', async () => {
   test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
-  const readOnly = await trpc<Account>('mutation', 'mail.accounts.save', {
+  // Plain text is accepted for a production account on loopback only
+  const readOnly = await saveAccount({
     kind: 'production-readonly',
     host: SANDBOX.host,
     port: SANDBOX.ionosLikePort,
+    security: 'none',
     user: SANDBOX_USER,
     email: SANDBOX_USER,
     password: SANDBOX_PASS
@@ -236,6 +247,50 @@ test('the settings list the mail accounts', async () => {
   const list = page.getByRole('list', { name: 'E-Mail-Konten' })
   await expect(list.getByRole('listitem')).toHaveCount(readOnlyId ? 2 : 1)
   if (readOnlyId) await expect(list.getByText('Nur lesen')).toBeVisible()
+})
+
+test('the account dialog tests the connection and saves only what passes', async () => {
+  const { page } = h
+  const list = page.getByRole('list', { name: 'E-Mail-Konten' })
+  const before = await list.getByRole('listitem').count()
+
+  await page.getByRole('button', { name: 'Postfach hinzufügen…' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('E-Mail-Adresse').fill(SANDBOX_USER)
+  await dialog.getByLabel('IMAP-Server').fill(SANDBOX.host)
+  await dialog.getByRole('combobox', { name: 'Verschlüsselung' }).click()
+  await page.getByRole('option', { name: /^Keine/ }).click()
+  await dialog.getByLabel('Port').fill(String(SANDBOX.port))
+  await dialog.getByLabel('Passwort').fill(SANDBOX_PASS)
+
+  const result = dialog.getByTestId('mail-account-test-result')
+  await dialog.getByRole('button', { name: 'Verbindung testen' }).click()
+  await expect(result).toContainText(/Verbindung erfolgreich: \d+ Ordner gefunden/, {
+    timeout: 20_000
+  })
+
+  // Nothing listens on a port that was just freed
+  const closedPort = await new Promise<number>((resolve) => {
+    const server = createServer().listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as AddressInfo
+      server.close(() => resolve(port))
+    })
+  })
+  await dialog.getByLabel('Port').fill(String(closedPort))
+  await expect(result).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Verbindung testen' }).click()
+  await expect(result).toContainText('an diesem Port antwortet kein Mailserver', {
+    timeout: 20_000
+  })
+
+  // A rejected password is reported and nothing is saved
+  await dialog.getByLabel('Port').fill(String(SANDBOX.port))
+  await dialog.getByLabel('Passwort').fill('wrong-password')
+  await dialog.getByRole('button', { name: 'Speichern' }).click()
+  await expect(result).toContainText('Anmeldung abgelehnt', { timeout: 20_000 })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Abbrechen' }).click()
+  await expect(list.getByRole('listitem')).toHaveCount(before)
 })
 
 test('unknown methods are refused before reaching the core', async () => {

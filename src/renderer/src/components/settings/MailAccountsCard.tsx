@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -23,7 +23,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { connectionTestMessage, SECURITY_LABELS, SECURITY_PORTS } from '@/lib/mailConnection'
 import type { MailAccountDto, MailAccountKind } from '../../../../main/mailclient/accounts'
+import type { ConnectionTestResult } from '../../../../main/mailclient/core/connection_test'
+import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
+import type { ImapSecurity } from '../../../../main/mailclient/core/types'
 
 const KIND_LABELS: Record<MailAccountKind, string> = {
   'production-readonly': 'Nur lesen',
@@ -36,6 +40,7 @@ type Draft = {
   email: string
   host: string
   port: string
+  security: ImapSecurity
   user: string
   password: string
 }
@@ -45,8 +50,40 @@ const EMPTY_DRAFT: Draft = {
   email: '',
   host: '',
   port: '993',
+  security: 'tls',
   user: '',
   password: ''
+}
+
+/** Result of "Verbindung testen", or of the test that runs before saving */
+function TestResult({ result }: { result: ConnectionTestResult }) {
+  if (result.ok) {
+    return (
+      <p
+        className="flex gap-2 text-sm text-emerald-700 dark:text-emerald-400"
+        role="status"
+        data-testid="mail-account-test-result"
+      >
+        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        {connectionTestMessage(result)}
+      </p>
+    )
+  }
+  return (
+    <div
+      className="flex gap-2 text-sm text-destructive"
+      role="alert"
+      data-testid="mail-account-test-result"
+    >
+      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="min-w-0">
+        <p>{connectionTestMessage(result)}</p>
+        {result.stage === 'other' && (
+          <p className="break-words text-xs text-muted-foreground">{result.message}</p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 /** Add or edit one account; the stored password is never shown again */
@@ -61,6 +98,7 @@ function MailAccountDialog({
 }) {
   const utils = trpcReact.useUtils()
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
+  const [result, setResult] = useState<ConnectionTestResult | null>(null)
   const [lastOpen, setLastOpen] = useState(false)
   // Reset the form each time the dialog opens (state adjustment during render)
   if (open !== lastOpen) {
@@ -71,11 +109,21 @@ function MailAccountDialog({
           ? { ...account, port: String(account.port), password: '' }
           : { ...EMPTY_DRAFT, kind: 'production-readonly' }
       )
+      setResult(null)
     }
   }
 
+  const test = trpcReact.mail.accounts.test.useMutation({
+    onSuccess: setResult,
+    onError: (error) =>
+      toast.error('Verbindungstest fehlgeschlagen', { description: error.message })
+  })
+
+  // The server checks the settings first and saves only what passes
   const save = trpcReact.mail.accounts.save.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setResult(data.test)
+      if (!data.account) return
       void utils.mail.invalidate()
       toast.success('E-Mail-Konto gespeichert')
       onOpenChange(false)
@@ -84,34 +132,69 @@ function MailAccountDialog({
       toast.error('Konto konnte nicht gespeichert werden', { description: error.message })
   })
 
-  const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
+  // Any change makes the last result stale
+  const set = (patch: Partial<Draft>) => {
+    setDraft((d) => ({ ...d, ...patch }))
+    setResult(null)
+  }
   const port = Number(draft.port)
-  const valid =
-    draft.email.trim() !== '' &&
+  // No login without encryption across a network
+  const plainAllowed = draft.kind === 'sandbox' || allowsPlainLogin(draft.host)
+  const securities: ImapSecurity[] = plainAllowed
+    ? ['tls', 'starttls', 'none']
+    : ['tls', 'starttls']
+  const connectionValid =
     draft.host.trim() !== '' &&
     draft.user.trim() !== '' &&
     Number.isInteger(port) &&
     port > 0 &&
     port < 65536 &&
+    securities.includes(draft.security) &&
     (account !== null || draft.password !== '')
+  const valid = connectionValid && draft.email.trim() !== ''
+  const busy = test.isLoading || save.isLoading
   // The local test server only makes sense on a developer machine
   const kinds: MailAccountKind[] =
     import.meta.env.DEV || account?.kind === 'sandbox'
       ? ['production-readonly', 'sandbox']
       : ['production-readonly']
 
+  const changeKind = (kind: MailAccountKind) =>
+    set(
+      kind !== 'sandbox' && draft.security === 'none' && !allowsPlainLogin(draft.host)
+        ? { kind, security: 'tls', port: String(SECURITY_PORTS.tls) }
+        : { kind }
+    )
+
+  // Follow the usual port unless the user typed another one
+  const changeSecurity = (security: ImapSecurity) =>
+    set(
+      draft.port === '' || draft.port === String(SECURITY_PORTS[draft.security])
+        ? { security, port: String(SECURITY_PORTS[security]) }
+        : { security }
+    )
+
+  const connection = () => ({
+    id: account?.id,
+    kind: draft.kind,
+    host: draft.host.trim(),
+    port,
+    security: draft.security,
+    user: draft.user.trim(),
+    password: draft.password === '' ? undefined : draft.password
+  })
+
+  const runTest = () => {
+    if (!connectionValid || busy) return
+    setResult(null)
+    test.mutate(connection())
+  }
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (!valid) return
-    save.mutate({
-      id: account?.id,
-      kind: draft.kind,
-      email: draft.email.trim(),
-      host: draft.host.trim(),
-      port,
-      user: draft.user.trim(),
-      password: draft.password === '' ? undefined : draft.password
-    })
+    if (!valid || busy) return
+    setResult(null)
+    save.mutate({ ...connection(), email: draft.email.trim() })
   }
 
   return (
@@ -133,7 +216,7 @@ function MailAccountDialog({
               <Label htmlFor="mail-account-kind">Art</Label>
               <Select
                 value={draft.kind}
-                onValueChange={(kind) => set({ kind: kind as MailAccountKind })}
+                onValueChange={(kind) => changeKind(kind as MailAccountKind)}
               >
                 <SelectTrigger id="mail-account-kind">
                   <SelectValue />
@@ -166,16 +249,35 @@ function MailAccountDialog({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="mail-account-host">IMAP-Server</Label>
+            <Input
+              id="mail-account-host"
+              value={draft.host}
+              onChange={(e) => set({ host: e.target.value })}
+              placeholder="imap.ionos.de"
+              spellCheck={false}
+            />
+          </div>
+
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <div className="space-y-2">
-              <Label htmlFor="mail-account-host">IMAP-Server</Label>
-              <Input
-                id="mail-account-host"
-                value={draft.host}
-                onChange={(e) => set({ host: e.target.value })}
-                placeholder="imap.ionos.de"
-                spellCheck={false}
-              />
+              <Label htmlFor="mail-account-security">Verschlüsselung</Label>
+              <Select
+                value={draft.security}
+                onValueChange={(security) => changeSecurity(security as ImapSecurity)}
+              >
+                <SelectTrigger id="mail-account-security">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {securities.map((security) => (
+                    <SelectItem key={security} value={security}>
+                      {SECURITY_LABELS[security]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="mail-account-port">Port</Label>
@@ -218,13 +320,30 @@ function MailAccountDialog({
             </p>
           )}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Abbrechen
+          {busy && (
+            <p className="text-sm text-muted-foreground" role="status">
+              Verbindung wird geprüft (höchstens 15 Sekunden)…
+            </p>
+          )}
+          {result && !busy && <TestResult result={result} />}
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={runTest}
+              disabled={!connectionValid || busy}
+            >
+              {test.isLoading ? 'Wird geprüft…' : 'Verbindung testen'}
             </Button>
-            <Button type="submit" disabled={!valid || save.isLoading}>
-              {save.isLoading ? 'Wird gespeichert…' : 'Speichern'}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                Abbrechen
+              </Button>
+              <Button type="submit" disabled={!valid || busy}>
+                {save.isLoading ? 'Wird geprüft…' : 'Speichern'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -287,7 +406,8 @@ export function MailAccountsCard() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{account.email}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {account.user} · {account.host}:{account.port}
+                    {account.user} · {account.host}:{account.port} ·{' '}
+                    {SECURITY_LABELS[account.security]}
                   </p>
                 </div>
                 <Badge variant={account.kind === 'sandbox' ? 'outline' : 'secondary'}>

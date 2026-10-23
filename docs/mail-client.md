@@ -4,6 +4,9 @@ Status: **spike, branch `feat/mail-client`**. The core was built and proven in a
 (`D:\Projects\Arbeit\Brainstorm\email-prototype`, tasks 1–5, reports `REPORT*.md`). This document records the decisions
 so the integration does not re-litigate them. Not in the release until the canary and pilot gates below are passed.
 
+**Source of truth:** since 2026-10-23 the core is developed here, in `src/main/mailclient/core/`. The prototype is a test
+bench; changes made there are ported by hand, never copied over the core.
+
 ## Why
 Outlook with a large IMAP account (~32k mails, 276 folders, ~13.5 GB, IONOS) is slow and its search is unusable.
 Goal: a purpose-specific client — fast local search, correspondence tied to customers/events/invoices — not a general mail client.
@@ -24,6 +27,14 @@ Goal: a purpose-specific client — fast local search, correspondence tied to cu
 IONOS has no CONDSTORE/QRESYNC. Sync is UID-list sweeps plus tiered FLAGS sweeps (INBOX/open folder: IDLE, recently active: short poll,
 cold folders: slow). IDLE works on IONOS (~8 s propagation). UIDVALIDITY change: resync that folder, never apply stale UIDs.
 Deletion of local data based on a server listing is gated (three gates; an empty or truncated LIST must never prune).
+
+**Connections have hard limits** (`core/imap_options.ts`): 15 s to connect, 10 s for the greeting, 120 s of silence mid-command.
+An unreachable server shows "Offline · nächster Versuch in …" and the next poll retries. **A rejected login is never retried:**
+the engine stops all server contact for that account until the account is saved again (a lockout on the live account
+is worse than a stale inbox). Accounts are only saved after "Verbindung testen" passes (one attempt, at most 15 s, with
+the worker paused so a live server never sees more than two connections). Encryption is set explicitly (SSL/TLS or
+STARTTLS, which is required, never opportunistic), never guessed from the port; a login without encryption is
+allowed only to loopback (the sandbox, or a local tunnel).
 
 ## Write path (never lose mail, never send twice)
 - Every action is written to a persistent **op journal** before anything touches the server; ops resume or are safely abandoned after a crash.

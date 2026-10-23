@@ -1,7 +1,7 @@
-# app/core — the mail core
+# The mail core
 
-Self-contained mail engine, extracted in Task 5 Step 1 so it can be copied into the
-Electron app (bookingum) **verbatim**. Nothing in this folder imports the HTTP server,
+Self-contained mail engine, extracted in the prototype (Task 5 Step 1) and developed in
+bookingum since 2026-10-23: this copy is the source of truth (see docs/mail-client.md). Nothing in this folder imports the HTTP server,
 the browser client, or anything UI-related; there are no `process.env` reads and no
 hard-coded paths, ports or URLs anywhere in `app/core/`. Static regression checks for
 all of these claims live in `app/scripts/test-core-boundary.ts` (8 checks).

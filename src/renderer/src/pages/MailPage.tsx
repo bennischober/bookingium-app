@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Lock, Pause, Play, RefreshCw, Search, X } from 'lucide-react'
+import { Lock, Pause, Play, RefreshCw, Search, WifiOff, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
+import { retryIn } from '@/lib/mailConnection'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,23 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced
 }
 
+/** The current time, updated every second while `active` (for countdowns) */
+function useNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const tick = () => setNow(Date.now())
+    // `now` may be old when the countdown starts
+    const first = setTimeout(tick, 0)
+    const timer = setInterval(tick, 1000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(timer)
+    }
+  }, [active])
+  return now
+}
+
 function SyncIndicator({
   status,
   onPause,
@@ -49,7 +67,38 @@ function SyncIndicator({
   onResume: () => void
   onSync: () => void
 }) {
+  const offline = status?.connection === 'offline' && !status.running
+  const now = useNow(offline && Boolean(status?.retryAt))
   if (!status) return null
+  // The banner below the header explains this one
+  if (status.connection === 'auth-failed') {
+    return (
+      <div className="text-xs text-destructive" aria-live="polite">
+        Anmeldung fehlgeschlagen
+      </div>
+    )
+  }
+  if (offline) {
+    const due = status.retryAt ? new Date(status.retryAt).getTime() <= now : false
+    return (
+      <div
+        className="flex items-center gap-1 text-xs text-muted-foreground"
+        aria-live="polite"
+        title={status.connectionError ?? undefined}
+        data-testid="mail-offline"
+      >
+        <WifiOff className="size-3.5" />
+        <span>
+          Offline
+          {status.retryAt &&
+            (due ? ' · verbinde…' : ` · nächster Versuch ${retryIn(status.retryAt, now)}`)}
+        </span>
+        <Button variant="ghost" size="icon-xs" onClick={onSync} title="Jetzt verbinden">
+          <RefreshCw />
+        </Button>
+      </div>
+    )
+  }
   const initial = status.phase === 'initial' || status.phase === 'paused'
   const progress =
     initial && status.messagesDone !== undefined
@@ -70,7 +119,9 @@ function SyncIndicator({
       ) : status.running ? (
         <>
           <Spinner className="size-3" />
-          <span>Synchronisiere · {progress}</span>
+          <span>
+            {status.connection === 'connecting' ? 'Verbinde…' : `Synchronisiere · ${progress}`}
+          </span>
           {initial && (
             <Button variant="ghost" size="icon-xs" onClick={onPause} title="Pausieren">
               <Pause />
@@ -189,8 +240,12 @@ export default function MailPage() {
     queryKey: ['mail', accountId, 'sync'],
     queryFn: () => mailApi.getSyncStatus(accountId),
     enabled: ready,
-    refetchInterval: (data) => (data?.running ? 2000 : 10_000)
+    refetchInterval: (data) =>
+      data?.running || data?.connection === 'connecting' || data?.connection === 'offline'
+        ? 2000
+        : 10_000
   })
+  const loginFailed = syncStatus.data?.connection === 'auth-failed'
 
   // Refresh folders and lists when the sync stored something new; batched,
   // the initial download reports every folder
@@ -380,6 +435,26 @@ export default function MailPage() {
         <p role="alert" className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
           Der E-Mail-Dienst läuft nicht: {workerStatus.data.error}
         </p>
+      )}
+
+      {loginFailed && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive"
+          data-testid="mail-login-failed"
+        >
+          <p className="min-w-0 flex-1">
+            Anmeldung fehlgeschlagen: Der Server hat Benutzername oder Passwort abgelehnt.
+            Bookingium versucht es erst wieder, wenn das Konto neu gespeichert wird.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}
+          >
+            Zugangsdaten prüfen
+          </Button>
+        </div>
       )}
 
       <div className="flex min-h-0 flex-1">

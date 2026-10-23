@@ -1,7 +1,7 @@
 // Messages between the main process (MailClientService) and the mail worker
 // (utility process hosting the mail core). Structured clone, so Uint8Array
 // payloads (raw .eml, attachments) pass as is.
-import type { Api } from './core/types'
+import type { Api, ImapSecurity } from './core/types'
 
 /** Api methods the renderer may call; everything else is refused */
 export const MAIL_API_METHODS = [
@@ -47,6 +47,7 @@ export type WorkerAccount = {
   kind: 'sandbox' | 'production-readonly'
   host: string
   port: number
+  security: ImapSecurity
   email?: string
 }
 

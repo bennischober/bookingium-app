@@ -26,6 +26,8 @@ export class MailClientService {
   private pending = new Map<number, Pending>()
   private crashes: number[] = []
   private lastError: string | null = null
+  /** whileStopped() calls in progress */
+  private held = 0
 
   status(): { running: boolean; error: string | null } {
     return { running: this.worker !== null && this.starting === null, error: this.lastError }
@@ -56,6 +58,26 @@ export class MailClientService {
     this.startIfConfigured()
   }
 
+  /**
+   * Runs `fn` with the worker stopped and kept stopped (calls fail meanwhile), then starts it
+   * with the current accounts. For connection tests: a live server allows two connections,
+   * and the worker may already hold both.
+   */
+  async whileStopped<T>(fn: () => Promise<T>): Promise<T> {
+    this.held++
+    try {
+      await this.stop()
+      return await fn()
+    } finally {
+      this.held--
+      if (this.held === 0) {
+        this.crashes = []
+        this.lastError = null
+        this.startIfConfigured()
+      }
+    }
+  }
+
   async stop(timeoutMs = 15_000): Promise<void> {
     await this.starting?.catch(() => {})
     const worker = this.worker
@@ -79,6 +101,8 @@ export class MailClientService {
   }
 
   private ensureStarted(): Promise<void> {
+    if (this.held > 0)
+      return Promise.reject(new Error('Mail-Client pausiert für den Verbindungstest'))
     if (this.worker && !this.starting) return Promise.resolve()
     if (!this.starting) {
       this.starting = this.spawn().finally(() => {
@@ -164,11 +188,12 @@ export class MailClientService {
     const sandbox = accounts.find((a) => a.kind === 'sandbox')
     return {
       dataDir: join(mailRoot(), 'data'),
-      accounts: accounts.map(({ id, kind, host, port, email }) => ({
+      accounts: accounts.map(({ id, kind, host, port, security, email }) => ({
         id,
         kind,
         host,
         port,
+        security,
         email
       })),
       // The core's write guard refuses any host outside its loopback allowlist

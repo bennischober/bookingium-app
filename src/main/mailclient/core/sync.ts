@@ -19,12 +19,14 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { Store, Flags } from './store.js';
+import type { ConnectionState, ImapSecurity } from './types.js';
+import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 
 export interface AccountConfig {
   id: string;
   host: string;
   port: number;
-  secure: boolean;
+  security: ImapSecurity;
   user: string;    // resolved lazily by the host's credentials provider (createMailCore)
   pass: string;
   readOnly: boolean;           // true for production
@@ -40,12 +42,16 @@ export interface AccountConfig {
  * longer reads process.env or derives repo paths. These two builders keep the pacing
  * defaults that were tuned for IONOS (Task 3) so hosts get sane numbers for free. */
 export function makeProductionAccount(input: {
-  id: string; host: string; port: number; user: string; pass: string; dataDir: string;
+  id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {
+  // never a password in the clear across a network
+  if (input.security === 'none' && !allowsPlainLogin(input.host)) {
+    throw new Error(`account ${input.id}: a production account needs TLS or STARTTLS`);
+  }
   return {
     id: input.id,
     host: input.host, port: input.port,
-    secure: input.port === 993,
+    security: input.security,
     user: input.user, pass: input.pass,
     readOnly: true,
     dataDir: input.dataDir,
@@ -57,12 +63,12 @@ export function makeProductionAccount(input: {
 }
 
 export function makeSandboxAccount(input: {
-  id: string; host: string; port: number; user: string; pass: string; dataDir: string;
+  id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {
   return {
     id: input.id,
     host: input.host, port: input.port,
-    secure: false,
+    security: input.security,
     user: input.user, pass: input.pass,
     readOnly: false,            // sandbox: write path enabled (but only via write_guard)
     dataDir: input.dataDir,
@@ -93,6 +99,10 @@ export type SyncProgress = {
   phase: 'idle' | 'initial' | 'incremental' | 'paused' | 'error';
   paused: boolean;
   accountId: string;
+  // whether the server can be reached; 'auth-failed' is final until the account is saved again
+  connection: ConnectionState;
+  retryAt: string | null;      // when offline: the next attempt
+  connectionError: string | null;
 };
 
 export class SyncEngine {
@@ -107,7 +117,14 @@ export class SyncEngine {
     foldersSynced: 0, foldersTotal: 0, newMessages: 0, flagChanges: 0, expunged: 0, errors: [],
     currentFolder: null, messagesDone: 0, messagesTotal: null, bytesDone: 0,
     phase: 'idle', paused: false, accountId: 'unknown',
+    connection: 'connecting', retryAt: null, connectionError: null,
   };
+  // A rejected login stops all server contact for good: retrying a wrong password gets the
+  // account locked. Only a new engine (the host restarts the core after a save) logs in again.
+  private authFailed = false;
+  /** Called once when the login is rejected (the factory drops its cached credentials). */
+  onAuthFailed: (() => void) | null = null;
+  private nextPollAt: number | null = null;
   // move correlation within one sync pass (QRESYNC reports a move as vanish+new)
   private passDeletedMsgIds = new Set<string>();
   private passInsertedMsgIds = new Set<string>();
@@ -166,7 +183,33 @@ export class SyncEngine {
   get isSandbox(): boolean { return !this.account.readOnly; }
 
   getStatus(): SyncProgress {
-    return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused };
+    const retryAt = this.progress.connection === 'offline' && this.nextPollAt !== null
+      ? new Date(this.nextPollAt).toISOString() : null;
+    return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt };
+  }
+
+  /** A connection attempt failed: a rejected login stops the engine, anything else is offline. */
+  private noteConnectFailure(e: unknown): void {
+    if (this.authFailed) return;
+    const message = e instanceof Error ? e.message : String(e);
+    if (!isAuthFailure(e)) {
+      this.progress.connection = 'offline';
+      this.progress.connectionError = message;
+      return;
+    }
+    this.authFailed = true;
+    this.stopped = true;
+    this.pollingStop = true;
+    this.progress.connection = 'auth-failed';
+    this.progress.connectionError = message;
+    this.progress.idleConnected = false;
+    this.emit({ type: 'error', path: null, message: 'login rejected: no further attempts until the account is saved again' });
+    try { this.onAuthFailed?.(); } catch { /* the stop above stands either way */ }
+  }
+
+  private noteOnline(): void {
+    this.progress.connection = 'online';
+    this.progress.connectionError = null;
   }
 
   isSyncing(): boolean { return this.syncing; }
@@ -255,19 +298,24 @@ export class SyncEngine {
   }
 
   private newClient(): ImapFlow {
-    return new ImapFlow({
+    const client = new ImapFlow({
       host: this.account.host,
       port: this.account.port,
-      secure: this.account.secure,
+      ...imapSecurityOptions(this.account.security),
       auth: { user: this.account.user, pass: this.account.pass },
       // enables CONDSTORE + QRESYNC (+UTF8=ACCEPT) automatically after login.
       // Harmless when the server lacks them (server just ignores ENABLE).
       qresync: true,
       logger: false, emitLogs: false,
-      // gentle timeouts: don't hang forever on a live server
-      connectionTimeout: 30_000,
-      greetingTimeout: 30_000,
+      ...IMAP_TIMEOUTS,
     });
+    // After connect() imapflow reports a dead connection (socket timeout, reset) as an 'error'
+    // event, which would throw without a listener. The connection is closed by then; the next
+    // connect() or the IDLE loop opens a new one.
+    client.on('error', (err: Error) => {
+      this.log.warn?.(`imap connection error: ${err.message}`);
+    });
+    return client;
   }
 
   /** Task 3: server capabilities, detected once per engine (used to pick sync strategy). */
@@ -285,7 +333,9 @@ export class SyncEngine {
   get hasCondstore(): boolean { return this.condstore; }
 
   private async connect(): Promise<ImapFlow> {
+    if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
     await this.gate();
+    if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
     if (this.client && this.client.usable) return this.client;
     if (this.client) { try { this.client.close(); } catch { } this.client = null; }
     // Task 3: hard connection cap (1 sync + 1 IDLE for prod)
@@ -300,9 +350,11 @@ export class SyncEngine {
       await client.connect();
     } catch (e) {
       this.connectionCount--;
+      this.noteConnectFailure(e);
       this.noteDisconnect();
       throw e;
     }
+    this.noteOnline();
     client.on('close', () => {
       this.connectionCount = Math.max(0, this.connectionCount - 1);
       if (this.client === client || this.idleClient === client) this.noteDisconnect();
@@ -852,8 +904,9 @@ export class SyncEngine {
           await this.syncFolder(p, opts);
           this.noteSuccess();
         } catch (e) {
-          // circuit breaker already noted the error; stop the pass if open
-          if (Date.now() < this.circuitOpenUntil) {
+          // circuit breaker already noted the error; stop the pass if open. Without a
+          // connection every further folder would only wait out its own connect timeout.
+          if (Date.now() < this.circuitOpenUntil || this.progress.connection !== 'online') {
             this.progress.phase = 'error';
             return this.getStatus();
           }
@@ -892,13 +945,26 @@ export class SyncEngine {
   //  - updates arrive as 'exists' / 'expunge' / 'flags' / 'highestModseq' events.
   //  - a manual `await client.idle()` would block until IDLE is *finished* — never used here.
   async startIdle(mailboxPath = 'INBOX', onChange?: () => void): Promise<void> {
+    if (this.authFailed) return;
     this.stopped = false;
     const loop = async () => {
       while (!this.stopped) {
         try {
           if (!this.idleClient || !this.idleClient.usable) {
+            // Only once the main connection is logged in: a wrong password is then tried
+            // once, not on both connections, and an offline server is probed by one loop
+            while (!this.stopped && this.progress.connection !== 'online') {
+              await new Promise(r => setTimeout(r, 500));
+            }
+            if (this.stopped) break;
             this.idleClient = this.newClient();
-            await this.idleClient.connect();
+            try {
+              await this.idleClient.connect();
+            } catch (e) {
+              // with the main connection still up only this one failed: not offline
+              if (isAuthFailure(e) || !this.client?.usable) this.noteConnectFailure(e);
+              throw e;
+            }
             this.progress.idleConnected = true;
           }
           const client = this.idleClient;
@@ -976,6 +1042,7 @@ export class SyncEngine {
           this.progress.idleConnected = false;
           this.emit({ type: 'error', path: mailboxPath, message: `idle: ${(e as Error).message}` });
           if (this.idleClient) { try { this.idleClient.close(); } catch { } this.idleClient = null; }
+          if (this.authFailed) break;
           this.noteDisconnect();
           this.noteError('idle');
           // circuit breaker open → idle in cooldown before reconnecting
@@ -1002,11 +1069,18 @@ export class SyncEngine {
   private pollingStop = false;
   private pollCount = 0;
   async startPolling(intervalMs = 60_000): Promise<void> {
+    if (this.authFailed) return;
     this.pollingStop = false;
     const loop = async () => {
       while (!this.pollingStop) {
+        this.nextPollAt = Date.now() + intervalMs;
         await new Promise(r => setTimeout(r, intervalMs));
         if (this.pollingStop || this.syncing) continue;
+        // a first pass that never finished (started offline, or cut off) is run again
+        if (!this.lastSyncAt) {
+          await this.syncAll();
+          continue;
+        }
         try {
           const client = await this.connect();
           this.pollCount++;
@@ -1049,10 +1123,12 @@ export class SyncEngine {
           }
           this.noteSuccess();
         } catch (e) {
+          if (this.authFailed) break;
           this.emit({ type: 'error', path: null, message: `poll: ${(e as Error).message}` });
           this.noteError('poll');
         }
       }
+      this.nextPollAt = null;
     };
     void loop();
   }
@@ -1114,6 +1190,7 @@ export class SyncEngine {
 
   stopPolling(): void {
     this.pollingStop = true;
+    this.nextPollAt = null;
   }
 
   stopIdle(): void {

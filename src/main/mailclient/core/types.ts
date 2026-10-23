@@ -123,7 +123,16 @@ export type SyncStatus = {
   paused?: boolean;                 // initial download can be paused/resumed
   accountId?: string;               // which account this status describes
   serverRssMB?: number;             // process-wide server RSS in MB (soak monitoring; not per-account)
+  connection?: ConnectionState;     // 'auth-failed' is final until the host restarts the core
+  retryAt?: string | null;          // when offline: ISO time of the next attempt
+  connectionError?: string | null;  // the last connect failure, as the server or socket said it
 };
+
+/** How an IMAP connection is encrypted: TLS from the first byte, upgraded with STARTTLS, or
+ * not at all (sandbox only). Set explicitly, never guessed from the port. */
+export type ImapSecurity = 'tls' | 'starttls' | 'none';
+
+export type ConnectionState = 'connecting' | 'online' | 'offline' | 'auth-failed';
 
 // --- Task 3 additions: account list + per-thread listing -------------------
 export type AccountSummary = {

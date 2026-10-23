@@ -20,7 +20,7 @@ import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_gu
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
-import type { Api, AccountInfo, AccountSummary, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary } from './types.js';
+import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary } from './types.js';
 import { simpleParser } from 'mailparser';
 import crypto from 'crypto';
 
@@ -40,6 +40,8 @@ export interface MailCoreOptions {
     kind: 'sandbox' | 'production-readonly';
     host: string;
     port: number;
+    /** encryption; 'none' is refused for production accounts */
+    security: ImapSecurity;
     /** credentials provider — the HOST supplies them (e.g. Electron safeStorage);
      * called lazily per connection so the host controls lifetime/decryption */
     credentials: () => Promise<{ user: string; pass: string }>;
@@ -113,9 +115,10 @@ export class MailCore implements Api {
 
     for (const a of options.accounts) {
       const dir = path.join(options.dataDir, a.id);
+      const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
       const config: AccountConfig = a.kind === 'production-readonly'
-        ? makeProductionAccount({ id: a.id, host: a.host, port: a.port, user: '', pass: '', dataDir: dir })
-        : makeSandboxAccount({ id: a.id, host: a.host, port: a.port, user: '', pass: '', dataDir: dir });
+        ? makeProductionAccount(input)
+        : makeSandboxAccount(input);
       // user/pass are resolved lazily via ensureCredentials() before any engine
       // contact — never stored at construction, never logged
       const store = new Store(dir, a.id, this.clock);
@@ -135,6 +138,8 @@ export class MailCore implements Api {
       // forward sync events to subscribers (Task 5: events are the core's only
       // progress channel — no console writes inside the core)
       engine.onSyncEvent = ev => this.emitEvent({ type: 'sync-event', accountId: a.id, event: ev });
+      // the rejected password must not stay around; the engine has stopped for good anyway
+      engine.onAuthFailed = () => this.credentialCache.delete(a.id);
     }
     this.activeId = options.accounts[0].id;
   }
