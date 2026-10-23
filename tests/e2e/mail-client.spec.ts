@@ -1,17 +1,18 @@
 // E2E: the mail client end to end (renderer → tRPC → main → utility process
 // → mail core → IMAP) against the local Dovecot/Mailpit sandbox from the
 // email prototype (docker compose, ports 10143/10144/1025). Skipped when the
-// sandbox is not running. Never touches a real mailbox.
+// sandbox is not running. Never touches a real mailbox, nor testuser's: the suite
+// logs in as its own sandbox user and seeds that mailbox itself.
 import { test, expect } from '@playwright/test'
 import { connect, createServer, type AddressInfo } from 'net'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
+import { E2E_MAIL_PASS, E2E_MAIL_USER, seedMailSandbox } from './helpers/mailSandbox'
 
 const SANDBOX = { host: '127.0.0.1', port: 10143, ionosLikePort: 10144 }
-// Fixture account of the sandbox Dovecot (not a real mailbox)
-const SANDBOX_USER = 'testuser@example.test'
-const SANDBOX_PASS = 'testpass'
+const SANDBOX_USER = E2E_MAIL_USER
+const SANDBOX_PASS = E2E_MAIL_PASS
 
 function reachable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -76,6 +77,10 @@ async function waitFor<T>(
 
 test.beforeAll(async () => {
   test.skip(!(await reachable(SANDBOX.port)), 'mail sandbox (Dovecot) is not running')
+  await seedMailSandbox(SANDBOX.host, SANDBOX.port)
+  if (await reachable(SANDBOX.ionosLikePort)) {
+    await seedMailSandbox(SANDBOX.host, SANDBOX.ionosLikePort)
+  }
   h = await launchApp()
   userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
 })
