@@ -359,7 +359,10 @@ describe('InvoiceService', () => {
       await invoices.setInvoiceStatus(draft.id, 'paid')
       const cancelled = await invoices.setInvoiceStatus(draft.id, 'cancelled')
       expect(await statuses(draft.id)).toEqual(['issued', 'overdue', 'issued', 'paid', 'cancelled'])
-      expect(cancelled.statusChanges[0].created_at).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/)
+      // With milliseconds, so the Verlauf can order them against the emails
+      expect(cancelled.statusChanges[0].created_at).toMatch(
+        /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/
+      )
 
       // The Stornorechnung is issued right away, as is an invoice created issued
       expect(await statuses(cancelled.cancelledBy!.id)).toEqual(['issued'])

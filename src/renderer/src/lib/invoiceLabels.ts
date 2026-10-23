@@ -40,7 +40,7 @@ export function invoiceFollowUpName(invoice: {
 
 /**
  * "Per E-Mail senden" of an invoice: "E-Mail erstellt am 20.10.2026 an
- * x@y.de", '' when there was none (emailedAt is SQLite UTC "YYYY-MM-DD HH:MM:SS")
+ * x@y.de", '' when there was none (emailedAt is SQLite UTC "YYYY-MM-DD HH:MM:SS", newer ones with ".SSS")
  */
 export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: string }): string {
   if (!invoice.emailedAt) return ''

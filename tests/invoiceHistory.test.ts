@@ -55,6 +55,30 @@ describe('invoiceHistory', () => {
     ])
   })
 
+  it('orders same-second entries by their milliseconds, emails first on a tie', () => {
+    const history = invoiceHistory({
+      ...base,
+      statusChanges: [
+        { status: 'issued', createdAt: '2026-10-01 08:00:00' },
+        { status: 'overdue', createdAt: '2026-10-21 12:00:00' },
+        { status: 'paid', createdAt: '2026-10-22 10:00:00.734' }
+      ],
+      emails: [
+        { kind: 'invoice', createdAt: '2026-10-22 10:00:00.120', to: '' },
+        { kind: 'reminder', createdAt: '2026-10-21 12:00:00', to: '' }
+      ]
+    })
+    expect(history.map((entry) => entry.label)).toEqual([
+      'Angelegt',
+      'Gestellt',
+      // Recorded together: the reminder, then the „überfällig“ it causes
+      'Zahlungserinnerung erstellt',
+      'Als überfällig markiert',
+      'E-Mail erstellt',
+      'Als bezahlt markiert'
+    ])
+  })
+
   it('links a Stornorechnung to the invoice it cancels', () => {
     const history = invoiceHistory({
       ...base,

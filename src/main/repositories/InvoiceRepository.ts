@@ -32,6 +32,10 @@ import { computeInvoiceAmounts, fromCents } from '../einvoice/amounts'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
+// UTC with milliseconds for the Verlauf's rows: status changes and emails come
+// from two tables, and whole seconds could not tell their order apart
+const NOW_MS = sql`strftime('%Y-%m-%d %H:%M:%f', 'now')`
+
 type SnapshotRow = typeof schema.invoice_party_snapshot.$inferSelect
 type InvoiceRow = typeof schema.invoice.$inferSelect
 
@@ -1034,7 +1038,7 @@ export class InvoiceRepository {
     db.transaction((tx) => {
       const email = tx
         .insert(schema.invoice_email)
-        .values({ invoice_id: id, to, kind })
+        .values({ invoice_id: id, to, kind, created_at: NOW_MS })
         .returning()
         .get()
       if (kind === 'invoice') {
@@ -1076,7 +1080,9 @@ export class InvoiceRepository {
 
   /** Adds the status the invoice moved to to its Verlauf */
   private logStatusTx(tx: Tx, invoiceId: number, status: InvoiceStatus) {
-    tx.insert(schema.invoice_status_change).values({ invoice_id: invoiceId, status }).run()
+    tx.insert(schema.invoice_status_change)
+      .values({ invoice_id: invoiceId, status, created_at: NOW_MS })
+      .run()
   }
 
   /** Changes only the status; assigns the number when a draft is issued */
