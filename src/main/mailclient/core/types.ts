@@ -1,0 +1,245 @@
+// Core data types + the transport-agnostic Api contract.
+// Task 5: moved here from shared/api.ts so the core is self-contained (the Electron
+// integration copies app/core/ verbatim). shared/api.ts re-exports these names and adds
+// the browser HttpTransport — the UI keeps importing from shared/api with no changes.
+export type FolderNode = {
+  id: string;              // DB folder id (opaque, stable)
+  path: string;            // IMAP path (display)
+  name: string;            // last segment
+  delimiter: string;
+  specialUse: string | null;
+  unreadCount: number;
+  totalCount: number;
+  children: FolderNode[];
+};
+
+export type MessageListItem = {
+  id: number;              // DB row id
+  folderId: string;
+  uid: number;
+  subject: string;
+  fromName: string;
+  fromEmail: string;
+  date: string | null;     // ISO
+  internalDate: string | null;
+  hasAttachments: boolean;
+  attachmentNames: string[];
+  isRead: boolean;
+  isFlagged: boolean;
+  isDraft: boolean;
+  snippet: string;
+  threadId: string | null; // conversation grouping
+  threadCount: number;
+};
+
+export type MessageDetail = MessageListItem & {
+  to: { name: string; email: string }[];
+  cc: { name: string; email: string }[];
+  messageId: string | null;
+  inReplyTo: string | null;
+  references: string[];
+  sizeBytes: number;
+  // rendering-safe body
+  bodyKind: 'html' | 'text';
+  html: string | null;     // sanitized + links rewritten + remote srcs neutralized
+  text: string | null;
+  attachments: AttachmentInfo[];
+  emlPath: string;         // server-local path (opaque to UI)
+  // security manifest (see sanitize.ts)
+  links: SafeLink[];               // extracted links (parent UI shows + opens them)
+  remoteImages: RemoteImageRef[];  // blocked remote images (opt-in load)
+  remoteImageCount: number;
+};
+
+export type SafeLink = {
+  index: number;       // matches data-link-idx in the sanitized HTML
+  text: string;        // link text as in the email
+  url: string;         // ORIGINAL URL (unfiltered) — shown to the user
+  scheme: string;      // http, https, mailto, ... (after scheme check)
+  openable: boolean;   // false for filtered schemes (javascript:, file:, data:, ...)
+};
+
+export type RemoteImageRef = {
+  url: string;         // original remote URL
+  placeholder: string; // data: URI currently in the HTML (identifies the img)
+};
+
+export type AttachmentInfo = {
+  partId: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  isInline: boolean;
+  contentId: string | null;
+};
+
+export type SearchFilters = {
+  query: string;                    // raw user query (server escapes for FTS5)
+  from?: string;
+  to?: string;
+  subject?: string;
+  hasAttachment?: boolean;
+  after?: string;                   // ISO date
+  before?: string;
+  folderId?: string;
+  limit?: number;
+  offset?: number;                  // pagination (client "load more" appends pages)
+  sortBy?: 'date' | 'relevance';    // Task 3: relevance only honored when query is set
+  wantFacets?: boolean;             // Task 3: per-folder hit counts in the result
+  wantSnippets?: boolean;           // Task 3: highlighted snippets for the page
+};
+
+export type SearchResult = {
+  items: MessageListItem[];
+  total: number;
+  elapsedMs: number;
+  snippetMap: Record<number, string>; // highlighted snippet per message id
+  facets?: { folderId: string; count: number }[];   // Task 3: per-folder hit counts
+};
+
+export type AccountInfo = {
+  id: string;
+  email: string;
+  mode: 'sandbox' | 'production-readonly';   // drives what the UI enables
+  canWrite: boolean;                          // true only for sandbox
+};
+
+export type SyncStatus = {
+  running: boolean;
+  lastSyncAt: string | null;
+  idleConnected: boolean;
+  foldersSynced: number;
+  foldersTotal: number;
+  newMessages: number;
+  flagChanges: number;
+  expunged: number;
+  errors: string[];
+  // --- Task 3 additions (optional fields, additive only) ---
+  currentFolder?: string | null;    // folder being synced right now
+  messagesDone?: number;            // messages stored so far (initial download)
+  messagesTotal?: number | null;    // server-reported total, when known
+  bytesDone?: number;               // downloaded bytes so far
+  phase?: 'idle' | 'initial' | 'incremental' | 'paused' | 'error';
+  paused?: boolean;                 // initial download can be paused/resumed
+  accountId?: string;               // which account this status describes
+  serverRssMB?: number;             // process-wide server RSS in MB (soak monitoring; not per-account)
+};
+
+// --- Task 3 additions: account list + per-thread listing -------------------
+export type AccountSummary = {
+  id: string;
+  email: string;
+  mode: 'sandbox' | 'production-readonly';
+  canWrite: boolean;
+  active: boolean;                  // whether this account is the one the UI session targets
+};
+
+export type ThreadSummary = {
+  threadId: string;
+  count: number;                    // messages in thread (locally known)
+  subject: string;                  // subject of the newest message
+  fromName: string;                 // sender of the newest message
+  date: string | null;              // newest message date
+  unread: number;
+  hasAttachments: boolean;
+  snippet: string;
+  messageIds: number[];             // newest-first row ids (open newest directly)
+};
+
+// The single API surface. Every method the UI needs must be declared here.
+// Task 3 rule: NO breaking changes. Existing methods keep their signature
+// (accountId params are trailing optional where needed); new methods are additive.
+export interface Api {
+  // account / system
+  getAccount(): Promise<AccountInfo>;
+  getSyncStatus(): Promise<SyncStatus>;
+  triggerSync(full?: boolean): Promise<void>;
+
+  // --- Task 3 additions (optional for implementors, additive) ---
+  listAccounts?(): Promise<AccountSummary[]>;
+  selectAccount?(accountId: string): Promise<AccountInfo>;
+  pauseSync?(accountId?: string): Promise<void>;
+  resumeSync?(accountId?: string): Promise<void>;
+  listThreads?(folderId: string | null, opts: { offset: number; limit: number }): Promise<ThreadSummary[]>;
+
+  // folders
+  getFolders(): Promise<FolderNode[]>;
+
+  // messages
+  listMessages(folderId: string, opts: { offset: number; limit: number }): Promise<MessageListItem[]>;
+  getMessage(id: number): Promise<MessageDetail>;
+  getRawEml(id: number): Promise<Uint8Array>;
+  getAttachment(id: number, partId: string): Promise<Uint8Array>;
+  loadRemoteImages(id: number, remoteImages: RemoteImageRef[]): Promise<MessageDetail>;   // opt-in per message
+
+  // search
+  search(filters: SearchFilters): Promise<SearchResult>;
+
+  // write operations — MUST only work against sandbox (server enforces; UI disables)
+  markRead(ids: number[], read: boolean): Promise<void>;
+  markFlagged(ids: number[], flagged: boolean): Promise<void>;
+  moveToFolder(ids: number[], targetFolderId: string): Promise<void>;
+  deleteToTrash(ids: number[]): Promise<void>;
+  archive(ids: number[]): Promise<void>;
+
+  // compose (sandbox only)
+  getContacts(partial: string): Promise<{ name: string; email: string }[]>;
+  saveDraft(draft: DraftInput, draftId?: number): Promise<number>;
+  sendMail(mail: DraftInput): Promise<{ messageId: string }>;
+  deleteDraft(id: number): Promise<void>;
+  getDraft(id: number): Promise<DraftInput & { id: number }>;
+
+  // --- Task 4 additions (optional for implementors, additive) ---
+  // write-path observability + recovery: the op journal surfaced to the UI
+  listOps?(accountId?: string): Promise<OpSummary[]>;
+  getOpCounts?(accountId?: string): Promise<Record<string, number>>;
+  retryOp?(opId: string, accountId?: string): Promise<OpResult>;
+  resolveOp?(opId: string, accountId?: string): Promise<OpResult>;   // probe an unknown send (never resend)
+  cancelOp?(opId: string, accountId?: string): Promise<void>;        // cancel a pending op (undo before server saw it)
+  undoOp?(opId: string, accountId?: string): Promise<string>;        // inverse op for a done flag/move/delete
+  expungeFromTrash?(ids: number[], accountId?: string): Promise<void>; // permanent deletion, Trash only
+  replayPendingOps?(accountId?: string): Promise<{ replayed: number; results: Record<string, string> }>;
+}
+
+/** Task 4: journaled write operation, UI-safe summary (no mail content). */
+export type OpSummary = {
+  id: string;
+  kind: 'flag' | 'move' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+  state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';
+  folderPath: string | null;
+  targetFolderPath: string | null;
+  uid: number | null;
+  messageId: string | null;
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+  error: string | null;
+};
+
+/** Task 4: result of one op execution (mirrors server OpResult). */
+export type OpResult = {
+  outcome: 'done' | 'conflict' | 'failed' | 'noop' | 'unknown';
+  detail?: string;
+  reason?: string;
+};
+
+export type DraftInput = {
+  to: { name: string; email: string }[];
+  cc: { name: string; email: string }[];
+  bcc: { name: string; email: string }[];
+  subject: string;
+  bodyText: string;
+  bodyHtml: string | null;
+  inReplyTo: string | null;
+  references: string[];
+  attachments: { filename: string; contentType: string; base64: string }[];
+  signature?: string;
+};
+
+// Transport interface (used by the UI to obtain an Api instance).
+// `Api[K]` includes optional methods (Task 3 additions), hence the `-?` and
+// non-undefined constraint: the transport must accept calls to methods that
+// may be absent on a given backend (the server answers 404 in that case).
+export interface Transport {
+  call<K extends keyof Api>(method: K, ...args: Parameters<NonNullable<Api[K]>>): Promise<Awaited<ReturnType<NonNullable<Api[K]>>>>;
+}
