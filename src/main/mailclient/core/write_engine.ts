@@ -31,6 +31,9 @@ export type OpResult =
 export class WriteEngine {
   // serialized playback: one operation at a time per account
   private chain: Promise<unknown> = Promise.resolve();
+  // ops queued or running, by id: the startup replay must not run an op a second
+  // time while the call that enqueued it still waits for a folder
+  private inFlight = new Map<string, Promise<OpResult>>();
   private engineHooks: { withFolderMutex: (path: string, fn: () => Promise<void>) => Promise<void>; triggerResync: (path: string) => void } | null = null;
   // Task 5: the sandbox sink probe (Mailpit in this prototype) is injected so the core
   // carries no hard-coded test-environment URLs. Optional — without it, unknown sends
@@ -86,7 +89,9 @@ export class WriteEngine {
 
   /** Execute one journaled op (or resume a 'running' one after a crash). */
   async execute(op: JournalRow): Promise<OpResult> {
-    return this.enqueue(async () => {
+    const queued = this.inFlight.get(op.id);
+    if (queued) return queued;
+    const result = this.enqueue(async () => {
       // single-writer rule (docs/WRITE_PATH.md §6): hold the sync engine's folder
       // mutex for the source folder during the whole op; move ops also lock the target
       const folders = [op.folder_path, op.target_folder_path].filter((p): p is string => !!p);
@@ -97,6 +102,9 @@ export class WriteEngine {
         return run();
       });
     });
+    this.inFlight.set(op.id, result);
+    void result.catch(() => { }).finally(() => this.inFlight.delete(op.id));
+    return result;
   }
 
   private async executeOne(op: JournalRow): Promise<OpResult> {
@@ -304,6 +312,10 @@ export class WriteEngine {
     // move the file reference + row to the destination folder
     this.store.db.prepare(`UPDATE messages SET folder_id=@fid, uid=@uid, message_key=@mk, file_path=@fp WHERE id=@id`)
       .run({ fid: dstFolder.id, uid: newUid, mk: newKey, fp: `${newKey}.eml`, id: row.id as number });
+    // the op's message_key names the source now; undo finds the row by the new key
+    // (re-read: the COPY path stored copiedTo after this op row was loaded)
+    const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<string, unknown>;
+    this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: { uid: newUid, messageKey: newKey } } });
   }
 
   // ----- expunge (permanent deletion from Trash) -------------------------------

@@ -2,6 +2,9 @@ import type { FolderNode } from '../../../../main/mailclient/core/types'
 
 export const messageKey = (accountId: string, id: number) => ['mail', accountId, 'message', id]
 
+/** Drag data type of a mail dragged from the list (the value is its row id) */
+export const MAIL_DRAG_TYPE = 'application/x-bookingum-mail'
+
 // Display names for the standard folders (IMAP SPECIAL-USE); other folders
 // keep the name they have on the server
 const SPECIAL_FOLDER_NAMES: Array<[string, string]> = [

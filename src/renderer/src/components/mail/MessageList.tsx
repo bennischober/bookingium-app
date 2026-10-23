@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Flag, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { MessageListItem } from '../../../../main/mailclient/core/types'
-import { formatListDate, snippetParts } from './format'
+import { MAIL_DRAG_TYPE, formatListDate, snippetParts } from './format'
 
 function Snippet({ text }: { text: string }) {
   return (
@@ -30,6 +30,7 @@ export function MessageList({
   selectedId,
   onSelect,
   onDelete,
+  onDragMessage,
   snippets,
   hasMore,
   loadingMore,
@@ -41,6 +42,8 @@ export function MessageList({
   onSelect: (id: number) => void
   /** Delete key; absent for read-only accounts */
   onDelete?: (id: number) => void
+  /** Rows can be dragged onto folders; called with null when the drag ends */
+  onDragMessage?: (item: MessageListItem | null) => void
   snippets?: Record<number, string>
   hasMore: boolean
   loadingMore: boolean
@@ -48,6 +51,7 @@ export function MessageList({
   emptyText: string
 }) {
   const listRef = useRef<HTMLUListElement>(null)
+  const [draggingId, setDraggingId] = useState<number | null>(null)
 
   // Keep the selected row visible when moving with the keyboard
   useEffect(() => {
@@ -113,8 +117,21 @@ export function MessageList({
             aria-selected={selected}
             data-message-id={m.id}
             onClick={() => onSelect(m.id)}
+            draggable={Boolean(onDragMessage)}
+            onDragStart={(event) => {
+              if (!onDragMessage) return
+              event.dataTransfer.setData(MAIL_DRAG_TYPE, String(m.id))
+              event.dataTransfer.effectAllowed = 'move'
+              setDraggingId(m.id)
+              onDragMessage(m)
+            }}
+            onDragEnd={() => {
+              setDraggingId(null)
+              onDragMessage?.(null)
+            }}
             className={cn(
               'cursor-pointer border-b px-3 py-2 text-sm',
+              draggingId === m.id && 'opacity-50',
               selected
                 ? // An accent bar, and a ring while the list has keyboard focus
                   'bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)] group-focus-visible:ring-2 group-focus-visible:ring-ring/50 group-focus-visible:ring-inset'

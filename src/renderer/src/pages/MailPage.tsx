@@ -23,7 +23,12 @@ import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
 import { flattenFolders, folderLabel, isInbox, isTrash, messageKey } from '@/components/mail/format'
-import type { SearchFilters, SyncStatus } from '../../../main/mailclient/core/types'
+import type {
+  FolderNode,
+  MessageListItem,
+  SearchFilters,
+  SyncStatus
+} from '../../../main/mailclient/core/types'
 
 const PAGE_SIZE = 100
 // Shorter queries match too much to be useful (FTS prefix search)
@@ -31,6 +36,17 @@ const MIN_QUERY_LENGTH = 3
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
+
+type MoveTarget = { kind: 'delete' } | { kind: 'archive' } | { kind: 'folder'; folder: FolderNode }
+const MOVE_TEXTS: Record<MoveTarget['kind'], { done: (folder: string) => string; failed: string }> =
+  {
+    delete: { done: () => 'In den Papierkorb verschoben', failed: 'Löschen fehlgeschlagen' },
+    archive: { done: () => 'Archiviert', failed: 'Archivieren fehlgeschlagen' },
+    folder: {
+      done: (folder) => `Nach „${folder}“ verschoben`,
+      failed: 'Verschieben fehlgeschlagen'
+    }
+  }
 
 type ExtraFilters = { from: string; after: string; before: string; hasAttachment: boolean }
 const NO_FILTERS: ExtraFilters = { from: '', after: '', before: '', hasAttachment: false }
@@ -170,6 +186,8 @@ export default function MailPage() {
 
   const [chosenFolderId, setChosenFolderId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  // The mail being dragged onto a folder, if any
+  const [dragged, setDragged] = useState<MessageListItem | null>(null)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<ExtraFilters>(NO_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
@@ -317,22 +335,39 @@ export default function MailPage() {
       .catch(failed('Markierung fehlgeschlagen'))
   }
 
-  // Moves the selection on, then offers to undo the journaled move
-  const moveAway = async (id: number, action: 'delete' | 'archive') => {
+  // Moves the mail, moves the selection on if it was this mail, then
+  // reports how the journaled move went and offers to undo it
+  const moveAway = async (id: number, target: MoveTarget) => {
     const index = listItems.findIndex((m) => m.id === id)
+    const item = listItems[index]
     const next = listItems[index + 1] ?? listItems[index - 1]
+    const texts = MOVE_TEXTS[target.kind]
+    const done = target.kind === 'folder' ? texts.done(folderLabel(target.folder)) : texts.done('')
     try {
-      if (action === 'delete') await mailApi.deleteToTrash([id], accountId)
-      else await mailApi.archive([id], accountId)
+      if (target.kind === 'delete') await mailApi.deleteToTrash([id], accountId)
+      else if (target.kind === 'archive') await mailApi.archive([id], accountId)
+      else await mailApi.moveToFolder([id], target.folder.id, accountId)
     } catch (error) {
-      failed(action === 'delete' ? 'Löschen fehlgeschlagen' : 'Archivieren fehlgeschlagen')(error)
+      failed(texts.failed)(error)
       return
     }
-    setSelectedId(next && next.id !== id ? next.id : null)
     refreshLists()
+    const sourcePath = allFolders.find((f) => f.id === item?.folderId)?.path
     const ops = await mailApi.listOps(accountId).catch(() => [])
-    const op = ops.find((o) => o.kind === 'move' && o.state === 'done')
-    toast.success(action === 'delete' ? 'In den Papierkorb verschoben' : 'Archiviert', {
+    const op = ops.find(
+      (o) => o.kind === 'move' && (!item || (o.uid === item.uid && o.folderPath === sourcePath))
+    )
+    if (op && op.state !== 'done') {
+      toast.error(texts.failed, {
+        description:
+          op.state === 'pending'
+            ? 'Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.'
+            : (op.error ?? undefined)
+      })
+      return
+    }
+    setSelectedId((current) => (current !== id ? current : next && next.id !== id ? next.id : null))
+    toast.success(done, {
       action: op
         ? {
             label: 'Rückgängig',
@@ -485,6 +520,15 @@ export default function MailPage() {
               folders={folders.data ?? []}
               selectedId={searching ? null : folderId}
               onSelect={chooseFolder}
+              drop={
+                dragged
+                  ? {
+                      canDrop: (target) => target.id !== dragged.folderId,
+                      onDrop: (target) =>
+                        void moveAway(dragged.id, { kind: 'folder', folder: target })
+                    }
+                  : undefined
+              }
             />
           )}
         </nav>
@@ -627,8 +671,11 @@ export default function MailPage() {
                 selectedId={selectedId}
                 onSelect={openMessage}
                 onDelete={
-                  canWrite && !isTrash(folder) ? (id) => void moveAway(id, 'delete') : undefined
+                  canWrite && !isTrash(folder)
+                    ? (id) => void moveAway(id, { kind: 'delete' })
+                    : undefined
                 }
+                onDragMessage={canWrite ? setDragged : undefined}
                 snippets={searching ? snippets : undefined}
                 hasMore={Boolean(searching ? results.hasNextPage : messages.hasNextPage)}
                 loadingMore={searching ? results.isFetchingNextPage : messages.isFetchingNextPage}
@@ -668,8 +715,8 @@ export default function MailPage() {
                 )
               )}
               onToggleFlag={toggleFlag}
-              onDelete={(id) => void moveAway(id, 'delete')}
-              onArchive={hasArchive ? (id) => void moveAway(id, 'archive') : undefined}
+              onDelete={(id) => void moveAway(id, { kind: 'delete' })}
+              onArchive={hasArchive ? (id) => void moveAway(id, { kind: 'archive' }) : undefined}
             />
           ) : (
             <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">

@@ -93,7 +93,13 @@ async function saveAccount(input: Record<string, unknown>): Promise<Account> {
   expect(saved.test).toMatchObject({ ok: true })
   return saved.account!
 }
-type Folder = { id: string; path: string; totalCount: number; children: Folder[] }
+type Folder = {
+  id: string
+  path: string
+  specialUse: string | null
+  totalCount: number
+  children: Folder[]
+}
 
 let sandboxId: string
 let readOnlyId: string | undefined
@@ -218,6 +224,61 @@ test('the mail panes can be resized and keep their width', async () => {
   const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
   await expect(row).toHaveCSS('cursor', 'pointer', { timeout: 30_000 })
   await expect(page.getByRole('button', { name: 'Filter' })).toHaveCSS('cursor', 'pointer')
+})
+
+test('a mail dragged onto a folder is moved there', async () => {
+  const { page } = h
+  const count = async (folderId: string) =>
+    (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const inbox = folders.find((f) => f.path === 'INBOX')!
+  // A top-level folder, so the tree shows it without expanding anything
+  const target = folders.find((f) => f.path !== 'INBOX' && !f.specialUse)
+  test.skip(!target, 'the sandbox has no plain top-level folder')
+  // The inbox may still be downloading and growing, so the mail itself is followed;
+  // a move keeps its row id
+  const targetBefore = target!.totalCount
+  const folderOf = async (id: number) =>
+    (await mail<{ folderId: string }>('getMessage', id, sandboxId)).folderId
+
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await openMailPage()
+  const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
+  await expect(row).toBeVisible({ timeout: 30_000 })
+  const id = Number(await row.getAttribute('data-message-id'))
+  const folderButton = page
+    .getByRole('list', { name: 'Ordner' })
+    .locator(`button[title="${target!.path}"]`)
+
+  // Its own folder takes no drop
+  const inboxButton = page.getByRole('list', { name: 'Ordner' }).locator('button[title="INBOX"]')
+  await row.dragTo(inboxButton)
+  await expect(page.getByText(/verschoben/)).toHaveCount(0)
+
+  type Op = { id: string; kind: string; state: string; targetFolderPath: string | null }
+  const undo = async () => {
+    const op = (await mail<Op[]>('listOps', sandboxId)).find(
+      (o) => o.kind === 'move' && o.state === 'done' && o.targetFolderPath === target!.path
+    )
+    if (op) await mail('undoOp', op.id, sandboxId)
+  }
+  await row.dragTo(folderButton)
+  try {
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: /^Nach „.+“ verschoben/ })
+    await expect(toast).toBeVisible({ timeout: 30_000 })
+    await expect(toast.getByRole('button', { name: 'Rückgängig' })).toBeVisible()
+    expect(await folderOf(id)).toBe(target!.id)
+    await expect(page.locator(`[data-message-id="${id}"]`)).toHaveCount(0)
+    await expect.poll(() => count(target!.id), { timeout: 30_000 }).toBe(targetBefore + 1)
+
+    // Put it back, the way the toast's undo does (the toast may be gone by now)
+    await undo()
+    await expect.poll(() => folderOf(id), { timeout: 30_000 }).toBe(inbox.id)
+    await expect.poll(() => count(target!.id), { timeout: 30_000 }).toBe(targetBefore)
+  } finally {
+    // The sandbox stays as it was, also when a check above failed
+    if ((await folderOf(id).catch(() => null)) === target!.id) await undo()
+  }
 })
 
 test('a read-only account refuses writes', async () => {

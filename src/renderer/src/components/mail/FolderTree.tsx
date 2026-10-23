@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Archive,
   ChevronRight,
@@ -13,6 +13,19 @@ import {
 import { cn } from '@/lib/utils'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
 import { folderLabel, isInbox } from './format'
+
+// Hovering a dragged mail over a closed folder opens it after this delay
+const EXPAND_DELAY_MS = 700
+
+/**
+ * Set only while a mail from the list is dragged, so other drags (files)
+ * are never taken. The drag data isn't checked: not every drag source
+ * keeps a custom type.
+ */
+export type FolderDrop = {
+  canDrop: (folder: FolderNode) => boolean
+  onDrop: (folder: FolderNode) => void
+}
 
 const SPECIAL_ICONS: Array<[string, LucideIcon]> = [
   ['Drafts', FileText],
@@ -36,26 +49,72 @@ function FolderItem({
   selectedId,
   expanded,
   onToggle,
-  onSelect
+  onExpand,
+  onSelect,
+  drop,
+  overId,
+  onOver
 }: {
   folder: FolderNode
   depth: number
   selectedId: string | null
   expanded: Set<string>
   onToggle: (id: string) => void
+  onExpand: (id: string) => void
   onSelect: (id: string) => void
+  drop?: FolderDrop
+  overId: string | null
+  /** Marks the folder under the dragged mail; leaving clears only its own mark */
+  onOver: (id: string, over: boolean) => void
 }) {
   const open = expanded.has(folder.id)
   const label = folderLabel(folder)
+  const accepts = drop?.canDrop(folder) ?? false
+  const over = drop !== undefined && overId === folder.id
+
+  // Open a closed folder while a mail hovers over it
+  const expandTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const stopExpand = () => clearTimeout(expandTimer.current)
+  useEffect(() => stopExpand, [])
+
+  const dropProps = drop && {
+    onDragEnter: () => {
+      onOver(folder.id, true)
+      stopExpand()
+      if (!open && folder.children.length > 0) {
+        expandTimer.current = setTimeout(() => onExpand(folder.id), EXPAND_DELAY_MS)
+      }
+    },
+    onDragOver: (event: React.DragEvent) => {
+      // Without preventDefault the browser refuses the drop
+      event.preventDefault()
+      event.dataTransfer.dropEffect = accepts ? 'move' : 'none'
+    },
+    onDragLeave: (event: React.DragEvent) => {
+      // Moving onto a child element also fires dragleave
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+      stopExpand()
+      onOver(folder.id, false)
+    },
+    onDrop: (event: React.DragEvent) => {
+      event.preventDefault()
+      stopExpand()
+      onOver(folder.id, false)
+      if (accepts) drop.onDrop(folder)
+    }
+  }
 
   return (
     <li>
       <div
         className={cn(
           'flex items-center rounded-md text-sm hover:bg-muted',
-          selectedId === folder.id && 'bg-muted font-medium'
+          selectedId === folder.id && 'bg-muted font-medium',
+          over && accepts && 'bg-primary/15 ring-2 ring-primary/60 ring-inset'
         )}
         style={{ paddingLeft: depth * 12 }}
+        data-drop-target={over && accepts ? 'true' : undefined}
+        {...dropProps}
       >
         {folder.children.length > 0 ? (
           <button
@@ -94,7 +153,11 @@ function FolderItem({
               selectedId={selectedId}
               expanded={expanded}
               onToggle={onToggle}
+              onExpand={onExpand}
               onSelect={onSelect}
+              drop={drop}
+              overId={overId}
+              onOver={onOver}
             />
           ))}
         </ul>
@@ -103,17 +166,29 @@ function FolderItem({
   )
 }
 
-/** Folder tree; subfolders start collapsed (mailboxes can have hundreds) */
+/**
+ * Folder tree; subfolders start collapsed (mailboxes can have hundreds).
+ * With `drop` set, mails dragged from the list can be dropped on folders.
+ */
 export function FolderTree({
   folders,
   selectedId,
-  onSelect
+  onSelect,
+  drop
 }: {
   folders: FolderNode[]
   selectedId: string | null
   onSelect: (id: string) => void
+  drop?: FolderDrop
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [overId, setOverId] = useState<string | null>(null)
+  // A drag that ended elsewhere leaves no highlight behind
+  if (!drop && overId !== null) setOverId(null)
+  const expand = (id: string) => setExpanded((prev) => new Set(prev).add(id))
+  // Entering the next folder can come before leaving the last one
+  const markOver = (id: string, over: boolean) =>
+    setOverId((current) => (over ? id : current === id ? null : current))
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -132,7 +207,11 @@ export function FolderTree({
           selectedId={selectedId}
           expanded={expanded}
           onToggle={toggle}
+          onExpand={expand}
           onSelect={onSelect}
+          drop={drop}
+          overId={overId}
+          onOver={markOver}
         />
       ))}
     </ul>

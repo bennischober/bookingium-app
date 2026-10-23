@@ -462,7 +462,11 @@ export class MailCore implements Api {
     const e = this.writableEntry(accountId);
     const ops = e.store.journalPending(100);
     const results: Record<string, string> = {};
-    for (const op of ops) {
+    for (const listed of ops) {
+      // re-read: an earlier op of this loop may have taken long enough for this one to
+      // be settled by now (execute() itself shares an op that is still queued)
+      const op = e.store.journalGet(listed.id);
+      if (!op || (op.state !== 'pending' && op.state !== 'running')) continue;
       const result = await e.writes.execute(op);
       await this.applyOpResult(e, op.id, result);
       results[op.id] = result.outcome;
@@ -525,8 +529,12 @@ export class MailCore implements Api {
         payload: { add: payload.remove, remove: payload.add },
       };
     } else if (op.kind === 'move' || op.kind === 'delete') {
-      const current = op.message_key ? e.store.db.prepare(
-        'SELECT uid, folder_id FROM messages WHERE message_key = ?').get(op.message_key) as
+      // a move re-keys the row for its destination and records the new key
+      // (ops from before that only have the old one)
+      const moved = (JSON.parse(op.payload || '{}') as { movedTo?: { messageKey?: string } }).movedTo;
+      const key = moved?.messageKey ?? op.message_key;
+      const current = key ? e.store.db.prepare(
+        'SELECT uid, folder_id FROM messages WHERE message_key = ?').get(key) as
         { uid: number; folder_id: string } | undefined : undefined;
       if (!current) throw new Error('undo: message no longer in local store (resync needed)');
       const currentFolder = e.store.getFolder(current.folder_id);
@@ -534,7 +542,7 @@ export class MailCore implements Api {
       inverse = {
         accountId: e.config.id, kind: 'move',
         folderPath: currentFolder.imap_path, folderUidValidity: currentFolder.uid_validity ?? undefined,
-        uid: current.uid, messageKey: op.message_key ?? undefined, messageId: op.message_id ?? undefined,
+        uid: current.uid, messageKey: key ?? undefined, messageId: op.message_id ?? undefined,
         targetFolderPath: op.folder_path ?? undefined,
       };
     } else {

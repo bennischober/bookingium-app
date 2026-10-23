@@ -131,6 +131,8 @@ export class SyncEngine {
   // per-folder mutex: main connection and IDLE connection must never sync the same
   // folder concurrently (two downloads of the same UIDs, duplicated work, wasted I/O)
   private syncingFolders = new Set<string>();
+  // write ops waiting for a folder's mutex, by path (see yieldFolderToWrites)
+  private writesWaiting = new Map<string, number>();
   // Task 3: pause/resume + concurrency cap + error circuit breaker
   private paused = false;
   private pauseResolvers: (() => void)[] = [];
@@ -158,9 +160,35 @@ export class SyncEngine {
     try { return await fn(); } finally { this.syncingFolders.delete(imapPath); }
   }
 
-  /** Task 4: write engine hook — same mutex, public access (single-writer rule per folder). */
+  /** Task 4: write engine hook — same mutex, public access (single-writer rule per folder).
+   *  A write waiting here is counted, so a long download lets it in between batches. */
   async withFolderMutexPublic<T>(imapPath: string, fn: () => Promise<T>): Promise<T> {
-    return this.withFolderMutex(imapPath, fn);
+    this.writesWaiting.set(imapPath, (this.writesWaiting.get(imapPath) ?? 0) + 1);
+    let waiting = true;
+    const stopWaiting = () => {
+      if (!waiting) return;
+      waiting = false;
+      const n = (this.writesWaiting.get(imapPath) ?? 1) - 1;
+      if (n > 0) this.writesWaiting.set(imapPath, n); else this.writesWaiting.delete(imapPath);
+    };
+    try {
+      return await this.withFolderMutex(imapPath, () => { stopWaiting(); return fn(); });
+    } finally {
+      stopWaiting();
+    }
+  }
+
+  /** Called between download batches by the holder of the folder's mutex: a write op
+   *  waiting for this folder goes first. The first download of a big folder holds the
+   *  mutex for minutes; without this a move into it hung until the download was done. */
+  private async yieldFolderToWrites(imapPath: string): Promise<void> {
+    if (!this.writesWaiting.has(imapPath)) return;
+    this.syncingFolders.delete(imapPath);
+    // wait until the writer has taken the folder and given it back (or anyone else has)
+    while (this.writesWaiting.has(imapPath) || this.syncingFolders.has(imapPath)) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    this.syncingFolders.add(imapPath);
   }
 
   /** Task 4: does any pending/running write op touch this folder? (sync coexistence) */
@@ -628,7 +656,10 @@ export class SyncEngine {
     }
 
     // 5. download new messages
-    newCount = await this.downloadMessages(client, [...serverUids].filter(u => !localByUid.has(u)), imapPath, folder.id, uidValidity);
+    // (writes may run between batches: the steps below only use the UID snapshot,
+    // and a stale uid_next/highest_modseq just makes the next sync look further back)
+    newCount = await this.downloadMessages(client, [...serverUids].filter(u => !localByUid.has(u)), imapPath, folder.id, uidValidity,
+      { yieldToWrites: true });
 
     this.store.db.prepare(`UPDATE folders SET uid_validity=@uidValidity, uid_next=@uidNext,
       highest_modseq=@highestModseq, last_sync_at=datetime('now'),
@@ -664,7 +695,7 @@ export class SyncEngine {
 
     // 3. new messages
     const newUids = [...serverUids].filter(u => !localByUid.has(u));
-    newCount = await this.downloadMessages(client, newUids, imapPath, folder.id, uidValidity);
+    newCount = await this.downloadMessages(client, newUids, imapPath, folder.id, uidValidity, { yieldToWrites: true });
 
     // 4. flag changes: CONDSTORE changedSince fetch — server returns only changed messages.
     //    Task 4 fix (found on profile B): WITHOUT CONDSTORE this fetch must still happen
@@ -727,7 +758,7 @@ export class SyncEngine {
    * pause-aware, progress-accounted (messagesDone/bytesDone). newestFirst for the
    * prioritized initial download (recent mail first → search useful early).
    */
-  private async downloadMessages(client: ImapFlow, uids: number[], imapPath: string, folderId: string, uidValidity: string, opts: { newestFirst?: boolean; keyFolderId?: string } = {}): Promise<number> {
+  private async downloadMessages(client: ImapFlow, uids: number[], imapPath: string, folderId: string, uidValidity: string, opts: { newestFirst?: boolean; keyFolderId?: string; yieldToWrites?: boolean } = {}): Promise<number> {
     if (!uids.length) return 0;
     let stored = 0;
     // message_key identity uses keyFolderId (the REAL folder id) even when rows are
@@ -738,6 +769,8 @@ export class SyncEngine {
     const interDelay = this.account.interBatchDelayMs ?? 0;
     const BATCH_COUNT = 100;
     for (let i = 0; i < sorted.length;) {
+      // the caller holds the folder's mutex; writes waiting for it go first
+      if (opts.yieldToWrites) await this.yieldFolderToWrites(imapPath);
       await this.gate();
       // assemble a batch respecting both count and byte budget (uid list only → cheap)
       const batch: number[] = [];
