@@ -4,6 +4,7 @@ import {
   FileText,
   Guitar,
   Hotel,
+  Inbox,
   Landmark,
   LayoutDashboard,
   Mails,
@@ -48,6 +49,7 @@ export const ROUTES = {
   venues: { path: '/venues', title: 'Spielstätten', group: 'Kontakte', icon: MapPin },
   hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
   contactLists: { path: '/contact-lists', title: 'Verteiler', group: 'Kontakte', icon: Mails },
+  mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
 } as const satisfies Record<string, RouteInfo>

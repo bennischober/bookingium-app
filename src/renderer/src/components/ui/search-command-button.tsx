@@ -73,6 +73,10 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
     description: 'Empfänger für Rundmails und Newsletter',
     aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']
   },
+  '/mail': {
+    description: 'Postfach lesen und durchsuchen',
+    aliases: ['mail', 'email', 'inbox', 'posteingang', 'postfach']
+  },
   '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
   '/settings': {
     description: 'Allgemein, Rechnungen, E-Mail, Kalender und Daten',

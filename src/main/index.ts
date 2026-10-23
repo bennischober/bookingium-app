@@ -58,8 +58,17 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  // Links open in the default browser or mail program; other schemes (file:,
+  // custom protocol handlers, ...) are dropped, links in mails included
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const { protocol } = new URL(details.url)
+      if (['http:', 'https:', 'mailto:'].includes(protocol)) {
+        void shell.openExternal(details.url)
+      }
+    } catch {
+      // Not a valid URL
+    }
     return { action: 'deny' }
   })
 

@@ -23,6 +23,7 @@ import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
+import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -355,6 +356,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
+          <MailAccountsCard />
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

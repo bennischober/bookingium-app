@@ -88,6 +88,7 @@ type Account = { id: string; kind: string }
 type Folder = { id: string; path: string; totalCount: number; children: Folder[] }
 
 let sandboxId: string
+let readOnlyId: string | undefined
 
 test('a sandbox account is saved with an encrypted password', async () => {
   const account = await trpc<Account>('mutation', 'mail.accounts.save', {
@@ -135,6 +136,47 @@ test('the worker syncs folders and serves messages over IPC', async () => {
   expect(result.total).toBeGreaterThan(0)
 })
 
+const openMailPage = async () => {
+  await h.page.goto(`${h.page.url().split('#')[0]}#/mail`)
+  // Accounts saved over raw IPC above are not in the page's cache yet
+  await h.page.reload()
+  await expect(h.page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible()
+}
+
+test('the mail page shows folders, messages and a sandboxed reader', async () => {
+  const { page } = h
+  await openMailPage()
+  // Default window size: a folder picker instead of the tree
+  await expect(page.getByRole('combobox', { name: 'Ordner wählen' })).toContainText('Posteingang', {
+    timeout: 30_000
+  })
+
+  const messages = page.getByRole('listbox', { name: 'Nachrichten' })
+  await messages.getByRole('option').first().click({ timeout: 30_000 })
+  const reader = page.getByRole('article', { name: 'E-Mail' })
+  await expect(reader.getByRole('heading', { level: 2 })).toBeVisible()
+  // Wider windows show the folder tree
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await expect(
+    page.getByRole('list', { name: 'Ordner' }).locator('[aria-current="true"]')
+  ).toContainText('Posteingang')
+  // HTML mail: no scripts and no same-origin access in the frame
+  const frame = reader.locator('iframe')
+  if (await frame.count()) {
+    await expect(frame).toHaveAttribute('sandbox', 'allow-popups allow-popups-to-escape-sandbox')
+  }
+  // Sandbox accounts can write
+  await expect(page.getByRole('button', { name: 'In den Papierkorb (Entf)' })).toBeVisible()
+  await expect(page.getByRole('note').filter({ hasText: 'Nur lesen' })).toHaveCount(0)
+
+  // Arrow keys move through the list
+  await messages.press('ArrowDown')
+  await expect(messages.getByRole('option', { selected: true })).toHaveCount(1)
+
+  await page.getByRole('searchbox', { name: 'E-Mails durchsuchen' }).fill('test')
+  await expect(page.getByText(/\d+ Treffer · \d+ ms/)).toBeVisible()
+})
+
 test('a read-only account refuses writes', async () => {
   test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
   const readOnly = await trpc<Account>('mutation', 'mail.accounts.save', {
@@ -158,6 +200,42 @@ test('a read-only account refuses writes', async () => {
     /read-only|guard|not allowed|refus/i
   )
   await expect(mail('deleteToTrash', [list[0].id], readOnly.id)).rejects.toThrow()
+  readOnlyId = readOnly.id
+})
+
+test('the mail page offers no writes for a read-only account', async () => {
+  test.skip(!readOnlyId, 'no read-only account')
+  const { page } = h
+  await openMailPage()
+  await page.getByRole('combobox', { name: 'Postfach' }).click()
+  await page.getByRole('option').nth(1).click()
+  await expect(page.getByRole('note').filter({ hasText: 'Nur lesen' })).toBeVisible()
+
+  const inbox = (await mail<Folder[]>('getFolders', readOnlyId)).find((f) => f.path === 'INBOX')!
+  const [first] = await mail<{ id: number; isRead: boolean }[]>(
+    'listMessages',
+    inbox.id,
+    { offset: 0, limit: 1 },
+    readOnlyId
+  )
+  await page
+    .getByRole('listbox', { name: 'Nachrichten' })
+    .locator(`[data-message-id="${first.id}"]`)
+    .click({ timeout: 30_000 })
+  await expect(page.getByRole('article', { name: 'E-Mail' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'In den Papierkorb (Entf)' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Original speichern (.eml)' })).toBeVisible()
+  // Opening a mail does not mark it as read on the server
+  const after = await mail<{ isRead: boolean }>('getMessage', first.id, readOnlyId)
+  expect(after.isRead).toBe(first.isRead)
+})
+
+test('the settings list the mail accounts', async () => {
+  const { page } = h
+  await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
+  const list = page.getByRole('list', { name: 'E-Mail-Konten' })
+  await expect(list.getByRole('listitem')).toHaveCount(readOnlyId ? 2 : 1)
+  if (readOnlyId) await expect(list.getByText('Nur lesen')).toBeVisible()
 })
 
 test('unknown methods are refused before reaching the core', async () => {
