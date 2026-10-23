@@ -1,10 +1,6 @@
-import { createTRPCProxyClient } from '@trpc/client'
-import { ipcLink } from 'electron-trpc/renderer'
-import type { AppRouter } from '../../../main/api/router'
 import type { MailCore } from '../../../main/mailclient/core'
 import type { MailApiMethod } from '../../../main/mailclient/protocol'
-
-const client = createTRPCProxyClient<AppRouter>({ links: [ipcLink()] })
+import { trpcVanilla } from './trpc'
 
 /**
  * The core's methods as the worker serves them, with the trailing accountId
@@ -17,5 +13,5 @@ export const mailApi = new Proxy({} as MailClientApi, {
   get:
     (_target, method: MailApiMethod) =>
     (...args: unknown[]) =>
-      client.mail.call.mutate({ method, args })
+      trpcVanilla.mail.call.mutate({ method, args })
 })
