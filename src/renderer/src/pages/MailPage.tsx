@@ -177,7 +177,9 @@ export default function MailPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const accounts = trpcReact.mail.accounts.list.useQuery()
-  const workerStatus = trpcReact.mail.status.useQuery(undefined, { refetchInterval: 5000 })
+  const workerStatus = trpcReact.mail.status.useQuery(undefined, {
+    refetchInterval: (data) => (data?.starting ? 1000 : 5000)
+  })
 
   const [chosenAccountId, setChosenAccountId] = useState<string | null>(null)
   const account = accounts.data?.find((a) => a.id === chosenAccountId) ?? accounts.data?.[0] ?? null
@@ -484,6 +486,16 @@ export default function MailPage() {
       {workerStatus.data?.error && (
         <p role="alert" className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
           Der E-Mail-Dienst läuft nicht: {workerStatus.data.error}
+        </p>
+      )}
+      {workerStatus.data?.starting && (
+        <p
+          role="status"
+          className="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
+        >
+          <Spinner className="size-4" />
+          Der E-Mail-Dienst startet. Nach einem Update kann das bei einem großen Postfach einige
+          Minuten dauern.
         </p>
       )}
 

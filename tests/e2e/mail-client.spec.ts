@@ -226,6 +226,32 @@ test('the mail panes can be resized and keep their width', async () => {
   await expect(page.getByRole('button', { name: 'Filter' })).toHaveCSS('cursor', 'pointer')
 })
 
+test('the app sidebar collapses on the mail page and remembers it per page', async () => {
+  const { page } = h
+  const sidebar = page.getByRole('navigation', { name: 'Hauptnavigation' })
+  const expand = page.getByRole('button', { name: 'Seitenleiste ausklappen' })
+  const collapse = page.getByRole('button', { name: 'Seitenleiste einklappen' })
+  const sidebarWidth = async () => Math.round((await sidebar.boundingBox())!.width)
+
+  await openMailPage()
+  // Collapsed by default on the mail page; the items keep their names
+  await expect(expand).toBeVisible()
+  expect(await sidebarWidth()).toBeLessThan(80)
+  await expect(sidebar.getByRole('link', { name: 'E-Mail' })).toBeVisible()
+
+  await expand.click()
+  await expect(collapse).toBeVisible()
+  expect(await sidebarWidth()).toBeGreaterThan(150)
+  await page.keyboard.press('Control+b')
+  await expect(expand).toBeVisible()
+
+  // Other pages keep their own setting (expanded), and the mail page stays collapsed
+  await sidebar.getByRole('link', { name: 'Dashboard' }).click()
+  await expect(collapse).toBeVisible()
+  await openMailPage()
+  await expect(expand).toBeVisible()
+})
+
 test('a mail dragged onto a folder is moved there', async () => {
   const { page } = h
   const count = async (folderId: string) =>

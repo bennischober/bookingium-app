@@ -105,8 +105,16 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
   }
   if (!password) throw new Error('Passwort fehlt')
 
+  // The id names the folder with the downloaded mail. Another server or login is another
+  // mailbox: it gets a fresh folder rather than a mix of both, the old one stays like a
+  // deleted account's
+  const sameMailbox =
+    existing &&
+    existing.host.toLowerCase() === input.host.trim().toLowerCase() &&
+    existing.port === input.port &&
+    existing.user === input.user.trim()
   const account: StoredAccount = {
-    id: existing?.id ?? randomUUID(),
+    id: sameMailbox ? existing.id : randomUUID(),
     kind: input.kind,
     host: input.host.trim(),
     port: input.port,
@@ -116,7 +124,7 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     password
   }
   writeAll(
-    existing ? accounts.map((a) => (a.id === account.id ? account : a)) : [...accounts, account]
+    existing ? accounts.map((a) => (a.id === existing.id ? account : a)) : [...accounts, account]
   )
   return toDto(account)
 }

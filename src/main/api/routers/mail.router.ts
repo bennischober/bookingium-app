@@ -83,12 +83,12 @@ export const mailRouter = t.router({
     list: t.procedure.query(() => listMailAccounts()),
 
     /**
-     * "Verbindung testen": one attempt, at most 15 s. A saved account's sync pauses meanwhile,
-     * so a live server never sees more than its two connections.
+     * "Verbindung testen": one attempt, at most 15 s. A saved live account's sync pauses
+     * meanwhile (at most 15 s more), so its server never sees more than two connections.
      */
     test: t.procedure.input(TestMailAccountInput).mutation(async ({ input }) => {
       try {
-        return input.id
+        return input.id && input.kind !== 'sandbox'
           ? await mailClient.whileStopped(() => testAccount(input))
           : await testAccount(input)
       } catch (error) {

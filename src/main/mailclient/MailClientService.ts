@@ -29,8 +29,13 @@ export class MailClientService {
   /** whileStopped() calls in progress */
   private held = 0
 
-  status(): { running: boolean; error: string | null } {
-    return { running: this.worker !== null && this.starting === null, error: this.lastError }
+  /** starting: the worker opens its stores, which takes minutes while a migration rewrites a large one */
+  status(): { running: boolean; starting: boolean; error: string | null } {
+    return {
+      running: this.worker !== null && this.starting === null,
+      starting: this.starting !== null,
+      error: this.lastError
+    }
   }
 
   async call(method: MailApiMethod, args: unknown[]): Promise<unknown> {
@@ -78,17 +83,33 @@ export class MailClientService {
     }
   }
 
+  /**
+   * Closes the worker, killing it after `timeoutMs`. A worker that is still starting counts
+   * against the same deadline: it answers nothing until its stores are open, and a migration
+   * killed half-way is rolled back by SQLite and runs again on the next start.
+   */
   async stop(timeoutMs = 15_000): Promise<void> {
-    await this.starting?.catch(() => {})
+    const deadline = Date.now() + timeoutMs
+    if (this.starting) {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      await Promise.race([
+        this.starting.catch(() => {}),
+        new Promise<void>((resolve) => (timer = setTimeout(resolve, timeoutMs)))
+      ])
+      clearTimeout(timer)
+    }
     const worker = this.worker
     if (!worker) return
     this.stopping = true
     try {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
-          worker.kill()
-          resolve()
-        }, timeoutMs)
+        const timer = setTimeout(
+          () => {
+            worker.kill()
+            resolve()
+          },
+          Math.max(0, deadline - Date.now())
+        )
         worker.once('exit', () => {
           clearTimeout(timer)
           resolve()

@@ -135,6 +135,8 @@ export class SyncEngine {
   private writesWaiting = new Map<string, number>();
   // Task 3: pause/resume + concurrency cap + error circuit breaker
   private paused = false;
+  // what the running pass is: 'initial' while some folder was never downloaded
+  private passPhase: 'initial' | 'incremental' = 'incremental';
   private pauseResolvers: (() => void)[] = [];
   private connectionCount = 0;
   private consecutiveErrors = 0;
@@ -256,7 +258,7 @@ export class SyncEngine {
     if (this.paused) {
       this.paused = false;
       this.progress.paused = false;
-      this.progress.phase = this.syncing ? 'initial' : 'idle';
+      this.progress.phase = this.syncing ? this.passPhase : 'idle';
       const resolvers = this.pauseResolvers;
       this.pauseResolvers = [];
       for (const r of resolvers) r();
@@ -883,11 +885,12 @@ export class SyncEngine {
   async syncAll(opts: { full?: boolean } = {}): Promise<SyncProgress> {
     if (this.syncing) return this.getStatus();
     this.syncing = true;
-    const isInitial = this.progress.messagesTotal === null;
+    // settled once the folder list is known; until then a first pass after start looks initial
+    this.passPhase = this.progress.messagesTotal === null ? 'initial' : 'incremental';
     this.progress = {
       ...this.progress, running: true,
       foldersSynced: 0, newMessages: 0, flagChanges: 0, expunged: 0, errors: [],
-      phase: isInitial ? 'initial' : 'incremental',
+      phase: this.paused ? 'paused' : this.passPhase,
     };
     this.passDeletedMsgIds = new Set();
     this.passInsertedMsgIds = new Set();
@@ -915,6 +918,11 @@ export class SyncEngine {
         (this.store.db.prepare('SELECT f.imap_path p, COUNT(m.id) c FROM folders f LEFT JOIN messages m ON m.folder_id = f.id WHERE f.account_id = ? GROUP BY f.id').all(this.account.id) as { p: string; c: number }[])
           .map(r => [r.p, r.c])
       );
+      // A pass is a download only while some folder was never synced; after a restart the
+      // count starts at what is already stored, so it does not look like starting over
+      this.passPhase = folders.some(p => !this.store.getFolderByPath(p)?.uid_validity) ? 'initial' : 'incremental';
+      if (!this.paused) this.progress.phase = this.passPhase;
+      this.progress.messagesDone = folders.reduce((n, p) => n + (localCounts.get(p) ?? 0), 0);
       const ordered = [...folders].sort((a, b) => {
         if (a === 'INBOX') return -1;
         if (b === 'INBOX') return 1;
