@@ -31,6 +31,7 @@ import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
+import { mailClient } from './mailclient/MailClientService'
 
 function createWindow(): void {
   // Create the browser window.
@@ -441,6 +442,8 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+  // Mail client (utility process): background sync for configured accounts
+  mailClient.startIfConfigured()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -456,6 +459,21 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// Let the mail core finish its shutdown (journal, SQLite, data-dir lock)
+// before the app exits; the service kills the worker after a timeout
+let mailStopped = false
+app.on('before-quit', (event) => {
+  if (mailStopped) return
+  event.preventDefault()
+  void mailClient
+    .stop()
+    .catch((error) => console.error('Stopping the mail client failed:', error))
+    .finally(() => {
+      mailStopped = true
+      app.quit()
+    })
 })
 
 // In this file you can include the rest of your app's specific main process

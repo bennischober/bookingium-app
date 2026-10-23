@@ -1,0 +1,202 @@
+// Runs the mail core in a utility process (mailWorker.js) and relays calls,
+// events and credential requests. The worker starts on the first call or at
+// app start when accounts exist, and restarts after account changes. A worker
+// that keeps crashing is not restarted until the accounts change again.
+import { utilityProcess, type UtilityProcess } from 'electron'
+import { EventEmitter } from 'events'
+import { join } from 'path'
+import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
+import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
+
+// The local Dovecot/Mailpit sandbox; its SMTP sink listens here
+const SANDBOX_SMTP_PORT = 1025
+const CRASH_WINDOW_MS = 60_000
+const MAX_CRASHES = 3
+
+type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
+
+export class MailClientService {
+  /** 'event' (MailEvent) and 'status' (worker state changes) */
+  readonly events = new EventEmitter()
+
+  private worker: UtilityProcess | null = null
+  private starting: Promise<void> | null = null
+  private stopping = false
+  private nextId = 1
+  private pending = new Map<number, Pending>()
+  private crashes: number[] = []
+  private lastError: string | null = null
+
+  status(): { running: boolean; error: string | null } {
+    return { running: this.worker !== null && this.starting === null, error: this.lastError }
+  }
+
+  async call(method: MailApiMethod, args: unknown[]): Promise<unknown> {
+    await this.ensureStarted()
+    const worker = this.worker
+    if (!worker) throw new Error(this.lastError ?? 'Mail-Client ist nicht gestartet')
+    const id = this.nextId++
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject })
+      this.post(worker, { type: 'call', id, method, args })
+    })
+  }
+
+  /** Starts the worker if accounts exist; errors are kept for status() */
+  startIfConfigured(): void {
+    if (listMailAccounts().length === 0) return
+    this.ensureStarted().catch(() => {})
+  }
+
+  /** After account changes: stop the worker and start it with the new configuration */
+  async restart(): Promise<void> {
+    await this.stop()
+    this.crashes = []
+    this.lastError = null
+    this.startIfConfigured()
+  }
+
+  async stop(timeoutMs = 15_000): Promise<void> {
+    await this.starting?.catch(() => {})
+    const worker = this.worker
+    if (!worker) return
+    this.stopping = true
+    try {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          worker.kill()
+          resolve()
+        }, timeoutMs)
+        worker.once('exit', () => {
+          clearTimeout(timer)
+          resolve()
+        })
+        this.post(worker, { type: 'close' })
+      })
+    } finally {
+      this.stopping = false
+    }
+  }
+
+  private ensureStarted(): Promise<void> {
+    if (this.worker && !this.starting) return Promise.resolve()
+    if (!this.starting) {
+      this.starting = this.spawn().finally(() => {
+        this.starting = null
+        this.events.emit('status', this.status())
+      })
+    }
+    return this.starting
+  }
+
+  private spawn(): Promise<void> {
+    const recent = this.crashes.filter((t) => Date.now() - t < CRASH_WINDOW_MS)
+    if (recent.length >= MAX_CRASHES) {
+      return Promise.reject(new Error(this.lastError ?? 'Mail-Client stürzt wiederholt ab'))
+    }
+    const init = this.workerInit()
+
+    return new Promise<void>((resolve, reject) => {
+      const worker = utilityProcess.fork(join(__dirname, 'mailWorker.js'), [], {
+        serviceName: 'Bookingum Mail'
+      })
+      this.worker = worker
+      let settled = false
+      const fail = (message: string): void => {
+        this.lastError = message
+        if (!settled) {
+          settled = true
+          reject(new Error(message))
+        }
+      }
+
+      worker.on('message', (msg: FromWorker) => {
+        switch (msg.type) {
+          case 'ready':
+            this.lastError = null
+            settled = true
+            resolve()
+            break
+          case 'init-error':
+            fail(msg.message)
+            worker.kill()
+            break
+          case 'result': {
+            const p = this.pending.get(msg.id)
+            this.pending.delete(msg.id)
+            if (msg.error !== undefined) p?.reject(new Error(msg.error))
+            else p?.resolve(msg.value)
+            break
+          }
+          case 'credentials-request':
+            this.answerCredentials(worker, msg.reqId, msg.accountId)
+            break
+          case 'event':
+            this.events.emit('event', msg.event satisfies MailEvent)
+            break
+          case 'log':
+            console[msg.level](`[mail] ${msg.message}`)
+            break
+        }
+      })
+
+      worker.on('exit', (code) => {
+        if (this.worker === worker) this.worker = null
+        for (const p of this.pending.values()) p.reject(new Error('Mail-Client wurde beendet'))
+        this.pending.clear()
+        if (!this.stopping && code !== 0) {
+          this.crashes.push(Date.now())
+          console.error(`[mail] worker exited with code ${code}`)
+          fail(this.lastError ?? `Mail-Client abgestürzt (Code ${code})`)
+        } else if (!settled) {
+          fail(this.lastError ?? 'Mail-Client wurde beendet')
+        }
+        this.events.emit('status', this.status())
+      })
+
+      this.post(worker, { type: 'init', init })
+    })
+  }
+
+  private workerInit(): WorkerInit {
+    const accounts = listMailAccounts()
+    if (accounts.length === 0) throw new Error('Kein E-Mail-Konto eingerichtet')
+    const sandbox = accounts.find((a) => a.kind === 'sandbox')
+    return {
+      dataDir: join(mailRoot(), 'data'),
+      accounts: accounts.map(({ id, kind, host, port, email }) => ({
+        id,
+        kind,
+        host,
+        port,
+        email
+      })),
+      // The core's write guard refuses any host outside its loopback allowlist
+      sandbox: sandbox && {
+        imapHost: sandbox.host,
+        imapPort: sandbox.port,
+        smtpHost: sandbox.host,
+        smtpPort: SANDBOX_SMTP_PORT,
+        ...mailCredentials(sandbox.id)
+      }
+    }
+  }
+
+  private answerCredentials(worker: UtilityProcess, reqId: number, accountId: string): void {
+    try {
+      this.post(worker, { type: 'credentials', reqId, ...mailCredentials(accountId) })
+    } catch (error) {
+      this.post(worker, {
+        type: 'credentials',
+        reqId,
+        error: error instanceof Error ? error.message : 'Zugangsdaten nicht lesbar'
+      })
+    }
+  }
+
+  private post(worker: UtilityProcess, msg: ToWorker): void {
+    worker.postMessage(msg)
+  }
+}
+
+export const mailClient = new MailClientService()
