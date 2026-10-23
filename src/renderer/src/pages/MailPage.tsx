@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Lock, Mail, Pause, Play, RefreshCw, Search, WifiOff, X } from 'lucide-react'
+import { Lock, Mail, Pause, Play, RefreshCw, Search, SquarePen, WifiOff, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
@@ -17,14 +17,30 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { ComposeView } from '@/components/mail/ComposeView'
+import {
+  type ComposeState,
+  emptyCompose,
+  forwardCompose,
+  fromSavedDraft,
+  replyCompose
+} from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
 import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
-import { flattenFolders, folderLabel, isInbox, isTrash, messageKey } from '@/components/mail/format'
+import {
+  flattenFolders,
+  folderLabel,
+  isDrafts,
+  isInbox,
+  isTrash,
+  messageKey
+} from '@/components/mail/format'
 import type {
   FolderNode,
+  MessageDetail,
   MessageListItem,
   SearchFilters,
   SyncStatus
@@ -188,6 +204,12 @@ export default function MailPage() {
 
   const [chosenFolderId, setChosenFolderId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  // The open editor, in place of the reading pane; `draftId` when it shows a mail from Drafts
+  const [compose, setCompose] = useState<{
+    key: number
+    state: ComposeState
+    draftId?: number
+  } | null>(null)
   // The mail being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem | null>(null)
   const [query, setQuery] = useState('')
@@ -316,11 +338,28 @@ export default function MailPage() {
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
   }
 
+  const startCompose = (state: ComposeState, draftId?: number) =>
+    setCompose({ key: Date.now(), state, draftId })
+
+  // The mail last opened, for answers that come back after the user moved on
+  const openedId = useRef<number | null>(null)
   const openMessage = (id: number) => {
+    if (compose?.draftId === id) return
+    openedId.current = id
     setSelectedId(id)
+    setCompose(null)
     const item = listItems.find((m) => m.id === id)
     if (canWrite && item && !item.isRead) {
       mailApi.markRead([id], true, accountId).then(refreshLists, () => undefined)
+    }
+    // A draft opens in the editor; until it is loaded the reading pane shows it
+    if (canWrite && item?.isDraft && isDrafts(allFolders.find((f) => f.id === item.folderId))) {
+      mailApi
+        .getDraft(id, accountId)
+        .then((draft) => {
+          if (openedId.current === id) startCompose(fromSavedDraft(draft), id)
+        })
+        .catch(failed('Entwurf konnte nicht geöffnet werden'))
     }
   }
 
@@ -427,7 +466,17 @@ export default function MailPage() {
   const chooseFolder = (id: string) => {
     setChosenFolderId(id)
     setSelectedId(null)
+    openedId.current = null
+    setCompose(null)
     clearSearch()
+  }
+  const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
+    openedId.current = null
+    startCompose(
+      kind === 'forward'
+        ? forwardCompose(message)
+        : replyCompose(message, { all: kind === 'replyAll', ownEmail: account.email })
+    )
   }
 
   return (
@@ -441,6 +490,8 @@ export default function MailPage() {
               setChosenAccountId(id as string)
               setChosenFolderId(null)
               setSelectedId(null)
+              openedId.current = null
+              setCompose(null)
               clearSearch()
             }}
           >
@@ -467,6 +518,18 @@ export default function MailPage() {
             <Lock className="size-3" />
             Nur lesen
           </span>
+        )}
+        {canWrite && (
+          <Button
+            size="sm"
+            onClick={() => {
+              openedId.current = null
+              startCompose(emptyCompose())
+            }}
+          >
+            <SquarePen />
+            Neue E-Mail
+          </Button>
         )}
         <div className="ml-auto">
           <SyncIndicator
@@ -715,7 +778,19 @@ export default function MailPage() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {selectedId !== null ? (
+          {compose ? (
+            <ComposeView
+              key={compose.key}
+              accountId={accountId}
+              initial={compose.state}
+              onClose={() => {
+                setCompose(null)
+                // A sent or discarded draft is gone from Drafts
+                if (compose.draftId !== undefined) setSelectedId(null)
+              }}
+              onStored={refreshLists}
+            />
+          ) : selectedId !== null ? (
             <MessageView
               key={selectedId}
               accountId={accountId}
@@ -729,6 +804,7 @@ export default function MailPage() {
               onToggleFlag={toggleFlag}
               onDelete={(id) => void moveAway(id, { kind: 'delete' })}
               onArchive={hasArchive ? (id) => void moveAway(id, { kind: 'archive' }) : undefined}
+              onCompose={composeFrom}
             />
           ) : (
             <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">

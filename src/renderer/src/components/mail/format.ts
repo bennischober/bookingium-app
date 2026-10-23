@@ -26,6 +26,10 @@ export function isInbox(folder: FolderNode): boolean {
   return folder.path.toUpperCase() === 'INBOX' || Boolean(folder.specialUse?.includes('Inbox'))
 }
 
+export function isDrafts(folder: FolderNode | undefined): boolean {
+  return Boolean(folder?.specialUse?.includes('Drafts'))
+}
+
 export function isTrash(folder: FolderNode | undefined): boolean {
   return Boolean(folder?.specialUse?.includes('Trash'))
 }

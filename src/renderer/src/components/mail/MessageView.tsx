@@ -6,9 +6,12 @@ import {
   ChevronRight,
   Download,
   Flag,
+  Forward,
   ImageOff,
   Link2,
   Paperclip,
+  Reply,
+  ReplyAll,
   Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -84,7 +87,8 @@ export function MessageView({
   inTrash,
   onToggleFlag,
   onDelete,
-  onArchive
+  onArchive,
+  onCompose
 }: {
   accountId: string
   messageId: number
@@ -93,6 +97,8 @@ export function MessageView({
   onToggleFlag: (id: number, flagged: boolean) => void
   onDelete: (id: number) => void
   onArchive?: (id: number) => void
+  /** Opens the editor with a reply or forward of this mail (writable accounts only) */
+  onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
 }) {
   const detail = useQuery({
     queryKey: messageKey(accountId, messageId),
@@ -169,6 +175,34 @@ export function MessageView({
           <div className="flex shrink-0 items-center gap-1">
             {canWrite && (
               <>
+                {onCompose && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onCompose(message, 'reply')}
+                      title="Antworten"
+                    >
+                      <Reply />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onCompose(message, 'replyAll')}
+                      title="Allen antworten"
+                    >
+                      <ReplyAll />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onCompose(message, 'forward')}
+                      title="Weiterleiten"
+                    >
+                      <Forward />
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"

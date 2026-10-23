@@ -29,6 +29,50 @@ function message(n: number): string {
   ].join('\r\n')
 }
 
+/**
+ * Removes the mails a test wrote (subject starting with `subjectPrefix`) from the suite's
+ * Drafts and Sent and from Mailpit, so the sandbox stays as it was — also what an earlier,
+ * failed run left behind. Mailpit is shared with other harnesses: only these subjects go.
+ */
+export async function removeSentTestMails(
+  host: string,
+  port: number,
+  mailpitApiPort: number,
+  subjectPrefix: string
+): Promise<void> {
+  const client = new ImapFlow({
+    host,
+    port,
+    secure: false,
+    auth: { user: E2E_MAIL_USER, pass: E2E_MAIL_PASS },
+    logger: false
+  })
+  await client.connect()
+  try {
+    for (const box of await client.list()) {
+      if (box.specialUse !== '\\Drafts' && box.specialUse !== '\\Sent') continue
+      await client.mailboxOpen(box.path)
+      const uids = await client.search({ subject: subjectPrefix }, { uid: true })
+      if (uids && uids.length) await client.messageDelete(uids, { uid: true })
+    }
+  } finally {
+    await client.logout().catch(() => client.close())
+  }
+  const api = `http://${host}:${mailpitApiPort}/api/v1`
+  const query = encodeURIComponent(`subject:${subjectPrefix}`)
+  const found = (await (await fetch(`${api}/search?query=${query}`)).json()) as {
+    messages: { ID: string; Subject: string }[]
+  }
+  const ids = found.messages.filter((m) => m.Subject.startsWith(subjectPrefix)).map((m) => m.ID)
+  if (ids.length) {
+    await fetch(`${api}/messages`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ IDs: ids })
+    })
+  }
+}
+
 /** Creates the folder and tops the inbox up to its mails; a no-op on a seeded mailbox */
 export async function seedMailSandbox(host: string, port: number): Promise<void> {
   const client = new ImapFlow({

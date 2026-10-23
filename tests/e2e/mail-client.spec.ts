@@ -8,7 +8,12 @@ import { connect, createServer, type AddressInfo } from 'net'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
-import { E2E_MAIL_PASS, E2E_MAIL_USER, seedMailSandbox } from './helpers/mailSandbox'
+import {
+  E2E_MAIL_PASS,
+  E2E_MAIL_USER,
+  removeSentTestMails,
+  seedMailSandbox
+} from './helpers/mailSandbox'
 
 const SANDBOX = { host: '127.0.0.1', port: 10143, ionosLikePort: 10144 }
 const SANDBOX_USER = E2E_MAIL_USER
@@ -309,6 +314,59 @@ test('a mail dragged onto a folder is moved there', async () => {
   } finally {
     // The sandbox stays as it was, also when a check above failed
     if ((await folderOf(id).catch(() => null)) === target!.id) await undo()
+  }
+})
+
+const MAILPIT = { smtpPort: 1025, apiPort: 8025 }
+const COMPOSE_TAG = 'e2e-compose-'
+
+test('a mail written in the editor is saved as a draft and sent', async () => {
+  const { page } = h
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const drafts = folders.find((f) => f.specialUse === '\\Drafts')
+  const sent = folders.find((f) => f.specialUse === '\\Sent')
+  test.skip(!drafts || !sent, 'the sandbox has no Drafts or Sent folder')
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const count = async (folderId: string) =>
+    (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
+  const draftsBefore = await count(drafts!.id)
+  const sentBefore = await count(sent!.id)
+  // Mailpit is shared with other sandbox users; this mail is found by its own subject
+  const tag = `${COMPOSE_TAG}${Date.now()}`
+  const delivered = async () => {
+    const query = encodeURIComponent(`subject:${tag}`)
+    const res = await fetch(
+      `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=${query}`
+    )
+    return ((await res.json()) as { messages_count: number }).messages_count
+  }
+
+  try {
+    await openMailPage()
+    await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+    const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+    // Leaving the field turns the typed address into a recipient
+    await editor.getByRole('textbox', { name: 'An' }).fill('empfaenger@example.test')
+    await editor.getByRole('textbox', { name: 'Betreff' }).fill(tag)
+    await editor.getByRole('textbox', { name: 'Text' }).fill('Hallo aus dem E2E-Test')
+    await expect(editor.getByText('empfaenger@example.test')).toBeVisible()
+
+    await editor.getByRole('button', { name: 'Entwurf speichern' }).click()
+    await expect(editor.getByText(/^Gespeichert/)).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => count(drafts!.id), { timeout: 30_000 }).toBe(draftsBefore + 1)
+
+    await editor.getByRole('button', { name: 'Senden', exact: true }).click()
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Gesendet' })).toBeVisible({
+      timeout: 30_000
+    })
+    await expect(editor).toHaveCount(0)
+    await expect.poll(delivered, { timeout: 30_000 }).toBe(1)
+    // Filed in Sent, and the draft it was written in is gone
+    await expect.poll(() => count(sent!.id), { timeout: 30_000 }).toBe(sentBefore + 1)
+    await expect.poll(() => count(drafts!.id), { timeout: 30_000 }).toBe(draftsBefore)
+  } finally {
+    // The sandbox stays as it was: this mail (and any an earlier, failed run left) goes again
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
   }
 })
 
