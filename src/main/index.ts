@@ -13,6 +13,11 @@ if (process.env.BOOKINGIUM_USER_DATA) {
 } else {
   app.setPath('userData', join(app.getPath('appData'), 'bookingum-app'))
 }
+// One app per data folder: a second one would open the same database and mail
+// store. The lock is taken per userData, so tests with their own folder still run
+// next to the app. A second start brings the running window to the front instead.
+const isPrimaryInstance = app.requestSingleInstanceLock()
+if (!isPrimaryInstance) app.exit(0)
 import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
 import { runMigrations } from './db/migrate'
@@ -424,7 +429,15 @@ ipcMain.handle('import:pickWorkbook', async (event) => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+app.on('second-instance', () => {
+  const window = BrowserWindow.getAllWindows()[0]
+  if (!window) return
+  if (window.isMinimized()) window.restore()
+  window.focus()
+})
+
 app.whenReady().then(async () => {
+  if (!isPrimaryInstance) return
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
