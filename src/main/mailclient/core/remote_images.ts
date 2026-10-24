@@ -27,7 +27,9 @@ export async function fetchRemoteImagesAsDataUris(
   const out = new Map<string, string>();
   let total = 0;
   for (const url of urls.slice(0, maxCount)) {
-    if (total > maxTotal) break;
+    // The budget is a cap, not a threshold to cross: an image that would push the
+    // total past it is not fetched at all (checked before, not after the fetch).
+    if (total >= maxTotal) break;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -42,6 +44,8 @@ export async function fetchRemoteImagesAsDataUris(
       if (!IMAGE_TYPES.test(ct)) continue;
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length > maxPer) continue;
+      // One image may not push the total past the budget either
+      if (total + buf.length > maxTotal) continue;
       total += buf.length;
       out.set(url, `data:${ct};base64,${buf.toString('base64')}`);
     } catch {
