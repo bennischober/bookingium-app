@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ type Draft = {
   security: ImapSecurity
   user: string
   password: string
+  signature: string
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -52,7 +54,8 @@ const EMPTY_DRAFT: Draft = {
   port: '993',
   security: 'tls',
   user: '',
-  password: ''
+  password: '',
+  signature: ''
 }
 
 /** Result of "Verbindung testen", or of the test that runs before saving */
@@ -106,7 +109,12 @@ function MailAccountDialog({
     if (open) {
       setDraft(
         account
-          ? { ...account, port: String(account.port), password: '' }
+          ? {
+              ...account,
+              port: String(account.port),
+              password: '',
+              signature: account.signature ?? ''
+            }
           : { ...EMPTY_DRAFT, kind: 'production-readonly' }
       )
       setResult(null)
@@ -194,13 +202,18 @@ function MailAccountDialog({
     event.preventDefault()
     if (!valid || busy) return
     setResult(null)
-    save.mutate({ ...connection(), email: draft.email.trim() })
+    save.mutate({
+      ...connection(),
+      email: draft.email.trim(),
+      signature: draft.signature.trim() || undefined
+    })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form onSubmit={submit} className="space-y-4">
+        {/* The form scrolls: a small window must still reach the buttons at the bottom */}
+        <form onSubmit={submit} className="max-h-[70vh] space-y-4 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {account ? 'E-Mail-Konto bearbeiten' : 'E-Mail-Konto hinzufügen'}
@@ -309,6 +322,17 @@ function MailAccountDialog({
               onChange={(e) => set({ password: e.target.value })}
               placeholder={account ? 'Unverändert lassen' : undefined}
               autoComplete="off"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mail-account-signature">Signatur</Label>
+            <Textarea
+              id="mail-account-signature"
+              value={draft.signature}
+              onChange={(e) => set({ signature: e.target.value })}
+              placeholder="Name, Telefon, … – wird an neue Mails angehängt"
+              rows={3}
             />
           </div>
 

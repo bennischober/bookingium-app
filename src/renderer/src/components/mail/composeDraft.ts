@@ -109,7 +109,7 @@ export function forwardCompose(message: MessageDetail): ComposeState {
   const field = (list: Address[]) =>
     list.map((a) => (a.name ? `${a.name} <${a.email}>` : a.email)).join(', ')
   const header = [
-    '---------- Weitergeleitete Nachricht ----------',
+    FORWARD_HEADER,
     `Von: ${field([{ name: message.fromName, email: message.fromEmail }])}`,
     `Datum: ${formatDate(message)}`,
     `Betreff: ${message.subject}`,
@@ -125,6 +125,34 @@ export function forwardCompose(message: MessageDetail): ComposeState {
       .filter((a) => !a.isInline || !a.contentId)
       .map((a) => a.filename || 'Anhang')
   }
+}
+
+/** Marks the start of a forwarded mail's header block (B8: the signature goes above it) */
+const FORWARD_HEADER = '---------- Weitergeleitete Nachricht ----------'
+
+/**
+ * B8: the signature goes between the new text and the quote, and only once. * The editor keeps the body as plain text, so a signature is appended as text.
+ * `hasSignature` decides from the existing body, which is what makes reopening a
+ * draft idempotent: the second call sees its own signature and adds nothing.
+ */
+export function withSignature(state: ComposeState, signature: string | undefined): ComposeState {
+  const text = signature?.trim()
+  if (!text || state.bodyText.includes(text)) return state
+  // Above the quote: everything from the first quoted line or the forwarded header
+  // stays below the signature
+  const lines = state.bodyText.split('\n')
+  const quoteAt = lines.findIndex((line) => line.startsWith('>') || line.startsWith(FORWARD_HEADER))
+  const body =
+    quoteAt < 0
+      ? `${state.bodyText.replace(/\s+$/, '')}\n\n${text}\n`
+      : [
+          ...lines.slice(0, quoteAt).join('\n').replace(/\s+$/, ''),
+          '',
+          text,
+          '',
+          ...lines.slice(quoteAt)
+        ].join('\n')
+  return { ...state, bodyText: body }
 }
 
 /** A draft opened from Drafts: its attachments are its own now, nothing is forwarded */

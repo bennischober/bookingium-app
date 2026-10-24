@@ -22,6 +22,8 @@ type StoredAccount = {
   email: string
   /** base64 of safeStorage.encryptString(password) */
   password: string
+  /** B8: plain-text signature, appended to new mail and above the quote; not secret */
+  signature?: string
 }
 
 /** Account without its password, safe to hand to the renderer */
@@ -121,7 +123,8 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     security: input.security,
     user: input.user.trim(),
     email: input.email.trim(),
-    password
+    password,
+    signature: input.signature?.trim() ? input.signature.trim() : undefined
   }
   writeAll(
     existing ? accounts.map((a) => (a.id === existing.id ? account : a)) : [...accounts, account]

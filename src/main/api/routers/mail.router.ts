@@ -36,7 +36,9 @@ const SaveMailAccountInput = z.object({
   security: z.enum(['tls', 'starttls', 'none']),
   user: z.string().min(1),
   email: z.string().min(1),
-  password: z.string().min(1).optional()
+  password: z.string().min(1).optional(),
+  /** B8: plain-text signature, appended to new mail and above the quote */
+  signature: z.string().optional()
 })
 
 const TestMailAccountInput = SaveMailAccountInput.omit({ email: true })

@@ -23,7 +23,8 @@ import {
   emptyCompose,
   forwardCompose,
   fromSavedDraft,
-  replyCompose
+  replyCompose,
+  withSignature
 } from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { confirmAction } from '@/lib/confirm'
@@ -380,9 +381,15 @@ export default function MailPage() {
     void window.api.openMailWindow(accountId, id)
   }
 
-  // A new key mounts a fresh editor, also in place of an open one
+  // A new key mounts a fresh editor, also in place of an open one.
+  // B8: every new mail, reply and forward gets the account's signature here, so no
+  // entry point can forget it. A reopened draft already contains it and is left alone.
   const startCompose = (state: ComposeState, draftId?: number) =>
-    setCompose((current) => ({ key: (current?.key ?? 0) + 1, state, draftId }))
+    setCompose((current) => ({
+      key: (current?.key ?? 0) + 1,
+      state: draftId === undefined ? withSignature(state, account?.signature) : state,
+      draftId
+    }))
 
   // The mail last opened, for answers that come back after the user moved on
   const openedId = useRef<number | null>(null)

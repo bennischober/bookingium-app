@@ -43,7 +43,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B5 | Empty Trash / permanent delete in the UI | S | A1 | done |
 | B6 | Attachments: open and save | S | — | done |
 | B7 | Attachments in compose | M | — | open |
-| B8 | Signatures | S–M | — | open |
+| B8 | Signatures | S–M | — | done |
 | C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | open |
 | C2 | `mail_link` table + linker | L | — | open |
 | C3 | E-Mails tab on detail pages | M | C2 | open |

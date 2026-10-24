@@ -10,7 +10,8 @@ import {
   type ComposeState,
   forwardCompose,
   fromSavedDraft,
-  replyCompose
+  replyCompose,
+  withSignature
 } from '@/components/mail/composeDraft'
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
@@ -104,10 +105,13 @@ export default function MailWindowPage() {
   const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') =>
     setCompose({
       key: Date.now(),
-      state:
+      // B8: a reply and a forward carry the signature too, above the quote
+      state: withSignature(
         kind === 'forward'
           ? forwardCompose(message)
-          : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' })
+          : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' }),
+        account?.signature
+      )
     })
 
   if (!accountId || !Number.isSafeInteger(messageId)) {
