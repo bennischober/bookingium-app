@@ -439,6 +439,18 @@ export class SyncEngine {
     const serverPaths = new Set(paths);
     const localFolders = this.store.allFolders().filter(f => f.account_id === this.account.id
       && !f.imap_path.startsWith('__staging__/'));
+    // Gate 0 (card A2a): a TRUNCATED/EMPTY LIST response must prune NOTHING — ever.
+    // The blast-radius cap (Gate 2) only limits each pass to 25%, so repeated empty
+    // LISTs would still nuke the whole cache 25% per pass. An empty result, or one
+    // without INBOX, while folders are known means OUR VIEW or the CONNECTION is
+    // broken, not the server — observe only.
+    if (localFolders.length > 0 && (serverPaths.size === 0 || !serverPaths.has('INBOX'))) {
+      this.log?.warn?.(`folder-list sync: LIST returned ${serverPaths.size} folder(s)` +
+        `${serverPaths.size ? ' without INBOX' : ''} while ${localFolders.length} are known — ` +
+        `treating as a broken/truncated response, no pruning this pass`);
+      this.emit({ type: 'error', path: null, message: 'folder-list sync: empty or INBOX-less LIST result ignored (safety gate 0)' });
+      return paths;
+    }
     // Gate 1a: mark currently-absent folders with a timestamp (first absence = observe)
     const now = new Date().toISOString();
     for (const f of localFolders) {
