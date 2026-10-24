@@ -1,6 +1,7 @@
 # Open items
 
 Done work lives in the git history; this list only holds what is still open.
+Mail client, its integration into bookingum and the direction: see `docs/NEXT_STEPS.md`.
 
 ## Deadlines
 
