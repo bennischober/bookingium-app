@@ -14,15 +14,17 @@ Goal: a purpose-specific client — fast local search, correspondence tied to cu
 ## Architecture
 - **IMAP is the source of truth.** Locally: one `.eml` per message plus SQLite with FTS5. The index is rebuildable from the `.eml` files.
 - **Separate mail DB** (own SQLite file and folder), not the app DB. Reasons: size, rebuildability, independent backup/lifecycle.
-  Link to app entities through `mail_link(entity_type, entity_id, message_key)`, keyed by Message-ID based key, not by UID.
+  Link to app entities through a `mail_link` table in the **app DB** (it must survive a rebuild of the mail store), keyed by
+  mail account + Message-ID, not by UID and not by the store's `message_key` (that is `sha1(account|folder|uidValidity|uid)` and
+  changes on every move). Mails without a Message-ID get a fallback key (see `docs/mail-client-tasks.md`, C2).
 - **Schema versions:** each account DB counts its schema in `PRAGMA user_version` (`core/migrations.ts`). Migrations are append-only and
   run one per transaction; a DB written by a newer build is refused instead of opened. Migration 1 adopts the unversioned DBs from before.
 - **Bodies apart from headers:** `messages` holds what lists, sorting and filters need; text and HTML live in `message_bodies` (same id,
   deleted with the message). Search still covers the body: the FTS index reads it through the `fts_source` view.
 - **Mail core** lives in `src/main/mailclient/core/` and has no Electron or bookingum imports. It talks to the host only through
-  `createMailCore(options)` (data dir, account config, credentials provider, logger, clock) and the `Api` interface in `core/api.ts`.
+  `createMailCore(options)` (data dir, account config, credentials provider, logger, clock) and the `Api` interface in `core/types.ts`.
 - **Process model:** the core runs in an Electron utility process (better-sqlite3 is synchronous; sync and indexing must not block the
-  main process or UI). The renderer talks to it via IPC through a transport implementing `Api`.
+  main process or UI). The renderer talks to it via IPC: `mailApi` (`src/renderer/src/lib/mailApi.ts`) → tRPC `mail.call` → main → worker.
 - **Single instance:** `app.requestSingleInstanceLock()` plus an exclusive lock on the mail data dir. Two cores on one store must be impossible.
 - **Password:** Electron `safeStorage` (DPAPI on Windows); never in the mail DB, logs or `.env`.
 - **Legally relevant mail** (e.g. sent invoice mails) is stored as a copy together with the document, independent of the mailbox.

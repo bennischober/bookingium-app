@@ -3,6 +3,18 @@
 Written 2026-10-24 on `feat/mail-client` (state: `0cdf750` plus this document) so another agent
 (opencode) can pick the work up. Read `docs/mail-client.md` first (design, decisions, rules), then this file.
 
+**Superseded in parts (2026-10-24, later commit).** The detailed handoff now lives in four files. Read them in this order:
+
+1. `docs/mail-client.md`: design and decisions (unchanged rules).
+2. `docs/mail-client-assessment.md`: maturity of the prototype and of the port, the risk register R1–R11, and the gates.
+3. `docs/mail-client-handbook.md`: how to work in this code (map, call flows, recipes, traps, definition of done).
+4. `docs/mail-client-tasks.md`: the task cards (T, P, A, B, C, D, E) with steps and acceptance criteria. **This is the
+   work list**; §3 below is the older, shorter version of it.
+
+This file stays for the Task 5 review (§2: findings F1–F7) and the direction (§4). Where §2/§3 and the task cards
+disagree, the task cards win. In particular, the `92cf76a` row in the port table is replaced by card A3
+(opaque names chosen at write time, temp file + fsync + rename, the row inserted with the path that exists).
+
 Contents:
 
 1. Where the branch stands

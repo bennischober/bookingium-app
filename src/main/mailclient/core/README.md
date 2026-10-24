@@ -1,10 +1,15 @@
 # The mail core
 
-Self-contained mail engine, extracted in the prototype (Task 5 Step 1) and developed in
-bookingum since 2026-10-23: this copy is the source of truth (see docs/mail-client.md). Nothing in this folder imports the HTTP server,
-the browser client, or anything UI-related; there are no `process.env` reads and no
-hard-coded paths, ports or URLs anywhere in `app/core/`. Static regression checks for
-all of these claims live in `app/scripts/test-core-boundary.ts` (8 checks).
+Self-contained mail engine. It was extracted in the prototype (Task 5 Step 1) and has been
+developed in bookingum since 2026-10-23: this copy is the source of truth (see
+docs/mail-client.md). Changes from the prototype are ported by hand, never by copying files
+over this folder (docs/mail-client-assessment.md §4 lists what would be lost).
+
+Nothing in this folder imports Electron, the renderer, tRPC or anything UI-related; there are
+no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox allowlist in
+`write_guard.ts`. The host is `../MailClientService.ts` (main process) and `../worker.ts`
+(the utility process that runs the core). The prototype's static boundary check
+(`test-core-boundary.ts`) has not been ported yet (docs/mail-client-tasks.md, A8).
 
 ## Module map
 
@@ -16,17 +21,25 @@ all of these claims live in `app/scripts/test-core-boundary.ts` (8 checks).
 | `sync.ts` | `SyncEngine`: two-way IMAP sync (CONDSTORE/QRESYNC tiered + UID-sweep fallback), IDLE, pacing, circuit breaker, staged UIDVALIDITY swap |
 | `write_engine.ts` | `WriteEngine`: crash-safe execution of flag/move/delete/expunge/send/draft ops, serialized playback, verify-before-replay |
 | `write_guard.ts` | THE write guard: fixed sandbox allowlist + `assertSandboxHost`; sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
+| `compose.ts` | MIME building for new mail, reply, reply-all, forward and drafts (built once, sent and appended as the same bytes) |
+| `connection_test.ts` | One-shot staged connection test for the account dialog (DNS, TCP, TLS, login, folders) |
+| `imap_options.ts` | Shared ImapFlow options (timeouts, socket error listener) |
 | `sanitize.ts` | HTML mail sanitizer (DOMPurify + jsdom) — the only module needing a DOM |
 | `remote_images.ts` | opt-in remote-image fetch (URL → data: URI, size/type limited) |
-| `types.ts` | data types + `Api`/`Transport` contracts (moved from `shared/api.ts`; `shared/api.ts` re-exports them) |
+| `types.ts` | data types + the `Api` contract (the renderer imports these types; the worker calls `MailCore` methods by name) |
 | `instance_lock.ts` | single-instance protection: data-dir lock file + PID liveness check |
 
-Import direction is one-way: `server/` (HTTP host) → `core/`, `client/` → `shared/api.ts` → types in `core/types.ts`. The core imports nothing back.
+Import direction is one-way: `../worker.ts` → `core/`; the renderer reaches the core only over
+IPC (`mail.call` in `src/main/api/routers/mail.router.ts`, allowlisted by `MAIL_API_METHODS` in
+`../protocol.ts`) and imports nothing from here except types. The core imports nothing back.
+
+Code style: this folder keeps the prototype's style (semicolons, long lines) and is not
+prettier-formatted, so hand-ports stay diffable. Do not run `prettier --write` on it.
 
 ## Factory
 
 ```ts
-import { createMailCore } from './core/index.js';
+import { createMailCore } from './core/index';
 
 const core = createMailCore({
   dataDir: '/abs/path/data',           // REQUIRED absolute; accounts get subdirs <dataDir>/<id>
@@ -39,20 +52,24 @@ const core = createMailCore({
     email: 'me@example.com',           // optional display identity (From header fallback)
   }],
   sandbox: { imapHost, imapPort, smtpHost, smtpPort, user, pass },  // REQUIRED if any account is writable; hosts must be on the guard allowlist
-  sinkProbe: async (messageId) => boolean,   // optional send-sink probe (Mailpit in the prototype)
+  sinkProbe: async (messageId) => boolean,   // optional send-sink probe (Mailpit)
   log: { info?, warn?, error? },             // default: silent
   clock: () => number,                       // default Date.now (deterministic tests)
   remoteImages: { enabled: true, ... },      // omit = remote images stay blocked
   forceNoCondstore: false,                   // test hook: force the UID-sweep sync strategy
 });
 
-core.api;        // MailCore IS the Api implementation (same method surface as shared/api.ts)
+core.api;        // MailCore IS the Api implementation (types.ts)
 core.on('sync-event', cb);   // sync progress events (see below)
 core.on('op-event', cb);     // write-op journal state changes
 core.start();    // initial sync + IDLE + polling + pending-op replay (5 s after start)
-core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host schedules it
+core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host schedules it (not yet scheduled, see docs/mail-client-tasks.md A3)
 await core.close();   // shutdown contract, see below
 ```
+
+Note on `sandbox`: it is ONE global endpoint for all writable accounts (the host passes the
+first sandbox account). With more than one sandbox account, writes for the second one would go
+to the first one's mailbox. See docs/mail-client-assessment.md R1 and task A7.
 
 Credentials are resolved **lazily per connection** through the host-provided
 `credentials()` function and are cached only in memory (`ensureCredentials`). The core
@@ -90,8 +107,9 @@ the next `start()`. `close()` is idempotent.
 PID + start time inside). A second instance — same process or child process — throws
 `InstanceLockError` immediately with the holder's PID. Stale locks (dead PID, or a
 PID-reuse victim older than 7 days) are broken automatically. The lock is released on
-`close()` and on process exit. This makes the Task 4 double-server incident
-(two processes racing the same SQLite store) structurally impossible.
+`close()` and on process exit. This makes the prototype's Task 4 double-server incident
+(two processes racing the same SQLite store) structurally impossible. bookingum also takes
+Electron's single-instance lock (`app.requestSingleInstanceLock()`).
 
 Note: constructing `Store`/`SyncEngine` directly (as test suites do) bypasses the lock
 by design — the lock protects whole app instances, not individual components.
@@ -100,14 +118,14 @@ by design — the lock protects whole app instances, not individual components.
 
 - **jsdom + DOMPurify**: only `sanitize.ts`. Pure JS, creates its own DOM — runs in a
   plain Node process or Electron main/utility process. Never needed in a renderer.
-- **better-sqlite3**: `store.ts` (native module — rebuild for Electron's ABI).
+- **better-sqlite3**: `store.ts` (native module — rebuilt for Electron's ABI on install).
 - **imapflow / mailparser**: `sync.ts`, write paths, attachment parsing.
 - **nodemailer**: `write_engine.ts` (SMTP send).
 - **Node built-ins only** otherwise (`fs`, `path`, `crypto`, `net`, `events` semantics
   via plain callbacks). `process.memoryUsage()` is read for the `getSyncStatus()`
-  `serverRssMB` field (observability; works in Electron main/utility too).
+  `serverRssMB` field (observability; works in the utility process too).
 
-## Dependencies & licenses (app/core runtime deps)
+## Dependencies & licenses (core runtime deps)
 
 | Package | Version | License |
 |---|---|---|
@@ -118,13 +136,16 @@ by design — the lock protects whole app instances, not individual components.
 | dompurify | 3.4.17 | (MPL-2.0 OR Apache-2.0) |
 | jsdom | 29.1.1 | MIT |
 
-All permissive; none GPL/MPL-only. `dotenv` is a **host** concern (server/index.ts),
-not a core dependency.
+All permissive; none GPL/MPL-only (DOMPurify is used under Apache-2.0). Do not add GPL or
+MPL-only dependencies.
 
-## State to copy
+## Data on disk
 
-The core owns and creates everything it needs under the host-provided `dataDir`:
-per-account SQLite DBs (`<id>.db` + WAL/SHM), `.eml` blob files named by
-`message_key`, and the `.mailcore.lock` file (runtime). Copying `app/core/` into the
-Electron app requires no other files except `core/types.ts`'s consumers:
-`app/shared/api.ts` re-exports the same types for the UI (keep that file or inline it).
+The core owns and creates everything it needs under the host-provided `dataDir`
+(`<userData>/mail/data` in bookingum): one folder per account (`<dataDir>/<id>/`) with
+the SQLite DB (+ WAL/SHM) and the `.eml` files, and the `.mailcore.lock` file. The `.eml`
+file name is `<message_key>.eml` and the row's `file_path` holds it; a move renames the
+file and updates the row. Always open a file as `path.join(<account dir>, row.file_path)`,
+never relative to the working directory. All of it can be rebuilt from the server: nothing
+that must survive (links to persons, invoices) may live here — that belongs in bookingum's
+app database.
