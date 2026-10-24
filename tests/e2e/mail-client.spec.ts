@@ -435,7 +435,7 @@ test('several mails are selected and handled at once', async () => {
     const path = folders.find((f) => f.id === now.folderId)?.path
     const op = (await mail<Op[]>('listOps', sandboxId)).find(
       (o) =>
-        o.kind === 'move' &&
+        (o.kind === 'move' || o.kind === 'move_batch') &&
         o.state === 'done' &&
         o.createdAt >= started &&
         o.uid === inboxUids[i] &&

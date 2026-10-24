@@ -127,6 +127,9 @@ export function MessageList({
       onOpen(selection.focus)
     } else if (event.key === 'Delete' && onDelete && selection.ids.length > 0) {
       event.preventDefault()
+      // B3's window shortcut handles Delete too; without this the mail would be
+      // deleted twice (two journaled ops, two toasts)
+      event.stopPropagation()
       onDelete(selection.ids)
     }
   }

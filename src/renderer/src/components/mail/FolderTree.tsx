@@ -139,7 +139,9 @@ function FolderItem({
     }
   }
 
-  // B2: the folder itself is the drag source, and every row a drop target
+  // B2: the folder itself is the drag source, and every row a drop target for both
+  // a dragged mail and a dragged folder. The two share one onDragOver/onDrop pair:
+  // React keeps only the last prop, so separate objects would silently drop one.
   const folderDragProps = onFolderAction &&
     !isProtected(folder) && {
       draggable: true,
@@ -149,17 +151,25 @@ function FolderItem({
         folderMove?.onDragStart?.(folder)
       }
     }
-  const folderDropProps = folderMove && {
+  const rowDropProps = (drop || folderMove) && {
+    onDragEnter: drop && (() => dropProps!.onDragEnter()),
+    onDragLeave: drop && ((event: React.DragEvent) => dropProps!.onDragLeave(event)),
     onDragOver: (event: React.DragEvent) => {
-      if (!acceptsFolder) return
-      // Without preventDefault the browser refuses the drop
-      event.preventDefault()
-      event.dataTransfer.dropEffect = 'move'
+      // A dragged folder wins: it is the one being moved right now
+      if (acceptsFolder) {
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        return
+      }
+      dropProps?.onDragOver(event)
     },
     onDrop: (event: React.DragEvent) => {
-      if (!acceptsFolder) return
-      event.preventDefault()
-      folderMove.onMove(folder)
+      if (acceptsFolder) {
+        event.preventDefault()
+        folderMove!.onMove(folder)
+        return
+      }
+      dropProps?.onDrop(event)
     }
   }
 
@@ -172,9 +182,8 @@ function FolderItem({
       )}
       style={{ paddingLeft: depth * 12 }}
       data-drop-target={over && accepts ? 'true' : undefined}
-      {...dropProps}
       {...folderDragProps}
-      {...folderDropProps}
+      {...rowDropProps}
     >
       {folder.children.length > 0 ? (
         <button
