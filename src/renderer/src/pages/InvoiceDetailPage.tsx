@@ -6,6 +6,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { InvoiceMailsCard } from '@/components/invoice/InvoiceMailsCard'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Empty, Fields, InfoCard } from '@/components/detail/DetailParts'
 import { confirmAction } from '@/lib/confirm'
@@ -184,7 +185,10 @@ export default function InvoiceDetailPage() {
           <EInvoiceCheck invoiceId={invoice.id} />
           <StatusActions invoice={invoice} />
         </div>
-        <History invoice={invoice} />
+        <div className="min-w-0 space-y-4">
+          <InvoiceMailsCard invoiceId={invoice.id} />
+          <History invoice={invoice} />
+        </div>
       </div>
     </div>
   )

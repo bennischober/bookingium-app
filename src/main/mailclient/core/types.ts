@@ -228,6 +228,8 @@ export interface Api {
   deleteFolder?(path: string, accountId?: string): Promise<OpSummary>;
   /** List items for the history panel of a record (C3), by Message-ID */
   findByMessageIds?(ids: string[], accountId?: string): Promise<MessageListItem[]>;
+  /** C4: the mails answering one of these Message-IDs (In-Reply-To/References), newest first */
+  findReplies?(parentIds: string[], accountId?: string): Promise<MessageListItem[]>;
 }
 
 /** C2: one mail's linking header. Addresses and ids only - no subject, no body. */

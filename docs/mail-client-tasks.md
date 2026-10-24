@@ -44,10 +44,10 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B6 | Attachments: open and save | S | — | done |
 | B7 | Attachments in compose | M | — | done |
 | B8 | Signatures | S–M | — | done |
-| C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | in progress - part 1 done (setting, availability rule, labels, tests); part 2 open (compose hand-off, invoice_email.message_id) |
+| C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | done (setting + availability rule; invoice handler opens the own compose window and marks the invoice only after a real send; `invoice_email.message_id` + account id stored for C4; e2e sends through Mailpit) |
 | C2 | `mail_link` table + linker | L | — | done |
 | C3 | E-Mails tab on detail pages | M | C2 | done |
-| C4 | Invoices: sent mails and replies | M | C1, C2 | open |
+| C4 | Invoices: sent mails and replies | M | C1, C2 | done (invoice.mails joins invoice_email.message_id with In-Reply-To/References in the store; card on the invoice page, "Antwort erhalten"; status never changes automatically) |
 | C5 | Attachment → document | M | C2, D1 (optional) | open |
 | C6 | Mails in the global search | S–M | — | done |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |

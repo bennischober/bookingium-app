@@ -40,6 +40,7 @@ export const MAIL_API_METHODS = [
   'expungeFromTrash',
   'listHeadersSince',
   'findByMessageIds',
+  'findReplies',
   'createFolder',
   'renameFolder',
   'deleteFolder'

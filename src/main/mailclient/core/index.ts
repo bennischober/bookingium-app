@@ -730,6 +730,42 @@ export class MailCore implements Api {
     return out;
   }
 
+  /**
+   * C4: the mails that answer one of `parentIds` - their `In-Reply-To` names it, or it
+   * appears in their `References`. A Message-ID matches with or without angle brackets.
+   * Newest first, because a thread's last mail is what the invoice page cares about.
+   */
+  async findReplies(parentIds: string[], accountId?: string): Promise<MessageListItem[]> {
+    const wanted = parentIds.map((raw) => normalizeMessageId(raw)).filter(Boolean)
+    if (wanted.length === 0) return []
+    // The parent is stored as the server sent it; the reply may quote it either way
+    const forms = wanted.flatMap((id) => [id, `<${id}>`])
+    const store = this.entry(accountId).store
+    const found = new Map<number, import('./store.js').MessageRow>()
+    for (let i = 0; i < forms.length; i += 200) {
+      const chunk = forms.slice(i, i + 200)
+      const rows = store.db
+        .prepare(
+          `SELECT * FROM messages
+           WHERE in_reply_to IN (${chunk.map(() => '?').join(',')})
+              OR references_json LIKE '%' || ? || '%'`
+        )
+        .all(...chunk, chunk[0]) as import('./store.js').MessageRow[]
+      for (const row of rows) {
+        if (row.in_reply_to && chunk.includes(row.in_reply_to)) {
+          found.set(row.id, row)
+          continue
+        }
+        // the LIKE is only a prefilter; References is a JSON array of Message-IDs
+        const refs = parseJsonArray(row.references_json)
+        if (refs.some((ref) => chunk.includes(ref))) found.set(row.id, row)
+      }
+    }
+    return [...found.values()]
+      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.id - a.id)
+      .map((row) => this.toListItem(row))
+  }
+
   // ----- folders (B1) -------------------------------------------------------
 
   /** B1: a new folder under `parentPath`, or at the top level */

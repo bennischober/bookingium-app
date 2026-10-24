@@ -3,6 +3,8 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { InvoiceService } from '../../services/InvoiceService'
 import { EInvoiceService } from '../../services/EInvoiceService'
+import { mailClient } from '../../mailclient/MailClientService'
+import type { MessageListItem } from '../../mailclient/core/types'
 import { InvoiceMapper } from '../mappers/invoice.mapper'
 import {
   CreateInvoiceInput,
@@ -10,7 +12,9 @@ import {
   PreviewInvoicePartiesInput,
   SetInvoiceStatusInput,
   UpdateInvoiceInput,
-  UpsertCompanyInvoiceSettingsInput
+  UpsertCompanyInvoiceSettingsInput,
+  type InvoiceEmailKind,
+  type InvoiceMailDto
 } from '../schemas/invoice.schema'
 import { PaginationInput } from '../schemas/base.schema'
 
@@ -31,6 +35,70 @@ export const invoiceRouter = t.router({
     const entity = await invoiceService.getInvoiceById(input)
     if (!entity) throw new TRPCError({ code: 'NOT_FOUND' })
     return InvoiceMapper.toDto(entity)
+  }),
+
+  /**
+   * C4: the invoice's own mails and the answers to them. Only the mails bookingum
+   * sent carry a Message-ID; for the rest there is nothing to match a reply against,
+   * so they are listed without one.
+   */
+  mails: t.procedure.input(z.number()).query(async ({ input }) => {
+    const entity = await invoiceService.getInvoiceById(input)
+    if (!entity) throw new TRPCError({ code: 'NOT_FOUND' })
+    const sent = (entity.emails ?? []).filter((email) => email.message_id && email.mail_account_id)
+
+    const replies = new Map<string, MessageListItem>()
+    const byAccount = new Map<string, string[]>()
+    for (const email of sent) {
+      const account = email.mail_account_id as string
+      const ids = byAccount.get(account) ?? []
+      ids.push(email.message_id as string)
+      byAccount.set(account, ids)
+    }
+    for (const [account, ids] of byAccount) {
+      const found = (await mailClient
+        .call('findReplies', [ids, account])
+        .catch(() => [])) as MessageListItem[]
+      // one mail can quote several invoice mails; it is still one reply
+      for (const mail of found) replies.set(`${account}:${mail.id}`, mail)
+    }
+
+    const mails: InvoiceMailDto[] = []
+    for (const email of entity.emails ?? []) {
+      mails.push({
+        role: 'sent',
+        kind: email.kind as InvoiceEmailKind,
+        sentAt: email.created_at,
+        accountId: email.mail_account_id ?? null,
+        messageId: email.message_id ?? null,
+        storeId: null,
+        subject: null,
+        fromName: null,
+        fromEmail: email.to,
+        date: email.created_at,
+        hasAttachments: false
+      })
+    }
+    for (const item of replies.values()) {
+      mails.push({
+        role: 'reply',
+        // an answer is not one of the invoice's own sends
+        kind: null,
+        sentAt: null,
+        accountId: null,
+        messageId: item.messageId,
+        storeId: item.id,
+        subject: item.subject,
+        fromName: item.fromName,
+        fromEmail: item.fromEmail,
+        date: item.date,
+        hasAttachments: item.hasAttachments
+      })
+    }
+    return {
+      mails,
+      answered: replies.size > 0
+    }
   }),
 
   getPrintData: t.procedure.input(z.number()).query(async ({ input }) => {

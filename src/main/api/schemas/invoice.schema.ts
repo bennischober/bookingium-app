@@ -184,6 +184,34 @@ export const InvoiceEmailDto = z.object({
 })
 export type InvoiceEmailDto = z.infer<typeof InvoiceEmailDto>
 
+/** C4: one mail of an invoice, sent by bookingum or an answer to it */
+export const InvoiceMailDto = z.object({
+  /** 'sent' = the invoice mail itself, 'reply' = an answer to it */
+  role: z.enum(['sent', 'reply']),
+  /** null for a reply: it is not one of the invoice's own sends */
+  kind: InvoiceEmailKind.nullable(),
+  /** when bookingum sent it; null for mails an external program sent */
+  sentAt: z.string().nullable(),
+  accountId: z.string().nullable(),
+  messageId: z.string().nullable(),
+  /** the mail store's row id, for opening the window; null when gone */
+  storeId: z.number().nullable(),
+  subject: z.string().nullable(),
+  fromName: z.string().nullable(),
+  fromEmail: z.string().nullable(),
+  date: z.string().nullable(),
+  hasAttachments: z.boolean()
+})
+export type InvoiceMailDto = z.infer<typeof InvoiceMailDto>
+
+/** C4: the mails of one invoice plus whether an answer arrived */
+export const InvoiceMailsDto = z.object({
+  mails: z.array(InvoiceMailDto),
+  /** true as soon as one reply exists */
+  answered: z.boolean()
+})
+export type InvoiceMailsDto = z.infer<typeof InvoiceMailsDto>
+
 /** An invoice to chase (Dashboard), with the payment reminders sent so far */
 export const OverdueInvoiceDto = InvoiceListItemDto.extend({
   // Zahlungserinnerungen and Mahnungen, oldest first

@@ -1264,6 +1264,21 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     await expect(
       row.getByRole('img', { name: /^E-Mail erstellt am \d\d\.\d\d\.\d{4}/ })
     ).toBeVisible({ timeout: 30_000 })
+
+    // C4: the sent mail is listed on the invoice, and no reply has arrived
+    const invoiceId = (
+      await trpc<{ items: { id: number; invoiceNumber: number }[] }>('query', 'invoice.getAllPaginated', {
+        page: 1,
+        pageSize: 100,
+        search: '1040'
+      })
+    ).items.find((i) => i.invoiceNumber === 1040)?.id
+    await page.goto(`${base()}#/invoices/${invoiceId}`)
+    const mails = page.getByRole('list', { name: 'E-Mails zur Rechnung' })
+    await expect(mails.getByRole('listitem')).toHaveCount(1, { timeout: 30_000 })
+    await expect(mails).toContainText('E-Mail erstellt')
+    await expect(mails).toContainText('contact@soundwaverecords.example.test')
+    await expect(page.getByText('Antwort erhalten')).toHaveCount(0)
   } finally {
     // back to files: later tests must not send anything
     await page.goto(`${base()}#/settings?tab=email`)
