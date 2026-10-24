@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { shell } from 'electron'
 import { DocumentService } from '../../services/DocumentService'
+import { mailClient } from '../../mailclient/MailClientService'
 import { DocumentMapper } from '../mappers/document.mapper'
 import {
   DocumentOwnerInput,
@@ -52,6 +53,44 @@ export const documentRouter = t.router({
       throw badRequest(error, 'Upload fehlgeschlagen')
     }
   }),
+
+  /**
+   * C5: an attachment of a mail becomes a document of a record. The bytes come from the
+   * mail store, so the record and the type are all the caller chooses.
+   */
+  saveFromMail: t.procedure
+    .input(
+      DocumentOwnerInput.extend({
+        mailAccountId: z.string().min(1),
+        messageId: z.number().int().positive(),
+        partId: z.string().min(1),
+        filename: z.string(),
+        /** the mail's Message-ID, for the origin column */
+        mailMessageId: z.string().nullable().optional(),
+        documentType: z.string().optional()
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const bytes = (await mailClient.call('getAttachment', [
+          input.messageId,
+          input.partId,
+          input.mailAccountId
+        ])) as Uint8Array
+        const saved = await documentService.saveFromMail({
+          ownerType: input.ownerType,
+          ownerId: input.ownerId,
+          fileName: input.filename,
+          documentType: input.documentType,
+          bytes,
+          messageId: input.mailMessageId ?? null,
+          mailAccountId: input.mailAccountId
+        })
+        return DocumentMapper.toDto(saved)
+      } catch (error) {
+        throw badRequest(error, 'Anhang konnte nicht als Dokument gespeichert werden')
+      }
+    }),
 
   /**
    * Update document metadata (e.g., document type, uploaded_by).

@@ -133,6 +133,31 @@ export const mailLinkRouter = t.router({
     .mutation(({ input }) => {
       service.dismissLink(input.id)
       return { ok: true }
+    }),
+
+  /**
+   * C5: the records one mail is linked to, for pre-selecting where its attachment
+   * should be saved. Only undismissed links with a nameable owner come back.
+   */
+  linksForMessage: t.procedure
+    .input(z.object({ accountId: z.string().min(1), messageId: z.string().min(1) }))
+    .query(({ input }) => {
+      const id = normalizeId(input.messageId)
+      if (!id) return []
+      return db
+        .select({
+          entityType: schema.mail_link.entity_type,
+          entityId: schema.mail_link.entity_id
+        })
+        .from(schema.mail_link)
+        .where(
+          and(
+            eq(schema.mail_link.mail_account_id, input.accountId),
+            eq(schema.mail_link.message_id, id),
+            eq(schema.mail_link.dismissed, false)
+          )
+        )
+        .all()
     })
 })
 

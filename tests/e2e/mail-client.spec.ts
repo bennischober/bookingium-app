@@ -1288,3 +1288,86 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
   }
 })
 
+
+test('C5: an attachment of a mail becomes a document', async () => {
+  test.setTimeout(120_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+
+  // A mail with a PDF attachment, sent to this mailbox so the test owns it
+  const accounts = await listAccounts()
+  const me = accounts.find((a) => a.id === sandboxId)
+  test.skip(!me, 'the sandbox account is missing')
+  const attachmentTag = `${C1_TAG}anhang-${Date.now()}`
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n', 'utf8')
+  await mail('sendMail', {
+    to: [{ name: 'Ich', email: me!.email }],
+    cc: [],
+    bcc: [],
+    subject: attachmentTag,
+    bodyText: 'Anbei die Datei.',
+    bodyHtml: null,
+    inReplyTo: null,
+    references: [],
+    attachments: [
+      {
+        filename: 'Angebot.pdf',
+        contentType: 'application/pdf',
+        base64: pdf.toString('base64')
+      }
+    ]
+  }, null, sandboxId)
+
+  // It has to arrive through IMAP before the UI can show it
+  const found = await waitFor(
+    () => mail<{ total: number; items: { id: number; subject: string }[] }>('search', {
+      query: attachmentTag,
+      limit: 5
+    }, sandboxId),
+    (r) => r.items.length > 0,
+    120_000
+  )
+  const target = found.items[0]
+  test.skip(!target, 'the sandbox has no mail with an attachment')
+  const bands = await trpc<{ items: { id: number }[] }>('query', 'band.getAllPaginated', {
+    page: 1,
+    pageSize: 10
+  })
+  const BAND_ID = bands.items[0]?.id
+  test.skip(!BAND_ID, 'the seed has no band')
+  const listDocs = () =>
+    trpc<{ id: number }[]>('query', 'document.listByOwner', {
+      ownerType: 'band',
+      ownerId: BAND_ID
+    })
+  const before = await listDocs()
+
+  await openMailPage(sandboxId)
+  const [popup] = await Promise.all([
+    h.app.waitForEvent('window'),
+    page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+      sandboxId,
+      target.id
+    ] as const)
+  ])
+  try {
+    const reader = popup.getByRole('article', { name: 'E-Mail' })
+    await expect(reader.getByRole('list', { name: 'Anhänge' })).toBeVisible({ timeout: 30_000 })
+    await reader.getByRole('button', { name: /als Dokument speichern/ }).first().click()
+
+    const dialog = popup.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByLabel('Nummer').fill(String(BAND_ID))
+    await dialog.getByRole('button', { name: 'Speichern' }).click()
+    await expect(popup.locator('[data-sonner-toast]').filter({ hasText: 'Als Dokument gespeichert' }))
+      .toBeVisible({ timeout: 30_000 })
+
+    // The document exists, with the mail as its origin
+    const after = await listDocs()
+    expect(after.length).toBe(before.length + 1)
+    expect(after.some((doc) => doc.id > Math.max(...before.map((b) => b.id)))).toBe(true)
+  } finally {
+    await popup.close()
+  }
+})

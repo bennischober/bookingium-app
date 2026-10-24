@@ -572,6 +572,9 @@ export const document = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     uploaded_by: text('uploaded_by'),
+    // C5: set when the file came from a mail attachment; null for an upload
+    source_message_id: text('source_message_id'),
+    source_mail_account_id: text('source_mail_account_id'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

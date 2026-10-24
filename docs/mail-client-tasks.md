@@ -48,7 +48,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | C2 | `mail_link` table + linker | L | — | done |
 | C3 | E-Mails tab on detail pages | M | C2 | done |
 | C4 | Invoices: sent mails and replies | M | C1, C2 | done (invoice.mails joins invoice_email.message_id with In-Reply-To/References in the store; card on the invoice page, "Antwort erhalten"; status never changes automatically) |
-| C5 | Attachment → document | M | C2, D1 (optional) | open |
+| C5 | Attachment → document | M | C2, D1 (optional) | done (chip action opens a dialog pre-selected from the mail's links; main writes the bytes into the owner folder via documentStorage and records `document.source_message_id` + account; D1 category selection not done - D1 is open) |
 | C6 | Mails in the global search | S–M | — | done |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 | E1 | Seeding without PII | M | — | done |

@@ -13,6 +13,7 @@ import {
   Paperclip,
   Reply,
   ReplyAll,
+  FilePlus,
   Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,6 +23,7 @@ import { trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import {
   formatAddresses,
@@ -112,6 +114,8 @@ export function MessageView({
   // The version with loaded remote images (the parent keys this view by message)
   const [withImages, setWithImages] = useState<MessageDetail | null>(null)
   const [loadingImages, setLoadingImages] = useState(false)
+  // C5: the attachment the "save as document" dialog is open for
+  const [toDocument, setToDocument] = useState<{ partId: string; filename: string } | null>(null)
 
   if (detail.isLoading) {
     return (
@@ -340,6 +344,15 @@ export function MessageView({
                   >
                     <Download />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setToDocument({ partId: a.partId, filename: a.filename })}
+                    title="Als Dokument speichern"
+                    aria-label={`${a.filename || 'Anhang'} als Dokument speichern`}
+                  >
+                    <FilePlus />
+                  </Button>
                 </li>
               ))}
           </ul>
@@ -382,6 +395,20 @@ export function MessageView({
       )}
 
       <LinkList message={message} />
+
+      {toDocument && (
+        <AttachmentToDocumentDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setToDocument(null)
+          }}
+          accountId={accountId}
+          messageId={message.id}
+          storeMessageId={message.messageId}
+          partId={toDocument.partId}
+          filename={toDocument.filename}
+        />
+      )}
     </article>
   )
 }

@@ -92,6 +92,20 @@
       "when": 1792859326223,
       "tag": "0012_invoice_email_message_id",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1792859327223,
+      "tag": "0013_document_mail_origin",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1792859328223,
+      "tag": "0014_document_mail_account",
+      "breakpoints": true
     }
   ]
 }
