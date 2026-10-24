@@ -214,6 +214,12 @@ export class WriteEngine {
   private async doMoveLike(op: JournalRow): Promise<OpResult> {
     const target = op.kind === 'delete' ? (op.target_folder_path || 'Trash') : op.target_folder_path;
     if (!target) return { outcome: 'conflict', reason: 'move without target folder' };
+    // map Trash folder name: prefer the special-use Trash folder's real path
+    let targetPath = target;
+    if (op.kind === 'delete' || op.kind === 'draft_delete') {
+      const trash = this.store.allFolders().find(f => f.special_use?.includes('Trash'));
+      if (trash) targetPath = trash.imap_path;
+    }
     const client = await this.sandboxClient();
     try {
       const pf = await this.preflight(op, client);
@@ -221,30 +227,46 @@ export class WriteEngine {
         // "target vanished" for a move the sync engine already applied (e.g. MOVE by
         // this op completed but crashed before the journal update) → check destination
         if (WriteEngine.isConflict(pf.result) && /vanished/.test(pf.result.reason) && op.message_id) {
-          const resumed = await this.resumeHalfMoved(op, client, target);
+          const resumed = await this.resumeHalfMoved(op, client, targetPath);
           if (resumed) return { outcome: 'done', detail: 'resumed after crash (found at destination)' };
         }
         return pf.result;
       }
       const payload = JSON.parse(op.payload || '{}') as { copiedTo?: { uid: number } };
-      // duplicate-safe resume: a previous attempt already copied to the target
+      // duplicate-safe resume: a previous attempt already copied to the target.
+      // The check must open the TARGET: after preflight the SELECTED mailbox is the
+      // SOURCE, so looking there would miss a genuine crash-after-copy (duplicate on
+      // retry) and could resume on a coincidentally matching source uid (A2b).
       if (payload.copiedTo?.uid) {
-        const existsAtTarget = client.fetch(String(payload.copiedTo.uid), { uid: true }, { uid: true });
-        // one step is enough: any message at that UID means the copy already landed
-        const found = !(await existsAtTarget.next()).done;
+        let found = false;
+        try {
+          await client.mailboxOpen(targetPath);
+          const existsAtTarget = client.fetch(String(payload.copiedTo.uid), { uid: true }, { uid: true });
+          // one step is enough: any message at that UID means the copy already landed
+          found = !(await existsAtTarget.next()).done;
+        } catch { /* target vanished — fall through to a fresh copy attempt */ }
+        // whatever the outcome: the copy/delete below act on the SELECTED mailbox,
+        // which must be the SOURCE again
+        await client.mailboxOpen(op.folder_path!);
         if (found) {
           // copy already happened; finish by deleting the source (see fallback step 3)
           return await this.finishMovedSource(op, client, payload.copiedTo.uid);
         }
       }
-      // map Trash folder name: prefer the special-use Trash folder's real path
-      let targetPath = target;
-      if (op.kind === 'delete') {
-        const trash = this.store.allFolders().find(f => f.special_use?.includes('Trash'));
-        if (trash) targetPath = trash.imap_path;
-      }
       const caps = [...(client as unknown as { capabilities: Set<string> }).capabilities].map(c => (Array.isArray(c) ? c[0] : c));
       const hasMove = caps.includes('MOVE');
+      const hasUidplus = caps.includes('UIDPLUS');
+      // A2b: without MOVE the fallback ends in UID EXPUNGE — and imapflow's
+      // messageDelete degrades to a PLAIN EXPUNGE without UIDPLUS, which would wipe
+      // EVERY \Deleted message in the mailbox (including ones other clients flagged for
+      // deletion). Refuse BEFORE copying anything: a copy followed by a refusal would
+      // leave a duplicate on the server. No MOVE + no UIDPLUS ⇒ no safe deletion.
+      if (!hasMove && !hasUidplus) {
+        return {
+          outcome: 'conflict',
+          reason: 'move refused: server has neither MOVE nor UIDPLUS — the copy+expunge fallback would issue a plain EXPUNGE (removes other clients\' \\Deleted messages); no safe per-message deletion exists',
+        };
+      }
       if (hasMove) {
         const result = await client.messageMove(String(op.uid), targetPath, { uid: true });
         if (!result) return { outcome: 'failed', reason: 'MOVE returned false' };
@@ -283,10 +305,20 @@ export class WriteEngine {
     return false;
   }
 
-  /** Fallback step 3+4: source still exists, copy is done → flag + UID EXPUNGE. */
+  /** Fallback step 3+4: source still exists, copy is done → flag + UID EXPUNGE.
+   *  A2b: refuses without UIDPLUS — a plain EXPUNGE here would delete OTHER clients'
+   *  \\Deleted messages, not just ours (imapflow degrades silently). The crash-resume
+   *  path can reach here without doMoveLike's capability gate having run. */
   private async finishMovedSource(op: JournalRow, client: ImapFlow, destUid: number): Promise<OpResult> {
     const targetPath = op.kind === 'delete' ? (this.store.allFolders().find(f => f.special_use?.includes('Trash'))?.imap_path ?? 'Trash') : (op.target_folder_path || '');
-    // messageDelete flags \Deleted and issues UID EXPUNGE (UIDPLUS-gated by imapflow)
+    const caps = [...(client as unknown as { capabilities: Set<string> }).capabilities].map(c => (Array.isArray(c) ? c[0] : c));
+    if (!caps.includes('UIDPLUS')) {
+      return {
+        outcome: 'conflict',
+        reason: 'move fallback refused: no UIDPLUS — UID EXPUNGE unavailable, plain EXPUNGE would remove other clients\' \\Deleted messages; copy stays (duplicate possible), nothing destroyed',
+      };
+    }
+    // messageDelete = flag \Deleted + UID EXPUNGE (UIDPLUS-only path, see expunge)
     await client.messageDelete(String(op.uid), { uid: true });
     this.applyMoveLocally(op, targetPath, destUid);
     return { outcome: 'done', detail: 'fallback move (copy+delete)' };
