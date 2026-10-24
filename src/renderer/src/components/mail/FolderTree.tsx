@@ -4,7 +4,9 @@ import {
   ChevronRight,
   FileText,
   Folder,
+  FolderPlus,
   Inbox,
+  Pencil,
   Send,
   ShieldAlert,
   Trash2,
@@ -13,12 +15,14 @@ import {
 import { cn } from '@/lib/utils'
 import {
   ContextMenu,
+  ContextMenuSeparator,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
 import { folderLabel, isInbox, isTrash } from './format'
+import { isProtectedFolder } from '../../../../main/mailclient/core/folders'
 
 // Hovering a dragged mail over a closed folder opens it after this delay
 const EXPAND_DELAY_MS = 700
@@ -28,6 +32,12 @@ const EXPAND_DELAY_MS = 700
  * are never taken. The drag data isn't checked: not every drag source
  * keeps a custom type.
  */
+/** B1: what the folder context menu offers */
+export type FolderAction = 'create' | 'rename' | 'delete'
+
+const isProtected = (folder: FolderNode): boolean =>
+  isProtectedFolder({ path: folder.path, specialUse: folder.specialUse })
+
 export type FolderDrop = {
   canDrop: (folder: FolderNode) => boolean
   onDrop: (folder: FolderNode) => void
@@ -60,7 +70,8 @@ function FolderItem({
   drop,
   overId,
   onOver,
-  onEmptyTrash
+  onEmptyTrash,
+  onFolderAction
 }: {
   folder: FolderNode
   depth: number
@@ -75,6 +86,8 @@ function FolderItem({
   onOver: (id: string, over: boolean) => void
   /** B5: "Papierkorb leeren" - only passed for a writable account */
   onEmptyTrash?: (folder: FolderNode) => void
+  /** B1: create / rename / delete - only passed for a writable account */
+  onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
 }) {
   const open = expanded.has(folder.id)
   const label = folderLabel(folder)
@@ -156,14 +169,37 @@ function FolderItem({
   return (
     <li>
       {/* B5: emptying Trash is the only folder action so far, so only it gets a menu */}
-      {onEmptyTrash && isTrash(folder) ? (
+      {(onEmptyTrash && isTrash(folder)) || onFolderAction ? (
         <ContextMenu>
           <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem className="gap-2" onSelect={() => onEmptyTrash(folder)}>
-              <Trash2 className="size-4 shrink-0 text-muted-foreground" />
-              Papierkorb leeren
-            </ContextMenuItem>
+            {/* B1: a plain folder may be renamed and deleted; INBOX and the
+                special-use folders never may, so the items are hidden there */}
+            {onFolderAction && !isProtected(folder) && (
+              <>
+                <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('rename', folder)}>
+                  <Pencil className="size-4 shrink-0 text-muted-foreground" />
+                  Umbenennen…
+                </ContextMenuItem>
+                <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('delete', folder)}>
+                  <Trash2 className="size-4 shrink-0 text-muted-foreground" />
+                  Löschen…
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+              </>
+            )}
+            {onFolderAction && (
+              <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('create', folder)}>
+                <FolderPlus className="size-4 shrink-0 text-muted-foreground" />
+                Neuer Ordner…
+              </ContextMenuItem>
+            )}
+            {onEmptyTrash && isTrash(folder) && (
+              <ContextMenuItem className="gap-2" onSelect={() => onEmptyTrash(folder)}>
+                <Trash2 className="size-4 shrink-0 text-muted-foreground" />
+                Papierkorb leeren
+              </ContextMenuItem>
+            )}
           </ContextMenuContent>
         </ContextMenu>
       ) : (
@@ -185,6 +221,7 @@ function FolderItem({
               overId={overId}
               onOver={onOver}
               onEmptyTrash={onEmptyTrash}
+              onFolderAction={onFolderAction}
             />
           ))}
         </ul>
@@ -203,7 +240,8 @@ export function FolderTree({
   onSelect,
   drop,
   focusRef,
-  onEmptyTrash
+  onEmptyTrash,
+  onFolderAction
 }: {
   folders: FolderNode[]
   selectedId: string | null
@@ -213,6 +251,8 @@ export function FolderTree({
   focusRef?: React.RefObject<HTMLUListElement | null>
   /** B5: emptying the Trash, offered only for a writable account */
   onEmptyTrash?: (folder: FolderNode) => void
+  /** B1: create / rename / delete, offered only for a writable account */
+  onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [overId, setOverId] = useState<string | null>(null)
@@ -246,6 +286,7 @@ export function FolderTree({
           overId={overId}
           onOver={markOver}
           onEmptyTrash={onEmptyTrash}
+          onFolderAction={onFolderAction}
         />
       ))}
     </ul>

@@ -8,6 +8,7 @@ import { router } from './router'
 import { ThemeProvider } from './components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost'
+import { FolderNameDialogHost } from '@/components/mail/FolderNameDialogHost'
 import { FollowUpDialogHost } from '@/components/follow-ups/FollowUpDialogHost'
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ function AppRoot() {
             <RouterProvider router={router} />
             <Toaster />
             <ConfirmDialogHost />
+            <FolderNameDialogHost />
             <FollowUpDialogHost />
           </ThemeProvider>
         </QueryClientProvider>

@@ -222,6 +222,10 @@ export interface Api {
   // --- C2: mail -> record linking ---
   /** Addresses and ids only, never subjects or bodies (C2). Ordered by row id. */
   listHeadersSince?(cursor: number, limit: number, accountId?: string): Promise<MessageHeader[]>;
+  // --- B1: folder create / rename / delete (writable accounts only) ---
+  createFolder?(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary>;
+  renameFolder?(path: string, newName: string, accountId?: string): Promise<OpSummary>;
+  deleteFolder?(path: string, accountId?: string): Promise<OpSummary>;
   /** List items for the history panel of a record (C3), by Message-ID */
   findByMessageIds?(ids: string[], accountId?: string): Promise<MessageListItem[]>;
 }
@@ -242,7 +246,7 @@ export type MessageHeader = {
 
 /** Task 4: journaled write operation, UI-safe summary (no mail content). */export type OpSummary = {
   id: string;
-  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete' | 'folder_create' | 'folder_rename' | 'folder_delete';
   state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';
   folderPath: string | null;
   targetFolderPath: string | null;

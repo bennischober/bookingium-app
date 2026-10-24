@@ -9,6 +9,7 @@
 import DatabaseConstructor from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 import crypto from 'crypto';
+import { isPathOrChild, renamedPath } from './folders.js';
 import fs from 'fs';
 import path from 'path';
 import { runMigrations } from './migrations.js';
@@ -67,7 +68,7 @@ export interface FolderRow {
 export interface JournalRow {
   id: string;
   account_id: string;
-  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete' | 'folder_create' | 'folder_rename' | 'folder_delete';
   state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';
   folder_path: string | null;
   folder_uidvalidity: string | null;
@@ -153,7 +154,7 @@ export class Store {
   // ----- Task 4: operation journal -------------------------------------------
   /** Journal an operation BEFORE any server contact. Returns the op id. */
   journalEnqueue(op: {
-    id?: string; accountId: string; kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+    id?: string; accountId: string; kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete' | 'folder_create' | 'folder_rename' | 'folder_delete';
     folderPath?: string; folderUidValidity?: string; uid?: number; messageKey?: string;
     messageId?: string; payload?: unknown; targetFolderPath?: string;
   }): string {
@@ -237,6 +238,59 @@ export class Store {
 
   getFolder(id: string): FolderRow | undefined {
     return this.db.prepare('SELECT * FROM folders WHERE id = ?').get(id) as FolderRow | undefined;
+  }
+
+  /**
+   * B1: the local half of a RENAME, in ONE transaction: the folder and every
+   * subfolder get their new path and a new id (sha1(account|newPath)), and their
+   * messages get the new folder_id and message_key. Files are not touched (A3).
+   *
+   * With `keepUids` the messages keep their UIDs (UIDVALIDITY survived);
+   * without it the rows are dropped, so the normal UIDVALIDITY swap re-downloads.
+   * Returns how many folders were re-keyed.
+   */
+  rekeyFolder(from: string, to: string, keepUids: boolean): number {
+    const affected = this.allFolders().filter((f) => isPathOrChild(f.imap_path, from, f.delimiter));
+    if (affected.length === 0) return 0;
+    const tx = this.db.transaction(() => {
+      for (const folder of affected) {
+        const newPath = renamedPath(folder.imap_path, from, to, folder.delimiter);
+        const newId = crypto.createHash('sha1').update(`${this.accountId}|${newPath}`).digest('hex').slice(0, 16);
+        // uid_validity is a folder column, not a message one
+        const validity = folder.uid_validity ?? '';
+        // The new row goes in first: the messages carry a foreign key to it, so the
+        // old row cannot be removed before they point at the new one.
+        this.db.prepare(`INSERT INTO folders (id, account_id, imap_path, delimiter, special_use,
+            uid_validity, uid_next, highest_modseq, last_sync_at, last_flag_sweep)
+          SELECT @newId, account_id, @newPath, delimiter, special_use, uid_validity, uid_next,
+            highest_modseq, last_sync_at, last_flag_sweep FROM folders WHERE id = @oldId`)
+          .run({ newId, newPath, oldId: folder.id });
+        if (keepUids) {
+          // The UIDs stay valid: re-key the rows and their message keys
+          const rows = this.db.prepare('SELECT id, uid FROM messages WHERE folder_id = ?')
+            .all(folder.id) as { id: number; uid: number }[];
+          for (const row of rows) {
+            this.db.prepare('UPDATE messages SET folder_id = @fid, message_key = @key WHERE id = @id')
+              .run({
+                fid: newId,
+                key: this.messageKey(this.accountId, newId, validity, row.uid),
+                id: row.id,
+              });
+          }
+        } else {
+          // UIDVALIDITY changed: the mail is re-downloaded under the new folder
+          this.db.prepare('DELETE FROM messages WHERE folder_id = ?').run(folder.id);
+        }
+        this.db.prepare('DELETE FROM folders WHERE id = ?').run(folder.id);
+      }
+    });
+    tx();
+    return affected.length;
+  }
+
+  /** B1: drop a folder row after a DELETE (it was empty by the time it ran) */
+  deleteFolderRow(id: string): void {
+    this.db.prepare('DELETE FROM folders WHERE id = ?').run(id);
   }
 
   getFolderByPath(imapPath: string): FolderRow | undefined {

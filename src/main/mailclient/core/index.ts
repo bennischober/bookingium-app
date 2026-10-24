@@ -14,7 +14,7 @@
 import fs from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
-import { Store, JournalRow } from './store.js';
+import { Store, JournalRow, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, type BatchMember, type BatchMoved } from './write_engine.js';
 import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_guard.js';
@@ -25,6 +25,7 @@ import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, Syn
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
+import { checkFolderName, folderPath, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** B4: a single UID MOVE covers at most this many mails; above that the group is split */
 export const MOVE_BATCH_LIMIT = 500;
@@ -614,6 +615,33 @@ export class MailCore implements Api {
         targetFolderPath: op.folder_path ?? undefined,
         payload: { members },
       };
+    } else if (op.kind === 'folder_create') {
+      // B1: undo a create by deleting the folder again (only while it is empty)
+      const payload = JSON.parse(op.payload || '{}') as { path?: string; delimiter?: string };
+      if (!payload.path) throw new Error('undo: folder_create without path');
+      inverse = {
+        accountId: e.config.id, kind: 'folder_delete',
+        folderPath: payload.path,
+        payload: { path: payload.path },
+      };
+    } else if (op.kind === 'folder_rename') {
+      // B1: undo a rename by renaming it back
+      const payload = JSON.parse(op.payload || '{}') as { from?: string; to?: string; delimiter?: string };
+      if (!payload.from || !payload.to) throw new Error('undo: folder_rename without from/to');
+      inverse = {
+        accountId: e.config.id, kind: 'folder_rename',
+        folderPath: payload.to,
+        payload: { from: payload.to, to: payload.from, delimiter: payload.delimiter },
+      };
+    } else if (op.kind === 'folder_delete') {
+      // B1: undo a delete by creating the folder again (empty)
+      const payload = JSON.parse(op.payload || '{}') as { path?: string };
+      if (!payload.path) throw new Error('undo: folder_delete without path');
+      inverse = {
+        accountId: e.config.id, kind: 'folder_create',
+        folderPath: payload.path,
+        payload: { path: payload.path },
+      };
     } else {
       throw new Error(`undo not supported for ${op.kind}`);
     }
@@ -700,6 +728,101 @@ export class MailCore implements Api {
       out.push(...rows.map(r => this.toListItem(r)));
     }
     return out;
+  }
+
+  // ----- folders (B1) -------------------------------------------------------
+
+  /** B1: a new folder under `parentPath`, or at the top level */
+  async createFolder(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary> {
+    const e = this.writableEntry(accountId);
+    const parent = parentPath ? e.store.getFolderByPath(parentPath) : null;
+    if (parentPath && !parent) throw new FolderNameError(`Ordner nicht gefunden: ${parentPath}`);
+    const delimiter = parent?.delimiter ?? DEFAULT_DELIMITER;
+    checkFolderName(name, delimiter);
+    const path = folderPath(parentPath, name, delimiter);
+    if (e.store.getFolderByPath(path)) throw new FolderNameError(`Ordner existiert bereits: ${path}`);
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id, kind: 'folder_create',
+      folderPath: path,
+      payload: { path, delimiter },
+    });
+    await this.replayOps(e, [opId]);
+    return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /** B1: rename a folder's own name; subfolders move with it */
+  async renameFolder(path: string, newName: string, accountId?: string): Promise<OpSummary> {
+    const e = this.writableEntry(accountId);
+    const folder = e.store.getFolderByPath(path);
+    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`);
+    this.refuseProtectedFolder(folder);
+    const delimiter = folder.delimiter || DEFAULT_DELIMITER;
+    checkFolderName(newName, delimiter);
+    const parentPath = path.includes(delimiter) ? path.slice(0, path.lastIndexOf(delimiter)) : null;
+    const to = folderPath(parentPath, newName, delimiter);
+    if (to === path) return this.opToSummary(e.store.journalListRecent(1)[0]);
+    if (e.store.getFolderByPath(to)) throw new FolderNameError(`Ordner existiert bereits: ${to}`);
+    // The whole subtree is renamed, so no op may be pending anywhere in it
+    this.refusePendingOpsIn(e, path, delimiter);
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id, kind: 'folder_rename',
+      folderPath: path,
+      payload: { from: path, to, delimiter },
+    });
+    await this.replayOps(e, [opId]);
+    return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /**
+   * B1: delete an empty folder.
+   *
+   * Deleting a folder with mail on IMAP deletes that mail permanently, so this
+   * refuses a folder that still holds mail or has subfolders.
+   */
+  async deleteFolder(path: string, accountId?: string): Promise<OpSummary> {
+    const e = this.writableEntry(accountId);
+    const folder = e.store.getFolderByPath(path);
+    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`);
+    this.refuseProtectedFolder(folder);
+    const delimiter = folder.delimiter || DEFAULT_DELIMITER;
+    const count = e.store.countByFolder(folder.id).total;
+    if (count > 0) {
+      throw new FolderNameError(
+        `Der Ordner enthält noch ${count} E-Mails. Verschieben oder löschen Sie sie zuerst.`
+      );
+    }
+    if (e.store.allFolders().some((f) => isPathOrChild(f.imap_path, path, delimiter) && f.imap_path !== path)) {
+      throw new FolderNameError('Der Ordner enthält noch Unterordner. Löschen Sie sie zuerst.');
+    }
+    this.refusePendingOpsIn(e, path, delimiter);
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id, kind: 'folder_delete',
+      folderPath: path,
+      payload: { path },
+    });
+    await this.replayOps(e, [opId]);
+    return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /** B1: INBOX and the special-use folders may never be renamed or deleted */
+  private refuseProtectedFolder(folder: FolderRow): void {
+    if (isProtectedFolder({ path: folder.imap_path, specialUse: folder.special_use })) {
+      throw new FolderNameError('Dieser Ordner kann nicht umbenannt oder gelöscht werden.')
+    }
+  }
+
+  /** B1: no folder op may race a pending one for the folder or its subfolders */
+  private refusePendingOpsIn(e: AccountEntry, path: string, delimiter: string): void {
+    const busy = e.store.journalPending(500).some((op) => {
+      if (op.state !== 'pending' && op.state !== 'running') return false
+      const paths = [op.folder_path, op.target_folder_path].filter(Boolean) as string[]
+      return paths.some((p) => isPathOrChild(p, path, delimiter))
+    })
+    if (busy) {
+      throw new FolderNameError(
+        'Für diesen Ordner läuft noch eine Änderung. Bitte versuchen Sie es gleich noch einmal.'
+      )
+    }
   }
 
   // ----- compose (sandbox only) -----

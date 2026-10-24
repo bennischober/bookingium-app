@@ -26,8 +26,9 @@ import {
   replyCompose,
   withSignature
 } from '@/components/mail/composeDraft'
-import { FolderTree } from '@/components/mail/FolderTree'
+import { FolderTree, type FolderAction } from '@/components/mail/FolderTree'
 import { confirmAction } from '@/lib/confirm'
+import { askFolderName } from '@/lib/folderName'
 import { MessageList } from '@/components/mail/MessageList'
 import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
@@ -609,6 +610,59 @@ export default function MailPage() {
     toast.success(`${total.toLocaleString('de-DE')} E-Mails endgültig gelöscht`)
   }
 
+  // B1: create / rename / delete a folder. The name is asked for in a small
+  // dialog; the core validates it again and refuses protected folders.
+  const folderAction = async (action: FolderAction, folder: FolderNode | null) => {
+    // "Neuer Ordner…" on INBOX means top level, not inside INBOX: IMAP has no
+    // subfolders of INBOX, and the card's path builder puts a child under its parent.
+    const delimiter = folder?.delimiter ?? '/'
+    const parentPath = action !== 'create' ? null : !folder || isInbox(folder) ? null : folder.path
+    const title =
+      action === 'create'
+        ? parentPath
+          ? `Neuer Ordner in „${folderLabel(folder!)}“`
+          : 'Neuer Ordner'
+        : action === 'rename'
+          ? 'Ordner umbenennen'
+          : 'Ordner löschen'
+    const current = action === 'rename' && folder ? folder.path.split(delimiter).pop() : ''
+    if (action === 'delete') {
+      if (!folder) return
+      const confirmed = await confirmAction({
+        title: `„${folderLabel(folder) || folder.name}“ löschen?`,
+        description:
+          'Der Ordner wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
+        confirmLabel: 'Löschen',
+        destructive: true
+      })
+      if (!confirmed) return
+      try {
+        await mailApi.deleteFolder(folder.path, accountId)
+      } catch (error) {
+        failed('Ordner konnte nicht gelöscht werden')(error)
+        return
+      }
+      refreshLists()
+      toast.success('Ordner gelöscht')
+      return
+    }
+    const name = await askFolderName({ title, initial: current })
+    if (name === null) return
+    try {
+      if (action === 'create') await mailApi.createFolder(parentPath, name, accountId)
+      else if (folder) await mailApi.renameFolder(folder.path, name, accountId)
+    } catch (error) {
+      failed(
+        action === 'create'
+          ? 'Ordner konnte nicht angelegt werden'
+          : 'Ordner konnte nicht umbenannt werden'
+      )(error)
+      return
+    }
+    refreshLists()
+    toast.success(action === 'create' ? 'Ordner angelegt' : 'Ordner umbenannt')
+  }
+
   const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
     openedId.current = null
     startCompose(
@@ -828,6 +882,9 @@ export default function MailPage() {
               selectedId={searching ? null : folderId}
               onSelect={chooseFolder}
               onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
+              onFolderAction={
+                canWrite ? (action, folder) => void folderAction(action, folder) : undefined
+              }
               drop={
                 dragged
                   ? {

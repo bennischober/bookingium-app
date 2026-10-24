@@ -1113,3 +1113,71 @@ test("a mail from a person's address appears in their E-Mails tab", async () => 
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, LINK_TAG)
   }
 })
+
+// B1: a folder is created, renamed and deleted in the UI, and the sandbox is left
+// as it was found.
+const FOLDER_PREFIX = 'E2E-Ordner-'
+
+test('a folder is created, renamed and deleted from the tree', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  const name = `${FOLDER_PREFIX}${Date.now()}`
+  const renamed = `${name}-neu`
+  const tree = page.getByRole('list', { name: 'Ordner' })
+
+  await openMailPage(sandboxId)
+  try {
+    // 1. Create a top-level folder from the tree's own menu
+    // Two buttons carry the name: the expand chevron and the folder itself
+    await tree.getByRole('button', { name: /^Posteingang/ }).last().click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Neuer Ordner…' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByLabel('Name').fill(name)
+    await dialog.getByRole('button', { name: 'Speichern' }).click()
+    await expect(tree.getByRole('button', { name })).toBeVisible({ timeout: 30_000 })
+
+    // 2. Rename it through its own menu
+    await tree.getByRole('button', { name }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Umbenennen…' }).click()
+    const renameDialog = page.getByRole('dialog')
+    await expect(renameDialog).toBeVisible()
+    // The current name is offered as the starting point
+    await expect(renameDialog.getByLabel('Name')).toHaveValue(name)
+    await renameDialog.getByLabel('Name').fill(renamed)
+    await renameDialog.getByRole('button', { name: 'Speichern' }).click()
+    await expect(tree.getByRole('button', { name: renamed })).toBeVisible({ timeout: 30_000 })
+    await expect(tree.getByRole('button', { name: new RegExp(`^${name}$`) })).toHaveCount(0)
+
+    // 3. Delete it again, confirmed
+    await tree.getByRole('button', { name: renamed }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Löschen…' }).click()
+    const deleteDialog = page.getByRole('dialog')
+    await expect(deleteDialog).toContainText('endgültig gelöscht')
+    await deleteDialog.getByRole('button', { name: 'Löschen' }).click()
+    await expect(tree.getByRole('button', { name: renamed })).toHaveCount(0, { timeout: 30_000 })
+  } finally {
+    // The sandbox is left as it was found, also when a step failed
+    const { ImapFlow } = await import('imapflow')
+    const client = new ImapFlow({
+      host: SANDBOX.host,
+      port: SANDBOX.port,
+      secure: false,
+      auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+      logger: false
+    })
+    await client.connect()
+    try {
+      const paths = (await client.list())
+        .map((f) => f.path)
+        .filter((p) => p.startsWith(FOLDER_PREFIX))
+      for (const p of paths) await client.mailboxDelete(p).catch(() => undefined)
+    } finally {
+      await client.logout().catch(() => client.close())
+    }
+  }
+})
+

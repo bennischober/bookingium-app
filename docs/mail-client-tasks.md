@@ -36,7 +36,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A7 | Per-account write path | L | A1–A6 | open, design **[user]** for the canary part |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
-| B1 | Folder create / rename / delete | L | A3, A2 | open |
+| B1 | Folder create / rename / delete | L | A3, A2 | done |
 | B2 | Move folders by drag and drop | M | B1 | open |
 | B3 | Keyboard shortcuts | S | — | done |
 | B4 | Batch moves in one UID MOVE | M | A2 | done |
@@ -46,7 +46,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B8 | Signatures | S–M | — | done |
 | C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | open |
 | C2 | `mail_link` table + linker | L | — | done |
-| C3 | E-Mails tab on detail pages | M | C2 | open |
+| C3 | E-Mails tab on detail pages | M | C2 | done |
 | C4 | Invoices: sent mails and replies | M | C1, C2 | open |
 | C5 | Attachment → document | M | C2, D1 (optional) | open |
 | C6 | Mails in the global search | S–M | — | done |
