@@ -385,7 +385,7 @@ export class MailCore implements Api {
     return opIds;
   }
 
-  async moveToFolder(ids: number[], targetFolderId: string, accountId?: string): Promise<void> {
+  async moveToFolder(ids: number[], targetFolderId: string, accountId?: string): Promise<OpSummary[]> {
     const e = this.writableEntry(accountId);
     const target = e.store.getFolder(targetFolderId);
     if (!target) throw new Error(`target folder ${targetFolderId} not found`);
@@ -404,20 +404,21 @@ export class MailCore implements Api {
     }
     await this.replayOps(e, opIds);
     void e.engine.syncAll().catch(() => { });
+    return opIds.map(id => e.store.journalGet(id)).filter((op): op is JournalRow => Boolean(op)).map(op => this.opToSummary(op));
   }
 
-  async deleteToTrash(ids: number[], accountId?: string): Promise<void> {
+  async deleteToTrash(ids: number[], accountId?: string): Promise<OpSummary[]> {
     const e = this.writableEntry(accountId);
     const trash = e.store.allFolders().find(f => f.special_use === '\\Trash');
     if (!trash) throw new Error('no Trash folder found');
-    await this.moveToFolder(ids, trash.id, accountId);
+    return this.moveToFolder(ids, trash.id, accountId);
   }
 
-  async archive(ids: number[], accountId?: string): Promise<void> {
+  async archive(ids: number[], accountId?: string): Promise<OpSummary[]> {
     const e = this.writableEntry(accountId);
     const archive = e.store.allFolders().find(f => f.special_use === '\\Archive');
     if (!archive) throw new Error('no Archive folder found');
-    await this.moveToFolder(ids, archive.id, accountId);
+    return this.moveToFolder(ids, archive.id, accountId);
   }
 
   private async replayOps(e: AccountEntry, opIds: string[]): Promise<void> {

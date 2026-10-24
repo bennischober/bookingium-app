@@ -187,9 +187,10 @@ export interface Api {
   // write operations — MUST only work against sandbox (server enforces; UI disables)
   markRead(ids: number[], read: boolean): Promise<void>;
   markFlagged(ids: number[], flagged: boolean): Promise<void>;
-  moveToFolder(ids: number[], targetFolderId: string): Promise<void>;
-  deleteToTrash(ids: number[]): Promise<void>;
-  archive(ids: number[]): Promise<void>;
+  // the moves resolve to their journaled ops (one per moved message), for undo and errors
+  moveToFolder(ids: number[], targetFolderId: string): Promise<OpSummary[]>;
+  deleteToTrash(ids: number[]): Promise<OpSummary[]>;
+  archive(ids: number[]): Promise<OpSummary[]>;
 
   // compose (sandbox only)
   getContacts(partial: string): Promise<{ name: string; email: string }[]>;

@@ -9,6 +9,7 @@ import {
   Forward,
   ImageOff,
   Link2,
+  Mail,
   Paperclip,
   Reply,
   ReplyAll,
@@ -88,6 +89,7 @@ export function MessageView({
   onToggleFlag,
   onDelete,
   onArchive,
+  onMarkUnread,
   onCompose
 }: {
   accountId: string
@@ -97,6 +99,8 @@ export function MessageView({
   onToggleFlag: (id: number, flagged: boolean) => void
   onDelete: (id: number) => void
   onArchive?: (id: number) => void
+  /** Marks the open mail unread again */
+  onMarkUnread?: (id: number) => void
   /** Opens the editor with a reply or forward of this mail (writable accounts only) */
   onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
 }) {
@@ -212,6 +216,16 @@ export function MessageView({
                 >
                   <Flag className={cn(message.isFlagged && 'fill-orange-500 text-orange-500')} />
                 </Button>
+                {onMarkUnread && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onMarkUnread(message.id)}
+                    title="Als ungelesen markieren"
+                  >
+                    <Mail />
+                  </Button>
+                )}
                 {onArchive && (
                   <Button
                     variant="ghost"

@@ -317,6 +317,157 @@ test('a mail dragged onto a folder is moved there', async () => {
   }
 })
 
+test('several mails are selected and handled at once', async () => {
+  const { page } = h
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const inbox = folders.find((f) => f.path === 'INBOX')!
+  const trash = folders.find((f) => f.specialUse === '\\Trash')
+  const target = folders.find((f) => f.path !== 'INBOX' && !f.specialUse)
+  test.skip(!trash || !target, 'the sandbox has no Trash or plain top-level folder')
+  const started = new Date().toISOString()
+
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await openMailPage()
+  const list = page.getByRole('listbox', { name: 'Nachrichten' })
+  const rows = list.getByRole('option')
+  await expect(rows.nth(2)).toBeVisible({ timeout: 30_000 })
+  const selected = list.getByRole('option', { selected: true })
+  const pane = page.getByRole('region', { name: 'Auswahl' })
+  const ids = await Promise.all(
+    [0, 1, 2].map(async (i) => Number(await rows.nth(i).getAttribute('data-message-id')))
+  )
+  type State = { folderId: string; uid: number; isRead: boolean; isFlagged: boolean }
+  const state = (id: number) => mail<State>('getMessage', id, sandboxId)
+  // How the mails were, to put them back exactly so
+  const before = await Promise.all(ids.map(state))
+  // Their inbox UIDs; a mail moved back gets a new one
+  let inboxUids = before.map((s) => s.uid)
+
+  type Op = {
+    id: string
+    kind: string
+    state: string
+    uid: number | null
+    folderPath: string | null
+    targetFolderPath: string | null
+    createdAt: string
+  }
+  // Undoes this test's move of a mail that is not back in the inbox
+  const putBack = async (i: number) => {
+    const now = await state(ids[i]).catch(() => null)
+    if (!now || now.folderId === inbox.id) return
+    const path = folders.find((f) => f.id === now.folderId)?.path
+    const op = (await mail<Op[]>('listOps', sandboxId)).find(
+      (o) =>
+        o.kind === 'move' &&
+        o.state === 'done' &&
+        o.createdAt >= started &&
+        o.uid === inboxUids[i] &&
+        o.folderPath === 'INBOX' &&
+        o.targetFolderPath === path
+    )
+    if (op) await mail('undoOp', op.id, sandboxId)
+  }
+
+  try {
+    // Ctrl+click adds a mail, the checkboxes too; several show the bulk pane
+    await rows.nth(0).click()
+    await rows.nth(1).click({ modifiers: ['Control'] })
+    await expect(selected).toHaveCount(2)
+    await expect(pane.getByRole('heading', { name: '2 E-Mails ausgewählt' })).toBeVisible()
+    await rows.nth(2).getByRole('checkbox', { name: 'Auswählen' }).check()
+    await expect(selected).toHaveCount(3)
+    await rows.nth(1).click({ modifiers: ['Control'] })
+    await expect(selected).toHaveCount(2)
+
+    // Shift+click selects the range from the last plain click, Shift+arrows change it
+    await rows.nth(0).click()
+    await expect(page.getByRole('article', { name: 'E-Mail' })).toBeVisible()
+    await rows.nth(2).click({ modifiers: ['Shift'] })
+    await expect(selected).toHaveCount(3)
+    await list.press('Shift+ArrowUp')
+    await expect(selected).toHaveCount(2)
+    await list.press('Escape')
+    await expect(selected).toHaveCount(1)
+    await list.press('Control+a')
+    await expect(selected).toHaveCount(await rows.count())
+    await expect(pane.getByRole('heading', { name: /^\d+ E-Mails ausgewählt$/ })).toBeVisible()
+
+    // Flags and read state for all of them
+    await rows.nth(0).click()
+    await rows.nth(2).click({ modifiers: ['Shift'] })
+    const flag = pane.getByRole('button', { name: /^Markier/ })
+    const flagTo = (await flag.textContent())?.trim() === 'Markieren'
+    await flag.click()
+    await expect
+      .poll(async () => (await Promise.all(ids.map(state))).every((s) => s.isFlagged === flagTo))
+      .toBe(true)
+    const read = pane.getByRole('button', { name: /^Als (un)?gelesen markieren$/ })
+    const readTo = (await read.textContent())?.trim() === 'Als gelesen markieren'
+    await read.click()
+    await expect
+      .poll(async () => (await Promise.all(ids.map(state))).every((s) => s.isRead === readTo))
+      .toBe(true)
+
+    // Right-click: the menu acts on the selection; outside it, on the row alone
+    await rows.nth(1).click({ button: 'right' })
+    const menu = page.getByRole('menu')
+    await expect(menu.getByRole('menuitem', { name: /In den Papierkorb/ })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'In eigenem Fenster öffnen' })).toHaveCount(0)
+    // The open menu hides the list from the accessibility tree; check it once closed
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(selected).toHaveCount(3)
+
+    // Delete moves all selected mails to Trash, one undo brings them all back
+    await rows.nth(0).click()
+    await rows.nth(1).click({ modifiers: ['Shift'] })
+    await list.press('Delete')
+    const deleted = page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: '2 E-Mails in den Papierkorb verschoben' })
+    await expect(deleted).toBeVisible({ timeout: 30_000 })
+    expect((await state(ids[0])).folderId).toBe(trash!.id)
+    expect((await state(ids[1])).folderId).toBe(trash!.id)
+    await deleted.getByRole('button', { name: 'Rückgängig' }).click()
+    await expect
+      .poll(async () => [(await state(ids[0])).folderId, (await state(ids[1])).folderId], {
+        timeout: 30_000
+      })
+      .toEqual([inbox.id, inbox.id])
+
+    // Dragging one of the selected mails takes the others along
+    inboxUids = (await Promise.all(ids.map(state))).map((s) => s.uid)
+    const first = page.locator(`[data-message-id="${ids[0]}"]`)
+    await expect(first).toBeVisible({ timeout: 30_000 })
+    await first.click()
+    await page.locator(`[data-message-id="${ids[1]}"]`).click({ modifiers: ['Control'] })
+    await expect(selected).toHaveCount(2)
+    await first.dragTo(
+      page.getByRole('list', { name: 'Ordner' }).locator(`button[title="${target!.path}"]`)
+    )
+    const moved = page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: /^2 E-Mails nach „.+“ verschoben/ })
+    await expect(moved).toBeVisible({ timeout: 30_000 })
+    expect((await state(ids[0])).folderId).toBe(target!.id)
+    expect((await state(ids[1])).folderId).toBe(target!.id)
+    await moved.getByRole('button', { name: 'Rückgängig' }).click()
+    await expect
+      .poll(async () => [(await state(ids[0])).folderId, (await state(ids[1])).folderId], {
+        timeout: 30_000
+      })
+      .toEqual([inbox.id, inbox.id])
+  } finally {
+    // The sandbox stays as it was, also when a check above failed
+    for (let i = 0; i < ids.length; i++) await putBack(i)
+    for (let i = 0; i < ids.length; i++) {
+      await mail('markRead', [ids[i]], before[i].isRead, sandboxId)
+      await mail('markFlagged', [ids[i]], before[i].isFlagged, sandboxId)
+    }
+  }
+})
+
 const MAILPIT = { smtpPort: 1025, apiPort: 8025 }
 const COMPOSE_TAG = 'e2e-compose-'
 

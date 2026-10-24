@@ -27,8 +27,16 @@ import {
 } from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
+import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
+import { SelectionActions } from '@/components/mail/SelectionActions'
+import {
+  EMPTY_SELECTION,
+  type Selection,
+  nextAfterRemoval,
+  single
+} from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
 import {
   flattenFolders,
@@ -42,6 +50,7 @@ import type {
   FolderNode,
   MessageDetail,
   MessageListItem,
+  OpSummary,
   SearchFilters,
   SyncStatus
 } from '../../../main/mailclient/core/types'
@@ -54,15 +63,26 @@ const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
 
 type MoveTarget = { kind: 'delete' } | { kind: 'archive' } | { kind: 'folder'; folder: FolderNode }
-const MOVE_TEXTS: Record<MoveTarget['kind'], { done: (folder: string) => string; failed: string }> =
-  {
-    delete: { done: () => 'In den Papierkorb verschoben', failed: 'Löschen fehlgeschlagen' },
-    archive: { done: () => 'Archiviert', failed: 'Archivieren fehlgeschlagen' },
-    folder: {
-      done: (folder) => `Nach „${folder}“ verschoben`,
-      failed: 'Verschieben fehlgeschlagen'
-    }
+const MOVE_TEXTS: Record<
+  MoveTarget['kind'],
+  { done: (folder: string) => string; many: (n: number, folder: string) => string; failed: string }
+> = {
+  delete: {
+    done: () => 'In den Papierkorb verschoben',
+    many: (n) => `${n} E-Mails in den Papierkorb verschoben`,
+    failed: 'Löschen fehlgeschlagen'
+  },
+  archive: {
+    done: () => 'Archiviert',
+    many: (n) => `${n} E-Mails archiviert`,
+    failed: 'Archivieren fehlgeschlagen'
+  },
+  folder: {
+    done: (folder) => `Nach „${folder}“ verschoben`,
+    many: (n, folder) => `${n} E-Mails nach „${folder}“ verschoben`,
+    failed: 'Verschieben fehlgeschlagen'
   }
+}
 
 type ExtraFilters = { from: string; after: string; before: string; hasAttachment: boolean }
 const NO_FILTERS: ExtraFilters = { from: '', after: '', before: '', hasAttachment: false }
@@ -203,15 +223,17 @@ export default function MailPage() {
   const canWrite = account?.kind === 'sandbox'
 
   const [chosenFolderId, setChosenFolderId] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // One selected mail is shown in the reading pane, several get the bulk actions
+  const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION)
+  const selectedId = selection.ids.length === 1 ? selection.ids[0] : null
   // The open editor, in place of the reading pane; `draftId` when it shows a mail from Drafts
   const [compose, setCompose] = useState<{
     key: number
     state: ComposeState
     draftId?: number
   } | null>(null)
-  // The mail being dragged onto a folder, if any
-  const [dragged, setDragged] = useState<MessageListItem | null>(null)
+  // The mails being dragged onto a folder, if any
+  const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<ExtraFilters>(NO_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
@@ -237,7 +259,6 @@ export default function MailPage() {
   })
   const allFolders = useMemo(() => flattenFolders(folders.data ?? []), [folders.data])
   const folderId = chosenFolderId ?? allFolders.find(isInbox)?.id ?? allFolders[0]?.id ?? null
-  const folder = allFolders.find((f) => f.id === folderId)
 
   const messages = useInfiniteQuery({
     queryKey: ['mail', accountId, 'messages', folderId],
@@ -287,6 +308,8 @@ export default function MailPage() {
   const listItems = searching
     ? (results.data?.pages.flatMap((p) => p.items) ?? [])
     : (messages.data?.pages.flat() ?? [])
+  // Selected mails that are still in the list (a sync may have taken some away)
+  const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
   const snippets = useMemo(
     () => Object.assign({}, ...(results.data?.pages.map((p) => p.snippetMap) ?? [])),
     [results.data]
@@ -353,18 +376,18 @@ export default function MailPage() {
     void window.api.openMailWindow(accountId, id)
   }
 
+  // A new key mounts a fresh editor, also in place of an open one
   const startCompose = (state: ComposeState, draftId?: number) =>
-    setCompose({ key: Date.now(), state, draftId })
+    setCompose((current) => ({ key: (current?.key ?? 0) + 1, state, draftId }))
 
   // The mail last opened, for answers that come back after the user moved on
   const openedId = useRef<number | null>(null)
-  const openMessage = (id: number) => {
+  const openMessage = (id: number, markAsRead: boolean) => {
     if (compose?.draftId === id) return
     openedId.current = id
-    setSelectedId(id)
     setCompose(null)
     const item = listItems.find((m) => m.id === id)
-    if (canWrite && item && !item.isRead) {
+    if (canWrite && markAsRead && item && !item.isRead) {
       mailApi.markRead([id], true, accountId).then(refreshLists, () => undefined)
     }
     // A draft opens in the editor; until it is loaded the reading pane shows it
@@ -378,67 +401,139 @@ export default function MailPage() {
     }
   }
 
+  // A single selected mail is opened (and marked read, unless a right-click
+  // selected it); several close the editor and show the bulk actions
+  const changeSelection = (next: Selection, how?: 'menu') => {
+    setSelection(next)
+    if (next.ids.length === 1) {
+      openMessage(next.ids[0], how !== 'menu')
+      return
+    }
+    openedId.current = null
+    setCompose(null)
+  }
+
   const failed = (title: string) => (error: unknown) =>
     toast.error(title, { description: error instanceof Error ? error.message : undefined })
 
-  const toggleFlag = (id: number, flagged: boolean) => {
+  const afterFlags = () => {
+    refreshLists()
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'message'] })
+  }
+  const markRead = (ids: number[], read: boolean) => {
     mailApi
-      .markFlagged([id], flagged, accountId)
-      .then(() => {
-        refreshLists()
-        void queryClient.invalidateQueries({ queryKey: messageKey(accountId, id) })
-      })
+      .markRead(ids, read, accountId)
+      .then(afterFlags)
+      .catch(
+        failed(
+          read ? 'Als gelesen markieren fehlgeschlagen' : 'Als ungelesen markieren fehlgeschlagen'
+        )
+      )
+  }
+  const markFlagged = (ids: number[], flagged: boolean) => {
+    mailApi
+      .markFlagged(ids, flagged, accountId)
+      .then(afterFlags)
       .catch(failed('Markierung fehlgeschlagen'))
   }
 
-  // Moves the mail, moves the selection on if it was this mail, then
-  // reports how the journaled move went and offers to undo it
-  const moveAway = async (id: number, target: MoveTarget) => {
-    const index = listItems.findIndex((m) => m.id === id)
-    const item = listItems[index]
-    const next = listItems[index + 1] ?? listItems[index - 1]
+  // Moves the mails, moves the selection on if it held them, then reports how
+  // the journaled moves went and offers to undo them all
+  const moveAway = async (ids: number[], target: MoveTarget) => {
+    if (ids.length === 0) return
+    const order = listItems.map((m) => m.id)
     const texts = MOVE_TEXTS[target.kind]
-    const done = target.kind === 'folder' ? texts.done(folderLabel(target.folder)) : texts.done('')
+    const label = target.kind === 'folder' ? folderLabel(target.folder) : ''
+    let ops: OpSummary[]
     try {
-      if (target.kind === 'delete') await mailApi.deleteToTrash([id], accountId)
-      else if (target.kind === 'archive') await mailApi.archive([id], accountId)
-      else await mailApi.moveToFolder([id], target.folder.id, accountId)
+      if (target.kind === 'delete') ops = await mailApi.deleteToTrash(ids, accountId)
+      else if (target.kind === 'archive') ops = await mailApi.archive(ids, accountId)
+      else ops = await mailApi.moveToFolder(ids, target.folder.id, accountId)
     } catch (error) {
       failed(texts.failed)(error)
       return
     }
     refreshLists()
-    const sourcePath = allFolders.find((f) => f.id === item?.folderId)?.path
-    const ops = await mailApi.listOps(accountId).catch(() => [])
-    const op = ops.find(
-      (o) => o.kind === 'move' && (!item || (o.uid === item.uid && o.folderPath === sourcePath))
-    )
-    if (op && op.state !== 'done') {
-      toast.error(texts.failed, {
-        description:
-          op.state === 'pending'
-            ? 'Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.'
-            : (op.error ?? undefined)
-      })
-      return
-    }
-    setSelectedId((current) => (current !== id ? current : next && next.id !== id ? next.id : null))
-    toast.success(done, {
-      action: op
+    const done = ops.filter((op) => op.state === 'done')
+    const undo =
+      done.length > 0
         ? {
             label: 'Rückgängig',
             onClick: () => {
-              mailApi
-                .undoOp(op.id, accountId)
-                .then(refreshLists)
-                .catch(failed('Rückgängig machen fehlgeschlagen'))
+              void (async () => {
+                try {
+                  // Last move first, so each mail goes back the way it came
+                  for (const op of [...done].reverse()) await mailApi.undoOp(op.id, accountId)
+                } catch (error) {
+                  failed('Rückgängig machen fehlgeschlagen')(error)
+                }
+                refreshLists()
+              })()
             }
           }
         : undefined
+    const notDone = ops.filter((op) => op.state !== 'done')
+    if (notDone.length > 0) {
+      const reason = notDone.some((op) => op.state === 'pending')
+        ? 'Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.'
+        : (notDone.find((op) => op.error)?.error ?? undefined)
+      toast.error(texts.failed, {
+        description:
+          ids.length > 1
+            ? `${notDone.length} von ${ids.length} E-Mails wurden nicht verschoben.${reason ? ` ${reason}` : ''}`
+            : reason,
+        action: undo
+      })
+      return
+    }
+    const next = nextAfterRemoval(order, ids)
+    setSelection((current) =>
+      current.ids.some((id) => ids.includes(id))
+        ? next !== null
+          ? single(next)
+          : EMPTY_SELECTION
+        : current
+    )
+    toast.success(ids.length > 1 ? texts.many(ids.length, label) : texts.done(label), {
+      action: undo
     })
   }
 
   const hasArchive = allFolders.some((f) => f.specialUse?.includes('Archive'))
+  const folderOf = (item: MessageListItem) => allFolders.find((f) => f.id === item.folderId)
+
+  // Reply and forward from the menu need the whole mail
+  const composeFromList = (id: number, kind: 'reply' | 'replyAll' | 'forward') => {
+    queryClient
+      .fetchQuery({
+        queryKey: messageKey(accountId, id),
+        queryFn: () => mailApi.getMessage(id, accountId)
+      })
+      .then((message) => composeFrom(message, kind))
+      .catch(failed('Die E-Mail konnte nicht geladen werden'))
+  }
+
+  // What the menu and the bulk pane offer for the selected mails
+  const trashable = selectedItems.filter((m) => !isTrash(folderOf(m)))
+  const selectedActions: MailActions = canWrite
+    ? {
+        openWindow,
+        compose: composeFromList,
+        markRead,
+        markFlagged,
+        move: (ids, target) => void moveAway(ids, { kind: 'folder', folder: target }),
+        archive: hasArchive ? (ids) => void moveAway(ids, { kind: 'archive' }) : undefined,
+        // Mails already in Trash stay there
+        toTrash:
+          trashable.length > 0
+            ? (ids) =>
+                void moveAway(
+                  ids.filter((id) => trashable.some((m) => m.id === id)),
+                  { kind: 'delete' }
+                )
+            : undefined
+      }
+    : { openWindow }
 
   // "/" focuses the search, as in most mail clients
   useEffect(() => {
@@ -480,7 +575,7 @@ export default function MailPage() {
   }
   const chooseFolder = (id: string) => {
     setChosenFolderId(id)
-    setSelectedId(null)
+    setSelection(EMPTY_SELECTION)
     openedId.current = null
     setCompose(null)
     clearSearch()
@@ -504,7 +599,7 @@ export default function MailPage() {
             onValueChange={(id) => {
               setChosenAccountId(id as string)
               setChosenFolderId(null)
-              setSelectedId(null)
+              setSelection(EMPTY_SELECTION)
               openedId.current = null
               setCompose(null)
               clearSearch()
@@ -613,9 +708,12 @@ export default function MailPage() {
               drop={
                 dragged
                   ? {
-                      canDrop: (target) => target.id !== dragged.folderId,
+                      canDrop: (target) => dragged.some((m) => m.folderId !== target.id),
                       onDrop: (target) =>
-                        void moveAway(dragged.id, { kind: 'folder', folder: target })
+                        void moveAway(
+                          dragged.filter((m) => m.folderId !== target.id).map((m) => m.id),
+                          { kind: 'folder', folder: target }
+                        )
                     }
                   : undefined
               }
@@ -758,15 +856,19 @@ export default function MailPage() {
             ) : (
               <MessageList
                 items={listItems}
-                selectedId={selectedId}
-                onSelect={openMessage}
+                selection={selection}
+                onSelectionChange={changeSelection}
+                multiple={canWrite}
                 onOpen={openWindow}
-                onDelete={
-                  canWrite && !isTrash(folder)
-                    ? (id) => void moveAway(id, { kind: 'delete' })
-                    : undefined
+                onDelete={selectedActions.toTrash}
+                onDragMessages={canWrite ? setDragged : undefined}
+                menu={
+                  <MessageMenu
+                    items={selectedItems}
+                    folders={allFolders}
+                    actions={selectedActions}
+                  />
                 }
-                onDragMessage={canWrite ? setDragged : undefined}
                 snippets={searching ? snippets : undefined}
                 hasMore={Boolean(searching ? results.hasNextPage : messages.hasNextPage)}
                 loadingMore={searching ? results.isFetchingNextPage : messages.isFetchingNextPage}
@@ -802,7 +904,7 @@ export default function MailPage() {
               onClose={() => {
                 setCompose(null)
                 // A sent or discarded draft is gone from Drafts
-                if (compose.draftId !== undefined) setSelectedId(null)
+                if (compose.draftId !== undefined) setSelection(EMPTY_SELECTION)
               }}
               onStored={refreshLists}
             />
@@ -817,10 +919,17 @@ export default function MailPage() {
                   (f) => f.id === listItems.find((m) => m.id === selectedId)?.folderId
                 )
               )}
-              onToggleFlag={toggleFlag}
-              onDelete={(id) => void moveAway(id, { kind: 'delete' })}
-              onArchive={hasArchive ? (id) => void moveAway(id, { kind: 'archive' }) : undefined}
+              onToggleFlag={(id, flagged) => markFlagged([id], flagged)}
+              onDelete={(id) => void moveAway([id], { kind: 'delete' })}
+              onArchive={hasArchive ? (id) => void moveAway([id], { kind: 'archive' }) : undefined}
+              onMarkUnread={(id) => markRead([id], false)}
               onCompose={composeFrom}
+            />
+          ) : selection.ids.length > 1 && selectedItems.length > 0 ? (
+            <SelectionActions
+              items={selectedItems}
+              actions={selectedActions}
+              onClear={() => setSelection(EMPTY_SELECTION)}
             />
           ) : (
             <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">
