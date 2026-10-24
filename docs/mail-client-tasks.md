@@ -53,7 +53,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | E1 | Seeding without PII | M | — | done |
 | E2 | PII check for tracked files | S | E1 | done |
 | F1 | Test the security boundaries worst-first | L | — | done (sanitize 25 tests / 2 real bugs fixed, remote_images 13 tests / 1 real bug fixed, write_guard 7 tests; compose, files, imap_options, store search and folders were already covered) |
-| F2 | Mail client usability: reuse an old mail as a new one | M | — | open |
+| F2 | Write to an address from a mail header | S–M | B7, B8 | open |
 | F3 | Lightweight formatting in compose | M | — | open |
 | F4 | Paste attachments from the clipboard | M | — | open |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
@@ -882,18 +882,39 @@ asserted on the raw MIME bytes, not on a parsed object. Never weaken a test to m
 
 ---
 
-### F2: reuse an old mail as a new one
+### F2: write to an address from a mail header
 
-**Goal.** In the reading pane, an old mail becomes the starting point of a new one: "Als neue E-Mail verwenden"
-opens the editor with the old mail's subject (prefixed), body quoted and attachments carried over.
+**Goal.** In an open mail, an address in the header is clickable and starts a **new** mail to that person:
+"Von", "An" and "Cc" each. It is the case Reply does not cover: someone who was only in Cc, or
+writing to the sender about something else entirely instead of answering this mail.
 
-**Files.** `components/mail/MessageView.tsx` (the action), `components/mail/composeDraft.ts` (a pure
-`reuseCompose(message)` next to `forwardCompose`), `ComposeView.tsx`.
+**Why it is not Reply.** Reply (and Reply all) answers *this* mail: it quotes the body, carries
+`In-Reply-To`/`References` and lands in the same thread. This starts a fresh mail: no quote, no
+threading headers, a new subject. The two must not be confused, because a mail that silently becomes a
+reply in the recipient's client is worse than no shortcut at all.
 
-**Steps.** 1. A pure `reuseCompose(message)` in `composeDraft.ts`, tested like `forwardCompose`. 2. A button
-in the reading pane next to Reply/Forward. 3. Attachments travel along (B7 already fits them); the PDF and images
-are not re-fetched until send. **Traps.** Never send without the user pressing Senden. A forwarded mail keeps its
-`References`; a reused one starts a new thread.
+**Files.** `components/mail/MessageView.tsx` (the `Von`/`An`/`Cc` values, today plain text via
+`formatAddresses`), `components/mail/composeDraft.ts` (a pure `composeTo(address)` next to
+`replyCompose`/`forwardCompose`), `ComposeView.tsx` (already takes a `ComposeState`).
+
+**Steps.**
+
+1. A pure `composeTo(address)` in `composeDraft.ts`: `emptyCompose()` with that one recipient, the
+   signature (B8) above the empty body, and **no** `inReplyTo`, **no** `references`, **no** quote.
+2. Each address in the header becomes a button that opens the editor with that state. "Von" and "An" are single
+   addresses; "Cc" is a list, so each of them is its own button.
+3. The header shows which one was clicked (the address is the only thing carried over). The subject stays empty
+   rather than reusing the old one: a new mail is not about the old subject.
+4. "Bcc" is not in the header today, so there is nothing to click there - that is not a gap, it is invisible by
+   design.
+
+**Tests.** A pure test for `composeTo`: one recipient, the signature, and explicitly no threading headers and no
+quoted body. One E2E: open a mail that has a Cc, click that Cc address, and check the editor opens with exactly that
+recipient, an empty subject and an empty body.
+
+**Traps.** Never set `inReplyTo`/`references` - that would make it a reply that shows up in the old thread. Never
+carry the old attachments along: this is a new mail, not a forward. Never prefill the old subject. The recipient list is
+the only thing that travels over.
 
 ---
 
