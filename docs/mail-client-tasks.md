@@ -52,7 +52,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | C6 | Mails in the global search | S–M | — | done |
 | E1 | Seeding without PII | M | — | done |
 | E2 | PII check for tracked files | S | E1 | done |
-| F1 | Test the security boundaries worst-first | L | — | in progress (sanitize.ts done: 25 tests, found 2 real bugs) |
+| F1 | Test the security boundaries worst-first | L | — | done (sanitize 25 tests / 2 real bugs fixed, remote_images 13 tests / 1 real bug fixed, write_guard 7 tests; compose, files, imap_options, store search and folders were already covered) |
 | F2 | Mail client usability: reuse an old mail as a new one | M | — | open |
 | F3 | Lightweight formatting in compose | M | — | open |
 | F4 | Paste attachments from the clipboard | M | — | open |
