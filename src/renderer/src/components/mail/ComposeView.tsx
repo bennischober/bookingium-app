@@ -30,6 +30,13 @@ function useDebounced<T>(value: T, ms: number): T {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : undefined)
 
+/**
+ * F5: how long typing pauses before the draft is stored. Short enough that a
+ * reload or a close loses at most the last keystrokes, long enough that a
+ * sentence does not save per character.
+ */
+const AUTOSAVE_MS = 1500
+
 /** F3: the four commands the toolbar offers, and nothing that carries a URL or CSS */
 const FORMAT_BUTTONS: { format: ComposeFormat; label: string; Icon: typeof Bold }[] = [
   { format: 'bold', label: 'Fett', Icon: Bold },
@@ -265,6 +272,23 @@ export function ComposeView({
     return run
   }
 
+  // F5: the draft is saved WHILE typing, so nothing has to happen on the way out.
+  // A beforeunload handler cannot tell a reload from a close and is synchronous
+  // while saving is not - the old one closed the window on every reload.
+  //
+  // Only an edit starts it: saving on mount would create a draft for every mail
+  // that is merely opened, and the first render is not a change.
+  const edited = useRef(false)
+  useEffect(() => {
+    if (!edited.current || !isDirty()) return
+    const timer = setTimeout(() => {
+      if (closed.current) return
+      save().catch(() => undefined)
+    }, AUTOSAVE_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mail])
+
   // Leaving the editor with changes (another mail, another folder) keeps them as a draft
   useEffect(
     () => () => {
@@ -282,8 +306,10 @@ export function ComposeView({
     []
   )
 
-  // Closing the window with changes: hold the close (Electron cancels it without a
-  // dialog), save, then close. If saving fails, the next close goes through.
+  // Closing the window with changes that the autosave has not stored yet: hold the
+  // close, save, then close. A RELOAD fires this too, but by then the autosave has
+  // run and nothing is dirty - that is what keeps this from closing the window on a
+  // reload, which the old version did (F5).
   useEffect(() => {
     let leaving = false
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -312,7 +338,10 @@ export function ComposeView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const update = (patch: Partial<ComposeState>) => setMail((m) => ({ ...m, ...patch }))
+  const update = (patch: Partial<ComposeState>) => {
+    edited.current = true
+    setMail((m) => ({ ...m, ...patch }))
+  }
 
   /**
    * F3: the editor holds HTML; composeBody reduces it to the formatting the four

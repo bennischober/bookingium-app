@@ -72,6 +72,24 @@ function createAppWindow(
     window.show()
   })
 
+  // F5: the renderer's beforeunload holds a close to save the draft, and the same
+  // event fires for a RELOAD. Main is the only side that can tell them apart:
+  // a reload always goes through, a close is held once so the draft lands.
+  let reloading = false
+  window.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame) reloading = true
+  })
+  window.webContents.on('did-stop-loading', () => {
+    reloading = false
+  })
+  window.webContents.on('will-prevent-unload', (event) => {
+    // preventDefault() here means "ignore the renderer, let the unload happen"
+    if (reloading) event.preventDefault()
+    // a close: the default (do nothing) keeps Electron's hold, the renderer saves
+    // the draft and then the window closes
+  })
+
+
   // Links open in the default browser or mail program; other schemes (file:,
   // custom protocol handlers, ...) are dropped, links in mails included
   window.webContents.setWindowOpenHandler((details) => {

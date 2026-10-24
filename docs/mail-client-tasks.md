@@ -56,7 +56,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F2 | Write to an address from a mail header | S–M | B7, B8 | done (Von/An/Cc are buttons for a writable account; pure `composeTo` carries only the recipient, with the signature, and never In-Reply-To/References, a quote or the old subject) |
 | F3 | Lightweight formatting in compose | M | — | done (contenteditable with four commands; `composeBody` reduces the HTML to the formatting offered and derives the plain text, which stays the source of truth; sent as `multipart/alternative`) |
 | F4 | Paste attachments from the clipboard | M | B7 | done by unit tests only (a form-level paste handler; `pasteContent` is pure and decides files > image > text; the bytes go through B7; no E2E - see F5) |
-| F5 | Reloading with an open, changed draft destroys the window | S | — | open (found by F4's E2E) |
+| F5 | Reloading with an open, changed draft destroys the window | S | — | done (main tells a reload from a close via `did-start-navigation` and lets a reload through; the renderer keeps its close-and-save; F4's E2E is back) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and

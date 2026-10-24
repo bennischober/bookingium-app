@@ -1634,3 +1634,41 @@ test('a formatted mail is sent with an HTML part and its plain text', async () =
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, F3_TAG)
   }
 })
+
+// F4: Ctrl+V in the editor attaches a copied file, and a pasted image becomes an
+// attachment instead of a data: URI in the body.
+test('a pasted image becomes an attachment, not body text', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await openMailPage(sandboxId)
+
+  await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+  const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+  await expect(editor).toBeVisible({ timeout: 30_000 })
+
+  // A synthetic paste carrying a PNG file and the same image as text data
+  await editor.getByRole('textbox', { name: 'Text' }).evaluate((el) => {
+    const bytes = Uint8Array.from(
+      atob(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+      ),
+      (c) => c.charCodeAt(0)
+    )
+    const file = new File([bytes], 'bild.png', { type: 'image/png' })
+    const data = new DataTransfer()
+    data.items.add(file)
+    el.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+    )
+  })
+
+  // It shows up as an attachment, with its own name
+  const attachments = editor.getByRole('list', { name: 'Anhänge' })
+  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
+  // and not in the body as a data: URI
+  const body = await editor.getByRole('textbox', { name: 'Text' }).innerText()
+  expect(body).not.toContain('data:image')
+})
