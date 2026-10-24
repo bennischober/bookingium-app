@@ -21,7 +21,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
-import { folderLabel, isInbox, isTrash } from './format'
+import { folderLabel, isInbox, isTrash, FOLDER_DRAG_TYPE } from './format'
 import { isProtectedFolder } from '../../../../main/mailclient/core/folders'
 
 // Hovering a dragged mail over a closed folder opens it after this delay
@@ -41,6 +41,14 @@ const isProtected = (folder: FolderNode): boolean =>
 export type FolderDrop = {
   canDrop: (folder: FolderNode) => boolean
   onDrop: (folder: FolderNode) => void
+}
+
+/** B2: dropping a dragged folder onto another one, or onto the root level */
+export type FolderMoveDrop = {
+  canMove: (target: FolderNode | null) => boolean
+  onMove: (target: FolderNode | null) => void
+  /** the drag starts on a folder row, so the page knows what is being moved */
+  onDragStart?: (folder: FolderNode) => void
 }
 
 const SPECIAL_ICONS: Array<[string, LucideIcon]> = [
@@ -68,6 +76,7 @@ function FolderItem({
   onExpand,
   onSelect,
   drop,
+  folderMove,
   overId,
   onOver,
   onEmptyTrash,
@@ -81,6 +90,8 @@ function FolderItem({
   onExpand: (id: string) => void
   onSelect: (id: string) => void
   drop?: FolderDrop
+  /** B2: dropping a dragged folder here, or onto the root level */
+  folderMove?: FolderMoveDrop
   overId: string | null
   /** Marks the folder under the dragged mail; leaving clears only its own mark */
   onOver: (id: string, over: boolean) => void
@@ -93,6 +104,8 @@ function FolderItem({
   const label = folderLabel(folder)
   const accepts = drop?.canDrop(folder) ?? false
   const over = drop !== undefined && overId === folder.id
+  // B2: a folder dragged over this row would land inside it
+  const acceptsFolder = folderMove?.canMove(folder) ?? false
 
   // Open a closed folder while a mail hovers over it
   const expandTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -126,6 +139,30 @@ function FolderItem({
     }
   }
 
+  // B2: the folder itself is the drag source, and every row a drop target
+  const folderDragProps = onFolderAction &&
+    !isProtected(folder) && {
+      draggable: true,
+      onDragStart: (event: React.DragEvent) => {
+        event.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.path)
+        event.dataTransfer.effectAllowed = 'move'
+        folderMove?.onDragStart?.(folder)
+      }
+    }
+  const folderDropProps = folderMove && {
+    onDragOver: (event: React.DragEvent) => {
+      if (!acceptsFolder) return
+      // Without preventDefault the browser refuses the drop
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+    },
+    onDrop: (event: React.DragEvent) => {
+      if (!acceptsFolder) return
+      event.preventDefault()
+      folderMove.onMove(folder)
+    }
+  }
+
   const row = (
     <div
       className={cn(
@@ -136,6 +173,8 @@ function FolderItem({
       style={{ paddingLeft: depth * 12 }}
       data-drop-target={over && accepts ? 'true' : undefined}
       {...dropProps}
+      {...folderDragProps}
+      {...folderDropProps}
     >
       {folder.children.length > 0 ? (
         <button
@@ -218,6 +257,7 @@ function FolderItem({
               onExpand={onExpand}
               onSelect={onSelect}
               drop={drop}
+              folderMove={folderMove}
               overId={overId}
               onOver={onOver}
               onEmptyTrash={onEmptyTrash}
@@ -239,6 +279,7 @@ export function FolderTree({
   selectedId,
   onSelect,
   drop,
+  folderMove,
   focusRef,
   onEmptyTrash,
   onFolderAction
@@ -247,6 +288,8 @@ export function FolderTree({
   selectedId: string | null
   onSelect: (id: string) => void
   drop?: FolderDrop
+  /** B2: dropping a dragged folder onto the tree moves it to the root level */
+  folderMove?: FolderMoveDrop
   /** B3: the move shortcut puts the keyboard on the tree, which is the drop target */
   focusRef?: React.RefObject<HTMLUListElement | null>
   /** B5: emptying the Trash, offered only for a writable account */
@@ -283,6 +326,7 @@ export function FolderTree({
           onExpand={expand}
           onSelect={onSelect}
           drop={drop}
+          folderMove={folderMove}
           overId={overId}
           onOver={markOver}
           onEmptyTrash={onEmptyTrash}

@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Store } from '../src/main/mailclient/core/store'
 import {
   checkFolderName,
+  folderMoveRefusal,
+  folderMoveTarget,
   folderPath,
   isPathOrChild,
   isProtectedFolder,
@@ -216,5 +218,40 @@ describe('folder re-key (B1)', () => {
     store.deleteFolderRow(child.id)
     expect(store.getFolderByPath('INBOX.Verträge.2026')).toBeUndefined()
     expect(store.getFolderByPath('INBOX.Verträge')).toBeTruthy()
+  })
+})
+
+describe('folder move rules (B2)', () => {
+  const known = ['INBOX', 'Projekte', 'Projekte/2026', 'Archiv', 'Archiv/Projekte']
+
+  it('keeps the folder name and only changes the parent', () => {
+    expect(folderMoveTarget('Projekte/2026', 'Archiv')).toBe('Archiv/2026')
+    expect(folderMoveTarget('Projekte/2026', null)).toBe('2026')
+    expect(folderMoveTarget('Projekte', 'Archiv')).toBe('Archiv/Projekte')
+  })
+
+  it('refuses a move into itself or its own subfolder', () => {
+    expect(folderMoveRefusal('Projekte', 'Projekte', { knownPaths: known })).toMatch(/in sich selbst/)
+    expect(folderMoveRefusal('Projekte', 'Projekte/2026', { knownPaths: known })).toMatch(/in sich selbst/)
+  })
+
+  it('refuses a name clash in the target', () => {
+    expect(folderMoveRefusal('Projekte', 'Archiv', { knownPaths: known })).toMatch(/existiert dort schon/)
+  })
+
+  it('refuses a target that does not exist', () => {
+    expect(folderMoveRefusal('Projekte', 'Gibt es nicht', { knownPaths: known })).toMatch(/nicht gefunden/)
+  })
+
+  it('refuses to move a protected folder', () => {
+    expect(folderMoveRefusal('INBOX', 'Archiv', { knownPaths: known })).toMatch(/nicht verschoben/)
+    expect(
+      folderMoveRefusal('Sent', 'Archiv', { specialUse: '\\Sent', knownPaths: ['Sent', 'Archiv'] })
+    ).toMatch(/nicht verschoben/)
+  })
+
+  it('allows a move to a free name in an existing folder', () => {
+    expect(folderMoveRefusal('Projekte', 'Archiv', { knownPaths: ['Projekte', 'Archiv'] })).toBeNull()
+    expect(folderMoveRefusal('Projekte', null, { knownPaths: ['Projekte'] })).toBeNull()
   })
 })

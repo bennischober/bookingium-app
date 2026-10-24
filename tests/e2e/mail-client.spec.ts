@@ -1371,3 +1371,91 @@ test('C5: an attachment of a mail becomes a document', async () => {
     await popup.close()
   }
 })
+
+// B2: a folder is dragged into another one and back out. The server is the
+// proof: the tree only follows the sync, so a folder that vanished after a sync
+// would fail the second check.
+const MOVE_PREFIX = 'E2E-Move-'
+
+test('a folder is moved into another folder by drag and drop', async () => {
+  test.setTimeout(240_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  const stamp = Date.now()
+  const parent = `${MOVE_PREFIX}Ziel-${stamp}`
+  const child = `${MOVE_PREFIX}Quelle-${stamp}`
+  const tree = page.getByRole('list', { name: 'Ordner' })
+
+  const serverPaths = async (): Promise<string[]> => {
+    const { ImapFlow } = await import('imapflow')
+    const client = new ImapFlow({
+      host: SANDBOX.host,
+      port: SANDBOX.port,
+      secure: false,
+      auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+      logger: false
+    })
+    await client.connect()
+    try {
+      return (await client.list()).map((f) => f.path)
+    } finally {
+      await client.logout().catch(() => client.close())
+    }
+  }
+
+  await openMailPage(sandboxId)
+  try {
+    // 1. Two top-level folders through the tree menu
+    for (const name of [parent, child]) {
+      await tree.getByRole('button', { name: /^Posteingang/ }).last().click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Neuer Ordner…' }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+      await dialog.getByLabel('Name').fill(name)
+      await dialog.getByRole('button', { name: 'Speichern' }).click()
+      await expect(tree.getByRole('button', { name })).toBeVisible({ timeout: 30_000 })
+    }
+
+    // 2. Drag the child onto the parent
+    await tree
+      .getByRole('button', { name: child })
+      .dragTo(tree.getByRole('button', { name: parent }))
+
+    // 3. The server has the new path; the tree follows the sync
+    await waitFor(
+      async () => serverPaths(),
+      (paths) => paths.includes(`${parent}/${child}`),
+      60_000
+    )
+    await expect(tree.getByRole('button', { name: child })).toHaveCount(0, { timeout: 30_000 })
+
+    // 4. It is still there after a sync - the store must not prune it
+    await mail('triggerSync', true, sandboxId).catch(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    expect(await serverPaths()).toContain(`${parent}/${child}`)
+  } finally {
+    // The sandbox is left as it was found, also when a step failed
+    const { ImapFlow } = await import('imapflow')
+    const client = new ImapFlow({
+      host: SANDBOX.host,
+      port: SANDBOX.port,
+      secure: false,
+      auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+      logger: false
+    })
+    await client.connect()
+    try {
+      const paths = (await client.list())
+        .map((f) => f.path)
+        .filter((p) => p.startsWith(MOVE_PREFIX))
+      // deepest first, so a parent is empty when it is deleted
+      for (const p of paths.sort((a, b) => b.length - a.length)) {
+        await client.mailboxDelete(p).catch(() => undefined)
+      }
+    } finally {
+      await client.logout().catch(() => client.close())
+    }
+  }
+})

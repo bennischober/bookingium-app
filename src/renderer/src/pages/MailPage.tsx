@@ -238,6 +238,8 @@ export default function MailPage() {
   } | null>(null)
   // The mails being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
+  // B2: the folder being dragged, so a drop knows what to move
+  const [movingFolder, setMovingFolder] = useState<FolderNode | null>(null)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<ExtraFilters>(NO_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
@@ -610,6 +612,29 @@ export default function MailPage() {
     toast.success(`${total.toLocaleString('de-DE')} E-Mails endgültig gelöscht`)
   }
 
+  /**
+   * B2: move the dragged folder under `target` (null = top level). The core
+   * refuses a move into itself or its own subtree and a name clash there.
+   */
+  const moveFolderTo = async (target: FolderNode | null) => {
+    const folder = movingFolder
+    setMovingFolder(null)
+    if (!folder) return
+    try {
+      await mailApi.moveFolder(folder.path, target?.path ?? null, accountId)
+      await folders.refetch()
+      toast.success(
+        target
+          ? `„${folderLabel(folder)}“ nach „${folderLabel(target)}“ verschoben`
+          : `„${folderLabel(folder)}“ nach oben verschoben`
+      )
+    } catch (error) {
+      toast.error('Ordner konnte nicht verschoben werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
+  }
+
   // B1: create / rename / delete a folder. The name is asked for in a small
   // dialog; the core validates it again and refuses protected folders.
   const folderAction = async (action: FolderAction, folder: FolderNode | null) => {
@@ -894,6 +919,19 @@ export default function MailPage() {
                           dragged.filter((m) => m.folderId !== target.id).map((m) => m.id),
                           { kind: 'folder', folder: target }
                         )
+                    }
+                  : undefined
+              }
+              folderMove={
+                canWrite
+                  ? {
+                      canMove: (target) =>
+                        movingFolder !== null &&
+                        (target === null ||
+                          (target.path !== movingFolder.path &&
+                            !target.path.startsWith(`${movingFolder.path}/`))),
+                      onMove: (target) => void moveFolderTo(target),
+                      onDragStart: (folder) => setMovingFolder(folder)
                     }
                   : undefined
               }

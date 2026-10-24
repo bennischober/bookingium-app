@@ -25,7 +25,7 @@ import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, Syn
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
-import { checkFolderName, folderPath, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
+import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** B4: a single UID MOVE covers at most this many mails; above that the group is split */
 export const MOVE_BATCH_LIMIT = 500;
@@ -807,6 +807,38 @@ export class MailCore implements Api {
     });
     await this.replayOps(e, [opId]);
     return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /**
+   * B2: move a folder under a new parent (drag and drop). It is the same rename op -
+   * the folder keeps its name and only its parent path changes. Refused before any
+   * server contact when the target is the folder itself, one of its own subfolders, or
+   * when a folder of that name already exists there.
+   */
+  async moveFolder(path: string, newParentPath: string | null, accountId?: string): Promise<OpSummary> {
+    const e = this.writableEntry(accountId)
+    const folder = e.store.getFolderByPath(path)
+    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`)
+    const delimiter = folder.delimiter || DEFAULT_DELIMITER
+    const knownPaths = e.store.allFolders().map((f) => f.imap_path)
+    const refusal = folderMoveRefusal(path, newParentPath, {
+      delimiter,
+      specialUse: folder.special_use,
+      knownPaths
+    })
+    if (refusal) throw new FolderNameError(refusal)
+    const to = folderMoveTarget(path, newParentPath, delimiter)
+    if (to === path) return this.opToSummary(e.store.journalListRecent(1)[0])
+    // The whole subtree moves, so no op may be pending anywhere in it
+    this.refusePendingOpsIn(e, path, delimiter)
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id,
+      kind: 'folder_rename',
+      folderPath: path,
+      payload: { from: path, to, delimiter }
+    })
+    await this.replayOps(e, [opId])
+    return this.opToSummary(e.store.journalGet(opId)!)
   }
 
   /**

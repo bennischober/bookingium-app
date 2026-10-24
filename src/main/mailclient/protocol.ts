@@ -43,7 +43,8 @@ export const MAIL_API_METHODS = [
   'findReplies',
   'createFolder',
   'renameFolder',
-  'deleteFolder'
+  'deleteFolder',
+  'moveFolder'
 ] as const satisfies readonly (keyof Api)[]
 
 export type MailApiMethod = (typeof MAIL_API_METHODS)[number]

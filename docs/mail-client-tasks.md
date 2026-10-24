@@ -37,7 +37,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
 | B1 | Folder create / rename / delete | L | A3, A2 | done |
-| B2 | Move folders by drag and drop | M | B1 | open |
+| B2 | Move folders by drag and drop | M | B1 | done (folder rows are drag sources with their own drag type; dropping on a folder or the tree root runs the rename op with the new parent; move rules are pure and unit-tested; e2e drags a folder in and checks the server path survives a sync) |
 | B3 | Keyboard shortcuts | S | — | done |
 | B4 | Batch moves in one UID MOVE | M | A2 | done |
 | B5 | Empty Trash / permanent delete in the UI | S | A1 | done |

@@ -226,6 +226,8 @@ export interface Api {
   createFolder?(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary>;
   renameFolder?(path: string, newName: string, accountId?: string): Promise<OpSummary>;
   deleteFolder?(path: string, accountId?: string): Promise<OpSummary>;
+  /** B2: move a folder under a new parent (same rules as a rename) */
+  moveFolder?(path: string, newParentPath: string | null, accountId?: string): Promise<OpSummary>;
   /** List items for the history panel of a record (C3), by Message-ID */
   findByMessageIds?(ids: string[], accountId?: string): Promise<MessageListItem[]>;
   /** C4: the mails answering one of these Message-IDs (In-Reply-To/References), newest first */

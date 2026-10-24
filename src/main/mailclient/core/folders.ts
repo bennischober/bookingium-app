@@ -64,3 +64,52 @@ export function isProtectedFolder(folder: {
   const use = folder.specialUse ?? ''
   return PROTECTED_SPECIAL_USE.some((name) => use.includes(name))
 }
+
+/**
+ * B2: where a folder lands when it is dropped on `targetParent` (null = top level).
+ * The folder keeps its own name; only its parent changes. Pure, so the drag rules
+ * are testable without a mailbox.
+ */
+export function folderMoveTarget(
+  path: string,
+  targetParent: string | null,
+  delimiter = DEFAULT_DELIMITER
+): string {
+  const name = path.includes(delimiter) ? path.slice(path.lastIndexOf(delimiter) + 1) : path
+  return folderPath(targetParent, name, delimiter)
+}
+
+/**
+ * B2: the reason a folder may not be moved there, or null when it may.
+ * Everything is refused before any server contact: protected folders, a move into
+ * itself or its own subtree, and a name clash in the target.
+ */
+export function folderMoveRefusal(
+  path: string,
+  targetParent: string | null,
+  options: {
+    delimiter?: string
+    specialUse?: string | null
+    /** every known folder path, so target and clash are checked locally */
+    knownPaths?: string[]
+  } = {}
+): string | null {
+  const delimiter = options.delimiter ?? DEFAULT_DELIMITER
+  if (isProtectedFolder({ path, specialUse: options.specialUse })) {
+    return 'Dieser Ordner kann nicht verschoben werden.'
+  }
+  if (targetParent !== null && isPathOrChild(targetParent, path, delimiter)) {
+    return 'Ein Ordner kann nicht in sich selbst verschoben werden.'
+  }
+  const known = options.knownPaths
+  if (known) {
+    if (targetParent !== null && !known.includes(targetParent)) {
+      return `Zielordner nicht gefunden: ${targetParent}`
+    }
+    const to = folderMoveTarget(path, targetParent, delimiter)
+    if (to !== path && known.includes(to)) {
+      return 'Ein Ordner mit diesem Namen existiert dort schon.'
+    }
+  }
+  return null
+}

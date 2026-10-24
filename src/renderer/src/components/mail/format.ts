@@ -4,6 +4,8 @@ export const messageKey = (accountId: string, id: number) => ['mail', accountId,
 
 /** Drag data type of a mail dragged from the list (the value is its row id) */
 export const MAIL_DRAG_TYPE = 'application/x-bookingum-mail'
+/** B2: a dragged folder; a separate type, so a folder is never dropped as a mail */
+export const FOLDER_DRAG_TYPE = 'application/x-bookingum-folder'
 
 // Display names for the standard folders (IMAP SPECIAL-USE); other folders
 // keep the name they have on the server
