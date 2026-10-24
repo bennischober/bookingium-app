@@ -71,6 +71,20 @@
       "when": 1792569341077,
       "tag": "0009_invoice_email_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792859324223,
+      "tag": "0010_mail_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792859325223,
+      "tag": "0011_mail_link_index_triggers",
+      "breakpoints": true
     }
   ]
 }

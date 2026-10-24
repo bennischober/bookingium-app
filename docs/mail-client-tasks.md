@@ -45,7 +45,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B7 | Attachments in compose | M | — | done |
 | B8 | Signatures | S–M | — | done |
 | C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | open |
-| C2 | `mail_link` table + linker | L | — | open |
+| C2 | `mail_link` table + linker | L | — | done |
 | C3 | E-Mails tab on detail pages | M | C2 | open |
 | C4 | Invoices: sent mails and replies | M | C1, C2 | open |
 | C5 | Attachment → document | M | C2, D1 (optional) | open |

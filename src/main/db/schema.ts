@@ -579,6 +579,47 @@ export const document = sqliteTable(
   ]
 )
 
+// Links between a mail and a record of this app (C2). The mail store stays
+// rebuildable, so the link names the mail by its Message-ID (or a fallback hash) and
+// the account - never the store's row id or message_key. No FK to the entity: like
+// document, the owner is a type plus an id, and a delete trigger removes its links.
+export const MAIL_LINK_ENTITY_TYPES = [
+  'person',
+  'company',
+  'band',
+  'venue',
+  'event',
+  'invoice',
+  'contract'
+] as const
+export type MailLinkEntityType = (typeof MAIL_LINK_ENTITY_TYPES)[number]
+export const MAIL_LINK_SOURCES = ['address', 'thread', 'sent', 'manual'] as const
+export type MailLinkSource = (typeof MAIL_LINK_SOURCES)[number]
+
+export const mail_link = sqliteTable(
+  'mail_link',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mail_account_id: text('mail_account_id').notNull(),
+    // Without the angle brackets, as in the mail store's message_id
+    message_id: text('message_id'),
+    // sha1(date|from_email|size_bytes|subject) for a mail without a Message-ID
+    fallback_key: text('fallback_key'),
+    entity_type: text('entity_type', { enum: MAIL_LINK_ENTITY_TYPES }).notNull(),
+    entity_id: integer('entity_id').notNull(),
+    source: text('source', { enum: MAIL_LINK_SOURCES }).notNull(),
+    // 1 = the user removed an automatic link; the linker never adds it again
+    dismissed: integer('dismissed', { mode: 'boolean' }).default(false).notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('mail_link_entity_idx').on(table.entity_type, table.entity_id),
+    index('mail_link_message_idx').on(table.mail_account_id, table.message_id)
+  ]
+)
+
 // App settings (Einstellungen) as key/value pairs; values are JSON. Typed and
 // defaulted by AppSettings in api/schemas/settings.schema.ts
 export const app_setting = sqliteTable('app_setting', {
@@ -779,5 +820,6 @@ export const schema = {
   management_share_income,
   app_setting,
   contact_list,
+  mail_link,
   follow_up
 }

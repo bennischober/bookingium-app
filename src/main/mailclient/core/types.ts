@@ -216,10 +216,29 @@ export interface Api {
   undoOp?(opId: string, accountId?: string): Promise<string>;        // inverse op for a done flag/move/delete
   expungeFromTrash?(ids: number[], accountId?: string): Promise<void>; // permanent deletion, Trash only
   replayPendingOps?(accountId?: string): Promise<{ replayed: number; results: Record<string, string> }>;
+
+  // --- C2: mail -> record linking ---
+  /** Addresses and ids only, never subjects or bodies (C2). Ordered by row id. */
+  listHeadersSince?(cursor: number, limit: number, accountId?: string): Promise<MessageHeader[]>;
+  /** List items for the history panel of a record (C3), by Message-ID */
+  findByMessageIds?(ids: string[], accountId?: string): Promise<MessageListItem[]>;
 }
 
-/** Task 4: journaled write operation, UI-safe summary (no mail content). */
-export type OpSummary = {
+/** C2: one mail's linking header. Addresses and ids only - no subject, no body. */
+export type MessageHeader = {
+  id: number;
+  messageId: string | null;
+  /** sha1(date|from_email|size_bytes|subject); the subject only ever enters this hash */
+  fallbackKey: string;
+  inReplyTo: string | null;
+  references: string[];
+  fromEmail: string;
+  toEmails: string[];
+  ccEmails: string[];
+  date: string | null;
+};
+
+/** Task 4: journaled write operation, UI-safe summary (no mail content). */export type OpSummary = {
   id: string;
   kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
   state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';

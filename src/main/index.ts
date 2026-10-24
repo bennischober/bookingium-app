@@ -38,6 +38,8 @@ import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 import { mailClient } from './mailclient/MailClientService'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
+import { MailLinkService } from './services/MailLinkService'
+import { listMailAccounts } from './mailclient/accounts'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
@@ -514,6 +516,34 @@ app.whenReady().then(async () => {
   createWindow()
   // Mail client (utility process): background sync for configured accounts
   mailClient.startIfConfigured()
+  // C2: link incoming mail to the records it belongs to, after each folder sync.
+  // The linker yields between batches, so a big mailbox never blocks the app.
+  const mailLinks = container.resolve(MailLinkService)
+  const linkQueue = new Map<string, Promise<void>>()
+  mailClient.events.on('event', (event) => {
+    const e = event as {
+      type?: string
+      accountId?: string
+      event?: { type?: string; path?: string }
+    }
+    if (e.type !== 'sync-event' || e.event?.type !== 'folder-done') return
+    // INBOX and Sent are where the mails that matter arrive
+    const path = e.event.path?.toUpperCase()
+    if (path !== 'INBOX' && !path?.endsWith('SENT')) return
+    const accountId = e.accountId
+    if (!accountId) return
+    // One run per account at a time; a burst of folder events must not stack up
+    if (linkQueue.has(accountId)) return
+    const ownEmail = listMailAccounts().find((a) => a.id === accountId)?.email ?? ''
+    linkQueue.set(
+      accountId,
+      mailLinks
+        .linkAccount(accountId, ownEmail)
+        .then(() => undefined)
+        .catch(() => undefined)
+        .finally(() => linkQueue.delete(accountId))
+    )
+  })
   // B6: opened attachments live a day at most
   void cleanAttachmentTemp()
 

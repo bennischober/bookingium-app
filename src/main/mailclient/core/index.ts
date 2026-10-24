@@ -12,6 +12,7 @@
 // account wiring (store + sync engine + write engine with shared folder mutexes),
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import fs from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 import { Store, JournalRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, SyncEvent } from './sync.js';
@@ -20,7 +21,7 @@ import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_gu
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
-import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
+import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
@@ -637,6 +638,59 @@ export class MailCore implements Api {
     await this.replayOps(e, opIds);
   }
 
+  // ----- C2: mail -> record linking -----
+
+  /**
+   * Headers of the mails with a row id above `cursor`, oldest first. Addresses and
+   * ids only: the subject never leaves the worker in clear text for this purpose, it
+   * only enters the fallback hash.
+   */
+  async listHeadersSince(cursor: number, limit: number, accountId?: string): Promise<MessageHeader[]> {
+    const store = this.entry(accountId).store;
+    const rows = store.db.prepare(
+      `SELECT id, message_id, in_reply_to, references_json, from_email, to_json, cc_json,
+              date, internal_date, subject, size_bytes
+       FROM messages WHERE id > ? ORDER BY id LIMIT ?`)
+      .all(cursor, Math.max(1, Math.min(limit, 500))) as Array<{
+        id: number; message_id: string | null; in_reply_to: string | null;
+        references_json: string | null; from_email: string; to_json: string | null;
+        cc_json: string | null; date: string | null; internal_date: string | null;
+        subject: string | null; size_bytes: number | null;
+      }>;
+    return rows.map(r => ({
+      id: r.id,
+      messageId: r.message_id,
+      fallbackKey: messageFallbackKey({
+        date: r.date ?? r.internal_date,
+        fromEmail: r.from_email,
+        sizeBytes: r.size_bytes,
+        subject: r.subject,
+      }),
+      inReplyTo: r.in_reply_to,
+      references: parseJsonArray(r.references_json),
+      fromEmail: r.from_email,
+      toEmails: parseAddressList(r.to_json),
+      ccEmails: parseAddressList(r.cc_json),
+      date: r.date,
+    }));
+  }
+
+  async findByMessageIds(ids: string[], accountId?: string): Promise<MessageListItem[]> {
+    const wanted = ids.filter(Boolean);
+    if (wanted.length === 0) return [];
+    const store = this.entry(accountId).store;
+    // chunked: SQLite's variable limit is well above this, but a caller may pass many
+    const out: MessageListItem[] = [];
+    for (let i = 0; i < wanted.length; i += 200) {
+      const chunk = wanted.slice(i, i + 200);
+      const rows = store.db.prepare(
+        `SELECT * FROM messages WHERE message_id IN (${chunk.map(() => '?').join(',')})`)
+        .all(...chunk) as import('./store.js').MessageRow[];
+      out.push(...rows.map(r => this.toListItem(r)));
+    }
+    return out;
+  }
+
   // ----- compose (sandbox only) -----
 
   async getContacts(partial: string, accountId?: string): Promise<{ name: string; email: string }[]> {
@@ -1074,4 +1128,43 @@ interface AttachmentMeta { partId: string; filename: string; contentType: string
 /** Factory: validate options, acquire the data-dir lock, wire accounts. */
 export function createMailCore(options: MailCoreOptions): MailCore {
   return new MailCore(options);
+}
+
+/**
+ * C2: a stable key for a mail without a Message-ID. The subject goes into the
+ * hash and never leaves the worker in clear text for this purpose, so two mails
+ * that differ only in subject stay distinct.
+ */
+export function messageFallbackKey(input: {
+  date: string | null;
+  fromEmail: string | null;
+  sizeBytes: number | null;
+  subject: string | null;
+}): string {
+  const normalized = [
+    (input.date ?? '').trim(),
+    (input.fromEmail ?? '').trim().toLowerCase(),
+    String(input.sizeBytes ?? ''),
+    (input.subject ?? '').trim(),
+  ].join('|');
+  return createHash('sha1').update(normalized, 'utf8').digest('hex');
+}
+
+/** A JSON address array from the store, tolerating NULL and junk */
+function parseAddressList(raw: string | null): string[] {
+  return parseJsonArray(raw)
+    .map(a => (typeof a === 'string' ? a : (a as { email?: string })?.email ?? ''))
+    .map(a => a.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** A JSON array column, tolerating NULL and junk */
+function parseJsonArray(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
