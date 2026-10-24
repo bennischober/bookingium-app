@@ -38,7 +38,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
 | B1 | Folder create / rename / delete | L | A3, A2 | open |
 | B2 | Move folders by drag and drop | M | B1 | open |
-| B3 | Keyboard shortcuts | S | — | open |
+| B3 | Keyboard shortcuts | S | — | done |
 | B4 | Batch moves in one UID MOVE | M | A2 | open |
 | B5 | Empty Trash / permanent delete in the UI | S | A1 | open |
 | B6 | Attachments: open and save | S | — | open |

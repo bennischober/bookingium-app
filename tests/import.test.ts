@@ -55,9 +55,9 @@ describe('cell cleaning', () => {
   })
 
   it('finds emails, URLs, capacities and tax ids', () => {
-    expect(parseEmails('cm@hhk.me; no@hhk.me')).toEqual(['cm@hhk.me', 'no@hhk.me'])
-    expect(parseEmails('info(@)vaddi-concerts.de')).toEqual(['info@vaddi-concerts.de'])
-    expect(parseEmails('Benjamin.Geisser@vsbbg.de>')).toEqual(['Benjamin.Geisser@vsbbg.de'])
+    expect(parseEmails('cm@hhk.example.test; no@hhk.example.test')).toEqual(['cm@hhk.example.test', 'no@hhk.example.test'])
+    expect(parseEmails('info(@)vaddi-concerts.example.test')).toEqual(['info@vaddi-concerts.example.test'])
+    expect(parseEmails('Benjamin.Geisser@vsbbg.example.test>')).toEqual(['Benjamin.Geisser@vsbbg.example.test'])
     expect(parseEmails('www.goldrush-productions.com')).toEqual([])
 
     expect(normalizeUrl('www.diepumpe.de')).toBe('https://www.diepumpe.de')
@@ -65,7 +65,7 @@ describe('cell cleaning', () => {
     expect(normalizeUrl('crash-musikkeller.de; www.mbc-tourbooking.de')).toBe(
       'https://crash-musikkeller.de'
     )
-    expect(normalizeUrl('jens@fiddlersgreenpub.de')).toBe('')
+    expect(normalizeUrl('jens@fiddlersgreenpub.example.test')).toBe('')
 
     expect(parseCapacity('1.800')).toBe(1800)
     expect(parseCapacity('500-1000')).toBe(500)
@@ -137,8 +137,8 @@ describe('import plan', () => {
   it('attaches follow-up rows to the row above', () => {
     const plan = buildImportPlan(
       request([
-        ['HH', 'GALAXY', 'Hamburg', 'Trinity Music', 'Jonas Nity', 'jonas@trinity.de'],
-        ['', '', '', '', 'Oli Zimmermann', 'oli@trinity.de']
+        ['HH', 'GALAXY', 'Hamburg', 'Trinity Music', 'Jonas Nity', 'jonas@trinity.example.test'],
+        ['', '', '', '', 'Oli Zimmermann', 'oli@trinity.example.test']
       ]),
       NONE
     )
@@ -201,13 +201,13 @@ describe('writing the import', () => {
           'Kiel',
           'Die Pumpe e.V.',
           'Carlos Lehne',
-          'carlos@diepumpe.de',
+          'carlos@diepumpe.example.test',
           'Haßstr. 22',
           '24103',
           'Kiel',
           '500'
         ],
-        ['', '', '', '', 'Anna Bauer', 'anna@diepumpe.de']
+        ['', '', '', '', 'Anna Bauer', 'anna@diepumpe.example.test']
       ])
     )
     expect(result).toMatchObject({
@@ -246,7 +246,7 @@ describe('writing the import', () => {
     const companies = container.resolve(CompanyService)
     const existing = await companies.createCompany({
       name: 'Markthalle Hamburg GmbH',
-      contact: { email: 'office@markthalle.de', phone: '', mobilePhone: '', homepage: '' },
+      contact: { email: 'office@markthalle.example.test', phone: '', mobilePhone: '', homepage: '' },
       isDefaultForInvoicing: false
     })
 
@@ -259,7 +259,7 @@ describe('writing the import', () => {
           'Hamburg',
           'Markthalle Hamburg GmbH',
           '',
-          'tosh@markthalle.de',
+          'tosh@markthalle.example.test',
           'Klosterwall',
           '20095',
           'Hamburg'
@@ -276,7 +276,7 @@ describe('writing the import', () => {
           'Hamburg',
           'Markthalle Hamburg GmbH',
           '',
-          'tosh@markthalle.de',
+          'tosh@markthalle.example.test',
           'Klosterwall',
           '20095',
           'Hamburg'
@@ -298,7 +298,7 @@ describe('writing the import', () => {
       .where(eq(schema.contact.id, company.contact_id!))
       .get()!
     // Kept, not overwritten
-    expect(contact.email).toBe('office@markthalle.de')
+    expect(contact.email).toBe('office@markthalle.example.test')
     const address = db
       .select()
       .from(schema.address)
@@ -315,7 +315,7 @@ describe('writing the import', () => {
           'Hamburg',
           'Markthalle Hamburg GmbH',
           '',
-          'tosh@markthalle.de',
+          'tosh@markthalle.example.test',
           'Klosterwall',
           '20095',
           'Hamburg'

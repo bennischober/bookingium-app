@@ -14,7 +14,7 @@ let fixtureDir: string
 // LoPro contact of the Berlin Tour and recipient of invoice #1041
 const PERSON = 'Tom Manager'
 // The list shows first and last name in separate cells
-const EMAIL = 'tom.manager@soundwave.com'
+const EMAIL = 'tom.manager@soundwave.example.test'
 
 test.beforeAll(async () => {
   fixtureDir = mkdtempSync(join(tmpdir(), 'bookingum-docs-'))

@@ -536,8 +536,6 @@ test('the mail shortcuts work from the list and leave typing alone', async () =>
   const { page } = h
   const sandboxId = await ensureSandboxAccount()
   await waitForInbox(sandboxId)
-  const folders = await mail<Folder[]>('getFolders', sandboxId)
-  const inbox = folders.find((f) => f.path === 'INBOX')!
   const list = page.getByRole('listbox', { name: 'Nachrichten' })
   const rows = list.getByRole('option')
   const state = (id: number) => mail<{ isRead: boolean }>('getMessage', id, sandboxId)

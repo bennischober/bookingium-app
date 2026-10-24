@@ -41,14 +41,14 @@ test.beforeAll(async () => {
       2500,
       'Teich Events GmbH',
       'Paula Teich',
-      'paula@teich-events.de; info@teich-events.de',
+      'paula@teich-events.example.test; info@teich-events.example.test',
       'Seeweg',
       '3',
       '1099',
       'Dresden',
       'www.rock-am-teich.de'
     ],
-    ['', '', '', '', '', '', 'Max Ufer', 'max@teich-events.de'],
+    ['', '', '', '', '', '', 'Max Ufer', 'max@teich-events.example.test'],
     // Promoter already in the app (seed): linked, not duplicated
     ['', 'Sommerbeben', 'Berlin', '', '800', 'Live Music Berlin GmbH', 'Elke und Johannes']
   ])

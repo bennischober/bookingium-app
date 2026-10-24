@@ -22,7 +22,7 @@ test.beforeAll(async () => {
       'Soundwave Records',
       'Mara Licht (Gesang), Jonas Hafen (Synth)',
       'Erik Kabel',
-      'erik@neonharbour.de'
+      'erik@neonharbour.example.test'
     ],
     ['', '', '', 'Pia Takt (Schlagzeug)'],
     ['Ghost Band', 'Rock', 'Unbekannte GmbH', 'Niemand Hier']

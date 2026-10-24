@@ -118,7 +118,7 @@ export async function seedDatabase() {
     const [hotelContact1] = await db
       .insert(contact)
       .values({
-        email: 'reservations@hotel-adlon.de',
+        email: 'reservations@hotel-adlon.example.test',
         phone: '+49-30-22610',
         mobile_phone: '',
         homepage: 'https://www.hotel-adlon.de'
@@ -128,7 +128,7 @@ export async function seedDatabase() {
     const [companyContact1] = await db
       .insert(contact)
       .values({
-        email: 'contact@soundwaverecords.com',
+        email: 'contact@soundwaverecords.example.test',
         phone: '+1-615-244-3900',
         mobile_phone: '+1-615-555-0300',
         homepage: 'https://www.soundwaverecords.com'
@@ -138,7 +138,7 @@ export async function seedDatabase() {
     const [companyContact2] = await db
       .insert(contact)
       .values({
-        email: 'info@livemusic-berlin.de',
+        email: 'info@livemusic-berlin.example.test',
         phone: '+49-30-555-1234',
         mobile_phone: '+49-172-555-0400',
         homepage: 'https://www.livemusic-berlin.de'
@@ -148,7 +148,7 @@ export async function seedDatabase() {
     const [personContact1] = await db
       .insert(contact)
       .values({
-        email: 'john.rockstar@music.com',
+        email: 'john.rockstar@music.example.test',
         phone: '+44-20-7946-0958',
         mobile_phone: '+44-7700-900123',
         homepage: ''
@@ -158,7 +158,7 @@ export async function seedDatabase() {
     const [personContact2] = await db
       .insert(contact)
       .values({
-        email: 'sarah.drums@music.com',
+        email: 'sarah.drums@music.example.test',
         phone: '',
         mobile_phone: '+44-7700-900456',
         homepage: ''
@@ -168,7 +168,7 @@ export async function seedDatabase() {
     const [personContact3] = await db
       .insert(contact)
       .values({
-        email: 'mike.bass@music.com',
+        email: 'mike.bass@music.example.test',
         phone: '',
         mobile_phone: '+1-213-555-0789',
         homepage: ''
@@ -178,7 +178,7 @@ export async function seedDatabase() {
     const [personContact4] = await db
       .insert(contact)
       .values({
-        email: 'lisa.keys@music.com',
+        email: 'lisa.keys@music.example.test',
         phone: '',
         mobile_phone: '+1-213-555-0456',
         homepage: ''
@@ -188,7 +188,7 @@ export async function seedDatabase() {
     const [personContact5] = await db
       .insert(contact)
       .values({
-        email: 'tom.manager@soundwave.com',
+        email: 'tom.manager@soundwave.example.test',
         phone: '+1-615-555-0100',
         mobile_phone: '+1-615-555-0200',
         homepage: ''
@@ -214,7 +214,7 @@ export async function seedDatabase() {
       .values({
         bank_name: 'Bank of America',
         account_holder: 'Soundwave Records LLC',
-        iban: 'US89370400440532013000',
+        iban: 'DE02120300000000202051',
         bic: 'BOFAUS3N'
       })
       .returning()
@@ -583,7 +583,7 @@ export async function seedDatabase() {
     const [venueContact1] = await db
       .insert(contact)
       .values({
-        email: 'venue-email@email.com',
+        email: 'venue-email@email.example.test',
         phone: '+49-30-555-6789',
         mobile_phone: '+49-172-555-0900',
         homepage: 'https://www.venue1.com'
@@ -606,7 +606,7 @@ export async function seedDatabase() {
     const [venueContact2] = await db
       .insert(contact)
       .values({
-        email: 'venue-2@email.com',
+        email: 'venue-2@email.example.test',
         phone: '+49-30-555-6780',
         mobile_phone: '+49-172-555-0901',
         homepage: 'https://www.venue2.com'

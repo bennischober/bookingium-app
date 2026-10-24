@@ -13,10 +13,10 @@ let outDir: string
 // Seed: Berghain (1500, Rock bookings) and The Whisky a Go Go (500,
 // Electronic/Indie booking), both run by Live Music Berlin GmbH, Tom Manager
 // works at both
-const BERGHAIN = 'venue-2@email.com'
-const WHISKY = 'venue-email@email.com'
-const PROMOTER = 'info@livemusic-berlin.de'
-const TOM = 'tom.manager@soundwave.com'
+const BERGHAIN = 'venue-2@email.example.test'
+const WHISKY = 'venue-email@email.example.test'
+const PROMOTER = 'info@livemusic-berlin.example.test'
+const TOM = 'tom.manager@soundwave.example.test'
 
 test.beforeAll(async () => {
   outDir = mkdtempSync(join(tmpdir(), 'bookingum-contact-list-'))

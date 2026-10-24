@@ -254,10 +254,10 @@ describe('InvoiceService', () => {
         lineItems: line
       })
 
-      invoices.markInvoiceEmailed(issued.id, 'buchhaltung@club.de')
+      invoices.markInvoiceEmailed(issued.id, 'buchhaltung@club.example.test')
       invoices.markInvoiceEmailed(issued.id, '')
       const loaded = await invoices.getInvoiceById(issued.id)
-      expect(loaded?.emails.map((email) => email.to)).toEqual(['', 'buchhaltung@club.de'])
+      expect(loaded?.emails.map((email) => email.to)).toEqual(['', 'buchhaltung@club.example.test'])
       expect(loaded?.emailed_to).toBe('')
       expect(loaded?.emailed_at).toBe(loaded?.emails[0].created_at)
     })
@@ -283,8 +283,8 @@ describe('InvoiceService', () => {
       const cancelled = await create({ dueDate: '2026-09-01' })
       await invoices.setInvoiceStatus(cancelled.id, 'cancelled')
 
-      invoices.markInvoiceEmailed(later.id, 'x@club.de')
-      invoices.markInvoiceEmailed(later.id, 'x@club.de', 'reminder')
+      invoices.markInvoiceEmailed(later.id, 'x@club.example.test')
+      invoices.markInvoiceEmailed(later.id, 'x@club.example.test', 'reminder')
       const overdue = (await invoices.listOverdueInvoices('2026-10-21')).filter(
         (invoice) => invoice.company_id === company.id
       )
@@ -320,17 +320,17 @@ describe('InvoiceService', () => {
         dueDate: '2026-10-01',
         lineItems: line
       })
-      invoices.markInvoiceEmailed(issued.id, 'invoice@club.de')
+      invoices.markInvoiceEmailed(issued.id, 'invoice@club.example.test')
 
-      invoices.markInvoiceEmailed(issued.id, 'x@club.de', 'reminder')
-      invoices.markInvoiceEmailed(issued.id, 'x@club.de', 'dunning')
+      invoices.markInvoiceEmailed(issued.id, 'x@club.example.test', 'reminder')
+      invoices.markInvoiceEmailed(issued.id, 'x@club.example.test', 'dunning')
       const loaded = await invoices.getInvoiceById(issued.id)
       expect(loaded?.status).toBe('overdue')
       // Logged once, for the Verlauf
       expect(loaded?.statusChanges.map((change) => change.status)).toEqual(['issued', 'overdue'])
       expect(loaded?.emails.map((email) => email.kind)).toEqual(['dunning', 'reminder', 'invoice'])
       // The list keeps the invoice's own email
-      expect(loaded?.emailed_to).toBe('invoice@club.de')
+      expect(loaded?.emailed_to).toBe('invoice@club.example.test')
 
       expect(() => invoices.assertRemindable({ kind: 'invoice', status: 'overdue' })).not.toThrow()
       for (const status of ['draft', 'paid', 'cancelled'] as const) {
