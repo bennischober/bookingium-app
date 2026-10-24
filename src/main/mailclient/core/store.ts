@@ -535,7 +535,9 @@ export class Store {
       .map(t => t.replace(/[*(){}:^-]/g, ' ').trim())
       .filter(Boolean)
       .filter(t => t.length >= Store.MIN_FTS_TERM_LEN || t === 'OR' || t === 'AND' || t === 'NOT')
-      .map(t => `"${t.replace(/"/g, '""')}" *`);
+      // A boolean keyword stays an operator: quoting it would search for the
+      // literal word "OR" and silently return nothing
+      .map(t => (t === 'OR' || t === 'AND' || t === 'NOT') ? t : `"${t.replace(/"/g, '""')}" *`);
     return terms.join(' ');
   }
 

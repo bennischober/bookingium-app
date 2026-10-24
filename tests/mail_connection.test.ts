@@ -9,7 +9,7 @@ import {
   classifyConnectionError,
   testImapConnection
 } from '../src/main/mailclient/core/connection_test'
-import { allowsPlainLogin } from '../src/main/mailclient/core/imap_options'
+import { allowsPlainLogin, imapSecurityOptions } from '../src/main/mailclient/core/imap_options'
 import { Store } from '../src/main/mailclient/core/store'
 import {
   makeProductionAccount,
@@ -264,5 +264,24 @@ describe('production account settings', () => {
     expect(allowsPlainLogin('imap.ionos.de')).toBe(false)
     expect(allowsPlainLogin('192.168.1.10')).toBe(false)
     expect(allowsPlainLogin('sandbox-dovecot')).toBe(false)
+  })
+})
+
+describe('imapSecurityOptions (F1)', () => {
+  it('uses TLS from the first byte for tls', () => {
+    expect(imapSecurityOptions('tls')).toEqual({ secure: true, doSTARTTLS: false })
+  })
+
+  it('requires STARTTLS for starttls instead of allowing a plain login', () => {
+    // Opportunistic STARTTLS would fall back to a plain login when the server
+    // does not offer it, which is exactly what this rule must prevent
+    expect(imapSecurityOptions('starttls')).toEqual({ secure: false, doSTARTTLS: true })
+  })
+
+  it('never sets both at once, which imapflow cannot do', () => {
+    for (const security of ['tls', 'starttls', 'none'] as const) {
+      const opts = imapSecurityOptions(security)
+      expect(opts.secure && opts.doSTARTTLS).toBe(false)
+    }
   })
 })

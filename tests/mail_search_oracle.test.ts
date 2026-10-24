@@ -378,3 +378,90 @@ describe(`search oracle (${N} synthetic messages)`, () => {
     expect(store.ftsIntegrityCheck()).toBe(true)
   })
 })
+
+// F1: the two guards that keep a user's search text from breaking or blocking
+// the FTS5 query. Both are pure, so their rules are pinned directly.
+describe('FTS5 query guards (F1)', () => {
+  it('turns every user term into a quoted prefix', () => {
+    expect(store.ftsEscapeUserQuery('rechnung')).toBe('"rechnung" *')
+    expect(store.ftsEscapeUserQuery('zwei worte')).toBe('"zwei" * "worte" *')
+  })
+
+  it('quotes a quote instead of letting it end the term', () => {
+    // A raw " would end the FTS5 string and let the rest of the query through
+    expect(store.ftsEscapeUserQuery('a"b')).toBe('"a""b" *')
+  })
+
+  it('strips the FTS5 operators out of a user term', () => {
+    for (const raw of ['a*b', 'a(b)', 'a{b}', 'a:b', 'a^b', 'a-b']) {
+      const escaped = store.ftsEscapeUserQuery(raw)
+      // Every operator is gone from the term itself, so it can only match text
+      expect(escaped.replace(/[*(){}:^-]/g, '')).not.toMatch(/[*(){}:^-]/)
+    }
+  })
+
+  it('drops terms that are too short, which FTS5 cannot prefix cheaply', () => {
+    // MIN_FTS_TERM_LEN is 3: a 2-character prefix matches a large share of the corpus
+    expect(store.ftsEscapeUserQuery('ab')).toBe('')
+    expect(store.ftsEscapeUserQuery('abc')).toBe('"abc" *')
+  })
+
+  it('keeps the boolean keywords a user may type', () => {
+    expect(store.ftsEscapeUserQuery('rechnung OR mahnung')).toBe('"rechnung" * OR "mahnung" *')
+  })
+
+  it('returns nothing for a query that is only punctuation', () => {
+    expect(store.ftsEscapeUserQuery('***')).toBe('')
+    expect(store.ftsEscapeUserQuery('   ')).toBe('')
+  })
+
+  it('keeps a prefix whose doclist is small enough to answer', () => {
+    // A rare token: the exact-cost probe counts its docs and lets it through
+    expect(store.capPathologicalPrefixes('"xantopa" *')).toBe('"xantopa" *')
+  })
+
+  it('drops a prefix whose doclist would block the search', () => {
+    // The probe counts the doclist through fts_vocab, so the corpus has to be
+    // big enough: 2000 mails sharing one word push it past MAX_PREFIX_DOCS
+    const common = 'verfahrensdokumentation'
+    const tx = store.db.transaction(() => {
+      for (let i = 0; i < 21_000; i++) {
+        store.insertMessage({
+          account_id: 'oracle',
+          folder_id: folderIds[0],
+          uid: 900_000 + i,
+          message_key: `cap-${i}`,
+          file_path: `cap-${i}.eml`,
+          message_id: `<cap-${i}@test>`,
+          in_reply_to: null,
+          references_json: '[]',
+          thread_id: null,
+          date: new Date().toISOString(),
+          internal_date: null,
+          subject: common,
+          from_name: 'Cap',
+          from_email: 'cap@example.test',
+          to_json: '[{"name":"","email":"oracle@example.test"}]',
+          cc_json: '[]',
+          bcc_json: '[]',
+          flags_json: '{}',
+          modseq: null,
+          has_attachments: 0,
+          attachments_json: '[]',
+          size_bytes: 10,
+          body_text: common,
+          body_html: null,
+          snippet: common,
+          parsed_ok: 1,
+          parse_error: null
+        })
+      }
+    })
+    tx()
+
+    // Over the limit: the term is dropped, and the safe one still answers
+    expect(store.capPathologicalPrefixes(`"${common}" * "xantopa" *`)).toBe('"xantopa" *')
+    // Over the limit on its own too: nothing is left to search
+    expect(store.capPathologicalPrefixes(`"${common}" *`)).toBe('')
+  }, 30_000)
+})
