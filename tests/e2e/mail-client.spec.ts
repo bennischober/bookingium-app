@@ -1381,6 +1381,8 @@ test('C5: an attachment of a mail becomes a document', async () => {
     expect(after.some((doc) => doc.id > Math.max(...before.map((b) => b.id)))).toBe(true)
   } finally {
     await popup.close()
+    // The mail this test sent itself stays in the mailbox otherwise
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, C1_TAG)
   }
 })
 
