@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   composeTo,
+  pasteContent,
   forwardCompose,
   parseAddress,
   replyCompose,
@@ -170,5 +171,27 @@ describe('composeTo (F2)', () => {
   it('trims what the header carried over', () => {
     const state = composeTo({ name: '  Anna  ', email: ' a@example.test ' })
     expect(state.to).toEqual([{ name: 'Anna', email: 'a@example.test' }])
+  })
+})
+
+describe('pasteContent (F4)', () => {
+  it('takes a copied file as an attachment', () => {
+    expect(pasteContent(['Files'])).toEqual({ kind: 'files' })
+  })
+
+  it('takes a screenshot as an image, not as text', () => {
+    // A pasted image must become an attachment: as a data: URI in the body it
+    // would grow without a visible attachment
+    expect(pasteContent(['image/png'])).toEqual({ kind: 'image' })
+    expect(pasteContent(['image/jpeg'])).toEqual({ kind: 'image' })
+  })
+
+  it('leaves plain text to the normal paste', () => {
+    expect(pasteContent(['text/plain'])).toEqual({ kind: 'text' })
+    expect(pasteContent([])).toEqual({ kind: 'text' })
+  })
+
+  it('prefers a file when the clipboard carries both', () => {
+    expect(pasteContent(['text/plain', 'Files'])).toEqual({ kind: 'files' })
   })
 })

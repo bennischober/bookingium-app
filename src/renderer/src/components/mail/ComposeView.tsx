@@ -17,7 +17,7 @@ import {
   toDraftInput
 } from './composeDraft'
 import { formatSize } from './format'
-import { attachmentsFit, MAX_ATTACHMENT_BYTES } from './composeDraft'
+import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -401,8 +401,33 @@ export function ComposeView({
     }
   }
 
+  /**
+   * F4: Ctrl+V. A copied or screenshotted file becomes an attachment; only plain
+   * text falls through to the normal paste, so a pasted image never becomes a
+   * data: URI in the body.
+   */
+  const onPaste = (event: React.ClipboardEvent) => {
+    const items = event.clipboardData?.items ?? []
+    const types = [...items].map((item) => item.type)
+    const content = pasteContent(types)
+    if (content.kind === 'text') return
+    const files = [...items]
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+    if (files.length === 0) return
+    // The default paste would put the image into the body as well
+    event.preventDefault()
+    const list = files.reduce((acc, file) => {
+      acc.items.add(file)
+      return acc
+    }, new DataTransfer()).files
+    void addFiles(list)
+  }
+
   return (
     <form
+      onPaste={onPaste}
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       aria-label="E-Mail verfassen"
       onSubmit={(e) => {

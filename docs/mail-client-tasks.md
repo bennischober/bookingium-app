@@ -55,7 +55,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F1 | Test the security boundaries worst-first | L | — | done, all 7 (sanitize 25 / 2 bugs, remote_images 13 / 1 bug, write_guard 7, compose already covered, files enforced by construction, imap_options 7, store search 8 / 1 bug) |
 | F2 | Write to an address from a mail header | S–M | B7, B8 | done (Von/An/Cc are buttons for a writable account; pure `composeTo` carries only the recipient, with the signature, and never In-Reply-To/References, a quote or the old subject) |
 | F3 | Lightweight formatting in compose | M | — | open |
-| F4 | Paste attachments from the clipboard | M | — | open |
+| F4 | Paste attachments from the clipboard | M | B7 | done (a form-level paste handler; `pasteContent` is pure and decides files > image > text; a pasted file or screenshot becomes an attachment through the B7 size check, never a `data:` URI in the body) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and

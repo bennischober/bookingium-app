@@ -335,11 +335,13 @@ test('a mail dragged onto a folder is moved there', async () => {
   // makes the counts below depend on what ran before
   const targetPath = `E2E-Drag-${Date.now()}`
   await mail('createFolder', null, targetPath, sandboxId)
-  const target = (await waitFor(
-    async () => mail<Folder[]>('getFolders', sandboxId),
-    (list) => list.some((f) => f.path === targetPath),
-    30_000
-  )).find((f) => f.path === targetPath)!
+  const target = (
+    await waitFor(
+      async () => mail<Folder[]>('getFolders', sandboxId),
+      (list) => list.some((f) => f.path === targetPath),
+      30_000
+    )
+  ).find((f) => f.path === targetPath)!
   // The inbox may still be downloading and growing, so the mail itself is followed;
   // a move keeps its row id
   // The folder list's totalCount can lag behind the store, so both sides of the
@@ -1144,7 +1146,10 @@ test('a folder is created, renamed and deleted from the tree', async () => {
   try {
     // 1. Create a top-level folder from the tree's own menu
     // Two buttons carry the name: the expand chevron and the folder itself
-    await tree.getByRole('button', { name: /^Posteingang/ }).last().click({ button: 'right' })
+    await tree
+      .getByRole('button', { name: /^Posteingang/ })
+      .last()
+      .click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Neuer Ordner…' }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
@@ -1193,7 +1198,6 @@ test('a folder is created, renamed and deleted from the tree', async () => {
   }
 })
 
-
 // C1: "bookingum" as the mail program sends an invoice mail from bookingum's own
 // editor. The invoice counts as emailed only after that send, and Mailpit sees one
 // mail with one PDF attachment (count and size only).
@@ -1218,8 +1222,7 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     })
     await expect
       .poll(
-        async () =>
-          (await trpc<{ mailProgram: string }>('query', 'settings.get')).mailProgram,
+        async () => (await trpc<{ mailProgram: string }>('query', 'settings.get')).mailProgram,
         { timeout: 15_000 }
       )
       .toBe('bookingum')
@@ -1279,11 +1282,15 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
 
     // C4: the sent mail is listed on the invoice, and no reply has arrived
     const invoiceId = (
-      await trpc<{ items: { id: number; invoiceNumber: number }[] }>('query', 'invoice.getAllPaginated', {
-        page: 1,
-        pageSize: 100,
-        search: '1040'
-      })
+      await trpc<{ items: { id: number; invoiceNumber: number }[] }>(
+        'query',
+        'invoice.getAllPaginated',
+        {
+          page: 1,
+          pageSize: 100,
+          search: '1040'
+        }
+      )
     ).items.find((i) => i.invoiceNumber === 1040)?.id
     await page.goto(`${base()}#/invoices/${invoiceId}`)
     const mails = page.getByRole('list', { name: 'E-Mails zur Rechnung' })
@@ -1300,7 +1307,6 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
   }
 })
 
-
 test('C5: an attachment of a mail becomes a document', async () => {
   test.setTimeout(120_000)
   const { page } = h
@@ -1313,30 +1319,40 @@ test('C5: an attachment of a mail becomes a document', async () => {
   test.skip(!me, 'the sandbox account is missing')
   const attachmentTag = `${C1_TAG}anhang-${Date.now()}`
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n', 'utf8')
-  await mail('sendMail', {
-    to: [{ name: 'Ich', email: me!.email }],
-    cc: [],
-    bcc: [],
-    subject: attachmentTag,
-    bodyText: 'Anbei die Datei.',
-    bodyHtml: null,
-    inReplyTo: null,
-    references: [],
-    attachments: [
-      {
-        filename: 'Angebot.pdf',
-        contentType: 'application/pdf',
-        base64: pdf.toString('base64')
-      }
-    ]
-  }, null, sandboxId)
+  await mail(
+    'sendMail',
+    {
+      to: [{ name: 'Ich', email: me!.email }],
+      cc: [],
+      bcc: [],
+      subject: attachmentTag,
+      bodyText: 'Anbei die Datei.',
+      bodyHtml: null,
+      inReplyTo: null,
+      references: [],
+      attachments: [
+        {
+          filename: 'Angebot.pdf',
+          contentType: 'application/pdf',
+          base64: pdf.toString('base64')
+        }
+      ]
+    },
+    null,
+    sandboxId
+  )
 
   // It has to arrive through IMAP before the UI can show it
   const found = await waitFor(
-    () => mail<{ total: number; items: { id: number; subject: string }[] }>('search', {
-      query: attachmentTag,
-      limit: 5
-    }, sandboxId),
+    () =>
+      mail<{ total: number; items: { id: number; subject: string }[] }>(
+        'search',
+        {
+          query: attachmentTag,
+          limit: 5
+        },
+        sandboxId
+      ),
     (r) => r.items.length > 0,
     120_000
   )
@@ -1366,14 +1382,18 @@ test('C5: an attachment of a mail becomes a document', async () => {
   try {
     const reader = popup.getByRole('article', { name: 'E-Mail' })
     await expect(reader.getByRole('list', { name: 'Anhänge' })).toBeVisible({ timeout: 30_000 })
-    await reader.getByRole('button', { name: /als Dokument speichern/ }).first().click()
+    await reader
+      .getByRole('button', { name: /als Dokument speichern/ })
+      .first()
+      .click()
 
     const dialog = popup.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByLabel('Nummer').fill(String(BAND_ID))
     await dialog.getByRole('button', { name: 'Speichern' }).click()
-    await expect(popup.locator('[data-sonner-toast]').filter({ hasText: 'Als Dokument gespeichert' }))
-      .toBeVisible({ timeout: 30_000 })
+    await expect(
+      popup.locator('[data-sonner-toast]').filter({ hasText: 'Als Dokument gespeichert' })
+    ).toBeVisible({ timeout: 30_000 })
 
     // The document exists, with the mail as its origin
     const after = await listDocs()
@@ -1423,7 +1443,10 @@ test('a folder is moved into another folder by drag and drop', async () => {
   try {
     // 1. Two top-level folders through the tree menu
     for (const name of [parent, child]) {
-      await tree.getByRole('button', { name: /^Posteingang/ }).last().click({ button: 'right' })
+      await tree
+        .getByRole('button', { name: /^Posteingang/ })
+        .last()
+        .click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Neuer Ordner…' }).click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
@@ -1521,27 +1544,25 @@ test('an address in the header starts a new mail to that person', async () => {
     await openMailPage(sandboxId)
     const [popup] = await Promise.all([
       h.app.waitForEvent('window'),
-      page.evaluate(
-        ([account, message]) => window.api.openMailWindow(account, message),
-        [sandboxId, found.items[0].id] as const
-      )
+      page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+        sandboxId,
+        found.items[0].id
+      ] as const)
     ])
     try {
       const reader = popup.getByRole('article', { name: 'E-Mail' })
       await expect(reader).toBeVisible({ timeout: 30_000 })
-    // The Cc address is the button this test clicks
+      // The Cc address is the button this test clicks
       await reader.getByRole('button', { name: new RegExp(ccAddress) }).click()
 
-    const editor = popup.getByRole('form', { name: 'E-Mail verfassen' })
-    await expect(editor).toBeVisible({ timeout: 30_000 })
+      const editor = popup.getByRole('form', { name: 'E-Mail verfassen' })
+      await expect(editor).toBeVisible({ timeout: 30_000 })
       // Exactly that recipient: the chip is labelled with its address
-      await expect(
-        editor.getByRole('button', { name: `${ccAddress} entfernen` })
-      ).toBeVisible()
+      await expect(editor.getByRole('button', { name: `${ccAddress} entfernen` })).toBeVisible()
       // and nobody else was carried over
       await expect(editor.getByRole('button', { name: /entfernen$/ })).toHaveCount(1)
-    // A NEW mail: no subject, no quoted body, no threading
-    await expect(editor.getByLabel('Betreff')).toHaveValue('')
+      // A NEW mail: no subject, no quoted body, no threading
+      await expect(editor.getByLabel('Betreff')).toHaveValue('')
       await expect(editor.getByLabel('Text')).not.toHaveValue(/nicht zitiert/)
     } finally {
       await popup.close()
@@ -1549,4 +1570,42 @@ test('an address in the header starts a new mail to that person', async () => {
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, F2_TAG)
   }
+})
+
+// F4: Ctrl+V in the editor attaches a copied file, and a pasted image becomes an
+// attachment instead of a data: URI in the body.
+test('a pasted image becomes an attachment, not body text', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await openMailPage(sandboxId)
+
+  await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+  const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+  await expect(editor).toBeVisible({ timeout: 30_000 })
+
+  // A synthetic paste carrying a PNG file and the same image as text data
+  await editor.getByLabel('Text').evaluate((el) => {
+    const bytes = Uint8Array.from(
+      atob(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+      ),
+      (c) => c.charCodeAt(0)
+    )
+    const file = new File([bytes], 'bild.png', { type: 'image/png' })
+    const data = new DataTransfer()
+    data.items.add(file)
+    el.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+    )
+  })
+
+  // It shows up as an attachment, with its own name
+  const attachments = editor.getByRole('list', { name: 'Anhänge' })
+  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
+  // and not in the body as a data: URI
+  const body = await editor.getByLabel('Text').inputValue()
+  expect(body).not.toContain('data:image')
 })

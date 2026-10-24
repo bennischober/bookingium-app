@@ -224,3 +224,19 @@ export function composeTo(address: Address, signature?: string): ComposeState {
   }
   return withSignature(state, signature)
 }
+
+/**
+ * F4: what a paste into the editor carries, decided from the pasted types alone so
+ * the rule is testable without a DOM.
+ *
+ * Files win over text: a screenshot or a copied file arrives as an attachment, never
+ * as a `data:` URI inside the body - the body would grow without a visible
+ * attachment and the sanitizer would keep the URI. Plain text pastes as text.
+ */
+export type PasteContent = { kind: 'files' } | { kind: 'text' } | { kind: 'image' }
+
+export function pasteContent(types: readonly string[]): PasteContent {
+  if (types.includes('Files')) return { kind: 'files' }
+  if (types.includes('image/png') || types.includes('image/jpeg')) return { kind: 'image' }
+  return { kind: 'text' }
+}
