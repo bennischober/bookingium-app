@@ -367,7 +367,7 @@ export class SyncEngine {
     await this.gate();
     if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
     if (this.client && this.client.usable) return this.client;
-    if (this.client) { try { this.client.close(); } catch { } this.client = null; }
+    if (this.client) { try { this.client.close(); } catch { /* stale client is already unusable; a failed close leaves nothing to release */ } this.client = null; }
     // Task 3: hard connection cap (1 sync + 1 IDLE for prod)
     const cap = this.account.maxConnections ?? 4;
     while (this.connectionCount >= cap) {
@@ -466,7 +466,7 @@ export class SyncEngine {
         .all(f.id) as { id: number; file_path: string }[];
       this.store.deleteMessages(rows.map(r => r.id));
       for (const r of rows) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { }
+        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* vanished folder: the file may already be gone, and the row is deleted either way */ }
       }
       this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(f.id);
     }
@@ -575,7 +575,7 @@ export class SyncEngine {
       );
       for (const r of oldRows) {
         if (survivingKeys.has(r.message_key)) continue;
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { }
+        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* UIDVALIDITY swap: an unreadable leftover is an orphan for the sweep, never a row without a file */ }
       }
       this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
       this.emit({ type: 'folder-done', path: imapPath, newCount: serverUids.size, flagChanges: 0, expunged: oldRows.length, moved: 0 });
@@ -587,7 +587,7 @@ export class SyncEngine {
           .all(tempFolder.id) as { id: number; file_path: string }[];
         this.store.deleteMessages(staged.map(r => r.id));
         for (const r of staged) {
-          try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { }
+          try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* aborted staging download: the file is re-downloadable, so a failed unlink only leaves an orphan */ }
         }
         this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
       }
@@ -628,7 +628,7 @@ export class SyncEngine {
     if (expungedLocal.length) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { }
+        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* local uid vanished server-side: the row is gone already, a leftover file is an orphan for the sweep */ }
       }
       expunged = expungedLocal.length;
     }
@@ -690,7 +690,7 @@ export class SyncEngine {
     if (expungedLocal.length) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { }
+        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* server-side expunge: the row is gone already, a leftover file is an orphan for the sweep */ }
       }
       expunged = expungedLocal.length;
     }
@@ -944,7 +944,7 @@ export class SyncEngine {
         try {
           await this.syncFolder(p, opts);
           this.noteSuccess();
-        } catch (e) {
+        } catch {
           // circuit breaker already noted the error; stop the pass if open. Without a
           // connection every further folder would only wait out its own connect timeout.
           if (Date.now() < this.circuitOpenUntil || this.progress.connection !== 'online') {
@@ -1082,7 +1082,7 @@ export class SyncEngine {
         } catch (e) {
           this.progress.idleConnected = false;
           this.emit({ type: 'error', path: mailboxPath, message: `idle: ${(e as Error).message}` });
-          if (this.idleClient) { try { this.idleClient.close(); } catch { } this.idleClient = null; }
+          if (this.idleClient) { try { this.idleClient.close(); } catch { /* IDLE connection already dropped; nothing left to release */ } this.idleClient = null; }
           if (this.authFailed) break;
           this.noteDisconnect();
           this.noteError('idle');
@@ -1240,8 +1240,8 @@ export class SyncEngine {
 
   async close(): Promise<void> {
     this.stopIdle();
-    if (this.client) { try { this.client.close(); } catch { } this.client = null; }
-    if (this.idleClient) { try { this.idleClient.close(); } catch { } this.idleClient = null; }
+    if (this.client) { try { this.client.close(); } catch { /* shutdown: the connection may already be gone */ } this.client = null; }
+    if (this.idleClient) { try { this.idleClient.close(); } catch { /* shutdown: the IDLE connection may already be gone */ } this.idleClient = null; }
     this.progress.idleConnected = false;
   }
 }

@@ -94,6 +94,6 @@ export async function testImapConnection(input: ConnectionTestInput, opts: { tim
   } finally {
     clearTimeout(timer);
     // ends a hung attempt too; close() is a no-op on a connection that already logged out
-    try { client.close(); } catch { }
+    try { client.close(); } catch { /* close after a failed/timed-out attempt: nothing left to release */ }
   }
 }

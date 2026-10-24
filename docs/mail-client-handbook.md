@@ -201,8 +201,8 @@ pnpm -s exec playwright test tests/e2e/mail-client.spec.ts
 - After touching non-mail code, also run the full E2E suite: `pnpm -s exec playwright test` (it runs with one
   worker, so it takes a while: use a long timeout).
 - **Sandbox check for E2E:** the E2E suite must leave the sandbox as it found it. Compare per-folder message counts
-  of the E2E mailbox before and after (card T4 adds `scripts/mail-sandbox-counts.mjs`). Counts only, never
-  subjects or addresses.
+  of the E2E mailbox before and after (`node scripts/mail-sandbox-counts.mjs`; counts only, never
+  subjects or addresses).
 - **If the sandbox is down** (`127.0.0.1:10143` closed), the mail E2E tests skip. A skip is **not** a pass: say so
   in your report, and do not start or restart the containers yourself unless the user says so. Another agent's fuzz
   harness may be using them.

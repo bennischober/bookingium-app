@@ -75,6 +75,7 @@ const purify = DOMPurify(dom.window as unknown as Parameters<typeof DOMPurify>[0
  * "jav\tascript:alert(1)" → "javascript".
  */
 function schemeOf(rawUrl: string): string {
+  // eslint-disable-next-line no-control-regex -- deliberately strips C0 controls (\x00-\x20) and DEL: browsers ignore them inside a URL scheme, which is exactly the smuggling vector this guard must model
   const cleaned = rawUrl.replace(/[\x00-\x20\x7f]/g, '');
   const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
   return m ? m[1].toLowerCase() : '';

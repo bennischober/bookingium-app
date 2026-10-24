@@ -94,7 +94,7 @@ test.afterAll(async () => {
   await h?.close()
 })
 
-type Account = { id: string; kind: string }
+type Account = { id: string; kind: string; email: string; host: string; port: number; user: string }
 type Saved = { test: { ok: boolean; stage?: string }; account?: Account }
 
 /** Saves through the connection test; fails the test when the server refuses the settings */
@@ -103,6 +103,7 @@ async function saveAccount(input: Record<string, unknown>): Promise<Account> {
   expect(saved.test).toMatchObject({ ok: true })
   return saved.account!
 }
+
 type Folder = {
   id: string
   path: string
@@ -111,20 +112,53 @@ type Folder = {
   children: Folder[]
 }
 
-let sandboxId: string
-let readOnlyId: string | undefined
+const SANDBOX_ACCOUNT = {
+  kind: 'sandbox',
+  host: SANDBOX.host,
+  port: SANDBOX.port,
+  security: 'none',
+  user: SANDBOX_USER,
+  email: SANDBOX_USER,
+  password: SANDBOX_PASS
+}
+
+const READ_ONLY_ACCOUNT = {
+  kind: 'production-readonly',
+  host: SANDBOX.host,
+  port: SANDBOX.ionosLikePort,
+  security: 'none',
+  user: SANDBOX_USER,
+  email: SANDBOX_USER,
+  password: SANDBOX_PASS
+}
+
+const listAccounts = (): Promise<Account[]> => trpc<Account[]>('query', 'mail.accounts.list')
+
+/**
+ * The sandbox account, saved on first use. Every test that needs an account calls this
+ * instead of reading an id an earlier test may not have saved (card T3).
+ */
+async function ensureSandboxAccount(): Promise<string> {
+  const existing = (await listAccounts()).find(
+    (a) => a.kind === 'sandbox' && a.user === SANDBOX_USER
+  )
+  return existing?.id ?? (await saveAccount(SANDBOX_ACCOUNT)).id
+}
+
+/** The read-only account (IONOS-like profile), saved on first use. */
+async function ensureReadOnlyAccount(): Promise<string> {
+  const existing = (await listAccounts()).find(
+    (a) => a.kind === 'production-readonly' && a.port === SANDBOX.ionosLikePort
+  )
+  return existing?.id ?? (await saveAccount(READ_ONLY_ACCOUNT)).id
+}
 
 test('a sandbox account is saved with an encrypted password', async () => {
-  const account = await saveAccount({
-    kind: 'sandbox',
-    host: SANDBOX.host,
-    port: SANDBOX.port,
-    security: 'none',
-    user: SANDBOX_USER,
-    email: SANDBOX_USER,
-    password: SANDBOX_PASS
-  })
-  sandboxId = account.id
+  // This test proves a FRESH save, so it drops what an earlier test may have saved
+  for (const account of await listAccounts()) {
+    await trpc('mutation', 'mail.accounts.delete', { id: account.id })
+  }
+  const account = await saveAccount(SANDBOX_ACCOUNT)
   expect(account).not.toHaveProperty('password')
 
   const stored = readFileSync(join(userData, 'mail', 'accounts.json'), 'utf-8')
@@ -133,6 +167,7 @@ test('a sandbox account is saved with an encrypted password', async () => {
 })
 
 test('the worker syncs folders and serves messages over IPC', async () => {
+  const sandboxId = await ensureSandboxAccount()
   const folders = await waitFor(
     () => mail<Folder[]>('getFolders', sandboxId),
     (f) => f.some((x) => x.path === 'INBOX' && x.totalCount > 0)
@@ -161,16 +196,37 @@ test('the worker syncs folders and serves messages over IPC', async () => {
   expect(result.total).toBeGreaterThan(0)
 })
 
-const openMailPage = async () => {
+/**
+ * Waits until the account's INBOX exists with at least `minCount` messages. A freshly saved
+ * account syncs in the background, so a test that runs alone must wait for that (card T3).
+ */
+async function waitForInbox(accountId: string, minCount = 1): Promise<Folder> {
+  const folders = await waitFor(
+    () => mail<Folder[]>('getFolders', accountId),
+    (f) => f.some((x) => x.path === 'INBOX' && x.totalCount >= minCount)
+  )
+  return folders.find((f) => f.path === 'INBOX')!
+}
+
+/** Opens the mail page on the given account (the first one when omitted). */
+const openMailPage = async (accountId?: string) => {
   await h.page.goto(`${h.page.url().split('#')[0]}#/mail`)
   // Accounts saved over raw IPC above are not in the page's cache yet
   await h.page.reload()
   await expect(h.page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible()
+  if (!accountId) return
+  const accounts = await listAccounts()
+  if (accounts.length < 2) return
+  const index = accounts.findIndex((a) => a.id === accountId)
+  await h.page.getByRole('combobox', { name: 'Postfach' }).click()
+  await h.page.getByRole('option').nth(index).click()
 }
 
 test('the mail page shows folders, messages and a sandboxed reader', async () => {
   const { page } = h
-  await openMailPage()
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await openMailPage(sandboxId)
   // Default window size: a folder picker instead of the tree
   await expect(page.getByRole('combobox', { name: 'Ordner wählen' })).toContainText('Posteingang', {
     timeout: 30_000
@@ -204,7 +260,9 @@ test('the mail page shows folders, messages and a sandboxed reader', async () =>
 
 test('the mail panes can be resized and keep their width', async () => {
   const { page } = h
-  await openMailPage()
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await openMailPage(sandboxId)
   const list = page.getByRole('region', { name: 'Postfachliste' })
   const splitter = page.getByRole('separator', { name: 'Breite der Nachrichtenliste' })
   const width = async () => Math.round((await list.boundingBox())!.width)
@@ -224,7 +282,7 @@ test('the mail panes can be resized and keep their width', async () => {
   expect(await width()).toBe(before + 44)
 
   // Remembered across a reload
-  await openMailPage()
+  await openMailPage(sandboxId)
   await expect.poll(width).toBe(before + 44)
 
   await splitter.dblclick()
@@ -238,12 +296,13 @@ test('the mail panes can be resized and keep their width', async () => {
 
 test('the app sidebar collapses on the mail page and remembers it per page', async () => {
   const { page } = h
+  const sandboxId = await ensureSandboxAccount()
   const sidebar = page.getByRole('navigation', { name: 'Hauptnavigation' })
   const expand = page.getByRole('button', { name: 'Seitenleiste ausklappen' })
   const collapse = page.getByRole('button', { name: 'Seitenleiste einklappen' })
   const sidebarWidth = async () => Math.round((await sidebar.boundingBox())!.width)
 
-  await openMailPage()
+  await openMailPage(sandboxId)
   // Collapsed by default on the mail page; the items keep their names
   await expect(expand).toBeVisible()
   expect(await sidebarWidth()).toBeLessThan(80)
@@ -258,12 +317,14 @@ test('the app sidebar collapses on the mail page and remembers it per page', asy
   // Other pages keep their own setting (expanded), and the mail page stays collapsed
   await sidebar.getByRole('link', { name: 'Dashboard' }).click()
   await expect(collapse).toBeVisible()
-  await openMailPage()
+  await openMailPage(sandboxId)
   await expect(expand).toBeVisible()
 })
 
 test('a mail dragged onto a folder is moved there', async () => {
   const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
   const count = async (folderId: string) =>
     (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
   const folders = await mail<Folder[]>('getFolders', sandboxId)
@@ -278,7 +339,7 @@ test('a mail dragged onto a folder is moved there', async () => {
     (await mail<{ folderId: string }>('getMessage', id, sandboxId)).folderId
 
   await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
-  await openMailPage()
+  await openMailPage(sandboxId)
   const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
   await expect(row).toBeVisible({ timeout: 30_000 })
   const id = Number(await row.getAttribute('data-message-id'))
@@ -319,6 +380,9 @@ test('a mail dragged onto a folder is moved there', async () => {
 
 test('several mails are selected and handled at once', async () => {
   const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  // Three rows are clicked below, so the inbox must have synced that far
+  await waitForInbox(sandboxId, 3)
   const folders = await mail<Folder[]>('getFolders', sandboxId)
   const inbox = folders.find((f) => f.path === 'INBOX')!
   const trash = folders.find((f) => f.specialUse === '\\Trash')
@@ -327,7 +391,7 @@ test('several mails are selected and handled at once', async () => {
   const started = new Date().toISOString()
 
   await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
-  await openMailPage()
+  await openMailPage(sandboxId)
   const list = page.getByRole('listbox', { name: 'Nachrichten' })
   const rows = list.getByRole('option')
   await expect(rows.nth(2)).toBeVisible({ timeout: 30_000 })
@@ -473,6 +537,8 @@ const COMPOSE_TAG = 'e2e-compose-'
 
 test('a mail written in the editor is saved as a draft and sent', async () => {
   const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
   const folders = await mail<Folder[]>('getFolders', sandboxId)
   const drafts = folders.find((f) => f.specialUse === '\\Drafts')
   const sent = folders.find((f) => f.specialUse === '\\Sent')
@@ -493,7 +559,7 @@ test('a mail written in the editor is saved as a draft and sent', async () => {
   }
 
   try {
-    await openMailPage()
+    await openMailPage(sandboxId)
     await page.getByRole('button', { name: 'Neue E-Mail' }).click()
     const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
     // Leaving the field turns the typed address into a recipient
@@ -523,6 +589,8 @@ test('a mail written in the editor is saved as a draft and sent', async () => {
 
 test('a double-clicked mail opens in its own window and is answered there', async () => {
   const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
   const folders = await mail<Folder[]>('getFolders', sandboxId)
   const drafts = folders.find((f) => f.specialUse === '\\Drafts')
   test.skip(!drafts, 'the sandbox has no Drafts folder')
@@ -534,7 +602,7 @@ test('a double-clicked mail opens in its own window and is answered there', asyn
   const draftsBefore = await count(drafts!.id)
   const tag = `${COMPOSE_TAG}${Date.now()}`
 
-  await openMailPage()
+  await openMailPage(sandboxId)
   const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
   await expect(row).toBeVisible({ timeout: 30_000 })
   const id = Number(await row.getAttribute('data-message-id'))
@@ -582,40 +650,30 @@ test('a double-clicked mail opens in its own window and is answered there', asyn
 test('a read-only account refuses writes', async () => {
   test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
   // Plain text is accepted for a production account on loopback only
-  const readOnly = await saveAccount({
-    kind: 'production-readonly',
-    host: SANDBOX.host,
-    port: SANDBOX.ionosLikePort,
-    security: 'none',
-    user: SANDBOX_USER,
-    email: SANDBOX_USER,
-    password: SANDBOX_PASS
-  })
+  const readOnlyId = await ensureReadOnlyAccount()
   const folders = await waitFor(
-    () => mail<Folder[]>('getFolders', readOnly.id),
+    () => mail<Folder[]>('getFolders', readOnlyId),
     (f) => f.some((x) => x.path === 'INBOX' && x.totalCount > 0)
   )
   const inbox = folders.find((f) => f.path === 'INBOX')!
   const list = await waitFor(
-    () => mail<{ id: number }[]>('listMessages', inbox.id, { offset: 0, limit: 1 }, readOnly.id),
+    () => mail<{ id: number }[]>('listMessages', inbox.id, { offset: 0, limit: 1 }, readOnlyId),
     (l) => l.length > 0
   )
-  await expect(mail('markRead', [list[0].id], true, readOnly.id)).rejects.toThrow(
+  await expect(mail('markRead', [list[0].id], true, readOnlyId)).rejects.toThrow(
     /read-only|guard|not allowed|refus/i
   )
-  await expect(mail('deleteToTrash', [list[0].id], readOnly.id)).rejects.toThrow()
-  readOnlyId = readOnly.id
+  await expect(mail('deleteToTrash', [list[0].id], readOnlyId)).rejects.toThrow()
 })
 
 test('the mail page offers no writes for a read-only account', async () => {
-  test.skip(!readOnlyId, 'no read-only account')
+  test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
   const { page } = h
-  await openMailPage()
-  await page.getByRole('combobox', { name: 'Postfach' }).click()
-  await page.getByRole('option').nth(1).click()
+  const readOnlyId = await ensureReadOnlyAccount()
+  const inbox = await waitForInbox(readOnlyId)
+  await openMailPage(readOnlyId)
   await expect(page.getByRole('note').filter({ hasText: 'Nur lesen' })).toBeVisible()
 
-  const inbox = (await mail<Folder[]>('getFolders', readOnlyId)).find((f) => f.path === 'INBOX')!
   const [first] = await mail<{ id: number; isRead: boolean }[]>(
     'listMessages',
     inbox.id,
@@ -636,10 +694,12 @@ test('the mail page offers no writes for a read-only account', async () => {
 
 test('the settings list the mail accounts', async () => {
   const { page } = h
+  const accounts = await listAccounts()
+  const hasReadOnly = accounts.some((a) => a.kind === 'production-readonly')
   await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
   const list = page.getByRole('list', { name: 'E-Mail-Konten' })
-  await expect(list.getByRole('listitem')).toHaveCount(readOnlyId ? 2 : 1)
-  if (readOnlyId) await expect(list.getByText('Nur lesen')).toBeVisible()
+  await expect(list.getByRole('listitem')).toHaveCount(accounts.length)
+  if (hasReadOnly) await expect(list.getByText('Nur lesen')).toBeVisible()
 })
 
 test('the account dialog tests the connection and saves only what passes', async () => {

@@ -45,11 +45,15 @@ export class WriteEngine {
     sinkProbe?: (messageId: string) => Promise<boolean>;
     /** injectable clock (task 5 Step 3 makes timing-dependent tests deterministic) */
     clock?: () => Date;
+    /** host logger; expunge reports a failed file unlink here (never the file name) */
+    log?: { warn?: (msg: string) => void };
   }) {
     this.sinkProbe = options?.sinkProbe ?? null;
     this.clock = options?.clock ?? (() => new Date());
+    this.log = options?.log ?? null;
   }
   private clock: () => Date;
+  private log: { warn?: (msg: string) => void } | null;
 
   /** Wired by index.ts: lets the write path share the sync engine's folder mutexes
    *  and request a folder resync after conflicts. */
@@ -226,8 +230,8 @@ export class WriteEngine {
       // duplicate-safe resume: a previous attempt already copied to the target
       if (payload.copiedTo?.uid) {
         const existsAtTarget = client.fetch(String(payload.copiedTo.uid), { uid: true }, { uid: true });
-        let found = false;
-        for await (const _ of existsAtTarget) { found = true; break; }
+        // one step is enough: any message at that UID means the copy already landed
+        const found = !(await existsAtTarget.next()).done;
         if (found) {
           // copy already happened; finish by deleting the source (see fallback step 3)
           return await this.finishMovedSource(op, client, payload.copiedTo.uid);
@@ -337,19 +341,35 @@ export class WriteEngine {
       // UID EXPUNGE only this UID (messageDelete = flag \Deleted + UID EXPUNGE, UIDPLUS-gated)
       await client.messageDelete(String(op.uid), { uid: true });
       // local: remove the row + file
-      if (op.message_key) {
-        const row = this.store.db.prepare('SELECT id, file_path FROM messages WHERE message_key = ?').get(op.message_key) as { id: number; file_path: string } | undefined;
-        if (row) {
-          this.store.deleteMessages([row.id]);
-          this.store.db.prepare('DELETE FROM fts WHERE rowid = ?').run(row.id);
-          try { await import('fs').then(fs => fs.promises.unlink(row.file_path)); } catch { }
-        }
-      }
+      if (op.message_key) await this.removeLocally(op.message_key);
       return { outcome: 'done' };
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) };
     } finally {
       await client.logout().catch(() => { });
+    }
+  }
+
+  /**
+   * Local half of a permanent deletion: drop the row, then its file (card A1).
+   * The row goes first, so a crash in between leaves an orphan file - never a row whose
+   * file is gone. The `messages_bd` trigger already removes the row from the FTS index,
+   * so the index needs no second delete here.
+   * The file path is resolved against the account's data dir: `file_path` is relative and
+   * a bare unlink would resolve against the process's working directory (F7).
+   */
+  removeLocally(messageKey: string): void {
+    const row = this.store.db.prepare('SELECT id, file_path FROM messages WHERE message_key = ?')
+      .get(messageKey) as { id: number; file_path: string } | undefined;
+    if (!row) return;
+    this.store.deleteMessages([row.id]);
+    const absPath = path.join(this.store.dataDirResolved, row.file_path);
+    try {
+      fs.unlinkSync(absPath);
+    } catch (error) {
+      // The row is gone, so the file is an orphan for the sweep. No file name in the
+      // message: the key identifies the mail without leaking its path.
+      this.log?.warn?.(`expunge: could not remove the file of ${messageKey}: ${(error as NodeJS.ErrnoException).code ?? 'unknown error'}`);
     }
   }
 

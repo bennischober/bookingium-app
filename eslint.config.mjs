@@ -64,5 +64,11 @@ export default defineConfig(
       '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
-  eslintConfigPrettier
+  eslintConfigPrettier,
+  {
+    // The mail core keeps the prototype's style (semicolons, long lines) so hand-ports stay
+    // diffable; it is not prettier-formatted (src/main/mailclient/core/README.md)
+    files: ['src/main/mailclient/core/**'],
+    rules: { 'prettier/prettier': 'off' }
+  }
 )

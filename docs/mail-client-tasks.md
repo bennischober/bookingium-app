@@ -22,12 +22,12 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 
 | Card | Title | Size | Depends on | Status |
 |---|---|---|---|---|
-| T1 | Lint green | S | — | open |
+| T1 | Lint green | S | — | done |
 | T2 | Doc drift | S | — | done (this commit) |
-| T3 | E2E tests independent of each other | S | — | open |
-| T4 | Sandbox count script | S | — | open |
+| T3 | E2E tests independent of each other | S | — | done |
+| T4 | Sandbox count script | S | — | done |
 | P1 | Prototype: fix F1–F6, rerun fuzz + soak | M | — | open (prototype repo) |
-| A1 | Fix expunge (F7) | S | T1 | open |
+| A1 | Fix expunge (F7) | S | T1 | done |
 | A2 | Port Task 5 gates: Gate 0, UIDPLUS-less, mutex dedupe | M | T1 | open |
 | A3 | Crash-safe `.eml` files, consistency check, orphan sweep | M–L | A1 | open |
 | A4 | One file base | S | A3 | open |

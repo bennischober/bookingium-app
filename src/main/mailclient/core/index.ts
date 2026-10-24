@@ -129,6 +129,7 @@ export class MailCore implements Api {
       const writes = new WriteEngine(store, a.id, {
         sinkProbe: options.sinkProbe,
         clock: () => new Date(this.clock()),
+        log: this.log,
       });
       writes.attachEngine({
         withFolderMutex: (p, fn) => engine.withFolderMutexPublic(p, fn),
@@ -304,7 +305,8 @@ export class MailCore implements Api {
     if (!this.options.remoteImages?.enabled) return this.getMessage(id, accountId);
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    const { enabled: _drop, ...fetchOpts } = this.options.remoteImages;
+    const { enabled: _enabled, ...fetchOpts } = this.options.remoteImages;
+    void _enabled;   // destructured only to drop it from fetchOpts
     const fetched = await fetchRemoteImagesAsDataUris(remoteImages.map(r => r.url), fetchOpts);
     const loaded: RemoteImageRef[] = remoteImages
       .filter(r => fetched.has(r.url))

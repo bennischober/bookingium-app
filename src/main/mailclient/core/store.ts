@@ -29,6 +29,26 @@ export interface ThreadRow {
   messageIds: number[];
 }
 
+/** Raw GROUP BY row of the thread aggregate query (listThreads). */
+interface ThreadAggRow {
+  threadId: string;
+  count: number;
+  newest: string | null;
+  unread: number | null;
+  atts: number | null;
+  n: number;
+}
+
+/** Raw per-message row the thread summary is built from (listThreads). */
+interface ThreadMessageRow {
+  id: number;
+  thread_id: string;
+  subject: string | null;
+  from_name: string | null;
+  snippet: string | null;
+  sort_date: string | null;
+}
+
 export interface FolderRow {
   id: string;
   account_id: string;
@@ -376,7 +396,7 @@ export class Store {
       GROUP BY m.thread_id
       HAVING m.thread_id IS NOT NULL
       ORDER BY newest DESC
-      LIMIT @limit OFFSET @offset`).all({ folderId, limit, offset }) as any[];
+      LIMIT @limit OFFSET @offset`).all({ folderId, limit, offset }) as ThreadAggRow[];
     if (!rows.length) return [];
     // fetch newest message per thread (subject/from/snippet/ids) in one query
     const ids = new Set<string>(rows.map(r => r.threadId));
@@ -384,8 +404,8 @@ export class Store {
     const msgs = this.db.prepare(`
       SELECT id, thread_id, subject, from_name, snippet, sort_date FROM messages
       WHERE thread_id IN (${placeholders})
-      ORDER BY sort_date DESC`).all(...ids) as any[];
-    const byThread = new Map<string, any[]>();
+      ORDER BY sort_date DESC`).all(...ids) as ThreadMessageRow[];
+    const byThread = new Map<string, ThreadMessageRow[]>();
     for (const m of msgs) {
       const arr = byThread.get(m.thread_id) || [];
       arr.push(m);
@@ -393,16 +413,16 @@ export class Store {
     }
     return rows.map(r => {
       const list = (byThread.get(r.threadId) || []).sort((a, b) => (b.sort_date || '').localeCompare(a.sort_date || ''));
-      const newest = list[0] || {};
+      const newest = list[0];
       return {
         threadId: r.threadId,
         count: r.count,
-        subject: newest.subject || '(no subject)',
-        fromName: newest.from_name || '',
-        date: newest.sort_date || r.newest || null,
+        subject: newest?.subject || '(no subject)',
+        fromName: newest?.from_name || '',
+        date: newest?.sort_date || r.newest || null,
         unread: r.unread || 0,
         hasAttachments: (r.atts || 0) > 0,
-        snippet: newest.snippet || '',
+        snippet: newest?.snippet || '',
         messageIds: list.map(x => x.id),
       } as ThreadRow;
     });
@@ -452,7 +472,7 @@ export class Store {
 
   ftsEscapeUserQuery(q: string): string {
     const terms = q.split(/\s+/).map(t => t.trim()).filter(Boolean)
-      .map(t => t.replace(/[*(){}:^\-]/g, ' ').trim())
+      .map(t => t.replace(/[*(){}:^-]/g, ' ').trim())
       .filter(Boolean)
       .filter(t => t.length >= Store.MIN_FTS_TERM_LEN || t === 'OR' || t === 'AND' || t === 'NOT')
       .map(t => `"${t.replace(/"/g, '""')}" *`);
