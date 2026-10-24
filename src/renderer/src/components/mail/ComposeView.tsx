@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Paperclip, Send, Trash2, X } from 'lucide-react'
+import { Bold, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
 import { confirmAction } from '@/lib/confirm'
@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { Textarea } from '@/components/ui/textarea'
 import {
   type Address,
   type ComposeState,
@@ -18,6 +17,7 @@ import {
 } from './composeDraft'
 import { formatSize } from './format'
 import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
+import { composeBody, toEditorHtml, type ComposeFormat } from './composeBody'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -29,6 +29,14 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : undefined)
+
+/** F3: the four commands the toolbar offers, and nothing that carries a URL or CSS */
+const FORMAT_BUTTONS: { format: ComposeFormat; label: string; Icon: typeof Bold }[] = [
+  { format: 'bold', label: 'Fett', Icon: Bold },
+  { format: 'italic', label: 'Kursiv', Icon: Italic },
+  { format: 'underline', label: 'Unterstrichen', Icon: Underline },
+  { format: 'insertUnorderedList', label: 'Aufzählung', Icon: List }
+]
 
 /** Recipients as chips; typed text becomes one on Enter, comma or leaving the field */
 function RecipientField({
@@ -213,9 +221,28 @@ export function ComposeView({
   const [busy, setBusy] = useState<'send' | 'save' | 'discard' | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const body = useRef<HTMLTextAreaElement>(null)
-  // A reply or forward is written above the quote, not after it
-  useEffect(() => body.current?.setSelectionRange(0, 0), [])
+  const body = useRef<HTMLDivElement>(null)
+  // F3: what the editor starts with. A plain text becomes paragraphs, so the
+  // quote of a reply and the line breaks of a draft survive the first render.
+  const initialBodyHtml = useRef(toEditorHtml(initial.bodyHtml ?? initial.bodyText)).current
+  // F3: the starting HTML is written once, outside React. Re-applying it on every
+  // render would wipe what the user typed back to the initial content.
+  useEffect(() => {
+    const el = body.current
+    if (el && el.innerHTML !== initialBodyHtml) el.innerHTML = initialBodyHtml
+  }, [initialBodyHtml])
+  // A reply or forward is written above the quote, not after it: put the caret at
+  // the very start, which is the first position of the contenteditable
+  useEffect(() => {
+    const el = body.current
+    if (!el) return
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(true)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }, [])
 
   // Saves run one after another, each replacing the one before (see the core's saveDraft)
   const mailRef = useRef(mail)
@@ -286,6 +313,15 @@ export function ComposeView({
   }, [])
 
   const update = (patch: Partial<ComposeState>) => setMail((m) => ({ ...m, ...patch }))
+
+  /**
+   * F3: the editor holds HTML; composeBody reduces it to the formatting the four
+   * commands offer and derives the plain text, which stays the source of truth.
+   */
+  const onBodyInput = () => {
+    const html = body.current?.innerHTML ?? ''
+    update(composeBody(html))
+  }
 
   const saveNow = async () => {
     setBusy('save')
@@ -569,13 +605,42 @@ export function ComposeView({
         </ul>
       )}
 
-      <Textarea
-        className="min-h-0 flex-1 resize-none rounded-none border-0 px-4 py-3 shadow-none focus-visible:ring-0"
-        value={mail.bodyText}
-        onChange={(e) => update({ bodyText: e.target.value })}
+      {/* F3: lightweight formatting. The body is HTML, but the plain text stays
+          the source of truth: composeBody derives it on every edit, so search and
+          snippets keep reading the text. */}
+      <div className="flex shrink-0 gap-1 border-b px-2 py-1">
+        {FORMAT_BUTTONS.map(({ format, label, Icon }) => (
+          <Button
+            key={format}
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            title={label}
+            aria-label={label}
+            // The selection must survive the click: the button is not inside the
+            // editable, so the browser would move the caret and the command would
+            // have nothing to format
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              body.current?.focus()
+              document.execCommand(format)
+              onBodyInput()
+            }}
+          >
+            <Icon />
+          </Button>
+        ))}
+      </div>
+      <div
+        className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm outline-none"
+        contentEditable
+        role="textbox"
         aria-label="Text"
-        autoFocus={mail.to.length > 0 && Boolean(mail.subject)}
+        aria-multiline="true"
         ref={body}
+        onInput={onBodyInput}
+        // The editor shows what the mail will look like, not the tags
+        suppressContentEditableWarning
       />
     </form>
   )

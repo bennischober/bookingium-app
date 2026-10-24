@@ -180,7 +180,8 @@ export function toDraftInput(state: ComposeState): DraftInput {
     bcc: state.bcc,
     subject: state.subject,
     bodyText: state.bodyText,
-    bodyHtml: null,
+    // F3: the formatting the editor produced; null for a plain mail
+    bodyHtml: state.bodyHtml,
     inReplyTo: state.inReplyTo,
     references: state.references,
     attachments: state.attachments,

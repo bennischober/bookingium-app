@@ -1563,7 +1563,7 @@ test('an address in the header starts a new mail to that person', async () => {
       await expect(editor.getByRole('button', { name: /entfernen$/ })).toHaveCount(1)
       // A NEW mail: no subject, no quoted body, no threading
       await expect(editor.getByLabel('Betreff')).toHaveValue('')
-      await expect(editor.getByLabel('Text')).not.toHaveValue(/nicht zitiert/)
+      await expect(editor.getByRole('textbox', { name: 'Text' })).not.toContainText('nicht zitiert')
     } finally {
       await popup.close()
     }
@@ -1572,40 +1572,65 @@ test('an address in the header starts a new mail to that person', async () => {
   }
 })
 
-// F4: Ctrl+V in the editor attaches a copied file, and a pasted image becomes an
-// attachment instead of a data: URI in the body.
-test('a pasted image becomes an attachment, not body text', async () => {
+// F3: lightweight formatting. Bold in the editor must reach the sent mail as an
+// HTML part, while the plain text stays the source of truth for search.
+const F3_TAG = 'e2e-f3-format-'
+
+test('a formatted mail is sent with an HTML part and its plain text', async () => {
   test.setTimeout(180_000)
   const { page } = h
   const sandboxId = await ensureSandboxAccount()
   await waitForInbox(sandboxId)
-  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
-  await openMailPage(sandboxId)
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const subject = `${F3_TAG}${Date.now()}`
 
-  await page.getByRole('button', { name: 'Neue E-Mail' }).click()
-  const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
-  await expect(editor).toBeVisible({ timeout: 30_000 })
+  try {
+    await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+    await openMailPage(sandboxId)
+    await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+    const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+    await expect(editor).toBeVisible({ timeout: 30_000 })
 
-  // A synthetic paste carrying a PNG file and the same image as text data
-  await editor.getByLabel('Text').evaluate((el) => {
-    const bytes = Uint8Array.from(
-      atob(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-      ),
-      (c) => c.charCodeAt(0)
+    const accounts = await listAccounts()
+    const me = accounts.find((a) => a.id === sandboxId)!
+    const toField = editor.getByLabel('An')
+    await toField.fill(me.email)
+    await toField.press('Enter')
+    await editor.getByLabel('Betreff').fill(subject)
+
+    // Type, select all, and make it bold through the toolbar
+    const body = editor.getByRole('textbox', { name: 'Text' })
+    await body.click()
+    await body.pressSequentially('fett')
+    await body.press('Control+a')
+    await editor.getByRole('button', { name: 'Fett' }).click()
+
+    await editor.getByRole('button', { name: /^Senden$/ }).click()
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: /Gesendet/ })).toBeVisible({
+      timeout: 60_000
+    })
+
+    // The sent mail is one mail, with an HTML part that carries the formatting
+    const found = await waitFor(
+      async () => {
+        const res = await fetch(
+          `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=` +
+            encodeURIComponent(`subject:${subject}`)
+        )
+        const data = (await res.json()) as { messages?: { ID: string }[] }
+        return data.messages?.[0]?.ID ?? null
+      },
+      (id) => id !== null,
+      60_000
     )
-    const file = new File([bytes], 'bild.png', { type: 'image/png' })
-    const data = new DataTransfer()
-    data.items.add(file)
-    el.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
-    )
-  })
-
-  // It shows up as an attachment, with its own name
-  const attachments = editor.getByRole('list', { name: 'Anhänge' })
-  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
-  // and not in the body as a data: URI
-  const body = await editor.getByLabel('Text').inputValue()
-  expect(body).not.toContain('data:image')
+    const detail = (await (
+      await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found}`)
+    ).json()) as { HTML?: string; Text?: string }
+    // Bold arrived as HTML, and the plain text is still there
+    expect(detail.HTML ?? '').toContain('<b>')
+    expect(detail.Text ?? '').toContain('fett')
+    expect(detail.Text ?? '').not.toContain('<b>')
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, F3_TAG)
+  }
 })

@@ -54,8 +54,9 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | E2 | PII check for tracked files | S | E1 | done |
 | F1 | Test the security boundaries worst-first | L | — | done, all 7 (sanitize 25 / 2 bugs, remote_images 13 / 1 bug, write_guard 7, compose already covered, files enforced by construction, imap_options 7, store search 8 / 1 bug) |
 | F2 | Write to an address from a mail header | S–M | B7, B8 | done (Von/An/Cc are buttons for a writable account; pure `composeTo` carries only the recipient, with the signature, and never In-Reply-To/References, a quote or the old subject) |
-| F3 | Lightweight formatting in compose | M | — | open |
-| F4 | Paste attachments from the clipboard | M | B7 | done (a form-level paste handler; `pasteContent` is pure and decides files > image > text; a pasted file or screenshot becomes an attachment through the B7 size check, never a `data:` URI in the body) |
+| F3 | Lightweight formatting in compose | M | — | done (contenteditable with four commands; `composeBody` reduces the HTML to the formatting offered and derives the plain text, which stays the source of truth; sent as `multipart/alternative`) |
+| F4 | Paste attachments from the clipboard | M | B7 | done by unit tests only (a form-level paste handler; `pasteContent` is pure and decides files > image > text; the bytes go through B7; no E2E - see F5) |
+| F5 | Reloading with an open, changed draft destroys the window | S | — | open (found by F4's E2E) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
@@ -951,3 +952,31 @@ pasted from a screenshot is an attachment, never an inline `data:` URI in the bo
 **Traps.** The renderer must never get a filesystem path it can write to: the bytes come through the clipboard, and the
 name through `safeAttachmentName`. A pasted image must not become part of the HTML body - the sanitizer would keep a
 `data:` URI and the mail would grow without a visible attachment.
+
+---
+
+### F5: reloading with an open, changed draft destroys the window
+
+**Found by.** F4's E2E, which pasted an image into the editor and left it open: the
+*next* test's `page.reload()` failed with "Target page, context or browser has been
+closed". Reproducible with any dirty editor, so it is not about pasting.
+
+**What happens.** `ComposeView`'s `beforeunload` handler calls `preventDefault()`, then
+saves the draft and calls `window.close()`. A reload fires `beforeunload` too, so
+reloading the app with an open, changed draft **saves the draft and then closes the
+window** instead of reloading it. Nothing in the main process handles
+`will-prevent-unload`, so nothing distinguishes "the user closed this window" from
+"the page is reloading".
+
+**Why it matters.** Reload is a normal thing to do (after an update, or when a dev
+reloads), and it silently closes the user's compose window. In the E2E suite it kills the
+*next* test's page.
+
+**Fix direction.** Let the main process decide: handle `will-prevent-unload` on the mail
+window, save through the existing draft queue and `event.preventDefault()` only when the
+window is really being closed (`BrowserWindow.isDestroyed()` is false and the window is
+not reloading), never call `window.close()` from `beforeunload` itself. Then F4's E2E can
+come back.
+
+**Traps.** Do not drop the draft save: losing an unsaved mail is worse than the window
+closing. Do not call `window.close()` from the renderer's unload path - that is the bug.
