@@ -304,14 +304,23 @@ export default function MailPage() {
   })
   const loginFailed = syncStatus.data?.connection === 'auth-failed'
 
-  // Refresh folders and lists when the sync stored something new; batched,
-  // the initial download reports every folder
+  // Refresh folders and lists when the sync stored something new or a change
+  // was made (also in a mail window); batched, the initial download reports every folder
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(refreshTimer.current), [])
   trpcReact.mail.events.useSubscription(undefined, {
     enabled: ready,
     onData: (event) => {
-      if (event.accountId !== accountId || event.type !== 'sync-event') return
+      if (event.accountId !== accountId) return
+      if (event.type === 'op-event') {
+        clearTimeout(refreshTimer.current)
+        refreshTimer.current = setTimeout(() => {
+          refreshLists()
+          void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'message'] })
+        }, 300)
+        return
+      }
+      if (event.type !== 'sync-event') return
       const sync = event.event as {
         type: string
         newCount?: number
@@ -336,6 +345,12 @@ export default function MailPage() {
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
+  }
+
+  // Double-click: the mail in its own window; a draft is edited there, not twice
+  const openWindow = (id: number) => {
+    if (compose?.draftId === id) setCompose(null)
+    void window.api.openMailWindow(accountId, id)
   }
 
   const startCompose = (state: ComposeState, draftId?: number) =>
@@ -745,6 +760,7 @@ export default function MailPage() {
                 items={listItems}
                 selectedId={selectedId}
                 onSelect={openMessage}
+                onOpen={openWindow}
                 onDelete={
                   canWrite && !isTrash(folder)
                     ? (id) => void moveAway(id, { kind: 'delete' })

@@ -370,6 +370,64 @@ test('a mail written in the editor is saved as a draft and sent', async () => {
   }
 })
 
+test('a double-clicked mail opens in its own window and is answered there', async () => {
+  const { page } = h
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const drafts = folders.find((f) => f.specialUse === '\\Drafts')
+  test.skip(!drafts, 'the sandbox has no Drafts folder')
+  // The cleanup below also looks in Mailpit
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const count = async (folderId: string) =>
+    (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
+  const windows = () => h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)
+  const draftsBefore = await count(drafts!.id)
+  const tag = `${COMPOSE_TAG}${Date.now()}`
+
+  await openMailPage()
+  const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
+  await expect(row).toBeVisible({ timeout: 30_000 })
+  const id = Number(await row.getAttribute('data-message-id'))
+  const [popup] = await Promise.all([h.app.waitForEvent('window'), row.dblclick()])
+  try {
+    const reader = popup.getByRole('article', { name: 'E-Mail' })
+    const heading = reader.getByRole('heading', { level: 2 })
+    await expect(heading).toBeVisible({ timeout: 30_000 })
+    const subject = (await heading.textContent()) ?? ''
+    if (subject !== '(Kein Betreff)') await expect(popup).toHaveTitle(subject)
+    // Without the app chrome
+    await expect(popup.getByRole('navigation', { name: 'Hauptnavigation' })).toHaveCount(0)
+    // Opening it again brings that window forward instead of a second one
+    expect(await windows()).toBe(2)
+    await page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+      sandboxId,
+      id
+    ] as const)
+    expect(await windows()).toBe(2)
+
+    // The answer is written in this window; an untouched one goes back to the mail
+    const editor = popup.getByRole('form', { name: 'E-Mail verfassen' })
+    await reader.getByRole('button', { name: 'Antworten', exact: true }).click()
+    await expect(editor.getByRole('textbox', { name: 'Betreff' })).toHaveValue(/^(AW|Re):/i)
+    await editor.getByRole('button', { name: 'Verwerfen' }).click()
+    await expect(editor).toHaveCount(0)
+    await expect(heading).toBeVisible()
+
+    // Closing the window with an unsaved answer keeps it as a draft
+    await reader.getByRole('button', { name: 'Antworten', exact: true }).click()
+    await editor.getByRole('textbox', { name: 'Betreff' }).fill(tag)
+    await editor.getByRole('textbox', { name: 'Text' }).fill('Antwort aus dem E2E-Test')
+    const closed = popup.waitForEvent('close')
+    await popup.close({ runBeforeUnload: true })
+    await closed
+    await expect.poll(() => count(drafts!.id), { timeout: 30_000 }).toBe(draftsBefore + 1)
+    expect(await windows()).toBe(1)
+  } finally {
+    if (!popup.isClosed()) await popup.close()
+    // The sandbox stays as it was: the draft goes again
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
+  }
+})
+
 test('a read-only account refuses writes', async () => {
   test.skip(!(await reachable(SANDBOX.ionosLikePort)), 'IONOS-like sandbox is not running')
   // Plain text is accepted for a production account on loopback only

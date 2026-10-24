@@ -40,6 +40,9 @@ const api = {
 
   showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
 
+  openMailWindow: (accountId: string, messageId: number) =>
+    ipcRenderer.invoke('mail:openWindow', { accountId, messageId }),
+
   pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 

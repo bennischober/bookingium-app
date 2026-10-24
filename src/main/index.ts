@@ -38,34 +38,39 @@ import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 import { mailClient } from './mailclient/MailClientService'
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    // Narrowest size the layout supports (sidebar + content, breadcrumbs,
-    // scrolling tables); below that the window can't be shrunk
-    minWidth: 800,
-    minHeight: 600,
+// One tRPC handler for all windows; each new window is attached to it
+let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
+let mainWindow: BrowserWindow | null = null
+// Mails opened in their own window, by `${accountId}:${messageId}`
+const mailWindows = new Map<string, BrowserWindow>()
+
+/** A renderer window showing the route `hash` (e.g. '/mail/window?…'), or the app's start page */
+function createAppWindow(
+  options: Electron.BrowserWindowConstructorOptions,
+  hash?: string
+): BrowserWindow {
+  const window = new BrowserWindow({
     show: false,
     autoHideMenuBar: true,
     // macOS takes the icon from the app bundle
     ...(process.platform !== 'darwin' ? { icon } : {}),
+    ...options,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
 
-  createIPCHandler({ router, windows: [mainWindow] })
+  if (ipcHandler) ipcHandler.attachWindow(window)
+  else ipcHandler = createIPCHandler({ router, windows: [window] })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  window.on('ready-to-show', () => {
+    window.show()
   })
 
   // Links open in the default browser or mail program; other schemes (file:,
   // custom protocol handlers, ...) are dropped, links in mails included
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     try {
       const { protocol } = new URL(details.url)
       if (['http:', 'https:', 'mailto:'].includes(protocol)) {
@@ -80,11 +85,53 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'] + (hash ? `#${hash}` : ''))
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'), hash ? { hash } : undefined)
   }
+  return window
 }
+
+function createWindow(): void {
+  mainWindow = createAppWindow({
+    width: 900,
+    height: 670,
+    // Narrowest size the layout supports (sidebar + content, breadcrumbs,
+    // scrolling tables); below that the window can't be shrunk
+    minWidth: 800,
+    minHeight: 600
+  })
+  // The mail windows belong to it; each saves an unsaved reply before it closes
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    for (const window of mailWindows.values()) window.close()
+  })
+}
+
+/**
+ * Opens a mail in its own window (double-click in the list), or brings the window
+ * that already shows it to the front
+ */
+ipcMain.handle(
+  'mail:openWindow',
+  (_event, { accountId, messageId }: { accountId: string; messageId: number }) => {
+    if (typeof accountId !== 'string' || !accountId || !Number.isSafeInteger(messageId)) return
+    const key = `${accountId}:${messageId}`
+    const open = mailWindows.get(key)
+    if (open && !open.isDestroyed()) {
+      if (open.isMinimized()) open.restore()
+      open.focus()
+      return
+    }
+    const search = new URLSearchParams({ account: accountId, message: String(messageId) })
+    const window = createAppWindow(
+      { width: 820, height: 720, minWidth: 480, minHeight: 400 },
+      `/mail/window?${search}`
+    )
+    mailWindows.set(key, window)
+    window.on('closed', () => mailWindows.delete(key))
+  }
+)
 
 /**
  * IPC Handler for opening files
@@ -430,7 +477,7 @@ ipcMain.handle('import:pickWorkbook', async (event) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('second-instance', () => {
-  const window = BrowserWindow.getAllWindows()[0]
+  const window = mainWindow
   if (!window) return
   if (window.isMinimized()) window.restore()
   window.focus()
@@ -470,7 +517,7 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (!mainWindow) createWindow()
   })
 })
 

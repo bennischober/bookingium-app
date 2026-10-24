@@ -79,6 +79,8 @@ export interface DocumentAPI {
   }>
   /** Shows a file of sendInvoiceEmail in Explorer */
   showEmailFile: (filePath: string) => Promise<void>
+  /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
+  openMailWindow: (accountId: string, messageId: number) => Promise<void>
   /** Open dialog for an Excel file; returns its sheets for the import dialog */
   pickImportWorkbook: () => Promise<{
     success: boolean

@@ -29,6 +29,7 @@ export function MessageList({
   items,
   selectedId,
   onSelect,
+  onOpen,
   onDelete,
   onDragMessage,
   snippets,
@@ -40,6 +41,8 @@ export function MessageList({
   items: MessageListItem[]
   selectedId: number | null
   onSelect: (id: number) => void
+  /** Double-click or Enter: the message in its own window */
+  onOpen?: (id: number) => void
   /** Delete key; absent for read-only accounts */
   onDelete?: (id: number) => void
   /** Rows can be dragged onto folders; called with null when the drag ends */
@@ -89,6 +92,9 @@ export function MessageList({
       const next =
         event.key === 'ArrowDown' ? Math.min(index + 1, items.length - 1) : Math.max(index - 1, 0)
       if (items[next]) onSelect(items[next].id)
+    } else if (event.key === 'Enter' && onOpen && selectedId !== null) {
+      event.preventDefault()
+      onOpen(selectedId)
     } else if (event.key === 'Delete' && onDelete && selectedId !== null) {
       event.preventDefault()
       onDelete(selectedId)
@@ -117,6 +123,7 @@ export function MessageList({
             aria-selected={selected}
             data-message-id={m.id}
             onClick={() => onSelect(m.id)}
+            onDoubleClick={onOpen && (() => onOpen(m.id))}
             draggable={Boolean(onDragMessage)}
             onDragStart={(event) => {
               if (!onDragMessage) return

@@ -251,6 +251,36 @@ export function ComposeView({
     []
   )
 
+  // Closing the window with changes: hold the close (Electron cancels it without a
+  // dialog), save, then close. If saving fails, the next close goes through.
+  useEffect(() => {
+    let leaving = false
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (closed.current || !isDirty()) return
+      e.preventDefault()
+      e.returnValue = ''
+      if (leaving) return
+      leaving = true
+      save().then(
+        () => {
+          closed.current = true
+          window.close()
+        },
+        (error) => {
+          closed.current = true
+          leaving = false
+          toast.error('Entwurf konnte nicht gespeichert werden', {
+            description:
+              `${errorText(error) ?? ''} Erneut schließen verwirft die Änderungen.`.trim()
+          })
+        }
+      )
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const update = (patch: Partial<ComposeState>) => setMail((m) => ({ ...m, ...patch }))
 
   const saveNow = async () => {

@@ -17,6 +17,7 @@ import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import ContactListPage from '@/pages/ContactListPage'
 import MailPage from '@/pages/MailPage'
+import MailWindowPage from '@/pages/MailWindowPage'
 import PersonDetailPage from '@/pages/PersonDetailPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoiceDetailPage from '@/pages/InvoiceDetailPage'
@@ -220,6 +221,13 @@ const managementContractPrintRoute = createRoute({
   component: ManagementContractPrintPage
 })
 
+// A mail in its own window (double-click in the mail list), without the app chrome
+const mailWindowRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mail/window',
+  component: MailWindowPage
+})
+
 const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     indexRoute,
@@ -246,7 +254,8 @@ const routeTree = rootRoute.addChildren([
     invoicePrintRoute,
     contractPrintRoute,
     managementContractPrintRoute
-  ])
+  ]),
+  mailWindowRoute
 ])
 
 export const router = createRouter({
