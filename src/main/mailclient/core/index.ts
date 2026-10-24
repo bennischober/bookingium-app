@@ -136,6 +136,11 @@ export class MailCore implements Api {
         withFolderMutex: (p, fn) => engine.withFolderMutexPublic(p, fn),
         triggerResync: p => void engine.syncFolder(p).catch(() => { }),
       });
+      // A6: a watchdog that could not stop an op stops the whole queue and asks for a
+      // restart. The journal makes that restart safe; nothing is force-released.
+      writes.onQueueStopped = message => this.emitEvent({
+        type: 'op-event', accountId: a.id, opId: '', kind: 'queue', outcome: 'stopped', reason: message,
+      });
       this.entries.set(a.id, { options: a, config, store, engine, writes });
       // forward sync events to subscribers (Task 5: events are the core's only
       // progress channel — no console writes inside the core)

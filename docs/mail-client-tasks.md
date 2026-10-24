@@ -32,7 +32,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A3 | Crash-safe `.eml` files, consistency check, orphan sweep | M–L | A1 | done |
 | A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
-| A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | open |
+| A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
 | A7 | Per-account write path | L | A1–A6 | open, design **[user]** for the canary part |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | open |
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
