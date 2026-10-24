@@ -30,9 +30,10 @@ function message(n: number): string {
 }
 
 /**
- * Removes the mails a test wrote (subject starting with `subjectPrefix`) from the suite's
- * Drafts and Sent and from Mailpit, so the sandbox stays as it was — also what an earlier,
- * failed run left behind. Mailpit is shared with other harnesses: only these subjects go.
+ * Removes the mails a test wrote (subject starting with `subjectPrefix`) from every folder of
+ * the suite's mailbox and from Mailpit, so the sandbox stays as it was - also what an earlier,
+ * failed run left behind. Only the suite's own mailbox is touched, and Mailpit only for these
+ * subjects: it is shared with other harnesses.
  */
 export async function removeSentTestMails(
   host: string,
@@ -50,7 +51,7 @@ export async function removeSentTestMails(
   await client.connect()
   try {
     for (const box of await client.list()) {
-      if (box.specialUse !== '\\Drafts' && box.specialUse !== '\\Sent') continue
+      // Every folder, because a failed write-path test can leave its mail anywhere
       await client.mailboxOpen(box.path)
       const uids = await client.search({ subject: subjectPrefix }, { uid: true })
       if (uids && uids.length) await client.messageDelete(uids, { uid: true })
@@ -73,8 +74,43 @@ export async function removeSentTestMails(
   }
 }
 
-/** Creates the folder and tops the inbox up to its mails; a no-op on a seeded mailbox */
-export async function seedMailSandbox(host: string, port: number): Promise<void> {
+/**
+ * Appends one mail with the given subject straight into INBOX. The write-path tests use it
+ * instead of sending: an SMTP round trip plus the next sync is minutes, an APPEND is a second,
+ * and the mail is still one this test created itself.
+ */
+export async function appendTestMail(host: string, port: number, subject: string): Promise<void> {
+  const client = new ImapFlow({
+    host,
+    port,
+    secure: false,
+    auth: { user: E2E_MAIL_USER, pass: E2E_MAIL_PASS },
+    logger: false
+  })
+  await client.connect()
+  try {
+    const raw = [
+      'From: E2E Absender <absender@example.test>',
+      `To: ${E2E_MAIL_USER}`,
+      `Subject: ${subject}`,
+      `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+      `Message-ID: <${Date.now()}@example.test>`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Diese Mail legt der Test selbst an und loescht sie wieder.',
+      ''
+    ].join('\r\n')
+    await client.append('INBOX', raw, [], new Date())
+  } finally {
+    await client.logout().catch(() => client.close())
+  }
+}
+
+/** Creates the folder and tops the inbox up to its mails; a no-op on a seeded mailbox */ export async function seedMailSandbox(
+  host: string,
+  port: number
+): Promise<void> {
   const client = new ImapFlow({
     host,
     port,

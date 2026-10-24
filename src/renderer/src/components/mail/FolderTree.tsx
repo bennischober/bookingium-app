@@ -11,8 +11,14 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
-import { folderLabel, isInbox } from './format'
+import { folderLabel, isInbox, isTrash } from './format'
 
 // Hovering a dragged mail over a closed folder opens it after this delay
 const EXPAND_DELAY_MS = 700
@@ -53,7 +59,8 @@ function FolderItem({
   onSelect,
   drop,
   overId,
-  onOver
+  onOver,
+  onEmptyTrash
 }: {
   folder: FolderNode
   depth: number
@@ -66,6 +73,8 @@ function FolderItem({
   overId: string | null
   /** Marks the folder under the dragged mail; leaving clears only its own mark */
   onOver: (id: string, over: boolean) => void
+  /** B5: "Papierkorb leeren" - only passed for a writable account */
+  onEmptyTrash?: (folder: FolderNode) => void
 }) {
   const open = expanded.has(folder.id)
   const label = folderLabel(folder)
@@ -104,45 +113,62 @@ function FolderItem({
     }
   }
 
-  return (
-    <li>
-      <div
-        className={cn(
-          'flex items-center rounded-md text-sm hover:bg-muted',
-          selectedId === folder.id && 'bg-muted font-medium',
-          over && accepts && 'bg-primary/15 ring-2 ring-primary/60 ring-inset'
-        )}
-        style={{ paddingLeft: depth * 12 }}
-        data-drop-target={over && accepts ? 'true' : undefined}
-        {...dropProps}
-      >
-        {folder.children.length > 0 ? (
-          <button
-            type="button"
-            className="flex size-6 shrink-0 items-center justify-center text-muted-foreground"
-            onClick={() => onToggle(folder.id)}
-            aria-label={open ? `${label} zuklappen` : `${label} aufklappen`}
-            aria-expanded={open}
-          >
-            <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
-          </button>
-        ) : (
-          <span className="size-6 shrink-0" />
-        )}
+  const row = (
+    <div
+      className={cn(
+        'flex items-center rounded-md text-sm hover:bg-muted',
+        selectedId === folder.id && 'bg-muted font-medium',
+        over && accepts && 'bg-primary/15 ring-2 ring-primary/60 ring-inset'
+      )}
+      style={{ paddingLeft: depth * 12 }}
+      data-drop-target={over && accepts ? 'true' : undefined}
+      {...dropProps}
+    >
+      {folder.children.length > 0 ? (
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left"
-          onClick={() => onSelect(folder.id)}
-          title={folder.path}
-          aria-current={selectedId === folder.id ? 'true' : undefined}
+          className="flex size-6 shrink-0 items-center justify-center text-muted-foreground"
+          onClick={() => onToggle(folder.id)}
+          aria-label={open ? `${label} zuklappen` : `${label} aufklappen`}
+          aria-expanded={open}
         >
-          <FolderIcon folder={folder} />
-          <span className="truncate">{label}</span>
-          {folder.unreadCount > 0 && (
-            <span className="ml-auto text-xs font-semibold text-primary">{folder.unreadCount}</span>
-          )}
+          <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
         </button>
-      </div>
+      ) : (
+        <span className="size-6 shrink-0" />
+      )}
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left"
+        onClick={() => onSelect(folder.id)}
+        title={folder.path}
+        aria-current={selectedId === folder.id ? 'true' : undefined}
+      >
+        <FolderIcon folder={folder} />
+        <span className="truncate">{label}</span>
+        {folder.unreadCount > 0 && (
+          <span className="ml-auto text-xs font-semibold text-primary">{folder.unreadCount}</span>
+        )}
+      </button>
+    </div>
+  )
+
+  return (
+    <li>
+      {/* B5: emptying Trash is the only folder action so far, so only it gets a menu */}
+      {onEmptyTrash && isTrash(folder) ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem className="gap-2" onSelect={() => onEmptyTrash(folder)}>
+              <Trash2 className="size-4 shrink-0 text-muted-foreground" />
+              Papierkorb leeren
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        row
+      )}
       {open && folder.children.length > 0 && (
         <ul>
           {folder.children.map((child) => (
@@ -158,6 +184,7 @@ function FolderItem({
               drop={drop}
               overId={overId}
               onOver={onOver}
+              onEmptyTrash={onEmptyTrash}
             />
           ))}
         </ul>
@@ -175,7 +202,8 @@ export function FolderTree({
   selectedId,
   onSelect,
   drop,
-  focusRef
+  focusRef,
+  onEmptyTrash
 }: {
   folders: FolderNode[]
   selectedId: string | null
@@ -183,6 +211,8 @@ export function FolderTree({
   drop?: FolderDrop
   /** B3: the move shortcut puts the keyboard on the tree, which is the drop target */
   focusRef?: React.RefObject<HTMLUListElement | null>
+  /** B5: emptying the Trash, offered only for a writable account */
+  onEmptyTrash?: (folder: FolderNode) => void
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [overId, setOverId] = useState<string | null>(null)
@@ -215,6 +245,7 @@ export function FolderTree({
           drop={drop}
           overId={overId}
           onOver={markOver}
+          onEmptyTrash={onEmptyTrash}
         />
       ))}
     </ul>

@@ -16,7 +16,7 @@ export function SelectionActions({
   const ids = items.map((m) => m.id)
   const anyUnread = items.some((m) => !m.isRead)
   const anyUnflagged = items.some((m) => !m.isFlagged)
-  const { markRead, markFlagged, archive, toTrash } = actions
+  const { markRead, markFlagged, archive, toTrash, expunge } = actions
 
   return (
     <section
@@ -48,6 +48,13 @@ export function SelectionActions({
           <Button variant="outline" size="sm" onClick={() => markFlagged(ids, anyUnflagged)}>
             <Flag />
             {anyUnflagged ? 'Markieren' : 'Markierung entfernen'}
+          </Button>
+        )}
+        {/* B5: permanent deletion only exists inside Trash */}
+        {expunge && (
+          <Button variant="outline" size="sm" onClick={() => expunge(ids)}>
+            <Trash2 />
+            Endgültig löschen
           </Button>
         )}
       </div>

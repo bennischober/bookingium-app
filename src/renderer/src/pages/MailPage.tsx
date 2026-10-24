@@ -26,6 +26,7 @@ import {
   replyCompose
 } from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
+import { confirmAction } from '@/lib/confirm'
 import { MessageList } from '@/components/mail/MessageList'
 import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
@@ -518,6 +519,8 @@ export default function MailPage() {
 
   // What the menu and the bulk pane offer for the selected mails
   const trashable = selectedItems.filter((m) => !isTrash(folderOf(m)))
+  // B5: permanent deletion is offered only for mails that are in Trash
+  const inTrashItems = selectedItems.filter((m) => isTrash(folderOf(m)))
   const selectedActions: MailActions = canWrite
     ? {
         openWindow,
@@ -534,9 +537,70 @@ export default function MailPage() {
                   ids.filter((id) => trashable.some((m) => m.id === id)),
                   { kind: 'delete' }
                 )
+            : undefined,
+        expunge:
+          inTrashItems.length > 0
+            ? (ids) => void expunge(ids.filter((id) => inTrashItems.some((m) => m.id === id)))
             : undefined
       }
     : { openWindow }
+
+  // B5: permanent deletion, only ever inside Trash and only for writable accounts
+  const expunge = async (ids: number[]) => {
+    const count = ids.length
+    const confirmed = await confirmAction({
+      title: count > 1 ? `${count} E-Mails endgültig löschen?` : 'Diese E-Mail endgültig löschen?',
+      description: 'Das kann nicht rückgängig gemacht werden.',
+      confirmLabel: 'Endgültig löschen',
+      destructive: true
+    })
+    if (!confirmed) return
+    try {
+      await mailApi.expungeFromTrash(ids, accountId)
+    } catch (error) {
+      failed('Endgültig löschen fehlgeschlagen')(error)
+      return
+    }
+    setSelection(EMPTY_SELECTION)
+    refreshLists()
+    toast.success(count > 1 ? `${count} E-Mails endgültig gelöscht` : 'Endgültig gelöscht')
+  }
+
+  // B5: "Papierkorb leeren" from the folder's context menu
+  const emptyTrash = async (trash: FolderNode) => {
+    const total = trash.totalCount ?? 0
+    if (total === 0) {
+      toast.info('Der Papierkorb ist leer.')
+      return
+    }
+    const confirmed = await confirmAction({
+      title: `${total.toLocaleString('de-DE')} E-Mails endgültig löschen?`,
+      description: 'Das kann nicht rückgängig gemacht werden.',
+      confirmLabel: 'Papierkorb leeren',
+      destructive: true
+    })
+    if (!confirmed) return
+    try {
+      // The core takes ids, not a folder: collect them first, then delete in chunks.
+      // A failed expunge keeps its row, so the loop must not depend on the folder shrinking.
+      const ids: number[] = []
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const page = await mailApi.listMessages(trash.id, { offset, limit: PAGE_SIZE }, accountId)
+        ids.push(...page.map((m) => m.id))
+        if (page.length < PAGE_SIZE) break
+      }
+      for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+        await mailApi.expungeFromTrash(ids.slice(i, i + PAGE_SIZE), accountId)
+      }
+    } catch (error) {
+      failed('Papierkorb leeren fehlgeschlagen')(error)
+      refreshLists()
+      return
+    }
+    setSelection(EMPTY_SELECTION)
+    refreshLists()
+    toast.success(`${total.toLocaleString('de-DE')} E-Mails endgültig gelöscht`)
+  }
 
   const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
     openedId.current = null
@@ -756,6 +820,7 @@ export default function MailPage() {
               folders={folders.data ?? []}
               selectedId={searching ? null : folderId}
               onSelect={chooseFolder}
+              onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
               drop={
                 dragged
                   ? {

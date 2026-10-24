@@ -12,6 +12,7 @@ import {
   E2E_MAIL_PASS,
   E2E_MAIL_USER,
   removeSentTestMails,
+  appendTestMail,
   seedMailSandbox
 } from './helpers/mailSandbox'
 
@@ -781,4 +782,76 @@ test('the account dialog tests the connection and saves only what passes', async
 test('unknown methods are refused before reaching the core', async () => {
   await expect(mail('close')).rejects.toThrow()
   await expect(mail('replayPendingOps')).rejects.toThrow()
+})
+
+// B5: a mail the test creates itself goes to Trash and is then deleted for good.
+// Nothing a seeded test needs is touched: the mail is sent with its own subject tag.
+const EXPUNGE_TAG = 'e2e-expunge-'
+
+test('a mail in Trash is deleted permanently and the counts drop', async () => {
+  // A first sync of the sandbox mailbox can take a while; the default 60s is not enough
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const trash = folders.find((f) => f.specialUse === '\\Trash')
+  test.skip(!trash, 'the sandbox has no Trash folder')
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+
+  const count = async (folderId: string) =>
+    (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
+  const tag = `${EXPUNGE_TAG}${Date.now()}`
+  // A wide window shows the folder tree; the small one only has the folder picker
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+
+  try {
+    // 1. A mail this test appends itself - never one a seeded test needs
+    await appendTestMail(SANDBOX.host, SANDBOX.port, tag)
+    await mail('triggerSync', true, sandboxId)
+
+    // 2. It is delivered and synced into INBOX; then it goes to Trash
+    const mine = await waitFor(
+      async () => {
+        const inbox = (await mail<Folder[]>('getFolders', sandboxId)).find(
+          (f) => f.path === 'INBOX'
+        )!
+        const items = await mail<{ id: number; subject: string }[]>(
+          'listMessages',
+          inbox.id,
+          { offset: 0, limit: 50 },
+          sandboxId
+        )
+        return items.find((m) => m.subject === tag) ?? null
+      },
+      (m) => m !== null,
+      120_000
+    )
+    await mail('deleteToTrash', [mine!.id], sandboxId)
+    await expect.poll(() => count(trash!.id), { timeout: 30_000 }).toBeGreaterThan(0)
+    const trashBefore = await count(trash!.id)
+
+    // 3. In the UI: open Trash, right-click the mail, delete it permanently
+    await openMailPage(sandboxId)
+    await page.getByRole('button', { name: /^Papierkorb/ }).click()
+    const list = page.getByRole('listbox', { name: 'Nachrichten' })
+    const row = list.getByRole('option').filter({ hasText: tag })
+    await expect(row).toBeVisible({ timeout: 30_000 })
+    await row.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Endgültig löschen' }).click()
+
+    // The confirmation names the consequence
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText('Das kann nicht rückgängig gemacht werden.')
+    await dialog.getByRole('button', { name: 'Endgültig löschen' }).click()
+
+    await expect(
+      page.locator('[data-sonner-toast]').filter({ hasText: 'Endgültig gelöscht' })
+    ).toBeVisible({ timeout: 30_000 })
+    // 4. The folder count drops by exactly this one mail
+    await expect.poll(() => count(trash!.id), { timeout: 30_000 }).toBe(trashBefore - 1)
+    await expect(list.getByRole('option').filter({ hasText: tag })).toHaveCount(0)
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, EXPUNGE_TAG)
+  }
 })

@@ -34,6 +34,8 @@ export type MailActions = {
   move?: (ids: number[], folder: FolderNode) => void
   archive?: (ids: number[]) => void
   toTrash?: (ids: number[]) => void
+  /** B5: permanent deletion - only offered inside Trash, and only for writable accounts */
+  expunge?: (ids: number[]) => void
 }
 
 // Icons in the menu like in the app's buttons
@@ -57,7 +59,7 @@ export function MessageMenu({
   const one = items.length === 1 ? items[0] : null
   const anyUnread = items.some((m) => !m.isRead)
   const anyUnflagged = items.some((m) => !m.isFlagged)
-  const { compose, markRead, markFlagged, move, archive, toTrash } = actions
+  const { compose, markRead, markFlagged, move, archive, toTrash, expunge } = actions
 
   // Groups between separators; empty ones are left out
   const groups: ReactNode[][] = [
@@ -149,6 +151,13 @@ export function MessageMenu({
           <Trash2 />
           In den Papierkorb
           <ContextMenuShortcut>Entf</ContextMenuShortcut>
+        </ContextMenuItem>
+      ),
+      // B5: permanent deletion is only offered inside Trash
+      expunge && (
+        <ContextMenuItem key="expunge" className={ITEM} onSelect={() => expunge(ids)}>
+          <Trash2 />
+          Endgültig löschen
         </ContextMenuItem>
       )
     ].filter(Boolean)

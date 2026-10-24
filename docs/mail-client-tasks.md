@@ -40,7 +40,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B2 | Move folders by drag and drop | M | B1 | open |
 | B3 | Keyboard shortcuts | S | — | done |
 | B4 | Batch moves in one UID MOVE | M | A2 | open |
-| B5 | Empty Trash / permanent delete in the UI | S | A1 | open |
+| B5 | Empty Trash / permanent delete in the UI | S | A1 | done |
 | B6 | Attachments: open and save | S | — | open |
 | B7 | Attachments in compose | M | — | open |
 | B8 | Signatures | S–M | — | open |
@@ -51,8 +51,8 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | C5 | Attachment → document | M | C2, D1 (optional) | open |
 | C6 | Mails in the global search | S–M | — | open |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
-| E1 | Seeding without PII | M | — | open |
-| E2 | PII check for tracked files | S | E1 | open |
+| E1 | Seeding without PII | M | — | done |
+| E2 | PII check for tracked files | S | E1 | done |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
 E1/E2 touch no core files). Never run two cards at once that touch the same files.
