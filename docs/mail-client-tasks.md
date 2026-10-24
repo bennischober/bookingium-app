@@ -34,7 +34,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
 | A7 | Per-account write path | L | A1–A6 | open, design **[user]** for the canary part |
-| A8 | Port the prototype suites to vitest | L | A1–A3 | open |
+| A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
 | B1 | Folder create / rename / delete | L | A3, A2 | open |
 | B2 | Move folders by drag and drop | M | B1 | open |

@@ -532,6 +532,40 @@ test('several mails are selected and handled at once', async () => {
   }
 })
 
+test('the mail shortcuts work from the list and leave typing alone', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const inbox = folders.find((f) => f.path === 'INBOX')!
+  const list = page.getByRole('listbox', { name: 'Nachrichten' })
+  const rows = list.getByRole('option')
+  const state = (id: number) => mail<{ isRead: boolean }>('getMessage', id, sandboxId)
+
+  await openMailPage(sandboxId)
+  await expect(rows.first()).toBeVisible({ timeout: 30_000 })
+  const id = Number(await rows.first().getAttribute('data-message-id'))
+  const before = (await state(id)).isRead
+
+  try {
+    await rows.first().click()
+    // Ctrl+U marks unread, Ctrl+Q marks read - the Outlook keys (B3)
+    await list.press('Control+u')
+    await expect.poll(async () => (await state(id)).isRead, { timeout: 30_000 }).toBe(false)
+    await list.press('Control+q')
+    await expect.poll(async () => (await state(id)).isRead, { timeout: 30_000 }).toBe(true)
+
+    // While typing in the search field, a shortcut must not fire
+    const search = page.getByRole('searchbox', { name: 'E-Mails durchsuchen' })
+    await search.click()
+    await search.press('Control+u')
+    await page.waitForTimeout(300)
+    expect((await state(id)).isRead).toBe(true)
+  } finally {
+    await mail('markRead', [id], before, sandboxId)
+  }
+})
+
 const MAILPIT = { smtpPort: 1025, apiPort: 8025 }
 const COMPOSE_TAG = 'e2e-compose-'
 

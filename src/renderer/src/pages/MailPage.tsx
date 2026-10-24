@@ -38,6 +38,7 @@ import {
   single
 } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
+import { isTypingTarget, shortcutFor } from '@/components/mail/shortcuts'
 import {
   flattenFolders,
   folderLabel,
@@ -239,6 +240,8 @@ export default function MailPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [facetFolderId, setFacetFolderId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
+  const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
     'mail.folderPaneWidth',
     FOLDER_PANE.initial,
@@ -535,17 +538,72 @@ export default function MailPage() {
       }
     : { openWindow }
 
-  // "/" focuses the search, as in most mail clients
+  const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
+    openedId.current = null
+    startCompose(
+      kind === 'forward'
+        ? forwardCompose(message)
+        : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' })
+    )
+  }
+
+  // "/" focuses the search, as in most mail clients; B3 adds the action shortcuts.
+  // Declared after every handler it calls, so the effect never closes over a value
+  // that is declared later.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
-      if (event.key !== '/' || target?.closest('input, textarea, [contenteditable]')) return
+      if (event.key === '/' && !target?.closest('input, textarea, [contenteditable]')) {
+        event.preventDefault()
+        searchRef.current?.focus()
+        return
+      }
+      // A shortcut never steals a keystroke while the user is typing
+      if (isTypingTarget(target)) return
+      const ids = selection.ids
+      const action = shortcutFor(event, {
+        hasSelection: ids.length > 0,
+        canWrite,
+        hasReader: selectedId !== null
+      })
+      if (!action) return
       event.preventDefault()
-      searchRef.current?.focus()
+      switch (action) {
+        case 'markUnread':
+          markRead(ids, false)
+          break
+        case 'markRead':
+          markRead(ids, true)
+          break
+        case 'toTrash':
+          if (trashable.length)
+            void moveAway(
+              trashable.map((m) => m.id),
+              { kind: 'delete' }
+            )
+          break
+        case 'move':
+          // There is no folder-picker dialog: moving is drag and drop. The shortcut
+          // puts the keyboard on the folder tree, where the drop targets are.
+          folderTreeRef.current?.focus()
+          break
+        case 'compose':
+          startCompose(emptyCompose())
+          break
+        case 'reply':
+          if (selectedId !== null) composeFromList(selectedId, 'reply')
+          break
+        case 'replyAll':
+          if (selectedId !== null) composeFromList(selectedId, 'replyAll')
+          break
+        case 'forward':
+          if (selectedId !== null) composeFromList(selectedId, 'forward')
+          break
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  })
 
   if (accounts.isLoading) {
     return (
@@ -579,14 +637,6 @@ export default function MailPage() {
     openedId.current = null
     setCompose(null)
     clearSearch()
-  }
-  const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
-    openedId.current = null
-    startCompose(
-      kind === 'forward'
-        ? forwardCompose(message)
-        : replyCompose(message, { all: kind === 'replyAll', ownEmail: account.email })
-    )
   }
 
   return (
@@ -702,6 +752,7 @@ export default function MailPage() {
             <Spinner className="m-2" />
           ) : (
             <FolderTree
+              focusRef={folderTreeRef}
               folders={folders.data ?? []}
               selectedId={searching ? null : folderId}
               onSelect={chooseFolder}

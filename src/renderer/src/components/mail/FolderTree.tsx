@@ -174,12 +174,15 @@ export function FolderTree({
   folders,
   selectedId,
   onSelect,
-  drop
+  drop,
+  focusRef
 }: {
   folders: FolderNode[]
   selectedId: string | null
   onSelect: (id: string) => void
   drop?: FolderDrop
+  /** B3: the move shortcut puts the keyboard on the tree, which is the drop target */
+  focusRef?: React.RefObject<HTMLUListElement | null>
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [overId, setOverId] = useState<string | null>(null)
@@ -198,7 +201,7 @@ export function FolderTree({
     })
 
   return (
-    <ul aria-label="Ordner" className="space-y-px">
+    <ul aria-label="Ordner" className="space-y-px" ref={focusRef} tabIndex={-1}>
       {folders.map((folder) => (
         <FolderItem
           key={folder.id}
