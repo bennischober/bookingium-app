@@ -1,6 +1,7 @@
 // B4: a move of N mails is one op per (source, target) group, one UID MOVE, and one
 // undo - not N round trips. The tests drive the engine through a stubbed connection
 // (the real guard and the real IMAP server are exercised in the e2e suite).
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -141,8 +142,8 @@ function stubClient(capabilities: string[], options: { uidMap?: Map<number, numb
 
 /** A WriteEngine whose connection is the stub */
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT)
-  ;(writes as unknown as { sandboxClient: () => Promise<unknown> }).sandboxClient = async () =>
+  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+  ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () =>
     client
   return writes
 }

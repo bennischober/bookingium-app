@@ -1,6 +1,7 @@
 // A3: crash-safe .eml files, a consistency check and an orphan sweep that moves
 // rather than deletes. The write order is tmp -> fsync -> rename, and the file name is
 // opaque and permanent, so a move only touches the row.
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -125,7 +126,7 @@ describe('sweep and move (A3 steps 3 and 6)', () => {
     })
 
     // The engine's local half of the move, without any server contact
-    const writes = new WriteEngine(store, 'acc') as unknown as {
+    const writes = new WriteEngine(store, 'acc', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials }) as unknown as {
       applyMoveLocally: (op: unknown, target: string, uid: number) => void
     }
     writes.applyMoveLocally(store.journalGet(opId)!, 'Archiv', 7)

@@ -10,6 +10,7 @@
 //
 // Skips (with a visible reason) when the sandbox is down. Counts are compared before and
 // after, and every mail this suite creates is removed again.
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import net from 'net'
 import os from 'os'
@@ -19,7 +20,6 @@ import { ImapFlow } from 'imapflow'
 import { Store } from '../src/main/mailclient/core/store'
 import { makeSandboxAccount, SyncEngine } from '../src/main/mailclient/core/sync'
 import { WriteEngine } from '../src/main/mailclient/core/write_engine'
-import { injectSandboxConfig } from '../src/main/mailclient/core/write_guard'
 
 const HOST = '127.0.0.1'
 const PORT = 10143
@@ -58,17 +58,6 @@ function reachable(port: number): Promise<boolean> {
 const sandboxUp = await reachable(PORT)
 if (!sandboxUp) {
   console.warn(`mail crash-points: sandbox not running on ${HOST}:${PORT} - suite skipped`)
-} else {
-  // The write path only hands out clients through the guard, which needs the injected
-  // sandbox endpoints (the real app injects them via createMailCore).
-  injectSandboxConfig({
-    imapHost: HOST,
-    imapPort: PORT,
-    smtpHost: HOST,
-    smtpPort: 1025,
-    user: USER,
-    pass: PASS
-  })
 }
 
 function account(dataDir: string) {
@@ -194,7 +183,7 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
       expect(store.journalGet(opId)!.state).toBe('pending')
 
       // Recovery: a fresh engine replays the pending op
-      const writes = new WriteEngine(store, 'crash')
+      const writes = new WriteEngine(store, 'crash', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
       const op = store.journalGet(opId)!
       const result = await writes.execute(op)
       expect(['done', 'conflict']).toContain(result.outcome)
@@ -228,7 +217,7 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
         }
       })
 
-      const writes = new WriteEngine(store, 'crash')
+      const writes = new WriteEngine(store, 'crash', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
       const first = await writes.execute(store.journalGet(opId)!)
       expect(['done', 'unknown', 'failed']).toContain(first.outcome)
 

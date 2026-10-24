@@ -45,6 +45,9 @@ type Draft = {
   user: string
   password: string
   signature: string
+  /** A7: this account's own SMTP endpoint; empty = the IMAP host on 1025 */
+  smtpHost: string
+  smtpPort: string
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -55,7 +58,9 @@ const EMPTY_DRAFT: Draft = {
   security: 'tls',
   user: '',
   password: '',
-  signature: ''
+  signature: '',
+  smtpHost: '',
+  smtpPort: ''
 }
 
 /** Result of "Verbindung testen", or of the test that runs before saving */
@@ -113,7 +118,9 @@ function MailAccountDialog({
               ...account,
               port: String(account.port),
               password: '',
-              signature: account.signature ?? ''
+              signature: account.signature ?? '',
+              smtpHost: account.smtpHost,
+              smtpPort: String(account.smtpPort)
             }
           : { ...EMPTY_DRAFT, kind: 'production-readonly' }
       )
@@ -189,7 +196,10 @@ function MailAccountDialog({
     port,
     security: draft.security,
     user: draft.user.trim(),
-    password: draft.password === '' ? undefined : draft.password
+    password: draft.password === '' ? undefined : draft.password,
+    // A7: blank falls back to the IMAP host on the default port
+    smtpHost: draft.smtpHost.trim() || undefined,
+    smtpPort: Number(draft.smtpPort) > 0 ? Number(draft.smtpPort) : undefined
   })
 
   const runTest = () => {
@@ -299,6 +309,31 @@ function MailAccountDialog({
                 inputMode="numeric"
                 value={draft.port}
                 onChange={(e) => set({ port: e.target.value.replace(/\D/g, '') })}
+              />
+            </div>
+          </div>
+
+          {/* A7: the SMTP endpoint is its own setting - sending is a write to
+              another server. Blank means "the IMAP host, port 1025". */}
+          <div className="grid grid-cols-[1fr_6rem] gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="mail-account-smtp-host">SMTP-Server</Label>
+              <Input
+                id="mail-account-smtp-host"
+                value={draft.smtpHost}
+                onChange={(e) => set({ smtpHost: e.target.value })}
+                placeholder={draft.host || 'smtp.ionos.de'}
+                spellCheck={false}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mail-account-smtp-port">SMTP-Port</Label>
+              <Input
+                id="mail-account-smtp-port"
+                inputMode="numeric"
+                value={draft.smtpPort}
+                onChange={(e) => set({ smtpPort: e.target.value.replace(/\D/g, '') })}
+                placeholder="1025"
               />
             </div>
           </div>

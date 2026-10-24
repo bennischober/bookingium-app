@@ -748,6 +748,8 @@ test('the settings list the mail accounts', async () => {
 
 test('the account dialog tests the connection and saves only what passes', async () => {
   const { page } = h
+  // This test opens the dialog itself, so it must be on the page itself
+  await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
   const list = page.getByRole('list', { name: 'E-Mail-Konten' })
   const before = await list.getByRole('listitem').count()
 
@@ -757,7 +759,7 @@ test('the account dialog tests the connection and saves only what passes', async
   await dialog.getByLabel('IMAP-Server').fill(SANDBOX.host)
   await dialog.getByRole('combobox', { name: 'Verschlüsselung' }).click()
   await page.getByRole('option', { name: /^Keine/ }).click()
-  await dialog.getByLabel('Port').fill(String(SANDBOX.port))
+  await dialog.getByLabel('Port', { exact: true }).fill(String(SANDBOX.port))
   await dialog.getByLabel('Passwort').fill(SANDBOX_PASS)
 
   const result = dialog.getByTestId('mail-account-test-result')
@@ -773,7 +775,7 @@ test('the account dialog tests the connection and saves only what passes', async
       server.close(() => resolve(port))
     })
   })
-  await dialog.getByLabel('Port').fill(String(closedPort))
+  await dialog.getByLabel('Port', { exact: true }).fill(String(closedPort))
   await expect(result).toHaveCount(0)
   await dialog.getByRole('button', { name: 'Verbindung testen' }).click()
   await expect(result).toContainText('an diesem Port antwortet kein Mailserver', {
@@ -781,7 +783,7 @@ test('the account dialog tests the connection and saves only what passes', async
   })
 
   // A rejected password is reported and nothing is saved
-  await dialog.getByLabel('Port').fill(String(SANDBOX.port))
+  await dialog.getByLabel('Port', { exact: true }).fill(String(SANDBOX.port))
   await dialog.getByLabel('Passwort').fill('wrong-password')
   await dialog.getByRole('button', { name: 'Speichern' }).click()
   await expect(result).toContainText('Anmeldung abgelehnt', { timeout: 20_000 })

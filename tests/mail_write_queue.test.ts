@@ -1,6 +1,7 @@
 // How write ops get at a folder while the sync engine works on it: a long download
 // hands the folder mutex to a waiting write between batches, and an op that is
 // already queued is not run a second time (the startup replay sees it as pending)
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -97,7 +98,11 @@ describe('folder mutex between sync and writes', () => {
 describe('write engine queue', () => {
   it('shares an op that is still queued instead of running it twice', async () => {
     const { store } = openStore()
-    const writes = new WriteEngine(store, ACCOUNT)
+    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    // No server in these two tests: the op itself fails, which is what they expect
+    ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () => {
+      throw new Error('no server in this test')
+    }
     let entered = 0
     let release!: () => void
     const blocked = new Promise<void>((r) => (release = r))
@@ -122,7 +127,7 @@ describe('write engine queue', () => {
     const first = writes.execute(op)
     const second = writes.execute(op)
     release()
-    // No sandbox is configured here, so the op itself fails; it ran only once
+    // The op itself fails on the stub client; what matters is that it ran only once
     await expect(first).rejects.toThrow()
     await expect(second).rejects.toThrow()
     expect(entered).toBe(1)
@@ -180,7 +185,11 @@ describe('write engine queue', () => {
       payload: { flag: '\\Seen', set: true }
     })
 
-    const writes = new WriteEngine(store, ACCOUNT)
+    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    // No server in these two tests: the op itself fails, which is what they expect
+    ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () => {
+      throw new Error('no server in this test')
+    }
     const locked: string[] = []
     writes.attachEngine({
       // A nested acquisition of the same folder would never return; record the order
@@ -199,7 +208,7 @@ describe('write engine queue', () => {
     // The mutex was taken once for the op, never nested for the same folder
     expect(locked).toEqual(['INBOX'])
 
-    // The queue keeps running: the next op is attempted (and fails on the missing sandbox,
+    // The queue keeps running: the next op is attempted (and fails on the stub client,
     // which proves it got past the wedged self-move)
     await expect(writes.execute(store.journalGet(next)!)).rejects.toThrow()
   })

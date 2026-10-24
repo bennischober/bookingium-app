@@ -57,20 +57,14 @@ export type WorkerAccount = {
   port: number
   security: ImapSecurity
   email?: string
+  /** A7: this account's own SMTP endpoint; missing in older settings, see the core */
+  smtpHost?: string
+  smtpPort?: number
 }
 
 export type WorkerInit = {
   dataDir: string
   accounts: WorkerAccount[]
-  /** Write target for sandbox accounts (local Dovecot + Mailpit only; the core's guard checks the hosts) */
-  sandbox?: {
-    imapHost: string
-    imapPort: number
-    smtpHost: string
-    smtpPort: number
-    user: string
-    pass: string
-  }
 }
 
 export type ToWorker =

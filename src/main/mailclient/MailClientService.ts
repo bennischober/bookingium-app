@@ -9,7 +9,6 @@ import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
 
 // The local Dovecot/Mailpit sandbox; its SMTP sink listens here
-const SANDBOX_SMTP_PORT = 1025
 const CRASH_WINDOW_MS = 60_000
 const MAX_CRASHES = 3
 
@@ -206,25 +205,20 @@ export class MailClientService {
   private workerInit(): WorkerInit {
     const accounts = listMailAccounts()
     if (accounts.length === 0) throw new Error('Kein E-Mail-Konto eingerichtet')
-    const sandbox = accounts.find((a) => a.kind === 'sandbox')
     return {
       dataDir: join(mailRoot(), 'data'),
-      accounts: accounts.map(({ id, kind, host, port, security, email }) => ({
-        id,
-        kind,
-        host,
-        port,
-        security,
-        email
-      })),
-      // The core's write guard refuses any host outside its loopback allowlist
-      sandbox: sandbox && {
-        imapHost: sandbox.host,
-        imapPort: sandbox.port,
-        smtpHost: sandbox.host,
-        smtpPort: SANDBOX_SMTP_PORT,
-        ...mailCredentials(sandbox.id)
-      }
+      // A7: each account carries its OWN write endpoint; the core's guard decides
+      // per account and refuses anything outside the loopback allowlist
+      accounts: accounts.map((account) => ({
+        id: account.id,
+        kind: account.kind,
+        host: account.host,
+        port: account.port,
+        security: account.security,
+        email: account.email,
+        smtpHost: account.smtpHost,
+        smtpPort: account.smtpPort
+      }))
     }
   }
 

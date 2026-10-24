@@ -38,7 +38,10 @@ const SaveMailAccountInput = z.object({
   email: z.string().min(1),
   password: z.string().min(1).optional(),
   /** B8: plain-text signature, appended to new mail and above the quote */
-  signature: z.string().optional()
+  signature: z.string().optional(),
+  /** A7: this account's own SMTP endpoint; defaults to the IMAP host on 1025 */
+  smtpHost: z.string().min(1).optional(),
+  smtpPort: z.number().int().min(1).max(65535).optional()
 })
 
 const TestMailAccountInput = SaveMailAccountInput.omit({ email: true })

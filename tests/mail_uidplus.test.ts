@@ -6,6 +6,7 @@
 // The engine is driven through a stubbed sandbox client (the real guard is exercised for
 // real in the e2e suite; here only the capability decision and the mailbox selection are
 // under test).
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -137,12 +138,12 @@ function seed(store: Store, dir: string): { op: JournalRow; messageKey: string }
 
 /** A WriteEngine whose connection is the stub (the guard is not under test here) */
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT)
+  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
   const internals = writes as unknown as {
-    sandboxClient: () => Promise<unknown>
+    writeClient: () => Promise<unknown>
     execute: (op: JournalRow) => Promise<{ outcome: string; reason?: string }>
   }
-  internals.sandboxClient = async () => client
+  internals.writeClient = async () => client
   return writes
 }
 

@@ -17,7 +17,7 @@ import path from 'path';
 import { Store, JournalRow, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, type BatchMember, type BatchMoved } from './write_engine.js';
-import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_guard.js';
+import { WriteAccount, writeEndpointReachable } from './write_guard.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
@@ -48,6 +48,9 @@ export interface MailCoreOptions {
     port: number;
     /** encryption; 'none' is refused for production accounts */
     security: ImapSecurity;
+    /** A7: this account's own SMTP endpoint; defaults to host:1025 for older settings */
+    smtpHost?: string;
+    smtpPort?: number;
     /** credentials provider — the HOST supplies them (e.g. Electron safeStorage);
      * called lazily per connection so the host controls lifetime/decryption */
     credentials: () => Promise<{ user: string; pass: string }>;
@@ -57,7 +60,6 @@ export interface MailCoreOptions {
   }>;
   /** Sandbox write target (IMAP+SMTP). REQUIRED if any account is writable;
    * the write guard validates both hosts against the loopback/docker allowlist. */
-  sandbox?: SandboxConfig;
   /** probe a message sink for a Message-ID (sandbox tests use the Mailpit API).
    * Optional; improves unknown-send resolution, never enables auto-resend. */
   sinkProbe?: (messageId: string) => Promise<boolean>;
@@ -74,6 +76,8 @@ export interface MailCoreOptions {
 export interface AccountEntry {
   options: MailCoreOptions['accounts'][number];
   config: AccountConfig;
+  /** A7: this account's own write endpoints, for the guard and the engines */
+  writeAccount: WriteAccount;
   store: Store;
   engine: SyncEngine;
   writes: WriteEngine;
@@ -117,10 +121,18 @@ export class MailCore implements Api {
     this.lock = new DataDirLock(options.dataDir);
     this.lock.acquire();
 
-    if (options.sandbox) injectSandboxConfig(options.sandbox);
-
     for (const a of options.accounts) {
       const dir = path.join(options.dataDir, a.id);
+      // A7: the account's own endpoints; SMTP defaults to the IMAP host on 1025
+      const writeAccount: WriteAccount = {
+        id: a.id,
+        kind: a.kind,
+        imapHost: a.host,
+        imapPort: a.port,
+        security: a.security,
+        smtpHost: a.smtpHost?.trim() ? a.smtpHost.trim() : a.host,
+        smtpPort: a.smtpPort ?? 1025,
+      };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
       const config: AccountConfig = a.kind === 'production-readonly'
         ? makeProductionAccount(input)
@@ -133,6 +145,9 @@ export class MailCore implements Api {
         log: this.log,
       });
       const writes = new WriteEngine(store, a.id, {
+        writeAccount,
+        /** A7: credentials come from the host, lazily, and never from the guard */
+        credentials: () => this.ensureCredentials(a.id),
         sinkProbe: options.sinkProbe,
         clock: () => new Date(this.clock()),
         log: this.log,
@@ -146,7 +161,7 @@ export class MailCore implements Api {
       writes.onQueueStopped = message => this.emitEvent({
         type: 'op-event', accountId: a.id, opId: '', kind: 'queue', outcome: 'stopped', reason: message,
       });
-      this.entries.set(a.id, { options: a, config, store, engine, writes });
+      this.entries.set(a.id, { options: a, config, writeAccount, store, engine, writes });
       // forward sync events to subscribers (Task 5: events are the core's only
       // progress channel — no console writes inside the core)
       engine.onSyncEvent = ev => this.emitEvent({ type: 'sync-event', accountId: a.id, event: ev });
@@ -173,7 +188,7 @@ export class MailCore implements Api {
 
   async getAccount(): Promise<AccountInfo> {
     const e = this.entry();
-    const reachable = e.config.readOnly ? true : await sandboxReachable();
+    const reachable = e.config.readOnly ? true : await writeEndpointReachable(e.writeAccount);
     return {
       id: e.config.id,
       email: e.options.email ?? e.config.user,

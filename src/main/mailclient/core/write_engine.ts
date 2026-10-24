@@ -16,8 +16,7 @@
 import { ImapFlow } from 'imapflow'
 import fs from 'fs'
 import { Store, JournalRow } from './store.js'
-import { assertSandboxHost, getSandboxConfig } from './write_guard.js'
-import nodemailer from 'nodemailer'
+import { connectWriteImap, writeSmtp, WriteAccount } from './write_guard.js'
 
 export type OpResult =
   | { outcome: 'done'; detail?: string }
@@ -56,7 +55,11 @@ export class WriteEngine {
   constructor(
     private store: Store,
     private accountId: string,
-    options?: {
+    options: {
+      /** A7: this account's own write endpoints - never a global sandbox config */
+      writeAccount: WriteAccount
+      /** A7: credentials for this account, resolved lazily from the host */
+      credentials: () => Promise<{ user: string; pass: string }>
       /** probe a message sink (e.g. Mailpit API) for a Message-ID; true = definitely delivered */
       sinkProbe?: (messageId: string) => Promise<boolean>
       /** injectable clock (task 5 Step 3 makes timing-dependent tests deterministic) */
@@ -65,10 +68,15 @@ export class WriteEngine {
       log?: { warn?: (msg: string) => void }
     }
   ) {
-    this.sinkProbe = options?.sinkProbe ?? null
-    this.clock = options?.clock ?? (() => new Date())
-    this.log = options?.log ?? null
+    this.writeAccount = options.writeAccount
+    this.credentials = options.credentials
+    this.sinkProbe = options.sinkProbe ?? null
+    this.clock = options.clock ?? (() => new Date())
+    this.log = options.log ?? null
   }
+  /** A7: the account this engine writes for */
+  private readonly writeAccount: WriteAccount
+  private readonly credentials: () => Promise<{ user: string; pass: string }>
   private clock: () => Date
   private log: { warn?: (msg: string) => void } | null
   /** A6: true once the watchdog gave up on an op; the queue is stopped for this account */
@@ -115,20 +123,9 @@ export class WriteEngine {
     return fn()
   }
 
-  private sandboxClient(): Promise<ImapFlow> {
-    const cfg = getSandboxConfig()
-    assertSandboxHost(cfg.imapHost) // hard guard, again, at call time
-    const client = new ImapFlow({
-      host: cfg.imapHost,
-      port: cfg.imapPort,
-      secure: false,
-      auth: { user: cfg.user, pass: cfg.pass },
-      logger: false,
-      emitLogs: false,
-      connectionTimeout: 15_000,
-      greetingTimeout: 15_000
-    })
-    return client.connect().then(() => client)
+  /** A7: the IMAP client for THIS account, credentials from the host, TLS relaxed only on loopback */
+  private async writeClient(): Promise<ImapFlow> {
+    return connectWriteImap(this.writeAccount, await this.credentials())
   }
 
   /** Execute one journaled op (or resume a 'running' one after a crash). */
@@ -352,7 +349,7 @@ export class WriteEngine {
   // ----- flag -----------------------------------------------------------------
   private async doFlag(op: JournalRow, signal: AbortSignal): Promise<OpResult> {
     const payload = JSON.parse(op.payload || '{}') as { add: string[]; remove: string[] }
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const pf = await this.preflight(op, client)
       if (!pf.ok) return pf.result
@@ -405,7 +402,7 @@ export class WriteEngine {
     if (op.folder_path && op.folder_path === targetPath) {
       return { outcome: 'conflict', reason: 'move refused: target equals source folder' }
     }
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const pf = await this.preflight(op, client)
       if (!pf.ok) {
@@ -525,7 +522,7 @@ export class WriteEngine {
       return { outcome: 'done', detail: 'resumed after crash (result was recorded)' }
     }
 
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const pf = await this.preflightBatch(op, client, members)
       if (!pf.ok) {
@@ -695,7 +692,7 @@ export class WriteEngine {
     const payload = JSON.parse(op.payload || '{}') as { path?: string; delimiter?: string }
     const path = payload.path
     if (!path) return { outcome: 'conflict', reason: 'folder_create without path' }
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const existing = await this.folderExists(client, path)
       if (existing) {
@@ -723,7 +720,7 @@ export class WriteEngine {
     const to = payload.to
     if (!from || !to) return { outcome: 'conflict', reason: 'folder_rename without from/to' }
     const delimiter = payload.delimiter ?? '/'
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const targetExists = await this.folderExists(client, to)
       const sourceExists = await this.folderExists(client, from)
@@ -766,7 +763,7 @@ export class WriteEngine {
     const payload = JSON.parse(op.payload || '{}') as { path?: string }
     const path = payload.path
     if (!path) return { outcome: 'conflict', reason: 'folder_delete without path' }
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const exists = await this.folderExists(client, path)
       if (exists) {
@@ -900,7 +897,7 @@ export class WriteEngine {
     if (!trash || op.folder_path !== trash.imap_path) {
       return { outcome: 'conflict', reason: 'expunge refused: not in Trash' }
     }
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const pf = await this.preflight(op, client)
       if (!pf.ok) return pf.result
@@ -984,15 +981,7 @@ export class WriteEngine {
       this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'smtp' } })
       const ab = this.abandoned(signal)
       if (ab) return ab
-      const smtp = getSandboxConfig()
-      const transporter = nodemailer.createTransport({
-        host: smtp.smtpHost,
-        port: smtp.smtpPort,
-        secure: false,
-        tls: { rejectUnauthorized: false }
-        // socket died mid-DATA would throw here; we cannot know if the server
-        // accepted — that case is handled below, not by retrying
-      })
+      const transporter = writeSmtp(this.writeAccount)
       await transporter.sendMail({
         raw: mimeBuf,
         envelope: {
@@ -1037,7 +1026,7 @@ export class WriteEngine {
     uid: number
     uidValidity: string | null
   }): Promise<void> {
-    const client = await this.sandboxClient().catch(() => null)
+    const client = await this.writeClient().catch(() => null)
     if (!client) return
     try {
       await this.removeDraft(client, draft.path, draft.uid, draft.uidValidity)
@@ -1054,7 +1043,7 @@ export class WriteEngine {
     sentFolderPath: string | null
   ): Promise<'sent' | 'absent' | 'unavailable'> {
     if (!sentFolderPath || !messageId) return 'unavailable'
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       await client.mailboxOpen(sentFolderPath)
       const found = await client.search({ header: { 'message-id': messageId } }, { uid: true })
@@ -1108,7 +1097,7 @@ export class WriteEngine {
     payload: { sentFolderPath: string },
     mimeBuf: Buffer
   ): Promise<true | string> {
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       const sentPath =
         payload.sentFolderPath ||
@@ -1135,7 +1124,7 @@ export class WriteEngine {
       op.folder_path ||
       this.store.allFolders().find((f) => f.special_use?.includes('Drafts'))?.imap_path ||
       'Drafts'
-    const client = await this.sandboxClient()
+    const client = await this.writeClient()
     try {
       // A5: record the new uid durably. A replay after a crash past the APPEND finds
       // it and must NOT append a second copy.

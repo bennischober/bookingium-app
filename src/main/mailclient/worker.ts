@@ -32,7 +32,6 @@ function init(options: WorkerInit): void {
       ...a,
       credentials: () => requestCredentials(a.id)
     })),
-    sandbox: options.sandbox,
     log: {
       info: (message) => send({ type: 'log', level: 'info', message }),
       warn: (message) => send({ type: 'log', level: 'warn', message }),

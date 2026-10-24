@@ -3,6 +3,7 @@
 // The probe searches Drafts for the draft's Message-ID before appending again. That is only
 // safe because EVERY draft save builds a fresh Message-ID (compose.ts uses randomUUID per
 // build), so a found id is always THIS attempt's copy and never an older version's.
+import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -124,12 +125,12 @@ function enqueueDraft(
 }
 
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT)
+  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
   const internals = writes as unknown as {
-    sandboxClient: () => Promise<unknown>
+    writeClient: () => Promise<unknown>
     execute: (op: JournalRow) => Promise<{ outcome: string; detail?: string }>
   }
-  internals.sandboxClient = async () => client
+  internals.writeClient = async () => client
   return writes
 }
 
