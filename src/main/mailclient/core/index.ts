@@ -396,6 +396,8 @@ export class MailCore implements Api {
       const row = e.store.getMessage(id);
       if (!row) continue;
       const folder = e.store.getFolder(row.folder_id);
+      // A2c: a mail already in the target is skipped before any journal insert,
+      // so a self-move never reaches the write engine (which refuses it too)
       if (!folder || folder.imap_path === target.imap_path) continue;
       opIds.push(e.store.journalEnqueue({
         accountId: e.config.id, kind: 'move',

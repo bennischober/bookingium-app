@@ -97,8 +97,11 @@ export class WriteEngine {
     if (queued) return queued;
     const result = this.enqueue(async () => {
       // single-writer rule (docs/WRITE_PATH.md §6): hold the sync engine's folder
-      // mutex for the source folder during the whole op; move ops also lock the target
-      const folders = [op.folder_path, op.target_folder_path].filter((p): p is string => !!p);
+      // mutex for the source folder during the whole op; move ops also lock the target.
+      // A2c: a self-move (target == source) must not nest the SAME mutex - the inner
+      // acquire would poll forever for an entry the outer holds, deadlocking the serialized
+      // op chain before doMoveLike's own refusal can run. Deduplicate first.
+      const folders = [...new Set([op.folder_path, op.target_folder_path].filter((p): p is string => !!p))];
       const run = () => this.executeOne(op);
       if (!folders.length) return run();
       return await this.runUnderFolderMutex(folders[0], async () => {
@@ -219,6 +222,13 @@ export class WriteEngine {
     if (op.kind === 'delete' || op.kind === 'draft_delete') {
       const trash = this.store.allFolders().find(f => f.special_use?.includes('Trash'));
       if (trash) targetPath = trash.imap_path;
+    }
+    // A2c: a move whose target IS the source folder (a UID MOVE into the selected
+    // mailbox) is undefined territory - the sandbox wedged on it. Production paths
+    // cannot produce it (MailCore skips same-folder moves; undo goes back to the
+    // original folder), but the write path refuses it before any server contact.
+    if (op.folder_path && op.folder_path === targetPath) {
+      return { outcome: 'conflict', reason: 'move refused: target equals source folder' };
     }
     const client = await this.sandboxClient();
     try {

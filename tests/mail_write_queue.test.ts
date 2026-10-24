@@ -127,4 +127,80 @@ describe('write engine queue', () => {
     await expect(second).rejects.toThrow()
     expect(entered).toBe(1)
   })
+
+  it('refuses a self-move without nesting the same folder mutex (A2c)', async () => {
+    const { store, dir } = openStore()
+    const inbox = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/', uidValidity: '1' })
+    const file = 'key-1.eml'
+    fs.writeFileSync(path.join(dir, file), 'Subject: x\r\n\r\nbody\r\n')
+    store.insertMessage({
+      account_id: ACCOUNT,
+      folder_id: inbox.id,
+      uid: 1,
+      message_key: 'key-1',
+      file_path: file,
+      message_id: '<1@example.test>',
+      in_reply_to: null,
+      references_json: '[]',
+      thread_id: null,
+      date: '2026-01-01T09:00:00.000Z',
+      internal_date: '2026-01-01T09:00:00.000Z',
+      subject: 'x',
+      from_name: 'A',
+      from_email: 'a@example.test',
+      to_json: '[]',
+      cc_json: '[]',
+      bcc_json: '[]',
+      flags_json: '{}',
+      modseq: null,
+      has_attachments: 0,
+      attachments_json: '[]',
+      size_bytes: 30,
+      snippet: 'x',
+      parsed_ok: 1,
+      parse_error: null,
+      body_text: 'x',
+      body_html: null
+    })
+    const selfMove = store.journalEnqueue({
+      accountId: ACCOUNT,
+      kind: 'move',
+      folderPath: 'INBOX',
+      folderUidValidity: '1',
+      uid: 1,
+      messageKey: 'key-1',
+      messageId: '<1@example.test>',
+      targetFolderPath: 'INBOX'
+    })
+    const next = store.journalEnqueue({
+      accountId: ACCOUNT,
+      kind: 'flag',
+      folderPath: 'INBOX',
+      uid: 1,
+      payload: { flag: '\\Seen', set: true }
+    })
+
+    const writes = new WriteEngine(store, ACCOUNT)
+    const locked: string[] = []
+    writes.attachEngine({
+      // A nested acquisition of the same folder would never return; record the order
+      withFolderMutex: async (p, fn) => {
+        locked.push(p)
+        return fn()
+      },
+      triggerResync: () => {}
+    })
+
+    // The self-move is refused before any server contact (no sandbox configured, so any
+    // attempt to reach one would throw instead of returning a conflict)
+    const result = await writes.execute(store.journalGet(selfMove)!)
+    expect(result).toMatchObject({ outcome: 'conflict' })
+    expect(result).toHaveProperty('reason', expect.stringContaining('target equals source'))
+    // The mutex was taken once for the op, never nested for the same folder
+    expect(locked).toEqual(['INBOX'])
+
+    // The queue keeps running: the next op is attempted (and fails on the missing sandbox,
+    // which proves it got past the wedged self-move)
+    await expect(writes.execute(store.journalGet(next)!)).rejects.toThrow()
+  })
 })
