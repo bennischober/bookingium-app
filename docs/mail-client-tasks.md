@@ -53,7 +53,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | E1 | Seeding without PII | M | — | done |
 | E2 | PII check for tracked files | S | E1 | done |
 | F1 | Test the security boundaries worst-first | L | — | done, all 7 (sanitize 25 / 2 bugs, remote_images 13 / 1 bug, write_guard 7, compose already covered, files enforced by construction, imap_options 7, store search 8 / 1 bug) |
-| F2 | Write to an address from a mail header | S–M | B7, B8 | open |
+| F2 | Write to an address from a mail header | S–M | B7, B8 | done (Von/An/Cc are buttons for a writable account; pure `composeTo` carries only the recipient, with the signature, and never In-Reply-To/References, a quote or the old subject) |
 | F3 | Lightweight formatting in compose | M | — | open |
 | F4 | Paste attachments from the clipboard | M | — | open |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |

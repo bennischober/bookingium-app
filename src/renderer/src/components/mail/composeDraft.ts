@@ -209,3 +209,18 @@ export function attachmentsFit(
   const used = existing.reduce((n, a) => n + base64Bytes(a.base64), 0)
   return used + incoming.reduce((n, f) => n + f.size, 0) <= limit
 }
+
+/**
+ * F2: a NEW mail to one address from an open mail's header ("Von", "An", "Cc").
+ *
+ * Not a reply and not a forward: no quote, no In-Reply-To/References (it must not
+ * land in the old thread) and no attachments. Only the recipient travels over -
+ * the subject stays empty, because a new mail is not about the old subject.
+ */
+export function composeTo(address: Address, signature?: string): ComposeState {
+  const state: ComposeState = {
+    ...emptyCompose(),
+    to: [{ name: address.name.trim(), email: address.email.trim() }]
+  }
+  return withSignature(state, signature)
+}

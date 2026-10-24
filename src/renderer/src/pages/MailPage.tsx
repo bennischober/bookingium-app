@@ -24,7 +24,8 @@ import {
   forwardCompose,
   fromSavedDraft,
   replyCompose,
-  withSignature
+  withSignature,
+  composeTo
 } from '@/components/mail/composeDraft'
 import { FolderTree, type FolderAction } from '@/components/mail/FolderTree'
 import { confirmAction } from '@/lib/confirm'
@@ -1142,6 +1143,7 @@ export default function MailPage() {
               onArchive={hasArchive ? (id) => void moveAway([id], { kind: 'archive' }) : undefined}
               onMarkUnread={(id) => markRead([id], false)}
               onCompose={composeFrom}
+              onWriteTo={(address) => startCompose(composeTo(address, account?.signature))}
             />
           ) : selection.ids.length > 1 && selectedItems.length > 0 ? (
             <SelectionActions

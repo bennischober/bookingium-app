@@ -2,6 +2,7 @@
 // prefix, the quote and the threading headers that keep it in the conversation
 import { describe, expect, it } from 'vitest'
 import {
+  composeTo,
   forwardCompose,
   parseAddress,
   replyCompose,
@@ -137,5 +138,37 @@ describe('parseAddress', () => {
       email: 'bob@example.test'
     })
     expect(parseAddress('  cleo@example.test ')).toEqual({ name: '', email: 'cleo@example.test' })
+  })
+})
+
+describe('composeTo (F2)', () => {
+  it('addresses exactly the one clicked address', () => {
+    const state = composeTo({ name: 'Anna Ärger', email: 'anna@example.test' })
+    expect(state.to).toEqual([{ name: 'Anna Ärger', email: 'anna@example.test' }])
+  })
+
+  it('is a new mail, never a reply: no threading headers and no quote', () => {
+    // A mail that silently becomes a reply lands in the old thread, quoted, as if
+    // the person had answered something they never wrote
+    const state = composeTo({ name: '', email: 'cc@example.test' })
+    expect(state.inReplyTo).toBeNull()
+    expect(state.references).toEqual([])
+    expect(state.subject).toBe('')
+    expect(state.bodyText).toBe('')
+  })
+
+  it('carries no attachments over: this is not a forward', () => {
+    const state = composeTo({ name: '', email: 'a@example.test' })
+    expect(state.attachments).toEqual([])
+  })
+
+  it('puts the signature above the empty body', () => {
+    const state = composeTo({ name: '', email: 'a@example.test' }, 'Viele Grüße\nLive Music')
+    expect(state.bodyText).toContain('Viele Grüße')
+  })
+
+  it('trims what the header carried over', () => {
+    const state = composeTo({ name: '  Anna  ', email: ' a@example.test ' })
+    expect(state.to).toEqual([{ name: 'Anna', email: 'a@example.test' }])
   })
 })

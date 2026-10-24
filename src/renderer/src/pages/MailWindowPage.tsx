@@ -13,7 +13,8 @@ import {
   parseAddress,
   fromSavedDraft,
   replyCompose,
-  withSignature
+  withSignature,
+  composeTo
 } from '@/components/mail/composeDraft'
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
@@ -216,6 +217,9 @@ export default function MailWindowPage() {
               : undefined
           }
           onCompose={composeFrom}
+          onWriteTo={(address) =>
+            setCompose({ key: Date.now(), state: composeTo(address, account?.signature) })
+          }
         />
       )}
     </div>

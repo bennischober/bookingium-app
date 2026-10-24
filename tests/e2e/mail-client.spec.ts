@@ -1473,3 +1473,80 @@ test('a folder is moved into another folder by drag and drop', async () => {
     }
   }
 })
+
+// F2: an address in the header starts a NEW mail, not a reply. The mail is
+// one the test sends itself with a Cc, so it owns what it opens.
+const F2_TAG = 'e2e-f2-header-'
+
+test('an address in the header starts a new mail to that person', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const accounts = await listAccounts()
+  const me = accounts.find((a) => a.id === sandboxId)!
+  const ccAddress = `cc-${Date.now()}@example.test`
+  const subject = `${F2_TAG}${Date.now()}`
+
+  try {
+    // A mail of its own, with a Cc and a body that must NOT be quoted
+    await mail(
+      'sendMail',
+      {
+        to: [{ name: 'Ich', email: me.email }],
+        cc: [{ name: 'Cc Person', email: ccAddress }],
+        bcc: [],
+        subject,
+        bodyText: 'Der alte Text, der nicht zitiert werden darf.',
+        bodyHtml: null,
+        inReplyTo: null,
+        references: [],
+        attachments: []
+      },
+      null,
+      sandboxId
+    )
+    const found = await waitFor(
+      () =>
+        mail<{ items: { id: number; subject: string }[] }>(
+          'search',
+          { query: subject, limit: 5 },
+          sandboxId
+        ),
+      (r) => r.items.length > 0,
+      120_000
+    )
+
+    // The mail is in Sent (the test sent it), so it is opened in its own window
+    await openMailPage(sandboxId)
+    const [popup] = await Promise.all([
+      h.app.waitForEvent('window'),
+      page.evaluate(
+        ([account, message]) => window.api.openMailWindow(account, message),
+        [sandboxId, found.items[0].id] as const
+      )
+    ])
+    try {
+      const reader = popup.getByRole('article', { name: 'E-Mail' })
+      await expect(reader).toBeVisible({ timeout: 30_000 })
+    // The Cc address is the button this test clicks
+      await reader.getByRole('button', { name: new RegExp(ccAddress) }).click()
+
+    const editor = popup.getByRole('form', { name: 'E-Mail verfassen' })
+    await expect(editor).toBeVisible({ timeout: 30_000 })
+      // Exactly that recipient: the chip is labelled with its address
+      await expect(
+        editor.getByRole('button', { name: `${ccAddress} entfernen` })
+      ).toBeVisible()
+      // and nobody else was carried over
+      await expect(editor.getByRole('button', { name: /entfernen$/ })).toHaveCount(1)
+    // A NEW mail: no subject, no quoted body, no threading
+    await expect(editor.getByLabel('Betreff')).toHaveValue('')
+      await expect(editor.getByLabel('Text')).not.toHaveValue(/nicht zitiert/)
+    } finally {
+      await popup.close()
+    }
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, F2_TAG)
+  }
+})
