@@ -50,9 +50,13 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | C4 | Invoices: sent mails and replies | M | C1, C2 | done (invoice.mails joins invoice_email.message_id with In-Reply-To/References in the store; card on the invoice page, "Antwort erhalten"; status never changes automatically) |
 | C5 | Attachment → document | M | C2, D1 (optional) | done (chip action opens a dialog pre-selected from the mail's links; main writes the bytes into the owner folder via documentStorage and records `document.source_message_id` + account; D1 category selection not done - D1 is open) |
 | C6 | Mails in the global search | S–M | — | done |
-| D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 | E1 | Seeding without PII | M | — | done |
 | E2 | PII check for tracked files | S | E1 | done |
+| F1 | Test the security boundaries worst-first | L | — | in progress (sanitize.ts done: 25 tests, found 2 real bugs) |
+| F2 | Mail client usability: reuse an old mail as a new one | M | — | open |
+| F3 | Lightweight formatting in compose | M | — | open |
+| F4 | Paste attachments from the clipboard | M | — | open |
+| D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
 E1/E2 touch no core files). Never run two cards at once that touch the same files.
@@ -845,3 +849,84 @@ non-personal addresses (for example `noreply@anthropic.com` in docs, if docs are
 ## Found while working
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
+
+---
+
+## F: hardening and usability
+
+### F1: test the security boundaries worst-first
+
+**Goal.** Every *rule* of the security-critical modules has a test that fails when the rule breaks. Not a
+coverage number: coverage rewards testing getters. Worst-first, because a silent failure in a security boundary is
+worse than a crash.
+
+**Order (worst first, by what a failure would cost).**
+
+1. `sanitize.ts` - **done**, 25 tests, found two real bugs (blocked links lost their URL, `<style>` blocks
+   dropped entirely). See the commit for both.
+2. `remote_images.ts` - the opt-in load path. A bug here leaks the reader's IP to a tracking server the moment a
+   mail is opened.
+3. `write_guard.ts` - **done** as part of A7 part 1 (7 tests: per-account decision, allowlist, TLS).
+4. `compose.ts` - what a sent mail actually contains: header injection, a missing `References` chain, a
+   `Bcc` that leaks into the visible headers.
+5. `files.ts` - path handling: a crafted file name or `file_path` escaping the account folder.
+6. `imap_options.ts` - the plain-login rule (which hosts may authenticate unencrypted).
+7. `store.ts` search - the FTS5 query builder: what a user's search text can do to the query.
+
+**Rules.** One test per documented rule, named after the rule, not the function. A test that cannot fail is
+not a test: check that a new test fails when the rule is removed before committing it. Never assert on a
+snapshot of generated HTML; assert on what the rule guarantees.
+
+**Traps.** `sanitize.ts` needs jsdom, so it is a node-environment test with a real parse. `compose.ts` must be
+asserted on the raw MIME bytes, not on a parsed object. Never weaken a test to make a refactor pass.
+
+---
+
+### F2: reuse an old mail as a new one
+
+**Goal.** In the reading pane, an old mail becomes the starting point of a new one: "Als neue E-Mail verwenden"
+opens the editor with the old mail's subject (prefixed), body quoted and attachments carried over.
+
+**Files.** `components/mail/MessageView.tsx` (the action), `components/mail/composeDraft.ts` (a pure
+`reuseCompose(message)` next to `forwardCompose`), `ComposeView.tsx`.
+
+**Steps.** 1. A pure `reuseCompose(message)` in `composeDraft.ts`, tested like `forwardCompose`. 2. A button
+in the reading pane next to Reply/Forward. 3. Attachments travel along (B7 already fits them); the PDF and images
+are not re-fetched until send. **Traps.** Never send without the user pressing Senden. A forwarded mail keeps its
+`References`; a reused one starts a new thread.
+
+---
+
+### F3: lightweight formatting in compose
+
+**Goal.** Bold, italic, underline and a bulleted list in the compose editor, stored as `text/html` in the draft and
+sent as `multipart/alternative`. Plain text stays the source of truth for search and snippets.
+
+**Files.** `ComposeView.tsx` (a contenteditable body), `composeDraft.ts` (`ComposeState` gains `bodyHtml`),
+`core/compose.ts` (already emits `multipart/alternative` when `bodyHtml` is set), `core/sanitize.ts` (the
+sent HTML goes through the same sanitizer on the way out).
+
+**Steps.** 1. `ComposeState.bodyHtml` next to `bodyText`; `toDraftInput` passes both. 2. A contenteditable
+with four commands (`document.execCommand` is deprecated; use `Selection`/`Range` or a tiny sanitized HTML model).
+3. Plain text is derived from the HTML for the text part, so a recipient without HTML still reads it.
+
+**Traps.** Never trust the composed HTML: it leaves through the same sanitizer as incoming mail. Never lose the plain
+text part - it is what search and snippets use.
+
+---
+
+### F4: paste attachments from the clipboard
+
+**Goal.** Ctrl+V in the editor attaches a copied file, and a pasted image becomes an attachment rather than a
+`data:` URI in the body.
+
+**Files.** `ComposeView.tsx` (the paste handler), `core/compose.ts` (already carries `attachments`),
+`mailclient/attachments.ts` (`safeAttachmentName`, `base64Bytes`, the size cap from B7).
+
+**Steps.** 1. A paste handler reads `ClipboardEvent.clipboardData.files`; with no file it falls through to the
+default text paste. 2. Each file goes through `attachmentsFit`/`base64Bytes` (B7) and appears as a chip. 3. An image
+pasted from a screenshot is an attachment, never an inline `data:` URI in the body.
+
+**Traps.** The renderer must never get a filesystem path it can write to: the bytes come through the clipboard, and the
+name through `safeAttachmentName`. A pasted image must not become part of the HTML body - the sanitizer would keep a
+`data:` URI and the mail would grow without a visible attachment.
