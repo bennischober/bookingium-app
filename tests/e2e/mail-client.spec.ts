@@ -331,12 +331,20 @@ test('a mail dragged onto a folder is moved there', async () => {
     (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
   const folders = await mail<Folder[]>('getFolders', sandboxId)
   const inbox = folders.find((f) => f.path === 'INBOX')!
-  // A top-level folder, so the tree shows it without expanding anything
-  const target = folders.find((f) => f.path !== 'INBOX' && !f.specialUse)
-  test.skip(!target, 'the sandbox has no plain top-level folder')
+  // Its own top-level folder: a shared one collects mail from other suites and
+  // makes the counts below depend on what ran before
+  const targetPath = `E2E-Drag-${Date.now()}`
+  await mail('createFolder', null, targetPath, sandboxId)
+  const target = (await waitFor(
+    async () => mail<Folder[]>('getFolders', sandboxId),
+    (list) => list.some((f) => f.path === targetPath),
+    30_000
+  )).find((f) => f.path === targetPath)!
   // The inbox may still be downloading and growing, so the mail itself is followed;
   // a move keeps its row id
-  const targetBefore = target!.totalCount
+  // The folder list's totalCount can lag behind the store, so both sides of the
+  // assertions below are live counts
+  const targetBefore = await count(target!.id)
   const folderOf = async (id: number) =>
     (await mail<{ folderId: string }>('getMessage', id, sandboxId)).folderId
 
@@ -377,6 +385,8 @@ test('a mail dragged onto a folder is moved there', async () => {
   } finally {
     // The sandbox stays as it was, also when a check above failed
     if ((await folderOf(id).catch(() => null)) === target!.id) await undo()
+    // The folder was empty before the move and is again after the undo
+    await mail('deleteFolder', targetPath, sandboxId).catch(() => undefined)
   }
 })
 
