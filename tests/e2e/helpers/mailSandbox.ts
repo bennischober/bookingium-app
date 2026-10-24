@@ -83,7 +83,9 @@ export async function appendTestMail(
   host: string,
   port: number,
   subject: string,
-  attachment?: { filename: string; contentType: string; body: string }
+  attachment?: { filename: string; contentType: string; body: string },
+  /** the sender; defaults to the suite's own address */
+  fromEmail = E2E_MAIL_USER
 ): Promise<void> {
   const client = new ImapFlow({
     host,
@@ -98,7 +100,7 @@ export async function appendTestMail(
     const text = 'Diese Mail legt der Test selbst an und loescht sie wieder.'
     const raw = attachment
       ? [
-          'From: E2E Absender <absender@example.test>',
+          `From: E2E Absender <${fromEmail}>`,
           `To: ${E2E_MAIL_USER}`,
           `Subject: ${subject}`,
           `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
@@ -120,7 +122,7 @@ export async function appendTestMail(
           ''
         ].join('\r\n')
       : [
-          'From: E2E Absender <absender@example.test>',
+          `From: E2E Absender <${fromEmail}>`,
           `To: ${E2E_MAIL_USER}`,
           `Subject: ${subject}`,
           `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,

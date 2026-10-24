@@ -597,10 +597,12 @@ export class MailCore implements Api {
       const payload = JSON.parse(op.payload || '{}') as { movedTo?: BatchMoved[] };
       const members: BatchMember[] = (payload.movedTo ?? [])
         .map(m => {
+          // the row is keyed by the uid the MOVE gave it, not the source key
+          const key = m.newKey ?? m.messageKey;
           const row = e.store.db.prepare(
-            'SELECT uid FROM messages WHERE message_key = ?').get(m.messageKey) as
+            'SELECT uid FROM messages WHERE message_key = ?').get(key) as
             { uid: number } | undefined;
-          return row ? { uid: row.uid, messageKey: m.messageKey, messageId: null as string | null } : null;
+          return row ? { uid: row.uid, messageKey: key, messageId: null as string | null } : null;
         })
         .filter((m): m is BatchMember => m !== null);
       if (members.length === 0) throw new Error('undo: none of the moved mails is in the local store (resync needed)');
@@ -676,13 +678,22 @@ export class MailCore implements Api {
   }
 
   async findByMessageIds(ids: string[], accountId?: string): Promise<MessageListItem[]> {
-    const wanted = ids.filter(Boolean);
-    if (wanted.length === 0) return [];
+    // Callers may pass a Message-ID with or without its angle brackets (the app DB
+    // stores it without, the store keeps what the server sent), so both forms match.
+    const wanted = new Set<string>();
+    for (const raw of ids) {
+      const bare = normalizeMessageId(raw);
+      if (!bare) continue;
+      wanted.add(bare);
+      wanted.add(`<${bare}>`);
+    }
+    if (wanted.size === 0) return [];
     const store = this.entry(accountId).store;
+    const all = [...wanted];
     // chunked: SQLite's variable limit is well above this, but a caller may pass many
     const out: MessageListItem[] = [];
-    for (let i = 0; i < wanted.length; i += 200) {
-      const chunk = wanted.slice(i, i + 200);
+    for (let i = 0; i < all.length; i += 200) {
+      const chunk = all.slice(i, i + 200);
       const rows = store.db.prepare(
         `SELECT * FROM messages WHERE message_id IN (${chunk.map(() => '?').join(',')})`)
         .all(...chunk) as import('./store.js').MessageRow[];
@@ -856,6 +867,7 @@ export class MailCore implements Api {
     const attachments = this.parseAttachments(row);
     return {
       id: row.id,
+      messageId: row.message_id,
       folderId: row.folder_id,
       uid: row.uid,
       subject: row.subject || '(no subject)',
@@ -1167,4 +1179,9 @@ function parseJsonArray(raw: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+/** A Message-ID without its angle brackets, so both forms compare equal */
+export function normalizeMessageId(raw: string | null | undefined): string {
+  return (raw ?? '').replace(/^</, '').replace(/>$/, '').trim();
 }

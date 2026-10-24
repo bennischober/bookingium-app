@@ -15,6 +15,8 @@ export type FolderNode = {
 
 export type MessageListItem = {
   id: number;              // DB row id
+  /** the mail's Message-ID as the server sent it (with angle brackets); null if it has none */
+  messageId: string | null;
   folderId: string;
   uid: number;
   subject: string;

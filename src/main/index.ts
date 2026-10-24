@@ -519,7 +519,27 @@ app.whenReady().then(async () => {
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
-  const linkQueue = new Map<string, Promise<void>>()
+  // One run per account at a time. A folder event that arrives during a run must not
+  // be dropped: the mails it announced may have been synced after the run's cursor
+  // passed them, so the run is repeated once instead.
+  const linkRunning = new Set<string>()
+  const linkAgain = new Set<string>()
+  const runLinker = (accountId: string): void => {
+    if (linkRunning.has(accountId)) {
+      linkAgain.add(accountId)
+      return
+    }
+    linkRunning.add(accountId)
+    const ownEmail = listMailAccounts().find((a) => a.id === accountId)?.email ?? ''
+    void mailLinks
+      .linkAccount(accountId, ownEmail)
+      .catch(() => undefined)
+      .finally(() => {
+        linkRunning.delete(accountId)
+        // Work that arrived during the run gets its own pass
+        if (linkAgain.delete(accountId)) runLinker(accountId)
+      })
+  }
   mailClient.events.on('event', (event) => {
     const e = event as {
       type?: string
@@ -530,19 +550,8 @@ app.whenReady().then(async () => {
     // INBOX and Sent are where the mails that matter arrive
     const path = e.event.path?.toUpperCase()
     if (path !== 'INBOX' && !path?.endsWith('SENT')) return
-    const accountId = e.accountId
-    if (!accountId) return
-    // One run per account at a time; a burst of folder events must not stack up
-    if (linkQueue.has(accountId)) return
-    const ownEmail = listMailAccounts().find((a) => a.id === accountId)?.email ?? ''
-    linkQueue.set(
-      accountId,
-      mailLinks
-        .linkAccount(accountId, ownEmail)
-        .then(() => undefined)
-        .catch(() => undefined)
-        .finally(() => linkQueue.delete(accountId))
-    )
+    if (!e.accountId) return
+    runLinker(e.accountId)
   })
   // B6: opened attachments live a day at most
   void cleanAttachmentTemp()

@@ -248,6 +248,13 @@ export class MailLinkService {
     ownEmail: string
   ): Promise<{ linked: number; scanned: number }> {
     let cursor = this.cursorFor(accountId)
+    // A rebuild of the store (or a full re-sync) inserts the mails again with fresh,
+    // higher row ids, so a stored cursor would skip them forever. The cursor is only
+    // trusted while the store still holds a mail at or below it.
+    if (cursor > 0 && !(await this.storeHasRowAt(accountId, cursor))) {
+      cursor = 0
+      this.saveCursor(accountId, 0)
+    }
     let linked = 0
     let scanned = 0
     for (;;) {
@@ -265,6 +272,21 @@ export class MailLinkService {
       await new Promise((resolve) => setTimeout(resolve, 0))
     }
     return { linked, scanned }
+  }
+
+  /** Whether the store still holds a mail at or below the cursor (else it was rebuilt) */
+  private async storeHasRowAt(accountId: string, cursor: number): Promise<boolean> {
+    try {
+      const rows = (await mailClient.call('listHeadersSince', [
+        Math.max(0, cursor - 1),
+        1,
+        accountId
+      ])) as MessageHeader[]
+      return rows.length > 0 && rows[0].id <= cursor
+    } catch {
+      // Cannot tell: keep the cursor, re-linking is harmless
+      return true
+    }
   }
 
   /** The mails linked to one record, for the history panel of C3 */

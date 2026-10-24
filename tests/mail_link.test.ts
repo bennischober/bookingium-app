@@ -249,6 +249,30 @@ describe('mail_link repository (C2)', () => {
     expect(svc.cursorFor('acc')).toBe(0)
   })
 
+  it('restarts from 0 when the store no longer holds the cursor row', async () => {
+    // No worker in a unit test: the header query answers "the store is empty"
+    const { mailClient } = await import('../src/main/mailclient/MailClientService')
+    const call = mailClient.call.bind(mailClient)
+    mailClient.call = (async () => []) as never
+    // A rebuilt store numbers its rows again from 1, so a stored cursor would skip
+    // every mail for good. The worker reports the store's newest row here.
+    const settings = container.resolve(SettingsRepository)
+    settings.setMany({ 'mailLinkCursor:acc': '9999' })
+    const svc = service()
+    // The store holds no mail at or below the cursor, so it cannot be trusted
+    const internals = svc as unknown as {
+      storeHasRowAt: (accountId: string, cursor: number) => Promise<boolean>
+    }
+    internals.storeHasRowAt = async () => false
+    try {
+      const result = await svc.linkAccount('acc', 'ich@example.test')
+      expect(result).toEqual({ linked: 0, scanned: 0 })
+      expect(svc.cursorFor('acc')).toBe(0)
+    } finally {
+      mailClient.call = call as never
+    }
+  })
+
   it('links a batch of headers and counts only the new links', () => {
     const { personId } = seedPerson('erika@example.test')
     const svc = service()
@@ -259,6 +283,32 @@ describe('mail_link repository (C2)', () => {
     expect(svc.linkBatch('acc', 'ich@example.test', headers)).toBe(2)
     // Running the same batch again adds nothing
     expect(svc.linkBatch('acc', 'ich@example.test', headers)).toBe(0)
+    expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
+  })
+})
+
+describe('mailLink.listByEntity (C3)', () => {
+  it('returns the links of a record, newest first', async () => {
+    const sqlite = getTestDb().sqlite
+    const contactId = Number(
+      sqlite.prepare("INSERT INTO contact (email) VALUES ('erika@example.test')").run()
+        .lastInsertRowid
+    )
+    const personId = Number(
+      sqlite
+        .prepare(
+          "INSERT INTO person (first_name, last_name, contact_id) VALUES ('Erika','Musterfrau',?)"
+        )
+        .run(contactId).lastInsertRowid
+    )
+    for (const id of ['<a@example.test>', '<b@example.test>']) {
+      sqlite
+        .prepare(
+          "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source) VALUES ('acc',?,'person',?,'address')"
+        )
+        .run(id, personId)
+    }
+    const svc = container.resolve(MailLinkService)
     expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
   })
 })

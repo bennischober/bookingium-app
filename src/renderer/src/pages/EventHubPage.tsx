@@ -1,3 +1,4 @@
+import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useState } from 'react'
 import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
@@ -174,6 +175,7 @@ export function EventHubPage() {
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="mails">E-Mails</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -206,6 +208,10 @@ export function EventHubPage() {
 
         <TabsContent value="documents">
           <DocumentsPanel ownerType="event" ownerId={event.id} />
+        </TabsContent>
+
+        <TabsContent value="mails">
+          <MailHistoryPanel entityType="event" entityId={event.id} />
         </TabsContent>
       </Tabs>
     </div>

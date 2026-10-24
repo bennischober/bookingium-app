@@ -28,8 +28,15 @@ export type OpResult =
 
 /** B4: one mail inside a batch move, as the op's payload records it */
 export type BatchMember = { uid: number; messageKey: string; messageId: string | null }
-/** B4: where a member landed (COPYUID); durable before the local rows change */
-export type BatchMoved = { uid: number; messageKey: string; destUid: number }
+/** B4: where a member landed (COPYUID); durable before the local rows change.
+ *  `messageKey` is the source key the move started from, `newKey` the row's key after it. */
+export type BatchMoved = {
+  uid: number
+  messageKey: string
+  destUid: number
+  /** set once the local row has been re-keyed; undo finds the row by it */
+  newKey?: string
+}
 
 export class WriteEngine {
   // serialized playback: one operation at a time per account
@@ -659,8 +666,14 @@ export class WriteEngine {
 
   private applyBatchLocally(op: JournalRow, targetPath: string, moved: BatchMoved[]): void {
     for (const m of moved) {
-      this.applyMoveLocallyForKey(op, targetPath, m.destUid, m.messageKey)
+      m.newKey = this.applyMoveLocallyForKey(op, targetPath, m.destUid, m.messageKey) ?? undefined
     }
+    // The rows are re-keyed now: record their new keys, or undo cannot find them
+    const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<
+      string,
+      unknown
+    >
+    this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: moved } })
   }
 
   /** Crash between copy and delete: is our message-id already at the destination? */

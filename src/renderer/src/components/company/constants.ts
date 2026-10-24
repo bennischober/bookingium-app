@@ -6,7 +6,8 @@ export const COMPANY_TABS = [
   'venues',
   'events',
   'invoices',
-  'documents'
+  'documents',
+  'mails'
 ] as const
 export type CompanyTab = (typeof COMPANY_TABS)[number]
 

@@ -1066,3 +1066,50 @@ test('a mail written with an attachment arrives with it', async () => {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, ATTACH_COMPOSE_TAG)
   }
 })
+
+// C3: a mail from a person's own address shows up in that person's E-Mails tab.
+// The mail is one this test appends itself; only the row count is checked.
+const LINK_TAG = 'e2e-link-'
+const LINKED_PERSON = { firstName: 'John', lastName: 'Rockstar' }
+const LINKED_ADDRESS = 'john.rockstar@music.example.test'
+
+test("a mail from a person's address appears in their E-Mails tab", async () => {
+  test.setTimeout(240_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const tag = `${LINK_TAG}${Date.now()}`
+
+  try {
+    // 1. A mail from the address the seeded person owns
+    await appendTestMail(SANDBOX.host, SANDBOX.port, tag, undefined, LINKED_ADDRESS)
+    await mail('triggerSync', true, sandboxId)
+
+    // 2. The person's page shows the mail in its E-Mails tab. The linker runs
+    // after the folder sync, so the panel is polled rather than slept on.
+    await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
+    await page
+      .getByPlaceholder('Seiten, Einträge oder Aktionen suchen...')
+      .fill(LINKED_PERSON.firstName)
+    await page
+      .getByRole('option', {
+        name: new RegExp(`${LINKED_PERSON.firstName} ${LINKED_PERSON.lastName}`)
+      })
+      .first()
+      .click()
+    await expect(
+      page.getByRole('heading', { name: `${LINKED_PERSON.firstName} ${LINKED_PERSON.lastName}` })
+    ).toBeVisible()
+    await page.getByRole('tab', { name: 'E-Mails' }).click()
+    // The linker runs after the folder sync and works through the mailbox in
+    // batches, so the row is awaited rather than slept on.
+    const panel = page.getByRole('list', { name: 'E-Mails' })
+    // The row for this test's own mail: the seeded person may have other mails
+    const row = panel.getByRole('listitem').filter({ hasText: tag })
+    await expect(row).toHaveCount(1, { timeout: 60_000 })
+    // The link source is shown small, and it is an automatic one
+    await expect(row).toContainText('automatisch')
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, LINK_TAG)
+  }
+})

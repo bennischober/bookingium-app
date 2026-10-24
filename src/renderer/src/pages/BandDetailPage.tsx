@@ -1,3 +1,4 @@
+import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -196,6 +197,7 @@ export default function BandDetailPage() {
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="contracts">Managementverträge</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="mails">E-Mails</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -213,6 +215,9 @@ export default function BandDetailPage() {
         <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="band" ownerId={band.id} title="Dokumente der Band" />
           <EventDocumentsList bandId={band.id} />
+        </TabsContent>
+        <TabsContent value="mails">
+          <MailHistoryPanel entityType="band" entityId={band.id} />
         </TabsContent>
       </Tabs>
 

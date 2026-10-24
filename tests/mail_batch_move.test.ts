@@ -232,18 +232,15 @@ describe('batch move in one UID MOVE (B4)', () => {
     const moved = JSON.parse(done.payload || '{}') as { movedTo: { messageKey: string }[] }
     expect(moved.movedTo).toHaveLength(50)
 
-    const members = moved.movedTo.map((m, i) => {
-      // The row is keyed by the uid the MOVE gave it: 1000+i from the stub's uidMap
+    // Undo finds each row by the key the MOVE gave it (newKey), not the source key
+    const members = moved.movedTo.map((m) => {
+      expect(m.newKey, 'the new key is recorded').toBe(
+        store.messageKey(ACCOUNT, ARCHIVE.id, ARCHIVE.uidValidity, m.destUid)
+      )
       const row = store.db
         .prepare('SELECT uid FROM messages WHERE message_key = ?')
-        .get(store.messageKey(ACCOUNT, ARCHIVE.id, ARCHIVE.uidValidity, 1000 + i)) as {
-        uid: number
-      }
-      return {
-        uid: row.uid,
-        messageKey: store.messageKey(ACCOUNT, ARCHIVE.id, ARCHIVE.uidValidity, 1000 + i),
-        messageId: null as string | null
-      }
+        .get(m.newKey!) as { uid: number }
+      return { uid: row.uid, messageKey: m.newKey!, messageId: null as string | null }
     })
     expect(members).toHaveLength(50)
     const inverseId = store.journalEnqueue({
