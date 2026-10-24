@@ -23,6 +23,7 @@ import { DataDirLock, InstanceLockError } from './instance_lock.js';
 import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
+import { isMessageFile, writeMessageFile } from './files.js';
 
 export type Logger = {
   info?: (msg: string) => void;
@@ -192,9 +193,11 @@ export class MailCore implements Api {
   }
 
   async getSyncStatus(accountId?: string): Promise<SyncStatus> {
+    const e = this.entry(accountId);
     return {
-      ...this.entry(accountId).engine.getStatus(),
+      ...e.engine.getStatus(),
       serverRssMB: Math.round(process.memoryUsage().rss / 1e6),
+      fileConsistency: this.checkFileConsistency(accountId),
     };
   }
 
@@ -286,14 +289,14 @@ export class MailCore implements Api {
     const e = this.entry(accountId);
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    return new Uint8Array(fs.readFileSync(path.join(e.config.dataDir, row.file_path)));
+    return new Uint8Array(fs.readFileSync(e.store.filePath(row.file_path)));
   }
 
   async getAttachment(id: number, partId: string, accountId?: string): Promise<Uint8Array> {
     const e = this.entry(accountId);
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    const source = fs.readFileSync(path.join(e.config.dataDir, row.file_path));
+    const source = fs.readFileSync(e.store.filePath(row.file_path));
     const parsed = await simpleParser(source);
     const att = (parsed.attachments || []).find(a => a.partId === partId);
     if (!att) throw new Error(`attachment ${partId} not found in message ${id}`);
@@ -694,7 +697,7 @@ export class MailCore implements Api {
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`draft ${id} not found`);
     // from the stored source, not the row: the row has no Bcc and no attachment content
-    const parsed = await simpleParser(fs.readFileSync(path.join(e.config.dataDir, row.file_path)));
+    const parsed = await simpleParser(fs.readFileSync(e.store.filePath(row.file_path)));
     const list = (field: typeof parsed.to) => (Array.isArray(field) ? field : field ? [field] : [])
       .flatMap(a => a.value)
       .filter(a => a.address)
@@ -826,7 +829,7 @@ export class MailCore implements Api {
   private async attachmentsOf(e: AccountEntry, id: number): Promise<{ filename: string; contentType: string; content: Buffer }[]> {
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    const parsed = await simpleParser(fs.readFileSync(path.join(e.config.dataDir, row.file_path)));
+    const parsed = await simpleParser(fs.readFileSync(e.store.filePath(row.file_path)));
     return (parsed.attachments || [])
       .filter(a => a.contentDisposition !== 'inline' || !a.contentId)
       .map(a => ({ filename: a.filename || 'Anhang', contentType: a.contentType, content: a.content }));
@@ -865,29 +868,126 @@ export class MailCore implements Api {
     }
   }
 
-  /** Periodic orphan-file sweep (files without rows, mtime older than `graceMs`). */
-  sweepOrphans(graceMs = 10 * 60 * 1000): number {
-    let removed = 0;
+  /**
+   * A3 step 6: resolve once no account is in its initial download (or timeout).
+   * Housekeeping waits for this so a sweep never competes with a first sync.
+   */
+  async whenIdleForMaintenance(timeoutMs = 120_000): Promise<void> {
+    const until = Date.now() + timeoutMs;
+    for (;;) {
+      const busy = [...this.entries.values()].some(e =>
+        e.engine.isSyncing() && e.engine.getStatus().phase === 'initial');
+      if (!busy) return;
+      if (Date.now() > until) return;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+
+  /**
+   * Periodic orphan-file sweep (card A3 step 6). Files that belong to no row are MOVED to
+   * `<accountDir>/orphans/` after the grace period, never deleted straight away; files that
+   * have sat there for 7 days are deleted. A `.tmp` file older than the grace period is
+   * treated like an orphan (its write never completed). Files a row references are never
+   * touched. Returns the number of files moved to `orphans/`.
+   */
+  sweepOrphans(graceMs = 10 * 60 * 1000, orphanTtlMs = 7 * 24 * 60 * 60 * 1000): number {
+    let moved = 0;
+    const now = this.clock();
     for (const [id, e] of this.entries) {
       try {
-        const dir = e.config.dataDir;
+        const dir = e.store.dataDirResolved;
         if (!fs.existsSync(dir)) continue;
         const known = new Set(
           (e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[])
             .map(r => r.file_path));
-        const cutoff = this.clock() - graceMs;
+        const orphanDir = path.join(dir, 'orphans');
+        const cutoff = now - graceMs;
         for (const f of fs.readdirSync(dir)) {
-          if (!f.endsWith('.eml') || known.has(f)) continue;
+          if (!isMessageFile(f) || known.has(f)) continue;
           try {
-            const st = fs.statSync(path.join(dir, f));
-            if (st.mtimeMs < cutoff) { fs.unlinkSync(path.join(dir, f)); removed++; }
+            const abs = path.join(dir, f);
+            if (fs.statSync(abs).mtimeMs >= cutoff) continue;
+            fs.mkdirSync(orphanDir, { recursive: true });
+            fs.renameSync(abs, path.join(orphanDir, f));
+            moved++;
           } catch { /* racing with the row insert — next sweep retries */ }
+        }
+        // Files parked in orphans/ expire after a week
+        if (fs.existsSync(orphanDir)) {
+          const expiry = now - orphanTtlMs;
+          for (const f of fs.readdirSync(orphanDir)) {
+            try {
+              const abs = path.join(orphanDir, f);
+              if (fs.statSync(abs).mtimeMs < expiry) fs.unlinkSync(abs);
+            } catch { /* another sweep or a lock — next one retries */ }
+          }
         }
       } catch (err) {
         this.log.error?.(`orphan sweep (${id}) failed: ${(err as Error).message}`);
       }
     }
-    return removed;
+    return moved;
+  }
+
+  /**
+   * A3 step 5: re-fetch the source of rows whose file is missing and rewrite it.
+   * A FETCH is a read, so this is allowed for read-only accounts too, but it must use
+   * the sync engine's own connection (the 2-connection limit) - never a new client.
+   * At most `limit` rows per pass, so a big repair never blocks the sync loop.
+   * Rows whose UID is gone from the server are left alone: the normal sync removes them.
+   */
+  async repairMissingFiles(limit = 50, accountId?: string): Promise<{ repaired: number; left: number }> {
+    const e = this.entry(accountId);
+    const dir = e.store.dataDirResolved;
+    const rows = e.store.db.prepare(
+      'SELECT id, folder_id, uid, file_path FROM messages ORDER BY id DESC')
+      .all() as { id: number; folder_id: string; uid: number; file_path: string }[];
+    const onDisk = new Set(fs.existsSync(dir) ? fs.readdirSync(dir) : []);
+    const missing = rows.filter(r => !onDisk.has(r.file_path)).slice(0, limit);
+    if (!missing.length) return { repaired: 0, left: 0 };
+
+    const client = await e.engine.connection();
+    let repaired = 0;
+    for (const row of missing) {
+      const folder = e.store.getFolder(row.folder_id);
+      if (!folder) continue;
+      try {
+        await client.mailboxOpen(folder.imap_path);
+        for await (const msg of client.fetch(String(row.uid), {
+          uid: true, source: true, flags: true, internalDate: true, size: true,
+        }, { uid: true })) {
+          if (!msg.source) continue;
+          const relPath = writeMessageFile(dir, msg.source);
+          e.store.db.prepare('UPDATE messages SET file_path = ? WHERE id = ?').run(relPath, row.id);
+          repaired++;
+        }
+      } catch (err) {
+        this.log.warn?.(`repair (${row.id}) skipped: ${(err as Error).message.slice(0, 80)}`);
+      }
+    }
+    const left = rows.filter(r => !onDisk.has(r.file_path)).length - repaired;
+    return { repaired, left: Math.max(0, left) };
+  }
+
+  /**
+   * Consistency of rows and files (card A3 step 4). Read-only, counts only.
+   */
+  checkFileConsistency(accountId?: string): { rowsWithoutFile: number; filesWithoutRow: number; tmpFiles: number } {
+    const e = this.entry(accountId);
+    const dir = e.store.dataDirResolved;
+    const rows = e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[];
+    const onDisk = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+    const files = new Set(onDisk.filter(isMessageFile));
+    const referenced = new Set(rows.map(r => r.file_path));
+    let rowsWithoutFile = 0;
+    for (const r of referenced) if (!files.has(r)) rowsWithoutFile++;
+    let filesWithoutRow = 0;
+    let tmpFiles = 0;
+    for (const f of files) {
+      if (f.endsWith('.tmp')) tmpFiles++;
+      if (!referenced.has(f)) filesWithoutRow++;
+    }
+    return { rowsWithoutFile, filesWithoutRow, tmpFiles };
   }
 
   /** Shutdown contract (see README.md):

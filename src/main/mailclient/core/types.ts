@@ -126,6 +126,8 @@ export type SyncStatus = {
   connection?: ConnectionState;     // 'auth-failed' is final until the host restarts the core
   retryAt?: string | null;          // when offline: ISO time of the next attempt
   connectionError?: string | null;  // the last connect failure, as the server or socket said it
+  /** A3: file/row consistency of this account (counts only; see MailCore.checkFileConsistency) */
+  fileConsistency?: { rowsWithoutFile: number; filesWithoutRow: number; tmpFiles: number };
 };
 
 /** How an IMAP connection is encrypted: TLS from the first byte, upgraded with STARTTLS, or

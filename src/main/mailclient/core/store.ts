@@ -138,6 +138,12 @@ export class Store {
   }
   readonly dataDirResolved: string;
 
+  /** A3/A4: the ONE way to turn a stored relative file name into a path. Every
+   *  message file access goes through here, so the base can never drift. */
+  filePath(rel: string): string {
+    return path.join(this.dataDirResolved, rel);
+  }
+
   messageKey(accountId: string, folderId: string, uidValidity: string, uid: number): string {
     // folderId is part of the key: UIDVALIDITY is per-mailbox and can coincide across
     // folders, and UIDs repeat in every folder. Without the folder this collides.

@@ -28,9 +28,9 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | T4 | Sandbox count script | S | — | done |
 | P1 | Prototype: fix F1–F6, rerun fuzz + soak | M | — | open (prototype repo) |
 | A1 | Fix expunge (F7) | S | T1 | done |
-| A2 | Port Task 5 gates: Gate 0, UIDPLUS-less, mutex dedupe | M | T1 | open |
-| A3 | Crash-safe `.eml` files, consistency check, orphan sweep | M–L | A1 | open |
-| A4 | One file base | S | A3 | open |
+| A2 | Port Task 5 gates: Gate 0, UIDPLUS-less, mutex dedupe | M | T1 | done |
+| A3 | Crash-safe `.eml` files, consistency check, orphan sweep | M–L | A1 | done |
+| A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | open |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | open |
 | A7 | Per-account write path | L | A1–A6 | open, design **[user]** for the canary part |

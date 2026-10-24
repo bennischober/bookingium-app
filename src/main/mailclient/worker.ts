@@ -41,6 +41,68 @@ function init(options: WorkerInit): void {
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
   core.start()
+  scheduleMaintenance(core)
+}
+
+/**
+ * A3 step 6: the periodic housekeeping the core never starts itself.
+ * - orphan sweep: once 10 minutes after start, then every 6 hours
+ * - repair of rows whose file is missing: 2 minutes after start, then hourly
+ * Both wait for an initial sync to finish, so neither competes with the download.
+ */
+function scheduleMaintenance(mailCore: MailCore): void {
+  const runWhenIdle = async (what: string, fn: () => void): Promise<void> => {
+    try {
+      await mailCore.whenIdleForMaintenance(120_000)
+      fn()
+    } catch (error) {
+      send({
+        type: 'log',
+        level: 'warn',
+        message: `${what} skipped: ${error instanceof Error ? error.message : String(error)}`
+      })
+    }
+  }
+
+  setTimeout(
+    () =>
+      void runWhenIdle('orphan sweep', () => {
+        const moved = mailCore.sweepOrphans()
+        if (moved)
+          send({ type: 'log', level: 'info', message: `orphan sweep: ${moved} file(s) parked` })
+      }),
+    10 * 60 * 1000
+  ).unref()
+
+  setInterval(
+    () =>
+      void runWhenIdle('orphan sweep', () => {
+        const moved = mailCore.sweepOrphans()
+        if (moved)
+          send({ type: 'log', level: 'info', message: `orphan sweep: ${moved} file(s) parked` })
+      }),
+    6 * 60 * 60 * 1000
+  ).unref()
+
+  setTimeout(
+    () =>
+      void runWhenIdle('file repair', () => {
+        void mailCore.repairMissingFiles().catch(() => {
+          /* logged by the core */
+        })
+      }),
+    2 * 60 * 1000
+  ).unref()
+
+  setInterval(
+    () =>
+      void runWhenIdle('file repair', () => {
+        void mailCore.repairMissingFiles().catch(() => {
+          /* logged by the core */
+        })
+      }),
+    60 * 60 * 1000
+  ).unref()
 }
 
 async function call(id: number, method: string, args: unknown[]): Promise<void> {

@@ -17,10 +17,10 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
 import { Store, Flags } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
+import { writeMessageFile } from './files.js';
 
 export interface AccountConfig {
   id: string;
@@ -243,6 +243,10 @@ export class SyncEngine {
   }
 
   isSyncing(): boolean { return this.syncing; }
+
+  /** A3: the sync engine's own connection, for read-only work (repair fetches).
+   *  Shares the 2-connection limit; callers must not open a second client. */
+  connection(): Promise<ImapFlow> { return this.connect(); }
 
   /** Task 3: pause the initial download (drains within ~one batch, then idles). */
   pause(): void {
@@ -478,7 +482,7 @@ export class SyncEngine {
         .all(f.id) as { id: number; file_path: string }[];
       this.store.deleteMessages(rows.map(r => r.id));
       for (const r of rows) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* vanished folder: the file may already be gone, and the row is deleted either way */ }
+        try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* vanished folder: the file may already be gone, and the row is deleted either way */ }
       }
       this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(f.id);
     }
@@ -587,7 +591,7 @@ export class SyncEngine {
       );
       for (const r of oldRows) {
         if (survivingKeys.has(r.message_key)) continue;
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* UIDVALIDITY swap: an unreadable leftover is an orphan for the sweep, never a row without a file */ }
+        try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* UIDVALIDITY swap: an unreadable leftover is an orphan for the sweep, never a row without a file */ }
       }
       this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
       this.emit({ type: 'folder-done', path: imapPath, newCount: serverUids.size, flagChanges: 0, expunged: oldRows.length, moved: 0 });
@@ -599,7 +603,7 @@ export class SyncEngine {
           .all(tempFolder.id) as { id: number; file_path: string }[];
         this.store.deleteMessages(staged.map(r => r.id));
         for (const r of staged) {
-          try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* aborted staging download: the file is re-downloadable, so a failed unlink only leaves an orphan */ }
+          try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* aborted staging download: the file is re-downloadable, so a failed unlink only leaves an orphan */ }
         }
         this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
       }
@@ -612,7 +616,7 @@ export class SyncEngine {
       .all(folderId) as { id: number; file_path: string }[];
     this.store.deleteMessages(rows.map(r => r.id));
     for (const r of rows) {
-      try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* already gone */ }
+      try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* already gone */ }
     }
   }
 
@@ -640,7 +644,7 @@ export class SyncEngine {
     if (expungedLocal.length) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* local uid vanished server-side: the row is gone already, a leftover file is an orphan for the sweep */ }
+        try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* local uid vanished server-side: the row is gone already, a leftover file is an orphan for the sweep */ }
       }
       expunged = expungedLocal.length;
     }
@@ -702,7 +706,7 @@ export class SyncEngine {
     if (expungedLocal.length) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
-        try { fs.unlinkSync(path.join(this.account.dataDir, r.file_path)); } catch { /* server-side expunge: the row is gone already, a leftover file is an orphan for the sweep */ }
+        try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* server-side expunge: the row is gone already, a leftover file is an orphan for the sweep */ }
       }
       expunged = expungedLocal.length;
     }
@@ -827,10 +831,10 @@ export class SyncEngine {
     // idempotency: the IDLE connection and the main sync connection may both reach the
     // same new UID (message_key is UNIQUE) — the second one must be a no-op, not an error.
     if (this.store.getByKey(key)) return;
-    const relPath = `${key}.eml`;   // flat under the account dir; DB owns the mapping
-    const absPath = path.join(this.account.dataDir, relPath);
-    fs.mkdirSync(path.dirname(absPath), { recursive: true });
-    fs.writeFileSync(absPath, msg.source);
+    // A3: opaque, permanent file name, written crash-safely (tmp -> fsync -> rename).
+    // The row points at a file that exists: if the rename keeps failing, the file stays
+    // under its .tmp name and that name is what the row stores.
+    const relPath = writeMessageFile(this.store.dataDirResolved, msg.source);
 
     let parsed: Awaited<ReturnType<typeof simpleParser>>;
     try {
@@ -838,15 +842,21 @@ export class SyncEngine {
     } catch (e) {
       // insert minimal row so the message is not silently lost
       const flags = flagsFromSet(msg.flags);
-      this.store.insertMessage({
-        account_id: this.account.id, folder_id: folderId, uid: msg.uid, message_key: key, file_path: relPath,
-        message_id: null, in_reply_to: null, references_json: '[]', thread_id: null,
-        date: toIso(msg.internalDate), internal_date: toIso(msg.internalDate),
-        subject: '', from_name: '', from_email: '', to_json: '[]', cc_json: '[]', bcc_json: '[]',
-        flags_json: JSON.stringify(flags), modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
-        has_attachments: 0, attachments_json: '[]', size_bytes: msg.source.length,
-        body_text: '', body_html: null, snippet: '', parsed_ok: 0, parse_error: (e as Error).message,
-      });
+      try {
+        this.store.insertMessage({
+          account_id: this.account.id, folder_id: folderId, uid: msg.uid, message_key: key, file_path: relPath,
+          message_id: null, in_reply_to: null, references_json: '[]', thread_id: null,
+          date: toIso(msg.internalDate), internal_date: toIso(msg.internalDate),
+          subject: '', from_name: '', from_email: '', to_json: '[]', cc_json: '[]', bcc_json: '[]',
+          flags_json: JSON.stringify(flags), modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
+          has_attachments: 0, attachments_json: '[]', size_bytes: msg.source.length,
+          body_text: '', body_html: null, snippet: '', parsed_ok: 0, parse_error: (e as Error).message,
+        });
+      } catch (insertError) {
+        // the other connection won the UNIQUE race: our file belongs to no row
+        this.removeFile(relPath);
+        if (!/UNIQUE/i.test((insertError as Error).message)) throw insertError;
+      }
       return;
     }
 
@@ -857,33 +867,46 @@ export class SyncEngine {
     const messageId = parsed.messageId || null;
     if (messageId) this.passInsertedMsgIds.add(messageId);
 
-    this.store.insertMessage({
-      account_id: this.account.id, folder_id: folderId, uid: msg.uid, message_key: key, file_path: relPath,
-      message_id: messageId,
-      in_reply_to: parsed.inReplyTo || null,
-      references_json: JSON.stringify(refs),
-      thread_id: threadId,
-      date: parsed.date && !isNaN(parsed.date.getTime()) ? parsed.date.toISOString() : toIso(msg.internalDate),
-      internal_date: toIso(msg.internalDate),
-      subject: parsed.subject || '',
-      from_name: from.name, from_email: from.email,
-      to_json: JSON.stringify(addrList(parsed.to)),
-      cc_json: JSON.stringify(addrList(parsed.cc)),
-      bcc_json: JSON.stringify(addrList(parsed.bcc)),
-      flags_json: JSON.stringify(flags),
-      modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
-      has_attachments: (parsed.attachments || []).length > 0 ? 1 : 0,
-      attachments_json: JSON.stringify((parsed.attachments || []).map(a => ({
-        partId: a.partId || '', filename: a.filename || '', contentType: a.contentType || '',
-        size: a.size || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
-        contentId: a.contentId || null,
-      }))),
-      size_bytes: msg.source.length,
-      body_text: (parsed.text || '').slice(0, 1_000_000),
-      body_html: parsed.html ? parsed.html.slice(0, 5_000_000) : null,
-      snippet: (parsed.text || '').replace(/\s+/g, ' ').slice(0, 200),
-      parsed_ok: 1, parse_error: null,
-    });
+    try {
+      this.store.insertMessage({
+        account_id: this.account.id, folder_id: folderId, uid: msg.uid, message_key: key, file_path: relPath,
+        message_id: messageId,
+        in_reply_to: parsed.inReplyTo || null,
+        references_json: JSON.stringify(refs),
+        thread_id: threadId,
+        date: parsed.date && !isNaN(parsed.date.getTime()) ? parsed.date.toISOString() : toIso(msg.internalDate),
+        internal_date: toIso(msg.internalDate),
+        subject: parsed.subject || '',
+        from_name: from.name, from_email: from.email,
+        to_json: JSON.stringify(addrList(parsed.to)),
+        cc_json: JSON.stringify(addrList(parsed.cc)),
+        bcc_json: JSON.stringify(addrList(parsed.bcc)),
+        flags_json: JSON.stringify(flags),
+        modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
+        has_attachments: (parsed.attachments || []).length > 0 ? 1 : 0,
+        attachments_json: JSON.stringify((parsed.attachments || []).map(a => ({
+          partId: a.partId || '', filename: a.filename || '', contentType: a.contentType || '',
+          size: a.size || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
+          contentId: a.contentId || null,
+        }))),
+        size_bytes: msg.source.length,
+        body_text: (parsed.text || '').slice(0, 1_000_000),
+        body_html: parsed.html ? parsed.html.slice(0, 5_000_000) : null,
+        snippet: (parsed.text || '').replace(/\s+/g, ' ').slice(0, 200),
+        parsed_ok: 1, parse_error: null,
+      });
+    } catch (insertError) {
+      // the other connection won the UNIQUE race: our file belongs to no row
+      this.removeFile(relPath);
+      if (!/UNIQUE/i.test((insertError as Error).message)) throw insertError;
+    }
+  }
+
+  /** Best-effort removal of a message file this engine just wrote (A3 step 2). */
+  private removeFile(relPath: string): void {
+    try {
+      fs.unlinkSync(this.store.filePath(relPath));
+    } catch { /* already gone, or held by another process: the sweep retries */ }
   }
 
   // ---------- full account sync ----------

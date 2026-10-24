@@ -15,7 +15,6 @@
 //    with the sync engine via engine.withFolderMutex.
 import { ImapFlow } from 'imapflow';
 import fs from 'fs';
-import path from 'path';
 import { Store, JournalRow } from './store.js';
 import { assertSandboxHost, getSandboxConfig } from './write_guard.js';
 import nodemailer from 'nodemailer';
@@ -344,20 +343,10 @@ export class WriteEngine {
     const newUid = destUid ?? null;
     if (newUid == null) return;
     const newKey = this.store.messageKey(this.accountId, dstFolder.id, newValidity, newUid);
-    // file name = message_key is a store invariant (consistency suite, orphan sweep and
-    // repair tooling all rely on it). A move must therefore RENAME the file — the
-    // original version only updated the row, leaving files named with the old key
-    // (found 2026-10-23: consistency suite flagged 2 orphans-by-key after moves).
-    const oldPath = path.join(this.store.dataDirResolved, String(row.file_path));
-    const newPath = path.join(this.store.dataDirResolved, `${newKey}.eml`);
-    try {
-      fs.renameSync(oldPath, newPath);
-    } catch {
-      return; // keep the row as-is rather than half-updated; the orphan sweep will flag the file
-    }
-    // move the file reference + row to the destination folder
-    this.store.db.prepare(`UPDATE messages SET folder_id=@fid, uid=@uid, message_key=@mk, file_path=@fp WHERE id=@id`)
-      .run({ fid: dstFolder.id, uid: newUid, mk: newKey, fp: `${newKey}.eml`, id: row.id as number });
+    // A3: file names are opaque and permanent, so a move only updates the row. The file
+    // is NOT renamed any more: it is the same mail, and the DB owns the mapping.
+    this.store.db.prepare(`UPDATE messages SET folder_id=@fid, uid=@uid, message_key=@mk WHERE id=@id`)
+      .run({ fid: dstFolder.id, uid: newUid, mk: newKey, id: row.id as number });
     // the op's message_key names the source now; undo finds the row by the new key
     // (re-read: the COPY path stored copiedTo after this op row was loaded)
     const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<string, unknown>;
@@ -405,7 +394,7 @@ export class WriteEngine {
       .get(messageKey) as { id: number; file_path: string } | undefined;
     if (!row) return;
     this.store.deleteMessages([row.id]);
-    const absPath = path.join(this.store.dataDirResolved, row.file_path);
+    const absPath = this.store.filePath(row.file_path);
     try {
       fs.unlinkSync(absPath);
     } catch (error) {
