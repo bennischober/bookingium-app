@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   CommandDialog,
   CommandEmpty,
@@ -27,6 +28,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
+import { mailApi } from '@/lib/mailApi'
 import { ROUTES } from '@/lib/routing'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
@@ -48,6 +50,9 @@ type RecentCommand = {
 const RECENTS_STORAGE_KEY = 'bookingium-search-recents'
 const MIN_SEARCH_LENGTH = 2
 const SEARCH_DEBOUNCE_MS = 200
+// C6: the mail search is slower than the app's own, so it waits longer and shows fewer
+const MAIL_DEBOUNCE_MS = 400
+const MAIL_RESULT_LIMIT = 5
 
 // Palette texts per page; titles, icons and order come from the menu config
 const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string[] }> = {
@@ -167,6 +172,7 @@ const SearchButton = () => {
   )
 
   const grouped = search.data?.results ?? []
+
   const events = grouped.filter((r) => r.type === 'event')
   const bands = grouped.filter((r) => r.type === 'band')
   const companies = grouped.filter((r) => r.type === 'company')
@@ -221,6 +227,43 @@ const SearchButton = () => {
   const invoicesQuickList = invoices
 
   const hasTypedQuery = debouncedQuery.length >= MIN_SEARCH_LENGTH
+  // C6: mails come from the mail client, not the app database, and only when a mail
+  // account exists. The query is debounced harder than the app search and has its own
+  // query key, so a slow mailbox never holds up the palette's other groups: they render
+  // from `search` while this one is still loading.
+  // The palette is mounted in the root layout from app start, long before an account
+  // may be saved: asking only while it is open keeps the answer current instead of
+  // caching an empty list from the first render.
+  const accounts = trpcReact.mail.accounts.list.useQuery(undefined, {
+    enabled: open,
+    staleTime: 0
+  })
+  const mailAccountId = accounts.data?.[0]?.id ?? null
+  const [debouncedMailQuery, setDebouncedMailQuery] = useState('')
+  useEffect(() => {
+    if (!open || !mailAccountId) return
+    const timeout = window.setTimeout(() => setDebouncedMailQuery(query.trim()), MAIL_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [open, query, mailAccountId])
+  const mailSearchEnabled =
+    open &&
+    mailAccountId !== null &&
+    debouncedMailQuery.length >= MIN_SEARCH_LENGTH &&
+    debouncedMailQuery === query.trim()
+  const mailResults = useQuery({
+    queryKey: ['mail', mailAccountId, 'search', debouncedMailQuery],
+    queryFn: () =>
+      mailApi.search(
+        { query: debouncedMailQuery, limit: MAIL_RESULT_LIMIT, wantSnippets: false },
+        mailAccountId!
+      ),
+    enabled: mailSearchEnabled,
+    // A palette search is a glance, not a report: keep it cheap and quiet
+    staleTime: 30_000,
+    retry: false
+  })
+  const mails = mailSearchEnabled ? (mailResults.data?.items ?? []) : []
+
   const hasRecordMatches =
     eventsQuickList.length > 0 ||
     personsQuickList.length > 0 ||
@@ -228,7 +271,9 @@ const SearchButton = () => {
     bandsQuickList.length > 0 ||
     venuesQuickList.length > 0 ||
     hotelsQuickList.length > 0 ||
-    invoicesQuickList.length > 0
+    invoicesQuickList.length > 0 ||
+    // C6: a mail hit is a hit; the palette must not claim there are none
+    mails.length > 0
 
   const isAnyLoading = searchEnabled && search.isLoading
 
@@ -537,6 +582,28 @@ const SearchButton = () => {
                   </CommandItem>
                 ))}
               </CommandGroup>
+
+              {/* C6: mails from the mail client, a separate and slower source than the
+                  app's own records. They render whenever they arrive and never hold up
+                  the groups above. */}
+              {mails.length > 0 && (
+                <CommandGroup heading="E-Mails">
+                  {mails.map((mail) => (
+                    <CommandItem
+                      key={`mail-${mail.id}`}
+                      value={`${mail.subject} ${mail.fromName ?? mail.fromEmail} mail email`}
+                      keywords={['mail', 'email']}
+                      onSelect={() =>
+                        runAndClose(() => window.api.openMailWindow(mailAccountId!, mail.id))
+                      }
+                    >
+                      <Mail />
+                      <span className="truncate">{mail.subject || '(ohne Betreff)'}</span>
+                      <CommandShortcut>{mail.fromName || mail.fromEmail}</CommandShortcut>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </>
           )}
         </CommandList>

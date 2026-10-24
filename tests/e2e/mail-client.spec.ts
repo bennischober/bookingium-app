@@ -947,3 +947,56 @@ test('an attachment opens from the reader and lands in the temp folder', async (
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, ATTACH_TAG)
   }
 })
+
+// C6: the search palette shows mail hits next to the app's own records, and a click
+// opens the mail window. The mail is one this test appends itself.
+const PALETTE_TAG = 'e2e-palette-'
+
+test('the search palette finds mails and opens one in its window', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const tag = `${PALETTE_TAG}${Date.now()}`
+
+  try {
+    await appendTestMail(SANDBOX.host, SANDBOX.port, tag)
+    await mail('triggerSync', true, sandboxId)
+    await waitFor(
+      async () => {
+        const inbox = (await mail<Folder[]>('getFolders', sandboxId)).find(
+          (f) => f.path === 'INBOX'
+        )!
+        const items = await mail<{ subject: string }[]>(
+          'listMessages',
+          inbox.id,
+          { offset: 0, limit: 50 },
+          sandboxId
+        )
+        return items.some((m) => m.subject === tag)
+      },
+      (ok) => ok,
+      120_000
+    )
+
+    // The palette finds it by subject, in its own group
+    await page.goto(`${page.url().split('#')[0]}#/mail`)
+    await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
+    await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill(tag)
+    const group = page.getByRole('group', { name: 'E-Mails' })
+    await expect(group).toBeVisible({ timeout: 30_000 })
+    const hit = group.getByRole('option').filter({ hasText: tag })
+    await expect(hit).toBeVisible()
+
+    // A click opens the mail in its own window
+    const opened = h.app.waitForEvent('window', { timeout: 30_000 })
+    await hit.click()
+    const mailWindow = await opened
+    await expect(mailWindow.getByRole('heading', { name: tag, level: 2 })).toBeVisible({
+      timeout: 30_000
+    })
+    await mailWindow.close()
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, PALETTE_TAG)
+  }
+})

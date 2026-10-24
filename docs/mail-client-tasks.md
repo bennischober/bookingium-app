@@ -49,7 +49,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | C3 | E-Mails tab on detail pages | M | C2 | open |
 | C4 | Invoices: sent mails and replies | M | C1, C2 | open |
 | C5 | Attachment → document | M | C2, D1 (optional) | open |
-| C6 | Mails in the global search | S–M | — | open |
+| C6 | Mails in the global search | S–M | — | done |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 | E1 | Seeding without PII | M | — | done |
 | E2 | PII check for tracked files | S | E1 | done |
