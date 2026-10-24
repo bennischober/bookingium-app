@@ -221,7 +221,7 @@ export interface Api {
 /** Task 4: journaled write operation, UI-safe summary (no mail content). */
 export type OpSummary = {
   id: string;
-  kind: 'flag' | 'move' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
   state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';
   folderPath: string | null;
   targetFolderPath: string | null;

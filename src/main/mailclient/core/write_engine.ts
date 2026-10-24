@@ -26,6 +26,11 @@ export type OpResult =
   | { outcome: 'unknown'; reason: string } // send: outcome ambiguous — needs probe/user
   | { outcome: 'noop'; reason: string } // op is moot (e.g. flag already set)
 
+/** B4: one mail inside a batch move, as the op's payload records it */
+export type BatchMember = { uid: number; messageKey: string; messageId: string | null }
+/** B4: where a member landed (COPYUID); durable before the local rows change */
+export type BatchMoved = { uid: number; messageKey: string; destUid: number }
+
 export class WriteEngine {
   // serialized playback: one operation at a time per account
   private chain: Promise<unknown> = Promise.resolve()
@@ -228,6 +233,8 @@ export class WriteEngine {
       case 'move':
       case 'delete':
         return this.doMoveLike(op, signal) // archive = move to the Archive folder (same checks)
+      case 'move_batch':
+        return this.doMoveBatch(op, signal) // B4: one UID MOVE for many mails
       case 'expunge':
         return this.doExpunge(op, signal)
       case 'send':
@@ -474,6 +481,188 @@ export class WriteEngine {
     }
   }
 
+  // ----- batch move (B4) -------------------------------------------------------
+  /**
+   * One UID MOVE for a whole (source, target) group instead of one op per mail.
+   *
+   * The op's payload holds `members: [{ uid, messageKey, messageId }]`; the group is
+   * capped at 500 UIDs by the caller. The per-mail preflight is a single FETCH over the
+   * set: a UID that is gone or whose identity does not match makes the whole op a
+   * conflict - a partial move would leave the caller unable to reason about the rest.
+   *
+   * Crash safety: the UID MOVE either happened or it did not. After a crash the resume
+   * finds the members at the TARGET by Message-ID (`resumeBatchMoved`), never by
+   * guessing a UID, and without COPYUID the op refuses (A2b's rule).
+   */
+  private async doMoveBatch(op: JournalRow, signal: AbortSignal): Promise<OpResult> {
+    const targetPath = op.target_folder_path
+    if (!targetPath) return { outcome: 'conflict', reason: 'batch move without target folder' }
+    if (op.folder_path && op.folder_path === targetPath) {
+      return { outcome: 'conflict', reason: 'move refused: target equals source folder' }
+    }
+    const payload = JSON.parse(op.payload || '{}') as {
+      members?: BatchMember[]
+      movedTo?: BatchMoved[]
+    }
+    const members = payload.members ?? []
+    if (members.length === 0) return { outcome: 'conflict', reason: 'batch move without members' }
+    // A previous attempt recorded its result: finish locally, never move twice
+    if (payload.movedTo?.length) {
+      this.applyBatchLocally(op, targetPath, payload.movedTo)
+      return { outcome: 'done', detail: 'resumed after crash (result was recorded)' }
+    }
+
+    const client = await this.sandboxClient()
+    try {
+      const pf = await this.preflightBatch(op, client, members)
+      if (!pf.ok) {
+        // The move may have happened and the crash come before the journal update
+        const resumed = await this.resumeBatchMoved(op, client, targetPath, members)
+        if (resumed) return { outcome: 'done', detail: 'resumed after crash (found at destination)' }
+        return pf.result
+      }
+
+      const caps = [...(client as unknown as { capabilities: Set<string> }).capabilities].map((c) =>
+        Array.isArray(c) ? c[0] : c
+      )
+      if (!caps.includes('MOVE')) {
+        // The single-move COPY+EXPUNGE fallback is UIDPLUS-gated; for a batch there is no
+        // safe per-message deletion without it either, and a half-done group is worse
+        // than a refused one. Refuse before touching the server.
+        return {
+          outcome: 'conflict',
+          reason:
+            'batch move refused: server has no MOVE — the copy+expunge fallback cannot delete a whole group safely; nothing was moved'
+        }
+      }
+
+      const uids = members.map((m) => m.uid)
+      const result = await client.messageMove(uids.join(','), targetPath, { uid: true })
+      if (!result) return { outcome: 'failed', reason: 'MOVE returned false' }
+      const ab = this.abandoned(signal)
+      if (ab) return ab
+
+      // COPYUID is the only trustworthy mapping; without it refuse (A2b's rule)
+      const mapped: BatchMoved[] = []
+      for (const member of members) {
+        const destUid = result.uidMap?.get(member.uid)
+        if (!destUid) {
+          return {
+            outcome: 'conflict',
+            reason:
+              'batch move: server returned no COPYUID for at least one mail — refusing to guess the new UIDs (a resync will show the moved mails)'
+          }
+        }
+        mapped.push({ uid: member.uid, messageKey: member.messageKey, destUid })
+      }
+      // durable BEFORE the local update: a crash after this line resumes locally
+      this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: mapped } })
+      this.applyBatchLocally(op, targetPath, mapped)
+      return { outcome: 'done', detail: `${mapped.length} mails moved in one UID MOVE` }
+    } catch (e) {
+      return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
+    } finally {
+      await client.logout().catch(() => {})
+    }
+  }
+
+  /** One FETCH for the whole set: every UID must exist and match the local row */
+  private async preflightBatch(
+    op: JournalRow,
+    client: ImapFlow,
+    members: BatchMember[]
+  ): Promise<{ ok: true } | { ok: false; result: OpResult }> {
+    if (!op.folder_path) return { ok: false, result: { outcome: 'conflict', reason: 'op has no folder' } }
+    let mb
+    try {
+      mb = await client.mailboxOpen(op.folder_path)
+    } catch (e) {
+      return {
+        ok: false,
+        result: { outcome: 'conflict', reason: `folder gone: ${(e as Error).message.slice(0, 80)}` }
+      }
+    }
+    if (op.folder_uidvalidity && String(mb.uidValidity) !== op.folder_uidvalidity) {
+      return {
+        ok: false,
+        result: {
+          outcome: 'conflict',
+          reason: `UIDVALIDITY changed (op ${op.folder_uidvalidity} vs server ${mb.uidValidity})`
+        }
+      }
+    }
+    const wanted = new Map(members.map((m) => [m.uid, m]))
+    const fetched = client.fetch(members.map((m) => m.uid).join(','), { uid: true, size: true, internalDate: true }, { uid: true })
+    let seen = 0
+    let mismatch = false
+    for await (const m of fetched) {
+      const member = wanted.get(m.uid)
+      if (!member) continue
+      seen++
+      const local = this.store.db
+        .prepare('SELECT size_bytes, internal_date FROM messages WHERE message_key = ?')
+        .get(member.messageKey) as { size_bytes: number; internal_date: string } | undefined
+      if (!local) continue
+      if (local.size_bytes != null && m.size != null && Number(local.size_bytes) !== Number(m.size)) {
+        mismatch = true
+      }
+      if (local.internal_date && m.internalDate) {
+        const a = new Date(local.internal_date).getTime()
+        const b = new Date(m.internalDate).getTime()
+        if (Math.abs(a - b) > 2000) mismatch = true
+      }
+    }
+    if (seen !== members.length) {
+      return {
+        ok: false,
+        result: { outcome: 'conflict', reason: `batch move: ${members.length - seen} of ${members.length} mails vanished (uid not in server view)` }
+      }
+    }
+    if (mismatch) {
+      return {
+        ok: false,
+        result: { outcome: 'conflict', reason: 'batch move: identity mismatch (same uid, different message?)' }
+      }
+    }
+    return { ok: true }
+  }
+
+  /** Crash between MOVE and the journal update: are the members at the target by Message-ID? */
+  private async resumeBatchMoved(
+    op: JournalRow,
+    client: ImapFlow,
+    targetPath: string,
+    members: BatchMember[]
+  ): Promise<boolean> {
+    const withId = members.filter((m) => m.messageId)
+    // Without Message-IDs there is nothing to find them by; a resync is the honest answer
+    if (withId.length === 0) return false
+    try {
+      await client.mailboxOpen(targetPath)
+      const mapped: BatchMoved[] = []
+      for (const member of withId) {
+        const found = await client.search(
+          { header: { 'message-id': member.messageId! } },
+          { uid: true }
+        )
+        if (!found || found.length === 0) return false
+        mapped.push({ uid: member.uid, messageKey: member.messageKey, destUid: found[0] })
+      }
+      const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<string, unknown>
+      this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: mapped } })
+      this.applyBatchLocally(op, targetPath, mapped)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private applyBatchLocally(op: JournalRow, targetPath: string, moved: BatchMoved[]): void {
+    for (const m of moved) {
+      this.applyMoveLocallyForKey(op, targetPath, m.destUid, m.messageKey)
+    }
+  }
+
   /** Crash between copy and delete: is our message-id already at the destination? */
   private async resumeHalfMoved(
     op: JournalRow,
@@ -533,23 +722,8 @@ export class WriteEngine {
     destUid: number | null | undefined
   ): void {
     if (!op.message_key) return
-    const srcFolder = op.folder_path ? this.store.getFolderByPath(op.folder_path) : null
-    const dstFolder = this.store.getFolderByPath(targetPath)
-    const row = srcFolder
-      ? (this.store.db
-          .prepare('SELECT * FROM messages WHERE message_key = ?')
-          .get(op.message_key) as Record<string, unknown> | undefined)
-      : undefined
-    if (!row || !srcFolder || !dstFolder) return
-    const newValidity = dstFolder.uid_validity ?? ''
-    const newUid = destUid ?? null
-    if (newUid == null) return
-    const newKey = this.store.messageKey(this.accountId, dstFolder.id, newValidity, newUid)
-    // A3: file names are opaque and permanent, so a move only updates the row. The file
-    // is NOT renamed any more: it is the same mail, and the DB owns the mapping.
-    this.store.db
-      .prepare(`UPDATE messages SET folder_id=@fid, uid=@uid, message_key=@mk WHERE id=@id`)
-      .run({ fid: dstFolder.id, uid: newUid, mk: newKey, id: row.id as number })
+    const newKey = this.applyMoveLocallyForKey(op, targetPath, destUid, op.message_key)
+    if (!newKey) return
     // the op's message_key names the source now; undo finds the row by the new key
     // (re-read: the COPY path stored copiedTo after this op row was loaded)
     const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<
@@ -557,8 +731,39 @@ export class WriteEngine {
       unknown
     >
     this.store.journalUpdate(op.id, {
-      payload: { ...payload, movedTo: { uid: newUid, messageKey: newKey } }
+      payload: { ...payload, movedTo: { uid: destUid, messageKey: newKey } }
     })
+  }
+
+  /**
+   * B4: the local half of a move for one mail. `messageKey` names the source row; the
+   * batch path calls this per member, the single path passes the op's own key.
+   * Returns the row's new key, or null when nothing was updated.
+   */
+  private applyMoveLocallyForKey(
+    op: JournalRow,
+    targetPath: string,
+    destUid: number | null | undefined,
+    messageKey: string
+  ): string | null {
+    const srcFolder = op.folder_path ? this.store.getFolderByPath(op.folder_path) : null
+    const dstFolder = this.store.getFolderByPath(targetPath)
+    const row = srcFolder
+      ? (this.store.db
+          .prepare('SELECT * FROM messages WHERE message_key = ?')
+          .get(messageKey) as Record<string, unknown> | undefined)
+      : undefined
+    if (!row || !srcFolder || !dstFolder) return null
+    const newValidity = dstFolder.uid_validity ?? ''
+    const newUid = destUid ?? null
+    if (newUid == null) return null
+    const newKey = this.store.messageKey(this.accountId, dstFolder.id, newValidity, newUid)
+    // A3: file names are opaque and permanent, so a move only updates the row. The file
+    // is NOT renamed any more: it is the same mail, and the DB owns the mapping.
+    this.store.db
+      .prepare(`UPDATE messages SET folder_id=@fid, uid=@uid, message_key=@mk WHERE id=@id`)
+      .run({ fid: dstFolder.id, uid: newUid, mk: newKey, id: row.id as number })
+    return newKey
   }
 
   // ----- expunge (permanent deletion from Trash) -------------------------------

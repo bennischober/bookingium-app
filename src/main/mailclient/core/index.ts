@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { Store, JournalRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, SyncEvent } from './sync.js';
-import { WriteEngine, OpResult } from './write_engine.js';
+import { WriteEngine, OpResult, type BatchMember, type BatchMoved } from './write_engine.js';
 import { injectSandboxConfig, SandboxConfig, sandboxReachable } from './write_guard.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
@@ -24,6 +24,9 @@ import type { Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, Folder
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
+
+/** B4: a single UID MOVE covers at most this many mails; above that the group is split */
+export const MOVE_BATCH_LIMIT = 500;
 
 export type Logger = {
   info?: (msg: string) => void;
@@ -399,7 +402,9 @@ export class MailCore implements Api {
     const e = this.writableEntry(accountId);
     const target = e.store.getFolder(targetFolderId);
     if (!target) throw new Error(`target folder ${targetFolderId} not found`);
-    const opIds: string[] = [];
+
+    // B4: group by source folder - one op (and one UID MOVE) per (source, target)
+    const groups = new Map<string, BatchMember[]>();
     for (const id of ids) {
       const row = e.store.getMessage(id);
       if (!row) continue;
@@ -407,12 +412,36 @@ export class MailCore implements Api {
       // A2c: a mail already in the target is skipped before any journal insert,
       // so a self-move never reaches the write engine (which refuses it too)
       if (!folder || folder.imap_path === target.imap_path) continue;
-      opIds.push(e.store.journalEnqueue({
-        accountId: e.config.id, kind: 'move',
-        folderPath: folder.imap_path, folderUidValidity: folder.uid_validity ?? undefined,
-        uid: row.uid, messageKey: row.message_key, messageId: row.message_id ?? undefined,
-        targetFolderPath: target.imap_path,
-      }));
+      const list = groups.get(folder.imap_path) ?? [];
+      list.push({ uid: row.uid, messageKey: row.message_key, messageId: row.message_id ?? null });
+      groups.set(folder.imap_path, list);
+    }
+
+    const opIds: string[] = [];
+    for (const [sourcePath, members] of groups) {
+      const source = e.store.getFolderByPath(sourcePath);
+      // B4: cap a batch at 500 UIDs and split above that
+      for (let i = 0; i < members.length; i += MOVE_BATCH_LIMIT) {
+        const chunk = members.slice(i, i + MOVE_BATCH_LIMIT);
+        // One mail keeps the plain move op: its crash and resume semantics are the
+        // well-tested single-message path, and a "batch" of one buys nothing.
+        if (chunk.length === 1) {
+          const only = chunk[0];
+          opIds.push(e.store.journalEnqueue({
+            accountId: e.config.id, kind: 'move',
+            folderPath: sourcePath, folderUidValidity: source?.uid_validity ?? undefined,
+            uid: only.uid, messageKey: only.messageKey, messageId: only.messageId ?? undefined,
+            targetFolderPath: target.imap_path,
+          }));
+          continue;
+        }
+        opIds.push(e.store.journalEnqueue({
+          accountId: e.config.id, kind: 'move_batch',
+          folderPath: sourcePath, folderUidValidity: source?.uid_validity ?? undefined,
+          targetFolderPath: target.imap_path,
+          payload: { members: chunk },
+        }));
+      }
     }
     await this.replayOps(e, opIds);
     void e.engine.syncAll().catch(() => { });
@@ -560,6 +589,27 @@ export class MailCore implements Api {
         folderPath: currentFolder.imap_path, folderUidValidity: currentFolder.uid_validity ?? undefined,
         uid: current.uid, messageKey: key ?? undefined, messageId: op.message_id ?? undefined,
         targetFolderPath: op.folder_path ?? undefined,
+      };
+    } else if (op.kind === 'move_batch') {
+      // B4: the whole group goes back in one op, the same way it came.
+      // The rows are keyed by the uid the MOVE gave them, which is `destUid`.
+      const payload = JSON.parse(op.payload || '{}') as { movedTo?: BatchMoved[] };
+      const members: BatchMember[] = (payload.movedTo ?? [])
+        .map(m => {
+          const row = e.store.db.prepare(
+            'SELECT uid FROM messages WHERE message_key = ?').get(m.messageKey) as
+            { uid: number } | undefined;
+          return row ? { uid: row.uid, messageKey: m.messageKey, messageId: null as string | null } : null;
+        })
+        .filter((m): m is BatchMember => m !== null);
+      if (members.length === 0) throw new Error('undo: none of the moved mails is in the local store (resync needed)');
+      const backFolder = e.store.getFolderByPath(op.target_folder_path ?? '');
+      inverse = {
+        accountId: e.config.id, kind: 'move_batch',
+        folderPath: op.target_folder_path ?? undefined,
+        folderUidValidity: backFolder?.uid_validity ?? undefined,
+        targetFolderPath: op.folder_path ?? undefined,
+        payload: { members },
       };
     } else {
       throw new Error(`undo not supported for ${op.kind}`);

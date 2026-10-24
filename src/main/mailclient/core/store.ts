@@ -67,7 +67,7 @@ export interface FolderRow {
 export interface JournalRow {
   id: string;
   account_id: string;
-  kind: 'flag' | 'move' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+  kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
   state: 'pending' | 'running' | 'done' | 'failed' | 'conflict' | 'cancelled' | 'unknown';
   folder_path: string | null;
   folder_uidvalidity: string | null;
@@ -153,7 +153,7 @@ export class Store {
   // ----- Task 4: operation journal -------------------------------------------
   /** Journal an operation BEFORE any server contact. Returns the op id. */
   journalEnqueue(op: {
-    id?: string; accountId: string; kind: 'flag' | 'move' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
+    id?: string; accountId: string; kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete';
     folderPath?: string; folderUidValidity?: string; uid?: number; messageKey?: string;
     messageId?: string; payload?: unknown; targetFolderPath?: string;
   }): string {
