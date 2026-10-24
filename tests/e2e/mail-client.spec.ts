@@ -6,6 +6,7 @@
 import { test, expect } from '@playwright/test'
 import { connect, createServer, type AddressInfo } from 'net'
 import { readFileSync } from 'fs'
+import { readdir } from 'fs/promises'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
 import {
@@ -853,5 +854,96 @@ test('a mail in Trash is deleted permanently and the counts drop', async () => {
     await expect(list.getByRole('option').filter({ hasText: tag })).toHaveCount(0)
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, EXPUNGE_TAG)
+  }
+})
+
+// B6: an attachment is written by the main process, not by the renderer. The test
+// appends a mail with its own attachment and checks the file that lands on disk.
+const ATTACH_TAG = 'e2e-attach-'
+
+test('an attachment opens from the reader and lands in the temp folder', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const tag = `${ATTACH_TAG}${Date.now()}`
+  const fileName = 'notiz.txt'
+  const body = 'Anhang aus dem E2E-Test'
+
+  try {
+    // 1. A mail with one attachment, appended by the test itself
+    await appendTestMail(SANDBOX.host, SANDBOX.port, tag, {
+      filename: fileName,
+      contentType: 'text/plain',
+      body
+    })
+    await mail('triggerSync', true, sandboxId)
+    const mine = await waitFor(
+      async () => {
+        const inbox = (await mail<Folder[]>('getFolders', sandboxId)).find(
+          (f) => f.path === 'INBOX'
+        )!
+        const items = await mail<{ id: number; subject: string }[]>(
+          'listMessages',
+          inbox.id,
+          { offset: 0, limit: 50 },
+          sandboxId
+        )
+        return items.find((m) => m.subject === tag) ?? null
+      },
+      (m) => m !== null,
+      120_000
+    )
+    const detail = await mail<{ attachments: { partId: string; filename: string }[] }>(
+      'getMessage',
+      mine!.id,
+      sandboxId
+    )
+    const part = detail.attachments.find((a) => a.filename === fileName)
+    expect(part, 'the attachment is parsed').toBeTruthy()
+
+    // 2. The main process opens it; the renderer only names the attachment
+    const opened = await page.evaluate(
+      async ({ accountId, messageId, partId, filename }) =>
+        new Promise<{ opened: boolean; name: string; executable: boolean }>((resolve, reject) => {
+          const id = Math.floor(Math.random() * 1e9)
+          const w = window as unknown as {
+            electronTRPC: {
+              onMessage: (
+                cb: (m: { id: number; result?: { data?: unknown }; error?: unknown }) => void
+              ) => void
+              sendMessage: (m: unknown) => void
+            }
+          }
+          w.electronTRPC.onMessage((m) => {
+            if (m.id !== id) return
+            if (m.error) reject(new Error(JSON.stringify(m.error)))
+            else resolve(m.result?.data as { opened: boolean; name: string; executable: boolean })
+          })
+          w.electronTRPC.sendMessage({
+            method: 'request',
+            operation: {
+              id,
+              type: 'mutation',
+              path: 'mail.attachments.open',
+              input: { accountId, messageId, partId, filename },
+              context: {}
+            }
+          })
+        }),
+      { accountId: sandboxId, messageId: mine!.id, partId: part!.partId, filename: fileName }
+    )
+    expect(opened.opened).toBe(true)
+    expect(opened.executable).toBe(false)
+    // The name the main process used is sanitized, never the raw one
+    expect(opened.name).toBe(fileName)
+
+    // 3. The file exists in the temp folder and has the mail's bytes
+    const tempDir = await h.app.evaluate(({ app }) => app.getPath('temp'))
+    const written = join(tempDir, 'bookingum-mail')
+    const found = await readdir(written, { recursive: true })
+    expect(found.some((f) => String(f).endsWith(fileName))).toBe(true)
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, ATTACH_TAG)
   }
 })

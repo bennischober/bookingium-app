@@ -37,6 +37,7 @@ import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 import { mailClient } from './mailclient/MailClientService'
+import { cleanAttachmentTemp } from './api/routers/mail.router'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
@@ -513,6 +514,8 @@ app.whenReady().then(async () => {
   createWindow()
   // Mail client (utility process): background sync for configured accounts
   mailClient.startIfConfigured()
+  // B6: opened attachments live a day at most
+  void cleanAttachmentTemp()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -41,7 +41,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | B3 | Keyboard shortcuts | S | — | done |
 | B4 | Batch moves in one UID MOVE | M | A2 | open |
 | B5 | Empty Trash / permanent delete in the UI | S | A1 | done |
-| B6 | Attachments: open and save | S | — | open |
+| B6 | Attachments: open and save | S | — | done |
 | B7 | Attachments in compose | M | — | open |
 | B8 | Signatures | S–M | — | open |
 | C1 | "Bookingum" as mail program (invoices, reminders, lists) | L | B7 | open |

@@ -79,7 +79,12 @@ export async function removeSentTestMails(
  * instead of sending: an SMTP round trip plus the next sync is minutes, an APPEND is a second,
  * and the mail is still one this test created itself.
  */
-export async function appendTestMail(host: string, port: number, subject: string): Promise<void> {
+export async function appendTestMail(
+  host: string,
+  port: number,
+  subject: string,
+  attachment?: { filename: string; contentType: string; body: string }
+): Promise<void> {
   const client = new ImapFlow({
     host,
     port,
@@ -89,28 +94,51 @@ export async function appendTestMail(host: string, port: number, subject: string
   })
   await client.connect()
   try {
-    const raw = [
-      'From: E2E Absender <absender@example.test>',
-      `To: ${E2E_MAIL_USER}`,
-      `Subject: ${subject}`,
-      `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
-      `Message-ID: <${Date.now()}@example.test>`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=utf-8',
-      '',
-      'Diese Mail legt der Test selbst an und loescht sie wieder.',
-      ''
-    ].join('\r\n')
+    const boundary = `e2e-${Date.now()}@example.test`
+    const text = 'Diese Mail legt der Test selbst an und loescht sie wieder.'
+    const raw = attachment
+      ? [
+          'From: E2E Absender <absender@example.test>',
+          `To: ${E2E_MAIL_USER}`,
+          `Subject: ${subject}`,
+          `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+          `Message-ID: <${Date.now()}@example.test>`,
+          'MIME-Version: 1.0',
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          '',
+          `--${boundary}`,
+          'Content-Type: text/plain; charset=utf-8',
+          '',
+          text,
+          `--${boundary}`,
+          `Content-Type: ${attachment.contentType}`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${attachment.filename}"`,
+          '',
+          Buffer.from(attachment.body).toString('base64'),
+          `--${boundary}--`,
+          ''
+        ].join('\r\n')
+      : [
+          'From: E2E Absender <absender@example.test>',
+          `To: ${E2E_MAIL_USER}`,
+          `Subject: ${subject}`,
+          `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+          `Message-ID: <${Date.now()}@example.test>`,
+          'MIME-Version: 1.0',
+          'Content-Type: text/plain; charset=utf-8',
+          '',
+          text,
+          ''
+        ].join('\r\n')
     await client.append('INBOX', raw, [], new Date())
   } finally {
     await client.logout().catch(() => client.close())
   }
 }
 
-/** Creates the folder and tops the inbox up to its mails; a no-op on a seeded mailbox */ export async function seedMailSandbox(
-  host: string,
-  port: number
-): Promise<void> {
+/** Creates the folder and tops the inbox up to its mails; a no-op on a seeded mailbox */
+export async function seedMailSandbox(host: string, port: number): Promise<void> {
   const client = new ImapFlow({
     host,
     port,
