@@ -1000,3 +1000,69 @@ test('the search palette finds mails and opens one in its window', async () => {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, PALETTE_TAG)
   }
 })
+
+// B7: an attachment added in the editor is sent and arrives as one attachment.
+// Count and size only - Mailpit is shared, so the mail is found by its own subject.
+const ATTACH_COMPOSE_TAG = 'e2e-compose-attach-'
+
+test('a mail written with an attachment arrives with it', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const folders = await mail<Folder[]>('getFolders', sandboxId)
+  const sent = folders.find((f) => f.specialUse === '\\Sent')
+  test.skip(!sent, 'the sandbox has no Sent folder')
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+
+  const tag = `${ATTACH_COMPOSE_TAG}${Date.now()}`
+  const body = 'Anhang aus dem E2E-Test'
+  // The bytes Mailpit must report back
+  const payload = 'Dies ist der Anhang.'
+  const payloadBytes = Buffer.byteLength(payload)
+
+  try {
+    await openMailPage(sandboxId)
+    await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+    const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+    await editor.getByRole('textbox', { name: 'An' }).fill('empfaenger@example.test')
+    await editor.getByRole('textbox', { name: 'Betreff' }).fill(tag)
+    await editor.getByRole('textbox', { name: 'Text' }).fill(body)
+
+    // Attach a small generated file through the editor's file input
+    await editor.locator('input[type="file"]').setInputFiles({
+      name: 'notiz.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(payload)
+    })
+    // The chip appears with the file name
+    await expect(editor.getByText('notiz.txt')).toBeVisible({ timeout: 15_000 })
+
+    await editor.getByRole('button', { name: 'Senden', exact: true }).click()
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Gesendet' })).toBeVisible({
+      timeout: 30_000
+    })
+
+    // Mailpit reports exactly one attachment of that size
+    const found = await waitFor(
+      async () => {
+        const query = encodeURIComponent(`subject:${tag}`)
+        const res = await fetch(
+          `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=${query}`
+        )
+        const data = (await res.json()) as { messages?: { ID: string }[] }
+        return data.messages?.[0]?.ID ?? null
+      },
+      (id) => id !== null,
+      60_000
+    )
+    const detail = (await (
+      await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found}`)
+    ).json()) as { Attachments?: { FileName: string; Size: number }[] }
+    expect(detail.Attachments).toHaveLength(1)
+    expect(detail.Attachments![0].FileName).toBe('notiz.txt')
+    expect(detail.Attachments![0].Size).toBe(payloadBytes)
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, ATTACH_COMPOSE_TAG)
+  }
+})

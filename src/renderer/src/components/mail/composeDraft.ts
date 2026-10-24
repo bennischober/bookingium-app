@@ -188,3 +188,24 @@ export function toDraftInput(state: ComposeState): DraftInput {
     forwardsFrom: state.forwardsFrom ?? null
   }
 }
+
+/** B7: most providers refuse mails above 20-25 MB, and base64 adds a third on top */
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+
+/** The decoded size of one base64 attachment, without decoding it */
+export function base64Bytes(base64: string): number {
+  return Math.floor((base64.length * 3) / 4)
+}
+
+/**
+ * B7: would these attachments fit? Checked before anything is read, so an oversized
+ * file never becomes a 20 MB string in memory first.
+ */
+export function attachmentsFit(
+  existing: { base64: string }[],
+  incoming: { size: number }[],
+  limit = MAX_ATTACHMENT_BYTES
+): boolean {
+  const used = existing.reduce((n, a) => n + base64Bytes(a.base64), 0)
+  return used + incoming.reduce((n, f) => n + f.size, 0) <= limit
+}

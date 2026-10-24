@@ -17,9 +17,7 @@ import {
   toDraftInput
 } from './composeDraft'
 import { formatSize } from './format'
-
-// Most providers refuse mails above 20-25 MB, and base64 adds a third
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
+import { attachmentsFit, MAX_ATTACHMENT_BYTES } from './composeDraft'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -359,10 +357,8 @@ export function ComposeView({
 
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return
-    const size = (list: { base64: string }[]) =>
-      list.reduce((n, a) => n + Math.floor((a.base64.length * 3) / 4), 0)
-    const total = size(mailRef.current.attachments) + [...files].reduce((n, f) => n + f.size, 0)
-    if (total > MAX_ATTACHMENT_BYTES) {
+    // B7: checked against the file sizes before anything is read into memory
+    if (!attachmentsFit(mailRef.current.attachments, [...files])) {
       toast.error('Anhänge zu groß', {
         description: `Zusammen höchstens ${formatSize(MAX_ATTACHMENT_BYTES)}.`
       })
