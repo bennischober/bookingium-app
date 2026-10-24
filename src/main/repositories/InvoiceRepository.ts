@@ -1034,11 +1034,24 @@ export class InvoiceRepository {
    * itself also goes on the invoice for the list's envelope; a payment
    * reminder marks an invoice still "gestellt" as overdue.
    */
-  markEmailed(id: number, to: string, kind: InvoiceEmailKind = 'invoice') {
+  markEmailed(
+    id: number,
+    to: string,
+    kind: InvoiceEmailKind = 'invoice',
+    /** C1: set only when bookingum sent the mail itself; null for external programs */
+    sent?: { messageId?: string; mailAccountId?: string }
+  ) {
     db.transaction((tx) => {
       const email = tx
         .insert(schema.invoice_email)
-        .values({ invoice_id: id, to, kind, created_at: NOW_MS })
+        .values({
+          invoice_id: id,
+          to,
+          kind,
+          message_id: sent?.messageId ?? null,
+          mail_account_id: sent?.mailAccountId ?? null,
+          created_at: NOW_MS
+        })
         .returning()
         .get()
       if (kind === 'invoice') {

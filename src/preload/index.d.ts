@@ -81,6 +81,17 @@ export interface DocumentAPI {
   showEmailFile: (filePath: string) => Promise<void>
   /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
+  /** C1: bookingum's own editor for a prepared draft */
+  composeInOwnEditor: (input: {
+    accountId: string
+    draft: unknown
+    pdfPath: string
+    pdfName: string
+  }) => Promise<{ sent: boolean; messageId?: string }>
+  /** C1: the compose window reports a successful send */
+  reportComposeSent: (key: string, messageId: string) => Promise<void>
+  /** C1: reads the invoice PDF the window was opened with */
+  readComposePdf: (filePath: string) => Promise<string>
   /** Open dialog for an Excel file; returns its sheets for the import dialog */
   pickImportWorkbook: () => Promise<{
     success: boolean

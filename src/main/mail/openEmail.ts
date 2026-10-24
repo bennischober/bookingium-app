@@ -141,8 +141,14 @@ export async function openEmail({
     buildEml(draft, { fileName: `${fileName}.pdf`, contentType: 'application/pdf', data: pdf })
   )
 
-  // e2e tests: files only, no programs or Explorer windows
-  if (process.env.BOOKINGIUM_NO_LAUNCH === '1') return { method: 'files', pdfPath, folder }
+  // e2e tests: files only, no programs or Explorer windows. The own editor opens a
+  // window inside this app, so it is not affected.
+  if (process.env.BOOKINGIUM_NO_LAUNCH === '1' && setting !== 'bookingum') {
+    return { method: 'files', pdfPath, folder }
+  }
+  // C1: the own editor is opened by the caller, which knows the account and can
+  // report a send; openEmail only writes the files for it.
+  if (setting === 'bookingum') return { method: 'bookingum', pdfPath, folder }
 
   const program = await mailProgram(setting)
   const { handler, programPath } = program

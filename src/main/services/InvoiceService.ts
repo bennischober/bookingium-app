@@ -115,8 +115,14 @@ export class InvoiceService {
   }
 
   /** Remembers that "Per E-Mail senden" created the invoice's email or a reminder */
-  markInvoiceEmailed(id: number, to: string, kind: InvoiceEmailKind = 'invoice') {
-    this.invoiceRepository.markEmailed(id, to, kind)
+  markInvoiceEmailed(
+    id: number,
+    to: string,
+    kind: InvoiceEmailKind = 'invoice',
+    /** C1: set only when bookingum sent the mail itself */
+    sent?: { messageId?: string; mailAccountId?: string }
+  ) {
+    this.invoiceRepository.markEmailed(id, to, kind, sent)
   }
 
   private async requireInvoice(id: number) {

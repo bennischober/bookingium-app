@@ -1181,3 +1181,95 @@ test('a folder is created, renamed and deleted from the tree', async () => {
   }
 })
 
+
+// C1: "bookingum" as the mail program sends an invoice mail from bookingum's own
+// editor. The invoice counts as emailed only after that send, and Mailpit sees one
+// mail with one PDF attachment (count and size only).
+const C1_TAG = 'e2e-c1-invoice-'
+
+test("an invoice mail is sent from bookingum's own editor", async () => {
+  test.setTimeout(240_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const subject = `${C1_TAG}${Date.now()}`
+  const base = () => page.url().split('#')[0]
+
+  try {
+    // 1. Choose bookingum as the mail program and prove the setting took
+    await page.goto(`${base()}#/settings?tab=email`)
+    await page.locator('#settings-mail-program').click()
+    await page.getByRole('option', { name: /bookingum \(eigenes E-Mail-Konto\)/ }).click()
+    await expect(page.locator('#settings-mail-program')).toContainText(/bookingum/, {
+      timeout: 15_000
+    })
+    await expect
+      .poll(
+        async () =>
+          (await trpc<{ mailProgram: string }>('query', 'settings.get')).mailProgram,
+        { timeout: 15_000 }
+      )
+      .toBe('bookingum')
+
+    // 2. Open the invoice's print page and send it through the own editor
+    await page.goto(`${base()}#/invoices`)
+    await page
+      .locator('tr')
+      .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
+      .getByRole('button', { name: 'Drucken / Als PDF speichern' })
+      .click()
+    await page.waitForURL(/invoices\/\d+\/print/)
+    await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+    await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
+
+    // The prepared draft opens in its own window
+    const editorWindow = await h.app.waitForEvent('window', { timeout: 60_000 })
+    await editorWindow.waitForLoadState()
+    await editorWindow.waitForLoadState()
+    const editor = editorWindow.getByRole('form', { name: 'E-Mail verfassen' })
+    await expect(editor).toBeVisible({ timeout: 30_000 })
+    await editor.getByRole('textbox', { name: 'Betreff' }).fill(subject)
+
+    // The editor closes itself once the mail is out - that is the completion signal
+    const closed = editorWindow.waitForEvent('close', { timeout: 60_000 })
+    await editor.getByRole('button', { name: 'Senden', exact: true }).click()
+    await closed
+
+    // 3. Mailpit has exactly one mail with one PDF attachment
+    const found = await waitFor(
+      async () => {
+        const query = encodeURIComponent(`subject:${subject}`)
+        const res = await fetch(
+          `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=${query}`
+        )
+        const data = (await res.json()) as { messages?: { ID: string }[] }
+        return data.messages?.[0]?.ID ?? null
+      },
+      (id) => id !== null,
+      60_000
+    )
+    const detail = (await (
+      await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found}`)
+    ).json()) as { Attachments?: { FileName: string; Size: number }[] }
+    expect(detail.Attachments).toHaveLength(1)
+    expect(detail.Attachments![0].FileName).toMatch(/\.pdf$/)
+    expect(detail.Attachments![0].Size).toBeGreaterThan(1000)
+
+    // 4. The invoice counts as emailed, only after that send
+    await page.goto(`${base()}#/invoices`)
+    const row = page
+      .locator('tr')
+      .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
+    await expect(
+      row.getByRole('img', { name: /^E-Mail erstellt am \d\d\.\d\d\.\d{4}/ })
+    ).toBeVisible({ timeout: 30_000 })
+  } finally {
+    // back to files: later tests must not send anything
+    await page.goto(`${base()}#/settings?tab=email`)
+    await page.locator('#settings-mail-program').click()
+    await page.getByRole('option', { name: /Nur Dateien speichern/ }).click()
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, C1_TAG)
+  }
+})
+

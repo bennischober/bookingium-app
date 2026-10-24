@@ -193,7 +193,9 @@ export function ComposeView({
   accountId,
   initial,
   onClose,
-  onStored
+  onStored,
+  presetPdfPath,
+  onSent
 }: {
   accountId: string
   initial: ComposeState
@@ -201,6 +203,10 @@ export function ComposeView({
   onClose: () => void
   /** Drafts or Sent changed */
   onStored: () => void
+  /** C1: the PDF the window was opened with, read in main and attached on send */
+  presetPdfPath?: string
+  /** C1: the mail was sent, with its Message-ID */
+  onSent?: (messageId: string) => void
 }) {
   const [mail, setMail] = useState(initial)
   const [showCopies, setShowCopies] = useState(initial.cc.length > 0 || initial.bcc.length > 0)
@@ -316,10 +322,27 @@ export function ComposeView({
     setBusy('send')
     try {
       await queue.current
-      await mailApi.sendMail(toDraftInput(current), draftUid.current, accountId)
+      // C1: the PDF this window was opened with is read in main and attached here
+      const attachments = [...current.attachments]
+      if (presetPdfPath) {
+        const base64 = await window.api.readComposePdf(presetPdfPath)
+        if (base64) {
+          attachments.push({
+            filename: presetPdfPath.split(/[\\/]/).pop() ?? 'Anhang.pdf',
+            contentType: 'application/pdf',
+            base64
+          })
+        }
+      }
+      const sent = await mailApi.sendMail(
+        { ...toDraftInput(current), attachments },
+        draftUid.current,
+        accountId
+      )
       closed.current = true
       toast.success('Gesendet')
       onStored()
+      onSent?.(sent.messageId)
       onClose()
     } catch (error) {
       toast.error('Senden fehlgeschlagen', { description: errorText(error) })

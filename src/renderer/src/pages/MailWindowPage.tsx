@@ -8,7 +8,9 @@ import { Spinner } from '@/components/ui/spinner'
 import { ComposeView } from '@/components/mail/ComposeView'
 import {
   type ComposeState,
+  emptyCompose,
   forwardCompose,
+  parseAddress,
   fromSavedDraft,
   replyCompose,
   withSignature
@@ -26,9 +28,43 @@ const failed = (title: string) => (error: unknown) =>
  * core's op events.
  */
 export default function MailWindowPage() {
-  const search = useSearch({ strict: false }) as { account?: string; message?: string | number }
+  const search = useSearch({ strict: false }) as {
+    account?: string
+    message?: string | number
+    mode?: string
+    key?: string
+    draft?: string
+    pdfPath?: string
+    pdfName?: string
+  }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
+
+  // C1: the window opened as bookingum's own editor for a prepared draft. The draft
+  // and the PDF travel in the query; a successful send is reported back to main, so
+  // the invoice is marked as emailed only then.
+  const composeRequest = useMemo(() => {
+    if (search.mode !== 'compose') return null
+    try {
+      // base64 in the URL, decoded here: a raw JSON in the fragment loses characters
+      const decoded = atob(search.draft ?? '')
+      const draft = JSON.parse(decoded || '{}') as {
+        to?: string
+        subject?: string
+        body?: string
+      }
+      return {
+        key: search.key ?? '',
+        pdfPath: search.pdfPath ?? '',
+        pdfName: search.pdfName ?? '',
+        to: draft.to ?? '',
+        subject: draft.subject ?? '',
+        body: draft.body ?? ''
+      }
+    } catch {
+      return null
+    }
+  }, [search.mode, search.key, search.draft, search.pdfPath, search.pdfName])
   const queryClient = useQueryClient()
 
   const accounts = trpcReact.mail.accounts.list.useQuery()
@@ -59,6 +95,20 @@ export default function MailWindowPage() {
     document.title = detail.data?.subject || 'E-Mail'
   }, [detail.data?.subject])
 
+  // C1: the prepared draft opens straight in the editor. The state is derived, not set
+  // from an effect: the editor mounts with it on the first render that has a request.
+  const composeInitial = useMemo<ComposeState | null>(
+    () =>
+      composeRequest
+        ? {
+            ...emptyCompose(),
+            to: composeRequest.to ? [parseAddress(composeRequest.to)] : [],
+            subject: composeRequest.subject,
+            bodyText: composeRequest.body
+          }
+        : null,
+    [composeRequest]
+  )
   // A draft from Drafts opens straight in the editor
   const isSavedDraft = canWrite && Boolean(detail.data?.isDraft) && isDrafts(folder)
   useEffect(() => {
@@ -114,9 +164,10 @@ export default function MailWindowPage() {
       )
     })
 
-  if (!accountId || !Number.isSafeInteger(messageId)) {
+  if (!composeRequest && (!accountId || !Number.isSafeInteger(messageId))) {
     return <p className="p-6 text-sm text-destructive">Diese E-Mail gibt es nicht.</p>
   }
+  // C1: a compose window needs no message, so it never waits for one
   if (accounts.isLoading || (isSavedDraft && !compose)) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -127,13 +178,29 @@ export default function MailWindowPage() {
 
   return (
     <div className="flex h-screen min-h-0 flex-col">
-      {compose ? (
+      {composeRequest && composeInitial ? (
+        <ComposeView
+          key={`compose-${composeRequest.key}`}
+          accountId={accountId}
+          initial={composeInitial}
+          onClose={() => window.close()}
+          onStored={() => undefined}
+          presetPdfPath={composeRequest.pdfPath}
+          onSent={(messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)}
+        />
+      ) : compose ? (
         <ComposeView
           key={compose.key}
           accountId={accountId}
           initial={compose.state}
           onClose={() => (compose.closesWindow ? window.close() : setCompose(null))}
           onStored={() => undefined}
+          presetPdfPath={composeRequest?.pdfPath}
+          onSent={
+            composeRequest
+              ? (messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)
+              : undefined
+          }
         />
       ) : (
         <MessageView

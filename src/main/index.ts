@@ -37,6 +37,7 @@ import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 import { mailClient } from './mailclient/MailClientService'
+import type { ComposeDraft, ComposeResult } from './mail/composeWindow'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService } from './services/MailLinkService'
 import { listMailAccounts } from './mailclient/accounts'
@@ -135,6 +136,61 @@ ipcMain.handle(
     window.on('closed', () => mailWindows.delete(key))
   }
 )
+
+/**
+ * C1: opens bookingum's own editor for a prepared draft and resolves with what the
+ * user did. Only this path knows whether the mail was really sent, so an invoice is
+ * marked as emailed after a successful send - not when a window opens.
+ */
+const composeWindows = new Map<string, (result: ComposeResult) => void>()
+/** C1: the PDFs a compose window was opened with - only these may be read back */
+const composePdfs = new Set<string>()
+
+async function openComposeWindow(input: {
+  accountId: string
+  draft: ComposeDraft
+  pdfPath: string
+  pdfName: string
+}): Promise<ComposeResult> {
+  if (!input?.accountId || !input.draft) return { sent: false }
+  // only this file may be read back by the window
+  composePdfs.add(input.pdfPath)
+  const key = `compose:${Date.now()}:${Math.random().toString(36).slice(2)}`
+  const search = new URLSearchParams({
+    account: input.accountId,
+    mode: 'compose',
+    key,
+    // base64: the JSON has characters that would break the URL fragment
+    draft: Buffer.from(JSON.stringify(input.draft), 'utf8').toString('base64'),
+    pdfPath: input.pdfPath,
+    pdfName: input.pdfName
+  })
+  return new Promise<ComposeResult>((resolve) => {
+    let settled = false
+    const finish = (result: ComposeResult): void => {
+      if (settled) return
+      settled = true
+      composeWindows.delete(key)
+      resolve(result)
+    }
+    composeWindows.set(key, finish)
+    const window = createAppWindow(
+      { width: 900, height: 760, minWidth: 520, minHeight: 460 },
+      `/mail/window?${search}`
+    )
+    // A closed window means the user did not send
+    window.on('closed', () => finish({ sent: false }))
+  })
+}
+
+ipcMain.handle('mail:composeWindow', (_event, input: Parameters<typeof openComposeWindow>[0]) =>
+  openComposeWindow(input)
+)
+
+/** C1: the compose window reports a successful send */
+ipcMain.handle('mail:composeSent', (_event, { key, messageId }: { key: string; messageId: string }) => {
+  composeWindows.get(key)?.({ sent: true, messageId })
+})
 
 /**
  * IPC Handler for opening files
@@ -423,6 +479,26 @@ ipcMain.handle(
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
       const result = await openEmail({ draft, pdf, fileName: name, setting: settings.mailProgram })
+      // C1: only the own editor knows whether the mail was really sent. Every external
+      // program keeps marking the invoice when its window opens, as before.
+      if (result.method === 'bookingum') {
+        const account = listMailAccounts().find((a) => a.kind === 'sandbox')
+        if (!account) {
+          return { success: false, error: 'Kein Postfach mit Schreibrecht eingerichtet' }
+        }
+        const composed = await openComposeWindow({
+          accountId: account.id,
+          draft: { to: draft.to, subject: draft.subject, body: draft.body },
+          pdfPath: result.pdfPath,
+          pdfName: `${name}.pdf`
+        })
+        if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
+        invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind, {
+          messageId: composed.messageId,
+          mailAccountId: account.id
+        })
+        return { success: true, ...result, to: draft.to, eInvoice }
+      }
       invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind)
       return { success: true, ...result, to: draft.to, eInvoice }
     } catch (error) {
@@ -434,6 +510,19 @@ ipcMain.handle(
     }
   }
 )
+
+/**
+ * C1: the invoice PDF a compose window was opened with. Only a path the compose flow
+ * itself registered is readable - the renderer cannot ask for arbitrary files.
+ */
+ipcMain.handle('mail:readComposePdf', async (_event, { filePath }: { filePath: string }) => {
+  if (typeof filePath !== 'string' || !composePdfs.has(filePath)) return ''
+  try {
+    return (await readFile(filePath)).toString('base64')
+  } catch {
+    return ''
+  }
+})
 
 ipcMain.handle('mail:showFile', (_event, { filePath }: { filePath: string }) => {
   showEmailFile(filePath)

@@ -491,6 +491,11 @@ export const invoice_email = sqliteTable(
     kind: text('kind').default('invoice').notNull(),
     // Prefilled recipient address, '' when the recipient had none
     to: text('to').default('').notNull(),
+    // C1: the sent mail's Message-ID, set only when bookingum sent it itself -
+    // the external programs cannot report a send, so it stays null there
+    message_id: text('message_id'),
+    // C1: the mail account it was sent from (C4 uses it)
+    mail_account_id: text('mail_account_id'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull()

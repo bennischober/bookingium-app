@@ -85,6 +85,13 @@
       "when": 1792859325223,
       "tag": "0011_mail_link_index_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1792859326223,
+      "tag": "0012_invoice_email_message_id",
+      "breakpoints": true
     }
   ]
 }
