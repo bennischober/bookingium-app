@@ -12,7 +12,15 @@ import { z } from 'zod'
 // thunderbird -> Thunderbird: opens a new email with the PDF attached
 // mailto      -> any other program: email without attachment, PDF shown in Explorer
 // files       -> only saves email and PDF and opens their folder
-export const MailProgramSetting = z.enum(['auto', 'outlook', 'thunderbird', 'mailto', 'files'])
+export const MailProgramSetting = z.enum([
+  'auto',
+  'outlook',
+  'thunderbird',
+  'mailto',
+  'files',
+  // C1: bookingum's own editor, the only one that knows when a mail was sent
+  'bookingum'
+])
 export type MailProgramSetting = z.infer<typeof MailProgramSetting>
 
 export const EmailTemplate = z.object({ subject: z.string(), body: z.string() })

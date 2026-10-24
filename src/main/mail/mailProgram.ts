@@ -18,6 +18,29 @@ import type { EmailDraft } from './eml'
 
 export type MailMethod = Exclude<MailProgramSetting, 'auto'>
 
+/** C1: bookingum's own editor; it needs a writable mail account, not a program */
+export const OWN_EDITOR: MailMethod = 'bookingum'
+
+/**
+ * C1: whether the setting may be chosen at all.
+ *
+ * bookingum's own editor needs a writable mail account (a read-only one cannot
+ * send); every other method only needs Windows to have a mail program.
+ */
+export function isMailProgramAvailable(setting: MailProgramSetting, hasWritableAccount: boolean): boolean {
+  if (setting === OWN_EDITOR) return hasWritableAccount
+  return true
+}
+
+/** C1: why the own editor cannot be chosen, in German; null when it can */
+export function mailProgramUnavailableReason(
+  setting: MailProgramSetting,
+  hasWritableAccount: boolean
+): string | null {
+  if (setting !== OWN_EDITOR || hasWritableAccount) return null
+  return 'Für das eigene E-Mail-Konto fehlt ein Postfach mit Schreibrecht. Richten Sie unter Einstellungen → E-Mail eines ein.'
+}
+
 /** Executable file name of a program path ("C:\…\OUTLOOK.EXE" -> "outlook.exe") */
 function exeName(path: string): string {
   return (path.split(/[\\/]/).pop() ?? '').toLowerCase()

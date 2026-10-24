@@ -15,14 +15,17 @@ const TITLES: Record<MailMethod, string> = {
   outlook: 'E-Mail in Outlook geöffnet',
   thunderbird: 'E-Mail in Thunderbird geöffnet',
   mailto: 'E-Mail geöffnet – PDF bitte anhängen',
-  files: 'E-Mail gespeichert'
+  files: 'E-Mail gespeichert',
+  // C1: bookingum's own editor, the only one that knows the mail was sent
+  bookingum: 'E-Mail zum Prüfen und Senden geöffnet'
 }
 
 const HINTS: Record<MailMethod, string> = {
   outlook: 'Prüfen und senden.',
   thunderbird: 'Prüfen und senden.',
   mailto: 'Das PDF liegt im geöffneten Ordner – in die E-Mail ziehen.',
-  files: 'Kein Mailprogramm gefunden. Die E-Mail (.eml) und das PDF liegen im geöffneten Ordner.'
+  files: 'Kein Mailprogramm gefunden. Die E-Mail (.eml) und das PDF liegen im geöffneten Ordner.',
+  bookingum: 'Prüfen und in bookingum senden – die Rechnung gilt danach als versendet.'
 }
 
 /**

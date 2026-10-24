@@ -28,7 +28,9 @@ const MAIL_PROGRAMS: Array<{ value: MailProgramSetting; label: string }> = [
   { value: 'outlook', label: 'Outlook (klassisch)' },
   { value: 'thunderbird', label: 'Thunderbird' },
   { value: 'mailto', label: 'Anderes Mailprogramm' },
-  { value: 'files', label: 'Nur Dateien speichern' }
+  { value: 'files', label: 'Nur Dateien speichern' },
+  // C1: only offered when a writable mail account exists (see MailProgramHint)
+  { value: 'bookingum', label: 'bookingum (eigenes E-Mail-Konto)' }
 ]
 
 const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
@@ -37,7 +39,9 @@ const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
   thunderbird: 'Öffnet eine neue E-Mail mit PDF im Anhang.',
   mailto:
     'Öffnet eine neue E-Mail ohne Anhang (z. B. das neue Outlook) und zeigt das PDF zum Hineinziehen.',
-  files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.'
+  files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.',
+  bookingum:
+    'Öffnet die E-Mail mit PDF im bookingum-Editor. Nach dem Senden gilt die Rechnung als versendet.'
 }
 
 type Lang = 'de' | 'en'
