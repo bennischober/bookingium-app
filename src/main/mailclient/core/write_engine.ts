@@ -533,15 +533,29 @@ export class WriteEngine {
       || this.store.allFolders().find(f => f.special_use?.includes('Drafts'))?.imap_path || 'Drafts';
     const client = await this.sandboxClient();
     try {
-      // record the new uid durably: a replay after a crash past the APPEND finds it and
-      // must NOT append a second copy
+      // A5: record the new uid durably. A replay after a crash past the APPEND finds
+      // it and must NOT append a second copy.
       if (!payload.appendedUid) {
-        const appended = await client.append(draftsPath, mimeBuf, ['\\Seen', '\\Draft'], this.clock());
-        if (!appended || typeof appended !== 'object' || !appended.uid) {
-          return { outcome: 'failed', reason: 'draft APPEND returned no uid (no UIDPLUS?)' };
+        // A5 (F5): on a REPLAY the previous attempt may have appended and then lost
+        // the journal update. Before appending again, look for our Message-ID in Drafts.
+        // This probe is only safe because every draft save builds a FRESH Message-ID
+        // (compose.ts uses randomUUID() per build), so a found id is always THIS
+        // attempt's copy and never an older version's.
+        if (op.attempts > 0 || op.state === 'running') {
+          const found = await this.findDraftByMessageId(client, draftsPath, op.message_id);
+          if (found != null) {
+            payload.appendedUid = found;
+            this.store.journalUpdate(op.id, { payload });
+          }
         }
-        payload.appendedUid = Number(appended.uid);
-        this.store.journalUpdate(op.id, { payload });
+        if (!payload.appendedUid) {
+          const appended = await client.append(draftsPath, mimeBuf, ['\\Seen', '\\Draft'], this.clock());
+          if (!appended || typeof appended !== 'object' || !appended.uid) {
+            return { outcome: 'failed', reason: 'draft APPEND returned no uid (no UIDPLUS?)' };
+          }
+          payload.appendedUid = Number(appended.uid);
+          this.store.journalUpdate(op.id, { payload });
+        }
       }
       // previous version gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5)
       if (payload.oldUid != null) {
@@ -555,6 +569,20 @@ export class WriteEngine {
     } finally {
       await client.logout().catch(() => { });
     }
+  }
+
+  /** A5: the UID of the draft this attempt already appended, found by Message-ID.
+   *  Returns null when the id is unknown, the folder cannot be opened, or nothing matches. */
+  private async findDraftByMessageId(client: ImapFlow, draftsPath: string, messageId: string | null): Promise<number | null> {
+    if (!messageId) return null;
+    try {
+      await client.mailboxOpen(draftsPath);
+      // message_id is stored without angle brackets; the header search wants them
+      const id = messageId.replace(/^</, '').replace(/>$/, '');
+      const uids = await client.search({ header: { 'message-id': `<${id}>` } }, { uid: true });
+      if (uids && uids.length) return Number(uids[0]);
+    } catch { /* folder or search unavailable: append a fresh copy */ }
+    return null;
   }
 
   /** Permanently removes one saved version of a draft: only in the Drafts folder it was
