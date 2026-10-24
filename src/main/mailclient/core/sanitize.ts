@@ -52,6 +52,9 @@ export interface SanitizeResult {
   remoteImages: SanitizeRemoteImage[];
 }
 
+/** DOMPurify strips a dangerous href entirely; this copy keeps the URL for display */
+const RAW_HREF = 'data-raw-href';
+
 const ALLOWED_TAGS = [
   'p', 'div', 'span', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'strong', 'b', 'em', 'i', 'u', 's', 'sub', 'sup', 'small', 'big',
@@ -63,11 +66,21 @@ const ALLOWED_TAGS = [
 const ALLOWED_ATTR = [
   'style', 'class', 'id', 'align', 'width', 'height', 'color', 'face', 'size',
   'bgcolor', 'dir', 'lang', 'title', 'href', 'src', 'alt', 'border',
-  'cellpadding', 'cellspacing', 'colspan', 'rowspan', 'valign',
+  'cellpadding', 'cellspacing', 'colspan', 'rowspan', 'valign', RAW_HREF,
 ];
 
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
 const purify = DOMPurify(dom.window as unknown as Parameters<typeof DOMPurify>[0]);
+
+// DOMPurify removes the href of javascript:/data:/vbscript: links entirely (its own
+// URL safety check), which would lose the URL a blocked link pointed at. This hook runs
+// BEFORE that check and keeps a copy on data-raw-href. The dangerous href itself is still
+// dropped by DOMPurify - only the copy the UI displays survives.
+purify.addHook('uponSanitizeAttribute', (node, data) => {
+  if (data.attrName !== 'href' || node.nodeName !== 'A') return;
+  // Only a URL DOMPurify would drop needs the copy
+  if (isUnsafeLinkScheme(data.attrValue)) node.setAttribute(RAW_HREF, data.attrValue);
+});
 
 /**
  * Scheme extraction the way browsers effectively parse it: strip control chars and
@@ -104,7 +117,14 @@ export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
 
   // 1. DOMPurify: structural whitelist. ALLOW_UNKNOWN_PROTOCOLS keeps href values for
   //    non-http schemes so we can classify them ourselves (and show them as blocked).
-  const cleaned = purify.sanitize(rawHtml, {
+  //    A <style> block is lifted out first: DOMPurify drops its text content entirely,
+  //    so the CSS is neutralized here and put back below.
+  const styleBlocks: string[] = [];
+  const withPlaceholders = rawHtml.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
+    styleBlocks.push(neutralizeCssUrls(css));
+    return '';
+  });
+  const cleaned = purify.sanitize(withPlaceholders, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_UNKNOWN_PROTOCOLS: true,
@@ -115,20 +135,24 @@ export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
   const doc = new JSDOM(cleaned).window.document;
 
   // <style> blocks: neutralize url()/@import (CSP also blocks remote loads, belt & braces)
-  for (const styleEl of [...doc.querySelectorAll('style')]) {
-    if (styleEl.textContent) styleEl.textContent = neutralizeCssUrls(styleEl.textContent);
+  for (const css of styleBlocks) {
+    const styleEl = doc.createElement('style');
+    styleEl.textContent = css;
+    doc.head.appendChild(styleEl);
   }
 
-  // anchors → classify + rewrite
-  const anchors = [...doc.querySelectorAll('a[href]')];
+  // anchors → classify + rewrite. A blocked link may have lost its href in step 1,
+  // so the pre-step-1 copy is what classifies it.
+  const anchors = [...doc.querySelectorAll('a')];
   for (const a of anchors) {
-    const rawHref = a.getAttribute('href') || '';
+    const rawHref = a.getAttribute('data-raw-href') || a.getAttribute('href') || '';
     const scheme = schemeOf(rawHref);
     const openable = !isUnsafeLinkScheme(rawHref);
     const idx = links.length;
     const text = (a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     links.push({ index: idx, text, url: rawHref, scheme, openable });
     a.setAttribute('data-link-idx', String(idx));
+    a.removeAttribute('data-raw-href');
     if (openable) {
       a.setAttribute('href', rawHref);
       a.setAttribute('target', '_blank');
@@ -176,12 +200,15 @@ export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
 
   // 3. serialize + wrap in a CSP document
   const body = doc.body ? doc.body.innerHTML : '';
+  // The mail's own <style> blocks travel into the head, after the app's own
+  const styles = styleBlocks.map((css) => `<style>${css}</style>`).join('');
   const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${MAIL_CSP}">
 <style>/* mail content styles live in the app, not here */</style>
+${styles}
 </head>
 <body>${body}</body>
 </html>`;
