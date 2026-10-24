@@ -1,6 +1,6 @@
 # src/renderer/src - KNOWLEDGE BASE
 
-**Score:** 5 (3 root files + 165 recursive, 1143 import refs) - subtree root: every renderer
+**Score:** 5 (3 root files + 164 TS/TSX of 170 files, 1143 import refs) - subtree root: every renderer
 import resolves through here.
 
 ## OVERVIEW

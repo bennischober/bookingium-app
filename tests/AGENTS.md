@@ -54,7 +54,7 @@ tests/
 ## HOTSPOTS
 - `einvoice.test.ts` 768L, `invoice.test.ts` 393L, `mail_store_migrations.test.ts` and
   `import.test.ts` 328L, `contact_list.test.ts` 308L.
-- Highest fan-in helpers: `setupTestDb`/`getTestDb` (18 suites), `EINVOICE_SAMPLES` (5 suites).
+- Highest fan-in helpers: `setupTestDb`/`getTestDb` (18 suites), `EINVOICE_SAMPLES` (2 suites).
 - Most test-coupled source: `src/main/services/CompanyService` (13 suites),
   `src/main/db/schema` and `src/main/db/index` (12 each) - schema/migration edits ripple widest.
 

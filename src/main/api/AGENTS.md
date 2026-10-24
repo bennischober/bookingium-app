@@ -1,6 +1,6 @@
 # src/main/api - tRPC Contract Layer
 
-**Score:** 15 · 59 files, 4.5k LOC (routers 22 / schemas 21 / mappers 15)
+**Score:** 15 · 60 files, 4.5k LOC (routers 22 / schemas 21 / mappers 15)
 
 ## OVERVIEW
 Everything the renderer can call: one router per business object, zod DTOs and

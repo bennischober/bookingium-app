@@ -31,16 +31,16 @@ bookingum-app/
 | German UI wording | `docs/UI_LANGUAGE.md` | label maps, never translate stored values |
 
 ## CODE MAP
-Centrality = import-reference counts (LSP and ast-grep are not installed in this repo; use grep).
+Refs = files referencing the symbol, measured with grep -rl (module importers for `db`/`schema`, test suites for `setupTestDb`).
 
 Only the symbols that cross a subtree boundary are listed here; per-area tables live in the child files.
 
 | Symbol | Type | Location | Refs | Role |
 |--------|------|----------|------|------|
-| `PaginationInput` | zod schema | `src/main/api/schemas/base.schema.ts` | 34 | list/search/sort input every list procedure takes |
+| `PaginationInput` | zod schema | `src/main/api/schemas/base.schema.ts` | 27 | list/search/sort input every list procedure takes |
 | `db` | lazy Proxy | `src/main/db/index.ts` | 23 | every repository's handle; `useTestDb` swaps it in tests |
-| `schema` | 27-table registry | `src/main/db/schema.ts` | 22 | drizzle tables used by repositories, services, seed |
-| `setupTestDb` | function | `tests/helpers/setup.ts` | 18 test files | in-memory SQLite + real migrations |
+| `schema` | 27-table registry | `src/main/db/schema.ts` | 34 | drizzle tables used by repositories, services, seed |
+| `setupTestDb` | function | `tests/helpers/setup.ts` | 18 | in-memory SQLite + real migrations |
 
 ## CONVENTIONS
 - Layer flow is one-way and camelCase conversion happens at exactly one seam: renderer -> router (zod input) -> service (tsyringe) -> repository (drizzle) -> SQLite, with `api/mappers` producing DTOs. Unit tests assert snake_case.
