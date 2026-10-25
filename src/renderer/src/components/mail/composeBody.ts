@@ -157,15 +157,23 @@ function escapeHtml(text: string): string {
  * F3: what the editor starts with. A stored HTML body is used as it is; a plain
  * text becomes paragraphs, so a quote's line breaks and an empty line survive the
  * first render instead of collapsing into one paragraph.
+ *
+ * H3: a reply's body starts with two newlines, and those are the room the user writes
+ * in. Splitting on blank lines and dropping empty blocks threw them away, so the caret
+ * landed on the first character of the quote. A leading blank block is therefore kept as
+ * an empty paragraph - the caret effect then has somewhere to go.
  */
 export function toEditorHtml(body: string): string {
   if (/<[a-zA-Z/][^>]*>/.test(body)) return body
+  const leadingBlank = /^\s*\n/.test(body)
   const paragraphs = body
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean)
     .map((block) => `<p>${block.split('\n').map(escapeHtml).join('<br>')}</p>`)
-  return paragraphs.join('')
+  // The empty paragraph is the writing room above the quote; without it the editor
+  // opens with the caret inside the quoted text (H3)
+  return (leadingBlank ? '<p><br></p>' : '') + paragraphs.join('')
 }
 
 function escapeAttr(value: string): string {

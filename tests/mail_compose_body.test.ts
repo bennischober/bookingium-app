@@ -84,6 +84,22 @@ describe('toEditorHtml (F3)', () => {
     expect(toEditorHtml('erste\n\nzweite')).toBe('<p>erste</p><p>zweite</p>')
   })
 
+  it('keeps the writing room above a reply quote (H3)', () => {
+    // A reply body starts with two newlines; that blank block IS the room the user
+    // writes in. Dropping it put the caret on the first character of the quote.
+    const reply = '\n\nAm 23.10.2026 schrieb Malte Hohmann:\n> Text\n'
+    const html = toEditorHtml(reply)
+    expect(html.startsWith('<p><br></p>')).toBe(true)
+    // The quote is still there, after that empty paragraph
+    expect(html).toContain('schrieb Malte Hohmann')
+  })
+
+  it('does not add writing room to a body that has none (H3)', () => {
+    // A draft typed from scratch starts at the first paragraph, not below an empty one
+    expect(toEditorHtml('Yo das ist ein Test')).toBe('<p>Yo das ist ein Test</p>')
+    expect(toEditorHtml('')).toBe('')
+  })
+
   it('escapes text that looks like markup', () => {
     expect(toEditorHtml('a < b')).toBe('<p>a &lt; b</p>')
   })
