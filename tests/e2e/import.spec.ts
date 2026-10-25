@@ -118,7 +118,9 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await page.getByRole('link', { name: 'Firmen' }).first().click()
   await expect(page.locator('tr', { hasText: 'Teich Events GmbH' })).toContainText('Dresden')
   await page.getByRole('link', { name: 'Personen' }).first().click()
-  await expect(page.getByRole('row', { name: /Max Ufer max@teich-events\.de/ })).toBeVisible()
+  await expect(
+    page.getByRole('row', { name: /Max Ufer max@teich-events\.example\.test/ })
+  ).toBeVisible()
 
   // A first name alone ("Elke und Johannes") is a valid person
   await page
