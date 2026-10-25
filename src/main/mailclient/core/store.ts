@@ -402,16 +402,48 @@ export class Store {
     tx();
   }
 
+  /**
+   * G2/L2: the list of one folder, without the mails a pending move is taking out of it.
+   *
+   * A move is journaled and then run against the server, which takes time on a real mailbox.
+   * Until it lands, the row still points at the source folder, so the mail would appear both
+   * here and - after the resync - in the target: it seems not to have moved, then to be there
+   * twice. Excluding the in-flight keys is what makes the move look like it happened.
+   *
+   * The row itself is deliberately NOT rewritten before the server acks: a local-only move would
+   * be lost on a crash and could not be undone by replaying the journal. This is a read-side
+   * filter, so the journal stays the single source of truth.
+   *
+   * A single move stores its `message_key`; a batch stores its members in the payload, so both
+   * shapes are checked - a batch delete is the common case and must not slip through.
+   */
   listByFolder(folderId: string, offset: number, limit: number): MessageRow[] {
-    return this.db.prepare(`SELECT * FROM messages WHERE folder_id = @folderId
-      ORDER BY sort_date DESC LIMIT @limit OFFSET @offset`)
+    return this.db.prepare(`SELECT * FROM messages m WHERE m.folder_id = @folderId
+      AND NOT EXISTS (SELECT 1 FROM op_journal o
+        WHERE o.state IN ('pending','running')
+          AND o.target_folder_path IS NOT NULL
+          AND (o.message_key = m.message_key
+            OR (o.kind = 'move_batch' AND EXISTS (
+              SELECT 1 FROM json_each(o.payload, '$.members') mem
+              WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))
+      ORDER BY m.sort_date DESC LIMIT @limit OFFSET @offset`)
       .all({ folderId, limit, offset }) as MessageRow[];
   }
 
+  /** G2/L2: the same exclusion for the count, so the folder's total matches its list */
   countByFolder(folderId: string): { total: number; unread: number } {
-    const total = (this.db.prepare('SELECT COUNT(*) c FROM messages WHERE folder_id = ?').get(folderId) as { c: number }).c;
-    const unread = (this.db.prepare(`SELECT COUNT(*) c FROM messages WHERE folder_id = ? AND flags_json NOT LIKE '%"seen":true%'`).get(folderId) as { c: number }).c;
-    return { total, unread };
+    const row = this.db.prepare(`SELECT COUNT(*) c,
+        SUM(CASE WHEN m.flags_json NOT LIKE '%"seen":true%' THEN 1 ELSE 0 END) u
+      FROM messages m WHERE m.folder_id = ?
+      AND NOT EXISTS (SELECT 1 FROM op_journal o
+        WHERE o.state IN ('pending','running')
+          AND o.target_folder_path IS NOT NULL
+          AND (o.message_key = m.message_key
+            OR (o.kind = 'move_batch' AND EXISTS (
+              SELECT 1 FROM json_each(o.payload, '$.members') mem
+              WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))`)
+      .get(folderId) as { c: number; u: number | null };
+    return { total: row.c, unread: row.u ?? 0 };
   }
 
   // contacts -----------------------------------------------------------------
