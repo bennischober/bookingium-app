@@ -65,7 +65,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F11 | Links in the compose editor | S | F3 | done (the allowlist had no `<a>`, so links were reduced to text; http/https/mailto survive, unsafe schemes lose the href) |
 | F12 | A draft should show as unread | S | — | done (a draft was appended with `\Seen`; now `\Draft` only) |
 | F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |
-| F14 | Does the mailbox sync on its own? | S | — | open (IDLE watches INBOX only, plus a 30s/120s poll; the state should be visible) |
+| F14 | Does the mailbox sync on its own? | S | — | done (it does: IDLE on INBOX plus a 30s/120s poll; the bar now says "· automatisch" or "· regelmäßig" with a tooltip explaining what that means) |
 | F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | open (found while testing F4; its E2E is removed until this is fixed) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 

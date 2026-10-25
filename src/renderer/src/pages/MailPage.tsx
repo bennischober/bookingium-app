@@ -200,6 +200,18 @@ function SyncIndicator({
                 })}`
               : 'Noch nicht synchronisiert'}
           </span>
+          {/* F14: the mailbox updates by itself (IDLE on INBOX, plus a poll), so the
+              button is an extra, not the only way to get new mail */}
+          <span
+            className="text-muted-foreground"
+            title={
+              status.idleConnected
+                ? 'Neue E-Mail im Posteingang kommt von selbst an. Andere Ordner werden regelmäßig abgeglichen.'
+                : 'Der Posteingang wird regelmäßig abgeglichen.'
+            }
+          >
+            {status.idleConnected ? '· automatisch' : '· regelmäßig'}
+          </span>
           <Button variant="ghost" size="icon-xs" onClick={onSync} title="Jetzt synchronisieren">
             <RefreshCw />
           </Button>
