@@ -68,6 +68,14 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F14 | Does the mailbox sync on its own? | S | — | done (it does: IDLE on INBOX plus a 30s/120s poll; the bar now says "· automatisch" or "· regelmäßig" with a tooltip explaining what that means) |
 | F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | done (the renderer called `window.close()` from `beforeunload`, which also fires on a reload. A reply in a popped-out window was then not stored as a draft: main destroyed the window on the first close, so the save was cut off. A close is now held, the renderer saves and asks for it through `mail:closeWindow`, and main lets only that close through - the user confirmed the draft lands in Drafts) |
 | G1 | The main process dies opening the mail settings | M | — | open, pre-existing (verified at `fb0d689`): an Electron `Session` event reaches electron-trpc's `ipcMain` listener, whose `pe()` reads `.id` off a non-event; full stack and the de-minified code are in the card |
+| H1 | The sync time does not move while polling | S | — | open, confirmed in code: `lastSyncAt` is set only in `syncAll()`, never in the poll loop, so it can be hours old while the mailbox is current |
+| H2 | A visible "working" indicator | S | — | open, decision: a quiet spinner in the sync bar ("Sendet…"/"Empfängt…"), not an Outlook status bar |
+| H3 | Reply does not put the cursor above the quote | S | — | open, F13 only fixed the text: the two blank lines are in `bodyText`, but the caret is never placed, so it sits at the start |
+| H4 | The bullet list button does nothing visible | S | — | open: `execCommand("insertUnorderedList")` may be fine while `composeBody()` flattens lists into plain lines in `bodyText`; needs a DOM to prove which half |
+| H5 | Remote images blocked / draft ≠ rendered | S | — | blocking is by design (F1); the draft-vs-rendered difference is real but they can never match, since the receiver decides |
+| H6 | Empty space at the right of compose | S | — | needs a second look at the real window width before changing anything |
+| H7 | Contacts from the server, and from mail | M | — | decision: import the Outlook CSV once via the import dialog; never create persons automatically from mail |
+| H8 | The read-only / sandbox dropdown for release | S | — | decision: drop the test-server option in a release build; decide whether the canary checkbox ships |
 | D1 | Documents findable and visible | M | — | done (`16dd09a`): storage stays flat, no `document_link`, categories reuse `document_type`; the event tab shows the band's documents read-only and the band tab is one list filtered by category and event |
 | D2 | Documents in the search palette | S | — | done (`c4731d4`): a "Dokumente" group matched on the file name, labelled with category and owner, opening the file directly; file names also get LIKE escaping (`_` is a wildcard and common in file names) |
 | D3 | Events are archived, not deleted | M | — | done (`5563502`): `deal_memo.archived_at`, one `notArchived()` predicate imported by every read path, archive view with restore, hard delete refused while an invoice links the event; `cancelled` stays a separate status |
@@ -873,6 +881,104 @@ pages are reachable - `mail.accounts.list` is the first call that reaches the wo
 **Why it is skipped here (user decision 2026-10-25).** It is pre-existing, unrelated to the canary work, and it costs a
 build plus a ~30 s Playwright launch per probe. The user verifies the canary mailbox manually instead, so A9 phase 1 does not
 depend on this. Fix it as its own card, with the stack above as the starting point - do not re-run the probe to rediscover it.
+
+## H: review findings 2026-10-25 (user's manual pass on the real canary mailbox)
+
+The user ran the app against the real IONOS test mailbox (`bookingium-test@bmm-ag.de`, canary flag set) and wrote up what
+they saw in `C:\Users\benni\Desktop\email-client-review` (5 screenshots, 3 issue files, 2 question files).
+
+**A9 phase 1 is effectively DONE, by the user, manually.** They sent a mail to their own address through the real IONOS
+server and it arrived. That is exactly what phase 1 asked for (synthetic mail, own address only, counts and outcomes) - it
+just ran through the UI instead of the harness. The harness (`tests/e2e/mail-canary.spec.ts`) stays for repeatability once
+G1 is fixed.
+
+### H1: the sync time does not move while the mailbox is polled [bug, confirmed in code]
+
+**Reported.** "Synchronisiert 15:10 · automatisch" at 15:20, while the poll runs every 2 minutes. The user reads it as
+"the local mail is stale", which is the reason people press Senden/Empfangen in Outlook.
+
+**Confirmed.** `lastSyncAt` is assigned in exactly one place, `syncAll()` (`sync.ts:1028`). The poll loop
+(`startPolling`, ~`sync.ts:1185-1245`) checks STATUS per folder, syncs what changed and sweeps flags, but **never touches
+`lastSyncAt`**. So the timestamp is the last FULL sync, not the last successful contact - it can be hours old while the
+mailbox is demonstrably current.
+
+**Fix.** Set `lastSyncAt` (and emit the status) at the end of each poll pass that reached the server, not only at the end of
+`syncAll`. Keep a separate "last full sync" if it is useful internally. The label should mean "we last talked to the server
+at HH:MM", because that is the question the user is asking.
+
+**Test.** A poll pass with an unreachable-then-reachable server moves the timestamp; a failed poll does not.
+
+### H2: is there a visible "working" indicator? [question, decision needed]
+
+Outlook shows a status bar for "sending…", "fetching…". The user asks whether we want that.
+
+**Current state.** The sync bar says "Synchronisiert HH:MM · automatisch" and the button shows a spinner while it syncs
+(`MailPage.tsx:190-205`). Compose shows a spinner per action (`busy === 'send' | 'save'`). There is no global indicator, so a
+background poll or a queued send is invisible.
+
+**Recommendation.** A small, quiet indicator in the sync bar: a spinner plus "Sendet…" / "Empfängt…" while an op or a poll
+runs, and nothing when idle. Not a full Outlook status bar - the app already has a toast for completed actions, and the mail
+window has its own bar. Decide before building; it is cosmetic but touches both mail surfaces.
+
+### H3: reply does not put the cursor above the quote [bug, regression of F13]
+
+**Reported.** "If I hit reply, the two lines are not entered, the cursor is still at the start of the old/cited text."
+
+**F13 was only half fixed.** `composeDraft.ts:99` builds `bodyText: \`\\n\\nAm ... schrieb ...:\n${quoted}\n\`` - the two
+blank lines ARE in the text. What was never done is placing the **caret**: the editor is filled with the body and the caret ends
+up wherever the browser puts it, which is the start. F13's test asserts the string, not the cursor, which is why it passed.
+
+**Fix.** After the editor receives a reply body, set the selection to the start of the first block (or insert a
+`<p><br></p>` placeholder paragraph above the quote and focus it). Needs a real DOM test (jsdom) or an e2e assertion on
+`window.getSelection()`.
+
+### H4: the bullet list button does nothing visible [bug, needs a DOM]
+
+**Reported.** Bold, italic and underline work; the list button does not.
+
+**Suspected cause.** The toolbar calls `document.execCommand('insertUnorderedList')` (`ComposeView.tsx:659`). The sanitizer
+allows `UL/OL/LI` (`composeBody.ts:23-25`), so the tags survive the round trip - but `composeBody()` splits the body on
+`</p>|</div>|</li>|</ul>|</ol>|<br>` and joins the non-empty blocks with `\n`, which flattens a list into plain lines in
+`bodyText`. If the editor renders from `bodyText` after a save, the list is gone. Needs a DOM to prove which half is broken -
+do not guess.
+
+### H5: remote images are blocked, and the draft shows placeholders [by design, needs a decision]
+
+**Reported.** "Rendering is ugly. Can't we ever really display images?" - the IONOS mail shows grey "blocked" boxes.
+
+**That is deliberate** (F1: `remote_images.ts`, and the iframe's own CSP). Remote images are not fetched until the user asks,
+because loading them tells the sender the mail was opened. The "Bilder laden" action exists (`MessageView.tsx:437`). So the
+question is a policy one: keep blocking by default (recommended), or load automatically for known senders.
+
+**The second half is a real inconsistency.** The draft shows the typed text, the rendered mail shows the same text, but they do
+not look alike. The draft is a `contentEditable` div with app styles; the mail is a sandboxed iframe with `bg-white`. Worth
+making them visually closer, but they can never be identical - the receiver's client decides the final look anyway.
+
+### H6: compose window has empty space at the right [cosmetic]
+
+The mail window's compose body is a `contentEditable` that fills the width; the reading pane's iframe is `w-full`. The gap in
+the screenshots is the dev window at a narrow width plus the mail list column, not a layout bug in the mail body itself. Needs a
+second look at the real window width before deciding - do not "fix" it blind.
+
+### H7: does the server store contacts, and how do we get the old ones? [question, needs a decision]
+
+The user asks whether the IMAP server stores contacts (it does not - contacts live in the client, e.g. Outlook's local store, or in
+CardDAV/LDAP which IONOS does not expose here), whether we should import the Outlook CSV export, and how new contacts should be
+created from mail without polluting the DB with spam/newsletter senders.
+
+**Recommendation.** Two separate things:
+1. **Import** the existing Outlook CSV once, through the existing import dialog (`components/import/`), mapping onto `person` +
+   `company`. That is a data import, not a mail feature.
+2. **New contacts from mail**: never automatic. Offer "Absender als Person anlegen" on a mail, pre-filled, which is the same
+   shape as C2's mail links. Automatic creation would add every newsletter to the person list, and there is no reliable way to
+   tell a promoter from a newsletter sender.
+
+### H8: the "Nur lesen" / sandbox dropdown for release [question]
+
+The account dialog offers the local test server only in a dev build (`import.meta.env.DEV`), plus for accounts already saved as
+sandbox. For release, the test-server option should disappear entirely, and a saved sandbox account should be labelled for what it is.
+The canary flag (A7 part 2) is what makes a REAL mailbox writable, so the release story is: no sandbox option, no canary unless
+explicitly admitted. Decide whether the canary checkbox ships at all or is hidden behind a setting.
 
 ## D: documents
 
