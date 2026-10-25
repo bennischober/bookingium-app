@@ -25,6 +25,7 @@ import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, Syn
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
+import { foldersToResync } from './resync_scope.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
@@ -479,8 +480,19 @@ export class MailCore implements Api {
       }
     }
     await this.replayOps(e, opIds);
-    void e.engine.syncAll().catch(() => { });
+    // G2/L3b: only the folders this move touched need a resync. A full syncAll() does
+    // detectCapabilities + a STATUS per folder with a 150 ms pause between each, so a ten-folder
+    // mailbox paid ~1.5 s of sleeping after every single click.
+    this.resyncMovedFolders(e, opIds);
     return opIds.map(id => e.store.journalGet(id)).filter((op): op is JournalRow => Boolean(op)).map(op => this.opToSummary(op));
+  }
+
+  /** G2/L3b: resync just the source and target folders of the ops that were run */
+  private resyncMovedFolders(e: AccountEntry, opIds: string[]): void {
+    const ops = opIds
+      .map(opId => e.store.journalGet(opId))
+      .filter((op): op is JournalRow => Boolean(op));
+    for (const path of foldersToResync(ops)) e.writes.requestResync(path);
   }
 
   async deleteToTrash(ids: number[], accountId?: string): Promise<OpSummary[]> {
