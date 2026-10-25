@@ -36,7 +36,11 @@ function init(options: WorkerInit): void {
       info: (message) => send({ type: 'log', level: 'info', message }),
       warn: (message) => send({ type: 'log', level: 'warn', message }),
       error: (message) => send({ type: 'log', level: 'error', message })
-    }
+    },
+    // H5a: without this the core refuses every fetch, so the UI's "Bilder laden"
+    // button did nothing at all - it returned the same blocked HTML. Opt-in per
+    // message stays: the user clicks, nothing loads on its own.
+    remoteImages: { enabled: true }
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
   core.start()
