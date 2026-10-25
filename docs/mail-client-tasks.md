@@ -81,6 +81,8 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | D2 | Documents in the search palette | S | — | done (`c4731d4`): a "Dokumente" group matched on the file name, labelled with category and owner, opening the file directly; file names also get LIKE escaping (`_` is a wildcard and common in file names) |
 | D3 | Events are archived, not deleted | M | — | done (`5563502`): `deal_memo.archived_at`, one `notArchived()` predicate imported by every read path, archive view with restore, hard delete refused while an invoice links the event; `cancelled` stays a separate status |
 
+| G2 | Moving/deleting feels laggy against a real mailbox | M | — | done: `42b7a1f` (every write op announces itself, not just a send) · `2fe13c2` (the list answers the click before the server does, and restores the row when the move fails) · `cdbd712` (only the folders a move touched are resynced, not a full `syncAll()` with its 150 ms pause per folder) · `342ca77` (one write connection for the whole op chain instead of connect+LOGIN+LOGOUT per op) · `752749c` (a mail being moved leaves its source list at once, so a reload, the mail window, search and the counts agree). Measured on the sandbox with zero network latency: connect+LOGIN 73 ms and SELECT 31 ms per op - over TLS to IONOS that is several hundred ms on every click |
+
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
 E1/E2 touch no core files). Never run two cards at once that touch the same files.
 
