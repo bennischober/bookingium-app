@@ -153,6 +153,18 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* H4: Tailwind's preflight sets `list-style: none` on every list, so the
+     compose editor's bullet list rendered as plain lines - the markup was right,
+     it just looked as if the button did nothing. Restore it inside the editor
+     only; app chrome (menus, nav) keeps its reset. */
+  .mail-editor ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+  }
+  .mail-editor ol {
+    list-style: decimal;
+    padding-left: 1.5rem;
+  }
   /* Clickable controls show the hand cursor; Tailwind v4 resets buttons to
      the arrow. Utilities such as cursor-default still win over this. */
   button:not(:disabled),

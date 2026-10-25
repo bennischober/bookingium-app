@@ -665,7 +665,7 @@ export function ComposeView({
         ))}
       </div>
       <div
-        className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm outline-none"
+        className="mail-editor min-h-0 flex-1 overflow-auto px-4 py-3 text-sm outline-none"
         contentEditable
         role="textbox"
         aria-label="Text"
