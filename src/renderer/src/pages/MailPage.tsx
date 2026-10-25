@@ -18,6 +18,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { ComposeView } from '@/components/mail/ComposeView'
+import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
 import {
   type ComposeState,
   emptyCompose,
@@ -120,11 +121,13 @@ function useNow(active: boolean): number {
 
 function SyncIndicator({
   status,
+  runningOp,
   onPause,
   onResume,
   onSync
 }: {
   status: SyncStatus | undefined
+  runningOp: string | null
   onPause: () => void
   onResume: () => void
   onSync: () => void
@@ -162,6 +165,7 @@ function SyncIndicator({
     )
   }
   const initial = status.phase === 'initial' || status.phase === 'paused'
+  const runningLabel = runningOpLabel(runningOp)
   const progress =
     initial && status.messagesDone !== undefined
       ? `${status.messagesDone.toLocaleString('de-DE')}${
@@ -171,7 +175,14 @@ function SyncIndicator({
 
   return (
     <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
-      {status.paused ? (
+      {/* H2: a running write op wins over the sync text - it is what the user just
+          started, and it finishes in seconds */}
+      {runningLabel ? (
+        <>
+          <Spinner className="size-3" />
+          <span>{runningLabel}</span>
+        </>
+      ) : status.paused ? (
         <>
           <span>Download pausiert · {progress}</span>
           <Button variant="ghost" size="icon-xs" onClick={onResume} title="Fortsetzen">
@@ -254,6 +265,9 @@ export default function MailPage() {
   // B2: the folder being dragged, so a drop knows what to move
   const [movingFolder, setMovingFolder] = useState<FolderNode | null>(null)
   const [query, setQuery] = useState('')
+  // H2: a write op the user started and that is still running; the sync bar shows it.
+  // Autosave and flag ops are excluded (see opLabel.ts) so the bar stays quiet.
+  const [runningOp, setRunningOp] = useState<string | null>(null)
   const [filters, setFilters] = useState<ExtraFilters>(NO_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
   const [facetFolderId, setFacetFolderId] = useState<string | null>(null)
@@ -357,6 +371,12 @@ export default function MailPage() {
     onData: (event) => {
       if (event.accountId !== accountId) return
       if (event.type === 'op-event') {
+        // H2: show a write op while it runs, but only one the user started. Autosave
+        // (draft_save) and flag changes run in the background every few seconds; showing
+        // those would make the bar flicker nonstop, which is the opposite of quiet.
+        if (VISIBLE_OPS.has(event.kind)) {
+          setRunningOp(event.outcome === 'running' ? event.kind : null)
+        }
         clearTimeout(refreshTimer.current)
         refreshTimer.current = setTimeout(() => {
           refreshLists()
@@ -857,6 +877,7 @@ export default function MailPage() {
         <div className="ml-auto">
           <SyncIndicator
             status={syncStatus.data}
+            runningOp={runningOp}
             onPause={() => void mailApi.pauseSync(accountId).then(() => syncStatus.refetch())}
             onResume={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
             onSync={() =>

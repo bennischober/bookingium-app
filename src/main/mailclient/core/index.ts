@@ -981,8 +981,11 @@ export class MailCore implements Api {
         draft: draftsFolder && { path: draftsFolder.imap_path, uid: draftUid, uidValidity: draftsFolder.uid_validity },
       },
     });
-    const op = e.store.journalGet(opId)!;
     e.store.journalUpdate(opId, { state: 'running' });
+    const op = e.store.journalGet(opId)!;
+    // H2: announce the start too, so the UI can show "Sendet…" while it runs. Only the
+    // result was emitted before, so a send was invisible until it finished.
+    this.emitEvent({ type: 'op-event', accountId: e.config.id, opId, kind: op.kind, outcome: 'running' });
     const result = await e.writes.execute({ ...op, state: 'running' });
     await this.applyOpResult(e, opId, result);
     if (result.outcome === 'failed' && e.store.journalGet(opId)?.state !== 'done') {
