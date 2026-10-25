@@ -25,6 +25,13 @@ export interface WriteAccount {
   security: ImapSecurity;
   smtpHost: string;
   smtpPort: number;
+  /**
+   * A7: the SMTP encryption, which is NOT the IMAP one. A real mailbox is commonly
+   * IMAPS 993 plus submission 587 with STARTTLS, and reusing the IMAP setting would
+   * open a cleartext session to a server that wants TLS. Missing in older settings:
+   * see smtpSecurityOf().
+   */
+  smtpSecurity?: ImapSecurity;
 }
 
 /** The endpoints a write needs; credentials come from the host, never from here */
@@ -106,15 +113,31 @@ export async function connectWriteImap(
   return client;
 }
 
+/**
+ * A7: the SMTP encryption of an account. Accounts saved before the setting existed
+ * fall back to the IMAP security, which is right for the sandbox (both are 'none')
+ * and conservative for anything else (TLS on both sides rather than cleartext).
+ */
+export function smtpSecurityOf(account: Pick<WriteAccount, 'security' | 'smtpSecurity'>): ImapSecurity {
+  return account.smtpSecurity ?? account.security
+}
+
 /** The SMTP transport a write uses: this account's endpoint, TLS only relaxed on loopback */
-export function writeSmtp(account: WriteAccount) {
+export function writeSmtp(
+  account: WriteAccount,
+  credentials: { user: string; pass: string }
+) {
   assertWriteAllowed(account);
+  const security = smtpSecurityOf(account);
   const transport = nodemailer.createTransport({
     host: account.smtpHost,
     port: account.smtpPort,
-    secure: account.security === 'tls',
-    ...(account.security === 'starttls' ? { requireTLS: true } : {}),
+    secure: security === 'tls',
+    ...(security === 'starttls' ? { requireTLS: true } : {}),
     ...(isSandboxHost(account.smtpHost) ? { tls: tlsOptions(account.smtpHost) } : {}),
+    // A7: the server authenticates the sender. Without this the sandbox still works
+    // (Mailpit accepts anything) and every real server refuses with 530/535.
+    auth: { user: credentials.user, pass: credentials.pass },
   });
   return transport;
 }

@@ -8,6 +8,7 @@ import {
   assertWriteAllowed,
   connectWriteImap,
   isSandboxHost,
+  smtpSecurityOf,
   tlsOptions,
   writeRefusal,
   type WriteAccount
@@ -73,6 +74,16 @@ describe('A7: the write guard decides per account', () => {
     expect(tlsOptions('localhost').rejectUnauthorized).toBe(false)
     // everywhere else the certificate is verified
     expect(tlsOptions('imap.example.com').rejectUnauthorized).toBe(true)
+  })
+
+  it('takes the SMTP encryption from its own setting, not the IMAP one', () => {
+    // A real mailbox is IMAPS 993 plus submission 587 with STARTTLS. Borrowing the
+    // IMAP value would open a cleartext session to a server that wants TLS.
+    expect(smtpSecurityOf({ security: 'tls', smtpSecurity: 'starttls' })).toBe('starttls')
+    expect(smtpSecurityOf({ security: 'none', smtpSecurity: 'starttls' })).toBe('starttls')
+    // an older account without the setting falls back to the IMAP value
+    expect(smtpSecurityOf({ security: 'tls' })).toBe('tls')
+    expect(smtpSecurityOf({ security: 'none' })).toBe('none')
   })
 })
 

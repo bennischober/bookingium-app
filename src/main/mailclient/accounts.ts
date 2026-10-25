@@ -30,23 +30,34 @@ type StoredAccount = {
    */
   smtpHost?: string
   smtpPort?: number
+  /**
+   * A7: the SMTP encryption, which is not the IMAP one. A real mailbox is commonly
+   * IMAPS 993 plus submission 587 with STARTTLS. Missing in older settings.
+   */
+  smtpSecurity?: ImapSecurity
 }
 
 /** Account without its password, safe to hand to the renderer */
-export type MailAccountDto = Omit<StoredAccount, 'password' | 'security'> & {
+export type MailAccountDto = Omit<StoredAccount, 'password' | 'security' | 'smtpSecurity'> & {
   security: ImapSecurity
   /** A7: resolved, so the renderer shows what a write would actually use */
   smtpHost: string
   smtpPort: number
+  smtpSecurity: ImapSecurity
 }
 
-export type SaveMailAccountInput = Omit<MailAccountDto, 'id' | 'smtpHost' | 'smtpPort'> & {
+export type SaveMailAccountInput = Omit<
+  MailAccountDto,
+  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity'
+> & {
   id?: string
   /** omitted when editing: keep the stored password */
   password?: string
   /** A7: optional - defaults to the IMAP host on 1025 */
   smtpHost?: string
   smtpPort?: number
+  /** A7: optional - defaults to the IMAP security */
+  smtpSecurity?: ImapSecurity
 }
 
 export function mailRoot(): string {
@@ -85,11 +96,14 @@ function securityOf(account: StoredAccount): ImapSecurity {
  * server, so an old account cannot start sending somewhere unexpected.
  */
 export function smtpOf(
-  account: Pick<StoredAccount, 'host' | 'smtpHost' | 'smtpPort'>
-): { smtpHost: string; smtpPort: number } {
+  account: Pick<StoredAccount, 'host' | 'smtpHost' | 'smtpPort' | 'security' | 'smtpSecurity'>
+): { smtpHost: string; smtpPort: number; smtpSecurity: ImapSecurity } {
   return {
     smtpHost: account.smtpHost?.trim() ? account.smtpHost.trim() : account.host,
-    smtpPort: account.smtpPort ?? 1025
+    smtpPort: account.smtpPort ?? 1025,
+    // A7: the SMTP encryption is its own setting; older accounts fall back to the
+    // IMAP one, which is right for the sandbox and conservative anywhere else
+    smtpSecurity: account.smtpSecurity ?? securityOf(account as StoredAccount)
   }
 }
 
@@ -153,7 +167,8 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     password,
     signature: input.signature?.trim() ? input.signature.trim() : undefined,
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
-    smtpPort: input.smtpPort
+    smtpPort: input.smtpPort,
+    smtpSecurity: input.smtpSecurity
   }
   writeAll(
     existing ? accounts.map((a) => (a.id === existing.id ? account : a)) : [...accounts, account]

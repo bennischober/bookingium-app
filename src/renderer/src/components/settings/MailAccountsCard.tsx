@@ -48,6 +48,8 @@ type Draft = {
   /** A7: this account's own SMTP endpoint; empty = the IMAP host on 1025 */
   smtpHost: string
   smtpPort: string
+  /** A7: the SMTP encryption; empty = the IMAP security */
+  smtpSecurity: ImapSecurity | ''
 }
 
 const EMPTY_DRAFT: Draft = {
@@ -60,7 +62,8 @@ const EMPTY_DRAFT: Draft = {
   password: '',
   signature: '',
   smtpHost: '',
-  smtpPort: ''
+  smtpPort: '',
+  smtpSecurity: ''
 }
 
 /** Result of "Verbindung testen", or of the test that runs before saving */
@@ -120,7 +123,8 @@ function MailAccountDialog({
               password: '',
               signature: account.signature ?? '',
               smtpHost: account.smtpHost,
-              smtpPort: String(account.smtpPort)
+              smtpPort: String(account.smtpPort),
+              smtpSecurity: account.smtpSecurity
             }
           : { ...EMPTY_DRAFT, kind: 'production-readonly' }
       )
@@ -199,7 +203,9 @@ function MailAccountDialog({
     password: draft.password === '' ? undefined : draft.password,
     // A7: blank falls back to the IMAP host on the default port
     smtpHost: draft.smtpHost.trim() || undefined,
-    smtpPort: Number(draft.smtpPort) > 0 ? Number(draft.smtpPort) : undefined
+    smtpPort: Number(draft.smtpPort) > 0 ? Number(draft.smtpPort) : undefined,
+    // A7: blank falls back to the IMAP encryption
+    smtpSecurity: draft.smtpSecurity === '' ? undefined : draft.smtpSecurity
   })
 
   const runTest = () => {
@@ -336,6 +342,31 @@ function MailAccountDialog({
                 placeholder="1025"
               />
             </div>
+          </div>
+
+          {/* A7: the SMTP encryption is its own setting. A real mailbox is often
+              IMAPS 993 plus submission 587 with STARTTLS, so it cannot borrow the
+              IMAP value; "wie IMAP" keeps them equal. */}
+          <div className="space-y-2">
+            <Label htmlFor="mail-account-smtp-security">SMTP-Verschlüsselung</Label>
+            <Select
+              value={draft.smtpSecurity === '' ? 'imap' : draft.smtpSecurity}
+              onValueChange={(value) =>
+                set({ smtpSecurity: value === 'imap' ? '' : (value as ImapSecurity) })
+              }
+            >
+              <SelectTrigger id="mail-account-smtp-security">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="imap">Wie IMAP</SelectItem>
+                {securities.map((security) => (
+                  <SelectItem key={security} value={security}>
+                    {SECURITY_LABELS[security]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

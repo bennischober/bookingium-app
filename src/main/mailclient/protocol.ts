@@ -60,6 +60,8 @@ export type WorkerAccount = {
   /** A7: this account's own SMTP endpoint; missing in older settings, see the core */
   smtpHost?: string
   smtpPort?: number
+  /** A7: the SMTP encryption, which is not the IMAP one; missing in older settings */
+  smtpSecurity?: ImapSecurity
 }
 
 export type WorkerInit = {

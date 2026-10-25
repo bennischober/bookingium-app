@@ -759,7 +759,8 @@ test('the account dialog tests the connection and saves only what passes', async
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('E-Mail-Adresse').fill(SANDBOX_USER)
   await dialog.getByLabel('IMAP-Server').fill(SANDBOX.host)
-  await dialog.getByRole('combobox', { name: 'Verschlüsselung' }).click()
+  // exact: the SMTP select is "SMTP-Verschlüsselung" and would match a substring locator
+  await dialog.getByRole('combobox', { name: 'Verschlüsselung', exact: true }).click()
   await page.getByRole('option', { name: /^Keine/ }).click()
   await dialog.getByLabel('Port', { exact: true }).fill(String(SANDBOX.port))
   await dialog.getByLabel('Passwort').fill(SANDBOX_PASS)

@@ -981,7 +981,7 @@ export class WriteEngine {
       this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'smtp' } })
       const ab = this.abandoned(signal)
       if (ab) return ab
-      const transporter = writeSmtp(this.writeAccount)
+      const transporter = writeSmtp(this.writeAccount, await this.credentials())
       await transporter.sendMail({
         raw: mimeBuf,
         envelope: {

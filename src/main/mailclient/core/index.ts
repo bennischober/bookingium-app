@@ -51,6 +51,8 @@ export interface MailCoreOptions {
     /** A7: this account's own SMTP endpoint; defaults to host:1025 for older settings */
     smtpHost?: string;
     smtpPort?: number;
+    /** A7: the SMTP encryption, which is not the IMAP one; defaults to `security` */
+    smtpSecurity?: ImapSecurity;
     /** credentials provider — the HOST supplies them (e.g. Electron safeStorage);
      * called lazily per connection so the host controls lifetime/decryption */
     credentials: () => Promise<{ user: string; pass: string }>;
@@ -132,6 +134,7 @@ export class MailCore implements Api {
         security: a.security,
         smtpHost: a.smtpHost?.trim() ? a.smtpHost.trim() : a.host,
         smtpPort: a.smtpPort ?? 1025,
+        smtpSecurity: a.smtpSecurity,
       };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
       const config: AccountConfig = a.kind === 'production-readonly'
