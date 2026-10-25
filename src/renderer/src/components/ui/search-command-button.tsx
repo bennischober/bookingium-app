@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
+import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
@@ -180,6 +181,8 @@ const SearchButton = () => {
   const venues = grouped.filter((r) => r.type === 'venue')
   const hotels = grouped.filter((r) => r.type === 'hotel')
   const invoices = grouped.filter((r) => r.type === 'invoice')
+  // D2: files, found by name - the one business object the palette could not see before
+  const documents = grouped.filter((r) => r.type === 'document')
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -272,6 +275,8 @@ const SearchButton = () => {
     venuesQuickList.length > 0 ||
     hotelsQuickList.length > 0 ||
     invoicesQuickList.length > 0 ||
+    // D2: a file hit is a hit too
+    documents.length > 0 ||
     // C6: a mail hit is a hit; the palette must not claim there are none
     mails.length > 0
 
@@ -600,6 +605,29 @@ const SearchButton = () => {
                       <Mail />
                       <span className="truncate">{mail.subject || '(ohne Betreff)'}</span>
                       <CommandShortcut>{mail.fromName || mail.fromEmail}</CommandShortcut>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {/* D2: a found file opens directly; its record would only make the user look
+                  for it a second time. The sublabel already names that record. */}
+              {documents.length > 0 && (
+                <CommandGroup heading="Dokumente">
+                  {documents.map((document) => (
+                    <CommandItem
+                      key={`document-${document.id}`}
+                      value={`${document.label} ${document.sublabel ?? ''} dokument datei file`}
+                      keywords={['document', 'datei', 'file']}
+                      onSelect={() =>
+                        runAndClose(() => {
+                          if (document.filePath) void openDocument(document.filePath)
+                        })
+                      }
+                    >
+                      <FileText />
+                      <span className="truncate">{document.label}</span>
+                      <CommandShortcut>{document.sublabel ?? 'Dokumente'}</CommandShortcut>
                     </CommandItem>
                   ))}
                 </CommandGroup>

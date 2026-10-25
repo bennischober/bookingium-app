@@ -7,16 +7,18 @@ const t = initTRPC.create()
 const searchService = container.resolve(SearchService)
 
 export const SearchResultItem = z.object({
-  // Business object type: 'event' | 'band' | 'company' | 'person' | 'venue' | 'hotel' | 'invoice'
+  // Business object type: 'event' | 'band' | 'company' | 'person' | 'venue' | 'hotel' | 'invoice' | 'document'
   type: z.string(),
   id: z.number(),
   // Primary display label
   label: z.string(),
   // Optional secondary line (city, genre, status...)
   sublabel: z.string().nullable(),
-  // Navigation route (TanStack Router path with $params) + params
+  // Navigation route (TanStack Router path with $params) + params; empty for a document
   route: z.string(),
-  routeParams: z.record(z.string(), z.string()).nullable()
+  routeParams: z.record(z.string(), z.string()).nullable(),
+  // D2: only a document carries one - it is opened directly instead of navigating
+  filePath: z.string().nullable()
 })
 
 export type SearchResultItem = z.infer<typeof SearchResultItem>
