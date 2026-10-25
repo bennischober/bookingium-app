@@ -501,9 +501,26 @@ export class MailCore implements Api {
     for (const opId of opIds) {
       const op = e.store.journalGet(opId);
       if (!op) continue;
-      const result = await e.writes.execute(op);
-      await this.applyOpResult(e, opId, result);
+      await this.runOp(e, op);
     }
+  }
+
+  /**
+   * G2: the one place a journaled op is executed, so every op announces itself.
+   *
+   * Before this, only sendMail emitted the 'running' event, so a move or a delete was
+   * silent until it finished - the UI had nothing to show while the server was working.
+   * Every caller now goes through here, which is also why the announcement cannot be
+   * forgotten by the next op kind.
+   */
+  private async runOp(e: AccountEntry, op: JournalRow): Promise<OpResult> {
+    this.emitEvent({
+      type: 'op-event', accountId: e.config.id, opId: op.id,
+      kind: op.kind, outcome: 'running',
+    });
+    const result = await e.writes.execute(op);
+    await this.applyOpResult(e, op.id, result);
+    return result;
   }
 
   private async applyOpResult(e: AccountEntry, opId: string, result: OpResult): Promise<void> {
@@ -547,8 +564,7 @@ export class MailCore implements Api {
       // be settled by now (execute() itself shares an op that is still queued)
       const op = e.store.journalGet(listed.id);
       if (!op || (op.state !== 'pending' && op.state !== 'running')) continue;
-      const result = await e.writes.execute(op);
-      await this.applyOpResult(e, op.id, result);
+      const result = await this.runOp(e, op);
       results[op.id] = result.outcome;
     }
     return { replayed: ops.length, results };
@@ -571,9 +587,7 @@ export class MailCore implements Api {
       throw new Error(`op ${opId} is ${op.state}; only failed/conflict/pending/unknown ops can be retried`);
     }
     e.store.journalUpdate(opId, { state: 'pending', error: undefined });
-    const result = await e.writes.execute(e.store.journalGet(opId)!);
-    await this.applyOpResult(e, opId, result);
-    return result;
+    return this.runOp(e, e.store.journalGet(opId)!);
   }
 
   async resolveOp(opId: string, accountId?: string): Promise<OpResult> {
@@ -581,9 +595,7 @@ export class MailCore implements Api {
     const op = e.store.journalGet(opId);
     if (!op) throw new Error(`op ${opId} not found`);
     if (op.kind !== 'send' || op.state !== 'unknown') throw new Error(`op ${opId} is not an unresolved send`);
-    const result = await e.writes.execute(op);
-    await this.applyOpResult(e, opId, result);
-    return result;
+    return this.runOp(e, op);
   }
 
   async cancelOp(opId: string, accountId?: string): Promise<void> {
@@ -945,8 +957,7 @@ export class MailCore implements Api {
     });
     e.store.journalUpdate(opId, { state: 'running' });
     const op = e.store.journalGet(opId)!;
-    const result = await e.writes.execute({ ...op, state: 'running' });
-    await this.applyOpResult(e, opId, result);
+    const result = await this.runOp(e, op);
     const updated = e.store.journalGet(opId);
     const appendedUid = updated ? (JSON.parse(updated.payload || '{}') as { appendedUid?: number }).appendedUid : undefined;
     if (!appendedUid) {
@@ -983,11 +994,8 @@ export class MailCore implements Api {
     });
     e.store.journalUpdate(opId, { state: 'running' });
     const op = e.store.journalGet(opId)!;
-    // H2: announce the start too, so the UI can show "Sendet…" while it runs. Only the
-    // result was emitted before, so a send was invisible until it finished.
-    this.emitEvent({ type: 'op-event', accountId: e.config.id, opId, kind: op.kind, outcome: 'running' });
-    const result = await e.writes.execute({ ...op, state: 'running' });
-    await this.applyOpResult(e, opId, result);
+    // the 'running' event is emitted by runOp, so a send and a move look the same to the UI
+    const result = await this.runOp(e, op);
     if (result.outcome === 'failed' && e.store.journalGet(opId)?.state !== 'done') {
       // refused before the server took it: nothing went out, the editor stays open with
       // the mail, and sending again is a new op (a queued one would go out unasked later)

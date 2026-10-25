@@ -340,9 +340,29 @@ export default function MailPage() {
     keepPreviousData: true
   })
 
-  const listItems = searching
-    ? (results.data?.pages.flatMap((p) => p.items) ?? [])
-    : (messages.data?.pages.flat() ?? [])
+  // G2/L1: mails the user just moved away are hidden at click time, before the server has
+  // answered, so the next mail is immediately selectable and a quick delete-run feels instant.
+  // The set is cleared as soon as fresh list data arrives (see the effect below), and a
+  // failed move puts its ids back - the row reappears rather than silently vanishing.
+  const [hiddenIds, setHiddenIds] = useState<number[]>([])
+  const hideMails = (ids: number[]) =>
+    setHiddenIds((current) => [...current, ...ids.filter((id) => !current.includes(id))])
+  const unhideMails = (ids: number[]) =>
+    setHiddenIds((current) => current.filter((id) => !ids.includes(id)))
+
+  // G2/L1: clear the optimistic hide once fresh list data has actually arrived, never on a
+  // timer - a timer would either clear too early (the row flickers back) or too late. Any
+  // update of the list query means the server's view is in, so the local guess can go.
+  const listUpdatedAt = searching ? results.dataUpdatedAt : messages.dataUpdatedAt
+  useEffect(() => {
+    if (listUpdatedAt) setHiddenIds([])
+  }, [listUpdatedAt])
+
+  const listItems = (
+    searching
+      ? (results.data?.pages.flatMap((p) => p.items) ?? [])
+      : (messages.data?.pages.flat() ?? [])
+  ).filter((m) => !hiddenIds.includes(m.id))
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
   const snippets = useMemo(
