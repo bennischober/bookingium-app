@@ -72,10 +72,11 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | H2 | A visible "working" indicator | S | — | open, decision: a quiet spinner in the sync bar ("Sendet…"/"Empfängt…"), not an Outlook status bar |
 | H3 | Reply does not put the cursor above the quote | S | — | open, F13 only fixed the text: the two blank lines are in `bodyText`, but the caret is never placed, so it sits at the start |
 | H4 | The bullet list button does nothing visible | S | — | open: `execCommand("insertUnorderedList")` may be fine while `composeBody()` flattens lists into plain lines in `bodyText`; needs a DOM to prove which half |
-| H5 | Remote images blocked / draft ≠ rendered | S | — | blocking is by design (F1); the draft-vs-rendered difference is real but they can never match, since the receiver decides |
+| H5a | "Bilder laden" does nothing | S | — | open, confirmed: `loadRemoteImages()` returns early unless `options.remoteImages.enabled`, and the worker never passes `remoteImages` at all - the button is a no-op |
+| H5b | A sent mail does not look like its draft | S | — | open, confirmed: the iframe's `<style>` is deliberately empty, so the mail renders in the browser's default serif while the editor uses `font-sans text-sm`; fix is a four-property base style, not making them identical |
 | H6 | Empty space at the right of compose | S | — | needs a second look at the real window width before changing anything |
-| H7 | Contacts from the server, and from mail | M | — | decision: import the Outlook CSV once via the import dialog; never create persons automatically from mail |
-| H8 | The read-only / sandbox dropdown for release | S | — | decision: drop the test-server option in a release build; decide whether the canary checkbox ships |
+| H7 | Contacts from the server, and from mail | M | — | settled: IMAP stores no contacts, so import the Outlook CSV once; never auto-create from mail. A "Als Kontakt speichern" action on a mail (popover per address recommended) |
+| H8 | The read-only / sandbox dropdown for release | S | — | settled, do at release not now: one account kind, no test-server option, no canary toggle for end users |
 | D1 | Documents findable and visible | M | — | done (`16dd09a`): storage stays flat, no `document_link`, categories reuse `document_type`; the event tab shows the band's documents read-only and the band tab is one list filtered by category and event |
 | D2 | Documents in the search palette | S | — | done (`c4731d4`): a "Dokumente" group matched on the file name, labelled with category and owner, opening the file directly; file names also get LIKE escaping (`_` is a wildcard and common in file names) |
 | D3 | Events are archived, not deleted | M | — | done (`5563502`): `deal_memo.archived_at`, one `notArchived()` predicate imported by every read path, archive view with restore, hard delete refused while an invoice links the event; `cancelled` stays a separate status |
@@ -942,17 +943,44 @@ allows `UL/OL/LI` (`composeBody.ts:23-25`), so the tags survive the round trip -
 `bodyText`. If the editor renders from `bodyText` after a save, the list is gone. Needs a DOM to prove which half is broken -
 do not guess.
 
-### H5: remote images are blocked, and the draft shows placeholders [by design, needs a decision]
+### H5: "Bilder laden" does nothing, and a sent mail looks different from its draft [two separate bugs]
 
-**Reported.** "Rendering is ugly. Can't we ever really display images?" - the IONOS mail shows grey "blocked" boxes.
+**Corrected by the user 2026-10-25.** These were originally filed as one item about draft-vs-rendered styling. They are not
+the same thing, and the first one is not about styling at all.
 
-**That is deliberate** (F1: `remote_images.ts`, and the iframe's own CSP). Remote images are not fetched until the user asks,
-because loading them tells the sender the mail was opened. The "Bilder laden" action exists (`MessageView.tsx:437`). So the
-question is a policy one: keep blocking by default (recommended), or load automatically for known senders.
+**H5a: "Bilder laden" changes nothing.** The button is offered, the user clicks it, and the mail still shows the grey
+"blocked" boxes - before and after look identical.
 
-**The second half is a real inconsistency.** The draft shows the typed text, the rendered mail shows the same text, but they do
-not look alike. The draft is a `contentEditable` div with app styles; the mail is a sandboxed iframe with `bg-white`. Worth
-making them visually closer, but they can never be identical - the receiver's client decides the final look anyway.
+**Confirmed in code, and this is the cause.** `loadRemoteImages()` returns early unless `options.remoteImages?.enabled` is set
+(`core/index.ts:351`). **The worker never passes `remoteImages` at all** - `createMailCore({...})` in
+`mailclient/worker.ts` passes `dataDir`, `accounts` and `log` and nothing else. So the flag is `undefined`, the call returns
+the message unchanged, and the UI's `setWithImages(await ...)` receives the same blocked HTML. The button is a no-op, and the
+"Wird geladen…" spinner is the only thing that ever happens.
+
+**Fix.** Pass `remoteImages: { enabled: true, ...limits }` from the worker (the fetch options already exist in
+`RemoteImageFetchOptions`: timeout, size cap, content-type allowlist). Then the placeholder substitution in `toDetail`
+(`core/index.ts:1128-1134`) already does the right thing: it rewrites `src="https://…"` to the fetched `data:` URI before
+sanitizing, and the CSP allows `data:`.
+
+**Test.** A message with a remote image: `getMessage` reports `remoteImageCount > 0` and a placeholder; `loadRemoteImages`
+returns different HTML containing `data:image/`. That test would have failed before this fix, which is the point.
+
+**H5b: a mail sent to yourself does not look like the draft.** The draft is the app's editor; the received copy is rendered in
+the sandboxed iframe. They differ in font and spacing, and the user is right that this is odd, because the whole point of the
+bare-HTML decision was that the receiver's client applies its own defaults.
+
+**Confirmed cause.** The sanitizer wraps the body in a CSP document whose `<style>` block is deliberately empty
+(`sanitize.ts:210`, "mail content styles live in the app, not here") - so nothing sets a `font-family` or `font-size` at all.
+The iframe therefore renders in the browser's default serif at the default size, while the editor is a `contentEditable` div
+with the app's `font-sans text-sm`. The receiver's client does the same thing to us: it applies ITS default. So the difference
+is expected in kind - but ours is the browser's *serif* default, which is not a sensible base for a mail.
+
+**Fix.** Put a neutral base into that empty `<style>`: `body { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.5; }`
+plus `margin: 0`. That is not styling the mail - it is choosing the fallback the receiver's client would also choose, instead of
+inheriting the browser's serif. Keep it to those four properties; anything more starts overriding the mail's own CSS.
+
+**Do not** try to make the draft and the rendered mail pixel-identical: they cannot be, and the receiver's client decides the
+final look anyway. The goal is only that our fallback is sane.
 
 ### H6: compose window has empty space at the right [cosmetic]
 
@@ -960,25 +988,44 @@ The mail window's compose body is a `contentEditable` that fills the width; the 
 the screenshots is the dev window at a narrow width plus the mail list column, not a layout bug in the mail body itself. Needs a
 second look at the real window width before deciding - do not "fix" it blind.
 
-### H7: does the server store contacts, and how do we get the old ones? [question, needs a decision]
+### H7: contacts - the server does not store them, and mail should not create them [decision settled]
 
-The user asks whether the IMAP server stores contacts (it does not - contacts live in the client, e.g. Outlook's local store, or in
-CardDAV/LDAP which IONOS does not expose here), whether we should import the Outlook CSV export, and how new contacts should be
-created from mail without polluting the DB with spam/newsletter senders.
+**The question.** Does the mail server store contacts (so we could just pull them), do we need the Outlook CSV export, and
+should a new sender become a contact automatically?
 
-**Recommendation.** Two separate things:
-1. **Import** the existing Outlook CSV once, through the existing import dialog (`components/import/`), mapping onto `person` +
-   `company`. That is a data import, not a mail feature.
-2. **New contacts from mail**: never automatic. Offer "Absender als Person anlegen" on a mail, pre-filled, which is the same
-   shape as C2's mail links. Automatic creation would add every newsletter to the person list, and there is no reliable way to
-   tell a promoter from a newsletter sender.
+**Answers.**
+1. **No, the server does not store contacts.** IMAP is mail only. Contacts live in the client (Outlook's local store) or in
+   CardDAV/LDAP, which IONOS does not expose for this mailbox. So there is nothing to pull - the CSV export is the only source
+   for the old contacts.
+2. **Import the CSV once**, through the existing import dialog (`components/import/`), mapping onto `person` + `company`. That
+   is a data import, not a mail feature, and it is where the user's corrected addresses come from.
+3. **Never create a person automatically from a mail.** Every newsletter, receipt and notification sender would land in the
+   person list, and there is no reliable way to tell a promoter from a newsletter.
 
-### H8: the "Nur lesen" / sandbox dropdown for release [question]
+**Decided with the user 2026-10-25: a "Als Kontakt speichern" action on a mail.** That is the right integration - one click,
+explicit, and it only creates what the user asked for. It pre-fills from the sender (name and address), offers to link to an
+existing person when the address already matches, and otherwise creates one. Same shape as C2's mail links, so the new person
+shows up in the mail history and the palette.
 
-The account dialog offers the local test server only in a dev build (`import.meta.env.DEV`), plus for accounts already saved as
-sandbox. For release, the test-server option should disappear entirely, and a saved sandbox account should be labelled for what it is.
-The canary flag (A7 part 2) is what makes a REAL mailbox writable, so the release story is: no sandbox option, no canary unless
-explicitly admitted. Decide whether the canary checkbox ships at all or is hidden behind a setting.
+**Open detail.** Where the action lives: the reader's action row next to "Antworten", or the sender's own popover (which already
+exists - `MessageView.tsx` shows a popover per address). The popover is more precise (it names which address becomes the
+contact) and needs no new space; the action row is more discoverable. Recommend the popover, with the action row added only if
+the user asks for it.
+
+### H8: the read-only / sandbox dropdown is removed at release [decision settled]
+
+**Decided with the user 2026-10-25:** after the remaining tests are done, the dropdown goes entirely - the end user must not
+see "Test-Server (lokal)" or a canary switch. The user's own words: "why would he even activate a 'readonly canary version'?"
+
+So at release:
+- the account dialog offers **one** kind: a real mailbox, read-only or writable is no longer a user choice;
+- the canary flag and its danger toggle are **not shipped** - they exist for our own real-world tests and disappear with the
+  test-server option;
+- `MailAccountKind` collapses to what is actually left. Keep the union during the test phase (the code depends on it), and
+  simplify it in the same change that removes the UI, so the guard's "outer gate" stays honest.
+
+**Do not do this yet.** It is a release step, and doing it early would remove the only way to run the canary and the sandbox
+tests through the UI. Recorded here so it is not forgotten.
 
 ## D: documents
 
