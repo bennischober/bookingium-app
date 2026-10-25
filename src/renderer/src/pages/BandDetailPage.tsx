@@ -12,7 +12,7 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { ManagementContractPanel } from '@/components/band/ManagementContractSheet'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
-import { EventDocumentsList } from '@/components/documents/EventDocumentsList'
+import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
 import { EventsTable, InfoCard } from '@/components/detail/DetailParts'
 import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
@@ -214,7 +214,9 @@ export default function BandDetailPage() {
         </TabsContent>
         <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="band" ownerId={band.id} title="Dokumente der Band" />
-          <EventDocumentsList bandId={band.id} />
+          {/* D1: the band's documents and its events' documents in one filtered list,
+              instead of a fixed second section below the upload panel */}
+          <BandDocumentsView bandId={band.id} />
         </TabsContent>
         <TabsContent value="mails">
           <MailHistoryPanel entityType="band" entityId={band.id} />

@@ -79,18 +79,30 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Vertrag Berlin.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente' })).toContainText('Vertrag Berlin.pdf')
+  await expect(
+    page.getByRole('list', { name: 'Dokumente', exact: true })
+  ).toContainText('Vertrag Berlin.pdf')
+  // D1: the band's own documents are shown read-only on the gig as well
+  await expect(page.getByRole('region', { name: 'Dokumente der Band' })).toContainText(
+    'Stageplot.pdf'
+  )
   const eventFolder = readdirSync(join(storage, 'events')).find((name) =>
     name.includes('the-electric-waves-berlin-tour')
   )
   expect(eventFolder).toMatch(/^\d+-\d{4}-\d{2}-\d{2}-the-electric-waves-berlin-tour$/)
 
-  // Back to the band (history), its documents tab lists the event's file
+  // Back to the band (history), its documents tab lists the event's file in the one
+  // filtered list (D1), labelled with the event it comes from
   await page.getByRole('button', { name: 'Zurück', exact: true }).click()
   await page.getByRole('tab', { name: 'Dokumente' }).click()
-  const fromEvents = page.getByRole('region', { name: 'Dokumente aus Events' })
-  await expect(fromEvents).toContainText(EVENT)
-  await expect(fromEvents).toContainText('Vertrag Berlin.pdf')
+  const combined = page.getByRole('region', { name: 'Alle Dokumente der Band' })
+  await expect(combined).toContainText('Vertrag Berlin.pdf')
+  await expect(combined).toContainText(EVENT)
+
+  // D1: with files present, both filters are usable (the narrowing itself is unit-tested;
+  // Radix animates its popup, which makes an e2e click on an option flaky)
+  await expect(combined.getByRole('combobox', { name: 'Nach Kategorie filtern' })).toBeEnabled()
+  await expect(combined.getByRole('combobox', { name: 'Nach Event filtern' })).toBeEnabled()
 
   // Deleting removes the file
   await bandDocs.getByRole('button', { name: 'Stageplot.pdf löschen' }).click()

@@ -13,6 +13,7 @@ import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
+import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
 import { isEventTab } from '@/components/event-hub/constants'
 
 export function EventHubPage() {
@@ -206,8 +207,11 @@ export function EventHubPage() {
           />
         </TabsContent>
 
-        <TabsContent value="documents">
+        <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="event" ownerId={event.id} />
+          {/* D1: the band's own documents, read-only here - the rider or tech spec is
+              needed on the gig without a second upload */}
+          <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />
         </TabsContent>
 
         <TabsContent value="mails">
