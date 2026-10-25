@@ -19,6 +19,19 @@ Mail client, its integration into bookingum and the direction: see `docs/NEXT_ST
 
 ## Product
 
+- **Dokumente sind nicht durchsuchbar** (design settled 2026-10-25, `docs/mail-client-tasks.md` D2). `SearchService`
+  covers every business object except documents, so a file can only be found by remembering which record it hangs off.
+  Planned: a "Dokumente" group in the `Ctrl+K` palette, matched on the file name, naming the owner.
+- **Dokumente: Auffindbarkeit statt Ordnerbaum** (D1). Storage stays flat (`storage/documents/<type>/<id>-<slug>/`),
+  no `document_link`, categories reuse the existing `document_type` enum. The work is display: inheritance both ways
+  (the band's rider visible on the gig, the gig's files listed on the band) plus a filter by category and event.
+  A Tour entity would be its own business object, not part of this.
+- **Events werden archiviert, nicht gelöscht** (D3). Today a hard `DELETE` cascades away the itinerary and the
+  follow-ups, `rm -rf`s the document folder and nulls `invoice.deal_memo_id` - for a booking agency that is an audit
+  trail disappearing on one click. Planned: `deal_memo.archived_at`, one repository-level filter covering every read
+  path (list, dashboard, ICS feed, search, contact list, contracts, follow-ups, invoices, band documents), an archive
+  view with "Wiederherstellen", and a hard delete that refuses while an invoice is linked. `cancelled` stays a separate
+  status: the gig fell through but was real and still needs its paperwork.
 - **Code signing** for the Windows installer (SmartScreen warns until the
   installer is signed with a code-signing certificate).
 - **Auto-update** (electron-updater) once there is a place to publish

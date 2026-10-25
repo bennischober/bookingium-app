@@ -33,9 +33,9 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
-| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. part 2 (canary) is **[user]** |
+| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. Part 2 (canary) is **approved**, design written into the card: one named `CANARY_ACCOUNT_ID` constant rather than a third account kind, set only by a manual step, never from the UI |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
-| A9 | Canary | M | A7, A8, P1 | **[user]** |
+| A9 | Canary | M | A7, A8, P1 | **[user]** approved and split into two phases 2026-10-25. The IONOS canary mailbox exists (temporary account; never send to another person, at most to another address the user owns). Phase 1 = synthetic mails, a handful of sends to the user's own address, at most 2 connections, no retry after a failed login; report counts only, then stop. Phase 2 = staged writes on the real account (flags → move → delete → send), its own go-ahead. Blocked on A7 part 2 and P1 |
 | B1 | Folder create / rename / delete | L | A3, A2 | done |
 | B2 | Move folders by drag and drop | M | B1 | done (folder rows are drag sources with their own drag type; dropping on a folder or the tree root runs the rename op with the new parent; move rules are pure and unit-tested; e2e drags a folder in and checks the server path survives a sync) |
 | B3 | Keyboard shortcuts | S | — | done |
@@ -67,7 +67,9 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |
 | F14 | Does the mailbox sync on its own? | S | — | done (it does: IDLE on INBOX plus a 30s/120s poll; the bar now says "· automatisch" or "· regelmäßig" with a tooltip explaining what that means) |
 | F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | done (the renderer called `window.close()` from `beforeunload`, which also fires on a reload. A reply in a popped-out window was then not stored as a draft: main destroyed the window on the first close, so the save was cut off. A close is now held, the renderer saves and asks for it through `mail:closeWindow`, and main lets only that close through - the user confirmed the draft lands in Drafts) |
-| D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
+| D1 | Documents findable and visible | M | — | design settled 2026-10-25: storage stays flat, no `document_link`, categories reuse `document_type`, inheritance both ways on the detail pages, filter by category and event. A Tour entity is a separate business object, not part of this. Open to build |
+| D2 | Documents in the search palette | S | — | open (`SearchService` has no document query at all, so a file can only be found by knowing its record) |
+| D3 | Events are archived, not deleted | M | — | open (a hard `DELETE` cascades away itinerary and follow-ups, `rm -rf`s the document folder and nulls `invoice.deal_memo_id`; `archived_at` + one repository filter + ~9 read paths + a guarded hard delete; `cancelled` stays a separate status) |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
 E1/E2 touch no core files). Never run two cards at once that touch the same files.
@@ -483,10 +485,19 @@ account.
 6. Tests: two sandbox accounts (two users on the sandbox; if only one user exists, fake the second one with a
    stub server), and each one's writes reach its own mailbox. A non-loopback sandbox account is refused.
 
-**Part 2, canary [user]:** a third account kind or a flag that admits exactly one non-loopback account for writes
-(the canary mailbox), set only by an explicit manual step, never from the UI. Write a short design proposal in
-this card (how the approval is stored, how it is revoked, what is logged), then stop and ask the user. Do not
-implement it before the user agrees.
+**Part 2, canary [user]: APPROVED 2026-10-25, not yet built.** The user approved a canary mailbox and the split of A9
+into two phases (see A9). The design to implement:
+
+- **One named mailbox, not a third account kind.** Adding `'production-canary'` to `MailAccountKind` touches 22 places and
+every one of them is a chance to accidentally admit a real account. Instead: one explicit constant in `write_guard.ts`
+  (`CANARY_ACCOUNT_ID`), checked in `writeRefusal()`: allowed if the account id equals it, refused otherwise. Auditable on
+  one screen; revoking is deleting one constant. `kind` stays `'sandbox' | 'production-readonly'`.
+- **Never from the UI.** The id is set by an explicit manual step in `accounts.json`; the account dialog has no control for
+  it, and a saved account whose id is not the canary one stays refused.
+- **Log per write:** account id and outcome only. Never the host together with the user name.
+- **TLS:** the canary is off the loopback allowlist, so `tlsOptions()` already verifies the certificate there. `SANDBOX_ALLOWLIST`
+  stays untouched - the canary is a second, separate admission path, not a wider allowlist.
+- **Depends on the SMTP auth fix (`36ff37f`)**, which is done: without it a real server refuses the first send with 530/535.
 
 **Traps.** Credentials only through `credentials()`, never cached on disk. Never log hosts with user names
 together. Do not widen `SANDBOX_ALLOWLIST`.
@@ -521,10 +532,24 @@ evidence.
 
 ### A9: canary [user]
 
-Waits on: A7 Part 2 approved and built, A8, P1. The user creates a canary mailbox at IONOS and adds it as an
-account. Then the write-path suite runs against it: synthetic mails only, a handful of sends to the user's own
-address, at most 2 connections, and no retry after a failed login. Report counts and outcomes only. After it passes,
-the user decides about the staged writes on the real account (flags → move → delete → send).
+**Waits on:** A7 Part 2 built, A8 (done), and P1 - which lives in the prototype repo
+(`/mnt/d/Projects/Arbeit/Brainstorm/email-prototype`), not here, and was still running when this was written.
+
+**The mailbox exists.** The user created a temporary account at IONOS next to the real addresses, for the real-world
+tests. Constraint given by the user: **never send to another person** - at most to another address the user owns.
+
+**Split into two phases (user decision 2026-10-25).** The card used to bundle two different risk levels; the first phase
+is what the canary is for, the second is a separate decision.
+
+**Phase 1 - does the write path work against a real server (buildable once A7 part 2 and P1 are done):**
+
+- Synthetic mails only, a handful of sends to the user's own address, at most 2 connections, no retry after a failed
+  login.
+- Report counts and outcomes only, never mail content.
+- **Stop and report.** Phase 2 does not start from this result.
+
+**Phase 2 - staged writes on the real account (needs its own go-ahead):** flags → move → delete → send, one stage at a
+time, each with its own report. This is the irreversible one and gets its own decision.
 
 ---
 
@@ -805,22 +830,115 @@ palette: run it in parallel with the other groups and never block them.
 
 ## D: documents
 
-### D1: documents rework [user for the design]
+### D1: documents findable and visible [design settled 2026-10-25]
 
 Today a document hangs off one record (`document.owner_type` + `owner_id`) with a fixed folder layout under
-`storage/documents/`. Goal: categories (Verträge, Rider, Rechnungen, Bilder, Sonstiges, plus user-defined ones) per
-record, moving documents between categories, and one place showing all documents of a record, including those from
-mails (C5). The DB holds the relations (document ↔ record ↔ mail); the file name never carries meaning.
+`storage/documents/<type>/<id>-<slug>/`. The owner is also the **lifetime**: `deleteDealMemo` and friends call
+`removeOwnerFolder()`, which `rm -rf`s the folder, and an `AFTER DELETE` trigger drops the rows.
 
-Before coding, write a design proposal in this card:
+**What the user actually asked for.** Not a folder tree. "The user does not care where the file is actually stored, he
+just wants that files (and emails) are easily found and simple to use." The surfaces that exist today already carry most
+of it - `EventDocumentsList` on the band page lists every document of every event of that band, grouped by event. What
+is missing is findability, not storage.
 
-- whether a document can belong to more than one record (a join table `document_link`) or stays with one owner
-  plus "also shown at";
-- how categories are stored (a table with per-record or global categories);
-- the migration of existing documents (into "Sonstiges", or by `document_type`);
-- whether files move on disk (preferably not: storage by id, the DB owns names).
+**Settled in the design discussion:**
 
-Then stop and ask the user.
+1. **Storage stays flat.** No real subfolders, no file moves, no storage by id. One folder per owner, readable names,
+   `Im Ordner anzeigen` for Explorer. Reasons: a file can only be in one directory (the rider belongs to the band *and*
+   the gig), `findOwnerFolder()` matches `<id>-*` and is sticky by design (`document.test.ts:65` asserts it), and a real
+   tree would make every rename a file-move migration.
+2. **No `document_link` for now.** The ownership question turned out to be about *display*, not data: a gig can own a
+   file and the band page can still show it. A join table is deferred until a case appears that foreign keys cannot
+   express (a document genuinely belonging to two unrelated records, or one that must outlive its owner).
+   Evidence-driven, not speculative.
+3. **Categories reuse `document_type`.** The enum already is `deal_memo, contract, rider, stage_plot, press, photo,
+   invoice, settlement, other` with German labels (`DOCUMENT_TYPE_LABELS`) and an inline select in `DocumentsPanel`.
+   No new category table. User-defined categories, if ever wanted, become an `app_setting` list.
+4. **Ownership stays a convention, not a constraint:** evergreen files (rider, tech spec, band contract) belong to the
+   band; gig-specific files (the signed contract for *that* show, the settlement) belong to the event. It now only
+   decides which page shows the file first, because archiving (D3) removes the lifetime risk.
+5. **A Tour entity is not part of this.** `grep -i tour` finds only seed notes and contract prose; a tour (bus, crew, own
+   contract) would be a business object with its own card and the 13-step recipe. Grouping by event date range covers the
+   interim need.
+
+**Scope of D1 (buildable now, no schema change):**
+
+- **Inheritance both ways.** The band page already shows its events' documents (`EventDocumentsList`); the event page
+  gets the read-only counterpart, "Dokumente der Band", so the band's rider is visible on the gig without a second upload.
+- **Filter instead of appendix.** The band's document view gets a filter by category and by event, with "Alle" as the
+  default. `EventDocumentsList` becomes a filter of that one list rather than a separate section.
+- **Category filter** on the existing `document_type` enum.
+
+**Not in scope:** documents in the search palette (D2), archiving (D3), `document_link`, a Tour entity.
+
+**Tests.** Unit: the event-side inheritance query returns the band's documents, and a filter narrows by category and event.
+E2E: a file uploaded on the event appears read-only on the band page, and the category filter narrows the list.
+
+**Size.** M, one commit.
+
+---
+
+### D2: documents in the search palette
+
+**Goal.** A document can be found by its file name from `Ctrl+K`, like every other business object.
+
+**Why.** `SearchService` covers `deal_memo, band, company, person, venue, hotel, invoice, address` and **zero document
+queries** (verified 2026-10-25: no `document` reference in the service or its router). A file can only be found by
+remembering which record it hangs off - the exact opposite of "easily found".
+
+**Design.**
+
+- Add a document query to `SearchService.search`: `like(document.file_name, pattern)`, returning id, file_name,
+  document_type, owner_type, owner_id plus the owner's label (reuse `DocumentRepository.ownerLabel`).
+- A new palette group "Dokumente" with the file name, the category label and the owner ("Rider · Pretty Wild"), the
+  owner as the navigation target, and "Im Ordner anzeigen" as the secondary action.
+- Respect D3: an archived event's documents are not offered in the palette.
+
+**Traps.** `file_name` is user-supplied text, so it goes through the same LIKE escaping as the other queries. The result
+carries no absolute path - the renderer only gets `filePath` as it already does today.
+
+**Tests.** Unit: a search by file name finds the document and names its owner; a name with `%` or `_` does not widen the
+match. E2E: type a file name into the palette, the group "Dokumente" appears, the entry opens the file.
+
+**Size.** S.
+
+---
+
+### D3: events are archived, not deleted
+
+**Goal.** An event (deal memo) can be taken out of the working view without destroying anything, and can come back.
+
+**Why.** `deleteDealMemo` is a hard `DELETE`, and the schema cascades from there: `itinerary` and `follow_up`
+(`onDelete: 'cascade'`), the `document` rows plus `removeOwnerFolder()`'s `rm -rf`, the `mail_link` rows, and
+`invoice.deal_memo_id` is set to **null** - the invoice survives but loses the link to its gig. For a German booking
+agency that is an audit trail disappearing on one click (invoices carry a 10-year retention, and GoBD expects the record
+to stay reconstructible). Decided with the user 2026-10-25: archive. `cancelled` stays the separate status it already is
+(cancelled = the gig fell through but was real and still needs its paperwork; archived = no longer relevant, hide it).
+
+**Design.**
+
+- Migration: `deal_memo.archived_at TEXT` (null = active). Not a boolean, so "when" is answerable.
+- **One filter, in the repository.** `DealMemoRepository.list`/`getById` exclude archived rows by default, with an explicit
+  `includeArchived` for the archive view. Do **not** scatter the condition through services.
+- Cover every read path, each of which would otherwise show an archived event silently: `DealMemoRepository`,
+  `DashboardService` (next 7 days), `CalendarFeedService` (the ICS feed - the one users notice most), `SearchService`,
+  `ContactListRepository`, `ContractRepository`, `FollowUpRepository`, `InvoiceRepository`,
+  `DocumentRepository.listEventDocumentsForBand`.
+- UI: the event's action becomes "Archivieren" instead of "Löschen"; an "Archiv" view lists archived events with
+  "Wiederherstellen".
+- **A hard delete stays, but guarded:** refuse while an invoice links the event ("Zu diesem Event existiert eine
+  Rechnung. Archivieren statt löschen."). This protects the audit trail without making deletion impossible forever.
+
+**Tests.** The claim is "an archived event appears in none of these places", so test it that way - one suite that archives
+an event and then asserts its absence from each read path (list, dashboard, ICS feed, search, contact list, contracts,
+follow-ups, invoices, the band's document list), rather than one test per call site. Plus: restore brings it back
+everywhere; the guarded hard delete refuses with a linked invoice and succeeds without one.
+
+**Traps.** A missed read path is silent - nothing errors, an archived gig just shows up somewhere. This is why the filter
+belongs in the repository and why the test enumerates the surfaces. `status: 'cancelled'` must keep working as it does
+today (the dashboard already excludes it) and is **not** the same thing as archived.
+
+**Size.** M (migration + repository filter + ~9 read paths + UI + archive view + tests).
 
 ---
 
