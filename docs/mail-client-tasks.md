@@ -57,6 +57,15 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F3 | Lightweight formatting in compose | M | — | done (contenteditable with four commands; `composeBody` reduces the HTML to the formatting offered and derives the plain text, which stays the source of truth; sent as `multipart/alternative`) |
 | F4 | Paste attachments from the clipboard | M | B7 | done by unit tests only (a form-level paste handler; `pasteContent` is pure and decides files > image > text; the bytes go through B7; no E2E - see F5) |
 | F5 | Reloading with an open, changed draft destroys the window | S | — | done (main tells a reload from a close via `did-start-navigation` and lets a reload through; the renderer keeps its close-and-save; F4's E2E is back) |
+| F6 | A folder drag stays armed, so the next mail drag moves the folder | M | B2 | open (bug, user-reported) |
+| F7 | Dropping a folder back to the root level is refused | S | B2 | open (bug, user-reported) |
+| F8 | The mail window has fewer actions than the reading pane | S | — | open (bug, user-reported) |
+| F9 | "Als Dokument speichern" asks for a record id | M | C5 | open (usability, user-reported) |
+| F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | open (usability, user-reported) |
+| F11 | Links in the compose editor | S | F3 | open (user question) |
+| F12 | A draft should show as unread | S | — | open (user question) |
+| F13 | Reply starts with two empty lines above the quote | S | — | open (user question) |
+| F14 | Does the mailbox sync on its own? | S | — | open (user question) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
