@@ -62,6 +62,33 @@ export function makeProductionAccount(input: {
   };
 }
 
+/**
+ * A7 part 2: the canary mailbox. A real server, so it gets the production pacing
+ * (2 connections, ~4 MB batches, paced STATUS sweeps) - but unlike a production account
+ * it is writable, because the whole point is to prove the write path against a real
+ * mailbox. The guard decides whether a write may actually go out; this only builds the
+ * account, so a canary that is not admitted is still read-only in practice.
+ */
+export function makeCanaryAccount(input: {
+  id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
+}): AccountConfig {
+  if (input.security === 'none' && !allowsPlainLogin(input.host)) {
+    throw new Error(`account ${input.id}: a real mailbox needs TLS or STARTTLS`);
+  }
+  return {
+    id: input.id,
+    host: input.host, port: input.port,
+    security: input.security,
+    user: input.user, pass: input.pass,
+    readOnly: false,              // writable, but only through write_guard's admission
+    dataDir: input.dataDir,
+    maxConnections: 2,             // 1 sync + 1 IDLE - hard cap, gentle to the live server
+    batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
+    interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
+    requestDelayMs: 150,           // pace STATUS/UID sweeps
+  };
+}
+
 export function makeSandboxAccount(input: {
   id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {

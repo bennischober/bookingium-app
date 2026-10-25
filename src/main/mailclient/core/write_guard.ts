@@ -3,8 +3,12 @@
 // decision is made from the account itself - no global "the sandbox" anymore.
 //
 // A7 part 1: an account may be written to only if it is a sandbox account AND both
-// its IMAP and SMTP hosts are on the loopback allowlist. Nothing else is allowed.
-// Part 2 (the canary mailbox) is a user decision and not implemented.
+// its IMAP and SMTP hosts are on the loopback allowlist.
+//
+// A7 part 2: the CANARY is the one exception - exactly one real mailbox, admitted by
+// name. Not a third account kind: `MailAccountKind` is read in 22 places and every one
+// of them would be a place a real account could slip through, while this admission is
+// auditable on one screen and revoked by deleting one constant.
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';
@@ -14,6 +18,21 @@ export const SANDBOX_ALLOWLIST = new Set([
   '127.0.0.1', 'localhost', '::1',
   'sandbox-dovecot', 'sandbox-mailpit',   // docker-internal names
 ]);
+
+/**
+ * A7 part 2: the ONE real mailbox writes may go to, admitted by account id.
+ *
+ * Set by an explicit manual step (the account's id in accounts.json), never from the
+ * UI: the account dialog has no control for it, and an account whose id differs stays
+ * refused. Revoking is deleting this constant. `kind` stays 'sandbox' so the account gets
+ * the write path at all; the guard is what decides whether it may use it.
+ */
+export const CANARY_ACCOUNT_ID = 'canary';
+
+/** Whether this account is the canary - the single real mailbox writes may reach */
+export function isCanary(account: { id: string }): boolean {
+  return account.id === CANARY_ACCOUNT_ID;
+}
 
 /** What the write guard needs to know about one account */
 export interface WriteAccount {
@@ -32,6 +51,11 @@ export interface WriteAccount {
    * see smtpSecurityOf().
    */
   smtpSecurity?: ImapSecurity;
+  /**
+   * A7 part 2: the account's own address. A canary send may only go to an address
+   * this app owns, and this is what it owns - so a canary cannot mail a stranger.
+   */
+  email?: string;
 }
 
 /** The endpoints a write needs; credentials come from the host, never from here */
@@ -61,16 +85,48 @@ export function assertSandboxHost(host: string): void {
 /**
  * A7: the reason an account may not be written to, or null when it may.
  *
- * Part 1 admits sandbox accounts on the loopback allowlist only. A production
- * account is read-only by design, and a sandbox account pointed at a real server
- * is refused rather than trusted.
+ * The canary is admitted by name, whatever its hosts: it is a real mailbox, so its
+ * TLS is verified (it is not on the loopback allowlist, see tlsOptions). Every other
+ * account must be a sandbox account on the loopback allowlist - a production account
+ * is read-only by design, and a sandbox account pointed at a real server is refused
+ * rather than trusted.
  */
 export function writeRefusal(account: WriteAccount): string | null {
+  // kind is the OUTER gate: only a sandbox-kind account gets the write path at all
   if (account.kind !== 'sandbox') {
     return `Konto ${account.id} ist schreibgeschützt.`
   }
+  // A7 part 2: the canary is then admitted by name, whatever its hosts - it is a
+  // real mailbox, so its TLS is verified (it is not on the loopback allowlist)
+  if (isCanary(account)) return null
   if (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost)) {
     return `Konto ${account.id}: Schreiben ist nur gegen den lokalen Testserver erlaubt.`
+  }
+  return null
+}
+
+/**
+ * A7 part 2: why this send may not go out, or null when it may.
+ *
+ * The canary is a real mailbox, so its mail leaves the machine. Phase 1 of the canary
+ * is the user's own address only - never another person - so every recipient must be
+ * the account's own address. Sandbox accounts are unrestricted here: they reach a local
+ * sink that keeps nothing.
+ */
+export function sendRefusal(
+  account: WriteAccount,
+  recipients: string[]
+): string | null {
+  if (!isCanary(account)) return null
+  const own = (account.email ?? '').trim().toLowerCase()
+  if (!own) {
+    return `Konto ${account.id}: eigene Adresse fehlt, Versand gesperrt.`
+  }
+  const foreign = recipients
+    .map((to) => to.trim().toLowerCase())
+    .filter((to) => to !== own)
+  if (foreign.length) {
+    return `Konto ${account.id}: Testpostfach sendet nur an die eigene Adresse.`
   }
   return null
 }

@@ -16,7 +16,7 @@
 import { ImapFlow } from 'imapflow'
 import fs from 'fs'
 import { Store, JournalRow } from './store.js'
-import { connectWriteImap, writeSmtp, WriteAccount } from './write_guard.js'
+import { connectWriteImap, sendRefusal, writeSmtp, WriteAccount } from './write_guard.js'
 
 export type OpResult =
   | { outcome: 'done'; detail?: string }
@@ -962,6 +962,14 @@ export class WriteEngine {
       draft?: { path: string; uid: number; uidValidity: string | null }
     }
     const mimeBuf = Buffer.from(payload.mime, 'base64')
+    // A7 part 2: the canary is a real mailbox, so phase 1 sends to the account's own
+    // address only. Refused before any connection opens.
+    const refusal = sendRefusal(this.writeAccount, [
+      ...payload.envelope.to,
+      ...payload.envelope.cc,
+      ...payload.envelope.bcc
+    ])
+    if (refusal) return { outcome: 'failed', reason: `WRITE GUARD: ${refusal}` }
     if (op.state === 'unknown') {
       // resolution probe: never resend; check the Sent folder for our Message-ID
       return await this.resolveUnknownSend(op, payload)

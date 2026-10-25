@@ -35,9 +35,17 @@ const KIND_LABELS: Record<MailAccountKind, string> = {
   sandbox: 'Test-Server (lokal)'
 }
 
+/**
+ * A7 part 2: the canary is saved as a sandbox account (so it gets the write path)
+ * but it is a real mailbox, so it must not be labelled a local test server.
+ */
+const CANARY_LABEL = 'Testpostfach (echt)'
+
 type Draft = {
   id?: string
   kind: MailAccountKind
+  /** A7 part 2: this draft is the canary mailbox, not a local test server */
+  canary?: boolean
   email: string
   host: string
   port: string
@@ -124,7 +132,8 @@ function MailAccountDialog({
               signature: account.signature ?? '',
               smtpHost: account.smtpHost,
               smtpPort: String(account.smtpPort),
-              smtpSecurity: account.smtpSecurity
+              smtpSecurity: account.smtpSecurity,
+              canary: account.canary
             }
           : { ...EMPTY_DRAFT, kind: 'production-readonly' }
       )
@@ -500,9 +509,11 @@ export function MailAccountsCard() {
                     {SECURITY_LABELS[account.security]}
                   </p>
                 </div>
-                <Badge variant={account.kind === 'sandbox' ? 'outline' : 'secondary'}>
+                <Badge
+                  variant={account.kind === 'sandbox' && !account.canary ? 'outline' : 'secondary'}
+                >
                   {account.kind === 'production-readonly' && <Lock className="mr-1 h-3 w-3" />}
-                  {KIND_LABELS[account.kind]}
+                  {account.canary ? CANARY_LABEL : KIND_LABELS[account.kind]}
                 </Badge>
                 <Button
                   variant="ghost"

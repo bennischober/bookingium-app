@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { allowsPlainLogin } from './core/imap_options'
+import { isCanary } from './core/write_guard'
 import type { ImapSecurity } from './core/types'
 
 export type MailAccountKind = 'sandbox' | 'production-readonly'
@@ -44,11 +45,17 @@ export type MailAccountDto = Omit<StoredAccount, 'password' | 'security' | 'smtp
   smtpHost: string
   smtpPort: number
   smtpSecurity: ImapSecurity
+  /**
+   * A7 part 2: this is the canary mailbox. It is saved as kind 'sandbox' so it gets
+   * the write path at all, so the renderer cannot tell from `kind` alone - and must
+   * not label a real mailbox as a local test server.
+   */
+  canary: boolean
 }
 
 export type SaveMailAccountInput = Omit<
   MailAccountDto,
-  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity'
+  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity' | 'canary'
 > & {
   id?: string
   /** omitted when editing: keep the stored password */
@@ -115,7 +122,8 @@ const toDto = (account: StoredAccount): MailAccountDto => ({
   security: securityOf(account),
   user: account.user,
   email: account.email,
-  ...smtpOf(account)
+  ...smtpOf(account),
+  canary: isCanary(account)
 })
 
 /** Refuses settings the core would refuse later: no password in the clear across a network */
@@ -124,7 +132,10 @@ export function checkMailAccountSettings(input: {
   host: string
   security: ImapSecurity
 }): void {
-  if (input.kind !== 'sandbox' && input.security === 'none' && !allowsPlainLogin(input.host)) {
+  // Host-based, not kind-based: the canary is a real mailbox saved with kind
+  // 'sandbox' (so it gets the write path at all), and it must not carry a
+  // cleartext password either. Anything off the loopback allowlist needs TLS.
+  if (input.security === 'none' && !allowsPlainLogin(input.host)) {
     throw new Error('Ein echtes Postfach braucht eine Verschlüsselung (SSL/TLS oder STARTTLS)')
   }
 }

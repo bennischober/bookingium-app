@@ -99,11 +99,14 @@ export type SearchResult = {
   facets?: { folderId: string; count: number }[];   // Task 3: per-folder hit counts
 };
 
+export type MailAccountMode = 'sandbox' | 'production-readonly' | 'canary';
+
 export type AccountInfo = {
   id: string;
   email: string;
-  mode: 'sandbox' | 'production-readonly';   // drives what the UI enables
-  canWrite: boolean;                          // true only for sandbox
+  /** A7 part 2: 'canary' is the one real mailbox that may be written to */
+  mode: MailAccountMode;                     // drives what the UI enables
+  canWrite: boolean;                         // true only for a sandbox account or the canary
 };
 
 export type SyncStatus = {
@@ -142,7 +145,7 @@ export type ConnectionState = 'connecting' | 'online' | 'offline' | 'auth-failed
 export type AccountSummary = {
   id: string;
   email: string;
-  mode: 'sandbox' | 'production-readonly';
+  mode: MailAccountMode;
   canWrite: boolean;
   active: boolean;                  // whether this account is the one the UI session targets
 };

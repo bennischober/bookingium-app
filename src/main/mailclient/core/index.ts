@@ -15,9 +15,9 @@ import fs from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
 import { Store, JournalRow, type FolderRow } from './store.js';
-import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, SyncEvent } from './sync.js';
+import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, type BatchMember, type BatchMoved } from './write_engine.js';
-import { WriteAccount, writeEndpointReachable } from './write_guard.js';
+import { WriteAccount, writeEndpointReachable, isCanary } from './write_guard.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
@@ -27,7 +27,13 @@ import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
-/** B4: a single UID MOVE covers at most this many mails; above that the group is split */
+/** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
+function accountMode(config: { id: string; readOnly: boolean }): AccountInfo['mode'] {
+  if (isCanary(config)) return 'canary';
+  return config.readOnly ? 'production-readonly' : 'sandbox';
+}
+
+/** A7: a single UID MOVE covers at most this many mails; above that the group is split */
 export const MOVE_BATCH_LIMIT = 500;
 
 export type Logger = {
@@ -135,11 +141,17 @@ export class MailCore implements Api {
         smtpHost: a.smtpHost?.trim() ? a.smtpHost.trim() : a.host,
         smtpPort: a.smtpPort ?? 1025,
         smtpSecurity: a.smtpSecurity,
+        email: a.email,
       };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
-      const config: AccountConfig = a.kind === 'production-readonly'
-        ? makeProductionAccount(input)
-        : makeSandboxAccount(input);
+      // A7 part 2: the canary is a real mailbox that is writable, so it takes the
+      // production pacing with the write path enabled. Every other account keeps the
+      // kind it was saved as.
+      const config: AccountConfig = isCanary(a)
+        ? makeCanaryAccount(input)
+        : a.kind === 'production-readonly'
+          ? makeProductionAccount(input)
+          : makeSandboxAccount(input);
       // user/pass are resolved lazily via ensureCredentials() before any engine
       // contact — never stored at construction, never logged
       const store = new Store(dir, a.id, this.clock);
@@ -195,7 +207,7 @@ export class MailCore implements Api {
     return {
       id: e.config.id,
       email: e.options.email ?? e.config.user,
-      mode: e.config.readOnly ? 'production-readonly' : 'sandbox',
+      mode: accountMode(e.config),
       canWrite: !e.config.readOnly && reachable,
     };
   }
@@ -206,7 +218,7 @@ export class MailCore implements Api {
       out.push({
         id,
         email: e.options.email ?? e.config.user,
-        mode: e.config.readOnly ? 'production-readonly' : 'sandbox',
+        mode: accountMode(e.config),
         canWrite: !e.config.readOnly,
         active: id === this.activeId,
       });
