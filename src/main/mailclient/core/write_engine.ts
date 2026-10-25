@@ -1144,10 +1144,12 @@ export class WriteEngine {
         if (!payload.appendedUid) {
           const ab0 = this.abandoned(signal)
           if (ab0) return ab0
+          // F12: no \Seen on a draft. A draft you cannot see is a draft you forget,
+          // and the folder count is how the user notices there is one.
           const appended = await client.append(
             draftsPath,
             mimeBuf,
-            ['\\Seen', '\\Draft'],
+            ['\\Draft'],
             this.clock()
           )
           if (!appended || typeof appended !== 'object' || !appended.uid) {

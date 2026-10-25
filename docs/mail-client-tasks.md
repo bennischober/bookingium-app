@@ -57,15 +57,16 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F3 | Lightweight formatting in compose | M | — | done (contenteditable with four commands; `composeBody` reduces the HTML to the formatting offered and derives the plain text, which stays the source of truth; sent as `multipart/alternative`) |
 | F4 | Paste attachments from the clipboard | M | B7 | done by unit tests only (a form-level paste handler; `pasteContent` is pure and decides files > image > text; the bytes go through B7; no E2E - see F5) |
 | F5 | Reloading with an open, changed draft destroys the window | S | — | done (main tells a reload from a close via `did-start-navigation` and lets a reload through; the renderer keeps its close-and-save; F4's E2E is back) |
-| F6 | A folder drag stays armed, so the next mail drag moves the folder | M | B2 | open (bug, user-reported) |
-| F7 | Dropping a folder back to the root level is refused | S | B2 | open (bug, user-reported) |
-| F8 | The mail window has fewer actions than the reading pane | S | — | open (bug, user-reported) |
+| F6 | A folder drag stays armed, so the next mail drag moves the folder | M | B2 | done (`onDragEnd` disarms it, and a mail drag disarms it too; E2E reproduces the user's sequence) |
+| F7 | Dropping a folder back to the root level is refused | S | B2 | done (a visible "Auf oberste Ebene ziehen" target; every pixel of the list was a row, so "beside the rows" was unreachable) |
+| F8 | The mail window has fewer actions than the reading pane | S | — | done ("Als ungelesen markieren" was not passed to the window) |
 | F9 | "Als Dokument speichern" asks for a record id | M | C5 | open (usability, user-reported) |
 | F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | open (usability, user-reported) |
-| F11 | Links in the compose editor | S | F3 | open (user question) |
-| F12 | A draft should show as unread | S | — | open (user question) |
-| F13 | Reply starts with two empty lines above the quote | S | — | open (user question) |
-| F14 | Does the mailbox sync on its own? | S | — | open (user question) |
+| F11 | Links in the compose editor | S | F3 | done (the allowlist had no `<a>`, so links were reduced to text; http/https/mailto survive, unsafe schemes lose the href) |
+| F12 | A draft should show as unread | S | — | done (a draft was appended with `\Seen`; now `\Draft` only) |
+| F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |
+| F14 | Does the mailbox sync on its own? | S | — | open (IDLE watches INBOX only, plus a 30s/120s poll; the state should be visible) |
+| F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | open (found while testing F4; its E2E is removed until this is fixed) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and

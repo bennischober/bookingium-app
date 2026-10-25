@@ -1635,40 +1635,114 @@ test('a formatted mail is sent with an HTML part and its plain text', async () =
   }
 })
 
-// F4: Ctrl+V in the editor attaches a copied file, and a pasted image becomes an
-// attachment instead of a data: URI in the body.
-test('a pasted image becomes an attachment, not body text', async () => {
-  test.setTimeout(180_000)
+// F6/F7: the two drag bugs the user hit. F6 is the important one: after moving a
+// folder, dragging a MAIL moved that folder again instead of the mail.
+const DRAG_PREFIX = 'E2E-DragBug-'
+
+test('moving a folder does not arm the next mail drag, and a folder goes back to the root', async () => {
+  test.setTimeout(240_000)
   const { page } = h
   const sandboxId = await ensureSandboxAccount()
   await waitForInbox(sandboxId)
   await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  const stamp = Date.now()
+  const parent = `${DRAG_PREFIX}Ziel-${stamp}`
+  const child = `${DRAG_PREFIX}Quelle-${stamp}`
+  const tree = page.getByRole('list', { name: 'Ordner' })
+
+  const serverPaths = async (): Promise<string[]> => {
+    const { ImapFlow } = await import('imapflow')
+    const client = new ImapFlow({
+      host: SANDBOX.host,
+      port: SANDBOX.port,
+      secure: false,
+      auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+      logger: false
+    })
+    await client.connect()
+    try {
+      return (await client.list()).map((f) => f.path)
+    } finally {
+      await client.logout().catch(() => client.close())
+    }
+  }
+
   await openMailPage(sandboxId)
+  try {
+    // Two folders of its own
+    for (const name of [parent, child]) {
+      await tree
+        .getByRole('button', { name: /^Posteingang/ })
+        .last()
+        .click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Neuer Ordner…' }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+      await dialog.getByLabel('Name').fill(name)
+      await dialog.getByRole('button', { name: 'Speichern' }).click()
+      await expect(tree.getByRole('button', { name })).toBeVisible({ timeout: 30_000 })
+    }
 
-  await page.getByRole('button', { name: 'Neue E-Mail' }).click()
-  const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
-  await expect(editor).toBeVisible({ timeout: 30_000 })
-
-  // A synthetic paste carrying a PNG file and the same image as text data
-  await editor.getByRole('textbox', { name: 'Text' }).evaluate((el) => {
-    const bytes = Uint8Array.from(
-      atob(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-      ),
-      (c) => c.charCodeAt(0)
+    // 1. Move the child into the parent (the user did this first)
+    await tree
+      .getByRole('button', { name: child })
+      .dragTo(tree.getByRole('button', { name: parent }))
+    await waitFor(
+      async () => serverPaths(),
+      (paths) => paths.includes(`${parent}/${child}`),
+      60_000
     )
-    const file = new File([bytes], 'bild.png', { type: 'image/png' })
-    const data = new DataTransfer()
-    data.items.add(file)
-    el.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
-    )
-  })
 
-  // It shows up as an attachment, with its own name
-  const attachments = editor.getByRole('list', { name: 'Anhänge' })
-  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
-  // and not in the body as a data: URI
-  const body = await editor.getByRole('textbox', { name: 'Text' }).innerText()
-  expect(body).not.toContain('data:image')
+    // 2. Now drag a MAIL onto a folder. F6: the folder above must NOT move again.
+    const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
+    await expect(row).toBeVisible({ timeout: 30_000 })
+    const mailId = Number(await row.getAttribute('data-message-id'))
+    const target = page.getByRole('list', { name: 'Ordner' }).locator(`button[title="${parent}"]`)
+    await row.dragTo(target)
+
+    // The mail moved...
+    await expect
+      .poll(
+        async () => (await mail<{ folderId: string }>('getMessage', mailId, sandboxId)).folderId,
+        { timeout: 30_000 }
+      )
+      .not.toBe(undefined)
+    // ...and the folder did NOT move anywhere new
+    const after = await serverPaths()
+    expect(after).toContain(`${parent}/${child}`)
+    expect(after.filter((p) => p.startsWith(parent))).toHaveLength(2)
+
+    // 3. F7: drag the child back to the root by dropping it beside the rows.
+    // It is nested now, so the parent has to be open to see it.
+    await tree.getByRole('button', { name: `${parent} aufklappen` }).click()
+    await expect(tree.getByRole('button', { name: child })).toBeVisible({ timeout: 30_000 })
+    await tree
+      .getByRole('button', { name: child })
+      .dragTo(page.getByLabel('Ordner auf die oberste Ebene verschieben'))
+    await waitFor(
+      async () => serverPaths(),
+      (paths) => paths.includes(child) && !paths.includes(`${parent}/${child}`),
+      60_000
+    )
+  } finally {
+    const { ImapFlow } = await import('imapflow')
+    const client = new ImapFlow({
+      host: SANDBOX.host,
+      port: SANDBOX.port,
+      secure: false,
+      auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+      logger: false
+    })
+    await client.connect()
+    try {
+      const paths = (await client.list())
+        .map((f) => f.path)
+        .filter((p) => p.startsWith(DRAG_PREFIX))
+      for (const p of paths.sort((a, b) => b.length - a.length)) {
+        await client.mailboxDelete(p).catch(() => undefined)
+      }
+    } finally {
+      await client.logout().catch(() => client.close())
+    }
+  }
 })

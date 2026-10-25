@@ -195,3 +195,20 @@ describe('pasteContent (F4)', () => {
     expect(pasteContent(['text/plain', 'Files'])).toEqual({ kind: 'files' })
   })
 })
+
+describe('F13: the caret has room above the quote', () => {
+  it('starts the reply with two empty lines', () => {
+    // The user should be able to type immediately, above the quoted mail
+    const state = replyCompose(message({ text: 'Hallo' }), { all: false, ownEmail: ME })
+    expect(state.bodyText.startsWith('\n\n')).toBe(true)
+  })
+
+  it('puts the attribution after the empty lines, then the quote', () => {
+    const state = replyCompose(message({ text: 'Hallo' }), { all: false, ownEmail: ME })
+    const lines = state.bodyText.split('\n')
+    expect(lines[0]).toBe('')
+    expect(lines[1]).toBe('')
+    expect(lines[2]).toMatch(/^Am .* schrieb /)
+    expect(lines[3]).toBe('> Hallo')
+  })
+})

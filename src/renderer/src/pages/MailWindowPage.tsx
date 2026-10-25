@@ -210,6 +210,12 @@ export default function MailWindowPage() {
           canWrite={canWrite}
           inTrash={isTrash(folder)}
           onToggleFlag={toggleFlag}
+          // F8: the same actions as the reading pane in the main window
+          onMarkUnread={(id) =>
+            void mailApi
+              .markRead([id], false, accountId)
+              .catch(failed('Konnte nicht als ungelesen markiert werden'))
+          }
           onDelete={(id) => moveAway(id, 'delete')}
           onArchive={
             allFolders.some((f) => f.specialUse?.includes('Archive'))

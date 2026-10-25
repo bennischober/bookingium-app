@@ -14,7 +14,35 @@ export type ComposeFormat = (typeof COMPOSE_FORMATS)[number]
  * create are kept, so a paste of foreign markup cannot smuggle anything into the
  * body that the sanitizer would later have to strip again.
  */
-const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'P', 'DIV', 'BR', 'SPAN'])
+const ALLOWED = new Set([
+  'B',
+  'STRONG',
+  'I',
+  'EM',
+  'U',
+  'UL',
+  'OL',
+  'LI',
+  'P',
+  'DIV',
+  'BR',
+  'SPAN',
+  'A'
+])
+
+/**
+ * F11: a link survives the editor, but only http/https/mailto - the same rule the
+ * incoming sanitizer applies. A link whose scheme is unsafe keeps its text and loses
+ * its href, so nothing clickable and dangerous can leave in a sent mail.
+ */
+const LINK_SCHEMES = new Set(['http', 'https', 'mailto'])
+
+function schemeOf(raw: string): string {
+  // eslint-disable-next-line no-control-regex -- deliberately strips C0 controls and DEL: browsers ignore them inside a URL scheme, which is the smuggling vector this guard must model
+  const cleaned = raw.replace(/[\x00-\x20\x7f]/g, '')
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned)
+  return match ? match[1].toLowerCase() : ''
+}
 
 /**
  * F3: reduce the editor's HTML to the formatting it offers, and derive the plain
@@ -60,6 +88,17 @@ function sanitizeComposeHtml(html: string): string {
     const closing = match[1] === '/'
     const name = match[2].toUpperCase()
     if (ALLOWED.has(name)) {
+      if (!closing && name === 'A') {
+        // F11: keep the href, drop every other attribute, and only for a safe scheme
+        const href = /\bhref\s*=\s*("([^"]*)"|'([^']*)')/i.exec(match[0])
+        const url = (href?.[2] ?? href?.[3] ?? '').trim()
+        const scheme = schemeOf(url)
+        if (url && (scheme === '' || LINK_SCHEMES.has(scheme))) {
+          kept.push(`<a href="${escapeAttr(url)}">`)
+          last = tag.lastIndex
+          continue
+        }
+      }
       // A list item is only meaningful inside a list; the editor always nests it
       kept.push(closing ? `</${name.toLowerCase()}>` : `<${name.toLowerCase()}>`)
     }
@@ -87,4 +126,8 @@ export function toEditorHtml(body: string): string {
     .filter(Boolean)
     .map((block) => `<p>${block.split('\n').map(escapeText).join('<br>')}</p>`)
   return paragraphs.join('')
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }

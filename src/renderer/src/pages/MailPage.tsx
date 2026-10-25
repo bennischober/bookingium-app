@@ -932,7 +932,9 @@ export default function MailPage() {
                           (target.path !== movingFolder.path &&
                             !target.path.startsWith(`${movingFolder.path}/`))),
                       onMove: (target) => void moveFolderTo(target),
-                      onDragStart: (folder) => setMovingFolder(folder)
+                      onDragStart: (folder) => setMovingFolder(folder),
+                      // F6: a cancelled or finished drag disarms the folder again
+                      onDragEnd: () => setMovingFolder(null)
                     }
                   : undefined
               }
@@ -1080,7 +1082,15 @@ export default function MailPage() {
                 multiple={canWrite}
                 onOpen={openWindow}
                 onDelete={selectedActions.toTrash}
-                onDragMessages={canWrite ? setDragged : undefined}
+                onDragMessages={
+                  canWrite
+                    ? (mails) => {
+                        // F6: a mail drag is never a folder move, whatever came before
+                        if (mails) setMovingFolder(null)
+                        setDragged(mails)
+                      }
+                    : undefined
+                }
                 menu={
                   <MessageMenu
                     items={selectedItems}

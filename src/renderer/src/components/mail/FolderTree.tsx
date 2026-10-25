@@ -49,6 +49,8 @@ export type FolderMoveDrop = {
   onMove: (target: FolderNode | null) => void
   /** the drag starts on a folder row, so the page knows what is being moved */
   onDragStart?: (folder: FolderNode) => void
+  /** F6: the drag ended without a drop - disarm it, or the next drag moves this folder */
+  onDragEnd?: () => void
 }
 
 const SPECIAL_ICONS: Array<[string, LucideIcon]> = [
@@ -149,7 +151,10 @@ function FolderItem({
         event.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.path)
         event.dataTransfer.effectAllowed = 'move'
         folderMove?.onDragStart?.(folder)
-      }
+      },
+      // F6: a drag that ends anywhere - dropped, cancelled, Esc - must disarm the
+      // folder, or the next mail drag would move this folder instead
+      onDragEnd: () => folderMove?.onDragEnd?.()
     }
   const rowDropProps = (drop || folderMove) && {
     onDragEnter: drop && (() => dropProps!.onDragEnter()),
@@ -225,11 +230,17 @@ function FolderItem({
                 special-use folders never may, so the items are hidden there */}
             {onFolderAction && !isProtected(folder) && (
               <>
-                <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('rename', folder)}>
+                <ContextMenuItem
+                  className="gap-2"
+                  onSelect={() => onFolderAction('rename', folder)}
+                >
                   <Pencil className="size-4 shrink-0 text-muted-foreground" />
                   Umbenennen…
                 </ContextMenuItem>
-                <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('delete', folder)}>
+                <ContextMenuItem
+                  className="gap-2"
+                  onSelect={() => onFolderAction('delete', folder)}
+                >
                   <Trash2 className="size-4 shrink-0 text-muted-foreground" />
                   Löschen…
                 </ContextMenuItem>
@@ -308,6 +319,8 @@ export function FolderTree({
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [overId, setOverId] = useState<string | null>(null)
+  // F7: a folder dragged over the "top level" zone
+  const [rootOver, setRootOver] = useState(false)
   // A drag that ended elsewhere leaves no highlight behind
   if (!drop && overId !== null) setOverId(null)
   const expand = (id: string) => setExpanded((prev) => new Set(prev).add(id))
@@ -323,7 +336,29 @@ export function FolderTree({
     })
 
   return (
-    <ul aria-label="Ordner" className="space-y-px" ref={focusRef} tabIndex={-1}>
+    <ul
+      aria-label="Ordner"
+      className="space-y-px"
+      ref={focusRef}
+      tabIndex={-1}
+      // F7: the tree itself is the "top level" drop target, so a folder can be
+      // dragged back out of its parent. Without this the pointer refused the drop.
+      {...(folderMove && {
+        onDragOver: (event: React.DragEvent) => {
+          if (!event.dataTransfer.types.includes(FOLDER_DRAG_TYPE)) return
+          if (!folderMove.canMove(null)) return
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'move'
+        },
+        onDrop: (event: React.DragEvent) => {
+          // Only a folder belongs here; a mail dropped past the rows is not a move
+          if (!event.dataTransfer.types.includes(FOLDER_DRAG_TYPE)) return
+          if (!folderMove.canMove(null)) return
+          event.preventDefault()
+          folderMove.onMove(null)
+        }
+      })}
+    >
       {folders.map((folder) => (
         <FolderItem
           key={folder.id}
@@ -342,6 +377,35 @@ export function FolderTree({
           onFolderAction={onFolderAction}
         />
       ))}
+      {/* F7: a visible place to drop a folder back to the top level. The rows cover
+          the whole list, so "beside the rows" is not a reachable target. */}
+      {folderMove && (
+        <li
+          aria-label="Ordner auf die oberste Ebene verschieben"
+          className={cn(
+            'mt-1 rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground',
+            rootOver && 'border-primary bg-primary/10 text-foreground'
+          )}
+          onDragOver={(event) => {
+            // Only a dragged FOLDER belongs here: a mail dragged past the rows must
+            // not be mistaken for one
+            if (!event.dataTransfer.types.includes(FOLDER_DRAG_TYPE)) return
+            if (!folderMove.canMove(null)) return
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'move'
+            setRootOver(true)
+          }}
+          onDragLeave={() => setRootOver(false)}
+          onDrop={(event) => {
+            setRootOver(false)
+            if (!folderMove.canMove(null)) return
+            event.preventDefault()
+            folderMove.onMove(null)
+          }}
+        >
+          Auf oberste Ebene ziehen
+        </li>
+      )}
     </ul>
   )
 }

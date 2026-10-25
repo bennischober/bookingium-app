@@ -87,3 +87,35 @@ describe('toEditorHtml (F3)', () => {
     expect(toEditorHtml('a < b')).toBe('<p>a &lt; b</p>')
   })
 })
+
+describe('links in the editor (F11)', () => {
+  it('keeps an http link, href and text', () => {
+    const { bodyHtml, bodyText } = composeBody(
+      '<p>siehe <a href="https://example.test/a">hier</a></p>'
+    )
+    expect(bodyHtml).toContain('<a href="https://example.test/a">hier</a>')
+    expect(bodyText).toBe('siehe hier')
+  })
+
+  it('keeps a mailto link', () => {
+    const { bodyHtml } = composeBody('<a href="mailto:a@example.test">schreiben</a>')
+    expect(bodyHtml).toContain('href="mailto:a@example.test"')
+  })
+
+  it('keeps a relative link, which cannot leave the document', () => {
+    const { bodyHtml } = composeBody('<a href="#abschnitt">weiter</a>')
+    expect(bodyHtml).toContain('href="#abschnitt"')
+  })
+
+  it('drops the href of an unsafe scheme but keeps the text', () => {
+    // A sent mail must never carry a clickable javascript: link
+    const { bodyHtml, bodyText } = composeBody('<a href="javascript:alert(1)">klick</a>')
+    expect(bodyHtml).not.toContain('javascript')
+    expect(bodyText).toBe('klick')
+  })
+
+  it('drops every other attribute of a link', () => {
+    const { bodyHtml } = composeBody('<a href="https://a.test" onclick="alert(1)" class="x">a</a>')
+    expect(bodyHtml).toBe('<a href="https://a.test">a</a>')
+  })
+})
