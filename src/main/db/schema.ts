@@ -296,6 +296,12 @@ export const deal_memo = sqliteTable(
       .references(() => band.id),
     venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
     hotel_id: integer('hotel_id').references(() => hotel.id, { onDelete: 'set null' }),
+    /**
+     * D3: an archived event is out of every working view but still there - its itinerary,
+     * follow-ups, documents, mails and the link from its invoices all survive. Null means
+     * active. A timestamp rather than a boolean, so "when" stays answerable.
+     */
+    archived_at: text('archived_at'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -307,7 +313,8 @@ export const deal_memo = sqliteTable(
     index('deal_memo_band_idx').on(table.band_id),
     index('deal_memo_venue_idx').on(table.venue_id),
     index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
-    index('deal_memo_status_idx').on(table.status)
+    index('deal_memo_status_idx').on(table.status),
+    index('deal_memo_archived_idx').on(table.archived_at)
   ]
 )
 

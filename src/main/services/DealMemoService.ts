@@ -51,4 +51,30 @@ export class DealMemoService {
     await removeOwnerFolder('event', id).catch((error) => console.error(error))
     scheduleCalendarUpdate()
   }
+
+  /**
+   * D3: archiving keeps everything - itinerary, follow-ups, documents, mails and the link
+   * from the event's invoices. Only the working views stop showing it.
+   */
+  async archiveDealMemo(id: number) {
+    const result = await this.dealMemoRepository.archive(id)
+    // An archived gig is not a booking on the calendar any more
+    scheduleCalendarUpdate()
+    return result
+  }
+
+  async restoreDealMemo(id: number) {
+    const result = await this.dealMemoRepository.restore(id)
+    scheduleCalendarUpdate()
+    return result
+  }
+
+  async listArchivedDealMemos() {
+    return await this.dealMemoRepository.listArchived()
+  }
+
+  /** D3: whether an invoice still points at this event, which blocks a hard delete */
+  async hasLinkedInvoice(id: number) {
+    return await this.dealMemoRepository.hasLinkedInvoice(id)
+  }
 }

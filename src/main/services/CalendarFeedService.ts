@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { rename, writeFile } from 'fs/promises'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { notArchived } from '../repositories/archiveFilter'
 import { SettingsService } from './SettingsService'
 import { buildCalendar, type CalendarEvent } from '../calendar/ics'
 import type { CalendarFeedStatusDto } from '../api/schemas/settings.schema'
@@ -42,6 +43,8 @@ export class CalendarFeedService {
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
       .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
       .leftJoin(schema.hotel, eq(schema.deal_memo.hotel_id, schema.hotel.id))
+      // D3: an archived gig stays out of the feed subscribers already have
+      .where(notArchived())
       .orderBy(schema.deal_memo.date)
 
     return rows.map((row) => {

@@ -57,6 +57,29 @@ export const dealMemoRouter = t.router({
   }),
 
   delete: t.procedure.input(z.number()).mutation(async ({ input }) => {
+    // D3: a hard delete would cascade away the itinerary and follow-ups, delete the
+    // document folder and null the link from any invoice. Refuse while one exists.
+    if (await dealMemoService.hasLinkedInvoice(input)) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Zu diesem Event existiert eine Rechnung. Archivieren statt löschen.'
+      })
+    }
     await dealMemoService.deleteDealMemo(input)
+  }),
+
+  /** D3: take an event out of every working view without destroying anything */
+  archive: t.procedure.input(z.number()).mutation(async ({ input }) => {
+    await dealMemoService.archiveDealMemo(input)
+  }),
+
+  /** D3: bring an archived event back */
+  restore: t.procedure.input(z.number()).mutation(async ({ input }) => {
+    await dealMemoService.restoreDealMemo(input)
+  }),
+
+  /** D3: the archive view - archived events only */
+  listArchived: t.procedure.query(async () => {
+    return DealMemoMapper.toListItemDtoList(await dealMemoService.listArchivedDealMemos())
   })
 })

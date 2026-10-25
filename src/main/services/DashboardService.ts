@@ -3,6 +3,7 @@ import { and, count, eq, gte, inArray, lt, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { overdueInvoiceWhere } from '../repositories/InvoiceRepository'
+import { notArchived } from '../repositories/archiveFilter'
 import type { DashboardStatsDto } from '../api/routers/dashboard.router'
 
 @injectable()
@@ -40,6 +41,8 @@ export class DashboardService {
           .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
           .where(
             and(
+              // D3: an archived gig is out of the working view
+              notArchived(),
               gte(schema.deal_memo.date, todayStr),
               lte(schema.deal_memo.date, in7DaysStr),
               ne(schema.deal_memo.status, 'cancelled')

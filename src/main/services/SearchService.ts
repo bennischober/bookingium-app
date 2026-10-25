@@ -1,9 +1,10 @@
 import { injectable } from 'tsyringe'
 import { container } from 'tsyringe'
-import { desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, desc, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { DocumentRepository } from '../repositories/DocumentRepository'
+import { notArchived } from '../repositories/archiveFilter'
 import {
   DOCUMENT_TYPE_LABELS,
   type DocumentType,
@@ -52,10 +53,14 @@ export class SearchService {
         })
         .from(schema.deal_memo)
         .where(
-          or(
-            like(schema.deal_memo.name, pattern),
-            like(schema.deal_memo.deal, pattern),
-            sql`CAST(${schema.deal_memo.id} AS TEXT) LIKE ${pattern}`
+          and(
+            // D3: an archived gig is out of the working view
+            notArchived(),
+            or(
+              like(schema.deal_memo.name, pattern),
+              like(schema.deal_memo.deal, pattern),
+              sql`CAST(${schema.deal_memo.id} AS TEXT) LIKE ${pattern}`
+            )
           )
         )
         .orderBy(desc(schema.deal_memo.date))
