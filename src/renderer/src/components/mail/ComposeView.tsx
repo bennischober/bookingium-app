@@ -307,9 +307,10 @@ export function ComposeView({
   )
 
   // Closing the window with changes that the autosave has not stored yet: hold the
-  // close, save, then close. A RELOAD fires this too, but by then the autosave has
-  // run and nothing is dirty - that is what keeps this from closing the window on a
-  // reload, which the old version did (F5).
+  // close and save. The renderer must NOT call window.close() from here: beforeunload
+  // fires for a reload too, and closing the window on a reload destroyed it (F5, F15).
+  // Main decides what happens next - it is the only side that knows whether this is a
+  // close or a reload (see will-prevent-unload in src/main/index.ts).
   useEffect(() => {
     let leaving = false
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -321,7 +322,6 @@ export function ComposeView({
       save().then(
         () => {
           closed.current = true
-          window.close()
         },
         (error) => {
           closed.current = true

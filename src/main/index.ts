@@ -72,23 +72,21 @@ function createAppWindow(
     window.show()
   })
 
-  // F5: the renderer's beforeunload holds a close to save the draft, and the same
-  // event fires for a RELOAD. Main is the only side that can tell them apart:
-  // a reload always goes through, a close is held once so the draft lands.
-  let reloading = false
-  window.webContents.on('did-start-navigation', (details) => {
-    if (details.isMainFrame) reloading = true
-  })
-  window.webContents.on('did-stop-loading', () => {
-    reloading = false
+  // F5/F15: the renderer's beforeunload holds the unload while it saves a draft, and
+  // the same event fires for a RELOAD. The window's own 'close' event is the only
+  // reliable signal: it fires for a real close and never for a reload.
+  let closing = false
+  window.on('close', () => {
+    closing = true
   })
   window.webContents.on('will-prevent-unload', (event) => {
-    // preventDefault() here means "ignore the renderer, let the unload happen"
-    if (reloading) event.preventDefault()
-    // a close: the default (do nothing) keeps Electron's hold, the renderer saves
-    // the draft and then the window closes
+    // preventDefault() means "ignore the renderer, let the unload happen".
+    // A reload always goes through. A close is let through too, and the window is
+    // destroyed here - the renderer never calls window.close() itself, because
+    // beforeunload cannot tell the two apart.
+    event.preventDefault()
+    if (closing && !window.isDestroyed()) window.destroy()
   })
-
 
   // Links open in the default browser or mail program; other schemes (file:,
   // custom protocol handlers, ...) are dropped, links in mails included
@@ -206,9 +204,12 @@ ipcMain.handle('mail:composeWindow', (_event, input: Parameters<typeof openCompo
 )
 
 /** C1: the compose window reports a successful send */
-ipcMain.handle('mail:composeSent', (_event, { key, messageId }: { key: string; messageId: string }) => {
-  composeWindows.get(key)?.({ sent: true, messageId })
-})
+ipcMain.handle(
+  'mail:composeSent',
+  (_event, { key, messageId }: { key: string; messageId: string }) => {
+    composeWindows.get(key)?.({ sent: true, messageId })
+  }
+)
 
 /**
  * IPC Handler for opening files

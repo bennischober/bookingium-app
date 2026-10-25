@@ -1756,3 +1756,117 @@ test('moving a folder does not arm the next mail drag, and a folder goes back to
     }
   }
 })
+
+// F10: "save all" belongs to the whole set of attachments, not to one attachment's
+// menu. The mail is the C5 test's own (it sends itself one with a PDF).
+test('the bulk attachment actions sit above the chips, not in one attachment menu', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+
+  // A mail with two attachments, sent to itself
+  const accounts = await listAccounts()
+  const me = accounts.find((a) => a.id === sandboxId)!
+  const tag = `e2e-f10-bulk-${Date.now()}`
+  const pdf = Buffer.from('%PDF-1.4\n%%EOF\n', 'utf8')
+  await mail(
+    'sendMail',
+    {
+      to: [{ name: 'Ich', email: me.email }],
+      cc: [],
+      bcc: [],
+      subject: tag,
+      bodyText: 'Zwei Anhänge.',
+      bodyHtml: null,
+      inReplyTo: null,
+      references: [],
+      attachments: [
+        { filename: 'eins.pdf', contentType: 'application/pdf', base64: pdf.toString('base64') },
+        { filename: 'zwei.pdf', contentType: 'application/pdf', base64: pdf.toString('base64') }
+      ]
+    },
+    null,
+    sandboxId
+  )
+
+  try {
+    const found = await waitFor(
+      () => mail<{ items: { id: number }[] }>('search', { query: tag, limit: 5 }, sandboxId),
+      (r) => r.items.length > 0,
+      120_000
+    )
+    await openMailPage(sandboxId)
+    const [popup] = await Promise.all([
+      h.app.waitForEvent('window'),
+      page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+        sandboxId,
+        found.items[0].id
+      ] as const)
+    ])
+    try {
+      const reader = popup.getByRole('article', { name: 'E-Mail' })
+      // The bulk actions are their own group, above the chips
+      const bulk = reader.getByLabel('Alle Anhänge')
+      await expect(bulk).toBeVisible({ timeout: 30_000 })
+      await expect(bulk.getByRole('button', { name: 'Alle speichern…' })).toBeVisible()
+      await expect(bulk.getByRole('button', { name: 'Alle als Dokument…' })).toBeVisible()
+
+      // ...and one attachment's menu does NOT offer save-all
+      await reader
+        .getByRole('button', { name: /weitere Aktionen$/ })
+        .first()
+        .click()
+      await expect(popup.getByRole('button', { name: 'Speichern unter…' })).toBeVisible()
+      await expect(popup.getByRole('button', { name: /^Alle Anhänge speichern/ })).toHaveCount(0)
+    } finally {
+      await popup.close()
+    }
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, 'e2e-f10-bulk-')
+  }
+})
+
+// F4 + F15: a pasted file becomes an attachment (not body text), and a reload with the
+// editor open must not destroy the window - the bug that hid this test for two rounds.
+test('a pasted image becomes an attachment, and a reload keeps the window', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+  await openMailPage(sandboxId)
+
+  await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+  const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+  await expect(editor).toBeVisible({ timeout: 30_000 })
+
+  await editor.getByRole('textbox', { name: 'Text' }).evaluate((el) => {
+    const bytes = Uint8Array.from(
+      atob(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+      ),
+      (c) => c.charCodeAt(0)
+    )
+    const file = new File([bytes], 'bild.png', { type: 'image/png' })
+    const data = new DataTransfer()
+    data.items.add(file)
+    el.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+    )
+  })
+
+  // It shows up as an attachment, with its own name
+  const attachments = editor.getByRole('list', { name: 'Anhänge' })
+  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
+  // and not in the body as a data: URI
+  const body = await editor.getByRole('textbox', { name: 'Text' }).innerText()
+  expect(body).not.toContain('data:image')
+
+  // F15: the editor is dirty, so a reload fires beforeunload. It must reload, not
+  // close the window (the renderer used to call window.close() there).
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible({
+    timeout: 30_000
+  })
+})

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -54,8 +54,7 @@ export function AttachmentToDocumentDialog({
   accountId,
   messageId,
   storeMessageId,
-  partId,
-  filename
+  parts
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -64,8 +63,8 @@ export function AttachmentToDocumentDialog({
   messageId: number
   /** the mail's Message-ID header, for the origin column */
   storeMessageId: string | null
-  partId: string
-  filename: string
+  /** one or several attachments of the same mail; all go to the chosen record */
+  parts: { partId: string; filename: string }[]
 }) {
   const links = trpcReact.mailLink.linksForMessage.useQuery(
     { accountId, messageId: storeMessageId ?? '' },
@@ -92,19 +91,28 @@ export function AttachmentToDocumentDialog({
   const selected = chosen ?? linkedChoice
   const save = trpcReact.document.saveFromMail.useMutation({
     onSuccess: () => {
-      toast.success('Als Dokument gespeichert')
-      onOpenChange(false)
+      saved.current += 1
+      // One toast for the whole batch, not one per file
+      if (saved.current === parts.length) {
+        toast.success(
+          parts.length === 1 ? 'Als Dokument gespeichert' : `${parts.length} Dokumente gespeichert`
+        )
+        onOpenChange(false)
+      }
     },
     onError: (error) =>
       toast.error('Anhang konnte nicht gespeichert werden', { description: error.message })
   })
+  const saved = useRef(0)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Als Dokument speichern</DialogTitle>
-          <DialogDescription>{filename || 'Anhang'}</DialogDescription>
+          <DialogDescription>
+            {parts.length === 1 ? parts[0].filename || 'Anhang' : `${parts.length} Anhänge`}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -190,16 +198,19 @@ export function AttachmentToDocumentDialog({
             disabled={!selected || save.isPending}
             onClick={() => {
               if (!selected) return
-              save.mutate({
-                ownerType,
-                ownerId: selected.id,
-                mailAccountId: accountId,
-                messageId,
-                partId,
-                filename,
-                mailMessageId: storeMessageId,
-                documentType
-              })
+              saved.current = 0
+              for (const part of parts) {
+                save.mutate({
+                  ownerType,
+                  ownerId: selected.id,
+                  mailAccountId: accountId,
+                  messageId,
+                  partId: part.partId,
+                  filename: part.filename,
+                  mailMessageId: storeMessageId,
+                  documentType
+                })
+              }
             }}
           >
             Speichern

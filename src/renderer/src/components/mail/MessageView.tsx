@@ -119,7 +119,8 @@ export function MessageView({
   const [withImages, setWithImages] = useState<MessageDetail | null>(null)
   const [loadingImages, setLoadingImages] = useState(false)
   // C5: the attachment the "save as document" dialog is open for
-  const [toDocument, setToDocument] = useState<{ partId: string; filename: string } | null>(null)
+  // F10: the dialog takes one attachment or all of them
+  const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
 
   if (detail.isLoading) {
     return (
@@ -332,6 +333,37 @@ export function MessageView({
           <dd>{formatFullDate(message.date ?? message.internalDate)}</dd>
         </dl>
 
+        {message.attachments.filter((a) => !a.isInline).length > 1 && (
+          // F10: "save all" belongs to the whole set, not to one attachment's menu
+          <div className="flex flex-wrap items-center gap-2" aria-label="Alle Anhänge">
+            <span className="text-xs text-muted-foreground">
+              {message.attachments.filter((a) => !a.isInline).length} Anhänge
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void saveAllAttachments(message.attachments)}
+            >
+              <Download />
+              Alle speichern…
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setToDocument(
+                  message.attachments
+                    .filter((a) => !a.isInline)
+                    .map((a) => ({ partId: a.partId, filename: a.filename }))
+                )
+              }
+            >
+              <FilePlus />
+              Alle als Dokument…
+            </Button>
+          </div>
+        )}
+
         {message.attachments.length > 0 && (
           <ul className="flex flex-wrap gap-2" aria-label="Anhänge">
             {message.attachments
@@ -379,18 +411,10 @@ export function MessageView({
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => setToDocument({ partId: a.partId, filename: a.filename })}
+                        onClick={() => setToDocument([{ partId: a.partId, filename: a.filename }])}
                       >
                         <FilePlus className="size-4 shrink-0 text-muted-foreground" />
                         Als Dokument speichern…
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => void saveAllAttachments(message.attachments)}
-                      >
-                        <Download className="size-4 shrink-0 text-muted-foreground" />
-                        Alle Anhänge speichern…
                       </button>
                     </PopoverContent>
                   </Popover>
@@ -446,8 +470,7 @@ export function MessageView({
           accountId={accountId}
           messageId={message.id}
           storeMessageId={message.messageId}
-          partId={toDocument.partId}
-          filename={toDocument.filename}
+          parts={toDocument}
         />
       )}
     </article>

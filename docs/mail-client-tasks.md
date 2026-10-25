@@ -61,12 +61,12 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F7 | Dropping a folder back to the root level is refused | S | B2 | done (a visible "Auf oberste Ebene ziehen" target; every pixel of the list was a row, so "beside the rows" was unreachable) |
 | F8 | The mail window has fewer actions than the reading pane | S | — | done ("Als ungelesen markieren" was not passed to the window) |
 | F9 | "Als Dokument speichern" asks for a record id | M | C5 | done (the record is searched by name through that type's own list procedure; the mail's link pre-selects the type and the record) |
-| F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | done (a split chip: click opens, the chevron opens a popover with Speichern unter…, Als Dokument speichern… and Alle Anhänge speichern…) |
+| F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | done (a split chip: click opens, the chevron has Speichern unter… and Als Dokument speichern…; "Alle speichern…" and "Alle als Dokument…" sit in their own bar above the chips, only when there is more than one) |
 | F11 | Links in the compose editor | S | F3 | done (the allowlist had no `<a>`, so links were reduced to text; http/https/mailto survive, unsafe schemes lose the href) |
 | F12 | A draft should show as unread | S | — | done (a draft was appended with `\Seen`; now `\Draft` only) |
 | F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |
 | F14 | Does the mailbox sync on its own? | S | — | done (it does: IDLE on INBOX plus a 30s/120s poll; the bar now says "· automatisch" or "· regelmäßig" with a tooltip explaining what that means) |
-| F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | open (found while testing F4; its E2E is removed until this is fixed) |
+| F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | done (the renderer called `window.close()` from `beforeunload`, which also fires on a reload; main now decides via the window's own `close` event, which a reload never fires. F4's E2E is back and also asserts the reload) |
 | D1 | Documents rework (categories, relations) | L | — | open, design **[user]** |
 
 T and A cards come first. B, C and E cards may run in parallel to A cards when the files do not overlap (C2/C3 and
@@ -859,28 +859,21 @@ non-personal addresses (for example `noreply@anthropic.com` in docs, if docs are
 
 ### F15: a pasted attachment leaves the app dead for the next reload
 
-**Found by.** F4's E2E. The test itself passes; the *next* test in the file fails with
-`page.reload: Target page, context or browser has been closed`, and only when it runs
-after the paste test (F4 → any later test dies; F3 → the same test passes).
+**Fixed.** The renderer's `beforeunload` handler saved the draft and then called
+`window.close()`. `beforeunload` fires for a **reload** as well, so reloading with a dirty
+editor saved the draft and destroyed the window. The autosave (F5) made it look fixed,
+because a paused editor is not dirty - pasting an attachment and reloading straight away
+was the case that still hit it.
 
-**What is known.**
+Main now decides: `window.on('close')` sets a flag (a reload never fires it), and
+`will-prevent-unload` destroys the window only when that flag is set. The renderer saves
+and never closes the window itself.
 
-- A synthetic paste of a `File` into the contenteditable (the way the E2E does it) is
-  enough. F4 alone passes, so it is not the paste itself failing - it is what it leaves.
-- The window is still there right after the test (`BrowserWindow.getAllWindows()` is 1,
-  the title is Bookingium), so the renderer dies on the next navigation, not at the end
-  of the test.
-- Not the autosave timer (it is cleared on unmount), not `beforeunload` (a reload is let
-  through by main since F5), not `window.close()` (only on a real close).
-
-**Next step.** Reproduce with a minimal case: paste one file, then `page.reload()` in the
-same test, and read the renderer console and the main-process stderr. Suspect the
-`DataTransfer`/`File` the test constructs in `page.evaluate` outliving the page, or the
-base64 attachment string surviving into a draft save that outlives the test.
-
-**Why it matters.** It is a real crash, not a test artefact: a user who pastes an
-attachment and then reloads loses the window. The E2E stays removed until this is fixed so
-the suite does not hide the failure behind a flaky neighbour.
+**Why it hid for so long.** Two wrong fixes looked right: handling `will-prevent-unload`
+alone (it cannot tell a reload from a close), and relying on the autosave having run (it
+has not, if the user reloads right after typing). The probe that settled it pasted a file
+and reloaded **inside one test**, capturing the renderer console - there was no error at
+all, which proved the window was being *closed*, not crashing.
 
 ---
 
