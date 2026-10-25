@@ -146,11 +146,10 @@
   * {
     @apply border-border outline-ring/50;
   }
-  /* Always reserve the vertical scrollbar's space, so pages don't shift
-     sideways when content grows tall enough to need it */
-  html {
-    scrollbar-gutter: stable;
-  }
+  /* H6: the scrollbar gutter is reserved on the element that actually scrolls
+     (`[data-testid="content-scroll"]` in root-layout.tsx), NOT here. On <html> it
+     reserved 15px at the right of every page even when nothing could scroll, which
+     showed up as a dead strip beside the content. */
   body {
     @apply bg-background text-foreground;
   }

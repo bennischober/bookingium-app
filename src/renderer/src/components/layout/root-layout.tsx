@@ -37,7 +37,14 @@ export default function RootLayout() {
             <ShortcutsHelp />
           </div>
         </header>
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-auto" data-testid="content-scroll">
+        {/* H6: the gutter is reserved HERE, on the element that actually scrolls, not on
+            <html>. On <html> it cost 15px of dead space at the right of every page even
+            when nothing could scroll (measured: body 869px against an 884px viewport), which
+            read as a mysterious empty strip. */}
+        <div
+          className="flex min-h-0 min-w-0 flex-1 overflow-auto [scrollbar-gutter:stable]"
+          data-testid="content-scroll"
+        >
           <Outlet />
         </div>
       </SidebarInset>

@@ -74,7 +74,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | H4 | The bullet list button does nothing visible | S | — | open: `execCommand("insertUnorderedList")` may be fine while `composeBody()` flattens lists into plain lines in `bodyText`; needs a DOM to prove which half |
 | H5a | "Bilder laden" does nothing | S | — | open, confirmed: `loadRemoteImages()` returns early unless `options.remoteImages.enabled`, and the worker never passes `remoteImages` at all - the button is a no-op |
 | H5b | A sent mail does not look like its draft | S | — | open, confirmed: the iframe's `<style>` is deliberately empty, so the mail renders in the browser's default serif while the editor uses `font-sans text-sm`; fix is a four-property base style, not making them identical |
-| H6 | Empty space at the right of compose | S | — | needs a second look at the real window width before changing anything |
+| H6 | The dead strip on the right of every page | S | — | done: `html { scrollbar-gutter: stable }` reserved 15px although nothing on `<html>` could scroll (measured body 869px against an 884px viewport). The rule now sits on `[data-testid="content-scroll"]`, which is what actually scrolls |
 | H7 | Contacts from the server, and from mail | M | — | settled: IMAP stores no contacts, so import the Outlook CSV once; never auto-create from mail. A "Als Kontakt speichern" action on a mail (popover per address recommended) |
 | H8 | The read-only / sandbox dropdown for release | S | — | settled, do at release not now: one account kind, no test-server option, no canary toggle for end users |
 | D1 | Documents findable and visible | M | — | done (`16dd09a`): storage stays flat, no `document_link`, categories reuse `document_type`; the event tab shows the band's documents read-only and the band tab is one list filtered by category and event |
@@ -982,11 +982,32 @@ inheriting the browser's serif. Keep it to those four properties; anything more 
 **Do not** try to make the draft and the rendered mail pixel-identical: they cannot be, and the receiver's client decides the
 final look anyway. The goal is only that our fallback is sane.
 
-### H6: compose window has empty space at the right [cosmetic]
+### H6: the dead strip on the right was the reserved scrollbar gutter [fixed]
 
-The mail window's compose body is a `contentEditable` that fills the width; the reading pane's iframe is `w-full`. The gap in
-the screenshots is the dev window at a narrow width plus the mail list column, not a layout bug in the mail body itself. Needs a
-second look at the real window width before deciding - do not "fix" it blind.
+**Diagnosed by the user**, who recognised it: "this looks exactly like the space we reserve for the scrollbar so we have no
+layout-shifts when it's added".
+
+**Confirmed by measurement** (A/B in one Playwright run, same window):
+
+| | body width | viewport | gutter on `html` |
+|---|---|---|---|
+| before | **869px** | 884px | `stable` |
+| after | **884px** | 884px | `auto` |
+
+A 15px dead strip, and `scrollableCount: 0` — **nothing on the page could scroll at all**. The user's DevTools readout
+(`body 869 × 631`) matched to the pixel.
+
+**Cause.** `index.css` had `html { scrollbar-gutter: stable }`, added in `170a6cf` ("html reserves the scrollbar gutter, so
+pages don't shift sideways when the vertical scrollbar appears"). The intent was right, the element was wrong: this layout has a
+**fixed frame** — `SidebarProvider` is `h-svh overflow-hidden` and only `[data-testid="content-scroll"]` scrolls. `<html>`
+never scrolls, so its gutter was reserved for a scrollbar that could not appear, and it cost 15px on every page.
+
+**Fix.** The rule moved onto the element that actually scrolls:
+`className="... overflow-auto [scrollbar-gutter:stable]"` in `root-layout.tsx`. Same protection against the sideways shift when a
+long list appears (which is what `170a6cf` was about), without the dead space. Verified after the change: the scroller reports
+`scrollbar-gutter: stable` while `body` is the full viewport width.
+
+**Lesson.** A global rule on `<html>` is wrong whenever the app has its own scroll containers - reserve where the scroll happens.
 
 ### H7: contacts - the server does not store them, and mail should not create them [decision settled]
 
