@@ -18,6 +18,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { ComposeView } from '@/components/mail/ComposeView'
+import { hide, unhide, visible } from '@/components/mail/optimistic'
 import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
 import {
   type ComposeState,
@@ -345,10 +346,8 @@ export default function MailPage() {
   // The set is cleared as soon as fresh list data arrives (see the effect below), and a
   // failed move puts its ids back - the row reappears rather than silently vanishing.
   const [hiddenIds, setHiddenIds] = useState<number[]>([])
-  const hideMails = (ids: number[]) =>
-    setHiddenIds((current) => [...current, ...ids.filter((id) => !current.includes(id))])
-  const unhideMails = (ids: number[]) =>
-    setHiddenIds((current) => current.filter((id) => !ids.includes(id)))
+  const hideMails = (ids: number[]) => setHiddenIds((current) => hide(current, ids))
+  const unhideMails = (ids: number[]) => setHiddenIds((current) => unhide(current, ids))
 
   // G2/L1: clear the optimistic hide once fresh list data has actually arrived, never on a
   // timer - a timer would either clear too early (the row flickers back) or too late. Any
@@ -358,11 +357,12 @@ export default function MailPage() {
     if (listUpdatedAt) setHiddenIds([])
   }, [listUpdatedAt])
 
-  const listItems = (
+  const listItems = visible(
     searching
       ? (results.data?.pages.flatMap((p) => p.items) ?? [])
-      : (messages.data?.pages.flat() ?? [])
-  ).filter((m) => !hiddenIds.includes(m.id))
+      : (messages.data?.pages.flat() ?? []),
+    hiddenIds
+  )
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
   const snippets = useMemo(
@@ -511,12 +511,28 @@ export default function MailPage() {
     const order = listItems.map((m) => m.id)
     const texts = MOVE_TEXTS[target.kind]
     const label = target.kind === 'folder' ? folderLabel(target.folder) : ''
+
+    // G2/L1: the click is answered now, not when the server answers. The rows go, the
+    // selection moves on to the next mail, and the request runs behind that - so deleting a
+    // run of mails is as fast as the user can click. A failure puts the rows back.
+    hideMails(ids)
+    const next = nextAfterRemoval(order, ids)
+    setSelection((current) =>
+      current.ids.some((id) => ids.includes(id))
+        ? next !== null
+          ? single(next)
+          : EMPTY_SELECTION
+        : current
+    )
+
     let ops: OpSummary[]
     try {
       if (target.kind === 'delete') ops = await mailApi.deleteToTrash(ids, accountId)
       else if (target.kind === 'archive') ops = await mailApi.archive(ids, accountId)
       else ops = await mailApi.moveToFolder(ids, target.folder.id, accountId)
     } catch (error) {
+      // the move never happened: the rows come back, and the user sees why
+      unhideMails(ids)
       failed(texts.failed)(error)
       return
     }
@@ -541,6 +557,9 @@ export default function MailPage() {
         : undefined
     const notDone = ops.filter((op) => op.state !== 'done')
     if (notDone.length > 0) {
+      // A pending op stays journaled and is retried, but its mail is not on the server yet:
+      // show it again rather than hiding a mail that has not actually moved
+      unhideMails(ids)
       const reason = notDone.some((op) => op.state === 'pending')
         ? 'Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.'
         : (notDone.find((op) => op.error)?.error ?? undefined)
@@ -553,14 +572,6 @@ export default function MailPage() {
       })
       return
     }
-    const next = nextAfterRemoval(order, ids)
-    setSelection((current) =>
-      current.ids.some((id) => ids.includes(id))
-        ? next !== null
-          ? single(next)
-          : EMPTY_SELECTION
-        : current
-    )
     toast.success(ids.length > 1 ? texts.many(ids.length, label) : texts.done(label), {
       action: undo
     })
