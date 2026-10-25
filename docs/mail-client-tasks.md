@@ -857,6 +857,33 @@ non-personal addresses (for example `noreply@anthropic.com` in docs, if docs are
 
 ---
 
+### F15: a pasted attachment leaves the app dead for the next reload
+
+**Found by.** F4's E2E. The test itself passes; the *next* test in the file fails with
+`page.reload: Target page, context or browser has been closed`, and only when it runs
+after the paste test (F4 → any later test dies; F3 → the same test passes).
+
+**What is known.**
+
+- A synthetic paste of a `File` into the contenteditable (the way the E2E does it) is
+  enough. F4 alone passes, so it is not the paste itself failing - it is what it leaves.
+- The window is still there right after the test (`BrowserWindow.getAllWindows()` is 1,
+  the title is Bookingium), so the renderer dies on the next navigation, not at the end
+  of the test.
+- Not the autosave timer (it is cleared on unmount), not `beforeunload` (a reload is let
+  through by main since F5), not `window.close()` (only on a real close).
+
+**Next step.** Reproduce with a minimal case: paste one file, then `page.reload()` in the
+same test, and read the renderer console and the main-process stderr. Suspect the
+`DataTransfer`/`File` the test constructs in `page.evaluate` outliving the page, or the
+base64 attachment string surviving into a draft save that outlives the test.
+
+**Why it matters.** It is a real crash, not a test artefact: a user who pastes an
+attachment and then reloads loses the window. The E2E stays removed until this is fixed so
+the suite does not hide the failure behind a flaky neighbour.
+
+---
+
 ## Found while working
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
