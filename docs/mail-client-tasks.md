@@ -60,8 +60,8 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F6 | A folder drag stays armed, so the next mail drag moves the folder | M | B2 | done (`onDragEnd` disarms it, and a mail drag disarms it too; E2E reproduces the user's sequence) |
 | F7 | Dropping a folder back to the root level is refused | S | B2 | done (a visible "Auf oberste Ebene ziehen" target; every pixel of the list was a row, so "beside the rows" was unreachable) |
 | F8 | The mail window has fewer actions than the reading pane | S | — | done ("Als ungelesen markieren" was not passed to the window) |
-| F9 | "Als Dokument speichern" asks for a record id | M | C5 | open (usability, user-reported) |
-| F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | open (usability, user-reported) |
+| F9 | "Als Dokument speichern" asks for a record id | M | C5 | done (the record is searched by name through that type's own list procedure; the mail's link pre-selects the type and the record) |
+| F10 | Attachment chip: click opens, menu has save / save as document / save all | S–M | B6, C5 | done (a split chip: click opens, the chevron opens a popover with Speichern unter…, Als Dokument speichern… and Alle Anhänge speichern…) |
 | F11 | Links in the compose editor | S | F3 | done (the allowlist had no `<a>`, so links were reduced to text; http/https/mailto survive, unsafe schemes lose the href) |
 | F12 | A draft should show as unread | S | — | done (a draft was appended with `\Seen`; now `\Draft` only) |
 | F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |

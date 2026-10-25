@@ -22,6 +22,7 @@ import { confirmAction } from '@/lib/confirm'
 import { trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
@@ -183,6 +184,12 @@ export function MessageView({
     }
   }
 
+  /** F10: every attachment of this mail, one after another through the same save path */
+  const saveAllAttachments = async (list: MessageDetail['attachments']) => {
+    const visible = list.filter((a) => !a.isInline)
+    for (const a of visible) await saveAttachmentAs(a.partId, a.filename)
+  }
+
   const saveAttachmentAs = async (partId: string, filename: string) => {
     try {
       const result = await trpcVanilla.mail.attachments.saveAs.mutate(
@@ -330,35 +337,63 @@ export function MessageView({
             {message.attachments
               .filter((a) => !a.isInline)
               .map((a) => (
-                <li key={a.partId} className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void openAttachment(a.partId, a.filename)}
-                    title={`${a.contentType} · öffnen`}
-                  >
-                    <Paperclip />
-                    <span className="max-w-56 truncate">{a.filename || 'Anhang'}</span>
-                    <span className="text-muted-foreground">{formatSize(a.sizeBytes)}</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void saveAttachmentAs(a.partId, a.filename)}
-                    title="Speichern unter…"
-                    aria-label={`${a.filename || 'Anhang'} speichern unter…`}
-                  >
-                    <Download />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setToDocument({ partId: a.partId, filename: a.filename })}
-                    title="Als Dokument speichern"
-                    aria-label={`${a.filename || 'Anhang'} als Dokument speichern`}
-                  >
-                    <FilePlus />
-                  </Button>
+                <li key={a.partId}>
+                  {/* F10: a click opens the file; the chevron holds the rest, so the
+                      three actions do not clutter the chip */}
+                  <Popover>
+                    <PopoverAnchor asChild>
+                      <div className="flex items-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-r-none"
+                          onClick={() => void openAttachment(a.partId, a.filename)}
+                          title={`${a.contentType} · öffnen`}
+                        >
+                          <Paperclip />
+                          <span className="max-w-56 truncate">{a.filename || 'Anhang'}</span>
+                          <span className="text-muted-foreground">{formatSize(a.sizeBytes)}</span>
+                        </Button>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-l-none border-l-0 px-1.5"
+                            aria-label={`${a.filename || 'Anhang'}: weitere Aktionen`}
+                            title="Weitere Aktionen"
+                          >
+                            <ChevronDown />
+                          </Button>
+                        </PopoverTrigger>
+                      </div>
+                    </PopoverAnchor>
+                    <PopoverContent className="w-56 p-1" align="start">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void saveAttachmentAs(a.partId, a.filename)}
+                      >
+                        <Download className="size-4 shrink-0 text-muted-foreground" />
+                        Speichern unter…
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => setToDocument({ partId: a.partId, filename: a.filename })}
+                      >
+                        <FilePlus className="size-4 shrink-0 text-muted-foreground" />
+                        Als Dokument speichern…
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void saveAllAttachments(message.attachments)}
+                      >
+                        <Download className="size-4 shrink-0 text-muted-foreground" />
+                        Alle Anhänge speichern…
+                      </button>
+                    </PopoverContent>
+                  </Popover>
                 </li>
               ))}
           </ul>

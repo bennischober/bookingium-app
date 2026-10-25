@@ -1358,11 +1358,16 @@ test('C5: an attachment of a mail becomes a document', async () => {
   )
   const target = found.items[0]
   test.skip(!target, 'the sandbox has no mail with an attachment')
-  const bands = await trpc<{ items: { id: number }[] }>('query', 'band.getAllPaginated', {
-    page: 1,
-    pageSize: 10
-  })
+  const bands = await trpc<{ items: { id: number; name: string }[] }>(
+    'query',
+    'band.getAllPaginated',
+    {
+      page: 1,
+      pageSize: 10
+    }
+  )
   const BAND_ID = bands.items[0]?.id
+  const bandName = bands.items[0]?.name ?? ''
   test.skip(!BAND_ID, 'the seed has no band')
   const listDocs = () =>
     trpc<{ id: number }[]>('query', 'document.listByOwner', {
@@ -1383,13 +1388,18 @@ test('C5: an attachment of a mail becomes a document', async () => {
     const reader = popup.getByRole('article', { name: 'E-Mail' })
     await expect(reader.getByRole('list', { name: 'Anhänge' })).toBeVisible({ timeout: 30_000 })
     await reader
-      .getByRole('button', { name: /als Dokument speichern/ })
+      // F10: the actions live behind the chip's chevron now
+      .getByRole('button', { name: /weitere Aktionen$/ })
       .first()
       .click()
+    // The popover renders in a portal, so it is not inside the article
+    await popup.getByRole('button', { name: 'Als Dokument speichern…' }).click()
 
     const dialog = popup.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByLabel('Nummer').fill(String(BAND_ID))
+    // F9: the record is searched by name, not entered as a number
+    await dialog.getByLabel(/suchen$/).fill(bandName)
+    await dialog.getByRole('button', { name: bandName, exact: false }).first().click()
     await dialog.getByRole('button', { name: 'Speichern' }).click()
     await expect(
       popup.locator('[data-sonner-toast]').filter({ hasText: 'Als Dokument gespeichert' })

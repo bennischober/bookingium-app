@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -34,13 +34,19 @@ const OWNER_LABELS: Record<DocumentOwnerType, string> = {
   person: 'Person'
 }
 
+/** One record the picker can offer */
+type Choice = { id: number; label: string }
+
 const isDocumentOwner = (type: string): type is DocumentOwnerType =>
   (DOCUMENT_OWNER_TYPES as readonly string[]).includes(type)
 
 /**
- * C5: "Als Dokument speichern" for one attachment. The record is pre-selected from the
- * mail's links when it has exactly one, otherwise the user picks it; the file is written
- * by the main process with the same storage rules as an upload.
+ * F9: "Als Dokument speichern" for one attachment.
+ *
+ * The record is picked by NAME, not by number - nobody knows the id of a band. The
+ * list comes from the same paginated search the record's own page uses, so a partial
+ * name is enough. The mail's links pre-select the type and the record when they name
+ * exactly one.
  */
 export function AttachmentToDocumentDialog({
   open,
@@ -65,14 +71,25 @@ export function AttachmentToDocumentDialog({
     { accountId, messageId: storeMessageId ?? '' },
     { enabled: open && Boolean(storeMessageId) }
   )
-  // The first link is the best guess; the user can change both fields. Documents
-  // hang off event/band/company/venue/person, so contract and invoice links are skipped.
-  const first = links.data?.find((link) => isDocumentOwner(link.entityType))
-  const firstOwner = first && isDocumentOwner(first.entityType) ? first.entityType : 'band'
-  const [ownerType, setOwnerType] = useState<DocumentOwnerType>(firstOwner)
-  const [ownerId, setOwnerId] = useState(String(first?.entityId ?? ''))
+  // Documents hang off event/band/company/venue/person, so contract and invoice
+  // links are skipped
+  const linked = links.data?.find((link) => isDocumentOwner(link.entityType))
+  const linkedType: DocumentOwnerType = isDocumentOwner(linked?.entityType ?? '')
+    ? (linked!.entityType as DocumentOwnerType)
+    : 'band'
+  const [ownerType, setOwnerType] = useState<DocumentOwnerType>(linkedType)
+  const [search, setSearch] = useState('')
+  const [chosen, setChosen] = useState<Choice | null>(null)
   const [documentType, setDocumentType] = useState<string>('other')
 
+  const choices = useOwnerChoices(ownerType, search)
+  // The mail's own link is offered first, so the common case is one click
+  const linkedChoice = useMemo<Choice | null>(() => {
+    if (!linked || linked.entityType !== ownerType) return null
+    return choices.find((c) => c.id === linked.entityId) ?? null
+  }, [linked, ownerType, choices])
+
+  const selected = chosen ?? linkedChoice
   const save = trpcReact.document.saveFromMail.useMutation({
     onSuccess: () => {
       toast.success('Als Dokument gespeichert')
@@ -81,9 +98,6 @@ export function AttachmentToDocumentDialog({
     onError: (error) =>
       toast.error('Anhang konnte nicht gespeichert werden', { description: error.message })
   })
-
-  const id = Number(ownerId)
-  const valid = Number.isInteger(id) && id > 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,7 +111,10 @@ export function AttachmentToDocumentDialog({
             <Label htmlFor="attachment-owner-type">Zuordnung</Label>
             <Select
               value={ownerType}
-              onValueChange={(value) => setOwnerType(value as DocumentOwnerType)}
+              onValueChange={(value) => {
+                setOwnerType(value as DocumentOwnerType)
+                setChosen(null)
+              }}
             >
               <SelectTrigger id="attachment-owner-type">
                 <SelectValue />
@@ -111,15 +128,44 @@ export function AttachmentToDocumentDialog({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="attachment-owner-id">Nummer</Label>
+            <Label htmlFor="attachment-owner-search">{OWNER_LABELS[ownerType]} suchen</Label>
             <Input
-              id="attachment-owner-id"
-              inputMode="numeric"
-              value={ownerId}
-              onChange={(event) => setOwnerId(event.target.value)}
+              id="attachment-owner-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Name eingeben…"
+              autoComplete="off"
             />
+            {/* The matches, so the record is picked by name instead of by number */}
+            <ul
+              aria-label="Treffer"
+              className="max-h-48 overflow-auto rounded-md border empty:hidden"
+            >
+              {choices.map((choice) => {
+                const active = selected?.id === choice.id
+                return (
+                  <li key={choice.id}>
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-1.5 text-left text-sm hover:bg-muted ${
+                        active ? 'bg-muted font-medium' : ''
+                      }`}
+                      aria-pressed={active}
+                      onClick={() => setChosen(choice)}
+                    >
+                      {choice.label}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            {selected && (
+              <p className="text-xs text-muted-foreground">Ausgewählt: {selected.label}</p>
+            )}
           </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="attachment-document-type">Dokumententyp</Label>
             <Select value={documentType} onValueChange={setDocumentType}>
@@ -141,11 +187,12 @@ export function AttachmentToDocumentDialog({
             Abbrechen
           </Button>
           <Button
-            disabled={!valid || save.isPending}
-            onClick={() =>
+            disabled={!selected || save.isPending}
+            onClick={() => {
+              if (!selected) return
               save.mutate({
                 ownerType,
-                ownerId: id,
+                ownerId: selected.id,
                 mailAccountId: accountId,
                 messageId,
                 partId,
@@ -153,7 +200,7 @@ export function AttachmentToDocumentDialog({
                 mailMessageId: storeMessageId,
                 documentType
               })
-            }
+            }}
           >
             Speichern
           </Button>
@@ -161,4 +208,41 @@ export function AttachmentToDocumentDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+/**
+ * F9: the records of one type, searched by name through that type's own list
+ * procedure - the same one its page uses, so the results match what the user knows.
+ */
+function useOwnerChoices(type: DocumentOwnerType, search: string): Choice[] {
+  const input = { page: 1, pageSize: 20, search: search.trim() || undefined }
+  // One query per type: the hooks cannot be called conditionally
+  const bands = trpcReact.band.getAllPaginated.useQuery(input, { enabled: type === 'band' })
+  const persons = trpcReact.person.getAllPaginated.useQuery(input, { enabled: type === 'person' })
+  const companies = trpcReact.company.getAllPaginated.useQuery(input, {
+    enabled: type === 'company'
+  })
+  const venues = trpcReact.venue.getAllPaginated.useQuery(input, { enabled: type === 'venue' })
+  const events = trpcReact.dealMemo.getAllPaginated.useQuery(input, { enabled: type === 'event' })
+
+  return useMemo(() => {
+    switch (type) {
+      case 'band':
+        return (bands.data?.items ?? []).map((r) => ({ id: r.id, label: r.name }))
+      case 'person':
+        return (persons.data?.items ?? []).map((r) => ({
+          id: r.id,
+          label: [r.firstName, r.lastName].filter(Boolean).join(' ') || `Person ${r.id}`
+        }))
+      case 'company':
+        return (companies.data?.items ?? []).map((r) => ({ id: r.id, label: r.name }))
+      case 'venue':
+        return (venues.data?.items ?? []).map((r) => ({ id: r.id, label: r.name }))
+      case 'event':
+        return (events.data?.items ?? []).map((r) => ({
+          id: r.id,
+          label: [r.name, r.deal].filter(Boolean).join(' · ')
+        }))
+    }
+  }, [type, bands.data, persons.data, companies.data, venues.data, events.data])
 }
