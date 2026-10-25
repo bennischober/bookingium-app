@@ -1361,6 +1361,8 @@ export class MailCore implements Api {
         await e.engine.waitForSync(opts?.syncWaitMs ?? 10_000).catch(() => { });
       }
       await e.engine.close();
+      // G2/L3c: the write connection is shared across ops now, so close() must end it
+      await e.writes.close().catch(() => { });
       e.store.close();
     }
     this.lock.release();

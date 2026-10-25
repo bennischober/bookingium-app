@@ -17,6 +17,7 @@ import { ImapFlow } from 'imapflow'
 import fs from 'fs'
 import { Store, JournalRow } from './store.js'
 import { connectWriteImap, sendRefusal, writeSmtp, WriteAccount } from './write_guard.js'
+import { WriteConnectionPool } from './write_connection.js'
 
 export type OpResult =
   | { outcome: 'done'; detail?: string }
@@ -123,9 +124,32 @@ export class WriteEngine {
     return fn()
   }
 
-  /** A7: the IMAP client for THIS account, credentials from the host, TLS relaxed only on loopback */
-  private async writeClient(): Promise<ImapFlow> {
-    return connectWriteImap(this.writeAccount, await this.credentials())
+  /**
+   * G2/L3c: the write connection, kept open between ops.
+   *
+   * Every op used to connect, LOGIN and logout - six round trips for one delete. Against the
+   * real IONOS server a TLS handshake plus LOGIN costs several hundred milliseconds, and the
+   * user pays it on every click. One connection is now reused for the whole serialized op
+   * chain, which is safe because the ops are already serialized (`enqueue`).
+   *
+   * The caching itself lives in WriteConnectionPool so it can be tested without a server.
+   */
+  private readonly pool = new WriteConnectionPool(() =>
+    this.credentials().then((credentials) => connectWriteImap(this.writeAccount, credentials))
+  )
+
+  private writeClient(): Promise<ImapFlow> {
+    return this.pool.get()
+  }
+
+  /** Drop the cached connection (after an error, or when the engine closes) */
+  private dropClient(): Promise<void> {
+    return this.pool.drop()
+  }
+
+  /** G2/L3c: close the shared connection; the journal makes the next start safe */
+  async close(): Promise<void> {
+    await this.dropClient()
   }
 
   /** Execute one journaled op (or resume a 'running' one after a crash). */
@@ -155,6 +179,9 @@ export class WriteEngine {
           : await this.runUnderFolderMutex(folders[0], async () =>
               this.runUnderFolderMutex(folders[1], async () => guarded())
             )
+      // G2/L3c: a failed op may have left the shared connection in an unknown state, so
+      // it is discarded rather than handed to the next op. The next op reconnects once.
+      if (owned.outcome === 'failed' || owned.outcome === 'unknown') await this.dropClient()
       return owned
     })
     this.inFlight.set(op.id, result)
@@ -367,8 +394,6 @@ export class WriteEngine {
       return { outcome: 'done' }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -486,8 +511,6 @@ export class WriteEngine {
       return { outcome: 'failed', reason: 'copy returned no destination uid (COPYUID missing)' }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -571,8 +594,6 @@ export class WriteEngine {
       return { outcome: 'done', detail: `${mapped.length} mails moved in one UID MOVE` }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -705,8 +726,6 @@ export class WriteEngine {
       return { outcome: 'done' }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -754,8 +773,6 @@ export class WriteEngine {
       return { outcome: 'done', detail: alreadyRenamed ? 'resumed: already renamed' : undefined }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -776,8 +793,6 @@ export class WriteEngine {
       return { outcome: 'done', detail: exists ? undefined : 'resumed: already gone' }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -920,8 +935,6 @@ export class WriteEngine {
       return { outcome: 'done' }
     } catch (e) {
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -1040,8 +1053,6 @@ export class WriteEngine {
       await this.removeDraft(client, draft.path, draft.uid, draft.uidValidity)
     } catch {
       /* see above */
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -1058,8 +1069,6 @@ export class WriteEngine {
       return found && found.length ? 'sent' : 'absent'
     } catch {
       return 'unavailable'
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -1115,8 +1124,6 @@ export class WriteEngine {
       return true
     } catch (e) {
       return (e as Error).message.slice(0, 100)
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
@@ -1179,8 +1186,6 @@ export class WriteEngine {
       if (payload.appendedUid)
         return { outcome: 'done', detail: 'draft appended, old version kept' }
       return { outcome: 'failed', reason: (e as Error).message.slice(0, 120) }
-    } finally {
-      await client.logout().catch(() => {})
     }
   }
 
