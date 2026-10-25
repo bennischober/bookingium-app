@@ -6,19 +6,20 @@
 // constant. The rules are pure, so they are tested directly.
 import { describe, expect, it } from 'vitest'
 import {
-  CANARY_ACCOUNT_ID,
   SANDBOX_ALLOWLIST,
   isCanary,
   isSandboxHost,
   sendRefusal,
   tlsOptions,
+  withSingleCanary,
   writeRefusal,
   type WriteAccount
 } from '../src/main/mailclient/core/write_guard'
 
 /** A real mailbox, off the loopback allowlist, with TLS on both sides */
 const canary = (over: Partial<WriteAccount> = {}): WriteAccount => ({
-  id: CANARY_ACCOUNT_ID,
+  id: 'testpostfach',
+  canary: true,
   kind: 'sandbox',
   imapHost: 'imap.ionos.de',
   imapPort: 993,
@@ -69,13 +70,16 @@ describe('A7 part 2: the canary is admitted by name', () => {
   })
 
   it('is exactly one account: any other real account stays refused', () => {
-    // Same hosts, same kind, different id - refused. This is the whole admission.
-    expect(writeRefusal(canary({ id: 'other-real' }))).toMatch(/lokalen Testserver/)
+    // Same hosts, same kind, flag off - refused. This is the whole admission.
+    expect(writeRefusal(canary({ canary: false }))).toMatch(/lokalen Testserver/)
     expect(isCanary(canary())).toBe(true)
-    expect(isCanary(canary({ id: 'other-real' }))).toBe(false)
+    expect(isCanary(canary({ canary: false }))).toBe(false)
+    // Anything but the literal true does not admit
+    expect(isCanary({ canary: undefined })).toBe(false)
+    expect(isCanary({})).toBe(false)
   })
 
-  it('does not admit a read-only account even if it carries the canary id', () => {
+  it('does not admit a read-only account even if it carries the flag', () => {
     // kind stays the outer gate: the canary is saved as a sandbox account
     expect(writeRefusal(canary({ kind: 'production-readonly' }))).toMatch(/schreibgeschützt/)
   })
@@ -100,8 +104,9 @@ describe('A7 part 2: the canary sends only to its own address', () => {
 
   it('ignores case and surrounding spaces in both addresses', () => {
     expect(sendRefusal(canary(), ['  TestPostfach@Example.Test  '])).toBeNull()
-    expect(sendRefusal(canary({ email: ' TestPostfach@Example.Test ' }), ['testpostfach@example.test']))
-      .toBeNull()
+    expect(
+      sendRefusal(canary({ email: ' TestPostfach@Example.Test ' }), ['testpostfach@example.test'])
+    ).toBeNull()
   })
 
   it('refuses when one of several recipients is foreign', () => {
@@ -113,14 +118,51 @@ describe('A7 part 2: the canary sends only to its own address', () => {
 
   it('refuses a canary with no own address, rather than sending anywhere', () => {
     // Fail closed: without an address there is nothing this account may mail
-    expect(sendRefusal(canary({ email: undefined }), ['irgendwer@example.test']))
-      .toMatch(/eigene Adresse fehlt/)
-    expect(sendRefusal(canary({ email: '   ' }), ['irgendwer@example.test']))
-      .toMatch(/eigene Adresse fehlt/)
+    expect(sendRefusal(canary({ email: undefined }), ['irgendwer@example.test'])).toMatch(
+      /eigene Adresse fehlt/
+    )
+    expect(sendRefusal(canary({ email: '   ' }), ['irgendwer@example.test'])).toMatch(
+      /eigene Adresse fehlt/
+    )
   })
 
   it('does not restrict a sandbox account, which reaches a local sink', () => {
     // The sandbox keeps its old freedom: Mailpit keeps nothing
     expect(sendRefusal(sandbox(), ['irgendwer@example.test'])).toBeNull()
+  })
+})
+
+describe('A7 part 2: at most one account is the canary', () => {
+  type Row = { id: string; canary?: boolean }
+
+  it('clears the flag on every other account when one is admitted', () => {
+    // Admitting a second real mailbox would widen the write path without anyone
+    // deciding to, so the earlier one loses the flag
+    const accounts: Row[] = [{ id: 'a', canary: true }, { id: 'b' }, { id: 'c', canary: true }]
+    const next = withSingleCanary(accounts, 'c')
+    expect(next.map((a) => a.canary)).toEqual([undefined, undefined, true])
+    // Exactly one may be admitted afterwards
+    expect(next.filter(isCanary)).toHaveLength(1)
+    expect(next.find(isCanary)?.id).toBe('c')
+  })
+
+  it('leaves every other account alone when a non-canary is saved', () => {
+    // The caller only applies this rule when the saved account is admitted; the rule
+    // itself is id-based, so passing another id must not touch the canary
+    const accounts: Row[] = [{ id: 'a', canary: true }, { id: 'b' }]
+    const next = withSingleCanary(accounts, 'a')
+    expect(next.find((a) => a.id === 'a')?.canary).toBe(true)
+    expect(next.filter(isCanary)).toHaveLength(1)
+  })
+
+  it('keeps the flag on the account that is admitted', () => {
+    const next = withSingleCanary([{ id: 'a' }, { id: 'b', canary: true }], 'b')
+    expect(next.find((a) => a.id === 'b')?.canary).toBe(true)
+  })
+
+  it('revokes by unchecking, leaving no canary at all', () => {
+    // Revoking must work without editing a file: the flag simply goes
+    const next = withSingleCanary([{ id: 'a', canary: true }], 'b')
+    expect(next.filter(isCanary)).toHaveLength(0)
   })
 })

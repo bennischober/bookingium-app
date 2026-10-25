@@ -43,7 +43,9 @@ const SaveMailAccountInput = z.object({
   smtpHost: z.string().min(1).optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   /** A7: the SMTP encryption; defaults to the IMAP security */
-  smtpSecurity: z.enum(['tls', 'starttls', 'none']).optional()
+  smtpSecurity: z.enum(['tls', 'starttls', 'none']).optional(),
+  /** A7 part 2: admit this account as the one real mailbox writes may reach */
+  canary: z.boolean().optional()
 })
 
 const TestMailAccountInput = SaveMailAccountInput.omit({ email: true })

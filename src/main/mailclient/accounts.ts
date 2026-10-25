@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { allowsPlainLogin } from './core/imap_options'
-import { isCanary } from './core/write_guard'
+import { isCanary, withSingleCanary } from './core/write_guard'
 import type { ImapSecurity } from './core/types'
 
 export type MailAccountKind = 'sandbox' | 'production-readonly'
@@ -36,6 +36,12 @@ type StoredAccount = {
    * IMAPS 993 plus submission 587 with STARTTLS. Missing in older settings.
    */
   smtpSecurity?: ImapSecurity
+  /**
+   * A7 part 2: this account is the canary - the one real mailbox writes may reach.
+   * Set only by an explicit manual step in the account dialog, and `saveMailAccount`
+   * keeps it on at most one account.
+   */
+  canary?: boolean
 }
 
 /** Account without its password, safe to hand to the renderer */
@@ -46,8 +52,8 @@ export type MailAccountDto = Omit<StoredAccount, 'password' | 'security' | 'smtp
   smtpPort: number
   smtpSecurity: ImapSecurity
   /**
-   * A7 part 2: this is the canary mailbox. It is saved as kind 'sandbox' so it gets
-   * the write path at all, so the renderer cannot tell from `kind` alone - and must
+   * A7 part 2: this account is the canary mailbox. It is saved as kind 'sandbox' so it
+   * gets the write path at all, so the renderer cannot tell from `kind` alone - and must
    * not label a real mailbox as a local test server.
    */
   canary: boolean
@@ -65,6 +71,12 @@ export type SaveMailAccountInput = Omit<
   smtpPort?: number
   /** A7: optional - defaults to the IMAP security */
   smtpSecurity?: ImapSecurity
+  /**
+   * A7 part 2: admit this account as the one real mailbox writes may reach.
+   * An explicit manual step: the dialog asks for confirmation first, and setting it
+   * clears the flag on every other account.
+   */
+  canary?: boolean
 }
 
 export function mailRoot(): string {
@@ -179,11 +191,15 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     signature: input.signature?.trim() ? input.signature.trim() : undefined,
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
     smtpPort: input.smtpPort,
-    smtpSecurity: input.smtpSecurity
+    smtpSecurity: input.smtpSecurity,
+    canary: input.canary === true ? true : undefined
   }
-  writeAll(
-    existing ? accounts.map((a) => (a.id === existing.id ? account : a)) : [...accounts, account]
-  )
+  // A7 part 2: at most one canary. Admitting a second real mailbox would widen
+  // the write path silently, so it clears the flag on every other account instead.
+  const next = existing
+    ? accounts.map((a) => (a.id === existing.id ? account : a))
+    : [...accounts, account]
+  writeAll(isCanary(account) ? withSingleCanary(next, account.id) : next)
   return toDto(account)
 }
 

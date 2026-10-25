@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -166,8 +166,10 @@ function MailAccountDialog({
     setResult(null)
   }
   const port = Number(draft.port)
-  // No login without encryption across a network
-  const plainAllowed = draft.kind === 'sandbox' || allowsPlainLogin(draft.host)
+  // No login without encryption across a network. Host-based, exactly like the
+  // main process's check: a canary is saved as a sandbox account but is a real
+  // mailbox, so its kind must not be what unlocks a cleartext login.
+  const plainAllowed = allowsPlainLogin(draft.host)
   const securities: ImapSecurity[] = plainAllowed
     ? ['tls', 'starttls', 'none']
     : ['tls', 'starttls']
@@ -202,6 +204,25 @@ function MailAccountDialog({
         : { security }
     )
 
+  // A7 part 2: admitting the canary is an explicit step that names the consequence
+  const setCanary = async (on: boolean) => {
+    if (!on) {
+      set({ canary: false })
+      return
+    }
+    if (
+      await confirmAction({
+        title: 'Dieses echte Postfach freigeben?',
+        description:
+          'Bookingium schreibt dann in dieses Postfach: markieren, verschieben, löschen und senden. Gesendet wird nur an die eigene Adresse. Höchstens ein Konto kann das sein – ein anderes verliert die Freigabe.',
+        confirmLabel: 'Freigeben',
+        destructive: true
+      })
+    ) {
+      set({ canary: true })
+    }
+  }
+
   const connection = () => ({
     id: account?.id,
     kind: draft.kind,
@@ -230,7 +251,8 @@ function MailAccountDialog({
     save.mutate({
       ...connection(),
       email: draft.email.trim(),
-      signature: draft.signature.trim() || undefined
+      signature: draft.signature.trim() || undefined,
+      canary: draft.canary === true
     })
   }
 
@@ -417,6 +439,36 @@ function MailAccountDialog({
               Bookingium liest das Postfach nur: Es verschiebt, markiert und löscht nichts und
               sendet keine E-Mails.
             </p>
+          )}
+
+          {/* A7 part 2: the ONE real mailbox writes may reach. Danger-styled and behind a
+              confirm that names the consequence, so it is never something the app sets itself. */}
+          {draft.kind === 'sandbox' && (
+            <div className="rounded-md border border-destructive/40 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={draft.canary === true}
+                  onChange={(e) => void setCanary(e.target.checked)}
+                  aria-describedby="mail-account-canary-hint"
+                />
+                <span>
+                  <span className="flex items-center gap-1 font-medium text-destructive">
+                    <TriangleAlert className="h-3.5 w-3.5" />
+                    Als echtes Testpostfach freigeben
+                  </span>
+                  <span
+                    id="mail-account-canary-hint"
+                    className="block text-xs text-muted-foreground"
+                  >
+                    Bookingium schreibt dann in dieses echte Postfach: markieren, verschieben,
+                    löschen und senden – aber nur an die eigene Adresse. Höchstens ein Konto kann
+                    das sein; ein anderes verliert die Freigabe.
+                  </span>
+                </span>
+              </label>
+            </div>
           )}
 
           {busy && (

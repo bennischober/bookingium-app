@@ -20,18 +20,39 @@ export const SANDBOX_ALLOWLIST = new Set([
 ]);
 
 /**
- * A7 part 2: the ONE real mailbox writes may go to, admitted by account id.
+ * A7 part 2: whether this account is the canary - the ONE real mailbox writes may reach.
  *
- * Set by an explicit manual step (the account's id in accounts.json), never from the
- * UI: the account dialog has no control for it, and an account whose id differs stays
- * refused. Revoking is deleting this constant. `kind` stays 'sandbox' so the account gets
- * the write path at all; the guard is what decides whether it may use it.
+ * A flag rather than an account id: the id names the account's data folder, so
+ * re-keying an account to admit it would make it download everything again. A flag
+ * is also revocable without touching the file, and `saveMailAccount` enforces that at
+ * most one account carries it.
+ *
+ * It is still an explicit manual step - a danger-styled toggle in the account dialog
+ * behind a confirm that names the consequence, never something the app sets itself.
+ * `kind` stays the outer gate: the canary is saved as a sandbox account, so the guard
+ * is what decides whether it may write.
  */
-export const CANARY_ACCOUNT_ID = 'canary';
+export interface CanaryFlag {
+  canary?: boolean
+}
 
 /** Whether this account is the canary - the single real mailbox writes may reach */
-export function isCanary(account: { id: string }): boolean {
-  return account.id === CANARY_ACCOUNT_ID;
+export function isCanary(account: CanaryFlag): boolean {
+  return account.canary === true
+}
+
+/**
+ * A7 part 2: at most one account may be the canary.
+ *
+ * Admitting a second real mailbox would widen the write path without anyone
+ * deciding to, so saving a canary clears the flag on every other account. Pure, so
+ * the rule is tested without Electron's account store.
+ */
+export function withSingleCanary<T extends CanaryFlag & { id: string }>(
+  accounts: T[],
+  admittedId: string
+): T[] {
+  return accounts.map((a) => (a.id === admittedId ? a : { ...a, canary: undefined }))
 }
 
 /** What the write guard needs to know about one account */
@@ -56,6 +77,8 @@ export interface WriteAccount {
    * this app owns, and this is what it owns - so a canary cannot mail a stranger.
    */
   email?: string;
+  /** A7 part 2: the canary flag - the single real mailbox writes may reach */
+  canary?: boolean;
 }
 
 /** The endpoints a write needs; credentials come from the host, never from here */

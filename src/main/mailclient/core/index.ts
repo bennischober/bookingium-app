@@ -28,7 +28,7 @@ import { isMessageFile, writeMessageFile } from './files.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
-function accountMode(config: { id: string; readOnly: boolean }): AccountInfo['mode'] {
+function accountMode(config: { canary?: boolean; readOnly: boolean }): AccountInfo['mode'] {
   if (isCanary(config)) return 'canary';
   return config.readOnly ? 'production-readonly' : 'sandbox';
 }
@@ -59,6 +59,8 @@ export interface MailCoreOptions {
     smtpPort?: number;
     /** A7: the SMTP encryption, which is not the IMAP one; defaults to `security` */
     smtpSecurity?: ImapSecurity;
+    /** A7 part 2: admit this account as the one real mailbox writes may reach */
+    canary?: boolean;
     /** credentials provider — the HOST supplies them (e.g. Electron safeStorage);
      * called lazily per connection so the host controls lifetime/decryption */
     credentials: () => Promise<{ user: string; pass: string }>;
@@ -142,6 +144,7 @@ export class MailCore implements Api {
         smtpPort: a.smtpPort ?? 1025,
         smtpSecurity: a.smtpSecurity,
         email: a.email,
+        canary: a.canary,
       };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
       // A7 part 2: the canary is a real mailbox that is writable, so it takes the

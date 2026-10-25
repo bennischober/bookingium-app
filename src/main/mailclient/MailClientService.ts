@@ -218,7 +218,8 @@ export class MailClientService {
         email: account.email,
         smtpHost: account.smtpHost,
         smtpPort: account.smtpPort,
-        smtpSecurity: account.smtpSecurity
+        smtpSecurity: account.smtpSecurity,
+        canary: account.canary
       }))
     }
   }

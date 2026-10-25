@@ -67,6 +67,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | F13 | Reply starts with two empty lines above the quote | S | — | already correct (`bodyText` starts with `\n\n`), now pinned by a test |
 | F14 | Does the mailbox sync on its own? | S | — | done (it does: IDLE on INBOX plus a 30s/120s poll; the bar now says "· automatisch" or "· regelmäßig" with a tooltip explaining what that means) |
 | F15 | A pasted attachment leaves the app dead for the next reload | M | F4 | done (the renderer called `window.close()` from `beforeunload`, which also fires on a reload. A reply in a popped-out window was then not stored as a draft: main destroyed the window on the first close, so the save was cut off. A close is now held, the renderer saves and asks for it through `mail:closeWindow`, and main lets only that close through - the user confirmed the draft lands in Drafts) |
+| G1 | The main process dies opening the mail settings | M | — | open, pre-existing (verified at `fb0d689`): an Electron `Session` event reaches electron-trpc's `ipcMain` listener, whose `pe()` reads `.id` off a non-event; full stack and the de-minified code are in the card |
 | D1 | Documents findable and visible | M | — | done (`16dd09a`): storage stays flat, no `document_link`, categories reuse `document_type`; the event tab shows the band's documents read-only and the band tab is one list filtered by category and event |
 | D2 | Documents in the search palette | S | — | done (`c4731d4`): a "Dokumente" group matched on the file name, labelled with category and owner, opening the file directly; file names also get LIKE escaping (`_` is a wildcard and common in file names) |
 | D3 | Events are archived, not deleted | M | — | done (`5563502`): `deal_memo.archived_at`, one `notArchived()` predicate imported by every read path, archive view with restore, hard delete refused while an invoice links the event; `cancelled` stays a separate status |
@@ -827,6 +828,51 @@ limit (5), debounced, only when a mail account exists. A click opens the mail wi
 palette: run it in parallel with the other groups and never block them.
 
 ---
+
+### G1: the main process dies with "Cannot read properties of undefined (reading 'id')" [open, pre-existing]
+
+**Symptom.** Opening the mail settings page kills the app: Electron shows "A JavaScript error occurred in the main
+process", the window closes, and any in-flight test fails with "Target page, context or browser has been closed".
+
+**This is NOT caused by A7 part 2.** Verified by checking out `fb0d689` (the commit before the canary work), rebuilding and
+running the same probe: it crashes identically there.
+
+**The full stack** (the dialog truncates it; capture it in main with
+`process.on('uncaughtException', (e) => console.error(e.stack))`):
+
+```
+TypeError: Cannot read properties of undefined (reading 'id')
+    at pe (.../electron-trpc/dist/main.cjs:1:9819)
+    at IpcMainImpl.<anonymous> (.../electron-trpc/dist/main.cjs:1:10110)
+    at IpcMainImpl.emit (node:events:514:28)
+    at Session.<anonymous> (node:electron/js2c/browser_init:1:119322)
+    at Session.emit (node:events:514:28)
+```
+
+**What the crashing code is** (`electron-trpc@0.7.1`, `dist/main.cjs`, de-minified by hand):
+
+```js
+const pe = (n, r) => {
+  const e = r.method === "request" ? r.operation.id : r.id
+  return `${n.sender.id}-${n.senderFrame.routingId}:${e}`
+}
+// registered as:
+ipcMain.on(R, (a, C) => Ce({ ..., internalId: pe(a, C), event: a, message: C, ... }))
+```
+
+So `n` is the first argument of the `ipcMain` listener, and `n.sender` is `undefined`: the event that reached the
+handler is **not** an `IpcMainEvent`. The frame above it is `Session.<anonymous>` calling `IpcMainImpl.emit` - an Electron
+internal `Session` event is reaching the electron-trpc channel listener, i.e. something emits the electron-trpc channel name
+through a `Session` object, which shares the `EventEmitter` prototype with `ipcMain`. `internalId` is then built from a
+non-event and throws before the message is even looked at.
+
+**Not yet identified:** which `Session` event carries the electron-trpc channel name. Candidate: a second window attached
+through `ipcHandler.attachWindow()` in `createAppWindow` (the mail window path), because the crash only appears once the mail
+pages are reachable - `mail.accounts.list` is the first call that reaches the worker.
+
+**Why it is skipped here (user decision 2026-10-25).** It is pre-existing, unrelated to the canary work, and it costs a
+build plus a ~30 s Playwright launch per probe. The user verifies the canary mailbox manually instead, so A9 phase 1 does not
+depend on this. Fix it as its own card, with the stack above as the starting point - do not re-run the probe to rediscover it.
 
 ## D: documents
 

@@ -62,6 +62,8 @@ export type WorkerAccount = {
   smtpPort?: number
   /** A7: the SMTP encryption, which is not the IMAP one; missing in older settings */
   smtpSecurity?: ImapSecurity
+  /** A7 part 2: this account is the one real mailbox writes may reach */
+  canary?: boolean
 }
 
 export type WorkerInit = {
