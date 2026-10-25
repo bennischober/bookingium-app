@@ -681,9 +681,9 @@ test('a double-clicked mail opens in its own window and is answered there', asyn
     await reader.getByRole('button', { name: 'Antworten', exact: true }).click()
     await editor.getByRole('textbox', { name: 'Betreff' }).fill(tag)
     await editor.getByRole('textbox', { name: 'Text' }).fill('Antwort aus dem E2E-Test')
-    const closed = popup.waitForEvent('close')
+    // A real title-bar close: runBeforeUnload makes Playwright take Electron's close
+    // path, the one the user's X button takes
     await popup.close({ runBeforeUnload: true })
-    await closed
     await expect.poll(() => count(drafts!.id), { timeout: 30_000 }).toBe(draftsBefore + 1)
     expect(await windows()).toBe(1)
   } finally {
@@ -1658,7 +1658,9 @@ test('moving a folder does not arm the next mail drag, and a folder goes back to
   const stamp = Date.now()
   const parent = `${DRAG_PREFIX}Ziel-${stamp}`
   const child = `${DRAG_PREFIX}Quelle-${stamp}`
+  const mailTag = `${DRAG_PREFIX}Mail-${stamp}`
   const tree = page.getByRole('list', { name: 'Ordner' })
+  let mailId = 0
 
   const serverPaths = async (): Promise<string[]> => {
     const { ImapFlow } = await import('imapflow')
@@ -1704,9 +1706,15 @@ test('moving a folder does not arm the next mail drag, and a folder goes back to
     )
 
     // 2. Now drag a MAIL onto a folder. F6: the folder above must NOT move again.
-    const row = page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option').first()
-    await expect(row).toBeVisible({ timeout: 30_000 })
-    const mailId = Number(await row.getAttribute('data-message-id'))
+    // A mail of this test's own: moving a seeded one would take it out of INBOX.
+    await appendTestMail(SANDBOX.host, SANDBOX.port, mailTag)
+    await mail('triggerSync', true, sandboxId)
+    const row = page
+      .getByRole('listbox', { name: 'Nachrichten' })
+      .getByRole('option')
+      .filter({ hasText: mailTag })
+    await expect(row).toBeVisible({ timeout: 60_000 })
+    mailId = Number(await row.getAttribute('data-message-id'))
     const target = page.getByRole('list', { name: 'Ordner' }).locator(`button[title="${parent}"]`)
     await row.dragTo(target)
 
@@ -1717,6 +1725,12 @@ test('moving a folder does not arm the next mail drag, and a folder goes back to
         { timeout: 30_000 }
       )
       .not.toBe(undefined)
+    // The mail goes straight back: a folder deleted with the mail inside would take it
+    const inboxId = (await mail<Folder[]>('getFolders', sandboxId)).find(
+      (f) => f.path === 'INBOX'
+    )!.id
+    await mail('moveToFolder', [mailId], inboxId, sandboxId)
+
     // ...and the folder did NOT move anywhere new
     const after = await serverPaths()
     expect(after).toContain(`${parent}/${child}`)
@@ -1735,6 +1749,7 @@ test('moving a folder does not arm the next mail drag, and a folder goes back to
       60_000
     )
   } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, mailTag)
     const { ImapFlow } = await import('imapflow')
     const client = new ImapFlow({
       host: SANDBOX.host,
@@ -1829,6 +1844,8 @@ test('the bulk attachment actions sit above the chips, not in one attachment men
 
 // F4 + F15: a pasted file becomes an attachment (not body text), and a reload with the
 // editor open must not destroy the window - the bug that hid this test for two rounds.
+const PASTE_TAG = 'e2e-paste-'
+
 test('a pasted image becomes an attachment, and a reload keeps the window', async () => {
   test.setTimeout(180_000)
   const { page } = h
@@ -1836,37 +1853,44 @@ test('a pasted image becomes an attachment, and a reload keeps the window', asyn
   await waitForInbox(sandboxId)
   await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
   await openMailPage(sandboxId)
+  const tag = `${PASTE_TAG}${Date.now()}`
 
   await page.getByRole('button', { name: 'Neue E-Mail' }).click()
   const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
   await expect(editor).toBeVisible({ timeout: 30_000 })
+  // A subject, so the autosaved draft this test provokes can be found again
+  await editor.getByRole('textbox', { name: 'Betreff' }).fill(tag)
+  try {
+    await editor.getByRole('textbox', { name: 'Text' }).evaluate((el) => {
+      const bytes = Uint8Array.from(
+        atob(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+        ),
+        (c) => c.charCodeAt(0)
+      )
+      const file = new File([bytes], 'bild.png', { type: 'image/png' })
+      const data = new DataTransfer()
+      data.items.add(file)
+      el.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+      )
+    })
 
-  await editor.getByRole('textbox', { name: 'Text' }).evaluate((el) => {
-    const bytes = Uint8Array.from(
-      atob(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-      ),
-      (c) => c.charCodeAt(0)
-    )
-    const file = new File([bytes], 'bild.png', { type: 'image/png' })
-    const data = new DataTransfer()
-    data.items.add(file)
-    el.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
-    )
-  })
+    // It shows up as an attachment, with its own name
+    const attachments = editor.getByRole('list', { name: 'Anhänge' })
+    await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
+    // and not in the body as a data: URI
+    const body = await editor.getByRole('textbox', { name: 'Text' }).innerText()
+    expect(body).not.toContain('data:image')
 
-  // It shows up as an attachment, with its own name
-  const attachments = editor.getByRole('list', { name: 'Anhänge' })
-  await expect(attachments.getByText('bild.png')).toBeVisible({ timeout: 10_000 })
-  // and not in the body as a data: URI
-  const body = await editor.getByRole('textbox', { name: 'Text' }).innerText()
-  expect(body).not.toContain('data:image')
-
-  // F15: the editor is dirty, so a reload fires beforeunload. It must reload, not
-  // close the window (the renderer used to call window.close() there).
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible({
-    timeout: 30_000
-  })
+    // F15: the editor is dirty, so a reload fires beforeunload. It must reload, not
+    // close the window (the renderer used to call window.close() there).
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible({
+      timeout: 30_000
+    })
+  } finally {
+    // The autosave writes this editor to Drafts; the draft goes with the test
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, tag)
+  }
 })

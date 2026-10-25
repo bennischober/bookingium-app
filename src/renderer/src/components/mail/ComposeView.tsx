@@ -322,6 +322,10 @@ export function ComposeView({
       save().then(
         () => {
           closed.current = true
+          // The draft is stored; ask main to release the close it was holding. The
+          // renderer must not call window.close() here: beforeunload cannot tell a close
+          // from a reload, and main is the only side that knows (see will-prevent-unload).
+          window.api.closeMailWindow()
         },
         (error) => {
           closed.current = true

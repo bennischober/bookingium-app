@@ -75,17 +75,31 @@ function createAppWindow(
   // F5/F15: the renderer's beforeunload holds the unload while it saves a draft, and
   // the same event fires for a RELOAD. The window's own 'close' event is the only
   // reliable signal: it fires for a real close and never for a reload.
+  //
+  // A close is therefore HELD while the renderer saves. The renderer then asks for it
+  // through mail:closeWindow; `allowedToClose` is that permission, and the second close
+  // is the only one that goes through - so a close can never beat the draft save.
   let closing = false
+  let allowedToClose = false
   window.on('close', () => {
     closing = true
   })
   window.webContents.on('will-prevent-unload', (event) => {
-    // preventDefault() means "ignore the renderer, let the unload happen".
-    // A reload always goes through. A close is let through too, and the window is
-    // destroyed here - the renderer never calls window.close() itself, because
-    // beforeunload cannot tell the two apart.
-    event.preventDefault()
-    if (closing && !window.isDestroyed()) window.destroy()
+    // preventDefault() means "ignore the renderer's hold, let the unload happen".
+    //
+    // A RELOAD always goes through: nothing is being closed, and holding it would block
+    // the reload forever.
+    if (!closing || allowedToClose) event.preventDefault()
+  })
+  // One window per mail; the request is answered by the window it came from
+  const onCloseRequest = (event: Electron.IpcMainEvent): void => {
+    if (event.sender !== window.webContents) return
+    allowedToClose = true
+    window.close()
+  }
+  ipcMain.on('mail:closeWindow', onCloseRequest)
+  window.on('closed', () => {
+    ipcMain.off('mail:closeWindow', onCloseRequest)
   })
 
   // Links open in the default browser or mail program; other schemes (file:,

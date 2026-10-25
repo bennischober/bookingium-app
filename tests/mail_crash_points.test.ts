@@ -107,6 +107,25 @@ async function mailpitCount(prefix: string): Promise<number> {
   }
 }
 
+/** Deletes every mail in a folder whose subject is the given one */
+async function deleteBySubject(folder: string, subject: string): Promise<void> {
+  const client = new ImapFlow({
+    host: HOST,
+    port: PORT,
+    secure: false,
+    auth: { user: USER, pass: PASS },
+    logger: false
+  })
+  await client.connect()
+  try {
+    await client.mailboxOpen(folder)
+    const uids = await client.search({ subject }, { uid: true })
+    if (uids && uids.length) await client.messageDelete(uids, { uid: true })
+  } finally {
+    await client.logout().catch(() => client.close())
+  }
+}
+
 /** Ensures a folder exists on the server */
 async function ensureFolder(folder: string): Promise<void> {
   const client = new ImapFlow({
@@ -183,7 +202,10 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
       expect(store.journalGet(opId)!.state).toBe('pending')
 
       // Recovery: a fresh engine replays the pending op
-      const writes = new WriteEngine(store, 'crash', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+      const writes = new WriteEngine(store, 'crash', {
+        writeAccount: sandboxWriteAccount(),
+        credentials: sandboxCredentials
+      })
       const op = store.journalGet(opId)!
       const result = await writes.execute(op)
       expect(['done', 'conflict']).toContain(result.outcome)
@@ -217,7 +239,10 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
         }
       })
 
-      const writes = new WriteEngine(store, 'crash', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+      const writes = new WriteEngine(store, 'crash', {
+        writeAccount: sandboxWriteAccount(),
+        credentials: sandboxCredentials
+      })
       const first = await writes.execute(store.journalGet(opId)!)
       expect(['done', 'unknown', 'failed']).toContain(first.outcome)
 
@@ -236,6 +261,9 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
       }
       expect(after - before).toBeLessThanOrEqual(1)
     } finally {
+      // The mail reached the sandbox's Sent folder; it goes again, so the sandbox
+      // stays as the suite found it
+      await deleteBySubject('Sent', subject)
       store.close()
     }
   }, 120_000)

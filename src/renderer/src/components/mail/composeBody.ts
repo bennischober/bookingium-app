@@ -82,9 +82,12 @@ function sanitizeComposeHtml(html: string): string {
   const kept: string[] = []
   const tag = /<\s*(\/?)\s*([a-zA-Z0-9]+)[^>]*>/g
   let last = 0
+  // Inside <a>...</a> the text is already a link: linkifying it again would nest anchors
+  let inAnchor = false
   let match: RegExpExecArray | null
   while ((match = tag.exec(html)) !== null) {
-    kept.push(escapeText(html.slice(last, match.index)))
+    const between = html.slice(last, match.index)
+    kept.push(inAnchor ? escapeHtml(between) : linkifyText(between))
     const closing = match[1] === '/'
     const name = match[2].toUpperCase()
     if (ALLOWED.has(name)) {
@@ -95,21 +98,58 @@ function sanitizeComposeHtml(html: string): string {
         const scheme = schemeOf(url)
         if (url && (scheme === '' || LINK_SCHEMES.has(scheme))) {
           kept.push(`<a href="${escapeAttr(url)}">`)
+          // the text until </a> is already a link: linkifying it again would nest anchors
+          inAnchor = true
           last = tag.lastIndex
           continue
         }
       }
       // A list item is only meaningful inside a list; the editor always nests it
+      if (name === 'A') inAnchor = !closing
       kept.push(closing ? `</${name.toLowerCase()}>` : `<${name.toLowerCase()}>`)
     }
     last = tag.lastIndex
   }
-  kept.push(escapeText(html.slice(last)))
+  const tail = html.slice(last)
+  kept.push(inAnchor ? escapeHtml(tail) : linkifyText(tail))
   const body = kept.join('').trim()
-  return body === '' ? '' : body
+  return body === '' ? '' : wrapForMail(body)
 }
 
-function escapeText(text: string): string {
+/**
+ * F3: the mail's own document. A receiving client applies its own defaults, so this stays
+ * deliberately bare - no fonts, no colours, no width. The one thing it adds is
+ * `dir="auto"`, so an RTL body reads correctly instead of being forced left to right.
+ */
+function wrapForMail(body: string): string {
+  return `<div dir="auto">${body}</div>`
+}
+
+/**
+ * F11: a bare URL in the typed text becomes a link on the way out.
+ *
+ * Done here, at send time, rather than while typing: the editor stays simple, and the
+ * plain-text part keeps the URL readable. Only http/https are auto-linked - a mailto or
+ * an arbitrary scheme has to be an explicit link, so nothing surprising becomes clickable.
+ */
+const BARE_URL = /\bhttps?:\/\/[^\s<>"']+/gi
+
+function linkifyText(text: string): string {
+  let out = ''
+  let last = 0
+  for (const match of text.matchAll(BARE_URL)) {
+    const start = match.index ?? 0
+    out += escapeHtml(text.slice(last, start))
+    // Trailing punctuation belongs to the sentence, not the URL
+    const trimmed = match[0].replace(/[.,;:!?)\]]+$/, '')
+    out += `<a href="${escapeAttr(trimmed)}">${escapeHtml(trimmed)}</a>`
+    out += escapeHtml(match[0].slice(trimmed.length))
+    last = start + match[0].length
+  }
+  return out + escapeHtml(text.slice(last))
+}
+
+function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
@@ -124,7 +164,7 @@ export function toEditorHtml(body: string): string {
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean)
-    .map((block) => `<p>${block.split('\n').map(escapeText).join('<br>')}</p>`)
+    .map((block) => `<p>${block.split('\n').map(escapeHtml).join('<br>')}</p>`)
   return paragraphs.join('')
 }
 

@@ -43,6 +43,9 @@ const api = {
   openMailWindow: (accountId: string, messageId: number) =>
     ipcRenderer.invoke('mail:openWindow', { accountId, messageId }),
 
+  /** The draft is stored; close the window main was holding open */
+  closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
+
   /** C1: bookingum's own editor for a prepared draft; resolves when sent or closed */
   composeInOwnEditor: (input: {
     accountId: string

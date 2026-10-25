@@ -34,7 +34,8 @@ describe('composeBody (F3)', () => {
   it('drops the attributes, which carry no formatting the editor offers', () => {
     // A style attribute would only add what the sanitizer has to strip again
     const { bodyHtml } = composeBody('<p style="color:red" class="x" onclick="alert(1)">rot</p>')
-    expect(bodyHtml).toBe('<p>rot</p>')
+    expect(bodyHtml).toContain('<p>rot</p>')
+    expect(bodyHtml).not.toMatch(/style=|class=|onclick=/)
   })
 
   it('drops markup the four commands cannot create', () => {
@@ -58,7 +59,7 @@ describe('composeBody (F3)', () => {
   it('keeps the text of a mail without any formatting', () => {
     const { bodyHtml, bodyText } = composeBody('<p>nur Text</p>')
     expect(bodyText).toBe('nur Text')
-    expect(bodyHtml).toBe('<p>nur Text</p>')
+    expect(bodyHtml).toContain('<p>nur Text</p>')
   })
 
   it('escapes a < that is text, so it stays text', () => {
@@ -116,6 +117,6 @@ describe('links in the editor (F11)', () => {
 
   it('drops every other attribute of a link', () => {
     const { bodyHtml } = composeBody('<a href="https://a.test" onclick="alert(1)" class="x">a</a>')
-    expect(bodyHtml).toBe('<a href="https://a.test">a</a>')
+    expect(bodyHtml).toContain('<a href="https://a.test">a</a>')
   })
 })

@@ -81,6 +81,8 @@ export interface DocumentAPI {
   showEmailFile: (filePath: string) => Promise<void>
   /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
+  /** The draft is stored; close the window main was holding open */
+  closeMailWindow: () => void
   /** C1: bookingum's own editor for a prepared draft */
   composeInOwnEditor: (input: {
     accountId: string
