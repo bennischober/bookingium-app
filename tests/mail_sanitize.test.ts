@@ -238,6 +238,26 @@ describe('sanitize: the document the reading pane renders', () => {
     expect(MAIL_SANDBOX).not.toContain('allow-same-origin')
   })
 
+  it('sets a neutral base style instead of the browser serif (H5b)', () => {
+    // The editor is the app's sans-serif; without a base the iframe fell back to the
+    // browser's default serif, so a mail sent to yourself looked nothing like the draft
+    const { html } = sanitizeEmailHtml('<p>Text</p>')
+    expect(html).toContain('font-family: system-ui')
+    expect(html).toContain('font-size: 14px')
+    expect(html).toContain('margin: 0')
+  })
+
+  it('lets the mail override the base style, because it comes after it', () => {
+    // The base is a fallback, not a policy: a mail with its own font keeps it
+    const { html } = sanitizeEmailHtml(
+      '<style>body { font-family: Georgia, serif }</style><p>Text</p>'
+    )
+    const baseAt = html.indexOf('font-family: system-ui')
+    const mailAt = html.indexOf('font-family: Georgia')
+    expect(baseAt).toBeGreaterThan(-1)
+    expect(mailAt).toBeGreaterThan(baseAt)
+  })
+
   it('keeps ordinary formatting, tables and quotes', () => {
     const raw =
       '<h2>Titel</h2><p><strong>fett</strong> und <em>kursiv</em></p>' +

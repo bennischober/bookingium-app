@@ -33,6 +33,17 @@ const REMOTE_IMG_PLACEHOLDER = 'data:image/svg+xml;base64,' + Buffer.from(
 export const MAIL_CSP = "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:";
 export const MAIL_SANDBOX = 'allow-popups allow-popups-to-escape-sandbox';
 
+/**
+ * H5b: the fallback a receiving client would also choose.
+ *
+ * Without it the iframe rendered in the browser's default serif at the default size,
+ * while the editor is the app's sans-serif - so a mail sent to yourself looked nothing
+ * like what was typed. Four properties only: margin, font, size, line-height. Anything
+ * more would start overriding the mail's own CSS, which follows this block in the head.
+ */
+export const MAIL_BASE_STYLE =
+  'body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; }';
+
 export interface SanitizeLink {
   index: number;
   text: string;
@@ -207,7 +218,7 @@ export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${MAIL_CSP}">
-<style>/* mail content styles live in the app, not here */</style>
+<style>${MAIL_BASE_STYLE}</style>
 ${styles}
 </head>
 <body>${body}</body>
