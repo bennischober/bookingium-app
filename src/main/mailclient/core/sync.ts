@@ -331,6 +331,18 @@ export class SyncEngine {
     this.consecutiveErrors = 0;
   }
 
+  /**
+   * H1: record that the server answered. The UI shows this as "Synchronisiert HH:MM",
+   * so it must move on every successful contact - not only at the end of a full
+   * syncAll(). The poll runs every 2 minutes and is the thing that keeps the mailbox
+   * current; while it never touched this value the label could sit hours in the past and
+   * the user reasonably read it as "my mail is stale".
+   */
+  private noteServerContact(): void {
+    this.lastSyncAt = new Date().toISOString();
+    this.progress.lastSyncAt = this.lastSyncAt;
+  }
+
   private noteDisconnect(): boolean {
     const now = Date.now();
     this.disconnectTimestamps = this.disconnectTimestamps.filter(t => now - t < SyncEngine.REPEATED_DISCONNECT_WINDOW_MS);
@@ -1025,8 +1037,7 @@ export class SyncEngine {
         }
         this.progress.foldersSynced++;
       }
-      this.lastSyncAt = new Date().toISOString();
-      this.progress.lastSyncAt = this.lastSyncAt;
+      this.noteServerContact();
       this.progress.phase = 'idle';
     } catch (e) {
       this.progress.phase = 'error';
@@ -1180,6 +1191,59 @@ export class SyncEngine {
   // regardless of tier (that's how new mail and deletions propagate).
   private pollingStop = false;
   private pollCount = 0;
+
+  /**
+   * H1: one poll pass. Extracted from the loop so a test can run exactly one pass, and
+   * so the "we reached the server" bookkeeping lives in one place.
+   *
+   * Returns false when nothing was attempted (a sync is already running).
+   */
+  async pollOnce(): Promise<boolean> {
+    if (this.pollingStop || this.syncing) return false;
+    const client = await this.connect();
+    this.pollCount++;
+    const folders = this.store.allFolders();
+    for (let i = 0; i < folders.length; i++) {
+      if (this.pollingStop || this.syncing) break;
+      const f = folders[i];
+      await this.gate();
+      try {
+        const st = await client.status(f.imap_path, { messages: true, uidNext: true, highestModseq: true });
+        if (!st) continue;
+        if (typeof st === 'boolean') continue;
+        const localCount = (this.store.db.prepare('SELECT COUNT(*) c FROM messages WHERE folder_id = ?').get(f.id) as { c: number }).c;
+        const changed =
+          (st.messages !== undefined && st.messages !== localCount) ||
+          (st.uidNext !== undefined && f.uid_next !== null && st.uidNext !== f.uid_next) ||
+          (st.highestModseq !== undefined && f.highest_modseq !== null && String(st.highestModseq) !== f.highest_modseq);
+        if (changed) {
+          await this.syncFolder(f.imap_path);
+          // Task 4 fix: syncFolder used to skip flag fetching entirely without
+          // CONDSTORE — now it applies flags (incrementalSyncFolder else-branch),
+          // but keep the sweep fallback ONLY when the folder sync itself errored
+          // out silently (e.g. folder vanished mid-poll).
+          continue;
+        }
+        // tiered flag sweep (only without CONDSTORE; with it, changedSince is enough).
+        // Divisors measured on prod (32k msgs): sweep-all ~95 s of server time, so
+        // tier-2 folders (recently active) are swept every 6th poll and cold ones
+        // every 36th (~72 min) — NOT every 2nd/6th, which starved searches.
+        if (!this.hasCondstore && this.syncingFolders.size === 0) {
+          const tier = this.flagTier(f);
+          if (tier === 1 || this.pollCount % tier === 0) {
+            await this.flagSweep(client, f);
+          }
+        }
+        if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
+      } catch {
+        // folder vanished / transient error — next sweep retries
+      }
+    }
+    this.noteServerContact();
+    this.noteSuccess();
+    return true;
+  }
+
   async startPolling(intervalMs = 60_000): Promise<void> {
     if (this.authFailed) return;
     this.pollingStop = false;
@@ -1194,46 +1258,7 @@ export class SyncEngine {
           continue;
         }
         try {
-          const client = await this.connect();
-          this.pollCount++;
-          const folders = this.store.allFolders();
-          for (let i = 0; i < folders.length; i++) {
-            if (this.pollingStop || this.syncing) break;
-            const f = folders[i];
-            await this.gate();
-            try {
-              const st = await client.status(f.imap_path, { messages: true, uidNext: true, highestModseq: true });
-              if (!st) continue;
-              if (typeof st === 'boolean') continue;
-              const localCount = (this.store.db.prepare('SELECT COUNT(*) c FROM messages WHERE folder_id = ?').get(f.id) as { c: number }).c;
-              const changed =
-                (st.messages !== undefined && st.messages !== localCount) ||
-                (st.uidNext !== undefined && f.uid_next !== null && st.uidNext !== f.uid_next) ||
-                (st.highestModseq !== undefined && f.highest_modseq !== null && String(st.highestModseq) !== f.highest_modseq);
-              if (changed) {
-                await this.syncFolder(f.imap_path);
-                // Task 4 fix: syncFolder used to skip flag fetching entirely without
-                // CONDSTORE — now it applies flags (incrementalSyncFolder else-branch),
-                // but keep the sweep fallback ONLY when the folder sync itself errored
-                // out silently (e.g. folder vanished mid-poll).
-                continue;
-              }
-              // tiered flag sweep (only without CONDSTORE; with it, changedSince is enough).
-              // Divisors measured on prod (32k msgs): sweep-all ~95 s of server time, so
-              // tier-2 folders (recently active) are swept every 6th poll and cold ones
-              // every 36th (~72 min) — NOT every 2nd/6th, which starved searches.
-              if (!this.hasCondstore && this.syncingFolders.size === 0) {
-                const tier = this.flagTier(f);
-                if (tier === 1 || this.pollCount % tier === 0) {
-                  await this.flagSweep(client, f);
-                }
-              }
-              if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
-            } catch {
-              // folder vanished / transient error — next sweep retries
-            }
-          }
-          this.noteSuccess();
+          await this.pollOnce();
         } catch (e) {
           if (this.authFailed) break;
           this.emit({ type: 'error', path: null, message: `poll: ${(e as Error).message}` });
