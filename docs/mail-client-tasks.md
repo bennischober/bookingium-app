@@ -33,7 +33,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
-| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir); part 2 (canary) is **[user]** |
+| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. part 2 (canary) is **[user]** |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** |
 | B1 | Folder create / rename / delete | L | A3, A2 | done |
