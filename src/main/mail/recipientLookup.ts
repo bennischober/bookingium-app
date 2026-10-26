@@ -35,8 +35,9 @@ export function fold(value: string): string {
 export function isUsableAddress(email: string): boolean {
   const value = email.trim()
   if (!value) return false
-  // one @, something on both sides, a dot in the domain
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)
+  // one @, something on both sides, and a domain whose labels are non-empty: a bare
+  // "@.example.test" or a trailing dot is not deliverable, so it must not be suggested
+  return /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/.test(value)
 }
 
 /**

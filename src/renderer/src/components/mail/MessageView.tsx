@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
 import { confirmAction } from '@/lib/confirm'
-import { trpcVanilla } from '@/lib/trpc'
+import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -118,6 +118,8 @@ export function MessageView({
   // The version with loaded remote images (the parent keys this view by message)
   const [withImages, setWithImages] = useState<MessageDetail | null>(null)
   const [loadingImages, setLoadingImages] = useState(false)
+  // G10: how far the image load has got, so a 72-image mail is not an opaque spinner
+  const [imageProgress, setImageProgress] = useState<{ done: number; total: number } | null>(null)
   // C5: the attachment the "save as document" dialog is open for
   // F10: the dialog takes one attachment or all of them
   const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
@@ -140,8 +142,18 @@ export function MessageView({
 
   const message = withImages ?? detail.data
 
+  // G10: the core reports progress per image; only this message's events matter
+  trpcReact.mail.events.useSubscription(undefined, {
+    onData: (event) => {
+      if (event.type !== 'image-progress') return
+      if (event.accountId !== accountId || event.messageId !== messageId) return
+      setImageProgress({ done: event.done, total: event.total })
+    }
+  })
+
   const loadImages = async () => {
     setLoadingImages(true)
+    setImageProgress(null)
     try {
       setWithImages(await mailApi.loadRemoteImages(message.id, message.remoteImages, accountId))
     } catch (error) {
@@ -150,6 +162,7 @@ export function MessageView({
       })
     } finally {
       setLoadingImages(false)
+      setImageProgress(null)
     }
   }
 
@@ -437,7 +450,11 @@ export function MessageView({
               onClick={() => void loadImages()}
               disabled={loadingImages}
             >
-              {loadingImages ? 'Wird geladen…' : 'Bilder laden'}
+              {loadingImages
+                ? imageProgress
+                  ? `Lädt… ${imageProgress.done} von ${imageProgress.total}`
+                  : 'Wird geladen…'
+                : 'Bilder laden'}
             </Button>
           </div>
         )}

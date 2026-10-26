@@ -97,13 +97,15 @@ export interface AccountEntry {
 
 export type MailCoreEvent =
   | { type: 'sync-event'; accountId: string; event: SyncEvent }
-  | { type: 'op-event'; accountId: string; opId: string; kind: string; outcome: string; reason?: string };
+  | { type: 'op-event'; accountId: string; opId: string; kind: string; outcome: string; reason?: string }
+  /** G10: remote-image progress, so the button can say "3 von 12" instead of one long spinner */
+  | { type: 'image-progress'; accountId: string; messageId: number; done: number; total: number };
 
 export class MailCore implements Api {
   private listeners = new Set<(e: MailCoreEvent) => void>();
 
-  /** Subscribe to sync progress + write-op events. Returns an unsubscribe function. */
-  on(_name: 'sync-event' | 'op-event', cb: (e: MailCoreEvent) => void): () => void {
+  /** Subscribe to sync progress, write-op and image-progress events. Returns an unsubscribe function. */
+  on(_name: 'sync-event' | 'op-event' | 'image-progress', cb: (e: MailCoreEvent) => void): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
   }
@@ -370,7 +372,14 @@ export class MailCore implements Api {
     if (!row) throw new Error(`message ${id} not found`);
     const { enabled: _enabled, ...fetchOpts } = this.options.remoteImages;
     void _enabled;   // destructured only to drop it from fetchOpts
-    const fetched = await fetchRemoteImagesAsDataUris(remoteImages.map(r => r.url), fetchOpts);
+    const fetched = await fetchRemoteImagesAsDataUris(remoteImages.map(r => r.url), {
+      ...fetchOpts,
+      // G10: report progress through the same event channel the UI already subscribes to,
+      // so a 72-image mail shows how far it has got instead of an opaque spinner
+      onProgress: (done, total) => this.emitEvent({
+        type: 'image-progress', accountId: e.config.id, messageId: id, done, total,
+      }),
+    });
     const loaded: RemoteImageRef[] = remoteImages
       .filter(r => fetched.has(r.url))
       .map(r => ({ url: r.url, placeholder: fetched.get(r.url)! }));

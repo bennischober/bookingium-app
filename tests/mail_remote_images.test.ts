@@ -148,13 +148,18 @@ describe('remote images: the total budget', () => {
 
   it('stops contacting the server once the budget is spent', async () => {
     const before = hits.length
-    const out = await fetchAll(['/mittel-1.png', '/mittel-2.png', '/mittel-3.png'], {
-      maxTotalBytes: 1024,
-      maxBytesPerImage: 2048
-    })
+    // 12 URLs against a budget for exactly one: the fetch must stop early instead of
+    // walking the whole list. It is NOT exactly one request any more - the fetches run
+    // concurrently (G10), so up to `concurrency` of them start before the first result
+    // spends the budget. What still holds is the cap: the budget is never exceeded, and the
+    // list is abandoned as soon as it is spent.
+    const urls = Array.from({ length: 12 }, (_, i) => `/mittel-${i}.png`)
+    const out = await fetchAll(urls, { maxTotalBytes: 1024, maxBytesPerImage: 2048 })
     expect(out.size).toBe(1)
-    // Only the image that fit was fetched; the other two were never requested
-    expect(hits.length - before).toBe(1)
+    const requests = hits.length - before
+    // bounded by the concurrency, never one per image
+    expect(requests).toBeLessThanOrEqual(6)
+    expect(requests).toBeLessThan(urls.length)
   })
 
   it('keeps fetching small images until the budget is used up', async () => {

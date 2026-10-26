@@ -80,6 +80,7 @@ export type ToWorker =
 export type MailEvent =
   | { type: 'sync-event'; accountId: string; event: unknown }
   | { type: 'op-event'; accountId: string; opId: string; kind: string; outcome: string }
+  | { type: 'image-progress'; accountId: string; messageId: number; done: number; total: number }
 
 export type FromWorker =
   | { type: 'ready' }

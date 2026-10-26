@@ -75,15 +75,15 @@ describe('G9: mail history teaches the compose lookup', () => {
     const inbox = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
 
     store.rememberContactsOf({
-      from_email: 'no-reply@ionos.de',
-      from_name: 'IONOS',
+      from_email: 'no-reply@ionos.example.test',
+      from_name: 'IONOS Versand',
       to_json: '[]',
       cc_json: '[]'
     })
 
     const found = store.searchContacts('ionos')
-    expect(found.map((c) => c.email)).toContain('no-reply@ionos.de')
-    expect(found[0].name).toBe('IONOS')
+    expect(found.map((c) => c.email)).toContain('no-reply@ionos.example.test')
+    expect(found[0].name).toBe('IONOS Versand')
     expect(inbox.id).toBeTruthy()
   })
 
@@ -119,13 +119,18 @@ describe('G9: mail history teaches the compose lookup', () => {
     // A mailbox synced before G9 has rows but an empty contacts table; the one-time pass fills it.
     const store = openStore()
     const inbox = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
-    addMail(store, inbox.id, 'alt-1', 1, { name: 'IONOS Service', email: 'service@ionos.de' })
+    addMail(store, inbox.id, 'alt-1', 1, {
+      name: 'IONOS Service',
+      email: 'service@ionos.example.test'
+    })
 
     // before: nothing is known
     expect(store.searchContacts('ionos')).toEqual([])
 
     store.backfillContactsOnce()
-    expect(store.searchContacts('ionos').map((c) => c.email)).toEqual(['service@ionos.de'])
+    expect(store.searchContacts('ionos').map((c) => c.email)).toEqual([
+      'service@ionos.example.test'
+    ])
 
     // a second run does nothing: new mail teaches the table as it arrives
     expect(store.backfillContactsOnce()).toBe(0)
@@ -143,7 +148,10 @@ describe('G9: mail history teaches the compose lookup', () => {
     fs.mkdirSync(seedDir, { recursive: true })
     const seed = new Store(seedDir, ACCOUNT)
     const inbox = seed.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
-    addMail(seed, inbox.id, 'alt-2', 2, { name: 'IONOS Service', email: 'service@ionos.de' })
+    addMail(seed, inbox.id, 'alt-2', 2, {
+      name: 'IONOS Service',
+      email: 'service@ionos.example.test'
+    })
     expect(seed.searchContacts('ionos')).toEqual([])
     seed.close()
 
@@ -166,7 +174,7 @@ describe('G9: mail history teaches the compose lookup', () => {
     try {
       // The core opened the store and ran the one-time pass
       const found = await api.getContacts('ionos', ACCOUNT)
-      expect(found.map((c) => c.email)).toContain('service@ionos.de')
+      expect(found.map((c) => c.email)).toContain('service@ionos.example.test')
     } finally {
       api.close()
     }
@@ -175,8 +183,8 @@ describe('G9: mail history teaches the compose lookup', () => {
   it('keeps a name that is already known when a later mail has none', () => {
     // a reply from a no-reply address must not blank an existing display name
     const store = openStore()
-    store.upsertContact('service@ionos.de', 'IONOS Service')
-    store.upsertContact('service@ionos.de', '')
+    store.upsertContact('service@ionos.example.test', 'IONOS Service')
+    store.upsertContact('service@ionos.example.test', '')
     expect(store.searchContacts('ionos')[0].name).toBe('IONOS Service')
   })
 })

@@ -17,9 +17,11 @@ function service(appRecords: RecipientCandidate[]): RecipientLookupService {
 describe('recipient lookup service: both sources, one list', () => {
   it('finds an app record that was never mailed', () => {
     // the reported case: in the address book, no mail history at all
-    const lookup = service([{ name: 'Benjamin Schober', email: 'b@bmm-ag.de', source: 'person' }])
+    const lookup = service([
+      { name: 'Benjamin Schober', email: 'b@bmm-ag.example.test', source: 'person' }
+    ])
     const found = lookup.lookup('schober', [])
-    expect(found.map((r) => r.email)).toEqual(['b@bmm-ag.de'])
+    expect(found.map((r) => r.email)).toEqual(['b@bmm-ag.example.test'])
   })
 
   it('keeps the mail-store hits when the app has none', () => {
@@ -30,8 +32,10 @@ describe('recipient lookup service: both sources, one list', () => {
   })
 
   it('merges both and prefers the app record for the same address', () => {
-    const lookup = service([{ name: 'Benjamin Schober', email: 'b@bmm-ag.de', source: 'person' }])
-    const found = lookup.lookup('schober', [{ name: 'B. Schober', email: 'b@bmm-ag.de' }])
+    const lookup = service([
+      { name: 'Benjamin Schober', email: 'b@bmm-ag.example.test', source: 'person' }
+    ])
+    const found = lookup.lookup('schober', [{ name: 'B. Schober', email: 'b@bmm-ag.example.test' }])
     expect(found).toHaveLength(1)
     expect(found[0].source).toBe('person')
   })

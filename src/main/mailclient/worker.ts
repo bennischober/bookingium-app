@@ -43,6 +43,8 @@ function init(options: WorkerInit): void {
     remoteImages: { enabled: true }
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
+  // G10: image progress travels on the same channel; the renderer shows "3 von 12"
+  core.on('image-progress', (event) => send({ type: 'event', event }))
   core.start()
   scheduleMaintenance(core)
 }

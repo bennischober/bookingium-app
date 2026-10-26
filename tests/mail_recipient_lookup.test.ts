@@ -31,19 +31,25 @@ const fromMail = (name: string, email: string): RecipientCandidate => ({
 describe('recipient lookup: finding a person by name', () => {
   it('finds a person by last name only', () => {
     // the reported case: you know the name, not the address
-    const found = mergeRecipients([person('Benjamin Schober', 'benjamin@bmm-ag.de')], 'schober')
-    expect(found.map((r) => r.email)).toEqual(['benjamin@bmm-ag.de'])
+    const found = mergeRecipients(
+      [person('Benjamin Schober', 'benjamin@bmm-ag.example.test')],
+      'schober'
+    )
+    expect(found.map((r) => r.email)).toEqual(['benjamin@bmm-ag.example.test'])
   })
 
   it('finds a person by first name only', () => {
-    const found = mergeRecipients([person('Benjamin Schober', 'benjamin@bmm-ag.de')], 'benjamin')
+    const found = mergeRecipients(
+      [person('Benjamin Schober', 'benjamin@bmm-ag.example.test')],
+      'benjamin'
+    )
     expect(found).toHaveLength(1)
   })
 
   it('does not care about the word order', () => {
     // "Schober Benjamin" must find "Benjamin Schober"
     const found = mergeRecipients(
-      [person('Benjamin Schober', 'benjamin@bmm-ag.de')],
+      [person('Benjamin Schober', 'benjamin@bmm-ag.example.test')],
       'schober benjamin'
     )
     expect(found).toHaveLength(1)
@@ -62,13 +68,19 @@ describe('recipient lookup: finding a person by name', () => {
 
   it('finds a partial address', () => {
     // "part of the receiver's email" from the request
-    const found = mergeRecipients([person('Benjamin Schober', 'benjamin@bmm-ag.de')], 'bmm-ag')
+    const found = mergeRecipients(
+      [person('Benjamin Schober', 'benjamin@bmm-ag.example.test')],
+      'bmm-ag'
+    )
     expect(found).toHaveLength(1)
   })
 
   it('rejects a query whose tokens do not all match', () => {
     // "schober zzz" must not return Schober just because one token matched
-    const found = mergeRecipients([person('Benjamin Schober', 'benjamin@bmm-ag.de')], 'schober zzz')
+    const found = mergeRecipients(
+      [person('Benjamin Schober', 'benjamin@bmm-ag.example.test')],
+      'schober zzz'
+    )
     expect(found).toEqual([])
   })
 })
@@ -76,17 +88,17 @@ describe('recipient lookup: finding a person by name', () => {
 describe('recipient lookup: companies and venues', () => {
   it('finds a company by name, which is how people address an agency', () => {
     const found = mergeRecipients(
-      [company('Brainstorm Music Marketing AG', 'info@bmm-ag.de')],
+      [company('Brainstorm Music Marketing AG', 'info@bmm-ag.example.test')],
       'brainstorm'
     )
-    expect(found.map((r) => r.email)).toEqual(['info@bmm-ag.de'])
+    expect(found.map((r) => r.email)).toEqual(['info@bmm-ag.example.test'])
     expect(found[0].source).toBe('company')
   })
 
   it('finds a company by a short form in its address', () => {
     // "bmm" is what someone types; it only appears in the domain
     const found = mergeRecipients(
-      [company('Brainstorm Music Marketing AG', 'info@bmm-ag.de')],
+      [company('Brainstorm Music Marketing AG', 'info@bmm-ag.example.test')],
       'bmm'
     )
     expect(found).toHaveLength(1)
@@ -97,8 +109,8 @@ describe('recipient lookup: ranking and deduplication', () => {
   it('prefers an address-book record over the same address seen in mail', () => {
     const found = mergeRecipients(
       [
-        fromMail('B. Schober', 'benjamin@bmm-ag.de'),
-        person('Benjamin Schober', 'benjamin@bmm-ag.de')
+        fromMail('B. Schober', 'benjamin@bmm-ag.example.test'),
+        person('Benjamin Schober', 'benjamin@bmm-ag.example.test')
       ],
       'schober'
     )
@@ -110,7 +122,7 @@ describe('recipient lookup: ranking and deduplication', () => {
 
   it('deduplicates addresses case-insensitively', () => {
     const found = mergeRecipients(
-      [person('A', 'Benjamin@BMM-AG.de'), fromMail('A', 'benjamin@bmm-ag.de')],
+      [person('A', 'Benjamin@BMM-AG.example.test'), fromMail('A', 'benjamin@bmm-ag.example.test')],
       'benjamin'
     )
     expect(found).toHaveLength(1)
@@ -134,14 +146,20 @@ describe('recipient lookup: never suggest something unusable', () => {
   it('drops records without an address', () => {
     // plenty of records have an empty email column; they must not appear as blank rows
     const found = mergeRecipients(
-      [person('Ohne Adresse', ''), person('Mit Adresse', 'a@b.de')],
+      [person('Ohne Adresse', ''), person('Mit Adresse', 'a@b.example.test')],
       'adresse'
     )
-    expect(found.map((r) => r.email)).toEqual(['a@b.de'])
+    expect(found.map((r) => r.email)).toEqual(['a@b.example.test'])
   })
 
   it('drops a malformed address', () => {
-    for (const bad of ['kein-at', 'a@b', '@b.de', 'a@.de', 'a b@c.de']) {
+    for (const bad of [
+      'kein-at',
+      'a@b',
+      '@b.example.test',
+      'a@.example.test',
+      'a b@c.example.test'
+    ]) {
       expect(mergeRecipients([person('X', bad)], 'x')).toEqual([])
     }
   })
@@ -159,13 +177,13 @@ describe('recipient lookup: the helpers', () => {
   })
 
   it('accepts real addresses and rejects broken ones', () => {
-    expect(isUsableAddress('a@b.de')).toBe(true)
+    expect(isUsableAddress('a@b.example.test')).toBe(true)
     expect(isUsableAddress('')).toBe(false)
     expect(isUsableAddress('   ')).toBe(false)
   })
 
   it('matches on a token that appears in the name or the address', () => {
-    const c = person('Benjamin Schober', 'benjamin@bmm-ag.de')
+    const c = person('Benjamin Schober', 'benjamin@bmm-ag.example.test')
     expect(matchesQuery(c, 'bmm')).toBe(true)
     expect(matchesQuery(c, 'schober')).toBe(true)
     expect(matchesQuery(c, 'nothing')).toBe(false)
