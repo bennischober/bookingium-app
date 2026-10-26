@@ -40,8 +40,13 @@ jobs:
       # scripts for an allowlist - it is on that list, so this installs without --ignore-scripts
       - run: pnpm install --frozen-lockfile
 
+      # CI has no Dovecot/Mailpit. The sandbox-backed suites (mail crash points, SMTP auth)
+      # skip there with a visible reason; locally the same suites are REQUIRED and fail loudly
+      # when the containers are missing (tests/helpers/sandboxGate.ts).
       - name: Test
         run: pnpm test
+        env:
+          CI: 'true'
 
       - name: Lint
         run: pnpm lint

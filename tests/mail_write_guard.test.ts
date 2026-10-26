@@ -3,6 +3,7 @@
 // they are tested directly; the two-account case runs against the real sandbox,
 // which gives every user name its own maildir.
 import { afterEach, describe, expect, it } from 'vitest'
+import { boxOf, startFakeImap, type FakeImap } from './helpers/fakeImap'
 import {
   SANDBOX_ALLOWLIST,
   assertWriteAllowed,
@@ -15,9 +16,9 @@ import {
 } from '../src/main/mailclient/core/write_guard'
 
 const HOST = '127.0.0.1'
+// only used by the pure-rule cases: the two-account case gets its ports from the fake server
 const PORT = 10143
 const SMTP_PORT = 1025
-const PASS = 'testpass'
 
 const sandbox = (over: Partial<WriteAccount> = {}): WriteAccount => ({
   id: 'a',
@@ -39,9 +40,9 @@ describe('A7: the write guard decides per account', () => {
   it('refuses a production account, whatever its host', () => {
     // A real mailbox is read-only by design: the guard is not what stops it there
     expect(writeRefusal(sandbox({ kind: 'production-readonly' }))).toMatch(/schreibgeschützt/)
-    expect(() =>
-      assertWriteAllowed(sandbox({ kind: 'production-readonly' }))
-    ).toThrow(/WRITE GUARD/)
+    expect(() => assertWriteAllowed(sandbox({ kind: 'production-readonly' }))).toThrow(
+      /WRITE GUARD/
+    )
   })
 
   it('refuses a sandbox account whose IMAP host is not on the allowlist', () => {
@@ -88,40 +89,54 @@ describe('A7: the write guard decides per account', () => {
 })
 
 describe('A7: two accounts write into their own mailbox', () => {
+  // The sandbox gave every user name its own maildir, so the old version of this test proved
+  // Dovecot's isolation - not our wiring - and it needed a live container on 127.0.0.1:10143,
+  // which CI does not have. The fake server records the LOGIN of every connection and keeps one
+  // message list per user, so the claim is proven from our side: a write for account A reaches A's
+  // mailbox with A's credentials, and never B's.
+  let server: FakeImap
   const connections: { close: () => Promise<void> }[] = []
+
   afterEach(async () => {
     while (connections.length) await connections.pop()!.close()
+    if (server) await server.close()
   })
 
-  /** The folder names a user's own mailbox has; the sandbox gives each user its own maildir */
-  async function connect(user: string) {
-    const account = sandbox({ id: user, imapHost: HOST, smtpHost: HOST })
-    const client = await connectWriteImap(account, { user, pass: PASS })
+  /** Connects the way the write path does: this account's endpoint and credentials */
+  async function connect(account: WriteAccount, user: string, pass: string) {
+    const client = await connectWriteImap(account, { user, pass })
     connections.push({ close: () => client.logout().catch(() => undefined) })
     return client
   }
 
-  /** Appends one mail to a user's INBOX and returns how many it now holds */
-  async function appendTo(user: string, subject: string): Promise<number> {
-    const client = await connect(user)
-    await client.append('INBOX', Buffer.from(
-      `From: a7@example.test\r\nTo: ${user}\r\nSubject: ${subject}\r\n\r\nText\r\n`
-    ))
-    const status = await client.status('INBOX', { messages: true })
-    return status.messages ?? 0
-  }
+  it('sends each account to its own endpoint with its own credentials', async () => {
+    server = await startFakeImap()
+    // Two accounts on two DIFFERENT ports, so the endpoint each write uses is observable
+    const second = await startFakeImap()
+    const firstAccount = sandbox({ id: 'a7-erste', imapPort: server.port })
+    const secondAccount = sandbox({ id: 'a7-zweite', imapPort: second.port })
 
-  it('keeps each account on its own maildir', async () => {
-    // The sandbox accepts any user name with its password and gives each its own maildir,
-    // so a mail written by one must never show up in the other - that is what A7 means
-    const first = 'a7-erste@example.test'
-    const second = 'a7-zweite@example.test'
-    const before = await appendTo(second, 'vorher')
-    await appendTo(first, 'nur fuer den ersten')
-    const after = await appendTo(second, 'nachher')
+    const first = await connect(firstAccount, 'a7-erste@example.test', 'pass-eins')
+    await first.append(
+      'INBOX',
+      Buffer.from('From: a7@example.test\r\nSubject: nur fuer den ersten\r\n\r\nText\r\n')
+    )
 
-    // The second mailbox only grew by its own two mails
-    expect(after).toBe(before + 1)
-    expect(before).toBeGreaterThan(0)
-  }, 60_000)
+    const other = await connect(secondAccount, 'a7-zweite@example.test', 'pass-zwei')
+    await other.append(
+      'INBOX',
+      Buffer.from('From: a7@example.test\r\nSubject: nur fuer den zweiten\r\n\r\nText\r\n')
+    )
+
+    // Each server saw exactly its own account, with its own credentials
+    expect(server.logins).toEqual([{ user: 'a7-erste@example.test', pass: 'pass-eins' }])
+    expect(second.logins).toEqual([{ user: 'a7-zweite@example.test', pass: 'pass-zwei' }])
+
+    // And each mailbox holds exactly its own mail - the first one's mail is not in the second
+    expect(boxOf(server, 'a7-erste@example.test', 'INBOX')).toHaveLength(1)
+    expect(boxOf(second, 'a7-zweite@example.test', 'INBOX')).toHaveLength(1)
+    expect(boxOf(second, 'a7-erste@example.test', 'INBOX')).toHaveLength(0)
+
+    await second.close()
+  }, 30_000)
 })

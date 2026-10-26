@@ -11,6 +11,7 @@
 // Skips (with a visible reason) when the sandbox is down. Counts are compared before and
 // after, and every mail this suite creates is removed again.
 import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
+import { sandboxSkipReason } from './helpers/sandboxGate'
 import fs from 'fs'
 import net from 'net'
 import os from 'os'
@@ -56,9 +57,8 @@ function reachable(port: number): Promise<boolean> {
 }
 
 const sandboxUp = await reachable(PORT)
-if (!sandboxUp) {
-  console.warn(`mail crash-points: sandbox not running on ${HOST}:${PORT} - suite skipped`)
-}
+const skipReason = sandboxSkipReason(sandboxUp, 'mail crash-points', PORT)
+if (skipReason) console.warn(skipReason)
 
 function account(dataDir: string) {
   return makeSandboxAccount({

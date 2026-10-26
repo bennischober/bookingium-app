@@ -10,6 +10,7 @@ import net from 'net'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { sandboxSkipReason } from './helpers/sandboxGate'
 import { Store } from '../src/main/mailclient/core/store'
 import { WriteEngine } from '../src/main/mailclient/core/write_engine'
 import type { WriteAccount } from '../src/main/mailclient/core/write_guard'
@@ -46,9 +47,8 @@ function reachable(port: number): Promise<boolean> {
 }
 
 const sandboxUp = await reachable(IMAP_PORT)
-if (!sandboxUp) {
-  console.warn(`mail smtp auth: sandbox not running on ${HOST}:${IMAP_PORT} - suite skipped`)
-}
+const skipReason = sandboxSkipReason(sandboxUp, 'mail smtp auth', IMAP_PORT)
+if (skipReason) console.warn(skipReason)
 
 afterEach(async () => {
   while (servers.length) await servers.pop()!.close()
