@@ -437,12 +437,22 @@ export function ComposeView({
     setBusy('discard')
     try {
       await queue.current
-      if (draftUid.current !== null) {
-        await mailApi.discardDraft(draftUid.current, accountId)
-        onStored()
-      }
     } catch (error) {
       toast.error('Entwurf konnte nicht gelöscht werden', { description: errorText(error) })
+    }
+    // G4: the editor closes now, not after the server has answered. Deleting a draft used to
+    // await the whole write - connect, LOGIN, SELECT, UID MOVE, LOGOUT - so the click looked
+    // dead for seconds while an inbox delete (same op underneath) felt instant. The discard runs
+    // behind the close; a failure is reported as a toast, and the draft stays in Drafts where the
+    // user can delete it again.
+    if (draftUid.current !== null) {
+      const uid = draftUid.current
+      void mailApi
+        .discardDraft(uid, accountId)
+        .then(() => onStored())
+        .catch((error) =>
+          toast.error('Entwurf konnte nicht gelöscht werden', { description: errorText(error) })
+        )
     }
     onClose()
   }

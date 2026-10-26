@@ -1051,12 +1051,21 @@ export class MailCore implements Api {
   async discardDraft(uid: number, accountId?: string): Promise<void> {
     const e = this.writableEntry(accountId);
     const folder = this.draftsFolder(e);
+    // G4: the message key is what the read-side exclusion matches on (L2), so a discarded draft
+    // leaves the Drafts list at once instead of after the server answered. Without it the op was
+    // invisible to that filter and the draft lingered - the same lag as before, only in the list.
+    const row = e.store.db
+      .prepare('SELECT message_key, message_id FROM messages WHERE folder_id = ? AND uid = ?')
+      .get(folder.id, uid) as { message_key: string; message_id: string | null } | undefined;
     const opId = e.store.journalEnqueue({
       accountId: e.config.id, kind: 'draft_delete',
       folderPath: folder.imap_path, folderUidValidity: folder.uid_validity ?? undefined, uid,
+      messageKey: row?.message_key, messageId: row?.message_id ?? undefined,
       targetFolderPath: e.store.allFolders().find(f => f.special_use === '\\Trash')?.imap_path ?? 'Trash',
     });
     await this.replayOps(e, [opId]);
+    // G4: the draft moved, so the two folders it touched need a resync - not the whole mailbox
+    this.resyncMovedFolders(e, [opId]);
   }
 
   async getDraft(id: number, accountId?: string): Promise<SavedDraft> {
