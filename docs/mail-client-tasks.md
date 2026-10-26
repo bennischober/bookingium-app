@@ -1052,6 +1052,29 @@ So at release:
 **Do not do this yet.** It is a release step, and doing it early would remove the only way to run the canary and the sandbox
 tests through the UI. Recorded here so it is not forgotten.
 
+### F16: right-click on a link in the mail body [deferred by decision, 2026-10-26]
+
+**Decided with the user 2026-10-26:** not now. A right-click menu on links ("Im Browser öffnen" / "Link-Adresse
+kopieren") is the intuitive gesture, and other mail apps have it, but it is **not** built for now. The existing
+link list at the bottom of the reading pane stays as the way to reach a link.
+
+**Why it is not free.** The mail renders in an iframe with `sandbox="allow-popups allow-popups-to-escape-sandbox"` and
+**no `allow-same-origin`** (`MessageView.tsx:465`). That is what stops a mail from running code or reaching the app, and
+it also means the renderer cannot see a `contextmenu` event inside the iframe or read which link was hit. Electron can,
+from the main process, via `webContents.on('context-menu')` and `params.linkURL` - so the feature is possible, but it
+belongs in the main process, not in React.
+
+**The cost to weigh.** A `context-menu` handler on the message view's `webContents` fires for the whole window, so it
+either becomes a global native menu (replacing the default one everywhere, including cut/copy/paste in text fields) or
+needs careful scoping to the message iframe. That is a behaviour change for right-click across the app, which is why it is
+not a small UI addition.
+
+**Images are deliberately out of scope** even if this is built: a remote image only exists as a `data:` URI after the user
+loads it, so "copy URL" would copy a large base64 blob - no value, some confusion.
+
+**Revisit when** a user asks for it, or when the link list proves hard to find. The cheap alternative is to make the bottom
+list more prominent rather than add a native menu.
+
 ## D: documents
 
 ### D1: documents findable and visible [design settled 2026-10-25]
