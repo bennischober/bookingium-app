@@ -674,12 +674,13 @@ export default function MailPage() {
           }
         : undefined
     // MR-36: every mail the answer does not cover is shown again - the archive case returns no op
-    // for a self-move, and a mixed selection skips the mails already in Archive
-    const itemsById = new Map(selectedItems.map((m) => [m.id, m]))
+    // for a self-move, and a mixed selection skips the mails already in Archive. The rows come from
+    // the whole list: a drag or the reading pane moves mails that are not part of the selection.
+    const itemsById = new Map(listItems.map((m) => [m.id, m]))
     const moved = ids
       .map((id) => itemsById.get(id))
       .filter((m): m is MessageListItem => m !== undefined)
-    const stillHidden = uncoveredIds(moved, ops)
+    const stillHidden = uncoveredIds(moved, ops, allFolders)
     if (stillHidden.length > 0) unhideMails(stillHidden.map((m) => m.id))
 
     const notDone = ops.filter((op) => op.state !== 'done')
@@ -700,7 +701,7 @@ export default function MailPage() {
       return
     }
     // MR-36 / README renderer 20: the toast says what the core archived, not how many were selected
-    const archived = target.kind === 'archive' ? archivedCount(moved, ops) : ids.length
+    const archived = target.kind === 'archive' ? archivedCount(moved, ops, allFolders) : ids.length
     toast.success(archived > 1 ? texts.many(archived, label) : texts.done(label), { action: undo })
   }
 

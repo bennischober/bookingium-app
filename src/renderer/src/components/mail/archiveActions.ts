@@ -7,8 +7,10 @@
  * has left the list. So the rows disappeared and stayed gone until an account switch or a restart, and a
  * mixed selection did the same for the mails it skipped.
  *
- * Coverage is decided by UID, not by row id: an `OpSummary` carries one `uid` for a plain move and has no
- * id list at all.
+ * Coverage is decided by source folder and UID, not by row id: an `OpSummary` carries one `uid` for a
+ * plain move and no id list at all. A move of two or more mails out of one folder is ONE `move_batch` op
+ * with `uid: null` (core/index.ts moveToFolder), and a done batch covers every mail of its source folder -
+ * the caller shows ALL rows again as soon as any op is not done, so a half-done split batch never gets here.
  */
 import type { FolderNode, OpSummary } from '../../../../main/mailclient/core/types'
 
@@ -16,7 +18,7 @@ import type { FolderNode, OpSummary } from '../../../../main/mailclient/core/typ
 export type ArchiveItem = { id: number; folderId: string; uid: number }
 
 /** The part of an OpSummary this decision reads */
-export type MoveOp = Pick<OpSummary, 'uid' | 'state'>
+export type MoveOp = Pick<OpSummary, 'kind' | 'uid' | 'state' | 'folderPath'>
 
 const isArchive = (folder: FolderNode | undefined): boolean =>
   Boolean(folder?.specialUse?.includes('Archive'))
@@ -42,14 +44,31 @@ export function archiveableIds(items: ArchiveItem[], folders: FolderNode[]): num
     .map((item) => item.id)
 }
 
-/** The mails to show again: every hidden one that no DONE op covers by UID. */
-export function uncoveredIds(items: ArchiveItem[], ops: MoveOp[]): ArchiveItem[] {
-  const covered = new Set(ops.filter((op) => op.state === 'done').map((op) => op.uid))
-  return items.filter((item) => !covered.has(item.uid))
+/** Does this done op account for the mail? UIDs are only unique within a folder, so the path counts too. */
+function covers(op: MoveOp, item: ArchiveItem, path: string | undefined): boolean {
+  if (op.state !== 'done') return false
+  if (op.kind === 'move_batch') return path !== undefined && op.folderPath === path
+  // a folder the list does not know yet falls back to the UID alone rather than showing the mail again
+  return op.uid === item.uid && (path === undefined || op.folderPath === path)
+}
+
+function coveredBy(ops: MoveOp[], folders: FolderNode[]): (item: ArchiveItem) => boolean {
+  const pathOf = new Map(folders.map((f) => [f.id, f.path]))
+  return (item) => ops.some((op) => covers(op, item, pathOf.get(item.folderId)))
+}
+
+/** The mails to show again: every hidden one that no DONE op covers. */
+export function uncoveredIds(
+  items: ArchiveItem[],
+  ops: MoveOp[],
+  folders: FolderNode[]
+): ArchiveItem[] {
+  const isCovered = coveredBy(ops, folders)
+  return items.filter((item) => !isCovered(item))
 }
 
 /** How many mails the core actually archived - what the toast must say, not the selection size. */
-export function archivedCount(items: ArchiveItem[], ops: MoveOp[]): number {
-  const covered = new Set(ops.filter((op) => op.state === 'done').map((op) => op.uid))
-  return new Set(items.filter((item) => covered.has(item.uid)).map((item) => item.id)).size
+export function archivedCount(items: ArchiveItem[], ops: MoveOp[], folders: FolderNode[]): number {
+  const isCovered = coveredBy(ops, folders)
+  return new Set(items.filter(isCovered).map((item) => item.id)).size
 }
