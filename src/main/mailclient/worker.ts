@@ -40,7 +40,9 @@ function init(options: WorkerInit): void {
     // H5a: without this the core refuses every fetch, so the UI's "Bilder laden"
     // button did nothing at all - it returned the same blocked HTML. Opt-in per
     // message stays: the user clicks, nothing loads on its own.
-    remoteImages: { enabled: true }
+    remoteImages: { enabled: true },
+    // QA only: lets an e2e exercise the disk-full path with a REAL failing write. Off unless set.
+    faultWriteCode: process.env['BOOKINGIUM_FAULT_WRITE'] || undefined
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
   // G10: image progress travels on the same channel; the renderer shows "3 von 12"

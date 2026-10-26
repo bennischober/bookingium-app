@@ -51,4 +51,24 @@ describe('G3: the sync bar exists before the first status', () => {
     expect(runningOpLabel('move')).toBe('Verschiebt…')
     expect(runningOpLabel('expunge')).toBe('Löscht…')
   })
+
+  it('shows a full disk as its own state, never as offline', () => {
+    // A full disk is not a connection problem: reporting it as "Offline" sends the user to check
+    // their network when the real cause is the drive. The branch must therefore come BEFORE the
+    // offline branch, and it must offer the retry the core's resumeSync() answers to.
+    const diskAt = page.indexOf('if (status.diskFull)')
+    const offlineAt = page.indexOf('if (offline)')
+    expect(diskAt).toBeGreaterThan(-1)
+    expect(offlineAt).toBeGreaterThan(-1)
+    expect(diskAt).toBeLessThan(offlineAt)
+
+    const branch = page.slice(diskAt, offlineAt)
+    expect(branch).toContain('Speicherplatz voll')
+    // the reason travels in the tooltip, so the cause is available without guessing
+    expect(branch).toContain('status.diskFull')
+    // the retry action, wired to the core's resume
+    expect(branch).toContain('onResume')
+    // and it is distinguishable in the DOM for a real check
+    expect(branch).toContain('mail-disk-full')
+  })
 })

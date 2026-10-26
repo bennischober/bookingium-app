@@ -21,6 +21,7 @@ import { Store, Flags } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 import { writeMessageFile } from './files.js';
+import { diskFullMessage, isDiskFullError } from './disk_full.js';
 
 export interface AccountConfig {
   id: string;
@@ -123,13 +124,15 @@ export type SyncProgress = {
   messagesDone: number;
   messagesTotal: number | null;
   bytesDone: number;
-  phase: 'idle' | 'initial' | 'incremental' | 'paused' | 'error';
+  phase: 'idle' | 'initial' | 'incremental' | 'paused' | 'error' | 'disk-full';
   paused: boolean;
   accountId: string;
   // whether the server can be reached; 'auth-failed' is final until the account is saved again
   connection: ConnectionState;
   retryAt: string | null;      // when offline: the next attempt
   connectionError: string | null;
+  /** Set when a write failed because the disk is full; cleared by resume(). The reason, in German. */
+  diskFull?: string | null;
 };
 
 export class SyncEngine {
@@ -144,11 +147,13 @@ export class SyncEngine {
     foldersSynced: 0, foldersTotal: 0, newMessages: 0, flagChanges: 0, expunged: 0, errors: [],
     currentFolder: null, messagesDone: 0, messagesTotal: null, bytesDone: 0,
     phase: 'idle', paused: false, accountId: 'unknown',
-    connection: 'connecting', retryAt: null, connectionError: null,
+    connection: 'connecting', retryAt: null, connectionError: null, diskFull: null,
   };
   // A rejected login stops all server contact for good: retrying a wrong password gets the
   // account locked. Only a new engine (the host restarts the core after a save) logs in again.
   private authFailed = false;
+  /** Set when a write failed because the disk is full; cleared by resume(). */
+  private diskFull = false;
   /** Called once when the login is rejected (the factory drops its cached credentials). */
   onAuthFailed: (() => void) | null = null;
   private nextPollAt: number | null = null;
@@ -237,12 +242,15 @@ export class SyncEngine {
 
   constructor(private account: AccountConfig, private store: Store, options?: {
     forceNoCondstore?: boolean;
+    /** QA seam: fail every local write with this code, to exercise the disk-full path for real. */
+    faultWriteCode?: string;
     log?: { info?: (msg: string) => void; warn?: (msg: string) => void; error?: (msg: string) => void };
   }) {
     this.progress.accountId = account.id;
     // Task 3: kill-switch for testing the no-CONDSTORE path against Dovecot
     // (Task 5: comes in through the factory options, not process.env)
     this.simulateNoCondstore = options?.forceNoCondstore === true;
+    this.faultWriteCode = options?.faultWriteCode;
     this.log = options?.log ?? {};
   }
 
@@ -293,8 +301,13 @@ export class SyncEngine {
     }
   }
 
-  /** Task 3: resume a paused download. */
+  /** Task 3: resume a paused download. Also clears a disk-full stop: the user freed space. */
   resume(): void {
+    if (this.diskFull) {
+      this.diskFull = false;
+      this.progress.diskFull = null;
+      if (this.progress.phase === 'disk-full') this.progress.phase = 'idle';
+    }
     if (this.paused) {
       this.paused = false;
       this.progress.paused = false;
@@ -586,6 +599,10 @@ export class SyncEngine {
       }
     } catch (e) {
       this.emit({ type: 'error', path: imapPath, message: (e as Error).message });
+      // A full disk is not a connection fault: it must reach syncAll's disk-full branch so the
+      // pass stops and the user is told the truth, instead of being swallowed here as a generic
+      // folder error (which leaves the UI saying "offline" or nothing at all).
+      if (isDiskFullError(e)) throw e;
       const open = this.noteError(imapPath);
       if (open) throw e;      // circuit breaker: abort the pass
     } finally {
@@ -889,10 +906,19 @@ export class SyncEngine {
     await this.storeMessage(folderId, uidValidity, { uid, source, flags });
   }
 
+  /** Testing seam: the worker sets options.faultWriteCode to exercise the disk-full path for real. */
+  private faultWriteCode: string | undefined;
+
+  /** Testing seam: the worker sets options.faultWriteCode to exercise the disk-full path for real. */
+  private faultWrite(): void {
+    if (this.faultWriteCode) throw Object.assign(new Error(`injected write failure (${this.faultWriteCode})`), { code: this.faultWriteCode });
+  }
+
   private async storeMessage(folderId: string, uidValidity: string, msg: {
     uid: number; source: Buffer; flags?: Set<string>; internalDate?: Date | string; modseq?: bigint; size?: number;
   }): Promise<void> {
     if (!msg.source) return;
+    this.faultWrite();
     const key = this.store.messageKey(this.account.id, folderId, uidValidity, msg.uid);
     // idempotency: the IDLE connection and the main sync connection may both reach the
     // same new UID (message_key is UNIQUE) — the second one must be a no-op, not an error.
@@ -1053,7 +1079,18 @@ export class SyncEngine {
         try {
           await this.syncFolder(p, opts);
           this.noteSuccess();
-        } catch {
+        } catch (e) {
+          // A full disk is not a connection problem and will not fix itself: stop the whole
+          // pass instead of walking the remaining folders, and do NOT report it as offline
+          // (that sends the user to check their network when the real cause is the drive).
+          // Cleared by resume(), which the host wires to the retry action.
+          if (isDiskFullError(e)) {
+            this.diskFull = true;
+            this.progress.diskFull = diskFullMessage();
+            this.progress.phase = 'disk-full';
+            this.emit({ type: 'error', path: p, message: diskFullMessage() });
+            return this.getStatus();
+          }
           // circuit breaker already noted the error; stop the pass if open. Without a
           // connection every further folder would only wait out its own connect timeout.
           if (Date.now() < this.circuitOpenUntil || this.progress.connection !== 'online') {

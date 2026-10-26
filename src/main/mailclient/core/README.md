@@ -68,6 +68,32 @@ Two things it deliberately does not do:
 `tests/mail_store_recovery.test.ts` covers both directions, including that a store from a newer build is
 still refused (`StoreVersionError`) and quarantines nothing.
 
+## A full disk pauses sync and says so
+
+A local-first client writes every body to disk and every row to SQLite, so a full disk is a matter of
+time, not an edge case. Before this it was unmodelled: a failed write inside a folder sync was swallowed
+by the per-folder catch in `syncAll`, which only consulted the circuit breaker and the connection state -
+so the app either retried the same failing download forever or reported **"offline"**, sending the user to
+check their network when the actual problem was the drive.
+
+`disk_full.ts` classifies the failure (`SQLITE_FULL`, `ENOSPC`, `EDQUOT` - measured: SQLite raises
+`SQLITE_FULL`, portable to force with `PRAGMA max_page_count`). The rule is deliberately narrow: a BUSY,
+CORRUPT or EACCES failure is **not** disk-full and keeps its own handling, because a retry can fix those.
+
+On a disk-full write the pass stops in phase `disk-full`, `SyncStatus.diskFull` carries the reason, and the
+connection state is left alone. `resume()` clears it - the host wires that to the UI retry. Nothing is deleted
+automatically: freeing space is the user call.
+
+Two traps this cost, both worth knowing before touching the path:
+
+- `syncFolderInner` catches a folder error and rethrows **only** when the circuit breaker opens. Without an
+  explicit rethrow for disk-full the error never reaches `syncAll` and the state stays `idle`.
+- `syncAll` returns a status object assembled before its `finally` settles; assert on `getStatus()`, not on the
+  returned value, or the phase reads stale.
+
+`BOOKINGIUM_FAULT_WRITE=<code>` makes the worker fail every local write with that code, so an e2e can exercise
+the real path. It is a QA seam, off unless set.
+
 ## Factory
 
 ```ts

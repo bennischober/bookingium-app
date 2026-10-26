@@ -124,13 +124,15 @@ export type SyncStatus = {
   messagesDone?: number;            // messages stored so far (initial download)
   messagesTotal?: number | null;    // server-reported total, when known
   bytesDone?: number;               // downloaded bytes so far
-  phase?: 'idle' | 'initial' | 'incremental' | 'paused' | 'error';
+  phase?: 'idle' | 'initial' | 'incremental' | 'paused' | 'error' | 'disk-full';
   paused?: boolean;                 // initial download can be paused/resumed
   accountId?: string;               // which account this status describes
   serverRssMB?: number;             // process-wide server RSS in MB (soak monitoring; not per-account)
   connection?: ConnectionState;     // 'auth-failed' is final until the host restarts the core
   retryAt?: string | null;          // when offline: ISO time of the next attempt
   connectionError?: string | null;  // the last connect failure, as the server or socket said it
+  /** Set when a write failed because the disk is full; cleared by resumeSync(). Not a connection state. */
+  diskFull?: string | null;
   /** A3: file/row consistency of this account (counts only; see MailCore.checkFileConsistency) */
   fileConsistency?: { rowsWithoutFile: number; filesWithoutRow: number; tmpFiles: number };
 };

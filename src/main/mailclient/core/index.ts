@@ -83,6 +83,9 @@ export interface MailCoreOptions {
   remoteImages?: RemoteImageFetchOptions & { enabled: boolean };
   /** testing: force the no-CONDSTORE sync strategy even on CONDSTORE servers */
   forceNoCondstore?: boolean;
+  /** testing: fail every local write with this error code, so the disk-full path can be exercised
+   *  on the real surface (the worker reads BOOKINGIUM_FAULT_WRITE to set it). Never set in production. */
+  faultWriteCode?: string;
 }
 
 export interface AccountEntry {
@@ -168,6 +171,7 @@ export class MailCore implements Api {
       store.backfillContactsOnce();
       const engine = new SyncEngine(config, store, {
         forceNoCondstore: options.forceNoCondstore,
+        faultWriteCode: options.faultWriteCode,
         log: this.log,
       });
       const writes = new WriteEngine(store, a.id, {

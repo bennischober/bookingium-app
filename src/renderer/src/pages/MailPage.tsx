@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Lock, Mail, Pause, Play, RefreshCw, Search, SquarePen, WifiOff, X } from 'lucide-react'
+import {
+  HardDrive,
+  Lock,
+  Mail,
+  Pause,
+  Play,
+  RefreshCw,
+  Search,
+  SquarePen,
+  WifiOff,
+  X
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
@@ -146,6 +157,25 @@ function SyncIndicator({
       <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
         <Spinner className="size-3" />
         <span>{label ?? 'Startet…'}</span>
+      </div>
+    )
+  }
+  // A full disk is NOT a connection problem, so this branch comes before `offline`: telling the
+  // user to check their network when the drive is full is the exact confusion this state exists
+  // to prevent. The retry clears it in the core (resumeSync), then a pass downloads again.
+  if (status.diskFull) {
+    return (
+      <div
+        className="flex items-center gap-1 text-xs text-destructive"
+        aria-live="polite"
+        title={status.diskFull}
+        data-testid="mail-disk-full"
+      >
+        <HardDrive className="size-3.5" />
+        <span>Speicherplatz voll</span>
+        <Button variant="ghost" size="icon-xs" onClick={onResume} title="Erneut versuchen">
+          <RefreshCw />
+        </Button>
       </div>
     )
   }
@@ -404,7 +434,12 @@ export default function MailPage() {
     queryFn: () => mailApi.getSyncStatus(accountId),
     enabled: ready,
     refetchInterval: (data) =>
-      data?.running || data?.connection === 'connecting' || data?.connection === 'offline'
+      data?.running ||
+      data?.connection === 'connecting' ||
+      data?.connection === 'offline' ||
+      // a full disk is a state the user can fix outside the app; keep polling so the bar clears
+      // by itself once the retry succeeds, instead of staying stuck until a reload
+      data?.diskFull
         ? 2000
         : 10_000
   })
