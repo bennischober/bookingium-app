@@ -3,7 +3,8 @@
 **Scope:** branch `feat/mail-client` at `811f04a`, the about 100 commits since the handoff (`5dd65f6`), plus
 prototype Task 6 (`REPORT6.md`). **Method:** five read-only reviews in parallel (core write path; sync, store
 and recovery; host, IPC and security; renderer; tests, CI and docs), each finding re-checked in the code before
-it was written down here. No app run against a real server, no e2e run, no mail content read.
+it was written down here. No app run against a real server, no e2e run, no mail content read. The five raw
+reports, and the list of their findings that did not make it in here, are in `docs/mail-client-review-agents/`.
 
 Each finding has an id (`MR-nn`), a place, a concrete failure scenario, a fix direction and a confidence:
 
