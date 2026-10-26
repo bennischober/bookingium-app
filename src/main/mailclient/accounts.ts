@@ -134,6 +134,9 @@ const toDto = (account: StoredAccount): MailAccountDto => ({
   security: securityOf(account),
   user: account.user,
   email: account.email,
+  // MR-13: the renderer reads this to put a signature on a new mail. It was stored and
+  // never handed back, so every account looked like it had none.
+  signature: account.signature,
   ...smtpOf(account),
   canary: isCanary(account)
 })
@@ -188,7 +191,13 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     user: input.user.trim(),
     email: input.email.trim(),
     password,
-    signature: input.signature?.trim() ? input.signature.trim() : undefined,
+    // MR-13: an OMITTED signature keeps the stored one (the account form sends nothing when the
+    // user never touched the field), while an explicit empty string clears it - otherwise opening the
+    // form and saving would wipe a signature the user never edited.
+    signature:
+      input.signature === undefined
+        ? existing?.signature
+        : input.signature.trim() || undefined,
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
     smtpPort: input.smtpPort,
     smtpSecurity: input.smtpSecurity,
