@@ -21,6 +21,10 @@ export const sandboxRequired = (): boolean => {
  *
  * `reachable` is the probe result. Locally, a missing sandbox throws with the container hint so
  * the failure names the cause instead of looking like a broken feature.
+ *
+ * On CI the suite skips - but a silent skip makes a green build that proves nothing about crash
+ * safety or sending, so the skip is also ANNOTATED on GitHub (`::warning::`), which shows up on the
+ * run's summary page instead of scrolling past in the log.
  */
 export function sandboxSkipReason(reachable: boolean, what: string, port: number): string | null {
   if (reachable) return null
@@ -31,5 +35,9 @@ export function sandboxSkipReason(reachable: boolean, what: string, port: number
         'deliberately (they are required locally and skipped in CI).'
     )
   }
-  return `${what}: sandbox not running on 127.0.0.1:${port} - suite skipped (CI)`
+  const reason = `${what}: sandbox not running on 127.0.0.1:${port} - suite skipped (CI)`
+  // A console.warn is a line in a long log. The annotation puts it on the run summary, so a green
+  // CI job that skipped the crash/SMTP suites is visibly green-with-a-gap, not silently green.
+  if (process.env.GITHUB_ACTIONS === 'true') console.log(`::warning::${reason}`)
+  return reason
 }

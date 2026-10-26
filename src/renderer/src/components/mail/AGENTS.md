@@ -12,7 +12,7 @@ Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, me
 |------|------|-------|
 | Message list | `MessageList.tsx` | selection, drag source (`MAIL_DRAG_TYPE`), snippets |
 | Message reading | `MessageView.tsx` | `mailApi.getMessage`, remote images, attachments, raw .eml |
-| Compose / reply / forward | `ComposeView.tsx` (538L) | draft save/send/discard, contact autocomplete |
+| Compose / reply / forward | `ComposeView.tsx` (917L) | draft save/send/discard, contact autocomplete |
 | Folder tree | `FolderTree.tsx` | `FolderDrop` contract for drag-to-folder |
 | Pane layout | `PaneResizer.tsx`, `MessageMenu.tsx`, `SelectionActions.tsx` | |
 | Draft state machine | `composeDraft.ts` | `ComposeState`, `emptyCompose`, `replyCompose`, `forwardCompose`, `fromSavedDraft`, `toDraftInput` |
@@ -25,7 +25,7 @@ Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, me
 - Pure logic belongs in the `.ts` modules (`composeDraft`, `format`, `selection`), covered by
   `tests/mail_compose_draft.test.ts` and `tests/mail_selection.test.ts`. Extend the helper, not the
   component, when the logic is testable.
-- German UI copy inline; addresses are formatted `Name <a@b.de>`.
+- German UI copy inline; addresses are formatted `Name <a@example.test>`.
 - Both the main window (`MailPage`) and the standalone `MailWindowPage` reuse these views - keep them
   free of page-level state.
 
@@ -42,7 +42,7 @@ Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, me
   only through `mailApi`.
 
 ## HOTSPOTS
-- `ComposeView.tsx` 538L, `MessageView.tsx` 343L, `MessageList.tsx` 280L.
+- `ComposeView.tsx` 917L, `MessageView.tsx` 600L, `MessageList.tsx` 280L.
 - `mailApi` is called from 23 places across the renderer; `format.ts` helpers are shared by both the
   main window and the mail window.
 

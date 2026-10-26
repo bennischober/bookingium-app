@@ -181,7 +181,6 @@ async function openComposeWindow(input: {
   accountId: string
   draft: ComposeDraft
   pdfPath: string
-  pdfName: string
 }): Promise<ComposeResult> {
   if (!input?.accountId || !input.draft) return { sent: false }
   // only this file may be read back by the window
@@ -193,8 +192,7 @@ async function openComposeWindow(input: {
     key,
     // base64: the JSON has characters that would break the URL fragment
     draft: Buffer.from(JSON.stringify(input.draft), 'utf8').toString('base64'),
-    pdfPath: input.pdfPath,
-    pdfName: input.pdfName
+    pdfPath: input.pdfPath
   })
   return new Promise<ComposeResult>((resolve) => {
     let settled = false
@@ -539,8 +537,7 @@ ipcMain.handle(
         const composed = await openComposeWindow({
           accountId: account.id,
           draft: { to: draft.to, subject: draft.subject, body: draft.body },
-          pdfPath: result.pdfPath,
-          pdfName: `${name}.pdf`
+          pdfPath: result.pdfPath
         })
         if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
         invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind, {

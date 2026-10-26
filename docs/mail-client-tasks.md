@@ -33,7 +33,8 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
-| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. Part 2 (canary) is **approved**, design written into the card: one named `CANARY_ACCOUNT_ID` constant rather than a third account kind, set only by a manual step, never from the UI |
+| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. Part 2 (canary) is **built** - as a FLAG set from the account dialog (`8ca6fd4`), not as the approved
+  `CANARY_ACCOUNT_ID` constant; the design sign-off is still open (review section 6). It was **approved**, design written into the card: one named `CANARY_ACCOUNT_ID` constant rather than a third account kind, set only by a manual step, never from the UI |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** approved and split into two phases 2026-10-25. The IONOS canary mailbox exists (temporary account; never send to another person, at most to another address the user owns). Phase 1 = synthetic mails, a handful of sends to the user's own address, at most 2 connections, no retry after a failed login; report counts only, then stop. Phase 2 = staged writes on the real account (flags → move → delete → send), its own go-ahead. Blocked on A7 part 2 and P1 |
 | B1 | Folder create / rename / delete | L | A3, A2 | done |
@@ -537,7 +538,8 @@ evidence.
 | `test-compose.ts` | extend `tests/mail_compose.test.ts` | no | Bcc policy |
 
 - Sandbox tests use `bookingum-e2e@example.test`, run serially (`describe.sequential`), and clean up in
-  `afterAll`. They `it.skip` when `127.0.0.1:10143` is closed, and print why.
+  `afterAll`. Since `393dcfa` they FAIL locally when `127.0.0.1:10143` is closed and skip only on CI or
+  with `BOOKINGIUM_NO_SANDBOX=1` (`tests/helpers/sandboxGate.ts`), so a skip cannot look green in a terminal.
 - Keep the default `pnpm test` under about 60 s. Long variants are behind `MAIL_LONG=1`.
 
 **Acceptance.** All ported suites pass. `pnpm test` stays fast. The skip reason is visible in the output.
@@ -889,7 +891,7 @@ depend on this. Fix it as its own card, with the stack above as the starting poi
 
 ## H: review findings 2026-10-25 (user's manual pass on the real canary mailbox)
 
-The user ran the app against the real IONOS test mailbox (`bookingium-test@bmm-ag.de`, canary flag set) and wrote up what
+The user ran the app against the real IONOS test mailbox (`bookingium-test@example.test`, canary flag set) and wrote up what
 they saw in `C:\Users\benni\Desktop\email-client-review` (5 screenshots, 3 issue files, 2 question files).
 
 **A9 phase 1 is effectively DONE, by the user, manually.** They sent a mail to their own address through the real IONOS
@@ -1307,7 +1309,84 @@ needs a decision) opens a sheet with the ops that need the user. Decisions are i
 
 ---
 
+
+### I9: gate green [fixed 2026-10-26]
+
+MR-17 and the tests/CI section. The gate was red and several tests proved less than they claimed.
+
+**What changed.**
+- `tests/mail_write_guard.test.ts`: the two-account case logs its clients out before a fake server
+  closes, so no socket is reset under a live client. `pnpm test` exits 0 twice in a row, and reverting
+  the fix brings the unhandled ECONNRESET straight back - it is not swallowed.
+- `tests/helpers/fakeImap.ts`: answers `BAD` for anything it does not implement and advertises only
+  `IMAP4rev1 AUTH=PLAIN`. It used to claim `UIDPLUS` and `MOVE` and answer `OK` to both, so a move test
+  would have passed against a server that moved nothing. Measured on the way: imapflow's `messageMove()`
+  RESOLVES even when the server answers `BAD`, so the test asserts on the raw protocol instead.
+- `tests/helpers/fakeSmtp.ts`: implements `AUTH LOGIN` (the 334 challenge/response) and refuses it with
+  wrong credentials. It advertised LOGIN and answered `250 Ok`, so a client could "authenticate" without the
+  server ever seeing its credentials. Dot-unstuffing added.
+- `tests/mail_crash_points.test.ts`: requires EXACTLY one delivery (0 used to pass), fails when Mailpit is
+  unreachable instead of returning a pass, checks that the source copy is gone after a move, removes the mail
+  it moves, counts deliveries by Message-ID (a subject prefix collides with earlier runs), and its header no
+  longer claims a process kill it never did.
+- `tests/helpers/sandboxGate.ts`: a skipped sandbox suite is annotated on GitHub
+  (`::warning::`), so a green CI run says what it could not prove.
+- `.github/workflows/ci.yml`: a Windows job beside Ubuntu, and an explicit better-sqlite3 ABI step that
+  names the Electron/Node mismatch instead of failing inside the first DB suite.
+- `tests/e2e/mail-client.spec.ts`: the data-dependent `test.skip` (no attachment, no band) now fails with
+  a reason, and the fixed sleeps the card touches became condition waits.
+- `tests/mail_sync_time.test.ts`: marked pending on I4 in a header note, because finding L3 is only NAMED in
+  the review (line 604) and its required behaviour is written nowhere; inventing it here would guess at
+  `core/sync.ts`, which is I4's file.
+
+**Tests.** `tests/mail_write_guard.test.ts` (+3), `tests/fake_smtp.test.ts` (new, 3), `tests/sandbox_gate.test.ts`
+(+2), `tests/mail_crash_points.test.ts` (strengthened). Every new assertion has a recorded mutation check;
+the report lists them.
+
+**Not verified here:** the CI jobs themselves (nothing is pushed), and the mail e2e needs the sandbox.
+
+### I10: small renderer fixes [fixed 2026-10-26]
+
+MR-13, 35, 36, 37 and the open renderer Low items. Every renderer decision that could be lifted out of a
+`.tsx` was moved into a pure module, so vitest holds it instead of a comment.
+
+**What changed.**
+- **MR-13** `src/main/mailclient/accounts.ts`: `toDto` now carries `signature`, and a save that OMITS it keeps the
+  stored one (an explicit empty string still clears it). The renderer had always received `undefined`, so no new mail
+  carried a signature and opening the account form wiped it.
+- **MR-35** new `components/mail/readingActions.ts`: only a writable account may offer reply/forward/write-to. Both
+  pages derive from it; before, `onWriteTo` and `onCompose` were passed unconditionally, so the production account
+  opened an editor whose autosave failed silently and lost the text.
+- **MR-36** new `components/mail/archiveActions.ts`: `archiveableIds` (not already in Archive, not in Trash),
+  `uncoveredIds` (show again every hidden mail no DONE op covers, matched by UID) and `archivedCount` (the toast says
+  what the core archived, not the selection). Archiving inside Archive used to hide the mail until a restart.
+- **MR-37** `shortcuts.ts`: `shortcutBlocked()` keeps the global keys out of dialogs, alert dialogs, menus, popovers,
+  the compose form and the list while an editor is open. Entf on a confirm dialog used to move the selected mail.
+- **Low:** `hiddenIds` is cleared on an account switch, `addFiles` marks the mail edited (the attachment was lost when
+  the window closed), and the reader's reply/reply-all/forward icon buttons have an `aria-label`.
+
+**Tests.** `tests/mail_account_signature.test.ts` (3), `tests/mail_readonly_actions.test.ts` (4),
+`tests/mail_archive_actions.test.ts` (12), `tests/mail_shortcuts_guard.test.ts` (8), `tests/mail_renderer_low.test.ts`
+(3). Every one has a recorded mutation check; the report lists them.
+
+**Still open from the Low list** (each needs its own card, none is a regression): reopening a draft keeps its HTML,
+`MailWindowPage` shows an error instead of spinning when `getDraft` fails, the preset PDF counts against
+`MAX_ATTACHMENT_BYTES`, unused `search.pdfName`, events of other accounts dropped and sync events not invalidating
+`search`, signature applied once, and the keyboard effect subscribing once.
+
 ## Found while working
+
+### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
+
+**Status: closed in the I9-I16 review (2026-10-26).** The I10 report read "expected 1, received 2" in
+"a mail written in the editor is saved as a draft and sent" as two deliveries. It was the Drafts count, not a delivery:
+the sandbox server keeps one leftover draft, and run alone the test read `draftsBefore` from a store that had not synced
+Drafts yet (0), then saw the leftover plus the new draft (2). Reproduced 3/3 before, 3/3 green after.
+
+The fix is in the test: each baseline now reads the server's own STATUS count (`serverTotal`) and waits until the app's
+store shows the same number before it is taken. The Ctrl+Enter-twice guard still asserts one delivery and holds it for
+3 s (`holds`, not `expect.poll`, so a late second delivery would fail it). Nothing in the send path changed.
+
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 

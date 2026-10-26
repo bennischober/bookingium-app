@@ -144,7 +144,7 @@ process host. **Never copy prototype files over bookingum's core**: you would si
 ## 5. Risk register (most severe first)
 
 **R1: the write path is sandbox-shaped, so writes for one account can go to another.**
-`write_guard.ts` keeps one module-global `SandboxConfig` (host, ports, user, password). `WriteEngine.sandboxClient()`
+**Historical: fixed in A7 part 1.** `write_guard.ts` used to keep one module-global `SandboxConfig`; every writable account now carries its own IMAP and SMTP endpoint and the guard decides per account. The original note follows. `WriteEngine.sandboxClient()`
 and `sandboxSmtp()` always use it, whatever account the op belongs to. `MailClientService.workerInit()` fills it from
 the **first** sandbox account. So:
 

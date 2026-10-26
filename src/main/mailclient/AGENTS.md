@@ -37,8 +37,8 @@ store, a utility-process worker, and the self-contained `core/` engine.
   refused.
 - `mailRoot()` is `<userData>/mail`; the core's `dataDir` is `<userData>/mail/data`
   with one folder per account.
-- `sandbox` is one global endpoint for all writable accounts (known limitation,
-  docs/mail-client-assessment.md R1) - never assume per-account sandboxes.
+- Every writable account carries its OWN IMAP and SMTP endpoint (A7 part 1); the write guard decides
+  per account from the account itself. There is no global sandbox config any more.
 
 ## ANTI-PATTERNS
 - Storing or logging a plaintext password; saving an account when `safeStorage`
@@ -52,6 +52,6 @@ store, a utility-process worker, and the self-contained `core/` engine.
   database, the mail store is rebuildable from the server.
 
 ## HOTSPOTS
-- `core/sync.ts` 1306 and `core/index.ts` 918 - the two files almost every mail
+- `core/sync.ts` 1465 and `core/index.ts` 1565 - the two files almost every mail
   bug lands in.
 - `protocol.ts` + `core/types.ts` - the cross-process contract; both must agree.

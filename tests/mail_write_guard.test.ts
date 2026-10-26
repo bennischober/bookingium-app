@@ -1,7 +1,8 @@
 // A7 part 1: writes go to THAT account's servers. The guard decides per account
 // from the account itself - no global "the sandbox" anymore. The rules are pure, so
-// they are tested directly; the two-account case runs against the real sandbox,
-// which gives every user name its own maildir.
+// they are tested directly; the two-account case runs against two fake IMAP servers,
+// which record each connection's LOGIN and keep a mailbox per user.
+import net from 'net'
 import { afterEach, describe, expect, it } from 'vitest'
 import { boxOf, startFakeImap, type FakeImap } from './helpers/fakeImap'
 import {
@@ -88,6 +89,11 @@ describe('A7: the write guard decides per account', () => {
   })
 })
 
+/** The minimal write account these fake-server cases need */
+function account(imapPort: number): WriteAccount {
+  return sandbox({ id: 'a7-fake', imapPort })
+}
+
 describe('A7: two accounts write into their own mailbox', () => {
   // The sandbox gave every user name its own maildir, so the old version of this test proved
   // Dovecot's isolation - not our wiring - and it needed a live container on 127.0.0.1:10143,
@@ -137,6 +143,80 @@ describe('A7: two accounts write into their own mailbox', () => {
     expect(boxOf(second, 'a7-zweite@example.test', 'INBOX')).toHaveLength(1)
     expect(boxOf(second, 'a7-erste@example.test', 'INBOX')).toHaveLength(0)
 
+    // MR-17: the clients must be logged out BEFORE a server is closed. Closing a server while
+    // a client still holds its socket makes the read fail with ECONNRESET, which no listener
+    // catches - it escapes as an unhandled error and turns the whole gate red (exit 1), even
+    // though every assertion passed. The connection list is drained here, and the server closes
+    // afterwards in afterEach.
+    while (connections.length) await connections.pop()!.close()
     await second.close()
+  }, 30_000)
+})
+
+/** One raw IMAP command, so the server's own answer is observable (imapflow hides a BAD). */
+function rawCommand(port: number, command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1')
+    let seen = ''
+    socket.setTimeout(5000, () => {
+      socket.destroy()
+      reject(new Error('timeout'))
+    })
+    socket.on('data', (chunk) => {
+      seen += chunk.toString('utf8')
+      const line = seen.split('\r\n').find((l) => l.startsWith(command.split(' ')[0] + ' '))
+      if (line !== undefined) {
+        socket.destroy()
+        resolve(line)
+      }
+    })
+    socket.on('error', reject)
+    socket.on('connect', () => socket.write(`${command}\r\n`))
+  })
+}
+
+describe('fakeImap: it refuses what it does not implement (MR-17 follow-up)', () => {
+  let server: FakeImap
+  const connections: { close: () => Promise<void> }[] = []
+
+  afterEach(async () => {
+    while (connections.length) await connections.pop()!.close()
+    if (server) await server.close()
+  })
+
+  async function connect(account: WriteAccount, user: string, pass: string) {
+    const client = await connectWriteImap(account, { user, pass })
+    connections.push({ close: () => client.logout().catch(() => undefined) })
+    return client
+  }
+
+  it('advertises only the capabilities it really implements', async () => {
+    // It used to claim UIDPLUS and MOVE and implement neither, so a move test would have
+    // "passed" against a command that did nothing. The advertised list is the contract.
+    server = await startFakeImap()
+    const client = await connect(account(server.port), 'a7-fake@example.test', 'pass')
+    expect(client.capabilities.has('UIDPLUS')).toBe(false)
+    expect(client.capabilities.has('MOVE')).toBe(false)
+  }, 30_000)
+
+  it('answers BAD for a command it does not implement', async () => {
+    // The property that matters: a command this server cannot perform must not answer OK, or a
+    // future move test would pass while nothing moved.
+    //
+    // Asserted on the PROTOCOL, not through imapflow: measured, imapflow's messageMove() RESOLVES
+    // (undefined) even when the server answers BAD. A test that only checked "does not throw" would
+    // therefore pass against a server that refused the move - the exact false confidence this card
+    // is about. A raw socket is the only place the answer is visible.
+    server = await startFakeImap()
+    const reply = await rawCommand(server.port, 'a1 MOVE 1 INBOX')
+    expect(reply).toMatch(/^a1 BAD /)
+  }, 30_000)
+
+  it('still accepts the commands it does implement', async () => {
+    // The negative half: BAD must not become "refuse everything", or the real users of this
+    // helper (the endpoint/credential cases) would start failing for the wrong reason.
+    server = await startFakeImap()
+    const reply = await rawCommand(server.port, 'a2 NOOP')
+    expect(reply).toMatch(/^a2 OK /)
   }, 30_000)
 })

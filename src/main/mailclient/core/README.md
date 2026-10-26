@@ -121,7 +121,7 @@ core.api;        // MailCore IS the Api implementation (types.ts)
 core.on('sync-event', cb);   // sync progress events (see below)
 core.on('op-event', cb);     // write-op journal state changes
 core.start();    // initial sync + IDLE + polling + pending-op replay (5 s after start)
-core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host schedules it (not yet scheduled, see docs/mail-client-tasks.md A3)
+core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host schedules it (`worker.ts`, 10 min after start then every 6 h)
 await core.close();   // shutdown contract, see below
 ```
 

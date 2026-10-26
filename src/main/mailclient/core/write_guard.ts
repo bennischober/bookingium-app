@@ -8,7 +8,8 @@
 // A7 part 2: the CANARY is the one exception - exactly one real mailbox, admitted by
 // name. Not a third account kind: `MailAccountKind` is read in 22 places and every one
 // of them would be a place a real account could slip through, while this admission is
-// auditable on one screen and revoked by deleting one constant.
+// auditable on one screen and revoked by switching the flag off in the account dialog (it was a
+// hard-coded id in the prototype; this is a flag set from the UI).
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';

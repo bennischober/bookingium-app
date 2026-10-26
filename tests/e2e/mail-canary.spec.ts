@@ -1,7 +1,8 @@
 // A9 phase 1: the canary run - does the write path work against a REAL mailbox?
 //
 // The only suite that may touch a real server. Gated so it skips visibly instead:
-//   1. an account whose id is CANARY_ACCOUNT_ID must be saved in the app's profile.
+//   1. an account carrying the canary FLAG must be saved in the app's profile (it is a checkbox in the
+//      account dialog, not a hard-coded id - the prototype's constant was replaced in `8ca6fd4`).
 //      That is a manual step: the password only ever exists as safeStorage
 //      ciphertext, so a test cannot create it.
 //   2. that account must carry an address, which is the only one it may mail.

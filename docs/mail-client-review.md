@@ -151,8 +151,8 @@ are fixed and tested. Card group **I** at the end orders the work.
 #### MR-08: reply and forward text is put into the editor as HTML (confirmed)
 - **Where:** `components/mail/composeBody.ts:166`: `if (/<[a-zA-Z/][^>]*>/.test(body)) return body`.
   `ComposeView.tsx:256` puts the result into `innerHTML`.
-- **Scenario:** every forward of a sender with a display name contains `Name <a@b.de>`
-  (`composeDraft.ts:108`). The whole text is then parsed as HTML: line breaks collapse and `<a@b.de>`
+- **Scenario:** every forward of a sender with a display name contains `Name <a@example.test>`
+  (`composeDraft.ts:108`). The whole text is then parsed as HTML: line breaks collapse and `<a@example.test>`
   disappears, so the sent mail has a one-line quote with the addresses missing. A subject or body an attacker
   controls (`<style>…`) restyles the privileged app window, where `style-src 'unsafe-inline'` applies.
 - **Fix:** never sniff. Escape plain text always. HTML only from `bodyHtml`, after the compose allowlist.
@@ -203,6 +203,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   failing closed with a clear message. Product-wise this depends on the canary going to phase 2 (section 7).
 
 #### MR-13: the account signature (B8) is never shown and is wiped on save (confirmed)
+**Status: fixed in I10.** `toDto` carries `signature` again, and a save that omits it keeps the stored one (an explicit empty string clears it). Round-trip tests in `tests/mail_account_signature.test.ts`, each with a mutation check.
 - **Where:** `mailclient/accounts.ts:129-139`: `toDto` leaves out `signature`. `:191` saves
   `input.signature`, which is undefined when the form had no value.
 - **Scenario:** the renderer reads `account.signature` (MailPage ~509, MailWindowPage ~164/227,
@@ -239,6 +240,9 @@ are fixed and tested. Card group **I** at the end orders the work.
   design. The SMTP-phase part is in MR-03.
 
 #### MR-17: the test gate is red (confirmed)
+**Status: fixed in I9 (2026-10-26).** The two-account case now logs its imapflow clients out before
+closing a fake server, so no socket is reset under a live client and `pnpm test` exits 0. Verified twice in
+a row, and the fix is not a swallowed error: reverting it brings the unhandled ECONNRESET straight back.
 - **Where:** `tests/mail_write_guard.test.ts:140` closes the second fake server while an imapflow client is
   still connected. `read ECONNRESET` is an unhandled error, so `pnpm test` exits 1 (673 passed, 2 skipped,
   1 error).
@@ -441,6 +445,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   containing `/` fails today.
 
 #### MR-35: the renderer can start writes on a read-only account (confirmed)
+**Status: fixed in I10.** The rule moved to `components/mail/readingActions.ts`; both pages derive from it and pass no write callback on a read-only account. `tests/mail_readonly_actions.test.ts`.
 - **Where:** `components/mail/MessageView.tsx:350-363` and `:523-541`. `MailPage.tsx:1295` and
   `MailWindowPage.tsx:226` always pass `onWriteTo`.
 - **Scenario:** clicking a sender on the production account opens an editor. The autosave fails silently
@@ -448,6 +453,7 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** pass `onWriteTo` only when `canWrite`.
 
 #### MR-36: archiving inside Archive hides mails until a restart (confirmed)
+**Status: fixed in I10.** `components/mail/archiveActions.ts`: the action filters its ids, is hidden when nothing qualifies, every uncovered hidden mail is shown again, and the toast counts what the core archived. `tests/mail_archive_actions.test.ts`.
 - **Where:** `MailPage.tsx:643/668/1292`: `hasArchive` is global. `core/index.ts:477-479` skips self-moves and
   returns `[]`. The G7 release effect only shows a mail again once it has left the list.
 - **Scenario:** "Archivieren" in Archive shows "Archiviert", the mails disappear and do not come back until an
@@ -456,6 +462,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   returned op covers.
 
 #### MR-37: global shortcuts ignore dialogs and buttons (code)
+**Status: fixed in I10.** `shortcutBlocked()` in `shortcuts.ts` covers dialogs, alert dialogs, menus, popovers, the compose form and an open editor. `tests/mail_shortcuts_guard.test.ts`.
 - **Where:** `components/mail/shortcuts.ts` (`isTypingTarget`) and the `MailPage.tsx` keydown effect
   (842-895).
 - **Scenario:** Entf while focus is on a confirm dialog, a popover or a compose button moves the selected list

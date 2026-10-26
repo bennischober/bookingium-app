@@ -51,12 +51,8 @@ const api = {
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
   /** C1: bookingum's own editor for a prepared draft; resolves when sent or closed */
-  composeInOwnEditor: (input: {
-    accountId: string
-    draft: unknown
-    pdfPath: string
-    pdfName: string
-  }) => ipcRenderer.invoke('mail:composeWindow', input),
+  composeInOwnEditor: (input: { accountId: string; draft: unknown; pdfPath: string }) =>
+    ipcRenderer.invoke('mail:composeWindow', input),
 
   /** C1: the compose window reports a successful send */
   reportComposeSent: (key: string, messageId: string) =>

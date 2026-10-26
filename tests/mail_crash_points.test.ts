@@ -1,15 +1,17 @@
-// A8: crash/replay safety against the real sandbox Dovecot, ported from the prototype's
-// test-crash-points. Unlike the prototype this does not need a fault proxy: it kills the
-// process that runs one op, then replays from the journal in a fresh process, which is the
-// same recovery claim without the extra moving part.
+// A8: crash/replay safety against the real sandbox Dovecot.
+//
+// What it really does: it journals an op, never runs it (exactly the state a killed process leaves
+// behind), then replays it through a fresh engine in the same process. It does NOT kill or start a
+// process - the journal row is the whole recovery claim, and the replay path is the same code a
+// restart uses. The header used to claim a kill and a fresh process, which was not true.
 //
 // Proven here:
-//   R1. after a kill mid-op, replay completes the op or marks a conflict - never silent loss
-//   R2. a move never duplicates: the destination holds exactly one copy
+//   R1. a pending op replays to completion (or a conflict) - never silent loss
+//   R2. a move never duplicates: the destination holds exactly one copy, and the source loses it
 //   R3. a send never sends twice: Mailpit holds exactly one delivery per Message-ID
 //
-// Skips (with a visible reason) when the sandbox is down. Counts are compared before and
-// after, and every mail this suite creates is removed again.
+// Skips (with a visible reason) when the sandbox is down. Every mail this suite creates is removed
+// again, in the folder it created it in.
 import { sandboxWriteAccount, sandboxCredentials } from './helpers/writeAccount'
 import { sandboxSkipReason } from './helpers/sandboxGate'
 import fs from 'fs'
@@ -95,13 +97,20 @@ async function folderCount(folder: string): Promise<number> {
   }
 }
 
-/** Mails in Mailpit whose subject starts with the prefix (delivery proof) */
-async function mailpitCount(prefix: string): Promise<number> {
+/** Deliveries of ONE message, found by its Message-ID.
+ *
+ * Counting by subject prefix is not enough: earlier runs leave mails with the same prefix in the
+ * shared sandbox, so a "delta of 1" can be satisfied by an OLD message and a real send that never
+ * happened still looks like a pass. The Message-ID carries the run's own timestamp, so it is unique.
+ * -1 means the API could not be reached; the caller must fail on that rather than pass. */
+async function mailpitDeliveries(messageId: string): Promise<number> {
   try {
-    const r = await fetch(`http://${HOST}:${MAILPIT_API}/api/v1/messages?limit=500`)
+    // limit=1000: a busy shared sandbox holds more than 500, and a miss would read as "0 delivered".
+    const r = await fetch(`http://${HOST}:${MAILPIT_API}/api/v1/messages?limit=1000`)
     if (!r.ok) return -1
-    const body = (await r.json()) as { messages?: { Subject?: string }[] }
-    return (body.messages ?? []).filter((m) => (m.Subject ?? '').startsWith(prefix)).length
+    const body = (await r.json()) as { messages?: { MessageID?: string }[] }
+    const bare = messageId.replace(/^<|>$/g, '')
+    return (body.messages ?? []).filter((m) => (m.MessageID ?? '') === bare).length
   } catch {
     return -1
   }
@@ -178,6 +187,7 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
     const store = new Store(dir, 'crash')
     const sync = new SyncEngine(account(dir), store)
     const before = await folderCount(FOLDER_B)
+    const sourceBefore = await folderCount(FOLDER)
     try {
       // Sync so the store knows the mail and the folder ids
       await sync.syncFolderList()
@@ -210,10 +220,17 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
       const result = await writes.execute(op)
       expect(['done', 'conflict']).toContain(result.outcome)
 
-      // R2: exactly one copy at the destination, never two
+      // R2: exactly one copy at the destination, never two...
       const after = await folderCount(FOLDER_B)
       expect(after - before).toBe(1)
+      // ...and the source lost its copy. Without this the move could have COPIED: the
+      // destination would still show exactly one new message.
+      const sourceAfter = await folderCount(FOLDER)
+      expect(sourceAfter).toBe(sourceBefore - 1)
     } finally {
+      // The moved mail now sits in FOLDER_B; it is this suite's own, so it goes
+      await deleteBySubject(FOLDER_B, subject)
+      await deleteBySubject(FOLDER, subject)
       store.close()
     }
   }, 120_000)
@@ -224,7 +241,16 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
     const subject = `${SUBJECT_PREFIX}send-${Date.now()}`
     const messageId = `<${subject}@example.test>`
     try {
-      const before = await mailpitCount(subject)
+      // Baseline BEFORE the send: measuring after it makes the delta always 0, which is what a
+      // first version of this fix did.
+      const beforeCount = await mailpitDeliveries(messageId)
+      if (beforeCount < 0) {
+        throw new Error(
+          `Mailpit API not reachable on ${HOST}:${MAILPIT_API} - the send-dedup claim cannot be verified`
+        )
+      }
+      expect(beforeCount).toBe(0)
+
       // A send op that never ran: exactly the crash-before-SMTP case
       const opId = store.journalEnqueue({
         accountId: 'crash',
@@ -246,20 +272,19 @@ describe.skipIf(!sandboxUp)('crash points and replay (sandbox)', () => {
       const first = await writes.execute(store.journalGet(opId)!)
       expect(['done', 'unknown', 'failed']).toContain(first.outcome)
 
+      // The sink must have been reachable from the start, or the dedup claim is unproven. This used
+      // to `return` (a PASS) when Mailpit was down, so the test proved nothing on exactly the
+      // machines where the sandbox was misconfigured.
+
       // Replay the very same op (as a restart would): never a second delivery
       if (first.outcome === 'done') {
         const replay = await writes.execute(store.journalGet(opId)!)
         expect(['done', 'noop', 'unknown']).toContain(replay.outcome)
       }
 
-      const after = await mailpitCount(subject)
-      // The sink may not be reachable from here; then the claim is unproven and the
-      // test says so instead of passing silently.
-      if (after < 0) {
-        console.warn('mailpit API not reachable: send-dedup not verified')
-        return
-      }
-      expect(after - before).toBeLessThanOrEqual(1)
+      const after = await mailpitDeliveries(messageId)
+      // EXACTLY one: 0 deliveries means the send never happened (the old `<= 1` passed on that).
+      expect(after).toBe(1)
     } finally {
       // The mail reached the sandbox's Sent folder; it goes again, so the sandbox
       // stays as the suite found it

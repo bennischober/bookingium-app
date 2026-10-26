@@ -7,10 +7,10 @@ Status legend: "Confirmed" means I verified it by reading the code. "Plausible" 
 **1. toEditorHtml passes any reply or forward text through as raw HTML** (Confirmed)
 - Where: src/renderer/src/components/mail/composeBody.ts:166-167 (`if (/<[a-zA-Z/][^>]*>/.test(body)) return body`). The result is fed to `el.innerHTML` in ComposeView.tsx:256-262.
 - What triggers it: any text containing `<letter…>`.
-  - Every forward of a sender with a display name. composeDraft.ts:108 writes `Name <a@b.de>`.
+  - Every forward of a sender with a display name. composeDraft.ts:108 writes `Name <a@example.test>`.
   - Quoted plain-text parts with `<https://…>` or earlier `Name <x@y>` attribution lines.
   - A literal "<b>" the user typed into a saved draft.
-- Failure 1, the body is mangled: the text is parsed as HTML. Newlines collapse, and `<a@b.de>` becomes an unknown element that disappears. After the first keystroke, bodyText is re-derived from that DOM, so the sent mail has a one-line quote with the addresses missing.
+- Failure 1, the body is mangled: the text is parsed as HTML. Newlines collapse, and `<a@example.test>` becomes an unknown element that disappears. After the first keystroke, bodyText is re-derived from that DOM, so the sent mail has a one-line quote with the addresses missing.
 - Failure 2, security: attacker-controlled mail text, fromName or subject becomes live markup in the privileged renderer (sandbox:false, window.api exposed).
   - CSP `script-src 'self'` blocks scripts and inline handlers.
   - `style-src 'unsafe-inline'` allows an injected `<style>` that restyles or overlays the whole app, for example hiding or faking the To field. That is UI redress inside the trusted window.

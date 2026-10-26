@@ -10,8 +10,9 @@
 //     pathological case where the lock file check is defeated (e.g. two different
 //     data dirs symlinked to the same folder)
 //
-// The lock is released on close() AND on process exit (process-level handler installed
-// by the factory). A second createMailCore on the same data dir throws immediately
+// The lock is released on close() only - there is NO process-exit handler, so a process killed
+// without close() leaves a stale lock that the PID-liveness check breaks on the next start.
+// A second createMailCore on the same data dir throws immediately
 // with a clear error — never runs side by side.
 import fs from 'fs';
 import path from 'path';

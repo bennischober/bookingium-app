@@ -1,10 +1,20 @@
-// H1: "Synchronisiert HH:MM" must mean "we last talked to the server", not "a full
-// syncAll() finished once".
+// H1: "Synchronisiert HH:MM" must mean "we last talked to the server", not "a full syncAll()
+// finished once".
 //
 // The poll runs every 2 minutes and is what keeps the mailbox current, but it never touched
 // lastSyncAt - so the label could sit hours in the past while the mailbox was demonstrably
 // up to date. The user read that as "my mail is stale", which is exactly the question the
 // label is supposed to answer.
+//
+// I9 NOTE - this file is PENDING ON I4, on purpose.
+// Review finding L3 says this suite "asserts that the time moves, which is exactly the wrong
+// behaviour of L3", but L3 is only ever NAMED in docs/mail-client-review.md (line 604, in the
+// "tests that prove less" list); its required behaviour is not written down anywhere in the repo.
+// Writing a test for it here would mean inventing that behaviour, and the behaviour lives in
+// core/sync.ts - which is I4's file (docs/mail-client-handoff.md section 4: "I4, then I12, then
+// I15a, all three change sync.ts"). So the first test below keeps its H1 claim (a poll that really
+// contacted the server moves the time) and the file carries this note instead of a guess.
+// I4 owns turning L3 into an assertion.
 import fs from 'fs'
 import net from 'net'
 import os from 'os'

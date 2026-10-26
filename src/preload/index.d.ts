@@ -90,7 +90,6 @@ export interface DocumentAPI {
     accountId: string
     draft: unknown
     pdfPath: string
-    pdfName: string
   }) => Promise<{ sent: boolean; messageId?: string }>
   /** C1: the compose window reports a successful send */
   reportComposeSent: (key: string, messageId: string) => Promise<void>

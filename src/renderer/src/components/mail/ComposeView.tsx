@@ -626,6 +626,9 @@ export function ComposeView({
           base64: await readBase64(file)
         }))
       )
+      // I10 Low: an attachment added here is an edit like any other, or the autosave never runs
+      // and the attachment is lost when the window closes
+      edited.current = true
       setMail((m) => ({ ...m, attachments: [...m.attachments, ...added] }))
     } catch (error) {
       toast.error('Datei konnte nicht angehängt werden', { description: errorText(error) })

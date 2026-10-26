@@ -18,6 +18,7 @@ import {
 } from '@/components/mail/composeDraft'
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
+import { readingActions } from '@/components/mail/readingActions'
 import type { MessageDetail } from '../../../main/mailclient/core/types'
 
 const failed = (title: string) => (error: unknown) =>
@@ -36,7 +37,6 @@ export default function MailWindowPage() {
     key?: string
     draft?: string
     pdfPath?: string
-    pdfName?: string
   }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
@@ -57,7 +57,6 @@ export default function MailWindowPage() {
       return {
         key: search.key ?? '',
         pdfPath: search.pdfPath ?? '',
-        pdfName: search.pdfName ?? '',
         to: draft.to ?? '',
         subject: draft.subject ?? '',
         body: draft.body ?? ''
@@ -65,12 +64,14 @@ export default function MailWindowPage() {
     } catch {
       return null
     }
-  }, [search.mode, search.key, search.draft, search.pdfPath, search.pdfName])
+  }, [search.mode, search.key, search.draft, search.pdfPath])
   const queryClient = useQueryClient()
 
   const accounts = trpcReact.mail.accounts.list.useQuery()
   const account = accounts.data?.find((a) => a.id === accountId)
-  const canWrite = account?.kind === 'sandbox'
+  // MR-35: the same rule as the mail page - no write action on a read-only account
+  const reading = readingActions(account)
+  const canWrite = reading.canWrite
 
   const folders = useQuery({
     queryKey: ['mail', accountId, 'folders'],
@@ -131,7 +132,11 @@ export default function MailWindowPage() {
   trpcReact.mail.events.useSubscription(undefined, {
     enabled: Boolean(accountId),
     onData: (event) => {
-      if (event.accountId !== accountId || event.type !== 'op-event') return
+      // I16 item 18: this used to filter to op-events, so an isDraft or folder change arriving as a
+      // sync event left the window showing the old derivation until a refetch. image-progress is
+      // MessageView's own business and fires once per remote image: refetching the mail for each
+      // would re-parse and re-sanitize it while its images load.
+      if (event.accountId !== accountId || event.type === 'image-progress') return
       void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
       void queryClient.invalidateQueries({ queryKey: messageKey(accountId, messageId) })
     }
@@ -176,10 +181,17 @@ export default function MailWindowPage() {
       </div>
     )
   }
+  // I16 item 17: a compose request for an account that may not send says so - without this it fell
+  // through to MessageView with no message id and showed nothing
+  if (composeRequest && !canWrite) {
+    return (
+      <p className="p-6 text-sm text-destructive">Mit diesem Konto kann nicht gesendet werden.</p>
+    )
+  }
 
   return (
     <div className="flex h-screen min-h-0 flex-col">
-      {composeRequest && composeInitial ? (
+      {composeRequest && composeInitial && canWrite ? (
         <ComposeView
           key={`compose-${composeRequest.key}`}
           accountId={accountId}
@@ -196,7 +208,6 @@ export default function MailWindowPage() {
           initial={compose.state}
           onClose={() => (compose.closesWindow ? window.close() : setCompose(null))}
           onStored={() => undefined}
-          presetPdfPath={composeRequest?.pdfPath}
           onSent={
             composeRequest
               ? (messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)
@@ -222,9 +233,12 @@ export default function MailWindowPage() {
               ? (id) => moveAway(id, 'archive')
               : undefined
           }
-          onCompose={composeFrom}
-          onWriteTo={(address) =>
-            setCompose({ key: Date.now(), state: composeTo(address, account?.signature) })
+          onCompose={reading.canCompose ? composeFrom : undefined}
+          onWriteTo={
+            reading.canWriteTo
+              ? (address) =>
+                  setCompose({ key: Date.now(), state: composeTo(address, account?.signature) })
+              : undefined
           }
         />
       )}

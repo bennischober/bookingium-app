@@ -4,6 +4,10 @@
 # months without anyone noticing. This job runs exactly what the project's own gate list says:
 # tests, lint, both typecheck configs, then the build.
 #
+# Two runners, because this is a Windows-first Electron app: ubuntu-latest is the fast gate, and
+# windows-latest catches the path and file-locking differences that only appear there (the mail
+# store, the .eml rename retries and the account store all behave differently on Windows).
+#
 # What it deliberately does NOT do:
 #   - e2e (Playwright) is not run. The specs launch the built Electron app against a live
 #     Dovecot/Mailpit sandbox and are slow; several are gated on that sandbox existing, and a
@@ -11,6 +15,10 @@
 #     produce a green build that proves nothing. They stay a manual gate for now.
 #   - the e-invoice validators (KoSIT/veraPDF) need Java 11+ and external binaries; those
 #     suites self-skip without them.
+#
+# The sandbox-backed suites (mail crash points, SMTP auth) therefore SKIP in CI. That skip is
+# annotated as a GitHub warning (tests/helpers/sandboxGate.ts), so the run summary says what it
+# could not prove instead of showing a plain green.
 name: CI
 
 on:
@@ -24,7 +32,11 @@ concurrency:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,9 +52,30 @@ jobs:
       # scripts for an allowlist - it is on that list, so this installs without --ignore-scripts
       - run: pnpm install --frozen-lockfile
 
+      # The ABI question, answered explicitly instead of failing deep inside the first DB suite.
+      # postinstall rebuilds better-sqlite3 for Electron's ABI, while vitest loads it under plain
+      # Node 24. If those differ, every DB suite dies with NODE_MODULE_VERSION and the cause is
+      # buried in the output. This step names the mismatch in one line.
+      - name: Native module loads under Node
+        shell: bash
+        run: |
+          node -e "
+            try {
+              const Database = require('better-sqlite3');
+              const db = new Database(':memory:');
+              db.exec('CREATE TABLE t (a INTEGER)');
+              db.close();
+              console.log('better-sqlite3 loads under Node ' + process.version);
+            } catch (e) {
+              console.error('better-sqlite3 does NOT load under Node: ' + e.message);
+              console.error('This is the Electron/Node ABI mismatch. Rebuild for Node before pnpm test:');
+              console.error('  pnpm rebuild better-sqlite3');
+              process.exit(1);
+            }
+          "
+
       # CI has no Dovecot/Mailpit. The sandbox-backed suites (mail crash points, SMTP auth)
-      # skip there with a visible reason; locally the same suites are REQUIRED and fail loudly
-      # when the containers are missing (tests/helpers/sandboxGate.ts).
+      # skip there, and the skip is annotated as a warning so the run says what it did not cover.
       - name: Test
         run: pnpm test
         env:
