@@ -196,14 +196,16 @@ pnpm -s build
 pnpm -s exec playwright test tests/e2e/mail-client.spec.ts
 ```
 
-- **Baseline (2026-10-24, `62f5956`):** typecheck passes; vitest 244 passed / 2 skipped; lint **fails with 19 errors
-  in core** until T1 is done (after T1 it must be 0 errors); E2E mail 14/14 with the sandbox up.
+- **Baseline (2026-10-26, I16):** typecheck passes; vitest 777 passed / 2 skipped (the two e-invoice validators
+  skip without KoSIT/veraPDF); lint 0 errors, 43 warnings; E2E mail 34/34 with the sandbox up. The old baseline
+  (244 passed, 19 lint errors) is historical: T1 and I9 cleared both.
 - After touching non-mail code, also run the full E2E suite: `pnpm -s exec playwright test` (it runs with one
   worker, so it takes a while: use a long timeout).
 - **Sandbox check for E2E:** the E2E suite must leave the sandbox as it found it. Compare per-folder message counts
   of the E2E mailbox before and after (`node scripts/mail-sandbox-counts.mjs`; counts only, never
   subjects or addresses).
-- **If the sandbox is down** (`127.0.0.1:10143` closed), the mail E2E tests skip. A skip is **not** a pass: say so
+- **If the sandbox is down** (`127.0.0.1:10143` closed), the mail unit suites skip on CI and FAIL locally
+  (`tests/helpers/sandboxGate.ts`), and the mail E2E tests skip. A skip is **not** a pass: say so
   in your report, and do not start or restart the containers yourself unless the user says so. Another agent's fuzz
   harness may be using them.
 - If a gate fails and the failure is unrelated to your change, stop and report it with the output. Do not "fix"

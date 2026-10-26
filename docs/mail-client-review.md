@@ -151,8 +151,8 @@ are fixed and tested. Card group **I** at the end orders the work.
 #### MR-08: reply and forward text is put into the editor as HTML (confirmed)
 - **Where:** `components/mail/composeBody.ts:166`: `if (/<[a-zA-Z/][^>]*>/.test(body)) return body`.
   `ComposeView.tsx:256` puts the result into `innerHTML`.
-- **Scenario:** every forward of a sender with a display name contains `Name <a@b.de>`
-  (`composeDraft.ts:108`). The whole text is then parsed as HTML: line breaks collapse and `<a@b.de>`
+- **Scenario:** every forward of a sender with a display name contains `Name <a@example.test>`
+  (`composeDraft.ts:108`). The whole text is then parsed as HTML: line breaks collapse and `<a@example.test>`
   disappears, so the sent mail has a one-line quote with the addresses missing. A subject or body an attacker
   controls (`<style>…`) restyles the privileged app window, where `style-src 'unsafe-inline'` applies.
 - **Fix:** never sniff. Escape plain text always. HTML only from `bodyHtml`, after the compose allowlist.

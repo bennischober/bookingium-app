@@ -71,7 +71,10 @@ function scratchDir(): string {
  * `listOpenOps` for the journal, `checkFileConsistency` for the files - so the checker measures what the app
  * itself believes, not a second opinion built in the harness.
  */
-async function runOnce(seed: number, opCount: number): Promise<{ seed: number; ops: Op[]; failures: ReturnType<typeof checkInvariants> }> {
+async function runOnce(
+  seed: number,
+  opCount: number
+): Promise<{ seed: number; ops: Op[]; failures: ReturnType<typeof checkInvariants> }> {
   const dir = scratchDir()
   let core: MailCore | null = null
   try {
@@ -240,11 +243,14 @@ async function removeServerFolder(folder: string): Promise<void> {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   if (!(await reachable(PORT))) {
-    console.error(`the mail sandbox is not reachable on ${HOST}:${PORT} - start the Dovecot container`)
+    console.error(
+      `the mail sandbox is not reachable on ${HOST}:${PORT} - start the Dovecot container`
+    )
     process.exit(2)
   }
 
-  const seeds = args.seed !== undefined ? [args.seed] : Array.from({ length: args.seeds ?? 1 }, (_, i) => i + 1)
+  const seeds =
+    args.seed !== undefined ? [args.seed] : Array.from({ length: args.seeds ?? 1 }, (_, i) => i + 1)
   let failed = 0
   let totalOps = 0
 
@@ -254,7 +260,9 @@ async function main(): Promise<void> {
     if (result.failures.length > 0) {
       failed++
       // The seed and the op list, never any content - this is the line a report or issue carries
-      console.error(failureReport({ seed, ops: result.ops.map(describeOp), failures: result.failures }))
+      console.error(
+        failureReport({ seed, ops: result.ops.map(describeOp), failures: result.failures })
+      )
     }
   }
 

@@ -37,7 +37,7 @@ Mail client, its integration into bookingum and the direction: see `docs/mail-cl
 ## Data
 
 - Persons imported before role parsing existed carry the role in the name
-  ("Booking: Lea Grötzinger", "Geschäftsführer: Thilo Ziegler"). Decided:
+  (a leading "Rolle: " prefix). Decided:
   clean up the data once (move the role onto the membership), the importer
   stays as it is.
 

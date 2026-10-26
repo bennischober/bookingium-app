@@ -30,7 +30,11 @@ export type Snapshot = {
 }
 
 export type InvariantFailure = {
-  invariant: 'no-message-lost-or-duplicated' | 'store-matches-server' | 'no-op-left-running' | 'no-orphan-files'
+  invariant:
+    | 'no-message-lost-or-duplicated'
+    | 'store-matches-server'
+    | 'no-op-left-running'
+    | 'no-orphan-files'
   detail: string
 }
 

@@ -49,8 +49,8 @@ module map and factory reference - read it before changing anything here.
 - Two instances on one store (the lock makes that structurally impossible).
 
 ## HOTSPOTS
-- `sync.ts` 1306 - tiered CONDSTORE/QRESYNC sync, IDLE, pacing, circuit breaker.
-- `index.ts` 918 - the full `Api` implementation and lifecycle.
+- `sync.ts` 1465 - tiered CONDSTORE/QRESYNC sync, IDLE, pacing, circuit breaker.
+- `index.ts` 1565 - the full `Api` implementation and lifecycle.
 - `store.ts` 586 - schema, FTS5 search, op journal (has `as any[]` and one
   `console.log` that violate the folder's own rules).
 - `write_engine.ts` 525 - serialized op playback, verify-before-replay.

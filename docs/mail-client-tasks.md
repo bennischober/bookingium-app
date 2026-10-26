@@ -33,7 +33,8 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | A4 | One file base | S | A3 | done |
 | A5 | Draft replay probe + old-version cleanup (F5) | M | A2 | done |
 | A6 | Stuck-op watchdog (instead of the hard timeout) | M | A2 | done |
-| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. Part 2 (canary) is **approved**, design written into the card: one named `CANARY_ACCOUNT_ID` constant rather than a third account kind, set only by a manual step, never from the UI |
+| A7 | Per-account write path | L | A1–A6 | part 1 done (each account carries its own IMAP+SMTP endpoint, the guard decides per account from the account itself, TLS relaxed only on the loopback allowlist, the global sandbox config is gone, account dialog has SMTP fields; 7 unit tests incl. two accounts on their own maildir). **Part 1a done (`36ff37f`):** the SMTP transport now authenticates with the account's credentials and has its own `smtpSecurity` instead of borrowing the IMAP one - the sandbox could never prove either, because Mailpit accepts unauthenticated mail and no TLS. Proven with a fake SMTP server that refuses `MAIL FROM` until a correct AUTH arrives. Part 2 (canary) is **built** - as a FLAG set from the account dialog (`8ca6fd4`), not as the approved
+  `CANARY_ACCOUNT_ID` constant; the design sign-off is still open (review section 6). It was **approved**, design written into the card: one named `CANARY_ACCOUNT_ID` constant rather than a third account kind, set only by a manual step, never from the UI |
 | A8 | Port the prototype suites to vitest | L | A1–A3 | done |
 | A9 | Canary | M | A7, A8, P1 | **[user]** approved and split into two phases 2026-10-25. The IONOS canary mailbox exists (temporary account; never send to another person, at most to another address the user owns). Phase 1 = synthetic mails, a handful of sends to the user's own address, at most 2 connections, no retry after a failed login; report counts only, then stop. Phase 2 = staged writes on the real account (flags → move → delete → send), its own go-ahead. Blocked on A7 part 2 and P1 |
 | B1 | Folder create / rename / delete | L | A3, A2 | done |
@@ -537,7 +538,8 @@ evidence.
 | `test-compose.ts` | extend `tests/mail_compose.test.ts` | no | Bcc policy |
 
 - Sandbox tests use `bookingum-e2e@example.test`, run serially (`describe.sequential`), and clean up in
-  `afterAll`. They `it.skip` when `127.0.0.1:10143` is closed, and print why.
+  `afterAll`. Since `393dcfa` they FAIL locally when `127.0.0.1:10143` is closed and skip only on CI or
+  with `BOOKINGIUM_NO_SANDBOX=1` (`tests/helpers/sandboxGate.ts`), so a skip cannot look green in a terminal.
 - Keep the default `pnpm test` under about 60 s. Long variants are behind `MAIL_LONG=1`.
 
 **Acceptance.** All ported suites pass. `pnpm test` stays fast. The skip reason is visible in the output.
@@ -889,7 +891,7 @@ depend on this. Fix it as its own card, with the stack above as the starting poi
 
 ## H: review findings 2026-10-25 (user's manual pass on the real canary mailbox)
 
-The user ran the app against the real IONOS test mailbox (`bookingium-test@bmm-ag.de`, canary flag set) and wrote up what
+The user ran the app against the real IONOS test mailbox (`bookingium-test@example.test`, canary flag set) and wrote up what
 they saw in `C:\Users\benni\Desktop\email-client-review` (5 screenshots, 3 issue files, 2 question files).
 
 **A9 phase 1 is effectively DONE, by the user, manually.** They sent a mail to their own address through the real IONOS

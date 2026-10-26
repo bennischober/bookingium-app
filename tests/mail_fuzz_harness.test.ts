@@ -84,9 +84,15 @@ describe('I13: the invariant checker can fail', () => {
   })
 
   it('catches an orphan file in both directions', () => {
-    const a = checkInvariants({ ...base, files: { rowsWithoutFile: 0, filesWithoutRow: 2, tmpFiles: 0 } })
+    const a = checkInvariants({
+      ...base,
+      files: { rowsWithoutFile: 0, filesWithoutRow: 2, tmpFiles: 0 }
+    })
     expect(a.map((f) => f.invariant)).toContain('no-orphan-files')
-    const b = checkInvariants({ ...base, files: { rowsWithoutFile: 1, filesWithoutRow: 0, tmpFiles: 0 } })
+    const b = checkInvariants({
+      ...base,
+      files: { rowsWithoutFile: 1, filesWithoutRow: 0, tmpFiles: 0 }
+    })
     expect(b.map((f) => f.invariant)).toContain('no-orphan-files')
   })
 

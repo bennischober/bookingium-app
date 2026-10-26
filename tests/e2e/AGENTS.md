@@ -12,7 +12,7 @@ throwaway userData folder and assert on rendered German UI or written files.
 | Shell, routing, print | `app.spec.ts`, `navigation.spec.ts` | `printPageToPdf` helper |
 | Pages | `band-page`, `company-page`, `person-page`, `venue-page`, `contact-list`, `list` | role/label navigation |
 | Invoices / PDF / e-invoice | `einvoice.spec.ts`, `invoice-email.spec.ts`, `payment-qr`, `payment-reminders` | writes `__screenshots__/einvoice-*` |
-| Mail client | `mail-client.spec.ts` | 692L, 14 tests, sandbox-gated |
+| Mail client | `mail-client.spec.ts` | 2167L, 34 tests, sandbox-gated |
 | Import / export / calendar | `import`, `import-bands`, `export`, `calendar-feed`, `follow-ups` | |
 | Launch + app handle | `helpers/launch.ts` | `launchApp`, `createTestUserData`, `AppHandle` |
 | Mail sandbox seeding | `helpers/mailSandbox.ts` | `seedMailSandbox`, `removeSentTestMails` |
@@ -50,7 +50,7 @@ throwaway userData folder and assert on rendered German UI or written files.
   widen that override.
 
 ## HOTSPOTS
-- `mail-client.spec.ts` 692L - own IMAP/HTTP helpers, highest complexity.
+- `mail-client.spec.ts` 2167L - own IMAP/HTTP helpers, highest complexity.
 - `einvoice.spec.ts` 189L feeds `tests/einvoice.verapdf.test.ts`; changing its output
   filenames silently disables that validator test.
 - `launch.ts` is imported by all 23 specs - a signature change ripples repo-wide.

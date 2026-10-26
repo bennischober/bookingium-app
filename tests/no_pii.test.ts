@@ -57,19 +57,37 @@ function isValidIban(raw: string): boolean {
   return remainder === 1
 }
 
-/** Tracked files in scope for the check */
+/** Tracked files in scope for the check.
+ *
+ * I14 widened this: the docs and every markdown file are scanned too, and so are the mail sources. The
+ * original scope (seed, tests, scripts) missed the one place a real address had actually leaked into - the
+ * task list - and the sources the mail client ships.
+ */
 function trackedFiles(): string[] {
   const out = execSync(
-    'git ls-files src/main/db/seed.ts "tests/**" "scripts/**" "sample_data/*.example.json"',
+    [
+      'git ls-files',
+      'src/main/db/seed.ts',
+      '"tests/**"',
+      '"scripts/**"',
+      '"sample_data/*.example.json"',
+      '"docs/**"',
+      '"*.md"',
+      '"src/main/mailclient/**"',
+      '"src/main/mail/**"'
+    ].join(' '),
     { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
   )
-  return out
-    .split('\n')
-    .map((f) => f.trim())
-    .filter(Boolean)
-    .filter((f) => /\.(ts|tsx|mjs|js|json)$/.test(f))
-    // generated e2e artifacts are not source
-    .filter((f) => !f.includes('__screenshots__'))
+  return (
+    out
+      .split('\n')
+      .map((f) => f.trim())
+      .filter(Boolean)
+      // markdown is prose, but a real address in prose is still real data
+      .filter((f) => /\.(ts|tsx|mjs|js|json|md)$/.test(f))
+      // generated e2e artifacts are not source
+      .filter((f) => !f.includes('__screenshots__'))
+  )
 }
 
 type Finding = { file: string; line: number; rule: string }
@@ -121,5 +139,52 @@ describe('no real personal data in tracked files (E2)', () => {
     const files = trackedFiles()
     expect(files.length).toBeGreaterThan(10)
     expect(files).toContain('src/main/db/seed.ts')
+  })
+
+  it('scans the docs and markdown, not only the code', () => {
+    // I14: the one place a real address HAD leaked into was the task list, which the old scope did not
+    // read at all. These assertions are what makes that widening real rather than claimed.
+    const files = trackedFiles()
+    expect(files.some((f) => f.startsWith('docs/') && f.endsWith('.md'))).toBe(true)
+    expect(files.some((f) => f.endsWith('AGENTS.md'))).toBe(true)
+    expect(files.some((f) => f.startsWith('src/main/mailclient/'))).toBe(true)
+  })
+})
+
+describe('the PII scan catches a planted address in each scope (I14)', () => {
+  /** Scan one file's text with the same rules, so a planted address proves the rules rather than the file list */
+  const scanText = (text: string): Finding[] => {
+    const findings: Finding[] = []
+    text.split('\n').forEach((line, index) => {
+      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
+      for (const match of line.matchAll(EMAIL)) {
+        const domain = match[1].toLowerCase()
+        if (ALLOWED_ADDRESSES.has(match[0].toLowerCase())) continue
+        if (isAllowedDomain(domain)) continue
+        findings.push({ file: 'planted', line: index + 1, rule: 'email outside the test domains' })
+      }
+    })
+    return findings
+  }
+
+  it('catches a planted address in a markdown line', () => {
+    // the exact shape that leaked: an address in prose, not in code
+    const planted = 'see jemand@club-zentral.example.org for the details'
+    expect(scanText(planted)).toHaveLength(0)
+    const real = 'see jemand@' + 'club-zentral.de' + ' for the details'
+    expect(scanText(real)).toHaveLength(1)
+  })
+
+  it('still allows the reserved test domains and the explicit exceptions', () => {
+    // the negative half: a scan that flags the fixtures is useless
+    expect(scanText('a@b.example.test')).toHaveLength(0)
+    expect(scanText('noreply@anthropic.com')).toHaveLength(0)
+  })
+
+  it('prints file and line only, never the match', () => {
+    const findings = scanText('x@' + 'real-domain.de')
+    const report = findings.map((f) => `${f.file}:${f.line} ${f.rule}`)
+    expect(report.join('\n')).not.toContain('real-domain')
+    expect(report[0]).toMatch(/^planted:\d+ email outside the test domains$/)
   })
 })
