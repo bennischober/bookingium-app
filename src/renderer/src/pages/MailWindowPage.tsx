@@ -133,8 +133,10 @@ export default function MailWindowPage() {
     enabled: Boolean(accountId),
     onData: (event) => {
       // I16 item 18: this used to filter to op-events, so an isDraft or folder change arriving as a
-      // sync event left the window showing the old derivation until a refetch
-      if (event.accountId !== accountId) return
+      // sync event left the window showing the old derivation until a refetch. image-progress is
+      // MessageView's own business and fires once per remote image: refetching the mail for each
+      // would re-parse and re-sanitize it while its images load.
+      if (event.accountId !== accountId || event.type === 'image-progress') return
       void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
       void queryClient.invalidateQueries({ queryKey: messageKey(accountId, messageId) })
     }
@@ -177,6 +179,13 @@ export default function MailWindowPage() {
       <div className="flex h-screen items-center justify-center">
         <Spinner />
       </div>
+    )
+  }
+  // I16 item 17: a compose request for an account that may not send says so - without this it fell
+  // through to MessageView with no message id and showed nothing
+  if (composeRequest && !canWrite) {
+    return (
+      <p className="p-6 text-sm text-destructive">Mit diesem Konto kann nicht gesendet werden.</p>
     )
   }
 

@@ -36,6 +36,13 @@ describe('I16 item 17: the compose branch checks canWrite', () => {
     const composeBranch = src.slice(at, src.indexOf('? (', at))
     expect(composeBranch).toContain('canWrite')
   })
+
+  it('tells a compose request on a read-only account why nothing opens', () => {
+    // Review of I16: the gate alone let the request fall through to MessageView with no message id
+    const src = source(WINDOW)
+    expect(src).toContain('if (composeRequest && !canWrite)')
+    expect(src).toContain('Mit diesem Konto kann nicht gesendet werden.')
+  })
 })
 
 describe('I16 item 22: the attachment group is announced', () => {
@@ -60,5 +67,15 @@ describe('I16 item 18: the window follows its mail', () => {
     )
     expect(sub).not.toContain("event.type !== 'op-event'")
     expect(sub).toContain('messageKey(accountId, messageId)')
+  })
+
+  it('does not refetch the mail for every remote image that loads', () => {
+    // image-progress fires per image; MessageView listens to it itself
+    const src = source(WINDOW)
+    const sub = src.slice(
+      src.indexOf('mail.events.useSubscription'),
+      src.indexOf('const toggleFlag')
+    )
+    expect(sub).toContain("event.type === 'image-progress'")
   })
 })
