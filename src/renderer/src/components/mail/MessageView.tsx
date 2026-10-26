@@ -271,6 +271,7 @@ export function MessageView({
                       size="icon-sm"
                       onClick={() => onCompose(message, 'reply')}
                       title="Antworten"
+                      aria-label="Antworten"
                     >
                       <Reply />
                     </Button>
@@ -279,6 +280,7 @@ export function MessageView({
                       size="icon-sm"
                       onClick={() => onCompose(message, 'replyAll')}
                       title="Allen antworten"
+                      aria-label="Allen antworten"
                     >
                       <ReplyAll />
                     </Button>
@@ -287,6 +289,7 @@ export function MessageView({
                       size="icon-sm"
                       onClick={() => onCompose(message, 'forward')}
                       title="Weiterleiten"
+                      aria-label="Weiterleiten"
                     >
                       <Forward />
                     </Button>

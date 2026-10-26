@@ -1020,6 +1020,9 @@ export default function MailPage() {
               openedId.current = null
               setCompose(null)
               clearSearch()
+              // I10 Low: the hidden rows belong to the account they were hidden in. Carried over, an
+              // id that happens to exist in the new account would stay invisible for no reason.
+              setHiddenIds([])
             }}
           >
             <SelectTrigger className="w-64" aria-label="Postfach">
