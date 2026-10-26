@@ -123,6 +123,16 @@ export function MessageView({
   // C5: the attachment the "save as document" dialog is open for
   // F10: the dialog takes one attachment or all of them
   const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
+  // G10: the core reports progress per image; only this message's events matter.
+  // This hook MUST stay above the early returns below - a hook after them is called on
+  // some renders and not others, which is the Rules-of-Hooks violation that crashed the view.
+  trpcReact.mail.events.useSubscription(undefined, {
+    onData: (event) => {
+      if (event.type !== 'image-progress') return
+      if (event.accountId !== accountId || event.messageId !== messageId) return
+      setImageProgress({ done: event.done, total: event.total })
+    }
+  })
 
   if (detail.isLoading) {
     return (
@@ -141,15 +151,6 @@ export function MessageView({
   }
 
   const message = withImages ?? detail.data
-
-  // G10: the core reports progress per image; only this message's events matter
-  trpcReact.mail.events.useSubscription(undefined, {
-    onData: (event) => {
-      if (event.type !== 'image-progress') return
-      if (event.accountId !== accountId || event.messageId !== messageId) return
-      setImageProgress({ done: event.done, total: event.total })
-    }
-  })
 
   const loadImages = async () => {
     setLoadingImages(true)
