@@ -108,7 +108,9 @@ describe('MR-36: the page wiring', () => {
     const src = page()
     expect(src).toContain('archiveableIds(selectedItems, allFolders)')
     // the action must not be offered unconditionally
-    expect(src).not.toContain("archive: hasArchive ? (ids) => void moveAway(ids, { kind: 'archive' })")
+    expect(src).not.toContain(
+      "archive: hasArchive ? (ids) => void moveAway(ids, { kind: 'archive' })"
+    )
     expect(src).toContain('archiveable.length > 0')
   })
 

@@ -57,7 +57,9 @@ describe('MR-13: the account signature survives the DTO', () => {
     // The second half of MR-13: opening the account form and saving it wiped the signature, because
     // the form sent nothing back. A save without a signature must leave the stored one alone.
     const { saveMailAccount, listMailAccounts } = await import('../src/main/mailclient/accounts')
-    const saved = saveMailAccount(account({ signature: 'Viele Gruesse' }) as never) as { id: string }
+    const saved = saveMailAccount(account({ signature: 'Viele Gruesse' }) as never) as {
+      id: string
+    }
 
     saveMailAccount(account({ id: saved.id }) as never)
 
@@ -69,7 +71,9 @@ describe('MR-13: the account signature survives the DTO', () => {
     // The negative half: "keep it when absent" must not become "never clear it", or the user cannot
     // remove a signature at all.
     const { saveMailAccount, listMailAccounts } = await import('../src/main/mailclient/accounts')
-    const saved = saveMailAccount(account({ signature: 'Viele Gruesse' }) as never) as { id: string }
+    const saved = saveMailAccount(account({ signature: 'Viele Gruesse' }) as never) as {
+      id: string
+    }
 
     saveMailAccount(account({ id: saved.id, signature: '' }) as never)
 

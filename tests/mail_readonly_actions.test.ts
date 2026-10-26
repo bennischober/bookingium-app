@@ -46,7 +46,9 @@ describe('MR-35: which reading-pane actions an account may offer', () => {
       'src/renderer/src/pages/MailWindowPage.tsx'
     ]) {
       const src = source(page)
-      expect(src.indexOf('readingActions('), `${page} must use readingActions()`).toBeGreaterThan(-1)
+      expect(src.indexOf('readingActions('), `${page} must use readingActions()`).toBeGreaterThan(
+        -1
+      )
       // the exact unconditional forms MR-35 removed
       expect(src, `${page} passes onCompose unconditionally`).not.toContain(
         'onCompose={composeFrom}'

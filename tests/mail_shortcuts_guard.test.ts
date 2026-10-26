@@ -30,16 +30,22 @@ describe('MR-37: where a mail shortcut must not fire', () => {
   it('stays out of a popover and a menu', () => {
     // Ctrl+N on a popover button must not open a second editor
     expect(shortcutBlocked({ target: target(['[role="menu"]']), composeOpen: false })).toBe(true)
-    expect(shortcutBlocked({ target: target(['[data-radix-popper-content-wrapper]']), composeOpen: false })).toBe(
-      true
-    )
+    expect(
+      shortcutBlocked({
+        target: target(['[data-radix-popper-content-wrapper]']),
+        composeOpen: false
+      })
+    ).toBe(true)
   })
 
   it('stays out of the compose area', () => {
     // the editor is a form; a shortcut inside it must not reach the list
-    expect(shortcutBlocked({ target: target(['form[aria-label="E-Mail verfassen"]']), composeOpen: true })).toBe(
-      true
-    )
+    expect(
+      shortcutBlocked({
+        target: target(['form[aria-label="E-Mail verfassen"]']),
+        composeOpen: true
+      })
+    ).toBe(true)
   })
 
   it('stays out of the list while compose is open', () => {

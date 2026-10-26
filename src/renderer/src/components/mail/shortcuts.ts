@@ -72,7 +72,9 @@ const BLOCKING_SELECTORS = [
   '[role="dialog"]',
   '[role="alertdialog"]',
   '[role="menu"]',
-  '[role="listbox"]',
+  // NOT [role="listbox"]: the message list itself is a listbox (MessageList.tsx), so blocking that
+  // role turned the shortcuts off in the one place they are meant to work. Caught by the mail e2e
+  // ("the mail shortcuts work from the list"): Ctrl+U stopped marking a mail unread.
   // Radix renders popovers and menus into a portal wrapper; the trigger alone is not enough
   '[data-radix-popper-content-wrapper]',
   // the compose form itself, so a key inside the editor never reaches the list
