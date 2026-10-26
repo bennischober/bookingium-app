@@ -60,7 +60,11 @@ function init(options: WorkerInit): void {
 function scheduleMaintenance(mailCore: MailCore): void {
   const runWhenIdle = async (what: string, fn: () => void): Promise<void> => {
     try {
-      await mailCore.whenIdleForMaintenance(120_000)
+      // I4 (MR-10): still downloading after two minutes - skip, the next round tries again
+      if (!(await mailCore.whenIdleForMaintenance(120_000))) {
+        send({ type: 'log', level: 'info', message: `${what} skipped: initial sync still running` })
+        return
+      }
       fn()
     } catch (error) {
       send({

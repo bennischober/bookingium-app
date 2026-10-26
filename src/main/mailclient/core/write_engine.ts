@@ -18,6 +18,7 @@ import fs from 'fs'
 import { Store, JournalRow } from './store.js'
 import { connectWriteImap, sendRefusal, writeSmtp, WriteAccount } from './write_guard.js'
 import { WriteConnectionPool } from './write_connection.js'
+import { isPathOrChild } from './folders.js'
 
 export type OpResult =
   | { outcome: 'done'; detail?: string }
@@ -198,6 +199,29 @@ export class WriteEngine {
     await this.dropClient()
   }
 
+  /**
+   * The folders whose sync mutex an op holds while it runs: its source and target, and for a
+   * folder rename (I4, MR-31) the whole subtree on both sides. A sync of a subfolder during the
+   * rename read a path that was being renamed under it and re-created rows the re-key moves.
+   */
+  lockedFolders(op: JournalRow): string[] {
+    const paths = [op.folder_path, op.target_folder_path].filter((p): p is string => !!p)
+    if (op.kind === 'folder_rename') {
+      try {
+        const payload = JSON.parse(op.payload || '{}') as { from?: string; to?: string; delimiter?: string }
+        const delimiter = payload.delimiter ?? '/'
+        const roots = [payload.from, payload.to].filter((p): p is string => !!p)
+        paths.push(...roots)
+        for (const f of this.store.allFolders()) {
+          if (roots.some((root) => isPathOrChild(f.imap_path, root, delimiter))) paths.push(f.imap_path)
+        }
+      } catch {
+        // a payload that does not parse is refused by the op itself; lock what the row names
+      }
+    }
+    return [...new Set(paths)]
+  }
+
   /** Execute one journaled op (or resume a 'running' one after a crash). */
   async execute(op: JournalRow): Promise<OpResult> {
     const queued = this.inFlight.get(op.id)
@@ -217,9 +241,7 @@ export class WriteEngine {
       // A2c: a self-move (target == source) must not nest the SAME mutex - the inner
       // acquire would poll forever for an entry the outer holds, deadlocking the serialized
       // op chain before doMoveLike's own refusal can run. Deduplicate first.
-      const folders = [
-        ...new Set([op.folder_path, op.target_folder_path].filter((p): p is string => !!p))
-      ]
+      const folders = this.lockedFolders(op)
       // A6: the watchdog starts only AFTER every mutex is held (F2) - an op that merely
       // waits behind a long folder sync must not be considered stuck.
       // I1 (MR-02): an op body that throws (a refused connect, a dropped socket) becomes an
@@ -236,13 +258,12 @@ export class WriteEngine {
         }
         return r
       }
-      if (!folders.length) return guarded()
-      const owned =
-        folders.length === 1
-          ? await this.runUnderFolderMutex(folders[0], async () => guarded())
-          : await this.runUnderFolderMutex(folders[0], async () =>
-              this.runUnderFolderMutex(folders[1], async () => guarded())
-            )
+      // nested in list order: the first folder is taken first and released last
+      const locked = folders.reduceRight<() => Promise<OpResult>>(
+        (inner, path) => () => this.runUnderFolderMutex(path, inner),
+        guarded
+      )
+      const owned = await locked()
       // G2/L3c: a failed op may have left the shared connection in an unknown state, so
       // it is discarded rather than handed to the next op. The next op reconnects once.
       if (owned.outcome === 'failed' || owned.outcome === 'unknown') await this.dropClient()

@@ -25,6 +25,7 @@ import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, Syn
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
+import { isDiskFullError } from './disk_full.js';
 import { foldersToResync } from './resync_scope.js';
 import { autoRetryable, retryDelay, sendPhase } from './op_retry.js';
 import { draftStoreValidity } from './draft_store.js';
@@ -1361,14 +1362,18 @@ export class MailCore implements Api {
   /**
    * A3 step 6: resolve once no account is in its initial download (or timeout).
    * Housekeeping waits for this so a sweep never competes with a first sync.
+   *
+   * I4 (MR-10): `true` when every account is idle, `false` on timeout. A timeout used to
+   * resolve like idle, so after two minutes the repair ran in the middle of the download it
+   * was meant to wait for; the caller now skips this round and the next one tries again.
    */
-  async whenIdleForMaintenance(timeoutMs = 120_000): Promise<void> {
+  async whenIdleForMaintenance(timeoutMs = 120_000): Promise<boolean> {
     const until = Date.now() + timeoutMs;
     for (;;) {
       const busy = [...this.entries.values()].some(e =>
         e.engine.isSyncing() && e.engine.getStatus().phase === 'initial');
-      if (!busy) return;
-      if (Date.now() > until) return;
+      if (!busy) return true;
+      if (Date.now() > until) return false;
       await new Promise(r => setTimeout(r, 1000));
     }
   }
@@ -1423,40 +1428,72 @@ export class MailCore implements Api {
    * A3 step 5: re-fetch the source of rows whose file is missing and rewrite it.
    * A FETCH is a read, so this is allowed for read-only accounts too, but it must use
    * the sync engine's own connection (the 2-connection limit) - never a new client.
-   * At most `limit` rows per pass, so a big repair never blocks the sync loop.
+   * At most `limit` rows per account and pass, so a big repair never blocks the sync loop.
    * Rows whose UID is gone from the server are left alone: the normal sync removes them.
+   *
+   * I4 (MR-10): every folder is read through `engine.withSelected` - folder mutex, EXAMINE
+   * under an imapflow lock, UIDVALIDITY checked. The bare `mailboxOpen` before it SELECTed
+   * (read-write, on a read-only account), raced the sync's own lock on the same connection
+   * and could write another folder's message into a row when the UIDs had been reassigned.
+   * Without an `accountId` every account is repaired, not only the default one; an account
+   * whose disk is full is skipped, and a full disk found here stops that account's sync.
    */
   async repairMissingFiles(limit = 50, accountId?: string): Promise<{ repaired: number; left: number }> {
-    const e = this.entry(accountId);
+    const entries = accountId ? [this.entry(accountId)] : [...this.entries.values()];
+    let repaired = 0, left = 0;
+    for (const e of entries) {
+      const r = await this.repairAccountFiles(e, limit);
+      repaired += r.repaired;
+      left += r.left;
+    }
+    return { repaired, left };
+  }
+
+  private async repairAccountFiles(e: AccountEntry, limit: number): Promise<{ repaired: number; left: number }> {
     const dir = e.store.dataDirResolved;
     const rows = e.store.db.prepare(
       'SELECT id, folder_id, uid, file_path FROM messages ORDER BY id DESC')
       .all() as { id: number; folder_id: string; uid: number; file_path: string }[];
     const onDisk = new Set(fs.existsSync(dir) ? fs.readdirSync(dir) : []);
-    const missing = rows.filter(r => !onDisk.has(r.file_path)).slice(0, limit);
-    if (!missing.length) return { repaired: 0, left: 0 };
+    const allMissing = rows.filter(r => !onDisk.has(r.file_path));
+    if (!allMissing.length) return { repaired: 0, left: 0 };
+    if (e.engine.isDiskFull) return { repaired: 0, left: allMissing.length };
 
-    const client = await e.engine.connection();
+    const byFolder = new Map<string, typeof allMissing>();
+    for (const row of allMissing.slice(0, limit)) {
+      const list = byFolder.get(row.folder_id) ?? [];
+      list.push(row);
+      byFolder.set(row.folder_id, list);
+    }
     let repaired = 0;
-    for (const row of missing) {
-      const folder = e.store.getFolder(row.folder_id);
+    for (const [folderId, missing] of byFolder) {
+      const folder = e.store.getFolder(folderId);
       if (!folder) continue;
       try {
-        await client.mailboxOpen(folder.imap_path);
-        for await (const msg of client.fetch(String(row.uid), {
-          uid: true, source: true, flags: true, internalDate: true, size: true,
-        }, { uid: true })) {
-          if (!msg.source) continue;
-          const relPath = writeMessageFile(dir, msg.source);
-          e.store.db.prepare('UPDATE messages SET file_path = ? WHERE id = ?').run(relPath, row.id);
-          repaired++;
-        }
+        const done = await e.engine.withSelected(folder.imap_path, folder.uid_validity, async client => {
+          let n = 0;
+          for (const row of missing) {
+            for await (const msg of client.fetch(String(row.uid), {
+              uid: true, source: true, flags: true, internalDate: true, size: true,
+            }, { uid: true })) {
+              if (!msg.source) continue;
+              const relPath = writeMessageFile(dir, msg.source);
+              e.store.db.prepare('UPDATE messages SET file_path = ? WHERE id = ?').run(relPath, row.id);
+              n++;
+            }
+          }
+          return n;
+        });
+        repaired += done ?? 0;
       } catch (err) {
-        this.log.warn?.(`repair (${row.id}) skipped: ${(err as Error).message.slice(0, 80)}`);
+        if (isDiskFullError(err)) {
+          e.engine.noteDiskFull(folder.imap_path);
+          break;
+        }
+        this.log.warn?.(`repair (${missing.length} row(s) of one folder) skipped: ${(err as Error).message.slice(0, 80)}`);
       }
     }
-    const left = rows.filter(r => !onDisk.has(r.file_path)).length - repaired;
-    return { repaired, left: Math.max(0, left) };
+    return { repaired, left: Math.max(0, allMissing.length - repaired) };
   }
 
   /**

@@ -22,6 +22,7 @@ import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 import { writeMessageFile } from './files.js';
 import { diskFullMessage, isDiskFullError } from './disk_full.js';
+import { isPathOrChild } from './folders.js';
 
 export interface AccountConfig {
   id: string;
@@ -292,6 +293,54 @@ export class SyncEngine {
    *  Shares the 2-connection limit; callers must not open a second client. */
   connection(): Promise<ImapFlow> { return this.connect(); }
 
+  /**
+   * I4 (MR-09): run read-only work against one folder on the sync connection. A bare
+   * FETCH there goes to whatever folder the connection has selected right now, and two
+   * folders can share UIDs, so a flag sweep or a repair that skips the selection writes
+   * one folder's data into the other's rows. This takes the folder mutex (no sync or
+   * write of the folder runs meanwhile), an imapflow lock (EXAMINE, queued behind every
+   * other lock holder on this client) and checks UIDVALIDITY: when it differs from what
+   * the store holds the UIDs mean other messages, so nothing runs (`null`) and the next
+   * folder sync does the staged swap.
+   */
+  async withSelected<T>(imapPath: string, expectedValidity: string | null, fn: (client: ImapFlow) => Promise<T>): Promise<T | null> {
+    return this.withFolderMutex(imapPath, async () => {
+      const client = await this.connect();
+      const lock = await client.getMailboxLock(imapPath, { readOnly: true });
+      try {
+        const mailbox = client.mailbox;
+        if (!mailbox || mailbox.path !== imapPath) throw new Error(`mailbox ${imapPath} did not open`);
+        if (expectedValidity && String(mailbox.uidValidity) !== expectedValidity) {
+          this.log?.warn?.(`${imapPath}: UIDVALIDITY changed, skipping until the folder sync swaps it`);
+          return null;
+        }
+        return await fn(client);
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  get isDiskFull(): boolean { return this.diskFull; }
+
+  /**
+   * A local write failed for lack of space. Stops sync, poll, IDLE and repair until
+   * `resume()` (the retry action): a full disk does not fix itself, and every retry
+   * would only download the same message again and fail again (I4).
+   */
+  noteDiskFull(path: string | null): void {
+    const first = !this.diskFull;
+    this.diskFull = true;
+    this.progress.diskFull = diskFullMessage();
+    this.progress.phase = 'disk-full';
+    if (first) this.emit({ type: 'error', path, message: diskFullMessage() });
+  }
+
+  /** The error a stopped engine answers with, so callers take their disk-full branch. */
+  private diskFullError(): Error {
+    return Object.assign(new Error(diskFullMessage()), { code: 'ENOSPC' });
+  }
+
   /** Task 3: pause the initial download (drains within ~one batch, then idles). */
   pause(): void {
     if (!this.paused) {
@@ -480,8 +529,14 @@ export class SyncEngine {
     const client = await this.connect();
     const list = await client.list();
     const paths: string[] = [];
+    // I4 (MR-31): a LIST between the server RENAME and the store's re-key sees the new path
+    // already. Creating its row here made the re-key fail on the primary key and downloaded
+    // the folder twice, so paths inside a pending rename are left to the rename op.
+    const renames = this.pendingRenames();
+    const renaming = (path: string) => renames.some(r => isPathOrChild(path, r.from, r.delimiter) || isPathOrChild(path, r.to, r.delimiter));
     for (const f of list) {
       if (f.flags.has('\\Noselect')) continue;
+      if (renaming(f.path)) { paths.push(f.path); continue; }
       this.store.upsertFolder({
         imapPath: f.path,
         delimiter: f.delimiter || '/',
@@ -503,7 +558,7 @@ export class SyncEngine {
     //   Gate 3 (staging): staging folders are never pruned here (transient by design).
     const serverPaths = new Set(paths);
     const localFolders = this.store.allFolders().filter(f => f.account_id === this.account.id
-      && !f.imap_path.startsWith('__staging__/'));
+      && !f.imap_path.startsWith('__staging__/') && !renaming(f.imap_path));
     // Gate 0 (card A2a): a TRUNCATED/EMPTY LIST response must prune NOTHING — ever.
     // The blast-radius cap (Gate 2) only limits each pass to 25%, so repeated empty
     // LISTs would still nuke the whole cache 25% per pass. An empty result, or one
@@ -554,7 +609,30 @@ export class SyncEngine {
 
   // ---------- per-folder sync ----------
   async syncFolder(imapPath: string, opts: { full?: boolean } = {}): Promise<void> {
+    if (this.diskFull) throw this.diskFullError();
+    // I4 (MR-31): a folder rename in flight moves this path's rows; syncing the old or the
+    // new path meanwhile would download the folder a second time or prune what is moving
+    if (this.renamePending(imapPath)) return;
     await this.withFolderMutex(imapPath, () => this.syncFolderInner(imapPath, opts));
+  }
+
+  /** I4 (MR-31): is this path inside the source or target subtree of a pending or running folder rename? */
+  renamePending(imapPath: string): boolean {
+    return this.pendingRenames().some(r => isPathOrChild(imapPath, r.from, r.delimiter) || isPathOrChild(imapPath, r.to, r.delimiter));
+  }
+
+  /** The source and target of every folder rename that has not finished yet. */
+  private pendingRenames(): { from: string; to: string; delimiter: string }[] {
+    const rows = this.store.db.prepare(`SELECT payload FROM op_journal
+      WHERE kind = 'folder_rename' AND state IN ('pending','running')`).all() as { payload: string | null }[];
+    const renames: { from: string; to: string; delimiter: string }[] = [];
+    for (const r of rows) {
+      try {
+        const p = JSON.parse(r.payload ?? '{}') as { from?: string; to?: string; delimiter?: string };
+        if (p.from && p.to) renames.push({ from: p.from, to: p.to, delimiter: p.delimiter || '/' });
+      } catch { /* a payload that does not parse cannot be replayed either; nothing to guard */ }
+    }
+    return renames;
   }
 
   private async syncFolderInner(imapPath: string, opts: { full?: boolean } = {}): Promise<void> {
@@ -583,7 +661,7 @@ export class SyncEngine {
       // transaction guarantees the visible state flips in one step.
       if (prevValidity && prevValidity !== uidValidity) {
         this.emit({ type: 'folder-start', path: imapPath, mode: 'full' });
-        await this.resyncAfterValidityChange(client, imapPath, folder.id, uidValidity, highestModseq);
+        await this.resyncAfterValidityChange(client, imapPath, folder.id, uidValidity, highestModseq, mailbox.uidNext);
         return;
       }
 
@@ -593,9 +671,9 @@ export class SyncEngine {
       this.emit({ type: 'folder-start', path: imapPath, mode });
 
       if (mode === 'full') {
-        await this.fullSyncFolder(client, imapPath, uidValidity, highestModseq);
+        await this.fullSyncFolder(client, imapPath, uidValidity, highestModseq, mailbox.uidNext);
       } else {
-        await this.incrementalSyncFolder(client, imapPath, uidValidity, prevModseq!, highestModseq);
+        await this.incrementalSyncFolder(client, imapPath, uidValidity, prevModseq!, highestModseq, mailbox.uidNext);
       }
     } catch (e) {
       this.emit({ type: 'error', path: imapPath, message: (e as Error).message });
@@ -617,7 +695,7 @@ export class SyncEngine {
    * .eml files are unlinked only afterwards. Local data is never lost on a failed
    * resync — the worst case is a stale copy that the next pass replaces.
    */
-  private async resyncAfterValidityChange(client: ImapFlow, imapPath: string, folderId: string, uidValidity: string, highestModseq: string | null): Promise<void> {
+  private async resyncAfterValidityChange(client: ImapFlow, imapPath: string, folderId: string, uidValidity: string, highestModseq: string | null, uidNext?: number): Promise<void> {
     const oldRows = this.store.db.prepare('SELECT id, file_path, message_key FROM messages WHERE folder_id = ?')
       .all(folderId) as { id: number; file_path: string; message_key: string }[];
 
@@ -642,7 +720,7 @@ export class SyncEngine {
         for (const r of oldRows) this.store.db.prepare('DELETE FROM messages WHERE id = ?').run(r.id);
         this.store.db.prepare(`UPDATE folders SET uid_validity=@v, uid_next=@n, highest_modseq=@m,
           last_sync_at=datetime('now'), last_flag_sweep=datetime('now') WHERE id=@id`)
-          .run({ v: uidValidity, n: serverUids.size ? Math.max(...serverUids) + 1 : 1, m: highestModseq, id: folderId });
+          .run({ v: uidValidity, n: nextUid(uidNext, serverUids), m: highestModseq, id: folderId });
       });
       swap();
       swapped = true;
@@ -685,7 +763,7 @@ export class SyncEngine {
     }
   }
 
-  private async fullSyncFolder(client: ImapFlow, imapPath: string, uidValidity: string, highestModseq: string | null): Promise<void> {
+  private async fullSyncFolder(client: ImapFlow, imapPath: string, uidValidity: string, highestModseq: string | null, uidNext?: number): Promise<void> {
     // folder row may not exist yet when the IDLE connection races syncFolderList at startup
     const folder = this.store.getFolderByPath(imapPath)
       ?? this.store.upsertFolder({ imapPath, delimiter: '/', specialUse: null, uidValidity });
@@ -747,12 +825,12 @@ export class SyncEngine {
     this.store.db.prepare(`UPDATE folders SET uid_validity=@uidValidity, uid_next=@uidNext,
       highest_modseq=@highestModseq, last_sync_at=datetime('now'),
       last_flag_sweep=datetime('now') WHERE id=@id`)
-      .run({ uidValidity, uidNext: serverUids.size ? Math.max(...serverUids) + 1 : 1, highestModseq, id: folder.id });
+      .run({ uidValidity, uidNext: nextUid(uidNext, serverUids), highestModseq, id: folder.id });
 
     this.emit({ type: 'folder-done', path: imapPath, newCount, flagChanges, expunged, moved: 0 });
   }
 
-  private async incrementalSyncFolder(client: ImapFlow, imapPath: string, uidValidity: string, changedSince: bigint, highestModseq: string | null): Promise<void> {
+  private async incrementalSyncFolder(client: ImapFlow, imapPath: string, uidValidity: string, changedSince: bigint, highestModseq: string | null, uidNext?: number): Promise<void> {
     const folder = this.store.getFolderByPath(imapPath)
       ?? this.store.upsertFolder({ imapPath, delimiter: '/', specialUse: null, uidValidity });
     let newCount = 0, flagChanges = 0, expunged = 0;
@@ -828,9 +906,11 @@ export class SyncEngine {
       }
     }
 
-    this.store.db.prepare(`UPDATE folders SET uid_validity=@uidValidity, highest_modseq=@highestModseq,
+    // I4: uid_next is what the poll compares STATUS against; an incremental pass that left it
+    // behind made every later poll see a change and sync the folder again
+    this.store.db.prepare(`UPDATE folders SET uid_validity=@uidValidity, uid_next=@uidNext, highest_modseq=@highestModseq,
       last_sync_at=datetime('now') WHERE id=@id`)
-      .run({ uidValidity, highestModseq, id: folder.id });
+      .run({ uidValidity, uidNext: nextUid(uidNext, serverUids), highestModseq, id: folder.id });
 
     this.emit({ type: 'folder-done', path: imapPath, newCount, flagChanges, expunged, moved: 0 });
   }
@@ -1019,6 +1099,8 @@ export class SyncEngine {
   // synced (uid_validity set AND no missing UIDs) are skipped after a cheap check.
   async syncAll(opts: { full?: boolean } = {}): Promise<SyncProgress> {
     if (this.syncing) return this.getStatus();
+    // I4: stopped until resume(); a pass would only fail on the first download again
+    if (this.diskFull) return this.getStatus();
     this.syncing = true;
     // settled once the folder list is known; until then a first pass after start looks initial
     this.passPhase = this.progress.messagesTotal === null ? 'initial' : 'incremental';
@@ -1085,10 +1167,7 @@ export class SyncEngine {
           // (that sends the user to check their network when the real cause is the drive).
           // Cleared by resume(), which the host wires to the retry action.
           if (isDiskFullError(e)) {
-            this.diskFull = true;
-            this.progress.diskFull = diskFullMessage();
-            this.progress.phase = 'disk-full';
-            this.emit({ type: 'error', path: p, message: diskFullMessage() });
+            this.noteDiskFull(p);
             return this.getStatus();
           }
           // circuit breaker already noted the error; stop the pass if open. Without a
@@ -1135,6 +1214,8 @@ export class SyncEngine {
     this.stopped = false;
     const loop = async () => {
       while (!this.stopped) {
+        // I4: a full disk stops IDLE's syncs too; wait for resume() instead of reconnecting
+        if (this.diskFull) { await new Promise(r => setTimeout(r, 1000)); continue; }
         try {
           if (!this.idleClient || !this.idleClient.usable) {
             // Only once the main connection is logged in: a wrong password is then tried
@@ -1175,10 +1256,10 @@ export class SyncEngine {
                 if (folder0?.uid_validity && folder0.uid_validity !== uidValidity0) {
                   // Task 3: safe staged swap — never wipe local data first
                   await this.resyncAfterValidityChange(client, mailboxPath, folder0.id, uidValidity0,
-                    mailbox.highestModseq ? String(mailbox.highestModseq) : null);
+                    mailbox.highestModseq ? String(mailbox.highestModseq) : null, mailbox.uidNext);
                 } else {
                   await this.fullSyncFolder(client, mailboxPath, uidValidity0,
-                    mailbox.highestModseq ? String(mailbox.highestModseq) : null);
+                    mailbox.highestModseq ? String(mailbox.highestModseq) : null, mailbox.uidNext);
                 }
               });
               onChange?.();
@@ -1196,7 +1277,7 @@ export class SyncEngine {
                 });
               }
               dirty = false;
-              if (this.stopped || !client.usable) break;
+              if (this.stopped || !client.usable || this.diskFull) break;
               const mb = client.mailbox;
               if (!mb) break;
               // sync through the shared mutex so the main connection never double-syncs
@@ -1207,11 +1288,11 @@ export class SyncEngine {
                 if (folder?.uid_validity && folder.uid_validity !== uidValidity) {
                   // Task 3: safe staged swap — never wipe local data first
                   await this.resyncAfterValidityChange(client, mailboxPath, folder.id, uidValidity,
-                    mb.highestModseq ? String(mb.highestModseq) : null);
+                    mb.highestModseq ? String(mb.highestModseq) : null, mb.uidNext);
                 } else if (!folder || !prevModseq) {
-                  await this.fullSyncFolder(client, mailboxPath, uidValidity, mb.highestModseq ? String(mb.highestModseq) : null);
+                  await this.fullSyncFolder(client, mailboxPath, uidValidity, mb.highestModseq ? String(mb.highestModseq) : null, mb.uidNext);
                 } else {
-                  await this.incrementalSyncFolder(client, mailboxPath, uidValidity, prevModseq, mb.highestModseq ? String(mb.highestModseq) : null);
+                  await this.incrementalSyncFolder(client, mailboxPath, uidValidity, prevModseq, mb.highestModseq ? String(mb.highestModseq) : null, mb.uidNext);
                 }
               });
               onChange?.();
@@ -1225,6 +1306,8 @@ export class SyncEngine {
           this.backoffMs = 1000;
           this.noteSuccess();
         } catch (e) {
+          // I4: the connection is fine, the drive is not - no disconnect, no backoff, no circuit
+          if (isDiskFullError(e)) { this.noteDiskFull(mailboxPath); continue; }
           this.progress.idleConnected = false;
           this.emit({ type: 'error', path: mailboxPath, message: `idle: ${(e as Error).message}` });
           if (this.idleClient) { try { this.idleClient.close(); } catch { /* IDLE connection already dropped; nothing left to release */ } this.idleClient = null; }
@@ -1259,21 +1342,27 @@ export class SyncEngine {
    * H1: one poll pass. Extracted from the loop so a test can run exactly one pass, and
    * so the "we reached the server" bookkeeping lives in one place.
    *
-   * Returns false when nothing was attempted (a sync is already running).
+   * Returns false when nothing was attempted (a sync is already running, or the disk is full).
+   *
+   * I4 (L3): only a pass in which the server answered for at least one folder counts as
+   * contact. A pass in which every STATUS failed used to move "Synchronisiert HH:MM" anyway
+   * and reset the circuit breaker, so a server refusing every folder looked current.
    */
   async pollOnce(): Promise<boolean> {
-    if (this.pollingStop || this.syncing) return false;
+    if (this.pollingStop || this.syncing || this.diskFull) return false;
     const client = await this.connect();
     this.pollCount++;
     const folders = this.store.allFolders();
+    let answered = 0;
     for (let i = 0; i < folders.length; i++) {
-      if (this.pollingStop || this.syncing) break;
+      if (this.pollingStop || this.syncing || this.diskFull) break;
       const f = folders[i];
       await this.gate();
       try {
         const st = await client.status(f.imap_path, { messages: true, uidNext: true, highestModseq: true });
         if (!st) continue;
         if (typeof st === 'boolean') continue;
+        answered++;
         const localCount = (this.store.db.prepare('SELECT COUNT(*) c FROM messages WHERE folder_id = ?').get(f.id) as { c: number }).c;
         const changed =
           (st.messages !== undefined && st.messages !== localCount) ||
@@ -1294,13 +1383,21 @@ export class SyncEngine {
         if (!this.hasCondstore && this.syncingFolders.size === 0) {
           const tier = this.flagTier(f);
           if (tier === 1 || this.pollCount % tier === 0) {
-            await this.flagSweep(client, f);
+            await this.flagSweep(f);
           }
         }
         if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
-      } catch {
+      } catch (e) {
+        // I4: a full disk stops the poll (and everything else) until resume()
+        if (isDiskFullError(e)) { this.noteDiskFull(f.imap_path); break; }
         // folder vanished / transient error — next sweep retries
       }
+    }
+    if (this.diskFull) return true;
+    if (folders.length > 0 && answered === 0) {
+      this.emit({ type: 'error', path: null, message: `poll: no folder answered (${folders.length} tried)` });
+      this.noteError('poll');
+      return true;
     }
     this.noteServerContact();
     this.noteSuccess();
@@ -1345,8 +1442,17 @@ export class SyncEngine {
     return 36;                           // cold: every 36th poll
   }
 
-  /** Full FLAGS fetch for one folder (no MODSEQ available) — updates local rows. */
-  private async flagSweep(client: ImapFlow, f: { id: string; imap_path: string }): Promise<number> {
+  /**
+   * Full FLAGS fetch for one folder (no MODSEQ available) — updates local rows.
+   * I4 (MR-09): the FETCH runs inside `withSelected`, i.e. on THIS folder. It used to go
+   * to whichever folder the sync connection had selected last, and with two folders
+   * sharing UIDs that copied one folder's flags onto the other's messages.
+   */
+  private async flagSweep(f: { id: string; imap_path: string; uid_validity: string | null }): Promise<number> {
+    return (await this.withSelected(f.imap_path, f.uid_validity, client => this.flagSweepSelected(client, f))) ?? 0;
+  }
+
+  private async flagSweepSelected(client: ImapFlow, f: { id: string; imap_path: string }): Promise<number> {
     let changes = 0;
     const localRows = this.store.db.prepare('SELECT id, uid, message_key, flags_json FROM messages WHERE folder_id = ?')
       .all(f.id) as { id: number; uid: number; message_key: string; flags_json: string }[];
@@ -1422,6 +1528,18 @@ function toIso(d: Date | string | undefined | null): string | null {
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d.toISOString();
   const parsed = new Date(d);
   return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+/**
+ * I4: the folder's next UID as the server reported it on SELECT. Max+1 of the UIDs present
+ * is lower whenever the newest messages were expunged, and the poll compares this value with
+ * STATUS UIDNEXT, so the derived value made such a folder look changed on every poll.
+ * The derived value stays as the floor for a server that sends no UIDNEXT.
+ */
+export function nextUid(selected: number | bigint | undefined, uids: Set<number>): number {
+  let max = 0;
+  for (const u of uids) if (u > max) max = u;
+  return Math.max(Number(selected ?? 0), max + 1);
 }
 
 /** Compact IMAP sequence-set from a list of uids: "1:5,7,9:12" */
