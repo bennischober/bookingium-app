@@ -195,9 +195,7 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     // user never touched the field), while an explicit empty string clears it - otherwise opening the
     // form and saving would wipe a signature the user never edited.
     signature:
-      input.signature === undefined
-        ? existing?.signature
-        : input.signature.trim() || undefined,
+      input.signature === undefined ? existing?.signature : input.signature.trim() || undefined,
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
     smtpPort: input.smtpPort,
     smtpSecurity: input.smtpSecurity,
