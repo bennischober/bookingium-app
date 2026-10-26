@@ -338,6 +338,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   - block private ranges on every redirect hop;
   - take the URLs from the message in main.
 
+**Status: fixed in I11 (2026-10-26).** `core/remote_images.ts` uses `http`/`https` with its own DNS lookup: every answer must be public (loopback, private, link-local, CGNAT, multicast and reserved ranges are refused, IPv4-mapped IPv6 included), literal IPs are checked per hop, redirects are followed by hand (at most 5, http(s) only), a declared Content-Length over the cap is refused, the body is read under a streaming byte cap, and the per-image timer covers the body. `loadRemoteImages` fetches only URLs the stored mail's manifest lists. `tests/mail_remote_images_guard.test.ts`, plus a wiring test.
+
 #### MR-23: opening an attachment: no Mark-of-the-Web, an incomplete executable list, RTLO (code)
 - **Where:** `api/routers/mail.router.ts:140-178` and `mailclient/attachments.ts`.
 - **What's wrong:**
@@ -349,6 +351,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   - **RTLO is not stripped.** U+202E stays in the name, so a name can disguise its real extension.
 - **Fix:** write `Zone.Identifier` (ZoneId=3). An allowlist of safe types; everything else goes to "Speichern
   unter". Take the name from the stored metadata. Strip bidi characters. Confirm in main.
+
+**Status: fixed in I11 (2026-10-26).** "Öffnen" hands only an allowlist of types to the OS (`SAFE_TO_OPEN` in `attachments.ts`); anything else gets a native dialog in main that offers "Speichern unter …" only. The name comes from the stored attachment metadata, not from the renderer, and bidi/invisible characters are stripped. The temp file gets a `Zone.Identifier` (ZoneId=3) before it is opened; if that write fails, nothing is opened. `openAnyway` is gone. `tests/mail_attachments.test.ts` and the e2e attachment test (which reads the stream on Windows).
 
 #### MR-24: `uid_next` is max(UID)+1, and every poll compares it with the server's UIDNEXT (code)
 - **Where:** `core/sync.ts:747-750` and `:643` write it. The incremental sync never updates it. `:1280`
@@ -463,11 +467,15 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   form. A typo in the host sends the IONOS password elsewhere.
 - **Fix:** use the stored password only when host, port and user match the stored ones. Otherwise ask for it.
 
+**Status: fixed in I11 (2026-10-26).** `storedPasswordFor` returns the stored password only when host, port and user match the stored account; otherwise the test asks for one. Saving an account that changes host, port or user without a new password is refused ("Passwort fehlt"). `tests/mail_host_hardening.test.ts`.
+
 #### MR-34: path traversal in `invoice:email` (pre-existing, code)
 - **Where:** `main/mail/openEmail.ts:136-137`: `` join(folder, `${fileName}.pdf`) `` with `fileName` from the
   renderer.
 - **Fix:** `safeAttachmentName`, then check that the resolved path is inside the folder. An invoice name
   containing `/` fails today.
+
+**Status: fixed in I11 (2026-10-26).** `openEmail.ts` cleans the name with `safeAttachmentName` and builds the pdf, eml and txt paths with `safePathIn`, which throws when the result would leave the folder. `tests/mail_host_hardening.test.ts`.
 
 #### MR-35: the renderer can start writes on a read-only account (confirmed)
 **Status: fixed in I10.** The rule moved to `components/mail/readingActions.ts`; both pages derive from it and pass no write callback on a read-only account. `tests/mail_readonly_actions.test.ts`.
@@ -595,6 +603,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
    `ipcRenderer.invoke/send` on any channel, `preload/index.ts:81`), and the windows run with
    `sandbox: false`. The per-channel API in `window.api` is therefore not a boundary. CSP blocks scripts today;
    one bypass would reach every `ipcMain` handler (MR-21, MR-34).
+   **I11 (2026-10-26):** `window.electron` is no longer exposed; the renderer has only `window.api`. `sandbox: false` remains.
 6. **Optimistic UI without a way back.** Hidden mails and flags rely on the op eventually succeeding. There is
    no rollback, no periodic retry and no place where the user sees what is stuck (MR-29, MR-36).
 7. **`MailPage.tsx` (1313 lines) and `core/index.ts` (1474 lines) are past the size where review catches

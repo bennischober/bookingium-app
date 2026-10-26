@@ -1448,6 +1448,28 @@ the undo of a `folder_create` checked nothing: create a folder, move mail into i
 **Tests.** `tests/mail_folder_delete.test.ts` (new, 11): the op against a stubbed client, and the core with a
 stubbed engine. 8 mutation checks, all killed; the report lists them.
 
+### I11: host hardening [fixed 2026-10-26]
+
+MR-22, MR-23, MR-33, MR-34 and design note 5. "Bilder laden" fetched whatever a stranger's mail named, with no
+body timeout, no size cap and no LAN filter; "Öffnen" trusted the renderer's file name and an incomplete list of
+executables; the connection test sent the stored password to whatever host the form named; `invoice:email`
+joined a renderer name into a path; and preload exposed generic IPC as `window.electron`.
+
+**What changed.**
+- `core/remote_images.ts`: `http`/`https` with a DNS lookup that refuses a name when any answer is private,
+  literal IPs checked per hop, manual redirects (5, http(s) only), a declared and a streaming byte cap, and a
+  timer that covers the body. `core/index.ts`: `loadRemoteImages` fetches only URLs the stored manifest lists.
+- `attachments.ts` and `mail.router.ts`: an allowlist of types for "Öffnen"; anything else gets a native
+  dialog that offers to save only. The name comes from the stored metadata, bidi characters are stripped, and
+  the temp file is marked with `Zone.Identifier` (ZoneId=3) before it opens (fail-closed). `openAnyway` is gone.
+- `accounts.ts`: the stored password is used only for the same host, port and user, for the test and on save.
+- `mail/openEmail.ts`: every path goes through `safePathIn`.
+- `preload`: `window.electron` removed.
+
+**Tests.** `tests/mail_remote_images_guard.test.ts` (new, 10), `tests/mail_host_hardening.test.ts` (new, 3),
+`tests/mail_attachments.test.ts` (13), a wiring test, and the e2e attachment test. 19 mutation checks, 18
+killed, one equivalent; the report lists them.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
