@@ -1343,7 +1343,56 @@ the report lists them.
 
 **Not verified here:** the CI jobs themselves (nothing is pushed), and the mail e2e needs the sandbox.
 
+### I10: small renderer fixes [fixed 2026-10-26]
+
+MR-13, 35, 36, 37 and the open renderer Low items. Every renderer decision that could be lifted out of a
+`.tsx` was moved into a pure module, so vitest holds it instead of a comment.
+
+**What changed.**
+- **MR-13** `src/main/mailclient/accounts.ts`: `toDto` now carries `signature`, and a save that OMITS it keeps the
+  stored one (an explicit empty string still clears it). The renderer had always received `undefined`, so no new mail
+  carried a signature and opening the account form wiped it.
+- **MR-35** new `components/mail/readingActions.ts`: only a writable account may offer reply/forward/write-to. Both
+  pages derive from it; before, `onWriteTo` and `onCompose` were passed unconditionally, so the production account
+  opened an editor whose autosave failed silently and lost the text.
+- **MR-36** new `components/mail/archiveActions.ts`: `archiveableIds` (not already in Archive, not in Trash),
+  `uncoveredIds` (show again every hidden mail no DONE op covers, matched by UID) and `archivedCount` (the toast says
+  what the core archived, not the selection). Archiving inside Archive used to hide the mail until a restart.
+- **MR-37** `shortcuts.ts`: `shortcutBlocked()` keeps the global keys out of dialogs, alert dialogs, menus, popovers,
+  the compose form and the list while an editor is open. Entf on a confirm dialog used to move the selected mail.
+- **Low:** `hiddenIds` is cleared on an account switch, `addFiles` marks the mail edited (the attachment was lost when
+  the window closed), and the reader's reply/reply-all/forward icon buttons have an `aria-label`.
+
+**Tests.** `tests/mail_account_signature.test.ts` (3), `tests/mail_readonly_actions.test.ts` (4),
+`tests/mail_archive_actions.test.ts` (12), `tests/mail_shortcuts_guard.test.ts` (8), `tests/mail_renderer_low.test.ts`
+(3). Every one has a recorded mutation check; the report lists them.
+
+**Still open from the Low list** (each needs its own card, none is a regression): reopening a draft keeps its HTML,
+`MailWindowPage` shows an error instead of spinning when `getDraft` fails, the preset PDF counts against
+`MAX_ATTACHMENT_BYTES`, unused `search.pdfName`, events of other accounts dropped and sync events not invalidating
+`search`, signature applied once, and the keyboard effect subscribing once.
+
 ## Found while working
+
+### A sent mail can be delivered twice (found during I10, NOT fixed)
+
+**Status: open, needs its own card.** Found while running the mail e2e for I10.
+
+`tests/e2e/mail-client.spec.ts`, "a mail written in the editor is saved as a draft and sent", presses Ctrl+Enter
+twice on purpose (that is the double-send guard) and asserts exactly one delivery. It fails with "expected 1, received 2":
+**two deliveries for one mail**.
+
+**Attribution, measured:** the same test fails identically on `feat/mail-client` with every I10 change stashed, so this is
+pre-existing and not a renderer regression. It is also timing-dependent - the full suite passed once and the test failed twice
+when run alone - which is why it survived until now: `delivered()` counts by SUBJECT, so a leftover from an earlier failed run
+inflates the count, and the suite's cleanup runs after the assertion.
+
+**Two separate things to fix, and they should not be conflated:**
+1. the test is fragile (subject-based counting plus a cleanup that runs too late), so it can fail for a stale leftover;
+2. the product may really send twice under the double Ctrl+Enter, which is what the test exists to catch.
+
+Until it is split, treat this test as unreliable evidence rather than as a regression signal.
+
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
