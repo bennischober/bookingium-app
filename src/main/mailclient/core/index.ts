@@ -30,6 +30,15 @@ import { draftStoreValidity } from './draft_store.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
+/** I1: the phase a send op's payload records ('smtp' or 'sent'), see WriteEngine.doSend */
+function sendPhase(op: { payload: string | null }): string | undefined {
+  try {
+    return (JSON.parse(op.payload || '{}') as { phase?: string }).phase;
+  } catch {
+    return undefined;
+  }
+}
+
 function accountMode(config: { canary?: boolean; readOnly: boolean }): AccountInfo['mode'] {
   if (isCanary(config)) return 'canary';
   return config.readOnly ? 'production-readonly' : 'sandbox';
@@ -588,8 +597,8 @@ export class MailCore implements Api {
         e.store.journalUpdate(opId, { state: 'unknown', error: result.reason });
         break;
       case 'failed':
-        // a send the server took but that could not be filed in Sent is marked done by
-        // the engine: back to pending, a replay would send it a second time
+        // back to pending, for the next replay. A send is safe here: its phase says what is
+        // left (I1) - none: nothing went out; 'sent': only filing into Sent, never SMTP again
         if (op.state === 'done') break;
         e.store.journalUpdate(opId, { state: 'pending', error: result.reason });
         break;
@@ -598,15 +607,24 @@ export class MailCore implements Api {
 
   async replayPendingOps(accountId?: string): Promise<{ replayed: number; results: Record<string, string> }> {
     const e = this.writableEntry(accountId);
-    const ops = e.store.journalPending(100);
+    // I1 (MR-03): an unknown send is probed too - by Message-ID, it is never sent again
+    const ops = [...e.store.journalPending(100), ...e.store.journalUnknownSends(20)];
     const results: Record<string, string> = {};
     for (const listed of ops) {
       // re-read: an earlier op of this loop may have taken long enough for this one to
       // be settled by now (execute() itself shares an op that is still queued)
       const op = e.store.journalGet(listed.id);
-      if (!op || (op.state !== 'pending' && op.state !== 'running')) continue;
-      const result = await this.runOp(e, op);
-      results[op.id] = result.outcome;
+      if (!op) continue;
+      const unknownSend = op.kind === 'send' && op.state === 'unknown';
+      if (!unknownSend && op.state !== 'pending' && op.state !== 'running') continue;
+      // I1 (MR-02): one op that throws must not stop the others
+      try {
+        const result = await this.runOp(e, op);
+        results[op.id] = result.outcome;
+      } catch (error) {
+        results[op.id] = 'failed';
+        this.log.warn?.(`replay of op ${op.id} (${op.kind}) threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     return { replayed: ops.length, results };
   }
@@ -627,6 +645,11 @@ export class MailCore implements Api {
     if (op.state !== 'failed' && op.state !== 'conflict' && op.state !== 'pending' && op.state !== 'unknown') {
       throw new Error(`op ${opId} is ${op.state}; only failed/conflict/pending/unknown ops can be retried`);
     }
+    // I1 (MR-05): a send the server may already have is checked, never retried. Sending it
+    // again is an explicit new mail.
+    if (op.kind === 'send' && (op.state === 'unknown' || sendPhase(op) === 'smtp')) {
+      throw new Error(`op ${opId} is a send with an unclear outcome; use resolveOp to check it`);
+    }
     e.store.journalUpdate(opId, { state: 'pending', error: undefined });
     return this.runOp(e, e.store.journalGet(opId)!);
   }
@@ -635,7 +658,8 @@ export class MailCore implements Api {
     const e = this.writableEntry(accountId);
     const op = e.store.journalGet(opId);
     if (!op) throw new Error(`op ${opId} not found`);
-    if (op.kind !== 'send' || op.state !== 'unknown') throw new Error(`op ${opId} is not an unresolved send`);
+    const unresolved = op.state === 'unknown' || (op.state === 'conflict' && sendPhase(op) === 'smtp');
+    if (op.kind !== 'send' || !unresolved) throw new Error(`op ${opId} is not an unresolved send`);
     return this.runOp(e, op);
   }
 
@@ -988,10 +1012,11 @@ export class MailCore implements Api {
   async saveDraft(draft: DraftInput, replaceUid?: number | null, accountId?: string): Promise<number> {
     const e = this.writableEntry(accountId);
     const draftsFolder = this.draftsFolder(e);
-    const { raw } = await this.buildMimeMessage(e, draft, { draft: true });
+    const { raw, messageId } = await this.buildMimeMessage(e, draft, { draft: true });
     const oldUid = replaceUid ?? undefined;
     const opId = e.store.journalEnqueue({
-      accountId: e.config.id, kind: 'draft_save',
+      // I1 (MR-15): the Message-ID lets a replay find a copy the APPEND already left
+      accountId: e.config.id, kind: 'draft_save', messageId,
       folderPath: draftsFolder.imap_path, folderUidValidity: draftsFolder.uid_validity ?? undefined,
       uid: oldUid,
       payload: { mime: raw.toString('base64'), oldUid },
@@ -1037,7 +1062,11 @@ export class MailCore implements Api {
     const op = e.store.journalGet(opId)!;
     // the 'running' event is emitted by runOp, so a send and a move look the same to the UI
     const result = await this.runOp(e, op);
-    if (result.outcome === 'failed' && e.store.journalGet(opId)?.state !== 'done') {
+    const after = e.store.journalGet(opId);
+    // I1 (MR-43): phase 'sent' means the server took the mail and only filing into Sent
+    // failed. That op stays pending, the next replay files it; for the user it is sent.
+    const delivered = !!after && sendPhase(after) === 'sent';
+    if (result.outcome === 'failed' && after?.state !== 'done' && !delivered) {
       // refused before the server took it: nothing went out, the editor stays open with
       // the mail, and sending again is a new op (a queued one would go out unasked later)
       e.store.journalUpdate(opId, { state: 'cancelled' });
@@ -1399,12 +1428,16 @@ export class MailCore implements Api {
   /** Shutdown contract (see README.md):
    *  - stops polling + IDLE (no new server contact after this returns)
    *  - waits for an in-flight sync to finish (bounded)
-   *  - waits for in-flight write ops to reach a journal state (they are crash-safe;
-   *    a kill mid-op is recovered by the next start())
+   *  - waits for in-flight write ops to reach a journal state (bounded, 8 s; they are
+   *    crash-safe, a kill mid-op is recovered by the next start(): a send interrupted
+   *    after SMTP started is probed by Message-ID, never sent again)
    *  - closes SQLite handles (WAL checkpoint on close)
    *  - releases the data-dir instance lock
    *  Does NOT replay failed ops or retry sends — replay happens on next start(). */
-  async close(opts?: { syncWaitMs?: number }): Promise<void> {
+  async close(opts?: { syncWaitMs?: number; writeWaitMs?: number }): Promise<void> {
+    // I1 (MR-01): the op in flight finishes first, so its journal row says how far it got.
+    // Bounded: the host kills the worker 15 s after asking it to close.
+    await Promise.all([...this.entries.values()].map(e => e.writes.drain(opts?.writeWaitMs ?? 8_000)));
     for (const [, e] of this.entries) {
       e.engine.stopPolling();
       if (e.engine.isSyncing()) {

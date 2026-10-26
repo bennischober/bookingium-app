@@ -19,11 +19,18 @@ export type FakeSmtp = {
  *
  * It advertises AUTH PLAIN and LOGIN, refuses `MAIL FROM`/`DATA` with 530 until a
  * correct AUTH arrived, and answers 535 for wrong credentials.
+ *
+ * I1: `afterData` decides what happens once the content arrived. 'drop' keeps the message
+ * and closes the connection without an answer - the ambiguous case: the mail is out, the
+ * client cannot know. 'reject' answers 554, a definite no.
  */
-export function startFakeSmtp(credentials: {
-  user: string
-  pass: string
-}): Promise<FakeSmtp> {
+export function startFakeSmtp(
+  credentials: {
+    user: string
+    pass: string
+  },
+  behaviour: { afterData?: 'accept' | 'drop' | 'reject' } = {}
+): Promise<FakeSmtp> {
   const messages: string[] = []
   const authAttempts: { user: string; pass: string }[] = []
   const commands: string[] = []
@@ -56,8 +63,17 @@ export function startFakeSmtp(credentials: {
         if (inData) {
           if (line === '.') {
             inData = false
+            if (behaviour.afterData === 'reject') {
+              data = ''
+              send('554 5.6.0 Message rejected')
+              continue
+            }
             messages.push(data)
             data = ''
+            if (behaviour.afterData === 'drop') {
+              socket.destroy()
+              return
+            }
             send('250 2.0.0 Ok: queued')
           } else {
             data += `${line}\r\n`

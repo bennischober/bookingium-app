@@ -289,6 +289,11 @@ export type DraftInput = {
   repliesTo?: number | null;
   /** Message (DB id) whose attachments go along (forward) */
   forwardsFrom?: number | null;
+  /**
+   * I2: a UUID the editor keeps for one mail. A send uses it as the Message-ID, so sending
+   * the same mail again is recognised in Sent and never delivered twice. Drafts ignore it.
+   */
+  sendKey?: string | null;
 };
 
 /** A draft opened again: its own content, attachments included, and where it is stored */

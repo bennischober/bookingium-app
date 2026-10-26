@@ -38,12 +38,45 @@ export type BatchMoved = {
   newKey?: string
 }
 
+/** I1: a send as the journal stores it (see doSend for the phases) */
+type SendPayload = {
+  mime: string
+  messageId: string
+  sentFolderPath: string
+  envelope: { from?: string; to: string[]; cc: string[]; bcc: string[] }
+  /** The saved draft this mail was written in; it goes once the mail is sent */
+  draft?: { path: string; uid: number; uidValidity: string | null }
+  phase?: 'smtp' | 'sent'
+}
+
+/**
+ * I1: did the SMTP server definitely NOT take the mail? Only then may a send be retried.
+ * It is definite when the server refused the login (EAUTH) or the envelope (EENVELOPE:
+ * MAIL FROM, RCPT TO or DATA itself), rejected the message with a response code after
+ * the content (EMESSAGE), or the connection never came up (DNS, refused, unreachable).
+ * Everything else is unknown: nodemailer labels every socket error, timeout and
+ * unexpected close `CONN` / ESOCKET / ETIMEDOUT / ECONNECTION, even one that happens
+ * after the content was sent, so neither the command nor a response code on those
+ * proves anything. Before, a regex listed the ambiguous cases, so every error it did
+ * not know (EPIPE, ENETRESET) counted as definite and was retried.
+ */
+export function smtpRefused(error: unknown): boolean {
+  const e = (error ?? {}) as { code?: string; originalCode?: string; responseCode?: unknown }
+  if (e.code === 'EAUTH' || e.code === 'EENVELOPE' || e.code === 'EDNS') return true
+  if (e.code === 'EMESSAGE' && typeof e.responseCode === 'number') return true
+  // a system error that only a connect attempt can raise; nodemailer keeps it in originalCode
+  const system = e.originalCode ?? e.code ?? ''
+  return ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH'].includes(system)
+}
+
 export class WriteEngine {
   // serialized playback: one operation at a time per account
   private chain: Promise<unknown> = Promise.resolve()
   // ops queued or running, by id: the startup replay must not run an op a second
   // time while the call that enqueued it still waits for a folder
   private inFlight = new Map<string, Promise<OpResult>>()
+  // I1: the op bodies themselves, until they end; close() drains these, not the answers
+  private bodies = new Set<Promise<OpResult>>()
   private engineHooks: {
     withFolderMutex: (path: string, fn: () => Promise<void>) => Promise<void>
     triggerResync: (path: string) => void
@@ -167,7 +200,13 @@ export class WriteEngine {
     if (this.queueStopped) {
       return { outcome: 'failed', reason: 'write queue stopped: restart bookingum to continue' }
     }
-    const result = this.enqueue(async () => {
+    // I1 (MR-16): a body the watchdog abandoned keeps its mutexes until it really ends, but
+    // the caller gets its answer now - through this, not through the queued promise
+    let answerEarly: (r: OpResult) => void = () => undefined
+    const early = new Promise<OpResult>((resolve) => (answerEarly = resolve))
+    const run = this.enqueue(async () => {
+      // A5: attempts > 0 tells a replay from a first run (the draft probe reads it)
+      this.store.journalBumpAttempts(op.id)
       // single-writer rule (docs/WRITE_PATH.md §6): hold the sync engine's folder
       // mutex for the source folder during the whole op; move ops also lock the target.
       // A2c: a self-move (target == source) must not nest the SAME mutex - the inner
@@ -178,8 +217,20 @@ export class WriteEngine {
       ]
       // A6: the watchdog starts only AFTER every mutex is held (F2) - an op that merely
       // waits behind a long folder sync must not be considered stuck.
-      const guarded = (): Promise<OpResult> =>
-        this.withWatchdog(op, (signal) => this.executeOne(op, signal))
+      // I1 (MR-02): an op body that throws (a refused connect, a dropped socket) becomes an
+      // outcome here. Before, the throw skipped the journal update and left the op 'running',
+      // so the next start replayed it - for a send, a second copy the user never asked for.
+      const body = (signal: AbortSignal): Promise<OpResult> =>
+        this.executeOne(op, signal).catch((error: unknown) => this.thrownOutcome(op, error))
+      const guarded = async (): Promise<OpResult> => {
+        let stuck: Promise<unknown> | null = null
+        const r = await this.withWatchdog(op, body, (work) => (stuck = work))
+        if (stuck) {
+          answerEarly(r)
+          await stuck
+        }
+        return r
+      }
       if (!folders.length) return guarded()
       const owned =
         folders.length === 1
@@ -192,22 +243,68 @@ export class WriteEngine {
       if (owned.outcome === 'failed' || owned.outcome === 'unknown') await this.dropClient()
       return owned
     })
+    // a throw outside the body (a mutex, the journal) must not strand the op either
+    const settled = run.catch((error: unknown) => this.thrownOutcome(op, error))
+    const result = Promise.race([settled, early])
     this.inFlight.set(op.id, result)
-    void result.catch(() => {}).finally(() => this.inFlight.delete(op.id))
+    this.bodies.add(settled)
+    // the entry stays until the body really ended, so a second execute() of it shares it
+    void settled.finally(() => {
+      this.inFlight.delete(op.id)
+      this.bodies.delete(settled)
+    })
     return result
+  }
+
+  /**
+   * I1: what a thrown op body means. Before the SMTP phase nothing left the machine, so it is
+   * a plain failure. From the SMTP phase on the server may have taken the mail: unknown, and
+   * recorded as such right away, so a replay probes instead of sending again.
+   */
+  private thrownOutcome(op: JournalRow, error: unknown): OpResult {
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 100)
+    if (this.opPhase(op) === 'smtp') {
+      this.store.journalUpdate(op.id, { state: 'unknown', error: `smtp ambiguous: ${message}` })
+      return { outcome: 'unknown', reason: `smtp outcome ambiguous: ${message}` }
+    }
+    return { outcome: 'failed', reason: message }
+  }
+
+  /**
+   * I1 (MR-01): wait for the ops in flight before the connection closes, bounded. A send cut
+   * off here is still safe (its journal says 'smtp', the next start probes), but one that
+   * finishes writes 'done' and needs no probe at all.
+   */
+  async drain(timeoutMs: number): Promise<void> {
+    const pending = [...this.bodies]
+    if (!pending.length) return
+    let timer: NodeJS.Timeout | null = null
+    await Promise.race([
+      Promise.allSettled(pending),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs)
+        timer.unref?.()
+      })
+    ])
+    if (timer) clearTimeout(timer)
   }
 
   /**
    * A6: run one op body under the watchdog. On timeout the op is abandoned (its signal is
    * aborted, its clients are closed), never force-released: the mutex stays held, the queue
    * stops, and the host must restart the worker. The journal makes that restart safe.
+   *
+   * I1 (MR-16): "the mutex stays held" is made true by `onAbandoned`. It receives the body
+   * that would not stop, and execute() keeps the mutexes until that body really ends.
    */
   private async withWatchdog(
     op: JournalRow,
-    body: (signal: AbortSignal) => Promise<OpResult>
+    body: (signal: AbortSignal) => Promise<OpResult>,
+    onAbandoned?: (work: Promise<unknown>) => void
   ): Promise<OpResult> {
     const controller = new AbortController()
     let timer: NodeJS.Timeout | null = null
+    let lateTimer: NodeJS.Timeout | null = null
     const limit = this.watchdogMs(op)
     const timeout = new Promise<'timeout'>((resolve) => {
       timer = setTimeout(() => resolve('timeout'), limit)
@@ -220,33 +317,46 @@ export class WriteEngine {
       // Timed out: abandon the op and give the body a bounded chance to settle
       controller.abort()
       const settled = await Promise.race([
-        work.then(() => 'settled' as const).catch(() => 'settled' as const),
-        new Promise<'late'>((r) => setTimeout(() => r('late'), 15_000))
+        work.catch(() => null),
+        new Promise<'late'>((r) => {
+          lateTimer = setTimeout(() => r('late'), 15_000)
+          lateTimer.unref?.()
+        })
       ])
-      const phase = this.opPhase(op)
-      if (settled === 'settled') {
+      // a body that finished its work after all keeps its result: a send that reached
+      // 'done' needs no probe
+      if (settled && settled !== 'late' && (settled.r.outcome === 'done' || settled.r.outcome === 'noop'))
+        return settled.r
+      // A send that already reached SMTP is UNKNOWN, never failed (F3: a failed send would
+      // be retried and could deliver twice). I1 (MR-03): that holds for a body that is still
+      // running too - before, 'late' returned failed and sendMail cancelled a live send.
+      const smtpUnknown: OpResult = {
+        outcome: 'unknown',
+        reason: 'timed out after the SMTP phase started - outcome unknown, probe required'
+      }
+      const sending = this.opPhase(op) === 'smtp'
+      if (settled !== 'late') {
         // The body stopped on its own: record an outcome, the mutex can be released.
-        // A send that already reached SMTP is UNKNOWN, never failed (F3: a failed send
-        // would be retried and could deliver twice).
-        return phase === 'smtp'
-          ? {
-              outcome: 'unknown',
-              reason: 'timed out after the SMTP phase started - outcome unknown, probe required'
-            }
-          : { outcome: 'failed', reason: 'timed out' }
+        return sending ? smtpUnknown : { outcome: 'failed', reason: 'timed out' }
       }
       // Still running: do NOT release the mutex, stop the queue, ask for a restart.
       this.queueStopped = true
+      onAbandoned?.(work.catch(() => undefined))
       this.log?.warn?.(
         `write op ${op.id} (${op.kind}) did not stop after ${limit} ms - write queue stopped; restart required`
       )
       this.onQueueStopped?.('Schreibvorgänge angehalten. Bitte bookingum neu starten.')
+      if (sending) {
+        this.store.journalUpdate(op.id, { state: 'unknown', error: smtpUnknown.reason })
+        return smtpUnknown
+      }
       return {
         outcome: 'failed',
         reason: 'op did not stop after timeout - write queue stopped, restart required'
       }
     } finally {
       if (timer) clearTimeout(timer)
+      if (lateTimer) clearTimeout(lateTimer)
     }
   }
 
@@ -973,15 +1083,16 @@ export class WriteEngine {
   }
 
   // ----- send (state machine; docs/WRITE_PATH.md §5) ---------------------------
+  //
+  // I1: the journal's payload.phase is the send's state, not op.state:
+  //   (none)  nothing left the machine yet: sending is safe
+  //   'smtp'  the SMTP exchange started: the server may have the mail, NEVER send again,
+  //           only probe (op.state 'unknown' says the same and is kept in step)
+  //   'sent'  the server took it: only filing into Sent is left, never SMTP again
+  // A replay of any op reads the phase first, so a quit, a crash or a kill at any point
+  // cannot lead to a second delivery.
   private async doSend(op: JournalRow, signal: AbortSignal): Promise<OpResult> {
-    const payload = JSON.parse(op.payload || '{}') as {
-      mime: string
-      messageId: string
-      sentFolderPath: string
-      envelope: { from?: string; to: string[]; cc: string[]; bcc: string[] }
-      /** The saved draft this mail was written in; it goes once the mail is sent */
-      draft?: { path: string; uid: number; uidValidity: string | null }
-    }
+    const payload = JSON.parse(op.payload || '{}') as SendPayload
     const mimeBuf = Buffer.from(payload.mime, 'base64')
     // A7 part 2: the canary is a real mailbox, so phase 1 sends to the account's own
     // address only. Refused before any connection opens.
@@ -991,26 +1102,42 @@ export class WriteEngine {
       ...payload.envelope.bcc
     ])
     if (refusal) return { outcome: 'failed', reason: `WRITE GUARD: ${refusal}` }
-    if (op.state === 'unknown') {
-      // resolution probe: never resend; check the Sent folder for our Message-ID
+    if (payload.phase === 'sent') {
+      // a replay after the server took the mail (checked first: it is the one sure state):
+      // filing is all that is left. Probe first, the APPEND may have happened before the
+      // journal could say so.
+      if ((await this.sentProbe(payload.messageId, payload.sentFolderPath)) === 'sent')
+        return { outcome: 'done', detail: 'sent earlier, found in Sent' }
+      return this.fileSent(op, payload, mimeBuf)
+    }
+    if (op.state === 'unknown' || payload.phase === 'smtp') {
+      // I1 (MR-01): a send interrupted after SMTP started (quit, crash, kill) comes back
+      // 'running' with phase 'smtp'. It is unknown, and the resolution probe never resends.
+      if (op.state !== 'unknown') {
+        this.store.journalUpdate(op.id, {
+          state: 'unknown',
+          error: 'interrupted after the SMTP phase started'
+        })
+      }
       return await this.resolveUnknownSend(op, payload)
     }
     // crash-resume guard: if a previous attempt already ACKed and filed the message,
     // re-executing must not send twice. Probe by Message-ID first (RFC 4549 §5.1:
-    // verify-before-replay for non-idempotent commands).
+    // verify-before-replay for non-idempotent commands). I2: the editor keeps one
+    // Message-ID per mail, so this also catches a manual "send again" of a mail that went out.
     const already = await this.sentProbe(payload.messageId, payload.sentFolderPath)
     if (already === 'sent')
       return { outcome: 'done', detail: 'already sent (found by Message-ID probe)' }
 
-    // definitive SMTP rejection before DATA ⇒ failed → safe to retry later
+    const ab = this.abandoned(signal)
+    if (ab) return ab
+    // credentials and transport before the phase: a failure here sent nothing
+    const transporter = writeSmtp(this.writeAccount, await this.credentials())
+    // A6 step 5: record that the SMTP phase has started. Any timeout or failure from
+    // here on is UNKNOWN unless the server itself said no - a failed send would be retried
+    // and could deliver twice.
+    this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'smtp' } })
     try {
-      // A6 step 5: record that the SMTP phase has started. Any timeout or failure from
-      // here on is UNKNOWN, never failed - a failed send would be retried and could
-      // deliver twice.
-      this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'smtp' } })
-      const ab = this.abandoned(signal)
-      if (ab) return ab
-      const transporter = writeSmtp(this.writeAccount, await this.credentials())
       await transporter.sendMail({
         raw: mimeBuf,
         envelope: {
@@ -1019,33 +1146,35 @@ export class WriteEngine {
         }
       })
     } catch (e) {
-      const msg = (e as Error).message || ''
-      // classify: connection-style errors AFTER the greeting are ambiguous (the server
-      // may have accepted DATA). Before-DATA errors (connect refused, auth) are definitive.
-      const ambiguous = /socket|ECONNRESET|timeout|closed|aborted/i.test(msg)
-      if (ambiguous) {
-        // mark the op unknown BEFORE returning — replay then probes, never resends
-        this.store.journalUpdate(op.id, {
-          state: 'unknown',
-          error: `smtp ambiguous: ${msg.slice(0, 80)}`
-        })
-        return { outcome: 'unknown', reason: `smtp outcome ambiguous: ${msg.slice(0, 80)}` }
+      const msg = ((e as Error).message || '').slice(0, 100)
+      if (smtpRefused(e)) {
+        // the server answered no, or the session never got past the greeting: nothing
+        // went out, so the phase goes back and a later attempt may send
+        this.store.journalUpdate(op.id, { payload: { ...payload, phase: undefined } })
+        return { outcome: 'failed', reason: `smtp: ${msg}` }
       }
-      return { outcome: 'failed', reason: `smtp: ${msg.slice(0, 100)}` }
+      // no answer after the greeting: the server may have accepted DATA. Mark the op
+      // unknown BEFORE returning - replay then probes, never resends
+      this.store.journalUpdate(op.id, { state: 'unknown', error: `smtp ambiguous: ${msg}` })
+      return { outcome: 'unknown', reason: `smtp outcome ambiguous: ${msg}` }
     }
-    // SMTP acked. Now file into Sent (retryable separately — never re-send)
-    const filed = await this.appendToSent(op, payload, mimeBuf)
+    // SMTP acked: from here on only filing into Sent is left (retryable, never a resend)
+    this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'sent' } })
     if (payload.draft) await this.removeSentDraft(payload.draft)
+    return this.fileSent(op, payload, mimeBuf)
+  }
+
+  /**
+   * I1 (MR-43): file a mail the server took. A failure stays a 'failed' op in phase 'sent',
+   * which goes back to pending and is filed by the next replay - before, the op was marked
+   * done with "will file" and nothing ever filed it.
+   */
+  private async fileSent(op: JournalRow, payload: SendPayload, mimeBuf: Buffer): Promise<OpResult> {
+    const filed = await this.appendToSent(op, payload, mimeBuf)
     if (filed === true) return { outcome: 'done' }
-    // sent but not filed: record sent state durably first — a later append retry must
-    // not resend; resolution probe finds it via Message-ID
-    this.store.journalUpdate(op.id, {
-      state: 'done',
-      error: `sent, but sent-append failed: ${filed}`
-    })
     return {
       outcome: 'failed',
-      reason: `sent-append: ${filed} (already delivered — will file, not resend)`
+      reason: `sent-append: ${filed} (already delivered - will file, not resend)`
     }
   }
 
@@ -1070,8 +1199,9 @@ export class WriteEngine {
     sentFolderPath: string | null
   ): Promise<'sent' | 'absent' | 'unavailable'> {
     if (!sentFolderPath || !messageId) return 'unavailable'
-    const client = await this.writeClient()
     try {
+      // I1 (MR-02): a failed connect is 'unavailable', not a throw that strands the op
+      const client = await this.writeClient()
       await client.mailboxOpen(sentFolderPath)
       const found = await client.search({ header: { 'message-id': messageId } }, { uid: true })
       return found && found.length ? 'sent' : 'absent'
@@ -1080,10 +1210,7 @@ export class WriteEngine {
     }
   }
 
-  private async resolveUnknownSend(
-    op: JournalRow,
-    payload: { messageId: string; sentFolderPath: string; mime: string }
-  ): Promise<OpResult> {
+  private async resolveUnknownSend(op: JournalRow, payload: SendPayload): Promise<OpResult> {
     // 1) Sent folder on the IMAP server
     const probe = await this.sentProbe(payload.messageId, payload.sentFolderPath)
     if (probe === 'sent') return { outcome: 'done', detail: 'resolved: found in Sent' }
@@ -1092,12 +1219,13 @@ export class WriteEngine {
       try {
         const delivered = await this.sinkProbe(payload.messageId)
         if (delivered) {
-          // delivered but not filed: retry ONLY the Sent APPEND (never the SMTP send)
-          const mimeBuf = Buffer.from(payload.mime, 'base64')
-          const filed = await this.appendToSent(op, payload, mimeBuf)
-          if (filed === true)
-            return { outcome: 'done', detail: 'resolved via sink: delivered, filed late' }
-          return { outcome: 'failed', reason: `resolved sent, but sent-append: ${filed}` }
+          // delivered but not filed: retry ONLY the Sent APPEND (never the SMTP send).
+          // I1: the phase says so first, so a failed filing is retried as filing only.
+          this.store.journalUpdate(op.id, { payload: { ...payload, phase: 'sent' } })
+          const filed = await this.fileSent(op, payload, Buffer.from(payload.mime, 'base64'))
+          return filed.outcome === 'done'
+            ? { outcome: 'done', detail: 'resolved via sink: delivered, filed late' }
+            : filed
         }
       } catch {
         /* sink probe is best-effort */
@@ -1122,8 +1250,8 @@ export class WriteEngine {
     payload: { sentFolderPath: string },
     mimeBuf: Buffer
   ): Promise<true | string> {
-    const client = await this.writeClient()
     try {
+      const client = await this.writeClient()
       const sentPath =
         payload.sentFolderPath ||
         this.store.allFolders().find((f) => f.special_use?.includes('Sent'))?.imap_path ||
@@ -1157,7 +1285,9 @@ export class WriteEngine {
         // This probe is only safe because every draft save builds a FRESH Message-ID
         // (compose.ts uses randomUUID() per build), so a found id is always THIS
         // attempt's copy and never an older version's.
-        if (op.attempts > 0 || op.state === 'running') {
+        // I1 (MR-15): execute() counts every run before the body starts, so attempts > 0
+        // on the row a run was given means an earlier run got as far as the body
+        if (op.attempts > 0) {
           const found = await this.findDraftByMessageId(client, draftsPath, op.message_id)
           if (found != null) {
             payload.appendedUid = found

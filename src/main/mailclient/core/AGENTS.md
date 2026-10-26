@@ -31,9 +31,11 @@ module map and factory reference - read it before changing anything here.
   prettier-formatted, so hand-ports stay diffable.
 - `dataDir` must be absolute; one folder per account; `.eml` files are always opened
   as `path.join(<account dir>, row.file_path)`.
-- `close()` is idempotent and bounded: stop IDLE/polling, wait for an in-flight
-  sync, finish the current journal transition, checkpoint WAL, release the lock.
-  Replay of failed ops happens on the next `start()`, never in `close()`.
+- `close()` is idempotent and bounded: first drain the write op in flight (8 s by
+  default, so a send is not cut off mid-SMTP), then stop IDLE/polling, wait for an
+  in-flight sync, checkpoint WAL, release the lock. Replay happens on the next
+  `start()`, never in `close()`; a send left in the `smtp` phase or `unknown` is
+  probed there, never resent.
 - Sandbox endpoints are injected, never read from env.
 
 ## ANTI-PATTERNS

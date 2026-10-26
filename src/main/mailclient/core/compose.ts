@@ -42,10 +42,16 @@ function addresses(list: Address[], field: string): { name: string; address: str
   })
 }
 
+const SEND_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function composeMime(mail: DraftInput, opts: ComposeOptions): Promise<ComposedMime> {
   const [from] = addresses([opts.from], 'From')
   const domain = from.address.split('@')[1]
-  const messageId = `${crypto.randomUUID()}@${domain}`
+  // I2: a send takes the editor's key, so the same mail sent twice has one Message-ID and the
+  // Sent probe recognises it. A draft always gets a fresh one: a draft save finds its own
+  // earlier copy by it, and each save is a new copy.
+  const key = !opts.draft && mail.sendKey && SEND_KEY.test(mail.sendKey) ? mail.sendKey : crypto.randomUUID()
+  const messageId = `${key}@${domain}`
   const composer = new MailComposer({
     from,
     to: addresses(mail.to, 'An'),

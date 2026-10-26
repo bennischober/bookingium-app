@@ -127,9 +127,11 @@ describe('write engine queue', () => {
     const first = writes.execute(op)
     const second = writes.execute(op)
     release()
-    // The op itself fails on the stub client; what matters is that it ran only once
-    await expect(first).rejects.toThrow()
-    await expect(second).rejects.toThrow()
+    // The op itself fails on the stub client; what matters is that it ran only once.
+    // I1 (MR-02): the throw is an outcome now, not a rejection that strands the op
+    const failed = { outcome: 'failed', reason: expect.stringContaining('no server') }
+    await expect(first).resolves.toMatchObject(failed)
+    await expect(second).resolves.toMatchObject(failed)
     expect(entered).toBe(1)
   })
 
@@ -210,6 +212,9 @@ describe('write engine queue', () => {
 
     // The queue keeps running: the next op is attempted (and fails on the stub client,
     // which proves it got past the wedged self-move)
-    await expect(writes.execute(store.journalGet(next)!)).rejects.toThrow()
+    await expect(writes.execute(store.journalGet(next)!)).resolves.toMatchObject({
+      outcome: 'failed',
+      reason: expect.stringContaining('no server')
+    })
   })
 })

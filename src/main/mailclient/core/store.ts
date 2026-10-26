@@ -229,6 +229,12 @@ export class Store {
       ORDER BY created_at LIMIT ?`).all(limit) as JournalRow[];
   }
 
+  /** I1: sends whose outcome is unknown; the startup replay probes them (never resends). */
+  journalUnknownSends(limit = 20): JournalRow[] {
+    return this.db.prepare(`SELECT * FROM op_journal WHERE kind = 'send' AND state = 'unknown'
+      ORDER BY created_at LIMIT ?`).all(limit) as JournalRow[];
+  }
+
   /** Does any pending/running op touch this message (by local row id)? */
   opInFlightForMessageKey(messageKey: string): boolean {
     return !!this.db.prepare(`SELECT 1 FROM op_journal WHERE message_key = ?
