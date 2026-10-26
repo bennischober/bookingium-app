@@ -37,7 +37,6 @@ export default function MailWindowPage() {
     key?: string
     draft?: string
     pdfPath?: string
-    pdfName?: string
   }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
@@ -58,7 +57,6 @@ export default function MailWindowPage() {
       return {
         key: search.key ?? '',
         pdfPath: search.pdfPath ?? '',
-        pdfName: search.pdfName ?? '',
         to: draft.to ?? '',
         subject: draft.subject ?? '',
         body: draft.body ?? ''
@@ -66,7 +64,7 @@ export default function MailWindowPage() {
     } catch {
       return null
     }
-  }, [search.mode, search.key, search.draft, search.pdfPath, search.pdfName])
+  }, [search.mode, search.key, search.draft, search.pdfPath])
   const queryClient = useQueryClient()
 
   const accounts = trpcReact.mail.accounts.list.useQuery()
@@ -134,7 +132,9 @@ export default function MailWindowPage() {
   trpcReact.mail.events.useSubscription(undefined, {
     enabled: Boolean(accountId),
     onData: (event) => {
-      if (event.accountId !== accountId || event.type !== 'op-event') return
+      // I16 item 18: this used to filter to op-events, so an isDraft or folder change arriving as a
+      // sync event left the window showing the old derivation until a refetch
+      if (event.accountId !== accountId) return
       void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
       void queryClient.invalidateQueries({ queryKey: messageKey(accountId, messageId) })
     }
@@ -182,7 +182,7 @@ export default function MailWindowPage() {
 
   return (
     <div className="flex h-screen min-h-0 flex-col">
-      {composeRequest && composeInitial ? (
+      {composeRequest && composeInitial && canWrite ? (
         <ComposeView
           key={`compose-${composeRequest.key}`}
           accountId={accountId}
@@ -199,7 +199,6 @@ export default function MailWindowPage() {
           initial={compose.state}
           onClose={() => (compose.closesWindow ? window.close() : setCompose(null))}
           onStored={() => undefined}
-          presetPdfPath={composeRequest?.pdfPath}
           onSent={
             composeRequest
               ? (messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)

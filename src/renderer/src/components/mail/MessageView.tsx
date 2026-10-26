@@ -373,7 +373,8 @@ export function MessageView({
 
         {message.attachments.filter((a) => !a.isInline).length > 1 && (
           // F10: "save all" belongs to the whole set, not to one attachment's menu
-          <div className="flex flex-wrap items-center gap-2" aria-label="Alle Anhänge">
+          // I16 item 22: aria-label on a plain div is ignored; a role makes the name reach assistive tech
+          <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Alle Anhänge">
             <span className="text-xs text-muted-foreground">
               {message.attachments.filter((a) => !a.isInline).length} Anhänge
             </span>
