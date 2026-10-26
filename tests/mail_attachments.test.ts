@@ -1,6 +1,16 @@
 // B6: attachment names come from the sender, so they are hostile until sanitized.
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { dirname, join, relative } from 'path'
 import { describe, expect, it } from 'vitest'
-import { isExecutableName, safeAttachmentName } from '../src/main/mailclient/attachments'
+import {
+  ZONE_IDENTIFIER,
+  isSafeToOpen,
+  markFromInternet,
+  safeAttachmentName,
+  safePathIn,
+  storedAttachmentName
+} from '../src/main/mailclient/attachments'
 
 describe('attachment file names (B6)', () => {
   it('keeps an ordinary name', () => {
@@ -59,22 +69,73 @@ describe('attachment file names (B6)', () => {
     expect(safeAttachmentName('', 'Datei')).toBe('Datei')
   })
 
-  it('flags executables for the warning before opening', () => {
+  // I11 (MR-23): an allowlist, because a list of dangerous types is never complete
+  it('opens only allowlisted types', () => {
     for (const name of [
       'setup.exe',
       'run.BAT',
-      'x.cmd',
       'a.js',
-      'b.vbs',
-      'c.ps1',
-      'd.scr',
-      'e.lnk',
-      'f.msi'
+      'link.url',
+      'panel.cpl',
+      'snap.msc',
+      'x.wsf',
+      'help.chm',
+      'disk.iso',
+      'disk.vhdx',
+      'seite.html',
+      'bild.svg',
+      'x.settingcontent-ms',
+      'ohne-endung'
     ]) {
-      expect(isExecutableName(name), name).toBe(true)
+      expect(isSafeToOpen(name), name).toBe(false)
     }
-    for (const name of ['bild.png', 'rechnung.pdf', 'text.txt', 'ohne-endung']) {
-      expect(isExecutableName(name), name).toBe(false)
+    for (const name of ['rechnung.pdf', 'text.txt', 'vertrag.DOCX', 'bild.png']) {
+      expect(isSafeToOpen(name), name).toBe(true)
+    }
+  })
+
+  it('strips bidi controls, so an RTLO name shows its real extension', () => {
+    // "rechnung<RTLO>fdp.exe" reads as "rechnungexe.pdf"
+    const safe = safeAttachmentName('rechnung\u202Efdp.exe')
+    expect(safe).toBe('rechnungfdp.exe')
+    expect(isSafeToOpen(safe)).toBe(false)
+    expect(safeAttachmentName('\u200Bbild\u2066.png\uFEFF')).toBe('bild.png')
+  })
+})
+
+describe('attachment paths and stored names (I11)', () => {
+  it('keeps a hostile name inside the folder', () => {
+    const folder = join(tmpdir(), 'bookingum-att-test')
+    for (const hostile of ['../../etc/passwd', '..\\..\\x.pdf', '/abs/x.txt', '..', '']) {
+      const target = safePathIn(folder, hostile)
+      const rel = relative(folder, target)
+      expect(rel, hostile).not.toMatch(/^\.\./)
+      expect(rel.length, hostile).toBeGreaterThan(0)
+      expect(dirname(target)).toBe(folder)
+    }
+    expect(safePathIn(folder, 'Rechnung.pdf')).toBe(join(folder, 'Rechnung.pdf'))
+  })
+
+  it('takes the name the mail stored, never one the caller sends', () => {
+    const attachments = [
+      { partId: '2', filename: 'vertrag.pdf' },
+      { partId: '3', filename: null }
+    ]
+    expect(storedAttachmentName(attachments, '2')).toBe('vertrag.pdf')
+    expect(storedAttachmentName(attachments, '3')).toBe('Anhang')
+    expect(() => storedAttachmentName(attachments, '9')).toThrow('Anhang nicht gefunden')
+  })
+
+  it.runIf(process.platform === 'win32')('marks a written file as from the internet', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bookingum-motw-'))
+    try {
+      const file = join(dir, 'x.pdf')
+      await writeFile(file, 'x')
+      await markFromInternet(file)
+      expect(await readFile(`${file}:Zone.Identifier`, 'utf-8')).toBe(ZONE_IDENTIFIER)
+      expect(ZONE_IDENTIFIER).toContain('ZoneId=3')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
     }
   })
 })

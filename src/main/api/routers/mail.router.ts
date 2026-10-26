@@ -4,13 +4,18 @@ import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, join } from 'path'
-import { isExecutableName, safeAttachmentName } from '../../mailclient/attachments'
+import {
+  isSafeToOpen,
+  markFromInternet,
+  safePathIn,
+  storedAttachmentName
+} from '../../mailclient/attachments'
 import {
   checkMailAccountSettings,
   deleteMailAccount,
   listMailAccounts,
-  mailCredentials,
   saveMailAccount,
+  storedPasswordFor,
   type MailAccountDto
 } from '../../mailclient/accounts'
 import {
@@ -58,12 +63,11 @@ const SaveMailAccountInput = z.object({
 
 const TestMailAccountInput = SaveMailAccountInput.omit({ email: true })
 
-/** B6: which attachment of which mail */
+/** B6: which attachment of which mail. I11 (MR-23): no name - main takes the stored one */
 const AttachmentInput = z.object({
   accountId: z.string().min(1),
   messageId: z.number().int().positive(),
-  partId: z.string().min(1),
-  filename: z.string()
+  partId: z.string().min(1)
 })
 
 /** Temp folder for opened attachments; wiped of old files at startup */
@@ -83,7 +87,22 @@ async function attachmentBytes(input: z.infer<typeof AttachmentInput>): Promise<
   }
 }
 
-/** Writes the bytes under a sanitized name into the temp folder, never elsewhere */
+/** I11 (MR-23): the attachment's name as stored with the mail, sanitized */
+async function attachmentName(input: z.infer<typeof AttachmentInput>): Promise<string> {
+  try {
+    const detail = (await mailClient.call('getMessage', [input.messageId, input.accountId])) as {
+      attachments: { partId: string; filename: string | null }[]
+    }
+    return storedAttachmentName(detail.attachments, input.partId)
+  } catch (error) {
+    throw badRequest(error, 'Anhang konnte nicht geladen werden')
+  }
+}
+
+/**
+ * Writes the bytes under a sanitized name into the temp folder, never elsewhere, and marks
+ * them as downloaded from the internet (I11, MR-23). A file that cannot be marked is not opened.
+ */
 async function writeAttachment(
   input: z.infer<typeof AttachmentInput>,
   name: string
@@ -94,9 +113,36 @@ async function writeAttachment(
   const folder = join(dir, sub)
   await mkdir(folder, { recursive: true })
   const bytes = await attachmentBytes(input)
-  const target = join(folder, name)
+  const target = safePathIn(folder, name)
   await writeFile(target, Buffer.from(bytes))
+  await markFromInternet(target)
   return target
+}
+
+/** "Speichern unter...": the user picks the path, main writes and marks the bytes */
+async function saveAttachmentAs(
+  input: z.infer<typeof AttachmentInput>,
+  name: string
+): Promise<string | null> {
+  const bytes = await attachmentBytes(input)
+  const owner = BrowserWindow.getFocusedWindow()
+  const options: Electron.SaveDialogOptions = {
+    title: 'Anhang speichern',
+    defaultPath: join(app.getPath('downloads'), name),
+    filters: [{ name: basename(name), extensions: [name.split('.').pop() ?? 'bin'] }]
+  }
+  const result = owner
+    ? await dialog.showSaveDialog(owner, options)
+    : await dialog.showSaveDialog(options)
+  if (result.canceled || !result.filePath) return null
+  try {
+    await writeFile(result.filePath, Buffer.from(bytes))
+  } catch (error) {
+    throw badRequest(error, 'Anhang konnte nicht gespeichert werden')
+  }
+  // A drive without NTFS streams (a FAT stick) cannot carry the mark; the file is saved anyway
+  await markFromInternet(result.filePath).catch(() => undefined)
+  return result.filePath
 }
 
 /** Startup: drop opened attachments older than a day */
@@ -115,12 +161,15 @@ export async function cleanAttachmentTemp(): Promise<void> {
   }
 }
 
-/** One login with the given settings; without a password, the stored one of `id` */
+/**
+ * One login with the given settings; without a password, the stored one of `id` - but only
+ * for the server, port and login it was saved for (I11, MR-33)
+ */
 async function testAccount(
   input: z.infer<typeof TestMailAccountInput>
 ): Promise<ConnectionTestResult> {
   checkMailAccountSettings(input)
-  const pass = input.password ?? (input.id ? mailCredentials(input.id).pass : undefined)
+  const pass = input.password ?? (input.id ? storedPasswordFor(input.id, input) : undefined)
   if (!pass) throw new Error('Passwort fehlt')
   return testImapConnection({
     host: input.host.trim(),
@@ -138,47 +187,44 @@ export const mailRouter = t.router({
    */
   attachments: t.router({
     /**
-     * Writes the attachment into a temp folder and hands it to the OS. Returns the
-     * sanitized name and, for an executable, `warning` so the UI can ask first.
+     * Writes the attachment into a temp folder, marked as from the internet, and hands it to
+     * the OS - for an allowlisted type only. I11 (MR-23): any other type is never started;
+     * main itself asks whether to save it instead, so the renderer decides nothing.
      */
     open: t.procedure.input(AttachmentInput).mutation(async ({ input }) => {
-      const name = safeAttachmentName(input.filename, 'Anhang')
-      if (isExecutableName(name)) return { opened: false, name, executable: true }
+      const name = await attachmentName(input)
+      if (!isSafeToOpen(name)) {
+        const owner = BrowserWindow.getFocusedWindow()
+        const options: Electron.MessageBoxOptions = {
+          type: 'warning',
+          title: 'Anhang öffnen',
+          message: `„${name}“ wird nicht direkt geöffnet.`,
+          detail:
+            'Dateien dieses Typs können Programme starten oder Makros ausführen. ' +
+            'Speichern Sie die Datei und prüfen Sie sie, bevor Sie sie öffnen.',
+          buttons: ['Speichern unter …', 'Abbrechen'],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true
+        }
+        const choice = owner
+          ? await dialog.showMessageBox(owner, options)
+          : await dialog.showMessageBox(options)
+        if (choice.response !== 0) return { opened: false, saved: false, name }
+        const filePath = await saveAttachmentAs(input, name)
+        return { opened: false, saved: filePath !== null, name }
+      }
       const file = await writeAttachment(input, name)
       const error = await shell.openPath(file)
       if (error) throw badRequest(new Error(error), 'Anhang konnte nicht geöffnet werden')
-      return { opened: true, name, executable: false }
-    }),
-
-    /** Opens the attachment even though it is executable (the user confirmed) */
-    openAnyway: t.procedure.input(AttachmentInput).mutation(async ({ input }) => {
-      const name = safeAttachmentName(input.filename, 'Anhang')
-      const file = await writeAttachment(input, name)
-      const error = await shell.openPath(file)
-      if (error) throw badRequest(new Error(error), 'Anhang konnte nicht geöffnet werden')
-      return { opened: true, name }
+      return { opened: true, saved: false, name }
     }),
 
     /** "Speichern unter...": the user picks the path, the main process writes the bytes */
     saveAs: t.procedure.input(AttachmentInput).mutation(async ({ input }) => {
-      const name = safeAttachmentName(input.filename, 'Anhang')
-      const bytes = await attachmentBytes(input)
-      const owner = BrowserWindow.getFocusedWindow()
-      const options: Electron.SaveDialogOptions = {
-        title: 'Anhang speichern',
-        defaultPath: join(app.getPath('downloads'), name),
-        filters: [{ name: basename(name), extensions: [name.split('.').pop() ?? 'bin'] }]
-      }
-      const result = owner
-        ? await dialog.showSaveDialog(owner, options)
-        : await dialog.showSaveDialog(options)
-      if (result.canceled || !result.filePath) return { saved: false, filePath: null, name }
-      try {
-        await writeFile(result.filePath, Buffer.from(bytes))
-      } catch (error) {
-        throw badRequest(error, 'Anhang konnte nicht gespeichert werden')
-      }
-      return { saved: true, filePath: result.filePath, name }
+      const name = await attachmentName(input)
+      const filePath = await saveAttachmentAs(input, name)
+      return { saved: filePath !== null, filePath, name }
     })
   }),
   /**

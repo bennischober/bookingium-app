@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test'
 import { connect, createServer, type AddressInfo } from 'net'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
-import { readdir } from 'fs/promises'
+import { readFile, readdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -1082,10 +1082,11 @@ test('an attachment opens from the reader and lands in the temp folder', async (
     const part = detail.attachments.find((a) => a.filename === fileName)
     expect(part, 'the attachment is parsed').toBeTruthy()
 
-    // 2. The main process opens it; the renderer only names the attachment
+    // 2. The main process opens it; the renderer only names the part. I11 (MR-23): a name the
+    // renderer sends is ignored - main takes the one stored with the mail
     const opened = await page.evaluate(
       async ({ accountId, messageId, partId, filename }) =>
-        new Promise<{ opened: boolean; name: string; executable: boolean }>((resolve, reject) => {
+        new Promise<{ opened: boolean; saved: boolean; name: string }>((resolve, reject) => {
           const id = Math.floor(Math.random() * 1e9)
           const w = window as unknown as {
             electronTRPC: {
@@ -1098,7 +1099,7 @@ test('an attachment opens from the reader and lands in the temp folder', async (
           w.electronTRPC.onMessage((m) => {
             if (m.id !== id) return
             if (m.error) reject(new Error(JSON.stringify(m.error)))
-            else resolve(m.result?.data as { opened: boolean; name: string; executable: boolean })
+            else resolve(m.result?.data as { opened: boolean; saved: boolean; name: string })
           })
           w.electronTRPC.sendMessage({
             method: 'request',
@@ -1111,11 +1112,11 @@ test('an attachment opens from the reader and lands in the temp folder', async (
             }
           })
         }),
-      { accountId: sandboxId, messageId: mine!.id, partId: part!.partId, filename: fileName }
+      { accountId: sandboxId, messageId: mine!.id, partId: part!.partId, filename: 'setup.exe' }
     )
     expect(opened.opened).toBe(true)
-    expect(opened.executable).toBe(false)
-    // The name the main process used is sanitized, never the raw one
+    expect(opened.saved).toBe(false)
+    // The stored, sanitized name - not the one the renderer sent
     expect(opened.name).toBe(fileName)
 
     // 3. The file exists in the temp folder and has the mail's bytes
@@ -1123,6 +1124,13 @@ test('an attachment opens from the reader and lands in the temp folder', async (
     const written = join(tempDir, 'bookingum-mail')
     const found = await readdir(written, { recursive: true })
     expect(found.some((f) => String(f).endsWith(fileName))).toBe(true)
+    // I11 (MR-23): marked as downloaded from the internet, so SmartScreen and Protected View apply.
+    // The exact per-message folder: the temp folder keeps earlier runs' files, unmarked ones too
+    if (process.platform === 'win32') {
+      const sub = `${mine!.id}-${part!.partId.replace(/[^a-zA-Z0-9]/g, '')}`
+      const zone = await readFile(`${join(written, sub, fileName)}:Zone.Identifier`, 'utf-8')
+      expect(zone).toContain('ZoneId=3')
+    }
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, ATTACH_TAG)
   }

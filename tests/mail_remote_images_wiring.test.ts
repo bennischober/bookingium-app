@@ -31,11 +31,15 @@ const PNG = Buffer.from(
 
 let server: Server
 let imageUrl: string
+let otherUrl: string
 let root: string
+// Every path the test server was asked for
+const requested: string[] = []
 
 beforeAll(async () => {
   server = createServer((req, res) => {
-    if (req.url === '/pic.png') {
+    requested.push(req.url ?? '')
+    if (req.url === '/pic.png' || req.url === '/other.png') {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': String(PNG.length) })
       res.end(PNG)
     } else {
@@ -46,6 +50,7 @@ beforeAll(async () => {
   const address = server.address()
   const port = typeof address === 'object' && address ? address.port : 0
   imageUrl = `http://127.0.0.1:${port}/pic.png`
+  otherUrl = `http://127.0.0.1:${port}/other.png`
   root = mkdtempSync(join(tmpdir(), 'bookingum-mail-images-'))
 })
 
@@ -113,7 +118,8 @@ async function coreWithImage(enabled: boolean): Promise<{ api: MailCore; id: num
         credentials: async () => ({ user: 'a@example.test', pass: 'x' })
       }
     ],
-    remoteImages: { enabled }
+    // I11: the test server is on loopback, which is blocked otherwise
+    remoteImages: { enabled, blockedAddress: () => false }
   })
   return { api, id }
 }
@@ -144,6 +150,25 @@ describe('H5a: "Bilder laden" changes the rendered mail', () => {
       const before = await api.getMessage(id, ACCOUNT)
       const after = await api.loadRemoteImages(id, before.remoteImages, ACCOUNT)
       expect(after.html).toBe(before.html)
+      expect(after.html).not.toContain('data:image/png')
+    } finally {
+      api.close()
+    }
+  }, 30_000)
+})
+
+describe('I11 (MR-22): the URLs come from the stored mail', () => {
+  it('fetches nothing the mail does not reference', async () => {
+    const { api, id } = await coreWithImage(true)
+    try {
+      const before = await api.getMessage(id, ACCOUNT)
+      // A caller that names another address gets nothing fetched from it
+      const after = await api.loadRemoteImages(
+        id,
+        [{ url: otherUrl, placeholder: before.remoteImages[0].placeholder }],
+        ACCOUNT
+      )
+      expect(requested).not.toContain('/other.png')
       expect(after.html).not.toContain('data:image/png')
     } finally {
       api.close()

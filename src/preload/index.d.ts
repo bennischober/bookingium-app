@@ -1,4 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 import type { ImportWorkbook } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
 import type { MailMethod } from '../main/mail/mailProgram'
@@ -96,7 +95,6 @@ export interface DocumentAPI {
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: DocumentAPI
   }
 }
