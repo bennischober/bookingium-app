@@ -6,15 +6,9 @@
 // up to date. The user read that as "my mail is stale", which is exactly the question the
 // label is supposed to answer.
 //
-// I9 NOTE - this file is PENDING ON I4, on purpose.
-// Review finding L3 says this suite "asserts that the time moves, which is exactly the wrong
-// behaviour of L3", but L3 is only ever NAMED in docs/mail-client-review.md (line 604, in the
-// "tests that prove less" list); its required behaviour is not written down anywhere in the repo.
-// Writing a test for it here would mean inventing that behaviour, and the behaviour lives in
-// core/sync.ts - which is I4's file (docs/mail-client-handoff.md section 4: "I4, then I12, then
-// I15a, all three change sync.ts"). So the first test below keeps its H1 claim (a poll that really
-// contacted the server moves the time) and the file carries this note instead of a guess.
-// I4 owns turning L3 into an assertion.
+// L3 (I4): the opposite also holds. A poll pass in which the server answered no folder at all
+// (every STATUS refused) did not talk to the mailbox, so it must not move the time - the label
+// would claim a current mailbox while nothing was read.
 import fs from 'fs'
 import net from 'net'
 import os from 'os'
@@ -22,6 +16,7 @@ import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Store } from '../src/main/mailclient/core/store'
 import { makeSandboxAccount, SyncEngine } from '../src/main/mailclient/core/sync'
+import { scriptedImap } from './helpers/scriptedImap'
 
 type FakeServer = { port: number; close: () => Promise<void> }
 
@@ -119,6 +114,23 @@ describe('H1: the sync time follows the last server contact', () => {
     expect(afterPoll).toBeTruthy()
     expect(afterPoll).not.toBe(afterFullSync)
     expect(new Date(afterPoll!).getTime()).toBeGreaterThan(new Date(afterFullSync!).getTime())
+  }, 30_000)
+
+  it('does not move when the server answered no folder (L3)', async () => {
+    const server = await scriptedImap({ INBOX: { uidValidity: 1, uidNext: 1, messages: [] } })
+    cleanups.push(() => server.close())
+    const engine = await engineFor(server.port)
+    await engine.syncAll()
+    const afterFullSync = engine.getStatus().lastSyncAt
+    expect(afterFullSync).toBeTruthy()
+
+    // connected and logged in, but every STATUS is refused
+    server.failStatus = true
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    await engine.pollOnce()
+
+    expect(server.log).toContain('STATUS INBOX')
+    expect(engine.getStatus().lastSyncAt).toBe(afterFullSync)
   }, 30_000)
 
   it('does not move when the server cannot be reached', async () => {

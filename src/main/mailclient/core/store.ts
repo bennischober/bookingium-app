@@ -293,6 +293,14 @@ export class Store {
    * With `keepUids` the messages keep their UIDs (UIDVALIDITY survived);
    * without it the rows are dropped, so the normal UIDVALIDITY swap re-downloads.
    * Returns how many folders were re-keyed.
+   *
+   * I4 (MR-31): the target row may exist already - a folder LIST between the server RENAME
+   * and this re-key, or a crash before it, created it, and a sync may have filled it. The
+   * INSERT then failed on the primary key, the op went back to `pending` and blocked every
+   * folder op in the subtree. Now the re-key merges: with `keepUids` the moved rows win and
+   * the target's copies are dropped (same UIDs, same message keys); without it the target
+   * row is the server's current view and stays, and only the old rows go. Files are left to
+   * the orphan sweep as everywhere else here.
    */
   rekeyFolder(from: string, to: string, keepUids: boolean): number {
     const affected = this.allFolders().filter((f) => isPathOrChild(f.imap_path, from, f.delimiter));
@@ -303,6 +311,16 @@ export class Store {
         const newId = crypto.createHash('sha1').update(`${this.accountId}|${newPath}`).digest('hex').slice(0, 16);
         // uid_validity is a folder column, not a message one
         const validity = folder.uid_validity ?? '';
+        const existing = this.getFolderByPath(newPath);
+        if (existing && !keepUids) {
+          this.db.prepare('DELETE FROM messages WHERE folder_id = ?').run(folder.id);
+          this.db.prepare('DELETE FROM folders WHERE id = ?').run(folder.id);
+          continue;
+        }
+        if (existing) {
+          this.db.prepare('DELETE FROM messages WHERE folder_id = ?').run(existing.id);
+          this.db.prepare('DELETE FROM folders WHERE id = ?').run(existing.id);
+        }
         // The new row goes in first: the messages carry a foreign key to it, so the
         // old row cannot be removed before they point at the new one.
         this.db.prepare(`INSERT INTO folders (id, account_id, imap_path, delimiter, special_use,

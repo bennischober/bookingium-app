@@ -169,6 +169,8 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** take the folder mutex and `getMailboxLock(path, { readOnly: true })` inside `flagSweep`, and check
   UIDVALIDITY. Test with two folders that share UIDs.
 
+**Status: fixed in I4 (2026-10-26).** `flagSweep` runs through `SyncEngine.withSelected`: folder mutex, a read-only lock (EXAMINE) and a UIDVALIDITY check. `tests/mail_mailbox_selection.test.ts` covers two folders that share UID 1.
+
 #### MR-10: the file repair shares the sync connection without a lock and SELECTs on production (code)
 - **Where:**
   - `core/index.ts:1345-1376` (`repairMissingFiles`), scheduled in `worker.ts:94-112`;
@@ -183,6 +185,8 @@ are fixed and tested. Card group **I** at the end orders the work.
   different mail's file (code).
 - **Fix:** the folder mutex, `getMailboxLock` with `readOnly`, a UIDVALIDITY check, a gate that skips instead
   of proceeding, and all accounts rather than only the active one.
+
+**Status: fixed in I4 (2026-10-26).** The repair fetches through `withSelected` per folder, skips a folder whose UIDVALIDITY changed, and covers every account. The maintenance gate returns `false` on timeout and the worker skips the round.
 
 #### MR-11: the invoice mail (C1) garbles umlauts (confirmed)
 - **Where:** `main/index.ts:195` encodes the draft as UTF-8 base64. `pages/MailWindowPage.tsx:51` decodes it
@@ -340,6 +344,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   production is unmeasured.
 - **Fix:** store `mailbox.uidNext` from SELECT, in both the full and incremental paths.
 
+**Status: fixed in I4 (2026-10-26).** `uid_next` is the server's UIDNEXT on the full, the incremental and the validity sync.
+
 #### MR-25: disk full stops only the current full sync (code)
 - **Where:** `core/sync.ts:1087-1091` sets `diskFull`. Only `resume()` reads it (306).
 - **Scenario:** poll, IDLE and `startPolling` keep downloading. Each file fails half-way, the status flips
@@ -347,6 +353,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   it swallowed).
 - **Fix:** check `diskFull` in poll, IDLE, `syncFolder`, `syncAll` and repair. No `noteSuccess` when every
   folder failed.
+
+**Status: fixed in I4 (2026-10-26).** A full disk stops poll, IDLE, `syncFolder`, `syncAll` and the repair. A poll in which no folder answered is not server contact (L3).
 
 #### MR-26: corrupt-store recovery catches only damage to page 1 (code)
 - **Where:** `core/store.ts:134-148`, `core/store_recovery.ts` and `core/migrations.ts:54-58`.
@@ -421,6 +429,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   - Subfolders are not locked.
 - **Fix:** make the re-key merge into an existing target row, have the sync skip paths with a pending rename,
   and lock the subtree.
+
+**Status: fixed in I4 (2026-10-26).** The re-key merges into an existing target row, the folder list and `syncFolder` skip paths under a journalled rename, and the write engine locks both subtrees. A rename stuck in `pending` pauses that subtree until the op is resolved.
 
 #### MR-32: resuming a batch move can mark it done wrongly (code)
 - **Where:** `write_engine.ts:559-563` and `:670-697`; `resumeHalfMoved` (814).
@@ -609,6 +619,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 - **`mail_store_recovery.test.ts`.** It damages only page 1 (MR-26).
 - **`mail_disk_full.test.ts`.** It stubs the download and checks one `syncAll` (MR-25).
 - **`mail_sync_time.test.ts`.** It asserts that the time moves, which is exactly the wrong behaviour of L3.
+  **Fixed in I4:** it now also asserts the time does NOT move when no folder answered.
 - **`helpers/fakeImap.ts`.** It advertises `UIDPLUS` and `MOVE` and answers every unknown command with `OK`,
   so any future move test using it passes falsely.
 - **`helpers/fakeSmtp.ts`.** It advertises `AUTH LOGIN` but accepts it without credentials.

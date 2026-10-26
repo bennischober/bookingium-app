@@ -1335,7 +1335,7 @@ MR-17 and the tests/CI section. The gate was red and several tests proved less t
   names the Electron/Node mismatch instead of failing inside the first DB suite.
 - `tests/e2e/mail-client.spec.ts`: the data-dependent `test.skip` (no attachment, no band) now fails with
   a reason, and the fixed sleeps the card touches became condition waits.
-- `tests/mail_sync_time.test.ts`: marked pending on I4 in a header note, because finding L3 is only NAMED in
+- `tests/mail_sync_time.test.ts`: marked pending on I4 in a header note (resolved in I4), because finding L3 is only NAMED in
   the review (line 604) and its required behaviour is written nowhere; inventing it here would guess at
   `core/sync.ts`, which is I4's file.
 
@@ -1373,6 +1373,29 @@ MR-13, 35, 36, 37 and the open renderer Low items. Every renderer decision that 
 `MailWindowPage` shows an error instead of spinning when `getDraft` fails, the preset PDF counts against
 `MAX_ATTACHMENT_BYTES`, unused `search.pdfName`, events of other accounts dropped and sync events not invalidating
 `search`, signature applied once, and the keyboard effect subscribing once.
+
+### I4: mailbox selection [fixed 2026-10-26]
+
+MR-09, 10, 24, 25, 31 and L3. Every read of a folder outside its own sync went to whatever mailbox the sync
+connection had selected last, and a full disk stopped only the current full sync.
+
+**What changed.**
+- `core/sync.ts`: `withSelected(path, expectedValidity, fn)` takes the folder mutex, EXAMINEs the folder and
+  checks UIDVALIDITY; `flagSweep` runs through it (MR-09). `uid_next` is the server's UIDNEXT on every sync path
+  (MR-24). A full disk stops poll, IDLE, `syncFolder` and `syncAll` (MR-25), and a poll in which no folder
+  answered calls `noteError`, not `noteServerContact` (L3). The folder list and `syncFolder` skip paths under a
+  journalled `folder_rename` (MR-31).
+- `core/index.ts`: the repair fetches per folder through `withSelected`, covers every account and stops at a
+  full disk; `whenIdleForMaintenance` returns `false` on timeout (MR-10). `worker.ts` skips the round then.
+- `core/store.ts`: `rekeyFolder` merges into an existing target row (MR-31).
+- `core/write_engine.ts`: a folder rename locks both subtrees, one mutex per folder (MR-31).
+- `tests/mail_sync_time.test.ts`: the I9 "pending on I4" note is resolved; the L3 case is tested.
+
+**Tests.** `tests/mail_mailbox_selection.test.ts` (new, 13) on the new `tests/helpers/scriptedImap.ts`,
+`tests/mail_sync_time.test.ts` (+1). 21 mutation checks, all killed; the report lists them.
+
+**Known limit:** a rename stuck in `pending` pauses the sync of its subtree until the op is resolved in the op
+panel.
 
 ## Found while working
 
