@@ -113,6 +113,9 @@ export const AppSettings = z.object({
   paymentQr: z.boolean().default(true),
   // How "Per E-Mail senden" opens the email (auto: by the system's mail program)
   mailProgram: MailProgramSetting.default('auto'),
+  // I7: the mail account bookingum's own editor sends invoices from, '' for none chosen.
+  // Never guessed: without a choice, sending from bookingum is refused.
+  invoiceMailAccountId: z.string().default(''),
   // Subject and text of invoice emails, per template language; {Platzhalter}
   invoiceEmailDe: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.de),
   invoiceEmailEn: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.en),
@@ -134,6 +137,7 @@ export const UpdateAppSettingsInput = z
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
+    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
     invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
     invoiceEmailEn: shape.invoiceEmailEn.unwrap(),
     reminderEmailDe: shape.reminderEmailDe.unwrap(),

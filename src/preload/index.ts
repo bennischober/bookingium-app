@@ -50,18 +50,6 @@ const api = {
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
-  /** C1: bookingum's own editor for a prepared draft; resolves when sent or closed */
-  composeInOwnEditor: (input: { accountId: string; draft: unknown; pdfPath: string }) =>
-    ipcRenderer.invoke('mail:composeWindow', input),
-
-  /** C1: the compose window reports a successful send */
-  reportComposeSent: (key: string, messageId: string) =>
-    ipcRenderer.invoke('mail:composeSent', { key, messageId }),
-
-  /** C1: reads the invoice PDF the window was opened with, as base64 */
-  readComposePdf: (filePath: string): Promise<string> =>
-    ipcRenderer.invoke('mail:readComposePdf', { filePath }),
-
   pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 

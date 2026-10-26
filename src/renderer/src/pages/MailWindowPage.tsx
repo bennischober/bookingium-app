@@ -19,6 +19,7 @@ import {
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
 import { readingActions } from '@/components/mail/readingActions'
+import { parseComposeRequest } from '@/components/mail/composeRequest'
 import type { MessageDetail } from '../../../main/mailclient/core/types'
 
 const failed = (title: string) => (error: unknown) =>
@@ -34,37 +35,26 @@ export default function MailWindowPage() {
     account?: string
     message?: string | number
     mode?: string
-    key?: string
+    token?: string
     draft?: string
-    pdfPath?: string
+    attachment?: string
   }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
 
-  // C1: the window opened as bookingum's own editor for a prepared draft. The draft
-  // and the PDF travel in the query; a successful send is reported back to main, so
-  // the invoice is marked as emailed only then.
-  const composeRequest = useMemo(() => {
-    if (search.mode !== 'compose') return null
-    try {
-      // base64 in the URL, decoded here: a raw JSON in the fragment loses characters
-      const decoded = atob(search.draft ?? '')
-      const draft = JSON.parse(decoded || '{}') as {
-        to?: string
-        subject?: string
-        body?: string
-      }
-      return {
-        key: search.key ?? '',
-        pdfPath: search.pdfPath ?? '',
-        to: draft.to ?? '',
-        subject: draft.subject ?? '',
-        body: draft.body ?? ''
-      }
-    } catch {
-      return null
-    }
-  }, [search.mode, search.key, search.draft, search.pdfPath])
+  // C1: the window opened as bookingum's own editor for an invoice mail. The draft and a
+  // token travel in the query; the send goes through main, which attaches the PDF and
+  // marks the invoice once the mail is out (I7).
+  const composeRequest = useMemo(
+    () =>
+      parseComposeRequest({
+        mode: search.mode,
+        token: search.token,
+        draft: search.draft,
+        attachment: search.attachment
+      }),
+    [search.mode, search.token, search.draft, search.attachment]
+  )
   const queryClient = useQueryClient()
 
   const accounts = trpcReact.mail.accounts.list.useQuery()
@@ -193,13 +183,12 @@ export default function MailWindowPage() {
     <div className="flex h-screen min-h-0 flex-col">
       {composeRequest && composeInitial && canWrite ? (
         <ComposeView
-          key={`compose-${composeRequest.key}`}
+          key={`compose-${composeRequest.token}`}
           accountId={accountId}
           initial={composeInitial}
           onClose={() => window.close()}
           onStored={() => undefined}
-          presetPdfPath={composeRequest.pdfPath}
-          onSent={(messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)}
+          invoice={{ token: composeRequest.token, attachmentName: composeRequest.attachmentName }}
         />
       ) : compose ? (
         <ComposeView
@@ -208,11 +197,6 @@ export default function MailWindowPage() {
           initial={compose.state}
           onClose={() => (compose.closesWindow ? window.close() : setCompose(null))}
           onStored={() => undefined}
-          onSent={
-            composeRequest
-              ? (messageId) => void window.api.reportComposeSent(composeRequest.key, messageId)
-              : undefined
-          }
         />
       ) : (
         <MessageView

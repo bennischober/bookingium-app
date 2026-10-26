@@ -510,6 +510,30 @@ export const invoice_email = sqliteTable(
   (table) => [index('invoice_email_invoice_idx').on(table.invoice_id)]
 )
 
+/**
+ * I7: an invoice mail bookingum is sending. The row is written before the send and turned
+ * into an invoice_email when the send is confirmed - right away, or later, when an unclear
+ * send is found in Sent after the editor was closed or the app restarted.
+ */
+export const invoice_email_pending = sqliteTable(
+  'invoice_email_pending',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    kind: text('kind').default('invoice').notNull(),
+    to: text('to').default('').notNull(),
+    mail_account_id: text('mail_account_id').notNull(),
+    // The editor's send key; the core makes it the local part of the Message-ID
+    send_key: text('send_key').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('invoice_email_pending_send_key_idx').on(table.send_key)]
+)
+
 // Each status an invoice moved to (issued, paid, overdue, back to issued,
 // cancelled), for its Verlauf
 export const invoice_status_change = sqliteTable(
@@ -828,6 +852,7 @@ export const schema = {
   invoice_party_snapshot,
   invoice_line_item,
   invoice_email,
+  invoice_email_pending,
   invoice_status_change,
   management_contract,
   management_contract_member,

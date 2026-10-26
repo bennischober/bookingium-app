@@ -46,6 +46,9 @@ None of them is above Medium. Pick them up from here; the source report is named
   by I2:** "Im Ordner Gesendet prüfen" calls `onSent`, which reports `composeSent`. Still open when the
   compose window was closed and the startup probe confirms the send later: nothing marks the invoice then.
   The report also suggests refusing a second send per invoice in main.
+  **Fixed in I7:** the send is recorded as pending under its send key before it goes out; the send itself or
+  any later `send` op that settles `done`/`noop` (startup probe, "Prüfen") confirms it and marks the invoice
+  once, in one transaction. A second send per invoice is not refused: each is its own mail.
 
 **Renderer**
 - The compose branch of `MailWindowPage` renders `ComposeView` without a `canWrite` check (defence in depth

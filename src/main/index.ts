@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 import { app, shell, BrowserWindow, ipcMain, dialog, clipboard } from 'electron'
-import { join, extname } from 'path'
+import { basename, join, extname } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
@@ -39,9 +39,16 @@ import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
 import { mailClient } from './mailclient/MailClientService'
 import type { ComposeDraft, ComposeResult } from './mail/composeWindow'
+import {
+  confirmInvoiceSendFromOp,
+  invoiceComposes,
+  invoiceSendAccount,
+  type InvoiceCompose
+} from './mail/invoiceSend'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService } from './services/MailLinkService'
 import { listMailAccounts } from './mailclient/accounts'
+import type { OpSummary } from './mailclient/core/types'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
@@ -172,57 +179,34 @@ ipcMain.handle(
  * C1: opens bookingum's own editor for a prepared draft and resolves with what the
  * user did. Only this path knows whether the mail was really sent, so an invoice is
  * marked as emailed after a successful send - not when a window opens.
+ *
+ * I7 (MR-21): the window gets an opaque token, never the PDF's path. It sends through
+ * mail.sendInvoice, where main attaches the PDF registered under that token; the token
+ * is gone when the window closes. Not an IPC channel: only invoice:email opens it.
  */
-const composeWindows = new Map<string, (result: ComposeResult) => void>()
-/** C1: the PDFs a compose window was opened with - only these may be read back */
-const composePdfs = new Set<string>()
-
-async function openComposeWindow(input: {
-  accountId: string
+function openComposeWindow(input: {
   draft: ComposeDraft
-  pdfPath: string
+  compose: InvoiceCompose
 }): Promise<ComposeResult> {
-  if (!input?.accountId || !input.draft) return { sent: false }
-  // only this file may be read back by the window
-  composePdfs.add(input.pdfPath)
-  const key = `compose:${Date.now()}:${Math.random().toString(36).slice(2)}`
+  const token = invoiceComposes.register(input.compose)
   const search = new URLSearchParams({
-    account: input.accountId,
+    account: input.compose.accountId,
     mode: 'compose',
-    key,
-    // base64: the JSON has characters that would break the URL fragment
+    token,
+    // base64 of the UTF-8 JSON: the JSON has characters that would break the URL fragment
     draft: Buffer.from(JSON.stringify(input.draft), 'utf8').toString('base64'),
-    pdfPath: input.pdfPath
+    // the name only, for the attachment chip - the window never learns the path
+    attachment: input.compose.fileName
   })
   return new Promise<ComposeResult>((resolve) => {
-    let settled = false
-    const finish = (result: ComposeResult): void => {
-      if (settled) return
-      settled = true
-      composeWindows.delete(key)
-      resolve(result)
-    }
-    composeWindows.set(key, finish)
     const window = createAppWindow(
       { width: 900, height: 760, minWidth: 520, minHeight: 460 },
       `/mail/window?${search}`
     )
-    // A closed window means the user did not send
-    window.on('closed', () => finish({ sent: false }))
+    // A window closed without a confirmed send means the user did not send
+    window.on('closed', () => resolve(invoiceComposes.release(token)))
   })
 }
-
-ipcMain.handle('mail:composeWindow', (_event, input: Parameters<typeof openComposeWindow>[0]) =>
-  openComposeWindow(input)
-)
-
-/** C1: the compose window reports a successful send */
-ipcMain.handle(
-  'mail:composeSent',
-  (_event, { key, messageId }: { key: string; messageId: string }) => {
-    composeWindows.get(key)?.({ sent: true, messageId })
-  }
-)
 
 /**
  * IPC Handler for opening files
@@ -524,26 +508,32 @@ ipcMain.handle(
       if (kind !== 'invoice') invoiceService.assertRemindable(data.invoice)
       const settings = container.resolve(SettingsService).get()
       const draft = invoiceEmail(data, lang, settings[EMAIL_TEMPLATES[kind][lang].key])
+      // I7 (MR-12): bookingum sends from the account chosen in the settings, checked
+      // before anything is written or opened
+      const sender =
+        settings.mailProgram === 'bookingum'
+          ? invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts(), draft.to)
+          : null
+      if (sender && 'error' in sender) return { success: false, error: sender.error }
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
       const result = await openEmail({ draft, pdf, fileName: name, setting: settings.mailProgram })
       // C1: only the own editor knows whether the mail was really sent. Every external
       // program keeps marking the invoice when its window opens, as before.
-      if (result.method === 'bookingum') {
-        const account = listMailAccounts().find((a) => a.kind === 'sandbox')
-        if (!account) {
-          return { success: false, error: 'Kein Postfach mit Schreibrecht eingerichtet' }
-        }
+      if (result.method === 'bookingum' && sender) {
+        // The invoice is marked by the send itself (mail.sendInvoice), or later, when an
+        // unclear send is confirmed - not here, where only the window's end is known
         const composed = await openComposeWindow({
-          accountId: account.id,
           draft: { to: draft.to, subject: draft.subject, body: draft.body },
-          pdfPath: result.pdfPath
+          compose: {
+            invoiceId,
+            kind,
+            accountId: sender.account.id,
+            pdfPath: result.pdfPath,
+            fileName: basename(result.pdfPath)
+          }
         })
         if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
-        invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind, {
-          messageId: composed.messageId,
-          mailAccountId: account.id
-        })
         return { success: true, ...result, to: draft.to, eInvoice }
       }
       invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind)
@@ -557,19 +547,6 @@ ipcMain.handle(
     }
   }
 )
-
-/**
- * C1: the invoice PDF a compose window was opened with. Only a path the compose flow
- * itself registered is readable - the renderer cannot ask for arbitrary files.
- */
-ipcMain.handle('mail:readComposePdf', async (_event, { filePath }: { filePath: string }) => {
-  if (typeof filePath !== 'string' || !composePdfs.has(filePath)) return ''
-  try {
-    return (await readFile(filePath)).toString('base64')
-  } catch {
-    return ''
-  }
-})
 
 ipcMain.handle('mail:showFile', (_event, { filePath }: { filePath: string }) => {
   showEmailFile(filePath)
@@ -650,6 +627,19 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+  // I7 (H3): an invoice mail whose send was unclear is marked once the core confirms it -
+  // by the startup probe too, so this listens before the client starts
+  const invoiceLedger = container.resolve(InvoiceService)
+  mailClient.events.on('event', (event) => {
+    void confirmInvoiceSendFromOp(
+      {
+        registry: invoiceComposes,
+        ledger: invoiceLedger,
+        listOps: (accountId) => mailClient.call('listOps', [accountId]) as Promise<OpSummary[]>
+      },
+      event
+    ).catch((error) => console.error('Confirming an invoice mail failed:', error))
+  })
   // Mail client (utility process): background sync for configured accounts
   mailClient.startIfConfigured()
   // C2: link incoming mail to the records it belongs to, after each folder sync.

@@ -125,6 +125,34 @@ export class InvoiceService {
     this.invoiceRepository.markEmailed(id, to, kind, sent)
   }
 
+  /**
+   * I7: bookingum is about to send an invoice mail under this send key. It counts as
+   * emailed only once confirmInvoiceEmail finds the send - right away or after a restart.
+   */
+  queueInvoiceEmail(input: {
+    invoiceId: number
+    kind: InvoiceEmailKind
+    to: string
+    mailAccountId: string
+    sendKey: string
+  }) {
+    this.invoiceRepository.addPendingEmail(input)
+  }
+
+  /** I7: the send was refused before the server took it */
+  dropQueuedInvoiceEmail(sendKey: string) {
+    this.invoiceRepository.dropPendingEmail(sendKey)
+  }
+
+  hasQueuedInvoiceEmails(mailAccountId: string): boolean {
+    return this.invoiceRepository.hasPendingEmails(mailAccountId)
+  }
+
+  /** I7: the mail with this send key is out; marks its invoice once. The invoice id, or null */
+  confirmInvoiceEmail(sendKey: string, mailAccountId: string, messageId: string): number | null {
+    return this.invoiceRepository.confirmPendingEmail(sendKey, mailAccountId, messageId)
+  }
+
   private async requireInvoice(id: number) {
     const existing = await this.invoiceRepository.getById(id)
     if (!existing) throw new Error('Rechnung nicht gefunden')

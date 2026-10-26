@@ -385,3 +385,16 @@ export const PreviewInvoicePartiesInput = z.object({
   recipientNameOverride: z.string().optional()
 })
 export type PreviewInvoicePartiesInput = z.infer<typeof PreviewInvoicePartiesInput>
+
+/**
+ * I7: mail.sendInvoice. The mail is passed on as the editor built it - the core checks it,
+ * as for every other send. Every object here is passthrough: a plain z.object would strip
+ * the recipients' names and the send would fail inside the core.
+ */
+export const SendInvoiceMailInput = z.object({
+  token: z.string().min(1),
+  accountId: z.string().min(1),
+  draftUid: z.number().int().nullable(),
+  mail: z.object({ to: z.array(z.object({ email: z.string() }).passthrough()) }).passthrough()
+})
+export type SendInvoiceMailInput = z.infer<typeof SendInvoiceMailInput>
