@@ -307,3 +307,63 @@ describe('sanitize: the document the reading pane renders', () => {
     expect(docOf(plain.html).body.textContent).toContain('nur Text')
   })
 })
+
+// I5 (MR-07): a <style> block was lifted out with a regex that read up to the next "</style>",
+// while a browser also closes it at "</style >" or "</STYLE\t>". Everything in between skipped
+// DOMPurify and was pasted back into the reading pane as live markup.
+describe('sanitize: style blocks cannot carry markup (MR-07)', () => {
+  /** The live markup a browser builds from the sanitized document */
+  const live = (html: string): Document => docOf(html)
+
+  const smuggle = (close: string): string =>
+    `<style>a{}${close}<form action="https://x.test/"><input name="p"></form>` +
+    `<a href="ms-settings:privacy">Einstellungen</a><style>b{}</style><p>Text</p>`
+
+  for (const close of ['</style >', '</STYLE\t>', '</style\n>', '</style/>']) {
+    it(`closes the block where a browser does: ${JSON.stringify(close)}`, () => {
+      const { html, links } = sanitizeEmailHtml(smuggle(close))
+      const doc = live(html)
+      expect(doc.querySelector('form')).toBeNull()
+      expect(doc.querySelector('input')).toBeNull()
+      // the link went through the classifier: blocked, its URL reported for display
+      const a = doc.querySelector('a')
+      expect(a?.getAttribute('href')).toBe('#')
+      expect(links).toEqual([expect.objectContaining({ url: 'ms-settings:privacy', openable: false })])
+      expect(mailStyles(html)).toEqual(expect.arrayContaining(['a{}', 'b{}']))
+    })
+  }
+
+  it('does not let a nested style open a second block', () => {
+    const { html } = sanitizeEmailHtml(
+      '<style>a{}<style></style ><form></form><a href="ms-settings:x">x</a></style><p>Text</p>'
+    )
+    const doc = live(html)
+    expect(doc.querySelector('form')).toBeNull()
+    expect(doc.querySelector('a')?.getAttribute('href')).toBe('#')
+  })
+
+  it('keeps no "<" in a style block, so its text cannot end the block', () => {
+    // inside <svg> a style is foreign content: the entities decode, so its text is a closing tag
+    const { html } = sanitizeEmailHtml(
+      '<svg><style>&lt;/style&gt;&lt;form&gt;&lt;/form&gt;</style></svg>' +
+        "<style>p { color: red }</style><p>Text</p>"
+    )
+    for (const css of mailStyles(html)) expect(css).not.toContain('<')
+    expect(live(html).querySelector('form')).toBeNull()
+  })
+
+  it('keeps the rules of a block wrapped in an HTML comment (Outlook)', () => {
+    const { html } = sanitizeEmailHtml('<style><!-- p { color: red } --></style><p>Text</p>')
+    const css = mailStyles(html).join('')
+    expect(css).toContain('p { color: red }')
+    expect(css).not.toContain('<')
+  })
+
+  it('takes a style block from the head of a full document', () => {
+    const { html } = sanitizeEmailHtml(
+      '<html><head><style>p { color: red }</style></head><body><p>Text</p></body></html>'
+    )
+    expect(mailStyles(html).join('')).toContain('p { color: red }')
+    expect(live(html).body.textContent).toContain('Text')
+  })
+})

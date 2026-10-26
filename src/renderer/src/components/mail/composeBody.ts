@@ -57,8 +57,8 @@ export function composeBody(html: string): { bodyHtml: string | null; bodyText: 
   // A trailing empty block after the last close tag is not a paragraph
   while (blocks.length > 0 && blocks[blocks.length - 1] === '') blocks.pop()
   const bodyText = blocks.filter((block) => block.length > 0).join('\n')
-  const bodyHtml = bodyText.trim() === '' ? null : sanitizeComposeHtml(html)
-  return { bodyHtml, bodyText }
+  const kept = bodyText.trim() === '' ? '' : sanitizeComposeHtml(html)
+  return { bodyHtml: kept === '' ? null : wrapForMail(kept), bodyText }
 }
 
 /** Text of one block, with the allowed tags removed and entities decoded */
@@ -112,8 +112,7 @@ function sanitizeComposeHtml(html: string): string {
   }
   const tail = html.slice(last)
   kept.push(inAnchor ? escapeHtml(tail) : linkifyText(tail))
-  const body = kept.join('').trim()
-  return body === '' ? '' : wrapForMail(body)
+  return kept.join('').trim()
 }
 
 /**
@@ -154,19 +153,24 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * F3: what the editor starts with. A stored HTML body is used as it is; a plain
- * text becomes paragraphs, so a quote's line breaks and an empty line survive the
- * first render instead of collapsing into one paragraph.
+ * F3: what the editor starts with. A plain text becomes paragraphs, so a quote's line
+ * breaks and an empty line survive the first render instead of collapsing into one
+ * paragraph.
+ *
+ * I5 (MR-08): the text is never sniffed for markup. Every forward header holds
+ * "Name <a@example.test>", and a text that merely looked like HTML went into the editor
+ * raw. A stored HTML body is passed separately and goes through the compose allowlist,
+ * so the editor never holds a tag its four commands could not have made.
  *
  * H3: a reply's body starts with two newlines, and those are the room the user writes
  * in. Splitting on blank lines and dropping empty blocks threw them away, so the caret
  * landed on the first character of the quote. A leading blank block is therefore kept as
  * an empty paragraph - the caret effect then has somewhere to go.
  */
-export function toEditorHtml(body: string): string {
-  if (/<[a-zA-Z/][^>]*>/.test(body)) return body
-  const leadingBlank = /^\s*\n/.test(body)
-  const paragraphs = body
+export function toEditorHtml(text: string, html?: string | null): string {
+  if (html) return sanitizeComposeHtml(html)
+  const leadingBlank = /^\s*\n/.test(text)
+  const paragraphs = text
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean)

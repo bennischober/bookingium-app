@@ -271,7 +271,7 @@ export function ComposeView({
   const body = useRef<HTMLDivElement>(null)
   // F3: what the editor starts with. A plain text becomes paragraphs, so the
   // quote of a reply and the line breaks of a draft survive the first render.
-  const initialBodyHtml = useRef(toEditorHtml(initial.bodyHtml ?? initial.bodyText)).current
+  const initialBodyHtml = useRef(toEditorHtml(initial.bodyText, initial.bodyHtml)).current
   // F3: the starting HTML is written once, outside React. Re-applying it on every
   // render would wipe what the user typed back to the initial content.
   useEffect(() => {

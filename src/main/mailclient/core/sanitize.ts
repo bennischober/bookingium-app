@@ -20,6 +20,7 @@
 //  - images: remote http(s) → neutral placeholder + remoteImages manifest (opt-in reload);
 //    cid: → placeholder + data-cid (UI resolves from local attachments); data:/blob: kept.
 //  - <style> blocks kept (email fidelity) but url(http...) neutralized, @import removed.
+//    They are read by the HTML parser and hold no "<" afterwards (MR-07).
 //  - style attributes: url(http...) neutralized.
 //  - killed entirely: script, iframe, object, embed, form, video, audio, meta, link,
 //    base, svg, math, all on* handlers.
@@ -127,6 +128,33 @@ function neutralizeCssUrls(css: string): string {
     });
 }
 
+/**
+ * MR-07: CSS goes back into the document as the text of a <style> element, which a browser
+ * reads up to the first "</style". The HTML serializer does not escape that text, so the CSS
+ * must hold no "<" at all. The comment markers Outlook wraps its CSS in are ignored by CSS
+ * anyway; any other "<" can only sit in a string or a selector, where the escape \3c reads
+ * the same.
+ */
+function cssWithoutMarkup(css: string): string {
+  return css.replace(/<!--|-->/g, '').replace(/</g, '\\3c ');
+}
+
+/**
+ * The mail's <style> blocks, read the way a browser parses the mail, and the mail without them.
+ * A style inside <svg> or <math> is foreign content, so its entities decode into its text: an
+ * "&lt;" there is a real "<" here, which cssWithoutMarkup escapes like any other. Removing the
+ * elements is belt and braces: DOMPurify also drops a <style> with its text.
+ */
+function liftStyleBlocks(rawHtml: string): { styleBlocks: string[]; rest: string } {
+  const doc = new dom.window.DOMParser().parseFromString(rawHtml, 'text/html');
+  const styleBlocks: string[] = [];
+  for (const el of [...doc.querySelectorAll('style')]) {
+    styleBlocks.push(cssWithoutMarkup(neutralizeCssUrls(el.textContent ?? '')));
+    el.remove();
+  }
+  return { styleBlocks, rest: doc.body ? doc.body.innerHTML : '' };
+}
+
 export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
   const links: SanitizeLink[] = [];
   const remoteImages: SanitizeRemoteImage[] = [];
@@ -135,12 +163,11 @@ export function sanitizeEmailHtml(rawHtml: string): SanitizeResult {
   //    non-http schemes so we can classify them ourselves (and show them as blocked).
   //    A <style> block is lifted out first: DOMPurify drops its text content entirely,
   //    so the CSS is neutralized here and put back below.
-  const styleBlocks: string[] = [];
-  const withPlaceholders = rawHtml.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_m, css: string) => {
-    styleBlocks.push(neutralizeCssUrls(css));
-    return '';
-  });
-  const cleaned = purify.sanitize(withPlaceholders, {
+  //    I5/MR-07: lifted out by the HTML parser, not a regex. A regex read up to the next
+  //    "</style>", while a browser also closes the block at "</style >" or "</STYLE\t>", so
+  //    the markup in between skipped DOMPurify and came back live in the reading pane.
+  const { styleBlocks, rest } = liftStyleBlocks(rawHtml);
+  const cleaned = purify.sanitize(rest, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_UNKNOWN_PROTOCOLS: true,
