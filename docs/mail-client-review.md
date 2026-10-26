@@ -148,6 +148,9 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** insert the CSS via DOM (`textContent`) and serialise the document, or reject CSS containing `<`.
   Regression tests for `</style >`, `</STYLE\t>` and nesting.
 
+**Status: fixed in I5 (2026-10-26).** `sanitize.ts` lifts the style blocks with the HTML parser (`liftStyleBlocks`), and the CSS it puts back holds no `<` (`cssWithoutMarkup`). `tests/mail_sanitize.test.ts` covers `</style >`, `</STYLE	>`, `</style
+>`, `</style/>`, nesting and an Outlook comment-wrapped block.
+
 #### MR-08: reply and forward text is put into the editor as HTML (confirmed)
 - **Where:** `components/mail/composeBody.ts:166`: `if (/<[a-zA-Z/][^>]*>/.test(body)) return body`.
   `ComposeView.tsx:256` puts the result into `innerHTML`.
@@ -157,6 +160,8 @@ are fixed and tested. Card group **I** at the end orders the work.
   controls (`<style>…`) restyles the privileged app window, where `style-src 'unsafe-inline'` applies.
 - **Fix:** never sniff. Escape plain text always. HTML only from `bodyHtml`, after the compose allowlist.
   Tests for a forward header, `<https://…>` and a literal `<b>`.
+
+**Status: fixed in I5 (2026-10-26).** `toEditorHtml(text, html?)` never sniffs: a plain text is always escaped, a stored HTML body goes through the compose allowlist. `tests/mail_compose_body.test.ts` covers a forward header, `<https://...>`, a literal `<b>` and the round trip.
 
 #### MR-09: the flag sweep reads flags from the wrong folder (confirmed; inherited from the prototype)
 - **Where:** `core/sync.ts:1264-1308` (`pollOnce`) and `:1349-1380` (`flagSweep`). `pollOnce` only sends
