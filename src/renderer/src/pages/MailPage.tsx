@@ -135,7 +135,20 @@ function SyncIndicator({
 }) {
   const offline = status?.connection === 'offline' && !status.running
   const now = useNow(offline && Boolean(status?.retryAt))
-  if (!status) return null
+  // A running write op needs no sync status to be worth showing
+  const label = runningOpLabel(runningOp)
+
+  // H2/G3: no status yet means the worker is still starting (syncStatus is gated on it), which
+  // is exactly when a silent bar is least useful. Say so instead of rendering nothing - an
+  // absent bar reads as "this feature does not exist".
+  if (!status) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
+        <Spinner className="size-3" />
+        <span>{label ?? 'Startet…'}</span>
+      </div>
+    )
+  }
   // The banner below the header explains this one
   if (status.connection === 'auth-failed') {
     return (
@@ -166,7 +179,6 @@ function SyncIndicator({
     )
   }
   const initial = status.phase === 'initial' || status.phase === 'paused'
-  const runningLabel = runningOpLabel(runningOp)
   const progress =
     initial && status.messagesDone !== undefined
       ? `${status.messagesDone.toLocaleString('de-DE')}${
@@ -178,10 +190,10 @@ function SyncIndicator({
     <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
       {/* H2: a running write op wins over the sync text - it is what the user just
           started, and it finishes in seconds */}
-      {runningLabel ? (
+      {label ? (
         <>
           <Spinner className="size-3" />
-          <span>{runningLabel}</span>
+          <span>{label}</span>
         </>
       ) : status.paused ? (
         <>
