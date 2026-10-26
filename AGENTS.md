@@ -54,7 +54,7 @@ Only the symbols that cross a subtree boundary are listed here; per-area tables 
 - `.partial()` on an `UpdateXInput` whose create input uses `.optional().default()` - defaults are re-applied and columns wiped. Merge with `input.x ?? existing.x`.
 - Editing an applied migration or `src/main/db/migrations/meta/*`. Add a new migration and review the generated SQL: drizzle-kit drops `ON DELETE` on `ADD COLUMN`.
 - Real master data (names, IBANs, addresses, signatures) in code, seeds, tests or commit messages - only the gitignored `sample_data/internal-seed.json`.
-- Sending mail from the app. `mail/` and the `invoice:email` channel write files and open the user's mail program; nothing is transmitted.
+- Sending mail from the app: the mail client (`src/main/mailclient/`) **does** transmit over SMTP for writable accounts. Only the legacy `mail/` path and the `invoice:email` channel write files and open the user's mail program.
 - Translating stored enum values. Render them through label maps.
 - A second tRPC client in the renderer - electron-trpc keys responses by operation id.
 
