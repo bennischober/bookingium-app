@@ -84,6 +84,36 @@ async function waitFor<T>(
   }
 }
 
+/**
+ * A negative check: `check` must hold on every read for the whole window. `expect.poll` cannot do this -
+ * it returns on the first match, so a value that is right at once and turns wrong later still passes.
+ */
+async function holds<T>(read: () => Promise<T>, check: (v: T) => void, ms: number): Promise<void> {
+  const until = Date.now() + ms
+  do {
+    check(await read())
+    await new Promise((r) => setTimeout(r, 250))
+  } while (Date.now() < until)
+}
+
+/** The server's own message count of a folder (IMAP STATUS), for baselines the local store may lag behind */
+async function serverTotal(path: string): Promise<number> {
+  const { ImapFlow } = await import('imapflow')
+  const client = new ImapFlow({
+    host: SANDBOX.host,
+    port: SANDBOX.port,
+    secure: false,
+    auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+    logger: false
+  })
+  await client.connect()
+  try {
+    return (await client.status(path, { messages: true })).messages ?? 0
+  } finally {
+    await client.logout().catch(() => client.close())
+  }
+}
+
 test.beforeAll(async () => {
   test.skip(!(await reachable(SANDBOX.port)), 'mail sandbox (Dovecot) is not running')
   await seedMailSandbox(SANDBOX.host, SANDBOX.port)
@@ -579,12 +609,13 @@ test('the mail shortcuts work from the list and leave typing alone', async () =>
     // While typing in the search field, a shortcut must not fire
     const search = page.getByRole('searchbox', { name: 'E-Mails durchsuchen' })
     await search.click()
-    // While typing in the search field, a shortcut must not fire. The sleep this replaces proved
-    // the same thing by waiting 300 ms and hoping: the keyboard handler either ran or it did not, so
-    // the assertion below is the condition, and polling it gives the shortcut a real chance to fire
-    // wrongly before the test gives up.
     await search.press('Control+u')
-    await expect.poll(async () => (await state(id)).isRead, { timeout: 3000 }).toBe(true)
+    // the mail must STAY read: a wrongly fired shortcut lands a moment later, through the core
+    await holds(
+      () => state(id),
+      (s) => expect(s.isRead).toBe(true),
+      1500
+    )
   } finally {
     await mail('markRead', [id], before, sandboxId)
   }
@@ -604,8 +635,20 @@ test('a mail written in the editor is saved as a draft and sent', async () => {
   test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
   const count = async (folderId: string) =>
     (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.id === folderId)!.totalCount
-  const draftsBefore = await count(drafts!.id)
-  const sentBefore = await count(sent!.id)
+  // The baselines must be the server's: run alone, the store may not have synced Drafts and Sent yet,
+  // and a draft already on the server then showed up as a second one ("expected 1, received 2" - which
+  // the I10 report took for a double send; Mailpit had one delivery)
+  const synced = async (folder: Folder) => {
+    const server = await serverTotal(folder.path)
+    await mail('triggerSync', true, sandboxId).catch(() => undefined)
+    await waitFor(
+      () => count(folder.id),
+      (n) => n === server
+    )
+    return server
+  }
+  const draftsBefore = await synced(drafts!)
+  const sentBefore = await synced(sent!)
   // Mailpit is shared with other sandbox users; this mail is found by its own subject
   const tag = `${COMPOSE_TAG}${Date.now()}`
   const delivered = async () => {
@@ -674,9 +717,12 @@ test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
     const subject = editor.getByRole('textbox', { name: 'Betreff' })
     await subject.fill(tag)
     await subject.press('Enter')
-    // The editor must still be there (no send started): poll instead of sleeping 1.5 s
-    await expect(editor).toHaveCount(1)
-    expect(await delivered()).toBe(0)
+    // No send may start: the editor stays open and nothing arrives over the whole window
+    await holds(
+      async () => [await editor.count(), await delivered()],
+      ([open, sent]) => expect([open, sent]).toEqual([1, 0]),
+      1500
+    )
 
     await editor.getByRole('textbox', { name: 'Text' }).fill('Hallo aus dem E2E-Test')
     // raw key presses, back to back: the editor may already be closing after the first
@@ -687,10 +733,9 @@ test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
       timeout: 30_000
     })
     await expect.poll(delivered, { timeout: 30_000 }).toBe(1)
-    // A second send would arrive a moment later. This one is a deliberate settle window, not a wait
-    // for a condition - there is no event that says "no more deliveries", so the only honest check is
-    // to keep asserting the count stays 1 while polling it.
-    await expect.poll(delivered, { timeout: 6000, intervals: [500, 1000, 2000] }).toBe(1)
+    // A second send would arrive a moment later, and no event says "no more deliveries": the count
+    // must stay 1 over a settle window
+    await holds(delivered, (n) => expect(n).toBe(1), 3000)
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
   }
@@ -1606,8 +1651,7 @@ test('a folder is moved into another folder by drag and drop', async () => {
 
     // 4. It is still there after a sync - the store must not prune it
     await mail('triggerSync', true, sandboxId).catch(() => undefined)
-    // Poll the server list until the sync has had its chance, instead of sleeping 3 s and hoping
-    await expect.poll(serverPaths, { timeout: 30_000 }).toContain(`${parent}/${child}`)
+    await holds(serverPaths, (paths) => expect(paths).toContain(`${parent}/${child}`), 3000)
   } finally {
     // The sandbox is left as it was found, also when a step failed
     const { ImapFlow } = await import('imapflow')

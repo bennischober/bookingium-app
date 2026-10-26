@@ -1376,24 +1376,16 @@ MR-13, 35, 36, 37 and the open renderer Low items. Every renderer decision that 
 
 ## Found while working
 
-### A sent mail can be delivered twice (found during I10, NOT fixed)
+### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
 
-**Status: open, needs its own card.** Found while running the mail e2e for I10.
+**Status: closed in the I9-I16 review (2026-10-26).** The I10 report read "expected 1, received 2" in
+"a mail written in the editor is saved as a draft and sent" as two deliveries. It was the Drafts count, not a delivery:
+the sandbox server keeps one leftover draft, and run alone the test read `draftsBefore` from a store that had not synced
+Drafts yet (0), then saw the leftover plus the new draft (2). Reproduced 3/3 before, 3/3 green after.
 
-`tests/e2e/mail-client.spec.ts`, "a mail written in the editor is saved as a draft and sent", presses Ctrl+Enter
-twice on purpose (that is the double-send guard) and asserts exactly one delivery. It fails with "expected 1, received 2":
-**two deliveries for one mail**.
-
-**Attribution, measured:** the same test fails identically on `feat/mail-client` with every I10 change stashed, so this is
-pre-existing and not a renderer regression. It is also timing-dependent - the full suite passed once and the test failed twice
-when run alone - which is why it survived until now: `delivered()` counts by SUBJECT, so a leftover from an earlier failed run
-inflates the count, and the suite's cleanup runs after the assertion.
-
-**Two separate things to fix, and they should not be conflated:**
-1. the test is fragile (subject-based counting plus a cleanup that runs too late), so it can fail for a stale leftover;
-2. the product may really send twice under the double Ctrl+Enter, which is what the test exists to catch.
-
-Until it is split, treat this test as unreliable evidence rather than as a regression signal.
+The fix is in the test: each baseline now reads the server's own STATUS count (`serverTotal`) and waits until the app's
+store shows the same number before it is taken. The Ctrl+Enter-twice guard still asserts one delivery and holds it for
+3 s (`holds`, not `expect.poll`, so a late second delivery would fail it). Nothing in the send path changed.
 
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
