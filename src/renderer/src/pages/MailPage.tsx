@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select'
 import { ComposeView } from '@/components/mail/ComposeView'
 import { hide, unhide, visible } from '@/components/mail/optimistic'
+import { readingActions } from '@/components/mail/readingActions'
 import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import {
@@ -299,7 +300,10 @@ export default function MailPage() {
   const [chosenAccountId, setChosenAccountId] = useState<string | null>(null)
   const account = accounts.data?.find((a) => a.id === chosenAccountId) ?? accounts.data?.[0] ?? null
   const accountId = account?.id ?? ''
-  const canWrite = account?.kind === 'sandbox'
+  // MR-35: one rule, shared with the mail window, so the reading pane cannot offer a write
+  // action on a read-only account (its autosave failed silently and lost the text)
+  const reading = readingActions(account)
+  const canWrite = reading.canWrite
 
   const [chosenFolderId, setChosenFolderId] = useState<string | null>(null)
   // One selected mail is shown in the reading pane, several get the bulk actions
@@ -1349,8 +1353,12 @@ export default function MailPage() {
               onDelete={(id) => void moveAway([id], { kind: 'delete' })}
               onArchive={hasArchive ? (id) => void moveAway([id], { kind: 'archive' }) : undefined}
               onMarkUnread={(id) => markRead([id], false)}
-              onCompose={composeFrom}
-              onWriteTo={(address) => startCompose(composeTo(address, account?.signature))}
+              onCompose={reading.canCompose ? composeFrom : undefined}
+              onWriteTo={
+                reading.canWriteTo
+                  ? (address) => startCompose(composeTo(address, account?.signature))
+                  : undefined
+              }
             />
           ) : selection.ids.length > 1 && selectedItems.length > 0 ? (
             <SelectionActions

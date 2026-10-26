@@ -18,6 +18,7 @@ import {
 } from '@/components/mail/composeDraft'
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
+import { readingActions } from '@/components/mail/readingActions'
 import type { MessageDetail } from '../../../main/mailclient/core/types'
 
 const failed = (title: string) => (error: unknown) =>
@@ -70,7 +71,9 @@ export default function MailWindowPage() {
 
   const accounts = trpcReact.mail.accounts.list.useQuery()
   const account = accounts.data?.find((a) => a.id === accountId)
-  const canWrite = account?.kind === 'sandbox'
+  // MR-35: the same rule as the mail page - no write action on a read-only account
+  const reading = readingActions(account)
+  const canWrite = reading.canWrite
 
   const folders = useQuery({
     queryKey: ['mail', accountId, 'folders'],
@@ -222,9 +225,12 @@ export default function MailWindowPage() {
               ? (id) => moveAway(id, 'archive')
               : undefined
           }
-          onCompose={composeFrom}
-          onWriteTo={(address) =>
-            setCompose({ key: Date.now(), state: composeTo(address, account?.signature) })
+          onCompose={reading.canCompose ? composeFrom : undefined}
+          onWriteTo={
+            reading.canWriteTo
+              ? (address) =>
+                  setCompose({ key: Date.now(), state: composeTo(address, account?.signature) })
+              : undefined
           }
         />
       )}
