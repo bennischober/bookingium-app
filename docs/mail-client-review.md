@@ -239,6 +239,9 @@ are fixed and tested. Card group **I** at the end orders the work.
   design. The SMTP-phase part is in MR-03.
 
 #### MR-17: the test gate is red (confirmed)
+**Status: fixed in I9 (2026-10-26).** The two-account case now logs its imapflow clients out before
+closing a fake server, so no socket is reset under a live client and `pnpm test` exits 0. Verified twice in
+a row, and the fix is not a swallowed error: reverting it brings the unhandled ECONNRESET straight back.
 - **Where:** `tests/mail_write_guard.test.ts:140` closes the second fake server while an imapflow client is
   still connected. `read ECONNRESET` is an unhandled error, so `pnpm test` exits 1 (673 passed, 2 skipped,
   1 error).

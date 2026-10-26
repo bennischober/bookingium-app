@@ -1307,6 +1307,42 @@ needs a decision) opens a sheet with the ops that need the user. Decisions are i
 
 ---
 
+
+### I9: gate green [fixed 2026-10-26]
+
+MR-17 and the tests/CI section. The gate was red and several tests proved less than they claimed.
+
+**What changed.**
+- `tests/mail_write_guard.test.ts`: the two-account case logs its clients out before a fake server
+  closes, so no socket is reset under a live client. `pnpm test` exits 0 twice in a row, and reverting
+  the fix brings the unhandled ECONNRESET straight back - it is not swallowed.
+- `tests/helpers/fakeImap.ts`: answers `BAD` for anything it does not implement and advertises only
+  `IMAP4rev1 AUTH=PLAIN`. It used to claim `UIDPLUS` and `MOVE` and answer `OK` to both, so a move test
+  would have passed against a server that moved nothing. Measured on the way: imapflow's `messageMove()`
+  RESOLVES even when the server answers `BAD`, so the test asserts on the raw protocol instead.
+- `tests/helpers/fakeSmtp.ts`: implements `AUTH LOGIN` (the 334 challenge/response) and refuses it with
+  wrong credentials. It advertised LOGIN and answered `250 Ok`, so a client could "authenticate" without the
+  server ever seeing its credentials. Dot-unstuffing added.
+- `tests/mail_crash_points.test.ts`: requires EXACTLY one delivery (0 used to pass), fails when Mailpit is
+  unreachable instead of returning a pass, checks that the source copy is gone after a move, removes the mail
+  it moves, counts deliveries by Message-ID (a subject prefix collides with earlier runs), and its header no
+  longer claims a process kill it never did.
+- `tests/helpers/sandboxGate.ts`: a skipped sandbox suite is annotated on GitHub
+  (`::warning::`), so a green CI run says what it could not prove.
+- `.github/workflows/ci.yml`: a Windows job beside Ubuntu, and an explicit better-sqlite3 ABI step that
+  names the Electron/Node mismatch instead of failing inside the first DB suite.
+- `tests/e2e/mail-client.spec.ts`: the data-dependent `test.skip` (no attachment, no band) now fails with
+  a reason, and the fixed sleeps the card touches became condition waits.
+- `tests/mail_sync_time.test.ts`: marked pending on I4 in a header note, because finding L3 is only NAMED in
+  the review (line 604) and its required behaviour is written nowhere; inventing it here would guess at
+  `core/sync.ts`, which is I4's file.
+
+**Tests.** `tests/mail_write_guard.test.ts` (+3), `tests/fake_smtp.test.ts` (new, 3), `tests/sandbox_gate.test.ts`
+(+2), `tests/mail_crash_points.test.ts` (strengthened). Every new assertion has a recorded mutation check;
+the report lists them.
+
+**Not verified here:** the CI jobs themselves (nothing is pushed), and the mail e2e needs the sandbox.
+
 ## Found while working
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
