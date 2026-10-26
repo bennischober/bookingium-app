@@ -12,6 +12,9 @@ import { createServer, type Server } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fetchRemoteImagesAsDataUris } from '../src/main/mailclient/core/remote_images'
 
+// I11: the test server is on loopback, which the fetcher refuses unless told otherwise
+const LOCAL = { blockedAddress: () => false }
+
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'
@@ -47,7 +50,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     const { base } = await startServer(120)
     const urls = Array.from({ length: 10 }, (_, i) => `${base}/img${i}.png`)
     const t0 = performance.now()
-    const got = await fetchRemoteImagesAsDataUris(urls)
+    const got = await fetchRemoteImagesAsDataUris(urls, LOCAL)
     const elapsed = performance.now() - t0
 
     expect(got.size).toBe(10)
@@ -60,7 +63,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     return (async () => {
       const { base, peak } = await startServer(80)
       const urls = Array.from({ length: 12 }, (_, i) => `${base}/p${i}.png`)
-      await fetchRemoteImagesAsDataUris(urls)
+      await fetchRemoteImagesAsDataUris(urls, LOCAL)
       expect(peak()).toBeGreaterThan(1)
       // and it stays bounded: never one socket per image
       expect(peak()).toBeLessThanOrEqual(6)
@@ -71,7 +74,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     // A port nobody listens on: its fetch fails fast, the rest must still load
     const { base } = await startServer(20)
     const urls = [`${base}/ok1.png`, 'http://127.0.0.1:1/dead.png', `${base}/ok2.png`]
-    const got = await fetchRemoteImagesAsDataUris(urls, { timeoutMs: 2000 })
+    const got = await fetchRemoteImagesAsDataUris(urls, { ...LOCAL, timeoutMs: 2000 })
     expect(got.size).toBe(2)
     expect(got.has(urls[0])).toBe(true)
     expect(got.has(urls[2])).toBe(true)
@@ -87,7 +90,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     await new Promise<void>((r) => server!.listen(0, '127.0.0.1', () => r()))
     const port = (server!.address() as { port: number }).port
     const urls = Array.from({ length: 8 }, (_, i) => `http://127.0.0.1:${port}/b${i}.png`)
-    const got = await fetchRemoteImagesAsDataUris(urls, { maxTotalBytes: 1536 })
+    const got = await fetchRemoteImagesAsDataUris(urls, { ...LOCAL, maxTotalBytes: 1536 })
     expect(got.size).toBe(1)
   }, 30_000)
 
@@ -96,7 +99,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     const { base } = await startServer(10)
     const urls = Array.from({ length: 6 }, (_, i) => `${base}/q${i}.png`)
     const seen: number[] = []
-    await fetchRemoteImagesAsDataUris(urls, { onProgress: (done) => seen.push(done) })
+    await fetchRemoteImagesAsDataUris(urls, { ...LOCAL, onProgress: (done) => seen.push(done) })
     expect(seen).toHaveLength(6)
     expect(seen[seen.length - 1]).toBe(6)
   }, 30_000)
@@ -109,7 +112,7 @@ describe('remote images: fetched concurrently, not one by one', () => {
     })
     await new Promise<void>((r) => server!.listen(0, '127.0.0.1', () => r()))
     const port = (server!.address() as { port: number }).port
-    const got = await fetchRemoteImagesAsDataUris([`http://127.0.0.1:${port}/x.svg`])
+    const got = await fetchRemoteImagesAsDataUris([`http://127.0.0.1:${port}/x.svg`], LOCAL)
     expect(got.size).toBe(0)
   }, 30_000)
 })

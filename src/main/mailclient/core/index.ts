@@ -382,7 +382,11 @@ export class MailCore implements Api {
     if (!row) throw new Error(`message ${id} not found`);
     const { enabled: _enabled, ...fetchOpts } = this.options.remoteImages;
     void _enabled;   // destructured only to drop it from fetchOpts
-    const fetched = await fetchRemoteImagesAsDataUris(remoteImages.map(r => r.url), {
+    // I11 (MR-22): only URLs the stored mail itself references. The caller's list narrows that
+    // set, it never extends it - a renderer cannot point this fetcher at an address of its choice.
+    const stored = new Set(row.body_html ? sanitizeEmailHtml(row.body_html).remoteImages.map(r => r.url) : []);
+    const requested = remoteImages.filter(r => stored.has(r.url));
+    const fetched = await fetchRemoteImagesAsDataUris(requested.map(r => r.url), {
       ...fetchOpts,
       // G10: report progress through the same event channel the UI already subscribes to,
       // so a 72-image mail shows how far it has got instead of an opaque spinner
@@ -390,7 +394,7 @@ export class MailCore implements Api {
         type: 'image-progress', accountId: e.config.id, messageId: id, done, total,
       }),
     });
-    const loaded: RemoteImageRef[] = remoteImages
+    const loaded: RemoteImageRef[] = requested
       .filter(r => fetched.has(r.url))
       .map(r => ({ url: r.url, placeholder: fetched.get(r.url)! }));
     return this.toDetail(e, row, loaded.length ? loaded : null);

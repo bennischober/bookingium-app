@@ -70,7 +70,8 @@ afterAll(async () => {
 const fetchAll = (paths: string[], opts = {}) =>
   fetchRemoteImagesAsDataUris(
     paths.map((p) => `${base}${p}`),
-    opts
+    // I11: the test server is on loopback, which is blocked otherwise
+    { blockedAddress: () => false, ...opts }
   )
 
 describe('remote images: what is never fetched', () => {

@@ -177,13 +177,13 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
   // The id names the folder with the downloaded mail. Another server or login is another
   // mailbox: it gets a fresh folder rather than a mix of both, the old one stays like a
   // deleted account's
-  const sameMailbox =
-    existing &&
-    existing.host.toLowerCase() === input.host.trim().toLowerCase() &&
-    existing.port === input.port &&
-    existing.user === input.user.trim()
+  const keepsMailbox = existing !== undefined && sameMailbox(existing, input)
+  // I11 (MR-33): the stored password never moves to another server or login
+  if (existing && !keepsMailbox && input.password === undefined) {
+    throw new Error('Passwort fehlt')
+  }
   const account: StoredAccount = {
-    id: sameMailbox ? existing.id : randomUUID(),
+    id: keepsMailbox ? existing.id : randomUUID(),
     kind: input.kind,
     host: input.host.trim(),
     port: input.port,
@@ -213,6 +213,31 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
 /** Removes the account settings; the downloaded mail stays until its folder is deleted */
 export function deleteMailAccount(id: string): void {
   writeAll(readAll().filter((a) => a.id !== id))
+}
+
+/** Same server, port and login: the stored password belongs to that mailbox and no other */
+function sameMailbox(
+  account: StoredAccount,
+  target: { host: string; port: number; user: string }
+): boolean {
+  return (
+    account.host.toLowerCase() === target.host.trim().toLowerCase() &&
+    account.port === target.port &&
+    account.user === target.user.trim()
+  )
+}
+
+/**
+ * I11 (MR-33): the stored password of `id` for a connection test, or undefined when the form
+ * names another server, port or login. A typo in the host must not send the password there.
+ */
+export function storedPasswordFor(
+  id: string,
+  target: { host: string; port: number; user: string }
+): string | undefined {
+  const account = readAll().find((a) => a.id === id)
+  if (!account || !sameMailbox(account, target)) return undefined
+  return safeStorage.decryptString(Buffer.from(account.password, 'base64'))
 }
 
 /** Decrypted credentials, for the worker only (never sent to the renderer) */

@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
-import { confirmAction } from '@/lib/confirm'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -188,31 +187,19 @@ export function MessageView({
     }
   }
 
-  // B6: the main process writes the file; the renderer never gets a path to write to
-  const attachmentInput = (partId: string, filename: string) => ({
+  // B6: the main process writes the file; the renderer never gets a path to write to.
+  // I11 (MR-23): nor does it name the file - main takes the stored name.
+  const attachmentInput = (partId: string) => ({
     accountId,
     messageId: message.id,
-    partId,
-    filename
+    partId
   })
 
-  const openAttachment = async (partId: string, filename: string) => {
+  const openAttachment = async (partId: string) => {
     try {
-      const result = await trpcVanilla.mail.attachments.open.mutate(
-        attachmentInput(partId, filename)
-      )
-      // An executable is never started without a second, explicit confirmation
-      if (result.executable) {
-        const confirmed = await confirmAction({
-          title: `„${result.name}“ öffnen?`,
-          description:
-            'Das ist eine ausführbare Datei. Sie kann auf diesem Rechner Programme starten.',
-          confirmLabel: 'Trotzdem öffnen',
-          destructive: true
-        })
-        if (!confirmed) return
-        await trpcVanilla.mail.attachments.openAnyway.mutate(attachmentInput(partId, filename))
-      }
+      // A type that may start programs is never opened; main asks whether to save it instead
+      const result = await trpcVanilla.mail.attachments.open.mutate(attachmentInput(partId))
+      if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
     } catch (error) {
       toast.error('Anhang konnte nicht geöffnet werden', {
         description: error instanceof Error ? error.message : undefined
@@ -223,14 +210,12 @@ export function MessageView({
   /** F10: every attachment of this mail, one after another through the same save path */
   const saveAllAttachments = async (list: MessageDetail['attachments']) => {
     const visible = list.filter((a) => !a.isInline)
-    for (const a of visible) await saveAttachmentAs(a.partId, a.filename)
+    for (const a of visible) await saveAttachmentAs(a.partId)
   }
 
-  const saveAttachmentAs = async (partId: string, filename: string) => {
+  const saveAttachmentAs = async (partId: string) => {
     try {
-      const result = await trpcVanilla.mail.attachments.saveAs.mutate(
-        attachmentInput(partId, filename)
-      )
+      const result = await trpcVanilla.mail.attachments.saveAs.mutate(attachmentInput(partId))
       if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
     } catch (error) {
       toast.error('Anhang konnte nicht gespeichert werden', {
@@ -418,7 +403,7 @@ export function MessageView({
                           variant="outline"
                           size="sm"
                           className="rounded-r-none"
-                          onClick={() => void openAttachment(a.partId, a.filename)}
+                          onClick={() => void openAttachment(a.partId)}
                           title={`${a.contentType} · öffnen`}
                         >
                           <Paperclip />
@@ -442,7 +427,7 @@ export function MessageView({
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => void saveAttachmentAs(a.partId, a.filename)}
+                        onClick={() => void saveAttachmentAs(a.partId)}
                       >
                         <Download className="size-4 shrink-0 text-muted-foreground" />
                         Speichern unter…

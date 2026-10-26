@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import { exposeElectronTRPC } from 'electron-trpc/main'
 
 // Custom APIs for renderer
@@ -57,19 +56,16 @@ process.once('loaded', () => {
   exposeElectronTRPC()
 })
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// Use `contextBridge` APIs to expose the app API to the renderer only if context isolation is
+// enabled, otherwise just add to the DOM global. I11: no `window.electron` - the toolkit's raw
+// ipcRenderer (send/invoke on any channel) gave any script in the renderer every channel.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.api = api
 }

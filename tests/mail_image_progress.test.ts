@@ -97,7 +97,8 @@ async function coreWithImages(
         credentials: async () => ({ user: 'a@example.test', pass: 'x' })
       }
     ],
-    remoteImages: { enabled: true }
+    // I11: the test server is on loopback, which is blocked otherwise
+    remoteImages: { enabled: true, blockedAddress: () => false }
   })
   return { api, id }
 }

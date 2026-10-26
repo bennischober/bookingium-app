@@ -2,27 +2,55 @@
 // The renderer asks for an action ("open" or "save as"), the main process fetches the bytes
 // from the mail worker, writes them to a temp file or a user-chosen path and hands them to
 // the OS. Only the sanitized name crosses back.
+import { writeFile } from 'fs/promises'
+import { isAbsolute, join, relative, resolve } from 'path'
 
-/** Executable extensions: "Öffnen" warns before it starts one of these */
-const EXECUTABLE = new Set([
-  'exe',
-  'bat',
-  'cmd',
-  'com',
-  'js',
-  'jse',
-  'vbs',
-  'vbe',
-  'ps1',
-  'psm1',
-  'scr',
-  'lnk',
-  'msi',
-  'jar',
-  'hta',
-  'reg',
-  'sh'
+/**
+ * I11 (MR-23): the types "Öffnen" hands to the OS. An allowlist, because a list of dangerous
+ * extensions is never complete (url, cpl, msc, wsf, chm, iso, vhdx, settingcontent-ms, html,
+ * svg, ...). Everything else is only saved, after a confirmation main shows itself.
+ */
+const SAFE_TO_OPEN = new Set([
+  'pdf',
+  'txt',
+  'csv',
+  'rtf',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'bmp',
+  'tif',
+  'tiff',
+  'heic',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'odt',
+  'ods',
+  'odp',
+  'ics',
+  'vcf',
+  'mp3',
+  'wav',
+  'm4a',
+  'mp4',
+  'mov',
+  'zip'
 ])
+
+/**
+ * Bidi controls and invisible marks. U+202E (RTLO) makes a name ending in "fdp.exe" read as one
+ * ending in "exe.pdf"; none of them belongs in a file name.
+ */
+const INVISIBLE = /[\u061c\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g
+
+/** The Zone.Identifier stream Windows writes for a download: ZoneId=3 is "Internet" */
+export const ZONE_IDENTIFIER = '[ZoneTransfer]\r\nZoneId=3\r\n'
 
 /** Windows reserved device names, in any case and with or without an extension */
 const RESERVED = new Set([
@@ -61,6 +89,7 @@ export function safeAttachmentName(name: string, fallback = 'Anhang'): string {
   // Path separators and characters Windows refuses. Done first, so a name like
   // "../../etc/passwd" becomes a flat ".._.._etc_passwd".
   const cleaned = name
+    .replace(INVISIBLE, '')
     // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
     .trim()
@@ -85,9 +114,41 @@ export function safeAttachmentName(name: string, fallback = 'Anhang'): string {
   return joined.replace(/[. ]+$/, '') || fallback
 }
 
-/** Whether "Öffnen" should warn first */
-export function isExecutableName(name: string): boolean {
+/** I11 (MR-23): whether "Öffnen" may hand this (sanitized) name to the OS */
+export function isSafeToOpen(name: string): boolean {
   const dot = name.lastIndexOf('.')
   if (dot < 0) return false
-  return EXECUTABLE.has(name.slice(dot + 1).toLowerCase())
+  return SAFE_TO_OPEN.has(name.slice(dot + 1).toLowerCase())
+}
+
+/**
+ * I11 (MR-34): `name`, made safe, inside `folder`. Throws when the result would still leave the
+ * folder - `safeAttachmentName` already flattens the name, so this is the second wall.
+ */
+export function safePathIn(folder: string, name: string, fallback = 'Anhang'): string {
+  const target = resolve(folder, safeAttachmentName(name, fallback))
+  const rel = relative(resolve(folder), target)
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('Ungültiger Dateiname')
+  }
+  return join(folder, rel)
+}
+
+/**
+ * I11 (MR-23): Mark-of-the-Web. With the Zone.Identifier stream, SmartScreen checks what the
+ * file starts and Office opens it in Protected View. NTFS only; elsewhere there is nothing to mark.
+ */
+export async function markFromInternet(file: string): Promise<void> {
+  if (process.platform !== 'win32') return
+  await writeFile(`${file}:Zone.Identifier`, ZONE_IDENTIFIER)
+}
+
+/** I11 (MR-23): the stored name of an attachment - never the one the renderer sends */
+export function storedAttachmentName(
+  attachments: { partId: string; filename: string | null }[],
+  partId: string
+): string {
+  const found = attachments.find((a) => a.partId === partId)
+  if (!found) throw new Error('Anhang nicht gefunden')
+  return safeAttachmentName(found.filename ?? '', 'Anhang')
 }

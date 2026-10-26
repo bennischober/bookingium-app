@@ -36,7 +36,7 @@ afterAll(async () => {
 })
 
 const fetchType = async (type: string): Promise<Map<string, string>> =>
-  fetchRemoteImagesAsDataUris([`${base}/${type}`])
+  fetchRemoteImagesAsDataUris([`${base}/${type}`], { blockedAddress: () => false })
 
 describe('remote image type allowlist', () => {
   it('accepts the types a mail actually uses', async () => {
