@@ -5,13 +5,23 @@
 // it is several hundred milliseconds per click - the lag the user reported.
 //
 // The pool is tested directly (no server): the three failure modes are all silent otherwise.
-import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import { sandboxCredentials, sandboxWriteAccount } from './helpers/writeAccount'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   WriteConnectionPool,
   type PooledConnection
 } from '../src/main/mailclient/core/write_connection'
 
 type Fake = PooledConnection & { id: number; closed: boolean }
+
+const ACCOUNT = 'reuse'
+const cleanups: (() => void)[] = []
+afterEach(() => {
+  while (cleanups.length) cleanups.pop()!()
+})
 
 /** A connection factory that counts, so "reused" is observable rather than assumed */
 function factory(usable = true): {
@@ -108,5 +118,70 @@ describe('G2/L3c: a dead connection is never reused', () => {
     await expect(pool.drop()).resolves.toBeUndefined()
     await expect(pool.get()).resolves.toBeTruthy()
     expect(made).toBe(1)
+  })
+})
+
+// The pool's OTHER half: an op that fails must discard the connection, so the next op does not
+// inherit a half-dead socket. The tests above stub the pool itself, which cannot see this; this one
+// mocks the connection factory (connectWriteImap) so the REAL pool and the REAL execute() path run.
+
+const connectCalls: number[] = []
+vi.mock('../src/main/mailclient/core/write_guard', async () => {
+  const actual = await vi.importActual<typeof import('../src/main/mailclient/core/write_guard')>(
+    '../src/main/mailclient/core/write_guard'
+  )
+  return {
+    ...actual,
+    connectWriteImap: async () => {
+      connectCalls.push(Date.now())
+      const n = connectCalls.length
+      return {
+        usable: true,
+        mailboxOpen: async () => ({ uidValidity: 1n, exists: 1 }),
+        fetch: () => ({ next: async () => ({ done: true, value: undefined }) }),
+        append: async () => {
+          // the FIRST connection fails on append, the second works
+          if (n === 1) throw new Error('socket closed')
+          return { uid: 42 }
+        },
+        messageFlagsAdd: async () => true,
+        messageDelete: async () => true,
+        logout: async () => undefined
+      }
+    }
+  }
+})
+
+describe('criterion 1: a failed op discards the shared connection', () => {
+  it('reconnects for the op after one fails, instead of reusing a half-dead socket', async () => {
+    const { Store } = await import('../src/main/mailclient/core/store')
+    const { WriteEngine } = await import('../src/main/mailclient/core/write_engine')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bookingum-poolfail-'))
+    cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }))
+    const store = new Store(dir, ACCOUNT)
+    cleanups.push(() => store.close())
+    store.upsertFolder({ imapPath: 'Drafts', delimiter: '/', specialUse: '\\Drafts' })
+
+    const engine = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
+    const mime = Buffer.from('From: a@example.test\r\nSubject: X\r\n\r\nbody\r\n')
+    const enqueue = (): string =>
+      store.journalEnqueue({
+        accountId: ACCOUNT,
+        kind: 'draft_save',
+        folderPath: 'Drafts',
+        folderUidValidity: '99',
+        payload: { mime: mime.toString('base64') }
+      })
+
+    const first = await engine.execute(store.journalGet(enqueue()) as never)
+    expect(first.outcome).toBe('failed')
+    expect(connectCalls).toHaveLength(1)
+
+    // the second op must NOT reuse the connection that just failed
+    await engine.execute(store.journalGet(enqueue()) as never)
+    expect(connectCalls).toHaveLength(2)
   })
 })
