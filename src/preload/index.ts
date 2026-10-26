@@ -40,6 +40,10 @@ const api = {
 
   showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
 
+  /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
+  copyMailLink: (url: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('mail:copyLink', { url }),
+
   openMailWindow: (accountId: string, messageId: number) =>
     ipcRenderer.invoke('mail:openWindow', { accountId, messageId }),
 

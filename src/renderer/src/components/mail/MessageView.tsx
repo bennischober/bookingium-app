@@ -4,6 +4,7 @@ import {
   Archive,
   ChevronDown,
   ChevronRight,
+  Copy,
   Download,
   Flag,
   Forward,
@@ -37,6 +38,12 @@ import {
 /** Every link of the mail with its real address; unsafe ones cannot be opened */
 function LinkList({ message }: { message: MessageDetail }) {
   const [open, setOpen] = useState(false)
+  // Copying is silent otherwise; a toast is the only feedback that it happened
+  const copyLink = async (url: string): Promise<void> => {
+    const result = await window.api.copyMailLink(url)
+    if (result.success) toast.success('Link-Adresse kopiert')
+    else toast.error('Kopieren fehlgeschlagen', { description: result.error })
+  }
   if (message.links.length === 0) return null
   return (
     <footer className="max-h-[40%] shrink-0 overflow-auto border-t px-4 py-2 text-sm">
@@ -61,14 +68,28 @@ function LinkList({ message }: { message: MessageDetail }) {
                 </p>
               </div>
               {link.openable ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  // The main process opens it in the default browser
-                  onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
-                >
-                  Öffnen
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    // The main process opens it in the default browser
+                    onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
+                  >
+                    Öffnen
+                  </Button>
+                  {/* F16: copy instead of open - for pasting into another browser or an incognito
+                      window, which opening in the default browser cannot do. The clipboard lives in
+                      the main process, so this goes through window.api. */}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Link-Adresse kopieren"
+                    aria-label={`Link-Adresse kopieren: ${link.url}`}
+                    onClick={() => void copyLink(link.url)}
+                  >
+                    <Copy className="size-3.5" />
+                  </Button>
+                </div>
               ) : (
                 <span className="text-xs text-destructive">Gesperrt ({link.scheme || '?'})</span>
               )}

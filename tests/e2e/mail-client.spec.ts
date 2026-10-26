@@ -90,6 +90,13 @@ test.beforeAll(async () => {
   }
   h = await launchApp()
   userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
+  // Keep the real clipboard untouched; remember what a mail link would copy
+  await h.app.evaluate(({ clipboard }) => {
+    const store = globalThis as { copiedMailLink?: string }
+    clipboard.writeText = ((text: string) => {
+      store.copiedMailLink = text
+    }) as never
+  })
 })
 
 test.afterAll(async () => {
@@ -1894,4 +1901,53 @@ test('a pasted image becomes an attachment, and a reload keeps the window', asyn
     // The autosave writes this editor to Drafts; the draft goes with the test
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, tag)
   }
+})
+
+test('a link in a mail opens or copies from the reader', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+
+  // The test creates the mail it reads, so the link is known rather than guessed from the seed
+  const subject = `E2E Link ${Date.now()}`
+  const url = 'https://example.test/ausgabe/1'
+  await appendTestMail(
+    SANDBOX.host,
+    SANDBOX.port,
+    subject,
+    undefined,
+    undefined,
+    `<p>Weiterlesen: <a href="${url}">hier klicken</a></p>`
+  )
+  await openMailPage(sandboxId)
+
+  const messages = page.getByRole('listbox', { name: 'Nachrichten' })
+  await messages
+    .getByRole('option', { name: new RegExp(subject) })
+    .first()
+    .click({ timeout: 30_000 })
+  const reader = page.getByRole('article', { name: 'E-Mail' })
+  await expect(reader.getByRole('heading', { level: 2 })).toContainText(subject, {
+    timeout: 30_000
+  })
+
+  // The link list is a disclosure at the bottom of the reading pane
+  const toggle = reader.getByRole('button', { name: /^\d+ Links?$/ })
+  await expect(toggle).toBeVisible({ timeout: 15_000 })
+  await toggle.click()
+
+  // Each openable link offers open AND copy (F16)
+  const copy = reader.getByRole('button', { name: /Link-Adresse kopieren:/ }).first()
+  await expect(copy).toBeVisible()
+  await expect(reader.getByRole('button', { name: 'Öffnen' }).first()).toBeVisible()
+  const label = (await copy.getAttribute('aria-label')) ?? ''
+  expect(label).toContain(url)
+
+  await copy.click()
+  // The main process holds the clipboard, so the stub installed in main is what proves it
+  await expect(page.getByText('Link-Adresse kopiert')).toBeVisible({ timeout: 10_000 })
+  const copied = await h.app.evaluate(
+    () => (globalThis as { copiedMailLink?: string }).copiedMailLink ?? ''
+  )
+  expect(copied).toBe(url)
 })

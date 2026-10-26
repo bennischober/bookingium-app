@@ -79,6 +79,8 @@ export interface DocumentAPI {
   }>
   /** Shows a file of sendInvoiceEmail in Explorer */
   showEmailFile: (filePath: string) => Promise<void>
+  /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
+  copyMailLink: (url: string) => Promise<{ success: boolean; error?: string }>
   /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
   /** The draft is stored; close the window main was holding open */

@@ -1052,11 +1052,18 @@ So at release:
 **Do not do this yet.** It is a release step, and doing it early would remove the only way to run the canary and the sandbox
 tests through the UI. Recorded here so it is not forgotten.
 
-### F16: right-click on a link in the mail body [deferred by decision, 2026-10-26]
+### F16: right-click on a link in the mail body [right-click deferred; copy built 2026-10-26]
 
-**Decided with the user 2026-10-26:** not now. A right-click menu on links ("Im Browser öffnen" / "Link-Adresse
-kopieren") is the intuitive gesture, and other mail apps have it, but it is **not** built for now. The existing
-link list at the bottom of the reading pane stays as the way to reach a link.
+**Decided with the user 2026-10-26:** no right-click menu for now. A right-click menu on links ("Im Browser öffnen" /
+"Link-Adresse kopieren") is the intuitive gesture, and other mail apps have it, but it is **not** built. The link list at
+the bottom of the reading pane stays as the way to reach a link.
+
+**What was built instead** (the user's idea, same day): the link list's "Öffnen" button got a **copy action beside it**, so a
+link can be opened or its address copied - which covers the real use case behind the right-click wish (pasting into another browser
+or an incognito window). The clipboard lives in the main process (`mail:copyLink` in `src/main/index.ts`, exposed as
+`window.api.copyMailLink`), because the renderer has no clipboard access by design. The scheme allowlist (http/https/mailto) is
+enforced there too: a mail must not be able to put a `file://` path or a `javascript:` URL on the clipboard, where it is one
+paste away from running. The rule is in `src/main/mail/linkClipboard.ts` so it is testable without electron.
 
 **Why it is not free.** The mail renders in an iframe with `sandbox="allow-popups allow-popups-to-escape-sandbox"` and
 **no `allow-same-origin`** (`MessageView.tsx:465`). That is what stops a mail from running code or reaching the app, and

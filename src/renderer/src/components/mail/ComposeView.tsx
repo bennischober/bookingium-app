@@ -402,6 +402,8 @@ export function ComposeView({
 
   const send = async () => {
     const current = mailRef.current
+    // The button is disabled while sendBlocked, but Ctrl+Enter calls send() directly, so this
+    // guard is still reachable - it is not redundant with the disabled state.
     if (!current.to.length && !current.cc.length && !current.bcc.length) {
       toast.error('Bitte mindestens einen Empfänger angeben')
       return
@@ -557,11 +559,21 @@ export function ComposeView({
           size="sm"
           disabled={busy !== null || sendBlocked !== null}
           title={sendBlocked ?? 'Senden (Strg+Enter)'}
-          aria-label={sendBlocked ? `Senden nicht möglich: ${sendBlocked}` : 'Senden'}
+          // The accessible name stays the ACTION ("Senden"). Putting the reason in the aria-label made the
+          // button answer to "An" and collided with the recipient field of the same name; the reason is a
+          // tooltip, and aria-disabled is what tells assistive tech the control is unavailable.
+          aria-label="Senden"
         >
           {busy === 'send' ? <Spinner className="size-4" /> : <Send />}
           Senden
         </Button>
+        {/* A disabled button cannot be hovered for its title, and a tooltip is not read by a screen
+            reader on a disabled control - so the reason is written out where it applies */}
+        {sendBlocked && !busy ? (
+          <span className="text-xs text-muted-foreground" data-testid="send-blocked">
+            {sendBlocked}
+          </span>
+        ) : null}
         <Button
           type="button"
           variant="outline"

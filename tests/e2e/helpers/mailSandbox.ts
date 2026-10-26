@@ -85,7 +85,9 @@ export async function appendTestMail(
   subject: string,
   attachment?: { filename: string; contentType: string; body: string },
   /** the sender; defaults to the suite's own address */
-  fromEmail = E2E_MAIL_USER
+  fromEmail = E2E_MAIL_USER,
+  /** an HTML body instead of the plain one; the text part stays */
+  html?: string
 ): Promise<void> {
   const client = new ImapFlow({
     host,
@@ -98,7 +100,7 @@ export async function appendTestMail(
   try {
     const boundary = `e2e-${Date.now()}@example.test`
     const text = 'Diese Mail legt der Test selbst an und loescht sie wieder.'
-    const raw = attachment
+    const raw = html
       ? [
           `From: E2E Absender <${fromEmail}>`,
           `To: ${E2E_MAIL_USER}`,
@@ -106,33 +108,54 @@ export async function appendTestMail(
           `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
           `Message-ID: <${Date.now()}@example.test>`,
           'MIME-Version: 1.0',
-          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          `Content-Type: multipart/alternative; boundary="${boundary}"`,
           '',
           `--${boundary}`,
           'Content-Type: text/plain; charset=utf-8',
           '',
           text,
           `--${boundary}`,
-          `Content-Type: ${attachment.contentType}`,
-          'Content-Transfer-Encoding: base64',
-          `Content-Disposition: attachment; filename="${attachment.filename}"`,
+          'Content-Type: text/html; charset=utf-8',
           '',
-          Buffer.from(attachment.body).toString('base64'),
+          html,
           `--${boundary}--`,
           ''
         ].join('\r\n')
-      : [
-          `From: E2E Absender <${fromEmail}>`,
-          `To: ${E2E_MAIL_USER}`,
-          `Subject: ${subject}`,
-          `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
-          `Message-ID: <${Date.now()}@example.test>`,
-          'MIME-Version: 1.0',
-          'Content-Type: text/plain; charset=utf-8',
-          '',
-          text,
-          ''
-        ].join('\r\n')
+      : attachment
+        ? [
+            `From: E2E Absender <${fromEmail}>`,
+            `To: ${E2E_MAIL_USER}`,
+            `Subject: ${subject}`,
+            `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+            `Message-ID: <${Date.now()}@example.test>`,
+            'MIME-Version: 1.0',
+            `Content-Type: multipart/mixed; boundary="${boundary}"`,
+            '',
+            `--${boundary}`,
+            'Content-Type: text/plain; charset=utf-8',
+            '',
+            text,
+            `--${boundary}`,
+            `Content-Type: ${attachment.contentType}`,
+            'Content-Transfer-Encoding: base64',
+            `Content-Disposition: attachment; filename="${attachment.filename}"`,
+            '',
+            Buffer.from(attachment.body).toString('base64'),
+            `--${boundary}--`,
+            ''
+          ].join('\r\n')
+        : [
+            `From: E2E Absender <${fromEmail}>`,
+            `To: ${E2E_MAIL_USER}`,
+            `Subject: ${subject}`,
+            `Date: ${new Date().toUTCString().replace('GMT', '+0000')}`,
+            `Message-ID: <${Date.now()}@example.test>`,
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=utf-8',
+            '',
+            text,
+            ''
+          ].join('\r\n')
     await client.append('INBOX', raw, [], new Date())
   } finally {
     await client.logout().catch(() => client.close())
