@@ -27,6 +27,9 @@ export type OpResult =
   | { outcome: 'unknown'; reason: string } // send: outcome ambiguous — needs probe/user
   | { outcome: 'noop'; reason: string } // op is moot (e.g. flag already set)
 
+/** I8 (MR-06): the start of a folder_delete conflict reason when the server's folder is not empty */
+export const FOLDER_DELETE_REFUSED = 'folder not empty'
+
 /** B4: one mail inside a batch move, as the op's payload records it */
 export type BatchMember = { uid: number; messageKey: string; messageId: string | null }
 /** B4: where a member landed (COPYUID); durable before the local rows change.
@@ -926,10 +929,23 @@ export class WriteEngine {
     if (!path) return { outcome: 'conflict', reason: 'folder_delete without path' }
     const client = await this.writeClient()
     try {
-      const exists = await this.folderExists(client, path)
-      if (exists) {
-        // The core refuses a non-empty folder and one with subfolders before this
-        // op is journaled; a folder that filled up since is the server's call.
+      const list = await client.list()
+      const listed = list.find((f) => f.path === path)
+      const exists = Boolean(listed)
+      if (listed) {
+        // I8 (MR-06): IMAP DELETE takes the folder's mail with it, past Trash. The core
+        // checked its local copy before journaling; that copy misses mail another client
+        // moved in since, so the server is asked here, right before the DELETE.
+        const delimiter = listed.delimiter || '/'
+        if (list.some((f) => f.path !== path && isPathOrChild(f.path, path, delimiter))) {
+          return { outcome: 'conflict', reason: `${FOLDER_DELETE_REFUSED}: subfolders on the server` }
+        }
+        // imapflow answers false when STATUS failed: not known to be empty, so not deleted now
+        const status = await client.status(path, { messages: true })
+        if (!status) return { outcome: 'failed', reason: 'folder_delete: STATUS failed' }
+        if (status.messages !== 0) {
+          return { outcome: 'conflict', reason: `${FOLDER_DELETE_REFUSED}: ${status.messages ?? 'unknown'} mails on the server` }
+        }
         await client.mailboxDelete(path)
       }
       const local = this.store.getFolderByPath(path)

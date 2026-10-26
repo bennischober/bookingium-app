@@ -16,7 +16,7 @@ import { createHash } from 'crypto';
 import path from 'path';
 import { Store, JournalRow, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount, SyncEvent } from './sync.js';
-import { WriteEngine, OpResult, type BatchMember, type BatchMoved } from './write_engine.js';
+import { WriteEngine, OpResult, FOLDER_DELETE_REFUSED, type BatchMember, type BatchMoved } from './write_engine.js';
 import { WriteAccount, writeEndpointReachable, isCanary } from './write_guard.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
@@ -780,9 +780,11 @@ export class MailCore implements Api {
         payload: { members },
       };
     } else if (op.kind === 'folder_create') {
-      // B1: undo a create by deleting the folder again (only while it is empty)
+      // B1: undo a create by deleting the folder again (only while it is empty). I8 (MR-06):
+      // the same checks as deleteFolder - mail moved in since would go with the folder.
       const payload = JSON.parse(op.payload || '{}') as { path?: string; delimiter?: string };
       if (!payload.path) throw new Error('undo: folder_create without path');
+      this.refuseFolderDelete(e, payload.path);
       inverse = {
         accountId: e.config.id, kind: 'folder_delete',
         folderPath: payload.path,
@@ -811,6 +813,7 @@ export class MailCore implements Api {
     }
     const newId = e.store.journalEnqueue(inverse);
     await this.replayOps(e, [newId]);
+    if (inverse.kind === 'folder_delete') this.throwIfServerRefusedDelete(e, newId);
     return newId;
   }
 
@@ -1013,6 +1016,22 @@ export class MailCore implements Api {
    */
   async deleteFolder(path: string, accountId?: string): Promise<OpSummary> {
     const e = this.writableEntry(accountId);
+    this.refuseFolderDelete(e, path);
+    const opId = e.store.journalEnqueue({
+      accountId: e.config.id, kind: 'folder_delete',
+      folderPath: path,
+      payload: { path },
+    });
+    await this.replayOps(e, [opId]);
+    this.throwIfServerRefusedDelete(e, opId);
+    return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /**
+   * B1, I8 (MR-06): the local checks before a folder_delete is journaled, for deleteFolder
+   * and the undo of a create alike. The op asks the server again right before the DELETE.
+   */
+  private refuseFolderDelete(e: AccountEntry, path: string): void {
     const folder = e.store.getFolderByPath(path);
     if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`);
     this.refuseProtectedFolder(folder);
@@ -1027,13 +1046,17 @@ export class MailCore implements Api {
       throw new FolderNameError('Der Ordner enthält noch Unterordner. Löschen Sie sie zuerst.');
     }
     this.refusePendingOpsIn(e, path, delimiter);
-    const opId = e.store.journalEnqueue({
-      accountId: e.config.id, kind: 'folder_delete',
-      folderPath: path,
-      payload: { path },
-    });
-    await this.replayOps(e, [opId]);
-    return this.opToSummary(e.store.journalGet(opId)!);
+  }
+
+  /** I8 (MR-06): the server still had mail or subfolders there - say so instead of "gelöscht" */
+  private throwIfServerRefusedDelete(e: AccountEntry, opId: string): void {
+    const op = e.store.journalGet(opId);
+    if (op?.state === 'conflict' && (op.error ?? '').startsWith(FOLDER_DELETE_REFUSED)) {
+      throw new FolderNameError(
+        'Der Ordner enthält auf dem Server noch E-Mails oder Unterordner und wurde nicht gelöscht. ' +
+        'Der Ordner wird neu abgeglichen.'
+      );
+    }
   }
 
   /** B1: INBOX and the special-use folders may never be renamed or deleted */
