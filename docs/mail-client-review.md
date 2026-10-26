@@ -136,6 +136,8 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** `STATUS (MESSAGES)` on the server inside the op, and refuse when it is not 0. Apply the same check,
   including subfolders, in undo.
 
+**Status: fixed in I8 (2026-10-26).** `doFolderDelete` asks the server right before the DELETE: a subfolder in LIST or a `STATUS (MESSAGES)` other than 0 is a conflict (`folder not empty: ...`), and a failed STATUS is retried, never taken as empty. `deleteFolder` and the undo of a `folder_create` share `refuseFolderDelete` (local mail, local subfolders, pending ops), and both throw when the server refused, so the user is told instead of seeing it done. `tests/mail_folder_delete.test.ts` covers both sides.
+
 #### MR-07: the HTML sanitizer is bypassed with `</style >` (confirmed, reproduced by the reviewer)
 - **Where:** `core/sanitize.ts:139` (lift-out regex) and `:220` (the CSS pasted back as a raw string).
 - **Scenario:** `<style>a{}</style ><form>…<a href="ms-settings:…">…<style>b{}</style>`.

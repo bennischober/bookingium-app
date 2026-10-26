@@ -1433,6 +1433,21 @@ unclear send never marked the invoice.
 **Tests.** `tests/invoice_send.test.ts` (new, 25), `tests/mail_compose_request.test.ts` (new, 7), the C1 e2e
 (account choice, attachment chip, umlaut in the body). 11 mutation checks, all killed; the report lists them.
 
+### I8: folder delete [fixed 2026-10-26]
+
+MR-06. IMAP DELETE takes a folder's mail with it, past Trash. `deleteFolder` checked only the local count, and
+the undo of a `folder_create` checked nothing: create a folder, move mail into it, undo, and the mail was gone.
+
+**What changed.**
+- `core/write_engine.ts`: `doFolderDelete` refuses (conflict, `FOLDER_DELETE_REFUSED`) when LIST shows a
+  subfolder or `STATUS (MESSAGES)` is not 0; a failed STATUS is a retry, not an empty folder.
+- `core/index.ts`: `refuseFolderDelete` (local mail, local subfolders, pending ops) runs for `deleteFolder` and
+  for the undo of a `folder_create`; `throwIfServerRefusedDelete` turns the server's refusal into a
+  `FolderNameError`, which the renderer already shows as a toast. The folder is resynced.
+
+**Tests.** `tests/mail_folder_delete.test.ts` (new, 11): the op against a stubbed client, and the core with a
+stubbed engine. 8 mutation checks, all killed; the report lists them.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
