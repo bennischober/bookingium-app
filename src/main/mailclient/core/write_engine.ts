@@ -47,6 +47,14 @@ export class WriteEngine {
   private engineHooks: {
     withFolderMutex: (path: string, fn: () => Promise<void>) => Promise<void>
     triggerResync: (path: string) => void
+    /** G5: store a draft the client just appended, so it is visible without a resync */
+    storeAppendedDraft?: (
+      folderPath: string,
+      uidValidity: string,
+      uid: number,
+      source: Buffer,
+      flags?: Set<string>
+    ) => Promise<void>
   } | null = null
   // Task 5: the sandbox sink probe (Mailpit in this prototype) is injected so the core
   // carries no hard-coded test-environment URLs. Optional — without it, unknown sends
@@ -1172,6 +1180,23 @@ export class WriteEngine {
           }
           payload.appendedUid = Number(appended.uid)
           this.store.journalUpdate(op.id, { payload })
+          // G5: make the draft visible NOW. Without this the row only appeared after the resync
+          // below re-downloaded the message the client had just uploaded - the delay the person saw.
+          // Best effort: a failure here must not fail the save, the resync is still the fallback.
+          const draftFolder = this.store.getFolderByPath(draftsPath)
+          if (draftFolder) {
+            await this.engineHooks
+              ?.storeAppendedDraft?.(
+                draftsPath,
+                draftFolder.uid_validity ?? '',
+                payload.appendedUid,
+                mimeBuf,
+                // F12: the draft is appended with \Draft and never \Seen, so the local row must
+                // say the same or the folder count would not show it
+                new Set(['\\Draft'])
+              )
+              .catch(() => undefined)
+          }
         }
       }
       // previous version gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5)

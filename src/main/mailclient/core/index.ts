@@ -174,6 +174,13 @@ export class MailCore implements Api {
       writes.attachEngine({
         withFolderMutex: (p, fn) => engine.withFolderMutexPublic(p, fn),
         triggerResync: p => void engine.syncFolder(p).catch(() => { }),
+        // G5: a saved draft gets its local row immediately, instead of appearing only after
+        // the Drafts folder is resynced and re-downloads the message just uploaded
+        storeAppendedDraft: (folderPath, uidValidity, uid, source, flags) => {
+          const folder = store.getFolderByPath(folderPath)
+          if (!folder) return Promise.resolve()
+          return engine.storeAppendedDraft(folder.id, uidValidity, uid, source, flags)
+        },
       });
       // A6: a watchdog that could not stop an op stops the whole queue and asks for a
       // restart. The journal makes that restart safe; nothing is force-released.

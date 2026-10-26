@@ -871,6 +871,24 @@ export class SyncEngine {
     return stored;
   }
 
+  /**
+   * G5: store an appended draft locally at once, using the same parse/insert path as a synced mail.
+   *
+   * A saved draft used to have NO local row: it only appeared after the IMAP APPEND finished AND the
+   * Drafts folder had been resynced, which re-downloaded the message the client had just uploaded.
+   * On a real server that is the delay the person saw - the draft was on the server but invisible
+   * in the list. Storing it here is the same work the resync would do, without the round-trip.
+   */
+  async storeAppendedDraft(
+    folderId: string,
+    uidValidity: string,
+    uid: number,
+    source: Buffer,
+    flags?: Set<string>
+  ): Promise<void> {
+    await this.storeMessage(folderId, uidValidity, { uid, source, flags });
+  }
+
   private async storeMessage(folderId: string, uidValidity: string, msg: {
     uid: number; source: Buffer; flags?: Set<string>; internalDate?: Date | string; modseq?: bigint; size?: number;
   }): Promise<void> {
