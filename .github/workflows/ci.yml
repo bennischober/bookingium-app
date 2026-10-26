@@ -1,0 +1,53 @@
+# R9: the quality gate, run on every push and pull request.
+#
+# Until now every gate ran by hand, which is how a permanently red e2e assertion survived for
+# months without anyone noticing. This job runs exactly what the project's own gate list says:
+# tests, lint, both typecheck configs, then the build.
+#
+# What it deliberately does NOT do:
+#   - e2e (Playwright) is not run. The specs launch the built Electron app against a live
+#     Dovecot/Mailpit sandbox and are slow; several are gated on that sandbox existing, and a
+#     skip is not a pass. Running them here would either need the containers in the job or
+#     produce a green build that proves nothing. They stay a manual gate for now.
+#   - the e-invoice validators (KoSIT/veraPDF) need Java 11+ and external binaries; those
+#     suites self-skip without them.
+name: CI
+
+on:
+  push:
+    branches: [main, feat/mail-client]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 12 is pinned in package.json's packageManager field; this action reads it
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # better-sqlite3 is a native module and pnpm-workspace.yaml only allows lifecycle
+      # scripts for an allowlist - it is on that list, so this installs without --ignore-scripts
+      - run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
