@@ -161,7 +161,7 @@ export class MailCore implements Api {
           : makeSandboxAccount(input);
       // user/pass are resolved lazily via ensureCredentials() before any engine
       // contact — never stored at construction, never logged
-      const store = new Store(dir, a.id, this.clock);
+      const store = new Store(dir, a.id, this.clock, this.log);
       // G9: mail that was already stored before this build has never taught the contacts table who you
       // correspond with, and the table itself was never populated at all. One pass over the existing rows,
       // marked in the store's kv table so it runs once and not on every start.

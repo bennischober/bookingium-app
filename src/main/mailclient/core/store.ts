@@ -13,6 +13,10 @@ import { isPathOrChild, renamedPath } from './folders.js';
 import fs from 'fs';
 import path from 'path';
 import { runMigrations } from './migrations.js';
+import { isCorruptStoreError, quarantineStoreFiles } from './store_recovery.js';
+
+/** The core's Logger shape, structurally - store.ts must not import index.ts (that would be a cycle). */
+type StoreLogger = { warn?: (msg: string) => void };
 
 
 export type Flags = { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean };
@@ -117,7 +121,7 @@ export interface MessageRow {
 
 export class Store {
   readonly db: BetterSqlite3.Database;
-  constructor(dataDir: string, readonly accountId: string, private clock: () => number = Date.now) {
+  constructor(dataDir: string, readonly accountId: string, private clock: () => number = Date.now, private log: StoreLogger = {}) {
     // Task 5: the host passes an ABSOLUTE data dir (createMailCore resolves it);
     // the core never guesses repo-relative paths.
     if (!path.isAbsolute(dataDir)) {
@@ -125,15 +129,38 @@ export class Store {
     }
     this.dataDirResolved = dataDir;
     fs.mkdirSync(dataDir, { recursive: true });
-    this.db = new DatabaseConstructor(path.join(dataDir, `${accountId}.db`));
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('synchronous = NORMAL');
-    this.db.pragma('foreign_keys = ON');
+    const dbPath = path.join(dataDir, `${accountId}.db`);
+    let db: BetterSqlite3.Database;
     try {
-      runMigrations(this.db);
+      db = this.openStore(dbPath);
+    } catch (err) {
+      // A corrupt store is the ONE failure worth recovering from: every row came from the
+      // server, so the file is rebuildable - and a throw here runs inside the accounts loop
+      // in index.ts, which would leave the app with NO mail, including the accounts whose
+      // stores are fine. Only the two corruption codes qualify; a locked or unwritable store
+      // rethrows untouched, because setting a good store aside is worse than failing.
+      if (!isCorruptStoreError(err)) throw err;
+      const quarantine = quarantineStoreFiles(dbPath, this.clock);
+      this.log.warn?.(`mail store for ${accountId} was corrupt and has been set aside at ${quarantine}; rebuilding from the server`);
+      // Exactly ONE retry: a second failure is not corruption-triggered recovery any more,
+      // it is a broken data dir, and looping would hide that.
+      db = this.openStore(dbPath);
+    }
+    this.db = db;
+  }
+
+  /** Open, configure and migrate one store file; closes the handle on any failure. */
+  private openStore(dbPath: string): BetterSqlite3.Database {
+    const db = new DatabaseConstructor(dbPath);
+    try {
+      db.pragma('journal_mode = WAL');
+      db.pragma('synchronous = NORMAL');
+      db.pragma('foreign_keys = ON');
+      runMigrations(db);
+      return db;
     } catch (err) {
       // never leave a half-opened DB behind (Windows keeps the file locked)
-      this.db.close();
+      try { db.close(); } catch { /* the handle is unusable already; the throw below is the real failure */ }
       throw err;
     }
   }

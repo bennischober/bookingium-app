@@ -5,8 +5,9 @@
 // logs in as its own sandbox user and seeds that mailbox itself.
 import { test, expect } from '@playwright/test'
 import { connect, createServer, type AddressInfo } from 'net'
-import { readFileSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { readdir } from 'fs/promises'
+import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
 import {
@@ -1950,4 +1951,55 @@ test('a link in a mail opens or copies from the reader', async () => {
     () => (globalThis as { copiedMailLink?: string }).copiedMailLink ?? ''
   )
   expect(copied).toBe(url)
+})
+
+test('the app starts and rebuilds when the local mail store is corrupt', async () => {
+  // launchApp() deletes its throwaway folder on close, so a relaunch on the SAME
+  // folder needs the explicit form - used as-is and never deleted.
+  const shared = mkdtempSync(join(tmpdir(), 'bookingum-e2e-recovery-'))
+  try {
+    // First launch: a real sandbox account, so the app writes a real store itself
+    h = await launchApp({ userData: shared })
+    await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
+    const sandboxId = await ensureSandboxAccount()
+    await waitForInbox(sandboxId)
+    await openMailPage(sandboxId)
+
+    // The store the app itself wrote, after a real sync
+    const dataDir = join(shared, 'mail', 'data', sandboxId)
+    const dbPath = join(dataDir, `${sandboxId}.db`)
+    await expect.poll(() => existsSync(dbPath), { timeout: 30_000 }).toBe(true)
+
+    // Corrupt it the way a damaged file looks (measured: SQLITE_CORRUPT at the journal_mode pragma)
+    await h.close()
+    const buf = readFileSync(dbPath)
+    for (let i = 100; i < Math.min(buf.length, 4000); i++) buf[i] = 0xff
+    writeFileSync(dbPath, buf)
+    // A stale -wal can let SQLite RECOVER the damaged pages, so a store with one is
+    // not actually unreadable (measured: with the sidecars present the app opened it
+    // fine and needed no recovery). Removing them makes the damage real, which is the
+    // state the quarantine exists for.
+    rmSync(`${dbPath}-wal`, { force: true })
+    rmSync(`${dbPath}-shm`, { force: true })
+
+    // A relaunch on the SAME folder must come up instead of showing no mail
+    h = await launchApp({ userData: shared })
+    await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
+    await openMailPage(sandboxId)
+
+    // The corrupt file was kept aside, not deleted, and a fresh store replaced it.
+    // Polled: the quarantine happens while the worker starts, so a single read races it.
+    const aside = (): string[] => readdirSync(dataDir).filter((f) => f.includes('.corrupt-'))
+    await expect.poll(aside, { timeout: 30_000 }).toHaveLength(1)
+    expect(existsSync(dbPath)).toBe(true)
+
+    // ...and the rebuilt store is usable: the folders come back from the server
+    await expect(h.page.getByRole('combobox', { name: 'Ordner wählen' })).toContainText(
+      'Posteingang',
+      { timeout: 60_000 }
+    )
+  } finally {
+    await h.close()
+    rmSync(shared, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  }
 })

@@ -46,6 +46,28 @@ renderer build, which is the guard for this direction; the static test in
 Code style: this folder keeps the prototype's style (semicolons, long lines) and is not
 prettier-formatted, so hand-ports stay diffable. Do not run `prettier --write` on it.
 
+## A corrupt store is set aside, not fatal
+
+Every row in the store came from the server, so the file is **rebuildable** - but it used to be
+rebuildable only by deleting the folder by hand, which silently lost all local mail. Worse, the
+constructor runs inside `for (const a of options.accounts)` in `index.ts`, so a throw from one corrupt
+store meant **every** account failed to load and the app had no mail at all.
+
+`store_recovery.ts` handles it: on `SQLITE_CORRUPT` or `SQLITE_NOTADB` the store file is **renamed**
+(never deleted - it still holds the user's message bodies) to `<account>.db.corrupt-<timestamp>`, its
+`.db-wal` and `.db-shm` travel with it, and the store is reopened **once**. A warn goes through the
+injected `log` so the user is not left guessing where their mail went.
+
+Two things it deliberately does not do:
+
+- **Only those two codes count.** Measured: a locked DB and a zero-byte file both open fine. Setting a
+  good store aside on a transient failure would be worse than the bug it fixes.
+- **Exactly one retry.** A second failure is a broken data dir, not corruption, so it throws instead of
+  reopening the same file in a loop.
+
+`tests/mail_store_recovery.test.ts` covers both directions, including that a store from a newer build is
+still refused (`StoreVersionError`) and quarantines nothing.
+
 ## Factory
 
 ```ts
