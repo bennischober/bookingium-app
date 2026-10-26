@@ -65,7 +65,7 @@ import {
   single
 } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
-import { isTypingTarget, shortcutFor } from '@/components/mail/shortcuts'
+import { isTypingTarget, shortcutBlocked, shortcutFor } from '@/components/mail/shortcuts'
 import {
   flattenFolders,
   folderLabel,
@@ -922,8 +922,11 @@ export default function MailPage() {
         searchRef.current?.focus()
         return
       }
-      // A shortcut never steals a keystroke while the user is typing
+      // A shortcut never steals a keystroke while the user is typing, and MR-37: not from a dialog,
+      // a popover, a menu or the compose area either - the handler is on window, so those reached
+      // the list and moved mail or replaced the open editor
       if (isTypingTarget(target)) return
+      if (shortcutBlocked({ target, composeOpen: compose !== null })) return
       const ids = selection.ids
       const action = shortcutFor(event, {
         hasSelection: ids.length > 0,
