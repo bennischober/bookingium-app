@@ -10,12 +10,10 @@ export type ComposeState = DraftInput & {
   forwardedNames: string[]
 }
 
-// The same check the core makes before it builds the mail
-const EMAIL = /^[^\s<>()",;:@\\]+@[^\s<>()",;:@\\]+$/
-
-export function isValidEmail(email: string): boolean {
-  return EMAIL.test(email)
-}
+// The ONE guard the core also uses, imported rather than copied: a copy drifts, and
+// then the field says "valid" while the send fails. It is dependency-free, so the
+// renderer can import it by relative path like the other pure main modules.
+export { addressProblem, isValidEmail } from '../../../../main/mailclient/core/address'
 
 /** "Name <a@b.de>", "<a@b.de>" or "a@b.de"; the address is not checked here */
 export function parseAddress(text: string): Address {

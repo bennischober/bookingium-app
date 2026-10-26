@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/spinner'
 import {
   type Address,
   type ComposeState,
+  addressProblem,
   isValidEmail,
   parseAddress,
   toDraftInput
@@ -101,6 +102,8 @@ function RecipientField({
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         {value.map((a) => {
           const valid = isValidEmail(a.email)
+          // G12: the reason, not just "invalid" - the guard knows which part is wrong
+          const problem = valid ? null : addressProblem(a.email)
           return (
             <span
               key={a.email}
@@ -108,9 +111,14 @@ function RecipientField({
                 'flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5',
                 valid ? 'bg-muted' : 'bg-destructive/10 text-destructive'
               )}
-              title={valid ? a.email : 'Keine gültige Adresse'}
+              title={valid ? a.email : (addressProblem(a.email) ?? 'Keine gültige Adresse')}
             >
               <span className="truncate">{a.name || a.email}</span>
+              {problem ? (
+                <span className="text-xs opacity-80" data-testid="address-problem">
+                  {problem}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="text-muted-foreground hover:text-foreground"
@@ -383,6 +391,15 @@ export function ComposeView({
     }
   }
 
+  // G12: why sending is blocked right now, so the button can say it instead of the
+  // click failing with a toast. null means "sendable".
+  const sendBlocked = (() => {
+    const all = [...mail.to, ...mail.cc, ...mail.bcc]
+    if (all.length === 0) return 'Bitte mindestens einen Empfänger angeben'
+    const bad = all.find((a) => !isValidEmail(a.email))
+    return bad ? `„${bad.email}“ ist keine gültige Adresse` : null
+  })()
+
   const send = async () => {
     const current = mailRef.current
     if (!current.to.length && !current.cc.length && !current.bcc.length) {
@@ -535,7 +552,13 @@ export function ComposeView({
       }}
     >
       <div className="flex items-center gap-1 border-b px-4 py-2">
-        <Button type="submit" size="sm" disabled={busy !== null} title="Senden (Strg+Enter)">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={busy !== null || sendBlocked !== null}
+          title={sendBlocked ?? 'Senden (Strg+Enter)'}
+          aria-label={sendBlocked ? `Senden nicht möglich: ${sendBlocked}` : 'Senden'}
+        >
           {busy === 'send' ? <Spinner className="size-4" /> : <Send />}
           Senden
         </Button>

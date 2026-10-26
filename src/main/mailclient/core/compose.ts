@@ -17,14 +17,15 @@ export interface ComposeOptions {
   extraAttachments?: { filename: string; contentType: string; content: Buffer }[]
 }
 
+import { isValidEmail } from './address.js'
+
 export interface ComposedMime {
   raw: Buffer
   /** Without the angle brackets */
   messageId: string
 }
 
-// One address, nothing that could end a header or start another address
-const EMAIL = /^[^\s<>()",;:@\\]+@[^\s<>()",;:@\\]+$/
+// One shared guard with the renderer: shape plus header-injection safety (core/address.ts)
 
 export class ComposeError extends Error {
   constructor(message: string) {
@@ -36,7 +37,7 @@ export class ComposeError extends Error {
 function addresses(list: Address[], field: string): { name: string; address: string }[] {
   return list.map((a) => {
     const email = a.email.trim()
-    if (!EMAIL.test(email)) throw new ComposeError(`${field}: "${email}" ist keine gültige Adresse`)
+    if (!isValidEmail(email)) throw new ComposeError(`${field}: "${email}" ist keine gültige Adresse`)
     return { name: a.name.replace(/[\r\n]+/g, ' ').trim(), address: email }
   })
 }
