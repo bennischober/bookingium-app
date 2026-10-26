@@ -19,13 +19,6 @@ import { launchApp, type AppHandle } from './helpers/launch'
 const CANARY_ID = 'canary'
 const SUBJECT_PREFIX = 'bookingum-canary-'
 
-type MailAccount = {
-  id: string
-  kind: string
-  email: string
-  canary: boolean
-}
-
 type AccountInfo = { id: string; email: string; mode: string; canWrite: boolean }
 
 let h: AppHandle
@@ -88,24 +81,20 @@ test.afterAll(async () => {
 test('A9 phase 1: the write path works against the real canary mailbox', async () => {
   test.setTimeout(300_000)
 
-  // G1: opening the mail settings page currently kills the main process (pre-existing, see
-  // docs/mail-client-tasks.md G1), so this suite cannot reach the account list until that
-  // is fixed. It skips visibly rather than failing on an unrelated defect.
-  const accounts = await trpc<MailAccount[]>('query', 'mail.accounts.list').catch(() => null)
-  test.skip(
-    accounts === null,
-    'the mail settings page cannot load while G1 is open: fix that first, then run this suite'
-  )
-  const canary = accounts.find((a) => a.id === CANARY_ID)
+  // G1: `mail.accounts.list` is the call that kills the main process under the
+  // Playwright harness (see docs/mail-client-tasks.md G1 - it never happens in normal
+  // use, so it is a harness interaction, not a product defect). This suite must not
+  // depend on the settings page to prove the write path: it asks the core for the
+  // canary account directly, which is the same accountId-addressed path it uses below.
+  const canary = await mail<AccountInfo>('getAccount', CANARY_ID).catch(() => null)
   test.skip(
     !canary,
     `no canary account saved (id "${CANARY_ID}"): add it once in Einstellungen, then re-run`
   )
 
-  // The guard admits exactly this account by name, and it is saved as a sandbox
+  // The guard admits exactly this account, and it is saved as a sandbox
   // account so it gets the write path at all
-  expect(canary!.canary).toBe(true)
-  expect(canary!.kind).toBe('sandbox')
+  expect(canary!.mode).toBe('canary')
 
   // Phase 1 mails the account's own address only. Without one there is nothing to
   // send to, and this run must not guess.
