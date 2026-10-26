@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Bold, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
+import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,14 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
  */
 const AUTOSAVE_MS = 1500
 
+/** G8: where a recipient suggestion came from, in the dropdown */
+const SOURCE_LABELS: Record<'person' | 'company' | 'venue' | 'mail', string> = {
+  person: 'Kontakt',
+  company: 'Firma',
+  venue: 'Spielstätte',
+  mail: 'Aus E-Mails'
+}
+
 /** F3: the four commands the toolbar offers, and nothing that carries a URL or CSS */
 const FORMAT_BUTTONS: { format: ComposeFormat; label: string; Icon: typeof Bold }[] = [
   { format: 'bold', label: 'Fett', Icon: Bold },
@@ -63,12 +71,13 @@ function RecipientField({
   const [active, setActive] = useState(0)
   const [focused, setFocused] = useState(false)
   const query = useDebounced(text.trim(), 150)
-  const contacts = useQuery({
-    queryKey: ['mail', accountId, 'contacts', query],
-    queryFn: () => mailApi.getContacts(query, accountId),
-    enabled: query.length >= 2,
-    keepPreviousData: true
-  })
+  // G8: the app's own records are searched too, not only addresses seen in mail. A person you have
+  // on file but never mailed was invisible here, which is the case the lookup exists for. The merge
+  // happens in main (the dependency-free mail core cannot read the app database) and arrives ranked.
+  const contacts = trpcReact.mail.contacts.useQuery(
+    { query, accountId },
+    { enabled: query.length >= 2, keepPreviousData: true }
+  )
   const taken = new Set(value.map((a) => a.email.toLowerCase()))
   const suggestions =
     focused && text.trim().length >= 2
@@ -182,6 +191,11 @@ function RecipientField({
               ) : (
                 c.email
               )}
+              {/* G8: why this address is here. A mail-history hit and an address-book record look
+                  identical otherwise, and the user should know which one they are picking. */}
+              <span className="ml-2 text-xs text-muted-foreground/70">
+                {SOURCE_LABELS[c.source]}
+              </span>
             </li>
           ))}
         </ul>

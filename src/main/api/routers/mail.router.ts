@@ -19,6 +19,10 @@ import {
 } from '../../mailclient/core/connection_test'
 import { mailClient } from '../../mailclient/MailClientService'
 import { MAIL_API_METHODS, type MailEvent } from '../../mailclient/protocol'
+import { container } from 'tsyringe'
+import { RecipientLookupService } from '../../services/RecipientLookupService'
+
+const recipientLookup = container.resolve(RecipientLookupService)
 
 const t = initTRPC.create()
 
@@ -188,6 +192,25 @@ export const mailRouter = t.router({
     }),
 
   status: t.procedure.query(() => mailClient.status()),
+
+  /**
+   * Recipient lookup for the compose field: the app's own records plus the addresses the mail store
+   * remembers, merged and ranked.
+   *
+   * The mail core cannot read the app database (dependency-free by design), so the merge happens
+   * here: the repository gathers persons/companies/venues, the mail store adds what it has seen in
+   * message headers, and mergeRecipients() decides what is shown. Without this, a person you have on
+   * file but never mailed is invisible when composing.
+   */
+  contacts: t.procedure
+    .input(z.object({ query: z.string(), accountId: z.string().optional() }))
+    .query(async ({ input }) => {
+      // mail history is a nicety here; a mail store that is not up must not break the dropdown
+      const history = (await mailClient
+        .call('getContacts', [input.query, input.accountId])
+        .catch(() => [])) as { name: string; email: string }[]
+      return recipientLookup.lookup(input.query, history)
+    }),
 
   /** Sync progress and write-op events from the core */
   events: t.procedure.subscription(() =>

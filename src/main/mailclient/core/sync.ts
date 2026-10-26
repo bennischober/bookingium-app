@@ -961,6 +961,14 @@ export class SyncEngine {
         snippet: (parsed.text || '').replace(/\s+/g, ' ').slice(0, 200),
         parsed_ok: 1, parse_error: null,
       });
+      // G9: every stored mail teaches the compose lookup who you correspond with. Cheap (one
+      // upsert per address, keyed by email) and it is what makes "ionos" find the sender.
+      this.store.rememberContactsOf({
+        from_email: from.email,
+        from_name: from.name,
+        to_json: JSON.stringify(addrList(parsed.to)),
+        cc_json: JSON.stringify(addrList(parsed.cc)),
+      });
     } catch (insertError) {
       // the other connection won the UNIQUE race: our file belongs to no row
       this.removeFile(relPath);

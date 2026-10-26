@@ -454,9 +454,49 @@ export class Store {
 
   // contacts -----------------------------------------------------------------
   upsertContact(email: string, name: string): void {
-    this.db.prepare(`INSERT INTO contacts (email, name, last_seen) VALUES (?, ?, datetime('now'))
+    // an address is only useful with an @; records with an empty email column must not pollute this
+    if (!email || !email.includes('@')) return
+    // G9: this used @name in the SQL but passed positional parameters, so EVERY call threw
+    // "Missing named parameters" - which is why the contacts table stayed empty even once a caller
+    // existed. Named parameters throughout now.
+    this.db.prepare(`INSERT INTO contacts (email, name, last_seen) VALUES (@email, @name, datetime('now'))
       ON CONFLICT(email) DO UPDATE SET name = CASE WHEN @name != '' THEN @name ELSE contacts.name END, last_seen = datetime('now')`)
-      .run(email.toLowerCase(), name);
+      .run({ email: email.toLowerCase(), name });
+  }
+
+  /**
+   * G9: remember every address a stored message mentions, so the compose lookup finds people you have
+   * corresponded with.
+   *
+   * This table was NEVER populated: rebuildContactsFromMessages() existed but had no caller, and
+   * upsertContact() was only called from inside it. So "Aus E-Mails" was permanently empty and typing a
+   * sender's name or domain found nothing - the mail-history half of the lookup never worked at all.
+   *
+   * Both directions matter: the From is who you would reply to, the To/Cc are people the sender already
+   * considers relevant (the ionos sender in the reported case is a From).
+   */
+  rememberContactsOf(row: {
+    from_email: string
+    from_name: string
+    to_json: string
+    cc_json: string
+  }): void {
+    this.upsertContact(row.from_email, row.from_name)
+    for (const json of [row.to_json, row.cc_json]) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(json || '[]')
+      } catch {
+        continue
+      }
+      if (!Array.isArray(parsed)) continue
+      for (const entry of parsed) {
+        const address = entry as { email?: unknown; name?: unknown }
+        if (typeof address.email === 'string') {
+          this.upsertContact(address.email, typeof address.name === 'string' ? address.name : '')
+        }
+      }
+    }
   }
 
   searchContacts(partial: string, limit = 8): { name: string; email: string }[] {
@@ -466,9 +506,9 @@ export class Store {
   }
 
   rebuildContactsFromMessages(): number {
-    const rows = this.db.prepare(`SELECT from_email, from_name FROM messages WHERE from_email != ''
-      UNION SELECT json_extract(j.value, '$.email') AS from_email, json_extract(j.value, '$.name') AS from_name
-      FROM messages m, json_each(m.to_json) j`).all() as { from_email: string; from_name: string }[];
+    const rows = this.db.prepare(`SELECT from_email, from_name, to_json, cc_json FROM messages WHERE from_email != ''
+      UNION SELECT json_extract(j.value, '$.email') AS from_email, json_extract(j.value, '$.name') AS from_name, '[]' AS to_json, '[]' AS cc_json
+      FROM messages m, json_each(m.to_json) j`).all() as { from_email: string; from_name: string; to_json: string; cc_json: string }[];
     let n = 0;
     const tx = this.db.transaction(() => {
       for (const r of rows) {
@@ -479,6 +519,32 @@ export class Store {
     });
     tx();
     return n;
+  }
+
+  /**
+   * G9: populate the contacts table from the mail already stored, exactly once.
+   *
+   * The table was never filled (its only writer, rebuildContactsFromMessages, had no caller), so a mailbox
+   * synced before this build would still find nothing by sender name. The kv row makes it a one-time job:
+   * new mail teaches the table as it arrives, so a second pass would only cost startup time.
+   */
+  backfillContactsOnce(): number {
+    const done = this.db.prepare("SELECT value FROM kv WHERE key = 'contacts_backfilled'").get() as
+      | { value: string }
+      | undefined
+    if (done) return 0
+    const rows = this.db.prepare(`SELECT from_email, from_name, to_json, cc_json FROM messages`).all() as {
+      from_email: string
+      from_name: string
+      to_json: string
+      cc_json: string
+    }[]
+    const tx = this.db.transaction(() => {
+      for (const row of rows) this.rememberContactsOf(row)
+      this.db.prepare("INSERT OR REPLACE INTO kv (key, value) VALUES ('contacts_backfilled', '1')").run()
+    })
+    tx()
+    return rows.length
   }
 
   // threads ------------------------------------------------------------------
