@@ -78,7 +78,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   `phase === 'smtp'`. Catch per op in `replayPendingOps`.
 
 #### MR-03: an unclear send is never resolved, and the editor invites a duplicate (confirmed)
-**Status: fixed in I1 (core) and I2 (editor); the op panel stays with I3.** Unknown sends are probed at start, the watchdog answers `unknown` in the SMTP phase, and the editor locks on an unclear result with "Im Ordner Gesendet prüfen" / "Als neue Mail senden". The Message-ID is stable per compose session.
+**Status: fixed in I1 (core), I2 (editor) and I3 (op panel).** Unknown sends are probed at start, the watchdog answers `unknown` in the SMTP phase, and the editor locks on an unclear result with "Im Ordner Gesendet prüfen" / "Als neue Mail senden". The Message-ID is stable per compose session.
 - **Where:**
   - `core/index.ts:1046`: throws "Versand unklar …";
   - `components/mail/ComposeView.tsx:450-451`: shows "Senden fehlgeschlagen" for every error and leaves the
@@ -393,6 +393,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   - use special-use `\Sent`.
 
 #### MR-29: optimistic effects stay until the next restart (code)
+**Status: fixed in I3.** A failed flag, move, delete, expunge or draft delete, and a send with only filing left, is retried while the account is online (1 minute, doubling, at most 15). A refused login is never retried. The op panel lists what is waiting, rejected or stuck; discarding an op resyncs its folders, so the optimistic effect gives way to the server.
 - **Where:** `core/index.ts:590-595`: `failed` goes back to `pending`, and the only retry is at `start()`.
 - **Scenario:** a failed move keeps the mail hidden (`listByFolder` excludes it), and a failed flag keeps its
   local value, sometimes for hours. The replay then runs against a mailbox that has changed since.

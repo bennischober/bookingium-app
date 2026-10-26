@@ -1281,9 +1281,29 @@ MR-03 (editor part), 04, 38 (autosave part). `ComposeView.tsx` with the decision
 - "Versand unklar" locks the editor with "Im Ordner Gesendet prüfen" (probes via `resolveOp`,
   never sends), "Als neue Mail senden" (confirms, new key) and "Schließen".
 - No draft save while sending or unclear.
-- Open: hashing attachments for the dirty check (rest of MR-38); the op panel is I3.
+- Open: hashing attachments for the dirty check (rest of MR-38); the op panel came with I3.
 - Tests: `tests/mail_compose_send.test.ts`; e2e "Enter does not send, and a double Ctrl+Enter
   sends once" in `tests/e2e/mail-client.spec.ts` (fails on the old editor).
+
+### I3: op-journal panel [fixed 2026-10-26]
+
+MR-03 (panel part), 29. A badge in the mail header ("N offene Änderungen", red when something
+needs a decision) opens a sheet with the ops that need the user. Decisions are in
+`components/mail/opJournal.ts`, the view is `OpJournalPanel.tsx`.
+
+- Listed: an unclear send ("Versand unklar"), a conflict or failed op ("Abgelehnt"), a failed op
+  that waits for its retry, and a pending or running op older than 2 minutes ("Hängt").
+- Actions mirror the core: an unclear send gets "Im Ordner Gesendet prüfen" (`resolveOp`), never a
+  retry; a send is retried only when filing into Sent is left; a running op gets no action.
+  "Verwerfen" asks first.
+- Core: `listOpenOps`; `cancelOp` also takes conflict, failed and unknown ops, refuses one the
+  write engine holds, and resyncs the op's folders.
+- MR-29: `core/op_retry.ts` decides what the core may retry by itself (flag, move, move_batch,
+  delete, expunge, draft_delete; a send in phase `sent`; never after a refused login). The retry
+  runs only while the sync reports the account online, after 1 minute, doubling to 15;
+  `close()` clears the timers.
+- Tests: `tests/mail_op_journal.test.ts`; e2e "a rejected change shows in the op panel and is
+  discarded there" (puts a settled conflict on a UID the inbox does not have into the journal).
 
 ---
 
