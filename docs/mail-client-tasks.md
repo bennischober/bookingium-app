@@ -1413,6 +1413,26 @@ text that looked like HTML as HTML.
 **Tests.** `tests/mail_sanitize.test.ts` (+8), `tests/mail_compose_body.test.ts` (+6, 1 changed). 6 mutation
 checks, all killed; the report lists them.
 
+### I7: invoice send [fixed 2026-10-26]
+
+MR-11, MR-12, MR-14, MR-21 and README host H3. The invoice mail garbled umlauts, went out from whichever
+sandbox account came first, could go without its PDF, let the renderer register any file for reading, and an
+unclear send never marked the invoice.
+
+**What changed.**
+- `components/mail/composeRequest.ts`: the window's query is parsed in one place; the draft is decoded as
+  UTF-8 (MR-11). The window learns a token and the attachment's name, never a path (MR-21).
+- `main/mail/invoiceSend.ts`: `invoiceSendAccount` checks the chosen account fail-closed (MR-12); the compose
+  registry issues the tokens; `sendInvoiceMail` reads and attaches the PDF in main (MR-14), records the send
+  as pending, and confirms it; `confirmInvoiceSendFromOp` confirms a send the core settles later (H3).
+- `invoice_email_pending` (migration 0016) holds a send until it is confirmed; `confirmPendingEmail` deletes
+  the row and logs the email in one transaction, so a send is counted once.
+- Settings › E-Mail: "Senden von" (`invoiceMailAccountId`). `mail.sendInvoice` replaces the preload calls
+  `composeInOwnEditor`, `reportComposeSent` and `readComposePdf`.
+
+**Tests.** `tests/invoice_send.test.ts` (new, 25), `tests/mail_compose_request.test.ts` (new, 7), the C1 e2e
+(account choice, attachment chip, umlaut in the body). 11 mutation checks, all killed; the report lists them.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test

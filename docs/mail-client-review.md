@@ -201,6 +201,8 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** `new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0)))`, plus an e2e assertion
   on the body text.
 
+**Status: fixed in I7 (2026-10-26).** `composeRequest.ts` decodes the draft's bytes with `TextDecoder('utf-8', { fatal: true })`. `tests/mail_compose_request.test.ts` covers "Grüßen" and the en dash; the C1 e2e asserts an umlaut of the template in the delivered body (as a boolean).
+
 #### MR-12: C1 sends from the first sandbox account (confirmed)
 - **Where:** `main/index.ts:535`: `listMailAccounts().find((a) => a.kind === 'sandbox')`.
 - **Scenario:**
@@ -210,6 +212,8 @@ are fixed and tested. Card group **I** at the end orders the work.
   - In production there is no writable account, so the feature cannot be used.
 - **Fix:** an explicit sending account in the settings, validated in main as writable for that recipient,
   failing closed with a clear message. Product-wise this depends on the canary going to phase 2 (section 7).
+
+**Status: fixed in I7 (2026-10-26).** Einstellungen › E-Mail › "Senden von" stores `invoiceMailAccountId`. `invoice:email` validates it in main before anything is written (`invoiceSendAccount`: none chosen, deleted, `writeRefusal`, `sendRefusal` for the recipient) and fails closed with the reason. Production stays unusable until the canary reaches phase 2.
 
 #### MR-13: the account signature (B8) is never shown and is wiped on save (confirmed)
 **Status: fixed in I10.** `toDto` carries `signature` again, and a save that omits it keeps the stored one (an explicit empty string clears it). Round-trip tests in `tests/mail_account_signature.test.ts`, each with a mutation check.
@@ -228,6 +232,8 @@ are fixed and tested. Card group **I** at the end orders the work.
   attachment is skipped silently. `main/index.ts:568-575`.
 - **Fix:** a missing PDF is a hard error for an invoice mail. Better: main attaches the PDF itself instead of
   a base64 round trip through the renderer.
+
+**Status: fixed in I7 (2026-10-26).** Main attaches the PDF itself (`mail.sendInvoice` → `sendInvoiceMail`). A PDF that cannot be read or is empty stops the send before anything is queued.
 
 #### MR-15: draft-save replay protection does nothing in production (code)
 **Status: fixed in I1.** The probe runs when the op has been attempted before (`attempts > 0`), and `saveDraft` journals the Message-ID.
@@ -315,6 +321,8 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   any other file via `mail:composeWindow` plus `mail:readComposePdf`. The set never shrinks.
 - **Fix:** register only in the `invoice:email` handler that wrote the PDF. Pass an opaque token, and remove
   it after use.
+
+**Status: fixed in I7 (2026-10-26).** `mail:composeWindow` and `mail:readComposePdf` are gone. Only `invoice:email` registers a compose, under a random token, with the path it wrote; the window gets the token and the file name. `sendInvoice` honours a token only for the account it was opened with, and the token is released when the window closes.
 
 #### MR-22: remote images have no body timeout, no streaming size cap and no LAN filter (confirmed)
 - **Where:** `core/remote_images.ts:53-78`. The timer is cleared once the headers arrive. `arrayBuffer()` has
