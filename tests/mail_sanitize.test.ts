@@ -69,6 +69,37 @@ describe('sanitize: what never survives', () => {
   })
 })
 
+describe('sanitize: protocol-relative URLs', () => {
+  // "//host/path" has NO scheme, so schemeOf() returns '' - the same value a local "bild.png" gives.
+  // The browser resolves it against the document's scheme and loads it, so treating it as local kept a
+  // working tracker alive. Measured: this reached the CSS unchanged before the fix.
+  it('neutralizes a protocol-relative url() in a style block', () => {
+    const css = mailStyles(
+      sanitizeEmailHtml(
+        '<style>p { background: url(//tracker.example.test/pixel.png) }</style><p>Text</p>'
+      ).html
+    ).join('\n')
+    expect(css).not.toContain('tracker.example.test')
+    expect(css).toContain('about:blank')
+  })
+
+  it('neutralizes a protocol-relative url() in a style attribute', () => {
+    const { html } = sanitizeEmailHtml(
+      '<p style="background: url(//tracker.example.test/p.png)">Text</p>'
+    )
+    const style = docOf(html).querySelector('p')?.getAttribute('style') ?? ''
+    expect(style).not.toContain('tracker.example.test')
+  })
+
+  it('still keeps a relative url(), which cannot leave this document', () => {
+    // a plain relative reference resolves inside the sandboxed document, so it is harmless
+    const css = mailStyles(
+      sanitizeEmailHtml('<style>p { background: url(bild.png) }</style><p>Text</p>').html
+    ).join('\n')
+    expect(css).toContain('url(bild.png)')
+  })
+})
+
 describe('sanitize: link schemes', () => {
   it('treats http, https and mailto as openable', () => {
     for (const url of [

@@ -117,6 +117,11 @@ function neutralizeCssUrls(css: string): string {
     .replace(/@import[^;]+;?/gi, '/* @import removed */')
     .replace(/url\(\s*(['"]?)([^)'"]*)\1\s*\)/gi, (match, _q, u: string) => {
       const scheme = schemeOf(u);
+      // A protocol-relative "//host/path" has NO scheme, so schemeOf() returns '' - the same as a
+      // local "bild.png". The browser resolves it against the document's scheme and loads it, so
+      // treating it as local kept a working tracker. It is remote; only a path that stays inside
+      // this document is local.
+      if (u.trim().startsWith('//')) return 'url(about:blank)';
       if (!scheme || scheme === 'data' || scheme === 'blob') return match;
       return 'url(about:blank)';
     });

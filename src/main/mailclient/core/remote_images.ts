@@ -66,7 +66,9 @@ export async function fetchRemoteImagesAsDataUris(
         clearTimeout(timer);
       }
       if (!res.ok) return;
-      const ct = (res.headers.get('content-type') || '').split(';')[0].trim();
+      // Content-Type is case-insensitive per RFC 9110, so "IMAGE/PNG" is a real png. Comparing it
+      // as-is silently dropped a legitimate image; the type is normalised before the allowlist runs.
+      const ct = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
       if (!IMAGE_TYPES.test(ct)) return;
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length > maxPer) return;
