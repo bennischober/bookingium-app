@@ -1,6 +1,10 @@
 // A tiny SMTP server that REQUIRES AUTH, for the one thing the sandbox cannot prove:
 // Mailpit accepts unauthenticated mail, so every send test passes even when the client
 // sends no credentials at all. This server refuses MAIL FROM until a correct AUTH arrived.
+//
+// It implements the two mechanisms it advertises: AUTH PLAIN (one line) and AUTH LOGIN (the
+// 334 challenge/response exchange). It used to advertise LOGIN and answer 250 Ok to it, which
+// meant a client could "log in" without the server ever seeing its credentials.
 import net from 'net'
 
 export type FakeSmtp = {
@@ -42,6 +46,9 @@ export function startFakeSmtp(
     let authed = false
     let inData = false
     let data = ''
+    // AUTH LOGIN asks for the user name, then the password, one base64 line each
+    let awaitingLogin: 'user' | 'pass' | null = null
+    let loginUser = ''
 
     const send = (line: string): void => {
       socket.write(`${line}\r\n`)
@@ -59,7 +66,8 @@ export function startFakeSmtp(
         buffer = buffer.slice(index + 2)
         index = buffer.indexOf('\r\n')
 
-        // Inside DATA everything is content until a lone "."
+        // Inside DATA everything is content until a lone ".". A line starting with ".." is an
+        // escaped dot: SMTP dot-stuffing, undone here the way a real server does it.
         if (inData) {
           if (line === '.') {
             inData = false
@@ -76,7 +84,27 @@ export function startFakeSmtp(
             }
             send('250 2.0.0 Ok: queued')
           } else {
-            data += `${line}\r\n`
+            data += `${line.startsWith('..') ? line.slice(1) : line}\r\n`
+          }
+          continue
+        }
+
+        // The AUTH LOGIN exchange: the challenge answers arrive as bare base64 lines
+        if (awaitingLogin) {
+          const decoded = Buffer.from(line.trim(), 'base64').toString('utf8')
+          if (awaitingLogin === 'user') {
+            loginUser = decoded
+            awaitingLogin = 'pass'
+            send('334 UGFzc3dvcmQ6')
+            continue
+          }
+          awaitingLogin = null
+          authAttempts.push({ user: loginUser, pass: decoded })
+          if (loginUser === credentials.user && decoded === credentials.pass) {
+            authed = true
+            send('235 2.7.0 Authentication successful')
+          } else {
+            send('535 5.7.8 Authentication credentials invalid')
           }
           continue
         }
@@ -89,6 +117,17 @@ export function startFakeSmtp(
           send('250-fake greets you')
           send('250-AUTH PLAIN LOGIN')
           send('250 OK')
+        } else if (upper.startsWith('AUTH LOGIN')) {
+          // AUTH LOGIN may carry the user name on the same line, or ask for it
+          const inline = line.split(/\s+/)[2]
+          awaitingLogin = 'user'
+          if (inline) {
+            loginUser = Buffer.from(inline, 'base64').toString('utf8')
+            awaitingLogin = 'pass'
+            send('334 UGFzc3dvcmQ6')
+          } else {
+            send('334 VXNlcm5hbWU6')
+          }
         } else if (upper.startsWith('AUTH PLAIN')) {
           const encoded = line.split(/\s+/)[2] ?? ''
           const decoded = Buffer.from(encoded, 'base64').toString('utf8')

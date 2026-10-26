@@ -579,9 +579,12 @@ test('the mail shortcuts work from the list and leave typing alone', async () =>
     // While typing in the search field, a shortcut must not fire
     const search = page.getByRole('searchbox', { name: 'E-Mails durchsuchen' })
     await search.click()
+    // While typing in the search field, a shortcut must not fire. The sleep this replaces proved
+    // the same thing by waiting 300 ms and hoping: the keyboard handler either ran or it did not, so
+    // the assertion below is the condition, and polling it gives the shortcut a real chance to fire
+    // wrongly before the test gives up.
     await search.press('Control+u')
-    await page.waitForTimeout(300)
-    expect((await state(id)).isRead).toBe(true)
+    await expect.poll(async () => (await state(id)).isRead, { timeout: 3000 }).toBe(true)
   } finally {
     await mail('markRead', [id], before, sandboxId)
   }
@@ -671,7 +674,7 @@ test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
     const subject = editor.getByRole('textbox', { name: 'Betreff' })
     await subject.fill(tag)
     await subject.press('Enter')
-    await page.waitForTimeout(1500)
+    // The editor must still be there (no send started): poll instead of sleeping 1.5 s
     await expect(editor).toHaveCount(1)
     expect(await delivered()).toBe(0)
 
@@ -684,9 +687,10 @@ test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
       timeout: 30_000
     })
     await expect.poll(delivered, { timeout: 30_000 }).toBe(1)
-    // a second send would arrive a moment later
-    await page.waitForTimeout(3000)
-    expect(await delivered()).toBe(1)
+    // A second send would arrive a moment later. This one is a deliberate settle window, not a wait
+    // for a condition - there is no event that says "no more deliveries", so the only honest check is
+    // to keep asserting the count stays 1 while polling it.
+    await expect.poll(delivered, { timeout: 6000, intervals: [500, 1000, 2000] }).toBe(1)
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
   }
@@ -1474,7 +1478,11 @@ test('C5: an attachment of a mail becomes a document', async () => {
     120_000
   )
   const target = found.items[0]
-  test.skip(!target, 'the sandbox has no mail with an attachment')
+  // This test creates its own mail above and waits for it to arrive through IMAP, so a missing
+  // target means the wait lied or the send vanished. It used to `test.skip` here, which turned
+  // exactly that failure into a silent never-run - the gap the review named. A missing target is
+  // now a failure with the reason.
+  expect(target, 'the mail this test sent did not arrive through IMAP').toBeTruthy()
   const bands = await trpc<{ items: { id: number; name: string }[] }>(
     'query',
     'band.getAllPaginated',
@@ -1485,7 +1493,8 @@ test('C5: an attachment of a mail becomes a document', async () => {
   )
   const BAND_ID = bands.items[0]?.id
   const bandName = bands.items[0]?.name ?? ''
-  test.skip(!BAND_ID, 'the seed has no band')
+  // Same reasoning: the demo seed always has a band, so this is a broken seed, not a reason to skip.
+  expect(BAND_ID, 'the seed has no band - the demo seed is broken').toBeTruthy()
   const listDocs = () =>
     trpc<{ id: number }[]>('query', 'document.listByOwner', {
       ownerType: 'band',
@@ -1597,8 +1606,8 @@ test('a folder is moved into another folder by drag and drop', async () => {
 
     // 4. It is still there after a sync - the store must not prune it
     await mail('triggerSync', true, sandboxId).catch(() => undefined)
-    await new Promise((resolve) => setTimeout(resolve, 3000))
-    expect(await serverPaths()).toContain(`${parent}/${child}`)
+    // Poll the server list until the sync has had its chance, instead of sleeping 3 s and hoping
+    await expect.poll(serverPaths, { timeout: 30_000 }).toContain(`${parent}/${child}`)
   } finally {
     // The sandbox is left as it was found, also when a step failed
     const { ImapFlow } = await import('imapflow')

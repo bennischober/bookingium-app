@@ -7,7 +7,9 @@
 // message list per user, so the same claim is proven from OUR side: a write for account A
 // reaches A's mailbox with A's credentials.
 //
-// Only the commands this client sends are implemented; anything else answers OK.
+// Only the commands this client sends are implemented. Everything else answers BAD and the
+// capability list names only what is really implemented: advertising UIDPLUS or MOVE while
+// answering OK to them made any future move/COPYUID test pass falsely.
 import net from 'net'
 
 export type FakeImap = {
@@ -103,7 +105,10 @@ export function startFakeImap(): Promise<FakeImap> {
       const upper = command.toUpperCase()
 
       if (upper === 'CAPABILITY') {
-        send('* CAPABILITY IMAP4rev1 AUTH=PLAIN UIDPLUS MOVE')
+        // MR-17 follow-up: advertise ONLY what this server implements. It used to claim UIDPLUS
+        // and MOVE while implementing neither, so a client that checked capabilities and then
+        // moved a message got a bare OK for a command that never happened - and the test passed.
+        send('* CAPABILITY IMAP4rev1 AUTH=PLAIN')
         send(`${tag} OK CAPABILITY completed`)
         return
       }
@@ -169,7 +174,9 @@ export function startFakeImap(): Promise<FakeImap> {
         send(`${tag} OK NOOP completed`)
         return
       }
-      send(`${tag} OK ${command} completed`)
+      // Anything not implemented above is refused, not silently accepted: an OK for a command
+      // this server does not perform is a lie that makes a test pass for the wrong reason.
+      send(`${tag} BAD ${command} not implemented by this fake server`)
     }
   })
 

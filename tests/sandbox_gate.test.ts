@@ -45,4 +45,37 @@ describe('the sandbox gate: required locally, optional on CI', () => {
     expect(sandboxRequired()).toBe(false)
     expect(sandboxSkipReason(false, 'x', 1)).toContain('skipped (CI)')
   })
+
+  it('annotates the skip on GitHub, so a green CI run shows the gap', () => {
+    // A console.warn scrolls past. Without an annotation, CI is green and silently proves nothing
+    // about crash safety or sending - the exact gap the review named (tests report section 2).
+    process.env.CI = 'true'
+    process.env.GITHUB_ACTIONS = 'true'
+    delete process.env.BOOKINGIUM_NO_SANDBOX
+    const lines: string[] = []
+    const original = console.log
+    console.log = (...args: unknown[]) => lines.push(args.join(' '))
+    try {
+      const reason = sandboxSkipReason(false, 'mail crash-points', 10143)
+      expect(reason).toContain('skipped (CI)')
+    } finally {
+      console.log = original
+    }
+    expect(lines.some((l) => l.startsWith('::warning::'))).toBe(true)
+  })
+
+  it('does not annotate when the sandbox is there', () => {
+    // the negative half: an annotation on every run would train people to ignore it
+    process.env.CI = 'true'
+    process.env.GITHUB_ACTIONS = 'true'
+    const lines: string[] = []
+    const original = console.log
+    console.log = (...args: unknown[]) => lines.push(args.join(' '))
+    try {
+      expect(sandboxSkipReason(true, 'mail crash-points', 10143)).toBeNull()
+    } finally {
+      console.log = original
+    }
+    expect(lines).toHaveLength(0)
+  })
 })
