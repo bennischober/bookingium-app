@@ -641,13 +641,18 @@ export default function MailPage() {
       destructive: true
     })
     if (!confirmed) return
+    // G6/L1: the rows leave the list at click time, like a normal delete. A permanent delete is
+    // the slowest write there is (flags + UID EXPUNGE), and it used to leave the mail on screen
+    // for the whole round-trip. A failure puts the rows back.
+    hideMails(ids)
+    setSelection(EMPTY_SELECTION)
     try {
       await mailApi.expungeFromTrash(ids, accountId)
     } catch (error) {
+      unhideMails(ids)
       failed('Endgültig löschen fehlgeschlagen')(error)
       return
     }
-    setSelection(EMPTY_SELECTION)
     refreshLists()
     toast.success(count > 1 ? `${count} E-Mails endgültig gelöscht` : 'Endgültig gelöscht')
   }
@@ -666,19 +671,26 @@ export default function MailPage() {
       destructive: true
     })
     if (!confirmed) return
+    // G6/L1: the folder empties on screen at once. Collecting the ids and expunging them in
+    // chunks is many round-trips, so the Trash used to stay full for the whole time. The ids are
+    // hidden as they are found, and a failure puts back what has not been deleted.
+    const ids: number[] = []
     try {
       // The core takes ids, not a folder: collect them first, then delete in chunks.
       // A failed expunge keeps its row, so the loop must not depend on the folder shrinking.
-      const ids: number[] = []
       for (let offset = 0; ; offset += PAGE_SIZE) {
         const page = await mailApi.listMessages(trash.id, { offset, limit: PAGE_SIZE }, accountId)
         ids.push(...page.map((m) => m.id))
+        // the collected page is hidden right away, so the list shrinks as it is read
+        hideMails(page.map((m) => m.id))
         if (page.length < PAGE_SIZE) break
       }
       for (let i = 0; i < ids.length; i += PAGE_SIZE) {
         await mailApi.expungeFromTrash(ids.slice(i, i + PAGE_SIZE), accountId)
       }
     } catch (error) {
+      // whatever has not been deleted comes back
+      unhideMails(ids)
       failed('Papierkorb leeren fehlgeschlagen')(error)
       refreshLists()
       return

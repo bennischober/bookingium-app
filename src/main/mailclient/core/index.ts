@@ -26,6 +26,7 @@ import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { foldersToResync } from './resync_scope.js';
+import { draftStoreValidity } from './draft_store.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
@@ -179,7 +180,11 @@ export class MailCore implements Api {
         storeAppendedDraft: (folderPath, uidValidity, uid, source, flags) => {
           const folder = store.getFolderByPath(folderPath)
           if (!folder) return Promise.resolve()
-          return engine.storeAppendedDraft(folder.id, uidValidity, uid, source, flags)
+          // G6: the stored key must match the one the next sync computes, or the sync inserts
+          // a SECOND row for the same draft (message_key is UNIQUE, but the keys would differ).
+          const validity = draftStoreValidity(uidValidity, folder.uid_validity)
+          if (!validity) return Promise.resolve()
+          return engine.storeAppendedDraft(folder.id, validity, uid, source, flags)
         },
       });
       // A6: a watchdog that could not stop an op stops the whole queue and asks for a

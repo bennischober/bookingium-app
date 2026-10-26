@@ -421,11 +421,14 @@ export class Store {
     return this.db.prepare(`SELECT * FROM messages m WHERE m.folder_id = @folderId
       AND NOT EXISTS (SELECT 1 FROM op_journal o
         WHERE o.state IN ('pending','running')
-          AND o.target_folder_path IS NOT NULL
-          AND (o.message_key = m.message_key
-            OR (o.kind = 'move_batch' AND EXISTS (
-              SELECT 1 FROM json_each(o.payload, '$.members') mem
-              WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))
+          AND (
+            (o.target_folder_path IS NOT NULL
+              AND (o.message_key = m.message_key
+                OR (o.kind = 'move_batch' AND EXISTS (
+                  SELECT 1 FROM json_each(o.payload, '$.members') mem
+                  WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))
+            OR (o.kind = 'expunge' AND o.message_key = m.message_key)
+          ))
       ORDER BY m.sort_date DESC LIMIT @limit OFFSET @offset`)
       .all({ folderId, limit, offset }) as MessageRow[];
   }
@@ -437,11 +440,14 @@ export class Store {
       FROM messages m WHERE m.folder_id = ?
       AND NOT EXISTS (SELECT 1 FROM op_journal o
         WHERE o.state IN ('pending','running')
-          AND o.target_folder_path IS NOT NULL
-          AND (o.message_key = m.message_key
-            OR (o.kind = 'move_batch' AND EXISTS (
-              SELECT 1 FROM json_each(o.payload, '$.members') mem
-              WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))`)
+          AND (
+            (o.target_folder_path IS NOT NULL
+              AND (o.message_key = m.message_key
+                OR (o.kind = 'move_batch' AND EXISTS (
+                  SELECT 1 FROM json_each(o.payload, '$.members') mem
+                  WHERE json_extract(mem.value, '$.messageKey') = m.message_key))))
+            OR (o.kind = 'expunge' AND o.message_key = m.message_key)
+          ))`)
       .get(folderId) as { c: number; u: number | null };
     return { total: row.c, unread: row.u ?? 0 };
   }
