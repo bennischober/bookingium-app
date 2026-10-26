@@ -1253,6 +1253,8 @@ all, which proved the window was being *closed*, not crashing.
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
+- 2026-10-26, review, `docs/mail-client-review.md`: a full review of the branch at `811f04a` found 43 issues (MR-01 to MR-43; 3 critical send-path bugs that can deliver a mail twice) and proposes card group I (I1 to I14). No real-mailbox writes beyond the canary until I1 to I4 land.
+
 ---
 
 ## F: hardening and usability
