@@ -22,6 +22,7 @@ import {
 } from '../../../../main/api/schemas/settings.schema'
 import type { InvoiceEmailKind } from '../../../../main/api/schemas/invoice.schema'
 import { INVOICE_EMAIL_PLACEHOLDERS } from '../../../../main/mail/invoiceEmail'
+import { readingActions } from '@/components/mail/readingActions'
 
 const MAIL_PROGRAMS: Array<{ value: MailProgramSetting; label: string }> = [
   { value: 'auto', label: 'Automatisch' },
@@ -41,7 +42,7 @@ const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
     'Öffnet eine neue E-Mail ohne Anhang (z. B. das neue Outlook) und zeigt das PDF zum Hineinziehen.',
   files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.',
   bookingum:
-    'Öffnet die E-Mail mit PDF im bookingum-Editor. Nach dem Senden gilt die Rechnung als versendet.'
+    'Öffnet die E-Mail im bookingum-Editor; das PDF wird beim Senden angehängt. Nach dem Senden gilt die Rechnung als versendet.'
 }
 
 type Lang = 'de' | 'en'
@@ -135,6 +136,14 @@ export function InvoiceEmailCard() {
   })
 
   const mailProgram = settings.data?.mailProgram ?? 'auto'
+  // I7 (MR-12): the account is chosen here, never guessed - only accounts that may send
+  const mailAccounts = trpcReact.mail.accounts.list.useQuery(undefined, {
+    enabled: mailProgram === 'bookingum'
+  })
+  const sendingAccounts = (mailAccounts.data ?? []).filter(
+    (account) => readingActions(account).canWrite
+  )
+  const invoiceMailAccountId = settings.data?.invoiceMailAccountId ?? ''
   const disabled = settings.isLoading || updateSettings.isPending
 
   return (
@@ -170,6 +179,37 @@ export function InvoiceEmailCard() {
           </Select>
           <p className="text-xs text-muted-foreground">{MAIL_PROGRAM_HINTS[mailProgram]}</p>
         </div>
+
+        {mailProgram === 'bookingum' && (
+          <div className="max-w-sm space-y-2">
+            <Label htmlFor="settings-invoice-mail-account">Senden von</Label>
+            <Select
+              value={
+                sendingAccounts.some((account) => account.id === invoiceMailAccountId)
+                  ? invoiceMailAccountId
+                  : ''
+              }
+              onValueChange={(value) => updateSettings.mutate({ invoiceMailAccountId: value })}
+              disabled={disabled || sendingAccounts.length === 0}
+            >
+              <SelectTrigger id="settings-invoice-mail-account">
+                <SelectValue placeholder="Konto wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {sendingAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mailAccounts.isSuccess && sendingAccounts.length === 0 && (
+              <p className="text-xs text-destructive">
+                Kein E-Mail-Konto mit Senderecht eingerichtet.
+              </p>
+            )}
+          </div>
+        )}
 
         <Tabs defaultValue="invoice">
           <TabsList aria-label="Vorlage für">

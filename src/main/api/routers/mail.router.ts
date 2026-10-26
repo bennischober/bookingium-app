@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import { observable } from '@trpc/server/observable'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, join } from 'path'
 import { isExecutableName, safeAttachmentName } from '../../mailclient/attachments'
 import {
@@ -21,6 +21,10 @@ import { mailClient } from '../../mailclient/MailClientService'
 import { MAIL_API_METHODS, type MailEvent } from '../../mailclient/protocol'
 import { container } from 'tsyringe'
 import { RecipientLookupService } from '../../services/RecipientLookupService'
+import { InvoiceService } from '../../services/InvoiceService'
+import { invoiceComposes, sendInvoiceMail } from '../../mail/invoiceSend'
+import { SendInvoiceMailInput } from '../schemas/invoice.schema'
+import type { DraftInput } from '../../mailclient/core/types'
 
 const recipientLookup = container.resolve(RecipientLookupService)
 
@@ -190,6 +194,30 @@ export const mailRouter = t.router({
         throw badRequest(error, 'E-Mail-Aktion fehlgeschlagen')
       }
     }),
+
+  /**
+   * I7: the invoice mail of a compose window. The window holds only a token; main attaches
+   * the PDF the invoice:email handler registered for it and records the send, so the
+   * invoice is marked once the mail is out (see mail/invoiceSend.ts).
+   */
+  sendInvoice: t.procedure.input(SendInvoiceMailInput).mutation(async ({ input }) => {
+    try {
+      return await sendInvoiceMail(
+        {
+          registry: invoiceComposes,
+          ledger: container.resolve(InvoiceService),
+          readPdf: (path) => readFile(path),
+          send: (mail, draftUid, accountId) =>
+            mailClient.call('sendMail', [mail, draftUid, accountId]) as Promise<{
+              messageId: string
+            }>
+        },
+        { ...input, mail: input.mail as unknown as DraftInput }
+      )
+    } catch (error) {
+      throw badRequest(error, 'Senden fehlgeschlagen')
+    }
+  }),
 
   status: t.procedure.query(() => mailClient.status()),
 

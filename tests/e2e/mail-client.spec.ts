@@ -1392,6 +1392,17 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
         { timeout: 15_000 }
       )
       .toBe('bookingum')
+    // I7 (MR-12): the sending account is chosen, never guessed
+    await page.locator('#settings-invoice-mail-account').click()
+    await page.getByRole('option', { name: SANDBOX_ACCOUNT.email }).first().click()
+    await expect
+      .poll(
+        async () =>
+          (await trpc<{ invoiceMailAccountId: string }>('query', 'settings.get'))
+            .invoiceMailAccountId,
+        { timeout: 15_000 }
+      )
+      .not.toBe('')
 
     // 2. Open the invoice's print page and send it through the own editor
     await page.goto(`${base()}#/invoices`)
@@ -1410,6 +1421,8 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     await editorWindow.waitForLoadState()
     const editor = editorWindow.getByRole('form', { name: 'E-Mail verfassen' })
     await expect(editor).toBeVisible({ timeout: 30_000 })
+    // I7 (MR-21): the window knows the PDF by name only and shows that it goes along
+    await expect(editor.getByRole('list', { name: 'Anhänge' }).getByRole('listitem')).toHaveCount(1)
     await editor.getByRole('textbox', { name: 'Betreff' }).fill(subject)
 
     // The editor closes itself once the mail is out - that is the completion signal
@@ -1432,10 +1445,13 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     )
     const detail = (await (
       await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found}`)
-    ).json()) as { Attachments?: { FileName: string; Size: number }[] }
+    ).json()) as { Attachments?: { FileName: string; Size: number }[]; Text?: string }
     expect(detail.Attachments).toHaveLength(1)
     expect(detail.Attachments![0].FileName).toMatch(/\.pdf$/)
     expect(detail.Attachments![0].Size).toBeGreaterThan(1000)
+    // I7 (MR-11): the template's umlauts arrive as umlauts. A boolean, so a failure
+    // never prints the mail's text.
+    expect(detail.Text?.includes('Grüßen')).toBe(true)
 
     // 4. The invoice counts as emailed, only after that send
     await page.goto(`${base()}#/invoices`)

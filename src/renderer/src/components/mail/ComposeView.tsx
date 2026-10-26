@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Bold, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
-import { trpcReact } from '@/lib/trpc'
+import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -249,8 +249,7 @@ export function ComposeView({
   initial,
   onClose,
   onStored,
-  presetPdfPath,
-  onSent
+  invoice
 }: {
   accountId: string
   initial: ComposeState
@@ -258,10 +257,11 @@ export function ComposeView({
   onClose: () => void
   /** Drafts or Sent changed */
   onStored: () => void
-  /** C1: the PDF the window was opened with, read in main and attached on send */
-  presetPdfPath?: string
-  /** C1: the mail was sent, with its Message-ID */
-  onSent?: (messageId: string) => void
+  /**
+   * C1/I7: the window is an invoice mail. It sends through main with this token; main
+   * attaches the invoice PDF, which the window knows only by name.
+   */
+  invoice?: { token: string; attachmentName: string }
 }) {
   const [mail, setMail] = useState(initial)
   const [showCopies, setShowCopies] = useState(initial.cc.length > 0 || initial.bcc.length > 0)
@@ -476,24 +476,19 @@ export function ComposeView({
     setPhase('sending')
     try {
       await queue.current
-      // C1: the PDF this window was opened with is read in main and attached here
-      const attachments = [...current.attachments]
-      if (presetPdfPath) {
-        const base64 = await window.api.readComposePdf(presetPdfPath)
-        if (base64) {
-          attachments.push({
-            filename: presetPdfPath.split(/[\\/]/).pop() ?? 'Anhang.pdf',
-            contentType: 'application/pdf',
-            base64
-          })
-        }
+      const mail = { ...toDraftInput(current), sendKey: sendKey.current }
+      // I7: an invoice mail goes through main, which attaches the PDF and marks the invoice
+      if (invoice) {
+        await trpcVanilla.mail.sendInvoice.mutate({
+          token: invoice.token,
+          accountId,
+          draftUid: draftUid.current,
+          mail
+        })
+      } else {
+        await mailApi.sendMail(mail, draftUid.current, accountId)
       }
-      const sent = await mailApi.sendMail(
-        { ...toDraftInput(current), attachments, sendKey: sendKey.current },
-        draftUid.current,
-        accountId
-      )
-      finishSent(sent.messageId)
+      finishSent()
     } catch (error) {
       if (isUnclearSend(error)) {
         // I2 (MR-03): the server may have the mail. "fehlgeschlagen" would invite a second
@@ -511,11 +506,10 @@ export function ComposeView({
     }
   }
 
-  const finishSent = (messageId: string) => {
+  const finishSent = () => {
     closed.current = true
     toast.success('Gesendet')
     onStored()
-    onSent?.(messageId)
     onClose()
   }
 
@@ -530,7 +524,7 @@ export function ComposeView({
       const op = findSessionSend(await mailApi.listOps(accountId), sendKey.current)
       const check = unclearCheck(op)
       if (op && check === 'sent') {
-        finishSent(op.messageId ?? '')
+        finishSent()
         return
       }
       if (!op || check !== 'probe') {
@@ -541,7 +535,7 @@ export function ComposeView({
       }
       const result = await mailApi.resolveOp(op.id, accountId)
       if (result.outcome === 'done' || result.outcome === 'noop') {
-        finishSent(op.messageId ?? '')
+        finishSent()
       } else {
         toast.warning('Nicht im Ordner Gesendet gefunden', {
           description: 'Die E-Mail kann trotzdem zugestellt worden sein.'
@@ -839,8 +833,19 @@ export function ComposeView({
           />
         </div>
 
-        {(mail.attachments.length > 0 || mail.forwardedNames.length > 0) && (
+        {(mail.attachments.length > 0 ||
+          mail.forwardedNames.length > 0 ||
+          invoice?.attachmentName) && (
           <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label="Anhänge">
+            {invoice?.attachmentName && (
+              <li
+                className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
+                title="Wird beim Senden angehängt"
+              >
+                <Paperclip className="size-3" />
+                <span className="max-w-56 truncate">{invoice.attachmentName}</span>
+              </li>
+            )}
             {mail.attachments.map((a, i) => (
               <li key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
                 <Paperclip className="size-3" />

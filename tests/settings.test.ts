@@ -32,6 +32,7 @@ const DEFAULTS = {
   eInvoiceEmbed: true,
   paymentQr: true,
   mailProgram: 'auto',
+  invoiceMailAccountId: '',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
   invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,
   reminderEmailDe: DEFAULT_REMINDER_EMAIL.de,
