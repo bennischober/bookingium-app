@@ -31,7 +31,17 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 
 Import direction is one-way: `../worker.ts` → `core/`; the renderer reaches the core only over
 IPC (`mail.call` in `src/main/api/routers/mail.router.ts`, allowlisted by `MAIL_API_METHODS` in
-`../protocol.ts`) and imports nothing from here except types. The core imports nothing back.
+`../protocol.ts`). The core imports nothing back.
+
+The renderer imports from here in two ways, and only these are allowed:
+- **types** (`types.ts`, `connection_test.ts` as `import type`) - erased at build, so no core code
+  reaches the browser bundle.
+- **node-free value modules** - `address.ts`, `folders.ts`, `imap_options.ts` - the same pattern as the
+  other pure main modules (`einvoice/`, `calendar/`, `payment/`) that the renderer imports directly.
+
+A value import of a module that pulls a Node dependency (imapflow, better-sqlite3, fs, ...) breaks the
+renderer build, which is the guard for this direction; the static test in
+`tests/mail_core_boundary.test.ts` guards the other one (the core importing outward).
 
 Code style: this folder keeps the prototype's style (semicolons, long lines) and is not
 prettier-formatted, so hand-ports stay diffable. Do not run `prettier --write` on it.
