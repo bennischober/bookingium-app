@@ -130,12 +130,12 @@ describe('recipientKeyAction (MR-04)', () => {
   it('never lets an Enter fall through to the form', () => {
     expect(recipientKeyAction('Enter', field)).toBe('swallow')
     expect(recipientKeyAction('Enter', { ...field, text: '   ' })).toBe('swallow')
-    expect(recipientKeyAction('Enter', { ...field, text: 'a@b.de' })).toBe('commit')
+    expect(recipientKeyAction('Enter', { ...field, text: 'a@example.test' })).toBe('commit')
     expect(recipientKeyAction('Enter', { ...field, hasSuggestions: true })).toBe('pick')
   })
 
   it('keeps the other keys as they were', () => {
-    expect(recipientKeyAction(',', { ...field, text: 'a@b.de' })).toBe('commit')
+    expect(recipientKeyAction(',', { ...field, text: 'a@example.test' })).toBe('commit')
     expect(recipientKeyAction('Tab', { ...field, hasSuggestions: true })).toBe('pick')
     expect(recipientKeyAction('Tab', field)).toBeNull()
     expect(recipientKeyAction('ArrowDown', { ...field, hasSuggestions: true })).toBe('navigate')
