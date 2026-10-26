@@ -361,12 +361,28 @@ export default function MailPage() {
   const hideMails = (ids: number[]) => setHiddenIds((current) => hide(current, ids))
   const unhideMails = (ids: number[]) => setHiddenIds((current) => unhide(current, ids))
 
-  // G2/L1: clear the optimistic hide once fresh list data has actually arrived, never on a
-  // timer - a timer would either clear too early (the row flickers back) or too late. Any
-  // update of the list query means the server's view is in, so the local guess can go.
+  // G7: a hidden mail stays hidden while it is still in the list data.
+  //
+  // Clearing the whole set whenever fresh list data arrived was wrong: an op-event triggers a
+  // refresh 300 ms after the op STARTS, so a slow move had its rows put back on screen while
+  // still in flight - the user saw the mail they just deleted reappear, which is the flicker this
+  // whole fix exists to remove. A sync can do the same.
+  //
+  // So a hidden id is released when the fresh data no longer contains it: at that point the mail
+  // has really left this folder (or the server has it elsewhere), and the list is already correct.
+  // While it is still listed, its op has not landed and it stays hidden. A failed op restores it
+  // explicitly through unhideMails.
   const listUpdatedAt = searching ? results.dataUpdatedAt : messages.dataUpdatedAt
   useEffect(() => {
-    if (listUpdatedAt) setHiddenIds([])
+    if (!listUpdatedAt) return
+    const listed = new Set(
+      (searching
+        ? (results.data?.pages.flatMap((page) => page.items) ?? [])
+        : (messages.data?.pages.flat() ?? [])
+      ).map((m) => m.id)
+    )
+    setHiddenIds((current) => current.filter((id) => listed.has(id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listUpdatedAt])
 
   const listItems = visible(
