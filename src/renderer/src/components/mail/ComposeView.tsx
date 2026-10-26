@@ -19,6 +19,15 @@ import {
 import { formatSize } from './format'
 import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
 import { composeBody, toEditorHtml, type ComposeFormat } from './composeBody'
+import {
+  type SendPhase,
+  createSendGate,
+  draftSaveAllowed,
+  findSessionSend,
+  isUnclearSend,
+  recipientKeyAction,
+  unclearCheck
+} from './composeSend'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -156,18 +165,27 @@ function RecipientField({
             )
           }}
           onKeyDown={(e) => {
-            if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            // Ctrl+Enter is the editor's send shortcut and goes on to the form
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) return
+            const action = recipientKeyAction(e.key, {
+              text,
+              hasSuggestions: suggestions.length > 0,
+              hasRecipients: value.length > 0
+            })
+            if (action === 'navigate') {
               e.preventDefault()
               const step = e.key === 'ArrowDown' ? 1 : -1
               setActive((i) => (i + step + suggestions.length) % suggestions.length)
-            } else if (suggestions.length && (e.key === 'Enter' || e.key === 'Tab')) {
+            } else if (action === 'pick') {
               e.preventDefault()
               add([suggestions[Math.min(active, suggestions.length - 1)]])
-            } else if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
-              if (!text.trim()) return
+            } else if (action === 'commit') {
               e.preventDefault()
               commit()
-            } else if (e.key === 'Backspace' && !text && value.length) {
+            } else if (action === 'swallow') {
+              // I2 (MR-04): an Enter in an empty field used to fall through to the form
+              e.preventDefault()
+            } else if (action === 'removeLast') {
               onChange(value.slice(0, -1))
             }
           }}
@@ -283,8 +301,28 @@ export function ComposeView({
   const onStoredRef = useRef(onStored)
   onStoredRef.current = onStored
 
-  const isDirty = () => JSON.stringify(toDraftInput(mailRef.current)) !== savedText.current
+  // I2: the send phase is state for the render and a ref for the timers and handlers,
+  // which would otherwise read the value of the render they were created in
+  const [phase, setPhaseState] = useState<SendPhase>('idle')
+  const phaseRef = useRef<SendPhase>('idle')
+  const setPhase = (next: SendPhase) => {
+    phaseRef.current = next
+    setPhaseState(next)
+  }
+  const gate = useRef(createSendGate()).current
+  // I2 (MR-03): one key per compose session. The core makes it the Message-ID, so a send
+  // that is retried from this editor is the same mail and can be found in Sent.
+  const sendKey = useRef(crypto.randomUUID())
+  const locked = phase !== 'idle'
+
+  // Draft saves only while idle (MR-38): see draftSaveAllowed
+  const isDirty = () =>
+    draftSaveAllowed(phaseRef.current) &&
+    JSON.stringify(toDraftInput(mailRef.current)) !== savedText.current
   const save = (): Promise<void> => {
+    if (!draftSaveAllowed(phaseRef.current)) {
+      return Promise.reject(new Error('Die E-Mail wird gerade gesendet'))
+    }
     const input = toDraftInput(mailRef.current)
     const run = queue.current.then(async () => {
       draftUid.current = await mailApi.saveDraft(input, draftUid.current, accountId)
@@ -304,7 +342,8 @@ export function ComposeView({
   useEffect(() => {
     if (!edited.current || !isDirty()) return
     const timer = setTimeout(() => {
-      if (closed.current) return
+      // a send may have started since the timer was set (MR-38)
+      if (closed.current || !isDirty()) return
       save().catch(() => undefined)
     }, AUTOSAVE_MS)
     return () => clearTimeout(timer)
@@ -401,6 +440,18 @@ export function ComposeView({
   })()
 
   const send = async () => {
+    // I2 (MR-04): one send at a time. The gate is taken before the first await, so a second
+    // Ctrl+Enter in the same tick finds it closed; the subject dialog is inside it too.
+    // An unclear send is locked until the user picks "Prüfen" or "Als neue Mail senden".
+    if (phaseRef.current !== 'idle' || !gate.enter()) return
+    try {
+      await sendGated()
+    } finally {
+      gate.leave()
+    }
+  }
+
+  const sendGated = async () => {
     const current = mailRef.current
     // The button is disabled while sendBlocked, but Ctrl+Enter calls send() directly, so this
     // guard is still reachable - it is not redundant with the disabled state.
@@ -422,6 +473,7 @@ export function ComposeView({
       return
     }
     setBusy('send')
+    setPhase('sending')
     try {
       await queue.current
       // C1: the PDF this window was opened with is read in main and attached here
@@ -437,20 +489,86 @@ export function ComposeView({
         }
       }
       const sent = await mailApi.sendMail(
-        { ...toDraftInput(current), attachments },
+        { ...toDraftInput(current), attachments, sendKey: sendKey.current },
         draftUid.current,
         accountId
       )
-      closed.current = true
-      toast.success('Gesendet')
-      onStored()
-      onSent?.(sent.messageId)
-      onClose()
+      finishSent(sent.messageId)
     } catch (error) {
-      toast.error('Senden fehlgeschlagen', { description: errorText(error) })
+      if (isUnclearSend(error)) {
+        // I2 (MR-03): the server may have the mail. "fehlgeschlagen" would invite a second
+        // send, so the editor locks and says what is known.
+        setPhase('unclear')
+        toast.warning('Versand unklar', {
+          description: 'Die E-Mail ist vielleicht schon unterwegs. Bitte erst prüfen.'
+        })
+      } else {
+        setPhase('idle')
+        toast.error('Senden fehlgeschlagen', { description: errorText(error) })
+      }
     } finally {
       setBusy(null)
     }
+  }
+
+  const finishSent = (messageId: string) => {
+    closed.current = true
+    toast.success('Gesendet')
+    onStored()
+    onSent?.(messageId)
+    onClose()
+  }
+
+  /**
+   * I2 (MR-03): "Im Ordner Gesendet prüfen". The core looks for this session's Message-ID
+   * in Sent and never sends again; found means sent. Not found is not proof either way,
+   * so the editor stays locked.
+   */
+  const checkUnclear = async () => {
+    setBusy('send')
+    try {
+      const op = findSessionSend(await mailApi.listOps(accountId), sendKey.current)
+      const check = unclearCheck(op)
+      if (op && check === 'sent') {
+        finishSent(op.messageId ?? '')
+        return
+      }
+      if (!op || check !== 'probe') {
+        toast.info('Versand weiter unklar', {
+          description: 'Bitte im Ordner Gesendet nachsehen.'
+        })
+        return
+      }
+      const result = await mailApi.resolveOp(op.id, accountId)
+      if (result.outcome === 'done' || result.outcome === 'noop') {
+        finishSent(op.messageId ?? '')
+      } else {
+        toast.warning('Nicht im Ordner Gesendet gefunden', {
+          description: 'Die E-Mail kann trotzdem zugestellt worden sein.'
+        })
+      }
+    } catch (error) {
+      toast.error('Prüfen fehlgeschlagen', { description: errorText(error) })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** I2: a deliberate second send is a NEW mail with its own Message-ID */
+  const sendAsNew = async () => {
+    if (
+      !(await confirmAction({
+        title: 'Als neue E-Mail senden?',
+        description:
+          'Wenn die erste E-Mail doch angekommen ist, erhalten die Empfänger sie zweimal.',
+        confirmLabel: 'Senden'
+      }))
+    ) {
+      return
+    }
+    sendKey.current = crypto.randomUUID()
+    setPhase('idle')
+    await send()
   }
 
   const discard = async () => {
@@ -491,7 +609,8 @@ export function ComposeView({
   }
 
   const addFiles = async (files: FileList | null) => {
-    if (!files?.length) return
+    // I2: the mail is locked while it is sent and after an unclear send
+    if (!files?.length || phaseRef.current !== 'idle') return
     // B7: checked against the file sizes before anything is read into memory
     if (!attachmentsFit(mailRef.current.attachments, [...files])) {
       toast.error('Anhänge zu groß', {
@@ -519,6 +638,10 @@ export function ComposeView({
    * data: URI in the body.
    */
   const onPaste = (event: React.ClipboardEvent) => {
+    if (phaseRef.current !== 'idle') {
+      event.preventDefault()
+      return
+    }
     const items = event.clipboardData?.items ?? []
     const types = [...items].map((item) => item.type)
     const content = pasteContent(types)
@@ -542,22 +665,23 @@ export function ComposeView({
       onPaste={onPaste}
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       aria-label="E-Mail verfassen"
-      onSubmit={(e) => {
-        e.preventDefault()
-        void send()
-      }}
+      // I2 (MR-04): no implicit submit. Enter in Betreff or a recipient field used to send a
+      // half-written mail; the editor sends only via the button and Ctrl+Enter.
+      onSubmit={(e) => e.preventDefault()}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault()
-          void send()
+          // a held-down key repeats; only the first press sends
+          if (!e.repeat) void send()
         }
       }}
     >
       <div className="flex items-center gap-1 border-b px-4 py-2">
         <Button
-          type="submit"
+          type="button"
           size="sm"
-          disabled={busy !== null || sendBlocked !== null}
+          onClick={() => void send()}
+          disabled={busy !== null || sendBlocked !== null || locked}
           title={sendBlocked ?? 'Senden (Strg+Enter)'}
           // The accessible name stays the ACTION ("Senden"). Putting the reason in the aria-label made the
           // button answer to "An" and collided with the recipient field of the same name; the reason is a
@@ -569,7 +693,7 @@ export function ComposeView({
         </Button>
         {/* A disabled button cannot be hovered for its title, and a tooltip is not read by a screen
             reader on a disabled control - so the reason is written out where it applies */}
-        {sendBlocked && !busy ? (
+        {sendBlocked && !busy && !locked ? (
           <span className="text-xs text-muted-foreground" data-testid="send-blocked">
             {sendBlocked}
           </span>
@@ -578,7 +702,7 @@ export function ComposeView({
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy !== null}
+          disabled={busy !== null || locked}
           onClick={() => void saveNow()}
         >
           {busy === 'save' && <Spinner className="size-4" />}
@@ -588,7 +712,7 @@ export function ComposeView({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={busy !== null}
+          disabled={busy !== null || locked}
           onClick={() => fileInput.current?.click()}
         >
           <Paperclip />
@@ -615,7 +739,7 @@ export function ComposeView({
           variant="ghost"
           size="icon-sm"
           className="ml-auto"
-          disabled={busy !== null}
+          disabled={busy !== null || locked}
           onClick={() => void discard()}
           title="Verwerfen"
         >
@@ -623,109 +747,160 @@ export function ComposeView({
         </Button>
       </div>
 
-      <RecipientField
-        label="An"
-        accountId={accountId}
-        value={mail.to}
-        onChange={(to) => update({ to })}
-        autoFocus={mail.to.length === 0}
-      />
-      {showCopies ? (
-        <>
-          <RecipientField
-            label="Cc"
-            accountId={accountId}
-            value={mail.cc}
-            onChange={(cc) => update({ cc })}
-          />
-          <RecipientField
-            label="Bcc"
-            accountId={accountId}
-            value={mail.bcc}
-            onChange={(bcc) => update({ bcc })}
-          />
-        </>
-      ) : (
-        <button
-          type="button"
-          className="self-start px-4 py-1 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setShowCopies(true)}
+      {phase === 'unclear' && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          data-testid="send-unclear"
         >
-          Cc/Bcc
-        </button>
-      )}
-      <div className="flex items-center gap-2 border-b px-4 py-1.5 text-sm">
-        <span className="w-12 shrink-0 text-muted-foreground">Betreff</span>
-        <Input
-          className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
-          value={mail.subject}
-          onChange={(e) => update({ subject: e.target.value })}
-          aria-label="Betreff"
-          autoFocus={mail.to.length > 0 && !mail.subject}
-        />
-      </div>
-
-      {(mail.attachments.length > 0 || mail.forwardedNames.length > 0) && (
-        <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label="Anhänge">
-          {mail.attachments.map((a, i) => (
-            <li key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
-              <Paperclip className="size-3" />
-              <span className="max-w-56 truncate">{a.filename}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatSize(Math.floor((a.base64.length * 3) / 4))}
-              </span>
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => update({ attachments: mail.attachments.filter((_, j) => j !== i) })}
-                aria-label={`${a.filename} entfernen`}
-              >
-                <X className="size-3" />
-              </button>
-            </li>
-          ))}
-          {mail.forwardedNames.map((name, i) => (
-            <li
-              key={`fwd-${i}`}
-              className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
-              title="Aus der weitergeleiteten E-Mail"
-            >
-              <Paperclip className="size-3" />
-              <span className="max-w-56 truncate">{name}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* F3: lightweight formatting. The body is HTML, but the plain text stays
-          the source of truth: composeBody derives it on every edit, so search and
-          snippets keep reading the text. */}
-      <div className="flex shrink-0 gap-1 border-b px-2 py-1">
-        {FORMAT_BUTTONS.map(({ format, label, Icon }) => (
+          <span className="mr-auto">
+            Versand unklar: Die E-Mail ist vielleicht schon beim Server angekommen. Bitte prüfen,
+            bevor sie noch einmal gesendet wird.
+          </span>
           <Button
-            key={format}
             type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            onClick={() => void checkUnclear()}
+          >
+            {busy === 'send' && <Spinner className="size-4" />}
+            Im Ordner Gesendet prüfen
+          </Button>
+          <Button
+            type="button"
+            size="sm"
             variant="ghost"
-            size="icon-sm"
-            title={label}
-            aria-label={label}
-            // The selection must survive the click: the button is not inside the
-            // editable, so the browser would move the caret and the command would
-            // have nothing to format
-            onMouseDown={(event) => event.preventDefault()}
+            disabled={busy !== null}
+            onClick={() => void sendAsNew()}
+          >
+            Als neue Mail senden
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
             onClick={() => {
-              body.current?.focus()
-              document.execCommand(format)
-              onBodyInput()
+              closed.current = true
+              onClose()
             }}
           >
-            <Icon />
+            Schließen
           </Button>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* I2: while sending, and after an unclear send, the mail cannot be changed - an edit
+          would never reach the mail that went out, and a draft of it would be an orphan */}
+      <fieldset disabled={locked} className="contents">
+        <RecipientField
+          label="An"
+          accountId={accountId}
+          value={mail.to}
+          onChange={(to) => update({ to })}
+          autoFocus={mail.to.length === 0}
+        />
+        {showCopies ? (
+          <>
+            <RecipientField
+              label="Cc"
+              accountId={accountId}
+              value={mail.cc}
+              onChange={(cc) => update({ cc })}
+            />
+            <RecipientField
+              label="Bcc"
+              accountId={accountId}
+              value={mail.bcc}
+              onChange={(bcc) => update({ bcc })}
+            />
+          </>
+        ) : (
+          <button
+            type="button"
+            className="self-start px-4 py-1 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setShowCopies(true)}
+          >
+            Cc/Bcc
+          </button>
+        )}
+        <div className="flex items-center gap-2 border-b px-4 py-1.5 text-sm">
+          <span className="w-12 shrink-0 text-muted-foreground">Betreff</span>
+          <Input
+            className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
+            value={mail.subject}
+            onChange={(e) => update({ subject: e.target.value })}
+            aria-label="Betreff"
+            autoFocus={mail.to.length > 0 && !mail.subject}
+          />
+        </div>
+
+        {(mail.attachments.length > 0 || mail.forwardedNames.length > 0) && (
+          <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label="Anhänge">
+            {mail.attachments.map((a, i) => (
+              <li key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
+                <Paperclip className="size-3" />
+                <span className="max-w-56 truncate">{a.filename}</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatSize(Math.floor((a.base64.length * 3) / 4))}
+                </span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    update({ attachments: mail.attachments.filter((_, j) => j !== i) })
+                  }
+                  aria-label={`${a.filename} entfernen`}
+                >
+                  <X className="size-3" />
+                </button>
+              </li>
+            ))}
+            {mail.forwardedNames.map((name, i) => (
+              <li
+                key={`fwd-${i}`}
+                className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
+                title="Aus der weitergeleiteten E-Mail"
+              >
+                <Paperclip className="size-3" />
+                <span className="max-w-56 truncate">{name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* F3: lightweight formatting. The body is HTML, but the plain text stays
+          the source of truth: composeBody derives it on every edit, so search and
+          snippets keep reading the text. */}
+        <div className="flex shrink-0 gap-1 border-b px-2 py-1">
+          {FORMAT_BUTTONS.map(({ format, label, Icon }) => (
+            <Button
+              key={format}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              title={label}
+              aria-label={label}
+              // The selection must survive the click: the button is not inside the
+              // editable, so the browser would move the caret and the command would
+              // have nothing to format
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                body.current?.focus()
+                document.execCommand(format)
+                onBodyInput()
+              }}
+            >
+              <Icon />
+            </Button>
+          ))}
+        </div>
+      </fieldset>
       <div
         className="mail-editor min-h-0 flex-1 overflow-auto px-4 py-3 text-sm outline-none"
-        contentEditable
+        contentEditable={!locked}
+        aria-readonly={locked}
         role="textbox"
         aria-label="Text"
         aria-multiline="true"

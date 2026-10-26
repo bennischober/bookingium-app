@@ -641,6 +641,56 @@ test('a mail written in the editor is saved as a draft and sent', async () => {
   }
 })
 
+// I2 (MR-04): Enter in Betreff or in an empty recipient field used to submit the editor's
+// form, and a double Ctrl+Enter started two sends before the button re-rendered disabled
+test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const tag = `${COMPOSE_TAG}enter-${Date.now()}`
+  const delivered = async () => {
+    const query = encodeURIComponent(`subject:${tag}`)
+    const res = await fetch(
+      `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=${query}`
+    )
+    return ((await res.json()) as { messages_count: number }).messages_count
+  }
+
+  try {
+    await openMailPage(sandboxId)
+    await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+    const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+    const to = editor.getByRole('textbox', { name: 'An' })
+    await to.fill('empfaenger@example.test')
+    await to.press('Enter')
+    await expect(editor.getByText('empfaenger@example.test')).toBeVisible()
+    // the field is empty now: a second Enter has nothing to take and must not submit
+    await to.press('Enter')
+    const subject = editor.getByRole('textbox', { name: 'Betreff' })
+    await subject.fill(tag)
+    await subject.press('Enter')
+    await page.waitForTimeout(1500)
+    await expect(editor).toHaveCount(1)
+    expect(await delivered()).toBe(0)
+
+    await editor.getByRole('textbox', { name: 'Text' }).fill('Hallo aus dem E2E-Test')
+    // raw key presses, back to back: the editor may already be closing after the first
+    await subject.focus()
+    await page.keyboard.press('Control+Enter')
+    await page.keyboard.press('Control+Enter')
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Gesendet' })).toBeVisible({
+      timeout: 30_000
+    })
+    await expect.poll(delivered, { timeout: 30_000 }).toBe(1)
+    // a second send would arrive a moment later
+    await page.waitForTimeout(3000)
+    expect(await delivered()).toBe(1)
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
+  }
+})
+
 test('a double-clicked mail opens in its own window and is answered there', async () => {
   const { page } = h
   const sandboxId = await ensureSandboxAccount()
