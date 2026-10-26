@@ -74,8 +74,8 @@ describe('composeBody (F3)', () => {
 })
 
 describe('toEditorHtml (F3)', () => {
-  it('keeps a stored HTML body as it is', () => {
-    expect(toEditorHtml('<p><b>fett</b></p>')).toBe('<p><b>fett</b></p>')
+  it('keeps a stored HTML body, through the compose allowlist', () => {
+    expect(toEditorHtml('fett', '<p><b>fett</b></p>')).toBe('<p><b>fett</b></p>')
   })
 
   it('turns a plain text into paragraphs, so its lines survive', () => {
@@ -102,6 +102,47 @@ describe('toEditorHtml (F3)', () => {
 
   it('escapes text that looks like markup', () => {
     expect(toEditorHtml('a < b')).toBe('<p>a &lt; b</p>')
+  })
+})
+
+// I5 (MR-08): a plain text that contained anything tag-like was handed to the editor as HTML.
+// Every forward header has "Name <a@example.test>", so the quote lost its line breaks and its
+// addresses, and a subject like "<style>..." restyled the app window.
+describe('toEditorHtml never sniffs a plain text (MR-08)', () => {
+  it('keeps a forward header, its address and its line breaks', () => {
+    const forward = 'Von: Erika Muster <erika@example.test>\nAn: b@example.test\nBetreff: Termin'
+    expect(toEditorHtml(forward)).toBe(
+      '<p>Von: Erika Muster &lt;erika@example.test&gt;<br>An: b@example.test<br>Betreff: Termin</p>'
+    )
+  })
+
+  it('keeps a URL in angle brackets as text', () => {
+    expect(toEditorHtml('siehe <https://example.test/a>')).toBe(
+      '<p>siehe &lt;https://example.test/a&gt;</p>'
+    )
+  })
+
+  it('shows a literal <b> instead of making the text bold', () => {
+    expect(toEditorHtml('<b>nicht fett</b>')).toBe('<p>&lt;b&gt;nicht fett&lt;/b&gt;</p>')
+  })
+
+  it('cannot put a style or an image into the editor through the text', () => {
+    const html = toEditorHtml('<style>body{display:none}</style><img src=x onerror=alert(1)>')
+    expect(html).not.toMatch(/<style|<img/i)
+  })
+
+  it('reduces a stored HTML body to the formatting the editor offers', () => {
+    const html = toEditorHtml(
+      'x',
+      '<p style="color:red" onclick="x()"><b>fett</b></p><style>p{}</style><img src="x">'
+    )
+    expect(html).toBe('<p><b>fett</b></p>p{}')
+    expect(html).not.toMatch(/<style|<img|onclick|style=/i)
+  })
+
+  it('round-trips a forward header through the editor unchanged', () => {
+    const forward = 'Von: Erika Muster <erika@example.test>\nBetreff: Termin'
+    expect(composeBody(toEditorHtml(forward)).bodyText).toBe(forward)
   })
 })
 

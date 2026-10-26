@@ -1397,6 +1397,22 @@ connection had selected last, and a full disk stopped only the current full sync
 **Known limit:** a rename stuck in `pending` pauses the sync of its subtree until the op is resolved in the op
 panel.
 
+### I5: HTML safety [fixed 2026-10-26]
+
+MR-07 and MR-08. A style block could carry live markup past the sanitizer, and the compose editor parsed any
+text that looked like HTML as HTML.
+
+**What changed.**
+- `core/sanitize.ts`: `liftStyleBlocks` reads the `<style>` elements with the HTML parser, so a block ends
+  where a browser ends it (`</style >`, `</STYLE	>`). `cssWithoutMarkup` drops Outlook's comment markers and
+  escapes any other `<` as `c `, so the pasted-back CSS cannot close its element (MR-07).
+- `components/mail/composeBody.ts`: `toEditorHtml(text, html?)` always escapes the text; a stored HTML body
+  goes through the compose allowlist without the mail wrapper. `ComposeView.tsx` passes the two separately
+  (MR-08).
+
+**Tests.** `tests/mail_sanitize.test.ts` (+8), `tests/mail_compose_body.test.ts` (+6, 1 changed). 6 mutation
+checks, all killed; the report lists them.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
