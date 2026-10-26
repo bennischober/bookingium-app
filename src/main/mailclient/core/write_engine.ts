@@ -158,6 +158,11 @@ export class WriteEngine {
     this.engineHooks?.triggerResync(folderPath)
   }
 
+  /** I3: is this op queued or running here right now (a cancel must wait for it)? */
+  isInFlight(opId: string): boolean {
+    return this.inFlight.has(opId)
+  }
+
   /** index.ts hook: run fn under the sync engine's folder mutex (single-writer rule). */
   runUnderFolderMutex<T>(folderPath: string, fn: () => Promise<T>): Promise<T> {
     if (this.engineHooks)

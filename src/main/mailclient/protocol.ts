@@ -32,6 +32,7 @@ export const MAIL_API_METHODS = [
   'discardDraft',
   'getDraft',
   'listOps',
+  'listOpenOps',
   'getOpCounts',
   'retryOp',
   'resolveOp',

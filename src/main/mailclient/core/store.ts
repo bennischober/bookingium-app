@@ -241,6 +241,18 @@ export class Store {
       AND state IN ('pending','running') LIMIT 1`).get(messageKey);
   }
 
+  /** I3: the ops the user may have to look at - every one not done or cancelled, oldest first. */
+  journalOpen(limit = 200): JournalRow[] {
+    return this.db.prepare(`SELECT * FROM op_journal WHERE state NOT IN ('done','cancelled')
+      ORDER BY created_at LIMIT ?`).all(limit) as JournalRow[];
+  }
+
+  /** I3 (MR-29): pending ops that failed at least once (they carry the error), oldest first. */
+  journalFailedPending(limit = 200): JournalRow[] {
+    return this.db.prepare(`SELECT * FROM op_journal WHERE state = 'pending' AND error IS NOT NULL
+      ORDER BY created_at LIMIT ?`).all(limit) as JournalRow[];
+  }
+
   journalListRecent(limit = 50): JournalRow[] {
     return this.db.prepare('SELECT * FROM op_journal ORDER BY updated_at DESC, created_at DESC LIMIT ?')
       .all(limit) as JournalRow[];

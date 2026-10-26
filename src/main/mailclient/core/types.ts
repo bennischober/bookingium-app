@@ -219,7 +219,8 @@ export interface Api {
   getOpCounts?(accountId?: string): Promise<Record<string, number>>;
   retryOp?(opId: string, accountId?: string): Promise<OpResult>;
   resolveOp?(opId: string, accountId?: string): Promise<OpResult>;   // probe an unknown send (never resend)
-  cancelOp?(opId: string, accountId?: string): Promise<void>;        // cancel a pending op (undo before server saw it)
+  listOpenOps?(accountId?: string): Promise<OpSummary[]>;            // I3: every op not done or cancelled
+  cancelOp?(opId: string, accountId?: string): Promise<void>;        // cancel a pending op, or give up a conflict/failed/unknown one (I3)
   undoOp?(opId: string, accountId?: string): Promise<string>;        // inverse op for a done flag/move/delete
   expungeFromTrash?(ids: number[], accountId?: string): Promise<void>; // permanent deletion, Trash only
   replayPendingOps?(accountId?: string): Promise<{ replayed: number; results: Record<string, string> }>;
@@ -265,6 +266,8 @@ export type MessageHeader = {
   createdAt: string;
   updatedAt: string;
   error: string | null;
+  /** I3: how far a send got - 'smtp': the server may have it, 'sent': only filing is left */
+  sendPhase?: string | null;
 };
 
 /** Task 4: result of one op execution (mirrors server OpResult). */

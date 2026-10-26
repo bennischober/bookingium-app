@@ -31,6 +31,14 @@ import {
 import { ComposeView } from '@/components/mail/ComposeView'
 import { hide, unhide, visible } from '@/components/mail/optimistic'
 import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
+import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
+import {
+  type OpAction,
+  type OpEntry,
+  actionResult,
+  discardConfirm,
+  opEntries
+} from '@/components/mail/opJournal'
 import {
   type ComposeState,
   emptyCompose,
@@ -445,6 +453,18 @@ export default function MailPage() {
   })
   const loginFailed = syncStatus.data?.connection === 'auth-failed'
 
+  // I3: writes that need the user (unclear sends, rejected or failed changes, stuck ones).
+  // Every op-event refreshes it; the interval catches an op turning stuck by just waiting.
+  const openOps = useQuery({
+    queryKey: ['mail', accountId, 'open-ops'],
+    queryFn: () => mailApi.listOpenOps(accountId),
+    enabled: ready && canWrite,
+    refetchInterval: 30_000
+  })
+  const opNow = openOps.dataUpdatedAt || Date.now()
+  const opList = useMemo(() => opEntries(openOps.data ?? [], opNow), [openOps.data, opNow])
+  const [busyOpId, setBusyOpId] = useState<string | null>(null)
+
   // Refresh folders and lists when the sync stored something new or a change
   // was made (also in a mail window); batched, the initial download reports every folder
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -464,6 +484,7 @@ export default function MailPage() {
         refreshTimer.current = setTimeout(() => {
           refreshLists()
           void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'message'] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'open-ops'] })
         }, 300)
         return
       }
@@ -545,6 +566,35 @@ export default function MailPage() {
 
   const failed = (title: string) => (error: unknown) =>
     toast.error(title, { description: error instanceof Error ? error.message : undefined })
+
+  // I3: an action from the op panel. Discarding asks first; the core resyncs the op's folders,
+  // so a hidden mail or a local flag gives way to what the server has.
+  const runOpAction = async (entry: OpEntry, action: OpAction) => {
+    if (action === 'discard') {
+      if (!(await confirmAction({ ...discardConfirm(entry), destructive: true }))) return
+    }
+    setBusyOpId(entry.op.id)
+    try {
+      if (action === 'discard') {
+        await mailApi.cancelOp(entry.op.id, accountId)
+        toast.success('Verworfen')
+      } else {
+        const result =
+          action === 'resolve'
+            ? await mailApi.resolveOp(entry.op.id, accountId)
+            : await mailApi.retryOp(entry.op.id, accountId)
+        const { ok, text } = actionResult(action, result.outcome)
+        if (ok) toast.success(text)
+        else toast.error(text)
+      }
+    } catch (error) {
+      failed('Aktion fehlgeschlagen')(error)
+    } finally {
+      setBusyOpId(null)
+      void openOps.refetch()
+      refreshLists()
+    }
+  }
 
   const afterFlags = () => {
     refreshLists()
@@ -980,7 +1030,15 @@ export default function MailPage() {
             Neue E-Mail
           </Button>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          {canWrite && (
+            <OpJournalPanel
+              entries={opList}
+              now={opNow}
+              busyId={busyOpId}
+              onAction={(entry, action) => void runOpAction(entry, action)}
+            />
+          )}
           <SyncIndicator
             status={syncStatus.data}
             runningOp={runningOp}

@@ -26,19 +26,11 @@ import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { foldersToResync } from './resync_scope.js';
+import { autoRetryable, retryDelay, sendPhase } from './op_retry.js';
 import { draftStoreValidity } from './draft_store.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
 /** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
-/** I1: the phase a send op's payload records ('smtp' or 'sent'), see WriteEngine.doSend */
-function sendPhase(op: { payload: string | null }): string | undefined {
-  try {
-    return (JSON.parse(op.payload || '{}') as { phase?: string }).phase;
-  } catch {
-    return undefined;
-  }
-}
-
 function accountMode(config: { canary?: boolean; readOnly: boolean }): AccountInfo['mode'] {
   if (isCanary(config)) return 'canary';
   return config.readOnly ? 'production-readonly' : 'sandbox';
@@ -134,6 +126,10 @@ export class MailCore implements Api {
   private log: Logger;
   private clock: () => number;
   private credentialCache = new Map<string, { user: string; pass: string }>();
+  // I3 (MR-29): one automatic retry timer per account, and how many rounds left ops waiting
+  private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private retryRounds = new Map<string, number>();
+  private closed = false;
 
   constructor(readonly options: MailCoreOptions) {
     if (!path.isAbsolute(options.dataDir)) {
@@ -601,6 +597,8 @@ export class MailCore implements Api {
         // left (I1) - none: nothing went out; 'sent': only filing into Sent, never SMTP again
         if (op.state === 'done') break;
         e.store.journalUpdate(opId, { state: 'pending', error: result.reason });
+        // I3 (MR-29): its effect is on screen already, so it is tried again soon, not at the next start
+        if (autoRetryable(e.store.journalGet(opId)!)) this.scheduleRetry(e.config.id);
         break;
     }
   }
@@ -634,6 +632,51 @@ export class MailCore implements Api {
     return e.store.journalListRecent(100).map(op => this.opToSummary(op));
   }
 
+  /** I3: every op not done or cancelled, however old, for the op panel. */
+  async listOpenOps(accountId?: string): Promise<OpSummary[]> {
+    return this.entry(accountId).store.journalOpen(200).map(op => this.opToSummary(op));
+  }
+
+  /**
+   * I3 (MR-29): run the failed ops again, so a hidden mail or a local flag does not wait for
+   * the next start. Only while the sync reports the account online: offline, the sync's own
+   * retry finds out when the server is back, and a refused login is final. Returns how many
+   * ops are still waiting.
+   */
+  async retryFailedOps(accountId?: string): Promise<number> {
+    const e = this.writableEntry(accountId);
+    const waiting = () => e.store.journalFailedPending(200).filter(autoRetryable);
+    for (const listed of waiting()) {
+      if (e.engine.getStatus().connection !== 'online') break;
+      // re-read: the user may have retried or cancelled it while an earlier op ran
+      const op = e.store.journalGet(listed.id);
+      if (!op || !autoRetryable(op) || e.writes.isInFlight(op.id)) continue;
+      try {
+        await this.runOp(e, op);
+      } catch (error) {
+        this.log.warn?.(`retry of op ${op.id} (${op.kind}) threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    return waiting().length;
+  }
+
+  /** I3 (MR-29): the next automatic retry; every round that leaves ops waiting doubles the pause. */
+  private scheduleRetry(accountId: string): void {
+    if (this.closed || this.retryTimers.has(accountId)) return;
+    const round = this.retryRounds.get(accountId) ?? 0;
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(accountId);
+      // counted before the run: an op failing in it schedules the next round already
+      this.retryRounds.set(accountId, round + 1);
+      void this.retryFailedOps(accountId).then(left => {
+        if (left) this.scheduleRetry(accountId);
+        else this.retryRounds.delete(accountId);
+      }).catch(err => this.log.warn?.(`automatic retry (${accountId}) failed: ${(err as Error).message}`));
+    }, retryDelay(round));
+    timer.unref?.();
+    this.retryTimers.set(accountId, timer);
+  }
+
   async getOpCounts(accountId?: string): Promise<Record<string, number>> {
     return this.entry(accountId).store.journalCountByState();
   }
@@ -663,12 +706,22 @@ export class MailCore implements Api {
     return this.runOp(e, op);
   }
 
+  /**
+   * Take an op out of the journal: a pending one before it runs, or (I3) one the user gives
+   * up on - a conflict, a failed one waiting for its retry, an unclear send (the panel asks
+   * first; the server may have it). Never one that is running. Its folders are resynced, so
+   * an optimistic effect (a hidden mail, a local flag) gives way to what the server has.
+   */
   async cancelOp(opId: string, accountId?: string): Promise<void> {
     const e = this.writableEntry(accountId);
     const op = e.store.journalGet(opId);
     if (!op) throw new Error(`op ${opId} not found`);
-    if (op.state !== 'pending') throw new Error(`op ${opId} is ${op.state}; only pending ops can be cancelled`);
+    if (op.state !== 'pending' && op.state !== 'conflict' && op.state !== 'failed' && op.state !== 'unknown') {
+      throw new Error(`op ${opId} is ${op.state}; only pending, conflict, failed or unknown ops can be cancelled`);
+    }
+    if (e.writes.isInFlight(opId)) throw new Error(`op ${opId} is running; cancel it once it has settled`);
     e.store.journalUpdate(opId, { state: 'cancelled' });
+    for (const path of foldersToResync([op])) e.writes.requestResync(path);
   }
 
   async undoOp(opId: string, accountId?: string): Promise<string> {
@@ -1276,6 +1329,8 @@ export class MailCore implements Api {
       folderPath: op.folder_path, targetFolderPath: op.target_folder_path,
       uid: op.uid, messageId: op.message_id, attempts: op.attempts,
       createdAt: op.created_at, updatedAt: op.updated_at, error: op.error,
+      // I3: the panel tells an unclear send from a refused one; the payload itself never leaves
+      ...(op.kind === 'send' ? { sendPhase: sendPhase(op) ?? null } : {}),
     };
   }
 
@@ -1435,6 +1490,9 @@ export class MailCore implements Api {
    *  - releases the data-dir instance lock
    *  Does NOT replay failed ops or retry sends — replay happens on next start(). */
   async close(opts?: { syncWaitMs?: number; writeWaitMs?: number }): Promise<void> {
+    this.closed = true;
+    for (const timer of this.retryTimers.values()) clearTimeout(timer);
+    this.retryTimers.clear();
     // I1 (MR-01): the op in flight finishes first, so its journal row says how far it got.
     // Bounded: the host kills the worker 15 s after asking it to close.
     await Promise.all([...this.entries.values()].map(e => e.writes.drain(opts?.writeWaitMs ?? 8_000)));

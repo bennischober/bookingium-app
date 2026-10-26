@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { readdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { DatabaseSync } from 'node:sqlite'
 import { launchApp, type AppHandle } from './helpers/launch'
 import {
   E2E_MAIL_PASS,
@@ -688,6 +689,63 @@ test('Enter does not send, and a double Ctrl+Enter sends once', async () => {
     expect(await delivered()).toBe(1)
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, COMPOSE_TAG)
+  }
+})
+
+test('a rejected change shows in the op panel and is discarded there', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  // A real conflict needs a mail changed behind the app's back. Instead the journal gets a
+  // flag op on a UID the inbox does not have, already settled as a conflict: it never runs,
+  // and discarding it only resyncs the inbox.
+  const opId = `e2e-op-${Date.now()}`
+  const db = new DatabaseSync(join(userData, 'mail', 'data', sandboxId, `${sandboxId}.db`), {
+    timeout: 5_000
+  })
+  const now = new Date().toISOString()
+  db.prepare(
+    `INSERT INTO op_journal (id, account_id, kind, state, folder_path, uid, payload, attempts,
+       created_at, updated_at, error)
+     VALUES (?, ?, 'flag', 'conflict', 'INBOX', 999999, ?, 1, ?, ?, 'e2e: injected conflict')`
+  ).run(opId, sandboxId, JSON.stringify({ add: ['\\Flagged'], remove: [] }), now, now)
+  type Op = { id: string; state: string }
+  const stateOf = async () =>
+    (await mail<Op[]>('listOpenOps', sandboxId)).find((o) => o.id === opId)?.state ?? 'closed'
+
+  try {
+    await openMailPage(sandboxId)
+    const badge = page.getByTestId('mail-op-badge')
+    await expect(badge).toBeVisible({ timeout: 30_000 })
+    await expect(badge).toContainText(/offene Änderung/)
+    await badge.click()
+
+    const panel = page.getByTestId('mail-op-panel')
+    await expect(panel.getByRole('heading', { name: 'Offene Änderungen' })).toBeVisible()
+    const entry = panel.locator(`[data-op-id="${opId}"]`)
+    await expect(entry).toHaveAttribute('data-attention', 'rejected')
+    await expect(entry).toContainText('Abgelehnt')
+    await expect(entry.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible()
+
+    // discarding asks first; cancelling the question keeps the op
+    await entry.getByRole('button', { name: 'Verwerfen' }).click()
+    const confirm = page.getByRole('dialog').filter({ hasText: 'verwerfen?' })
+    await expect(confirm).toBeVisible()
+    await confirm.getByRole('button', { name: 'Abbrechen' }).click()
+    expect(await stateOf()).toBe('conflict')
+
+    await entry.getByRole('button', { name: 'Verwerfen' }).click()
+    await confirm.getByRole('button', { name: 'Verwerfen' }).click()
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Verworfen' })).toBeVisible()
+    await expect(entry).toHaveCount(0)
+    expect(await stateOf()).toBe('closed')
+  } finally {
+    // the journal stays as it was, also when a check above failed
+    db.prepare(`UPDATE op_journal SET state = 'cancelled' WHERE id = ? AND state = 'conflict'`).run(
+      opId
+    )
+    db.close()
+    await page.keyboard.press('Escape')
   }
 })
 
