@@ -11,7 +11,7 @@ Each finding has an id (`MR-nn`), a place, a concrete failure scenario, a fix di
 - **code**: confirmed by one reviewer in the code, not re-traced by me;
 - **plausible**: depends on timing or server behaviour nobody reproduced.
 
-Nothing in here has been fixed. The suggested cards at the end turn this into work.
+The suggested cards at the end turn this into work. Fixed findings carry a **Status** line under their heading (I1 and I2 so far).
 
 ---
 
@@ -46,6 +46,7 @@ are fixed and tested. Card group **I** at the end orders the work.
 ### Critical
 
 #### MR-01: a send interrupted after SMTP started is sent again on the next start (confirmed)
+**Status: fixed in I1.** A `running` send in the `smtp` phase is replayed as `unknown` and only probed; nothing that may have reached the server is sent again.
 - **Where:**
   - `core/write_engine.ts:994-1020`: on replay only `state === 'unknown'` goes to the probe-only path;
   - `core/index.ts:599-611`: `replayPendingOps` replays `pending` and `running`;
@@ -62,6 +63,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   `running`/`smtp` is replayed and does not reach SMTP.
 
 #### MR-02: a failed connect leaves a send in `running`, and it goes out unasked at the next start (confirmed)
+**Status: fixed in I1.** `execute` turns every throw into an outcome (`failed` before SMTP, `unknown` after it), and replay catches per op.
 - **Where:** `core/write_engine.ts:1073`: `sentProbe` calls `writeClient()` outside its `try`. The same pattern
   is in `doFlag` (387), `doMoveLike` (438), `doMoveBatch` (556), the folder ops (724, 750, 791), `doExpunge`
   (923), `appendToSent` (1125) and `doDraftSave` (1150).
@@ -75,6 +77,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   `phase === 'smtp'`. Catch per op in `replayPendingOps`.
 
 #### MR-03: an unclear send is never resolved, and the editor invites a duplicate (confirmed)
+**Status: fixed in I1 (core) and I2 (editor); the op panel stays with I3.** Unknown sends are probed at start, the watchdog answers `unknown` in the SMTP phase, and the editor locks on an unclear result with "Im Ordner Gesendet prüfen" / "Als neue Mail senden". The Message-ID is stable per compose session.
 - **Where:**
   - `core/index.ts:1046`: throws "Versand unklar …";
   - `components/mail/ComposeView.tsx:450-451`: shows "Senden fehlgeschlagen" for every error and leaves the
@@ -100,6 +103,7 @@ are fixed and tested. Card group **I** at the end orders the work.
 ### High
 
 #### MR-04: Ctrl+Enter twice, or Enter in the subject, sends the mail (confirmed)
+**Status: fixed in I2.** A send gate taken before the first await, no submit button and no implicit submit; covered by an e2e test that fails on the old editor.
 - **Where:** `ComposeView.tsx:403` (`send()` has no in-flight guard) and `:545-560`. The editor is a `<form>`
   with a `type="submit"` button, so Enter in the Betreff `<Input>` (~659) submits it. Enter in an empty
   recipient field does too (RecipientField ~167 returns without `preventDefault`).
@@ -111,6 +115,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   Ctrl+Enter.
 
 #### MR-05: `retryOp` on an unknown send resends without the probe (code)
+**Status: fixed in I1.** `retryOp` refuses a send that is `unknown` or in the `smtp` phase and points to `resolveOp`.
 - **Where:** `core/index.ts:623-631`. It accepts `unknown`, resets it to `pending`, and `doSend` then skips
   `resolveUnknownSend`.
 - **Scenario:** today only reachable via the API. Once an op panel exists (MR-03), "Erneut versuchen" sends a
@@ -214,6 +219,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   a base64 round trip through the renderer.
 
 #### MR-15: draft-save replay protection does nothing in production (code)
+**Status: fixed in I1.** The probe runs when the op has been attempted before (`attempts > 0`), and `saveDraft` journals the Message-ID.
 - **Where:** `core/index.ts:988-998`: `saveDraft` never passes `messageId` to `journalEnqueue`, so
   `findDraftByMessageId` returns null at once (`write_engine.ts:1160`). `journalBumpAttempts` is never called.
 - **Scenario:** APPEND done, journal update lost (a crash or a close), so the replay appends a second copy.
@@ -222,6 +228,7 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** journal the built Message-ID. Call `journalBumpAttempts`. Test through `saveDraft`.
 
 #### MR-16: the watchdog's "do not release the mutex" is not true (code)
+**Status: fixed in I1.** The watchdog keeps the mutex until the abandoned body settles, and `close()` drains the op in flight (bounded).
 - **Where:** `core/write_engine.ts:238-247` and `core/sync.ts:196-201`.
 - **Scenario:** after `late`, `withWatchdog` returns, so `withFolderMutex`'s `finally` sees a matching owner
   token and deletes the entry. Sync takes the folder while the abandoned body still runs and applies local
@@ -455,6 +462,7 @@ are fixed and tested. Card group **I** at the end orders the work.
   open for destructive keys.
 
 #### MR-38: autosave races with send and re-uploads every attachment (code)
+**Status: partly fixed in I2.** No draft save while a send is in flight or unclear. Hashing attachments for the dirty check is still open.
 - **Where:** `ComposeView.tsx:304-312` and `:403-454`; `toDraftInput`.
 - **Scenario:**
   - The autosave timer fires during `sendMail` and appends a new draft after the send, an orphan in Entwürfe.
@@ -487,6 +495,7 @@ are fixed and tested. Card group **I** at the end orders the work.
 - **Fix:** put the contacts upsert in the insert transaction, or outside the try as non-fatal.
 
 #### MR-43: a mail that was sent but not filed is reported as sent and never filed (confirmed)
+**Status: fixed in I1.** Phase `sent` makes filing into Sent its own retry, which never resends.
 - **Where:** `core/write_engine.ts:1036-1049`. The op becomes `done` with the reason "will file, not resend",
   but nothing ever appends to Sent again. `sendMail` reports success.
 - **Fix:** a separate `file_sent` op, or a retry of the APPEND only, plus a note in the UI.

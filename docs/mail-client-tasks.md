@@ -1249,6 +1249,44 @@ all, which proved the window was being *closed*, not crashing.
 
 ---
 
+## I: cards from the review (`docs/mail-client-review.md`, section 9)
+
+### I1: send state machine [fixed 2026-10-26]
+
+MR-01, 02, 03 (core part), 05, 15, 16, 43. A send carries its phase in the journal payload:
+none (nothing left the machine), `smtp` (the server may have it: probe, never resend), `sent`
+(the server took it: only filing into Sent is left).
+
+- `execute` wraps the op: a throw is `failed` before SMTP and `unknown` after it; replay catches
+  per op and also picks up `unknown` sends, which it probes only.
+- `smtpRefused` decides "nothing went out" from nodemailer's codes. A reset after DATA is
+  labelled `CONN` too, so only `originalCode` connect errors, `EAUTH`, `EENVELOPE`, `EDNS` and
+  an `EMESSAGE` with a response code count as refused.
+- The watchdog answers `unknown` in the SMTP phase and keeps the mutex until the body settles;
+  `close()` drains the op in flight (8 s).
+- `retryOp` refuses an unclear send; `resolveOp` probes it.
+- `saveDraft` journals its Message-ID, and the draft probe runs on a re-attempt only.
+- Tests: `tests/mail_send_state.test.ts` (fake SMTP that drops or rejects after DATA).
+
+### I2: compose send guard [fixed 2026-10-26]
+
+MR-03 (editor part), 04, 38 (autosave part). `ComposeView.tsx` with the decisions in
+`components/mail/composeSend.ts`.
+
+- One send at a time: a gate taken before the first await; Ctrl+Enter ignores key repeat.
+- No implicit submit: the send button is `type="button"`, the form's submit does nothing, and a
+  recipient field never lets an Enter through.
+- A stable `sendKey` per compose session becomes the Message-ID (`<key>@<domain>`), so a check
+  finds this mail in the journal and in Sent.
+- "Versand unklar" locks the editor with "Im Ordner Gesendet prüfen" (probes via `resolveOp`,
+  never sends), "Als neue Mail senden" (confirms, new key) and "Schließen".
+- No draft save while sending or unclear.
+- Open: hashing attachments for the dirty check (rest of MR-38); the op panel is I3.
+- Tests: `tests/mail_compose_send.test.ts`; e2e "Enter does not send, and a double Ctrl+Enter
+  sends once" in `tests/e2e/mail-client.spec.ts` (fails on the old editor).
+
+---
+
 ## Found while working
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
