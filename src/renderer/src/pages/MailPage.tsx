@@ -31,6 +31,7 @@ import {
 import { ComposeView } from '@/components/mail/ComposeView'
 import { hide, unhide, visible } from '@/components/mail/optimistic'
 import { readingActions } from '@/components/mail/readingActions'
+import { archiveableIds, archivedCount, uncoveredIds } from '@/components/mail/archiveActions'
 import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import {
@@ -672,6 +673,13 @@ export default function MailPage() {
             }
           }
         : undefined
+    // MR-36: every mail the answer does not cover is shown again - the archive case returns no op
+    // for a self-move, and a mixed selection skips the mails already in Archive
+    const itemsById = new Map(selectedItems.map((m) => [m.id, m]))
+    const moved = ids.map((id) => itemsById.get(id)).filter((m): m is MessageListItem => m !== undefined)
+    const stillHidden = uncoveredIds(moved, ops)
+    if (stillHidden.length > 0) unhideMails(stillHidden.map((m) => m.id))
+
     const notDone = ops.filter((op) => op.state !== 'done')
     if (notDone.length > 0) {
       // A pending op stays journaled and is retried, but its mail is not on the server yet:
@@ -689,9 +697,12 @@ export default function MailPage() {
       })
       return
     }
-    toast.success(ids.length > 1 ? texts.many(ids.length, label) : texts.done(label), {
-      action: undo
-    })
+    // MR-36 / README renderer 20: the toast says what the core archived, not how many were selected
+    const archived = target.kind === 'archive' ? archivedCount(moved, ops) : ids.length
+    toast.success(
+      archived > 1 ? texts.many(archived, label) : texts.done(label),
+      { action: undo }
+    )
   }
 
   const hasArchive = allFolders.some((f) => f.specialUse?.includes('Archive'))
@@ -710,6 +721,9 @@ export default function MailPage() {
 
   // What the menu and the bulk pane offer for the selected mails
   const trashable = selectedItems.filter((m) => !isTrash(folderOf(m)))
+  // MR-36: the mails an archive may act on - not the ones already in Archive (a self-move the core
+  // refuses, which left the rows hidden until a restart) and not the ones in Trash
+  const archiveable = archiveableIds(selectedItems, allFolders)
   // B5: permanent deletion is offered only for mails that are in Trash
   const inTrashItems = selectedItems.filter((m) => isTrash(folderOf(m)))
   const selectedActions: MailActions = canWrite
@@ -719,7 +733,14 @@ export default function MailPage() {
         markRead,
         markFlagged,
         move: (ids, target) => void moveAway(ids, { kind: 'folder', folder: target }),
-        archive: hasArchive ? (ids) => void moveAway(ids, { kind: 'archive' }) : undefined,
+        archive:
+          hasArchive && archiveable.length > 0
+            ? (ids) =>
+                void moveAway(
+                  ids.filter((id) => archiveable.includes(id)),
+                  { kind: 'archive' }
+                )
+            : undefined,
         // Mails already in Trash stay there
         toTrash:
           trashable.length > 0
@@ -1351,7 +1372,19 @@ export default function MailPage() {
               )}
               onToggleFlag={(id, flagged) => markFlagged([id], flagged)}
               onDelete={(id) => void moveAway([id], { kind: 'delete' })}
-              onArchive={hasArchive ? (id) => void moveAway([id], { kind: 'archive' }) : undefined}
+              onArchive={
+                // MR-36: not offered for a mail already in Archive (a self-move the core refuses,
+                // which hid the row until a restart) and not from Trash
+                hasArchive &&
+                archiveableIds(
+                  [listItems.find((m) => m.id === selectedId)].filter(
+                    (m): m is MessageListItem => m !== undefined
+                  ),
+                  allFolders
+                ).length > 0
+                  ? (id) => void moveAway([id], { kind: 'archive' })
+                  : undefined
+              }
               onMarkUnread={(id) => markRead([id], false)}
               onCompose={reading.canCompose ? composeFrom : undefined}
               onWriteTo={
