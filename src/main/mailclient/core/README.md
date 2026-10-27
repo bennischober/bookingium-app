@@ -22,7 +22,7 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `write_engine.ts` | `WriteEngine`: crash-safe execution of flag/move/delete/expunge/send/draft ops, serialized playback, verify-before-replay |
 | `write_connection.ts` | `WriteConnectionPool`: one reused write connection, NOOP before reuse, closed after 30 s idle |
 | `connection_budget.ts` | `ConnectionBudget`: the account's `maxConnections`, shared by sync, IDLE and writes |
-| `write_guard.ts` | THE write guard: fixed sandbox allowlist + `assertSandboxHost`; sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
+| `write_guard.ts` | THE write guard: fixed loopback allowlist + `assertSandboxHost`; `writeRefusal` per account (canary flag, SMTP encryption), `settingsRefusal` for main's save check (I6); sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
 | `compose.ts` | MIME building for new mail, reply, reply-all, forward and drafts (built once, sent and appended as the same bytes) |
 | `connection_test.ts` | One-shot staged connection test for the account dialog (DNS, TCP, TLS, login, folders) |
 | `imap_options.ts` | Shared ImapFlow options (timeouts, socket error listener) |

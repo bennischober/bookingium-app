@@ -71,7 +71,8 @@ None of them is above Medium. Pick them up from here; the source report is named
 - `fakeSmtp` does no dot-unstuffing [tests 3].
 - `mail_crash_points` queries Mailpit with `limit=500`, so on a busy sandbox it can miss the message
   [tests 3].
-- `mail-canary.spec.ts` never removes its `onMessage` listeners [tests 3].
+- `mail-canary.spec.ts` never removes its `onMessage` listeners [tests 3]. Still true after I6 moved it to
+  `tests/e2e-canary/`: electron-trpc's exposed `onMessage` gives no way to remove one.
 - CI neither fails nor annotates when the sandbox suites skip [tests 2].
 - `tests/no_pii.test.ts` skips comment lines and detects only email addresses and IBANs: no names, phone
   numbers, postal addresses or BICs [tests 5]. The review doc covers only which files it scans.

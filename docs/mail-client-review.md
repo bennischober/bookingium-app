@@ -267,6 +267,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   on any OS.
 
 #### MR-18: the canary e2e spec cannot pass and is safe only by accident (code)
+**Status: fixed in I6 (2026-10-27).** The spec moved to `tests/e2e-canary/` with its own `playwright.canary.config.ts`, so `npx playwright test` no longer finds it. It skips unless `BOOKINGIUM_CANARY=1`; once that is set it needs `BOOKINGIUM_E2E_USER_DATA` and fails on a wrong setup. It finds the account through `listAccounts` by mode `canary` (exactly one), selects it, and sends its requests in the shape `mail-client.spec.ts` uses. The core reported a canary as `sandbox`, because `accountMode` read the flag from the sync config, which never carried it; it now reads the write account. The spec itself was not run.
 - **Where:** `tests/e2e/mail-canary.spec.ts`. It uses the account id `'canary'`, but ids are `randomUUID()`
   (`accounts.ts:183`), and `getAccount()` takes no parameter. `.catch(() => null)` turns every error into a
   skip.
@@ -294,6 +295,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   the pool against `maxConnections`.
 
 #### MR-20: canary admission is enforced only in the renderer (code)
+**Status: fixed in I6 (2026-10-27).** Main decides when an account is saved (`settingsRefusal`, also checked by the router before the connection test): a sandbox kind on a non-loopback host is accepted only as the canary, SMTP needs encryption off loopback for every kind, and a packaged build admits a canary only with `BOOKINGIUM_ALLOW_CANARY=1` (also when the worker starts). The flag ends when host, port, user, address, SMTP host or SMTP port changes, and unchecking it revokes it; either way the account is saved read-only. The address is now part of the admission, so `sendRefusal` compares against an address the user confirmed. The allowlist is loopback only. The core treats any account the guard refuses as read-only with the production pacing, and `writableEntry` asks the guard before an op is journaled. Tests in `tests/mail_canary_save.test.ts` and `tests/mail_canary_main.test.ts`.
 - **Where:** `api/routers/mail.router.ts:35-53`, `accounts.ts:175-196` and `core/write_guard.ts:117-129`.
 - **What's wrong:**
   - **Main trusts the renderer.** Main accepts `kind: 'sandbox'` and `canary: true` for any host, in any
@@ -706,9 +708,12 @@ port the same kind of evidence.
   `write_guard.ts`, "never from the UI". `8ca6fd4` replaced it with a flag and a danger toggle in the account
   dialog. The `write_guard.ts` header still describes the constant. Either sign the new design off explicitly
   and enforce it in main (MR-20), or go back to the constant.
+  **Decided 2026-10-27:** the user signed off the flag and the danger toggle in the account dialog, enforced
+  in main. I6 did the enforcing; the `write_guard.ts` header records the decision.
 - **Phase-2 writes are recorded as done.** `docs/mail-client-tasks.md` says A9 phase 2 (writes beyond sending
   to oneself) needs its own go-ahead. G2 and G4 record deletes and moves on the real IONOS mailbox, and A9 is
   still listed as blocked. Record the go-ahead, or correct the record.
+  **Open (2026-10-27):** waits for the user's decision; I6 did not change the record.
 - **PII:**
   - `docs/mail-client-tasks.md` (around line 892) contains one real-looking mailbox address.
   - `docs/TODOS.md` (Data section, from before this branch) contains two real-looking person names.

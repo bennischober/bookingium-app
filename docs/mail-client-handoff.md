@@ -32,8 +32,9 @@ says. If a card seems to need breaking one, stop and ask instead.
 **The real mailbox**
 - The production account (IONOS) stays read-only until the canary has passed and the user signs that off.
   No card may make it writable, and no test may connect to it.
-- Never run `tests/e2e/mail-canary.spec.ts`. Never run `npx playwright test` without a file argument: it
-  picks up the canary spec until I6 moves it out of the default `testDir`.
+- Never run `tests/e2e-canary/mail-canary.spec.ts` or `playwright.canary.config.ts`. Since I6 the spec is
+  outside the default `testDir` and skips unless `BOOKINGIUM_CANARY=1`; still pass the spec files to
+  `npx playwright test`.
 - Never send mail to another person, from any account.
 - At most 2 connections to the production server at once. Never retry a failed login, in code or by hand.
 
