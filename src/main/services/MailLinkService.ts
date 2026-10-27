@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { injectable, inject } from 'tsyringe'
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db'
@@ -42,13 +43,16 @@ export type ThreadLookup = (messageId: string) => ResolvedOwner[]
 export type LinkCursor = { generation: string | null; id: number }
 
 /**
- * Host L3: the user's own addresses - every configured account's address, and its login
- * when that is an address. Mail between them links nothing.
+ * Host L3: the user's own addresses - every configured account's address, its login
+ * when that is an address, and the further own addresses entered on it (a forwarder
+ * such as info@). Mail between them links nothing.
  */
-export function ownMailAddresses(accounts: { email: string; user: string }[]): string[] {
+export function ownMailAddresses(
+  accounts: { email: string; user: string; aliases?: readonly string[] }[]
+): string[] {
   const out = new Set<string>()
   for (const account of accounts) {
-    for (const value of [account.email, account.user]) {
+    for (const value of [account.email, account.user, ...(account.aliases ?? [])]) {
       const address = (value ?? '').trim().toLowerCase()
       if (address.includes('@')) out.add(address)
     }
@@ -120,15 +124,16 @@ export function linkableFolder(folder: { path?: string; specialUse?: string | nu
 }
 
 /**
- * C2: runs the linker after a folder sync. One run per account at a time; a folder event
- * that arrives during a run must not be dropped (the mails it announced may have been
- * synced after the run's cursor passed them), so the run is repeated once instead. A
- * failed run is logged (MR-28), never swallowed.
+ * C2: runs the linker for an account. One run per account at a time; a request that
+ * arrives during a run must not be dropped (the mails a folder event announced may have
+ * been synced after the run's cursor passed them, a contact may have gained an address
+ * after the run read them), so the run is repeated once instead. A failed run is logged
+ * (MR-28), never swallowed.
  */
-export function mailLinkTrigger(deps: {
+export function mailLinkRunner(deps: {
   link: (accountId: string) => Promise<unknown>
   log: (error: unknown) => void
-}): (event: unknown) => void {
+}): { run: (accountId: string) => void; onEvent: (event: unknown) => void } {
   const running = new Set<string>()
   const again = new Set<string>()
   const run = (accountId: string): void => {
@@ -146,13 +151,21 @@ export function mailLinkTrigger(deps: {
         if (again.delete(accountId)) run(accountId)
       })
   }
-  return (event) => {
+  const onEvent = (event: unknown): void => {
     const e = event as MailClientEvent
     if (e.type !== 'sync-event' || e.event?.type !== 'folder-done') return
     if (!linkableFolder(e.event)) return
     if (!e.accountId) return
     run(e.accountId)
   }
+  return { run, onEvent }
+}
+
+/** C2: the runner's event side - links after each folder sync of INBOX or Sent */
+export function mailLinkTrigger(
+  deps: Parameters<typeof mailLinkRunner>[0]
+): (event: unknown) => void {
+  return mailLinkRunner(deps).onEvent
 }
 
 @injectable()
@@ -183,17 +196,44 @@ export class MailLinkService {
     this.settings.setMany({ [this.cursorKey(accountId)]: JSON.stringify(cursor) })
   }
 
+  private addressesKey(accountId: string): string {
+    return `mailLinkAddresses:${accountId}`
+  }
+
+  /**
+   * A digest of every contact address, primary and further ones. When it differs from
+   * the one an account's linker last ran with, an address was added or changed, and
+   * mail the cursor already passed may now belong to a record.
+   */
+  addressFingerprint(): string {
+    const primary = db
+      .select({ email: sql<string>`lower(trim(${schema.contact.email}))` })
+      .from(schema.contact)
+      .all()
+    const others = db.select({ email: schema.contact_email.email }).from(schema.contact_email).all()
+    const all = new Set([...primary, ...others].map((row) => row.email).filter(Boolean))
+    return createHash('sha256')
+      .update([...all].sort().join(' '))
+      .digest('hex')
+  }
+
   /** The records that own an address, capped so a shared mailbox links nothing */
   addressOwners(address: string): ResolvedOwner[] {
     const email = address.trim().toLowerCase()
     if (!email) return []
-    const contacts = db
+    // The primary address of a contact, or one of its further ones
+    const primary = db
       .select({ id: schema.contact.id })
       .from(schema.contact)
       .where(sql`lower(trim(${schema.contact.email})) = ${email}`)
       .all()
-    if (contacts.length === 0) return []
-    const ids = contacts.map((c) => c.id)
+    const others = db
+      .select({ id: schema.contact_email.contact_id })
+      .from(schema.contact_email)
+      .where(eq(schema.contact_email.email, email))
+      .all()
+    const ids = [...new Set([...primary, ...others].map((c) => c.id))]
+    if (ids.length === 0) return []
     const out: ResolvedOwner[] = []
     const push = (entityType: MailLinkEntityType, rows: { id: number }[]): void => {
       for (const row of rows) out.push({ entityType, entityId: row.id })
@@ -328,12 +368,26 @@ export class MailLinkService {
    * store it belongs to (MR-28): every row up to its id was linked, in that store
    * only. A rebuilt or replaced store has another generation, and the run starts
    * again from 0; the unique index makes re-linking harmless.
+   *
+   * The same restart follows a change of the contact addresses, so a contact that gained
+   * one gets its older mail too. A rescan only adds: a link is never added twice, and a
+   * dismissed one stays dismissed. Links an address made stay when it is removed.
    */
   async linkAccount(
     accountId: string,
     ownAddresses: readonly string[]
   ): Promise<{ linked: number; scanned: number }> {
     let { generation, id: cursor } = this.cursorFor(accountId)
+    const addresses = this.addressFingerprint()
+    const linkedWith = this.settings.getAll()[this.addressesKey(accountId)]
+    if (linkedWith !== addresses) {
+      // No digest yet (an account from before, or a new one): its cursor stands
+      if (linkedWith !== undefined) cursor = 0
+      this.settings.setMany({
+        [this.cursorKey(accountId)]: JSON.stringify({ generation, id: cursor }),
+        [this.addressesKey(accountId)]: addresses
+      })
+    }
     let linked = 0
     let scanned = 0
     for (;;) {

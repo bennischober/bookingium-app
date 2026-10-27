@@ -24,7 +24,12 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { connectionTestMessage, SECURITY_LABELS, SECURITY_PORTS } from '@/lib/mailConnection'
+import {
+  connectionTestMessage,
+  parseAliases,
+  SECURITY_LABELS,
+  SECURITY_PORTS
+} from '@/lib/mailConnection'
 import type { MailAccountDto, MailAccountKind } from '../../../../main/mailclient/accounts'
 import type { ConnectionTestResult } from '../../../../main/mailclient/core/connection_test'
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
@@ -53,6 +58,8 @@ type Draft = {
   user: string
   password: string
   signature: string
+  /** The user's further own addresses, as typed (comma or line separated) */
+  aliases: string
   /** A7: this account's own SMTP endpoint; empty = the IMAP host on 1025 */
   smtpHost: string
   smtpPort: string
@@ -69,6 +76,7 @@ const EMPTY_DRAFT: Draft = {
   user: '',
   password: '',
   signature: '',
+  aliases: '',
   smtpHost: '',
   smtpPort: '',
   smtpSecurity: ''
@@ -130,6 +138,7 @@ function MailAccountDialog({
               port: String(account.port),
               password: '',
               signature: account.signature ?? '',
+              aliases: account.aliases.join(', '),
               smtpHost: account.smtpHost,
               smtpPort: String(account.smtpPort),
               smtpSecurity: account.smtpSecurity,
@@ -193,7 +202,8 @@ function MailAccountDialog({
     securities.includes(draft.security) &&
     (draft.smtpSecurity === '' || smtpSecurities.includes(draft.smtpSecurity)) &&
     (account !== null || draft.password !== '')
-  const valid = connectionValid && draft.email.trim() !== ''
+  const aliases = parseAliases(draft.aliases)
+  const valid = connectionValid && draft.email.trim() !== '' && aliases.invalid === null
   const busy = test.isLoading || save.isLoading
   // The local test server only makes sense on a developer machine
   const kinds: MailAccountKind[] =
@@ -264,6 +274,7 @@ function MailAccountDialog({
       ...connection(),
       email: draft.email.trim(),
       signature: draft.signature.trim() || undefined,
+      aliases: aliases.aliases,
       canary: draft.canary === true
     })
   }
@@ -319,6 +330,22 @@ function MailAccountDialog({
               }
               autoFocus
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mail-account-aliases">Weitere eigene Adressen</Label>
+            <Input
+              id="mail-account-aliases"
+              value={draft.aliases}
+              onChange={(e) => set({ aliases: e.target.value })}
+              placeholder="z. B. info@… – durch Komma getrennt"
+              aria-describedby="mail-account-aliases-hint"
+            />
+            <p id="mail-account-aliases-hint" className="text-xs text-muted-foreground">
+              {aliases.invalid
+                ? `„${aliases.invalid}“ ist keine E-Mail-Adresse.`
+                : 'Adressen, die in dieses Postfach weiterleiten. Mails über sie werden keinem Kontakt zugeordnet.'}
+            </p>
           </div>
 
           <div className="space-y-2">

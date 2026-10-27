@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -11,6 +12,12 @@ import { schema } from '../db/schema'
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type ContactRow = typeof schema.contact.$inferSelect
 export type ContactWithEmails = ContactRow & { other_emails: string[] }
+
+/**
+ * Emits 'saved' when a contact's addresses were written, so the mail linker can look for
+ * mail of an address the contact gained. The linker runs later, after the write committed.
+ */
+export const contactAddressEvents = new EventEmitter()
 
 /** One stored form of an address: trimmed and lower-cased */
 export function normalizeEmail(address: string): string {
@@ -43,6 +50,7 @@ export function saveContactEmails(
   primary: string,
   others: readonly string[] | undefined
 ): void {
+  contactAddressEvents.emit('saved')
   if (others === undefined) {
     // The primary may have become one of the further addresses; it is not kept twice
     const email = normalizeEmail(primary)

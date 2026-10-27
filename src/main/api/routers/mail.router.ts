@@ -54,6 +54,10 @@ const SaveMailAccountInput = z.object({
   password: z.string().min(1).optional(),
   /** B8: plain-text signature, appended to new mail and above the quote */
   signature: z.string().optional(),
+  /** The user's further own addresses (a forwarder); mail through them links no record */
+  aliases: z
+    .array(z.string().trim().toLowerCase().email('Ungültige E-Mail-Adresse').or(z.literal('')))
+    .optional(),
   /** A7: this account's own SMTP endpoint; defaults to the IMAP host on 1025 */
   smtpHost: z.string().min(1).optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
