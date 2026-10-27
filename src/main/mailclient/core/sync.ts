@@ -23,6 +23,7 @@ import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } f
 import { writeMessageFile } from './files.js';
 import { diskFullMessage, isDiskFullError } from './disk_full.js';
 import { isPathOrChild } from './folders.js';
+import { ConnectionBudget } from './connection_budget.js';
 
 export interface AccountConfig {
   id: string;
@@ -34,7 +35,7 @@ export interface AccountConfig {
   readOnly: boolean;           // true for production
   dataDir: string;             // ABSOLUTE (createMailCore resolves it; core never guesses paths)
   // Task 3: throttle + pacing for live/production servers (gentle-by-default)
-  maxConnections?: number;     // hard cap: 1 sync + 1 IDLE (never more)
+  maxConnections?: number;     // hard cap for sync, IDLE and writes together (I15a: a write takes IDLE's slot)
   batchBytes?: number;         // pause download when a batch exceeds this
   interBatchDelayMs?: number;  // sleep between download batches
   requestDelayMs?: number;     // sleep between IMAP commands in sweeps
@@ -57,7 +58,7 @@ export function makeProductionAccount(input: {
     user: input.user, pass: input.pass,
     readOnly: true,
     dataDir: input.dataDir,
-    maxConnections: 2,             // 1 sync + 1 IDLE — hard cap, gentle to the live server
+    maxConnections: 2,             // sync + IDLE, or sync + write (I15a) — hard cap, gentle to the live server
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
     interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
     requestDelayMs: 150,           // pace STATUS/UID sweeps
@@ -84,7 +85,7 @@ export function makeCanaryAccount(input: {
     user: input.user, pass: input.pass,
     readOnly: false,              // writable, but only through write_guard's admission
     dataDir: input.dataDir,
-    maxConnections: 2,             // 1 sync + 1 IDLE - hard cap, gentle to the live server
+    maxConnections: 2,             // sync + IDLE, or sync + write (I15a) - hard cap, gentle to the live server
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
     interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
     requestDelayMs: 150,           // pace STATUS/UID sweeps
@@ -175,7 +176,11 @@ export class SyncEngine {
   // what the running pass is: 'initial' while some folder was never downloaded
   private passPhase: 'initial' | 'incremental' = 'incremental';
   private pauseResolvers: (() => void)[] = [];
-  private connectionCount = 0;
+  // I15a (MR-19): sync, IDLE and the write engine draw from one budget per account
+  private readonly budget: ConnectionBudget;
+  // I15a: set when the IDLE connection gave its slot to a write; the reconnect then catches up
+  private idleCatchUp = false;
+  private unregisterIdleYield: (() => void) | null = null;
   private consecutiveErrors = 0;
   private circuitOpenUntil = 0;
   private static readonly ERROR_THRESHOLD = 5;
@@ -250,8 +255,11 @@ export class SyncEngine {
     /** QA seam: fail every local write with this code, to exercise the disk-full path for real. */
     faultWriteCode?: string;
     log?: { info?: (msg: string) => void; warn?: (msg: string) => void; error?: (msg: string) => void };
+    /** I15a: the account's connection budget, shared with the write engine */
+    budget?: ConnectionBudget;
   }) {
     this.progress.accountId = account.id;
+    this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
     // Task 3: kill-switch for testing the no-CONDSTORE path against Dovecot
     // (Task 5: comes in through the factory options, not process.env)
     this.simulateNoCondstore = options?.forceNoCondstore === true;
@@ -486,27 +494,24 @@ export class SyncEngine {
     if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
     if (this.client && this.client.usable) return this.client;
     if (this.client) { try { this.client.close(); } catch { /* stale client is already unusable; a failed close leaves nothing to release */ } this.client = null; }
-    // Task 3: hard connection cap (1 sync + 1 IDLE for prod)
-    const cap = this.account.maxConnections ?? 4;
-    while (this.connectionCount >= cap) {
-      await new Promise(r => setTimeout(r, 500));
-      if (this.stopped) throw new Error('stopped');
-    }
+    // Task 3: hard connection cap (1 sync + 1 IDLE for prod). I15a (MR-19): the budget is shared
+    // with the IDLE connection and the write engine, so all of them count.
+    const release = await this.budget.acquire({ cancelled: () => this.stopped });
     const client = this.newClient();
-    this.connectionCount++;
     try {
       await client.connect();
     } catch (e) {
-      this.connectionCount--;
+      release();
       this.noteConnectFailure(e);
       this.noteDisconnect();
       throw e;
     }
     this.noteOnline();
     client.on('close', () => {
-      this.connectionCount = Math.max(0, this.connectionCount - 1);
+      release();
       if (this.client === client || this.idleClient === client) this.noteDisconnect();
     });
+    if (!client.usable) release();
     this.client = client;
     this.backoffMs = 1000;
     this.noteSuccess();
@@ -1312,6 +1317,18 @@ export class SyncEngine {
   async startIdle(mailboxPath = 'INBOX', onChange?: () => void): Promise<void> {
     if (this.authFailed) return;
     this.stopped = false;
+    // I15a (MR-19): a write that finds the budget full asks for this slot. The IDLE connection
+    // closes at once (its loop sees it unusable) and comes back once the write connection idles
+    // out; the reconnect then syncs whatever arrived in between.
+    this.unregisterIdleYield?.();
+    this.unregisterIdleYield = this.budget.onYieldRequest(() => {
+      const idle = this.idleClient;
+      if (!idle) return;
+      this.idleClient = null;
+      this.idleCatchUp = true;
+      this.progress.idleConnected = false;
+      try { idle.close(); } catch { /* already closed: its slot is released on 'close' */ }
+    });
     const loop = async () => {
       while (!this.stopped) {
         // I4: a full disk stops IDLE's syncs too; wait for resume() instead of reconnecting
@@ -1324,20 +1341,30 @@ export class SyncEngine {
               await new Promise(r => setTimeout(r, 500));
             }
             if (this.stopped) break;
-            this.idleClient = this.newClient();
+            // I15a (sync L2): the IDLE connection used to be opened outside the cap
+            const release = await this.budget.acquire({ cancelled: () => this.stopped });
+            const idle = this.newClient();
+            idle.once('close', release);
+            this.idleClient = idle;
             try {
-              await this.idleClient.connect();
+              await idle.connect();
             } catch (e) {
+              release();
+              // a write took the slot back while this one was still logging in: not a failure
+              if (this.idleClient !== idle) continue;
               // with the main connection still up only this one failed: not offline
               if (isAuthFailure(e) || !this.client?.usable) this.noteConnectFailure(e);
               throw e;
             }
+            if (this.idleClient !== idle) continue;
             this.progress.idleConnected = true;
           }
           const client = this.idleClient;
 
-          // event → dirty flag (coalesced)
-          let dirty = false;
+          // event → dirty flag (coalesced). I15a: after giving the slot to a write, start dirty
+          // so the changes made while this connection was away are synced now
+          let dirty = this.idleCatchUp;
+          this.idleCatchUp = false;
           const markDirty = () => { dirty = true; };
           client.on('exists', markDirty);
           client.on('expunge', markDirty);
@@ -1367,15 +1394,7 @@ export class SyncEngine {
 
             while (!this.stopped && client.usable) {
               // wait for an IMAP event, or 25 min safety poll (missed events, server timeout)
-              if (!dirty) {
-                await new Promise<void>(resolve => {
-                  const poll = setInterval(() => { if (dirty) { clearInterval(poll); resolve(); } }, 100);
-                  const cap = setTimeout(() => { clearInterval(poll); resolve(); }, 25 * 60 * 1000);
-                  const stopCheck = setInterval(() => {
-                    if (this.stopped) { clearInterval(poll); clearTimeout(cap); clearInterval(stopCheck); resolve(); }
-                  }, 500);
-                });
-              }
+              if (!dirty) await idleWait(() => dirty || this.stopped || !client.usable);
               dirty = false;
               if (this.stopped || !client.usable || this.diskFull) break;
               const mb = client.mailbox;
@@ -1409,6 +1428,9 @@ export class SyncEngine {
           // I4: the connection is fine, the drive is not - no disconnect, no backoff, no circuit
           if (isDiskFullError(e)) { this.noteDiskFull(mailboxPath); continue; }
           this.progress.idleConnected = false;
+          // I15a: stopped while waiting for a slot, or the slot given to a write mid-sync: no error
+          if (this.stopped) break;
+          if (this.idleCatchUp && !this.idleClient) continue;
           this.emit({ type: 'error', path: mailboxPath, message: `idle: ${(e as Error).message}` });
           if (this.idleClient) { try { this.idleClient.close(); } catch { /* IDLE connection already dropped; nothing left to release */ } this.idleClient = null; }
           if (this.authFailed) break;
@@ -1601,6 +1623,8 @@ export class SyncEngine {
 
   stopIdle(): void {
     this.stopped = true;
+    this.unregisterIdleYield?.();
+    this.unregisterIdleYield = null;
   }
 
   async close(): Promise<void> {
@@ -1612,6 +1636,23 @@ export class SyncEngine {
 }
 
 // ---------- helpers ----------
+
+/** IDLE's longest wait without an event: a safety poll for missed events and server timeouts */
+export const IDLE_CAP_MS = 25 * 60 * 1000;
+
+/**
+ * I15a (MR-39): wait until `wake()` turns true or the cap runs out. One check interval and one
+ * cap timer, both cleared on either path; a dirty wakeup used to leave the 500 ms stop check and
+ * the 25 min cap running, so a day of IDLE events piled up hundreds of timers in the worker.
+ */
+export function idleWait(wake: () => boolean, capMs = IDLE_CAP_MS): Promise<void> {
+  return new Promise<void>(resolve => {
+    const check = setInterval(() => { if (wake()) done(); }, 100);
+    const cap = setTimeout(done, capMs);
+    function done() { clearInterval(check); clearTimeout(cap); resolve(); }
+  });
+}
+
 function flagsFromSet(set: Set<string> | undefined): Flags {
   const s = set || new Set<string>();
   return {

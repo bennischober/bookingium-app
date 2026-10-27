@@ -18,6 +18,7 @@ import { Store, JournalRow, STAGING_PREFIX, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, FOLDER_DELETE_REFUSED, type BatchMember, type BatchMoved } from './write_engine.js';
 import { WriteAccount, writeEndpointReachable, isCanary } from './write_guard.js';
+import { ConnectionBudget } from './connection_budget.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
@@ -108,16 +109,20 @@ export type MailCoreEvent =
   | { type: 'image-progress'; accountId: string; messageId: number; done: number; total: number };
 
 export class MailCore implements Api {
-  private listeners = new Set<(e: MailCoreEvent) => void>();
+  // I15a (MR-40): listeners by event name. `on()` used to ignore the name, so a host that
+  // subscribed to two names got every event twice.
+  private listeners = new Map<MailCoreEvent['type'], Set<(e: MailCoreEvent) => void>>();
 
-  /** Subscribe to sync progress, write-op and image-progress events. Returns an unsubscribe function. */
-  on(_name: 'sync-event' | 'op-event' | 'image-progress', cb: (e: MailCoreEvent) => void): () => void {
-    this.listeners.add(cb);
-    return () => this.listeners.delete(cb);
+  /** Subscribe to one kind of event: sync progress, write ops or image progress. Returns an unsubscribe function. */
+  on(name: MailCoreEvent['type'], cb: (e: MailCoreEvent) => void): () => void {
+    let set = this.listeners.get(name);
+    if (!set) { set = new Set(); this.listeners.set(name, set); }
+    set.add(cb);
+    return () => { set.delete(cb); };
   }
 
   private emitEvent(e: MailCoreEvent): void {
-    for (const l of this.listeners) {
+    for (const l of this.listeners.get(e.type) ?? []) {
       try { l(e); } catch { /* listener errors never break the core */ }
     }
   }
@@ -179,13 +184,17 @@ export class MailCore implements Api {
         this.log.warn?.(`mail account ${a.id} could not be opened and is skipped: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
+      // I15a (MR-19): sync, IDLE and write connections share one cap per account
+      const budget = new ConnectionBudget(config.maxConnections ?? 4);
       const engine = new SyncEngine(config, store, {
         forceNoCondstore: options.forceNoCondstore,
         faultWriteCode: options.faultWriteCode,
         log: this.log,
+        budget,
       });
       const writes = new WriteEngine(store, a.id, {
         writeAccount,
+        budget,
         /** A7: credentials come from the host, lazily, and never from the guard */
         credentials: () => this.ensureCredentials(a.id),
         sinkProbe: options.sinkProbe,

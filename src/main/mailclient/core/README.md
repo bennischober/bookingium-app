@@ -20,6 +20,8 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `migrations.ts` | Versioned schema migrations (`PRAGMA user_version`): append-only list, one transaction each, a DB from a newer build is refused |
 | `sync.ts` | `SyncEngine`: two-way IMAP sync (CONDSTORE/QRESYNC tiered + UID-sweep fallback), IDLE, pacing, circuit breaker, staged UIDVALIDITY swap |
 | `write_engine.ts` | `WriteEngine`: crash-safe execution of flag/move/delete/expunge/send/draft ops, serialized playback, verify-before-replay |
+| `write_connection.ts` | `WriteConnectionPool`: one reused write connection, NOOP before reuse, closed after 30 s idle |
+| `connection_budget.ts` | `ConnectionBudget`: the account's `maxConnections`, shared by sync, IDLE and writes |
 | `write_guard.ts` | THE write guard: fixed sandbox allowlist + `assertSandboxHost`; sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
 | `compose.ts` | MIME building for new mail, reply, reply-all, forward and drafts (built once, sent and appended as the same bytes) |
 | `connection_test.ts` | One-shot staged connection test for the account dialog (DNS, TCP, TLS, login, folders) |
@@ -128,6 +130,47 @@ Two traps this cost, both worth knowing before touching the path:
 `BOOKINGIUM_FAULT_WRITE=<code>` makes the worker fail every local write with that code, so an e2e can exercise
 the real path. It is a QA seam, off unless set.
 
+## One connection budget per account
+
+I15a (MR-19, sync L2). Sync, IDLE and the write engine draw from one `ConnectionBudget` per account,
+created in `createMailCore` from `maxConnections` (default 4; both account profiles set 2). Before
+this, sync counted its own connection, IDLE was opened outside the cap and the write engine opened a third,
+so production saw three logins where the rule allows two.
+
+- A write asks for its slot as **urgent**. A slot that comes free goes to it first, and a holder that
+  registered a yielder is asked to give its slot back. The IDLE connection is that holder: it closes at once
+  and reconnects once a slot is free again, and the reconnect starts dirty, so whatever arrived meanwhile is
+  synced.
+- The write connection is reused across ops (`WriteConnectionPool`). Before reuse it must answer a NOOP
+  within 10 s, because `usable` stays true on a socket that died while the laptop slept. After 30 s
+  without an op it logs out, which gives the slot back for IDLE.
+- When the op watchdog gives up, the pool closes the connection without a LOGOUT. That rejects the
+  hung command, so the op settles as `failed` instead of stopping the queue.
+- The write connection uses the sync engine's `IMAP_TIMEOUTS` and has an `error` listener.
+
+The account dialog's `connection_test.ts` is a one-shot test outside the budget: it runs before the account
+is saved, with its own 15 s deadline.
+
+## A failed SELECT is not always a missing folder
+
+I15a (MR-30). `folderMissing(error)` in `write_engine.ts` decides it from the server's own answer: a tagged
+`NO` with `NONEXISTENT` or `TRYCREATE`, or with no response code (servers before RFC 5530), means the folder
+is gone, and the op is a conflict. A `NO` with a transient code (`UNAVAILABLE`, `INUSE`, `LIMIT`,
+`SERVERBUG`, `OVERQUOTA`), a `BYE`, a timeout or a closed socket is `failed`: the client is dropped and a
+retry can succeed.
+
+## A move resumes only with proof that it happened
+
+I15a (MR-32). Before a MOVE or COPY the engine journals the target's `UIDNEXT` (`targetUidNext`). After a
+crash the op is resumed from the target only when:
+
+- every source UID is gone (one still there means the move did not happen),
+- every member has a Message-ID, and
+- each Message-ID is found exactly once at or above the recorded `UIDNEXT`, with no two members on one UID.
+
+Anything else is a conflict and the next sync settles it. An op journaled before I15a has no `UIDNEXT` and
+is never resumed this way.
+
 ## Factory
 
 ```ts
@@ -152,7 +195,7 @@ const core = createMailCore({
 });
 
 core.api;        // MailCore IS the Api implementation (types.ts)
-core.on('sync-event', cb);   // sync progress events (see below)
+core.on('sync-event', cb);   // sync progress events (see below); delivered by name only
 core.on('op-event', cb);     // write-op journal state changes
 core.start();    // initial sync + IDLE + polling + pending-op replay (5 s after start)
 core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host schedules it (`worker.ts`, 10 min after start then every 6 h)
@@ -169,7 +212,8 @@ never reads `.env`, never logs credentials, and never stores them on disk.
 
 ## Events emitted
 
-Subscribed via `core.on(name, cb)`:
+Subscribed via `core.on(name, cb)`. A listener gets only the events of the name it subscribed to; before
+I15a (MR-40) the name was ignored, so a host that subscribed twice got every event twice.
 
 | Event | Payload | Meaning |
 |---|---|---|

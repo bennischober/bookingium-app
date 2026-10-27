@@ -127,6 +127,10 @@ function stubClient(capabilities: string[], options: { uidMap?: Map<number, numb
       calls.push({ method: 'messageCopy', args: [] })
       return { uidMap: new Map() }
     },
+    status: async (mailbox: string) => {
+      calls.push({ method: 'status', args: [mailbox] })
+      return { path: mailbox, uidNext: 1000 }
+    },
     messageFlagsAdd: async () => {
       calls.push({ method: 'messageFlagsAdd', args: [] })
       return true
@@ -142,9 +146,11 @@ function stubClient(capabilities: string[], options: { uidMap?: Map<number, numb
 
 /** A WriteEngine whose connection is the stub */
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
-  ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () =>
-    client
+  const writes = new WriteEngine(store, ACCOUNT, {
+    writeAccount: sandboxWriteAccount(),
+    credentials: sandboxCredentials
+  })
+  ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () => client
   return writes
 }
 
@@ -335,7 +341,10 @@ describe('batch move in one UID MOVE (B4)', () => {
       mails.map((m) => ({ key: m.key, uid: m.uid }))
     )
     // The MOVE happened on the server, the crash came before the journal update: the
-    // source uids are gone, the mails are at the target under other uids.
+    // source uids are gone, the mails are at the target under other uids. The run that crashed
+    // recorded the target's UIDNEXT first (I15a, MR-32).
+    const payload = JSON.parse(store.journalGet(op.id)!.payload || '{}') as Record<string, unknown>
+    store.journalUpdate(op.id, { payload: { ...payload, targetUidNext: 2000 } })
     const { client } = stubClient(['IMAP4rev1', 'MOVE', 'UIDPLUS'])
     client.search = (async (query: { header?: Record<string, string> }) => {
       const id = query.header?.['message-id']
@@ -343,7 +352,7 @@ describe('batch move in one UID MOVE (B4)', () => {
       return [2000 + n]
     }) as never
 
-    const result = await run(engineWith(store, client), op)
+    const result = await run(engineWith(store, client), store.journalGet(op.id)!)
     expect(result.outcome).toBe('done')
     expect(result.detail).toMatch(/resumed/)
 
@@ -353,6 +362,109 @@ describe('batch move in one UID MOVE (B4)', () => {
     }[]
     expect(rows.every((r) => r.folder_id === ARCHIVE.id)).toBe(true)
     expect(rows.map((r) => r.uid)).toEqual([2001, 2002])
+  })
+
+  // I15a (MR-32): the resume used to search after ANY preflight failure and take found[0], so a
+  // copy that was already at the target (a list mail, a CC duplicate) marked the op done
+  describe('I15a: the resume needs proof that this move happened', () => {
+    /** A crashed batch whose run recorded the target's UIDNEXT, and a target search answer */
+    function crashed(found: (n: number) => number[], targetUidNext: number | null = 2000) {
+      const { store, dir } = openStore()
+      seedFolders(store)
+      const mails = Array.from({ length: 2 }, (_, i) => seedMessage(store, dir, i + 1))
+      const op = batchOp(
+        store,
+        mails.map((m) => ({ key: m.key, uid: m.uid }))
+      )
+      if (targetUidNext !== null) {
+        const payload = JSON.parse(store.journalGet(op.id)!.payload || '{}') as Record<
+          string,
+          unknown
+        >
+        store.journalUpdate(op.id, { payload: { ...payload, targetUidNext } })
+      }
+      const { client, calls } = stubClient(['IMAP4rev1', 'MOVE', 'UIDPLUS'])
+      client.search = (async (query: { header?: Record<string, string> }) => {
+        calls.push({ method: 'search', args: [query] })
+        return found(Number(String(query.header?.['message-id']).replace(/[^0-9]/g, '')))
+      }) as never
+      return { store, mails, op: store.journalGet(op.id)!, client, calls }
+    }
+
+    const stayed = (store: Store): boolean =>
+      (store.db.prepare('SELECT folder_id FROM messages').all() as { folder_id: string }[]).every(
+        (r) => r.folder_id === INBOX.id
+      )
+
+    it('does not search while a source uid is still there', async () => {
+      const { store, mails, op, client, calls } = crashed((n) => [2000 + n])
+      client.known.set(mails[0].uid, {
+        size: 30,
+        internalDate: new Date('2026-01-01T09:00:00.000Z')
+      })
+      const result = await run(engineWith(store, client), op)
+      expect(result.outcome).toBe('conflict')
+      expect(calls.filter((c) => c.method === 'search')).toHaveLength(0)
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('does not take a copy that was there before the move', async () => {
+      const { store, op, client } = crashed((n) => (n === 1 ? [1500] : [2002]))
+      const result = await run(engineWith(store, client), op)
+      expect(result.outcome).toBe('conflict')
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('does not guess between two arrivals', async () => {
+      const { store, op, client } = crashed((n) => (n === 1 ? [2001, 2007] : [2002]))
+      expect((await run(engineWith(store, client), op)).outcome).toBe('conflict')
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('does not map two members to one uid', async () => {
+      const { store, op, client } = crashed(() => [2005])
+      expect((await run(engineWith(store, client), op)).outcome).toBe('conflict')
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('does not resume when a member has no Message-ID', async () => {
+      const { store, op, client } = crashed((n) => [2000 + n])
+      const payload = JSON.parse(op.payload || '{}') as {
+        members: { messageId?: string }[]
+      }
+      delete payload.members[1].messageId
+      store.journalUpdate(op.id, { payload })
+      const result = await run(engineWith(store, client), store.journalGet(op.id)!)
+      expect(result.outcome).toBe('conflict')
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('does not resume an op from before the UIDNEXT was recorded', async () => {
+      const { store, op, client } = crashed((n) => [2000 + n], null)
+      expect((await run(engineWith(store, client), op)).outcome).toBe('conflict')
+      expect(stayed(store)).toBe(true)
+    })
+
+    it('records the target UIDNEXT before the MOVE', async () => {
+      const { store, dir } = openStore()
+      seedFolders(store)
+      const mails = Array.from({ length: 2 }, (_, i) => seedMessage(store, dir, i + 1))
+      const op = batchOp(
+        store,
+        mails.map((m) => ({ key: m.key, uid: m.uid }))
+      )
+      const { client, calls } = stubClient(['IMAP4rev1', 'MOVE', 'UIDPLUS'])
+      for (const m of mails)
+        client.known.set(m.uid, { size: 30, internalDate: new Date('2026-01-01T09:00:00.000Z') })
+      expect((await run(engineWith(store, client), op)).outcome).toBe('done')
+      const methods = calls.map((c) => c.method)
+      expect(methods.indexOf('status')).toBeGreaterThan(-1)
+      expect(methods.indexOf('status')).toBeLessThan(methods.indexOf('messageMove'))
+      const payload = JSON.parse(store.journalGet(op.id)!.payload || '{}') as {
+        targetUidNext?: number
+      }
+      expect(payload.targetUidNext).toBe(1000)
+    })
   })
 
   it('resumes locally when the mapping was already recorded before the crash', async () => {
