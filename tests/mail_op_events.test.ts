@@ -35,7 +35,7 @@ const mkCore = (dataDir: string) =>
         id: ACCOUNT,
         // A writable account: sendMail refuses a read-only one at writableEntry(), before
         // any op is journaled - so a sandbox account would never reach the event under test
-        kind: 'imap',
+        kind: 'sandbox',
         readOnly: false,
         // sendMail refuses to build a message without a From address
         email: 'a@example.test',

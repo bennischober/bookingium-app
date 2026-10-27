@@ -10,15 +10,21 @@
 // of them would be a place a real account could slip through, while this admission is
 // auditable on one screen and revoked by switching the flag off in the account dialog (it was a
 // hard-coded id in the prototype; this is a flag set from the UI).
+//
+// I6 (MR-20): the flag design is signed off by the user (2026-10-27) and main enforces it,
+// not the renderer: `settingsRefusal` runs before an account is saved, `accounts.ts` drops
+// the flag when the account's server, login or address changes, and the core asks
+// `writeRefusal` before it journals any op.
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';
 import type { ImapSecurity } from './types.js';
-import { IMAP_TIMEOUTS } from './imap_options.js';
+import { allowsPlainLogin, IMAP_TIMEOUTS } from './imap_options.js';
 
+// I6 (MR-20): loopback only. The docker-internal names `sandbox-dovecot` and `sandbox-mailpit`
+// resolved through DNS and still got `rejectUnauthorized: false`; nothing connects to them.
 export const SANDBOX_ALLOWLIST = new Set([
   '127.0.0.1', 'localhost', '::1',
-  'sandbox-dovecot', 'sandbox-mailpit',   // docker-internal names
 ]);
 
 /**
@@ -123,9 +129,40 @@ export function writeRefusal(account: WriteAccount): string | null {
   }
   // A7 part 2: the canary is then admitted by name, whatever its hosts - it is a
   // real mailbox, so its TLS is verified (it is not on the loopback allowlist)
-  if (isCanary(account)) return null
-  if (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost)) {
+  if (!isCanary(account) && (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost))) {
     return `Konto ${account.id}: Schreiben ist nur gegen den lokalen Testserver erlaubt.`
+  }
+  // I6 (MR-20): an account stored before main checked this must not log in to SMTP in the clear
+  const smtp = smtpRefusal(account)
+  if (smtp) return `Konto ${account.id}: ${smtp}`
+  return null
+}
+
+/**
+ * I6 (MR-20): why the SMTP settings would send the password in the clear, or null. Host-based like
+ * the IMAP check in `accounts.ts`: only the loopback sandbox may log in without encryption.
+ */
+export function smtpRefusal(account: Pick<WriteAccount, 'smtpHost' | 'security' | 'smtpSecurity'>): string | null {
+  if (smtpSecurityOf(account) === 'none' && !allowsPlainLogin(account.smtpHost)) {
+    return 'Der SMTP-Server braucht eine Verschlüsselung (SSL/TLS oder STARTTLS).'
+  }
+  return null
+}
+
+/**
+ * I6 (MR-20): why main refuses to SAVE an account with these settings, or null.
+ *
+ * The renderer offers the sandbox kind only in a development build, but main used to accept
+ * whatever it was sent. A sandbox-kind account gets the write path, so off the loopback
+ * allowlist it is accepted only as the canary; anything else is a real mailbox and is saved
+ * as read-only. The SMTP check holds for every kind: a cleartext login is never right.
+ */
+export function settingsRefusal(account: WriteAccount): string | null {
+  const smtp = smtpRefusal(account)
+  if (smtp) return smtp
+  if (account.kind === 'sandbox' && !isCanary(account) &&
+    (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost))) {
+    return 'Ein echtes Postfach ohne Freigabe als Testpostfach kann nur gelesen werden (Art „Nur lesen“).'
   }
   return null
 }

@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 const account = {
-  kind: 'sandbox',
+  kind: 'production-readonly',
   host: 'imap.example.test',
   port: 993,
   security: 'tls',

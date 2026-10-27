@@ -5,7 +5,7 @@
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { EventEmitter } from 'events'
 import { join } from 'path'
-import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
+import { canaryAllowed, listMailAccounts, mailCredentials, mailRoot } from './accounts'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
 
 // The local Dovecot/Mailpit sandbox; its SMTP sink listens here
@@ -219,7 +219,8 @@ export class MailClientService {
         smtpHost: account.smtpHost,
         smtpPort: account.smtpPort,
         smtpSecurity: account.smtpSecurity,
-        canary: account.canary
+        // I6 (MR-20): a packaged build without the switch treats a stored canary as read-only
+        canary: account.canary && canaryAllowed()
       }))
     }
   }

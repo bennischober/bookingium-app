@@ -7,7 +7,13 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { allowsPlainLogin } from './core/imap_options'
-import { isCanary, withSingleCanary } from './core/write_guard'
+import {
+  isCanary,
+  settingsRefusal,
+  smtpRefusal,
+  withSingleCanary,
+  type WriteAccount
+} from './core/write_guard'
 import type { ImapSecurity } from './core/types'
 
 export type MailAccountKind = 'sandbox' | 'production-readonly'
@@ -146,6 +152,8 @@ export function checkMailAccountSettings(input: {
   kind: MailAccountKind
   host: string
   security: ImapSecurity
+  smtpHost?: string
+  smtpSecurity?: ImapSecurity
 }): void {
   // Host-based, not kind-based: the canary is a real mailbox saved with kind
   // 'sandbox' (so it gets the write path at all), and it must not carry a
@@ -153,13 +161,68 @@ export function checkMailAccountSettings(input: {
   if (input.security === 'none' && !allowsPlainLogin(input.host)) {
     throw new Error('Ein echtes Postfach braucht eine Verschlüsselung (SSL/TLS oder STARTTLS)')
   }
+  // I6 (MR-20): the SMTP login too, which was never checked
+  const smtp = smtpRefusal({
+    smtpHost: input.smtpHost?.trim() || input.host.trim(),
+    security: input.security,
+    smtpSecurity: input.smtpSecurity
+  })
+  if (smtp) throw new Error(smtp)
+}
+
+/**
+ * I6 (MR-20): whether this build may admit a canary. The account dialog offers the sandbox
+ * kind only in a development build, and main now holds the same line: a packaged build admits
+ * a canary only when it was started with BOOKINGIUM_ALLOW_CANARY=1.
+ */
+export function canaryAllowed(): boolean {
+  return !app.isPackaged || process.env.BOOKINGIUM_ALLOW_CANARY === '1'
+}
+
+/** What the core's write guard sees of a stored account */
+function writeAccountOf(account: StoredAccount): WriteAccount {
+  return {
+    id: account.id,
+    kind: account.kind,
+    imapHost: account.host,
+    imapPort: account.port,
+    security: securityOf(account),
+    ...smtpOf(account),
+    email: account.email,
+    canary: account.canary
+  }
+}
+
+/**
+ * I6 (MR-20): what the canary admission is for. The admission names one mailbox: its server,
+ * login and own address (the only one a canary may mail), and the server its mail and
+ * password go to.
+ */
+function canaryIdentity(account: StoredAccount): string {
+  const smtp = smtpOf(account)
+  return JSON.stringify([
+    account.host.toLowerCase(),
+    account.port,
+    account.user,
+    account.email.toLowerCase(),
+    smtp.smtpHost.toLowerCase(),
+    smtp.smtpPort
+  ])
 }
 
 export function listMailAccounts(): MailAccountDto[] {
   return readAll().map(toDto)
 }
 
-export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
+/**
+ * The account `input` would store, checked the way `saveMailAccount` checks it. I6 (MR-20):
+ * the router runs this before the connection test, so refused settings never log in anywhere.
+ */
+function resolveMailAccount(input: SaveMailAccountInput): {
+  accounts: StoredAccount[]
+  existing: StoredAccount | undefined
+  account: StoredAccount
+} {
   const accounts = readAll()
   const existing = input.id ? accounts.find((a) => a.id === input.id) : undefined
   if (input.id && !existing) throw new Error('Konto nicht gefunden')
@@ -199,8 +262,38 @@ export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
     smtpPort: input.smtpPort,
     smtpSecurity: input.smtpSecurity,
-    canary: input.canary === true ? true : undefined
+    // I6: the flag means something on a sandbox-kind account only; switching the kind revokes it
+    canary: input.canary === true && input.kind === 'sandbox' ? true : undefined
   }
+  // I6 (MR-20): the form sends back the flag it loaded, so a changed server, login or address
+  // kept it and a different mailbox became writable without a new confirmation. A carried-over
+  // flag ends here; the changed mailbox is saved read-only, and admitting it again is a new step.
+  if (
+    existing?.canary === true &&
+    isCanary(account) &&
+    canaryIdentity(existing) !== canaryIdentity(account)
+  ) {
+    account.canary = undefined
+  }
+  // Unchecking the flag revokes it: the real mailbox stays, read-only, instead of being refused
+  if (existing?.canary === true && !isCanary(account) && settingsRefusal(writeAccountOf(account))) {
+    account.kind = 'production-readonly'
+  }
+  if (isCanary(account) && !canaryAllowed()) {
+    throw new Error('Ein Testpostfach kann nur in der Entwicklerversion freigegeben werden')
+  }
+  const refusal = settingsRefusal(writeAccountOf(account))
+  if (refusal) throw new Error(refusal)
+  return { accounts, existing, account }
+}
+
+/** I6 (MR-20): throws what `saveMailAccount` would throw, without saving anything */
+export function checkMailAccountSave(input: SaveMailAccountInput): void {
+  resolveMailAccount(input)
+}
+
+export function saveMailAccount(input: SaveMailAccountInput): MailAccountDto {
+  const { accounts, existing, account } = resolveMailAccount(input)
   // A7 part 2: at most one canary. Admitting a second real mailbox would widen
   // the write path silently, so it clears the flag on every other account instead.
   const next = existing

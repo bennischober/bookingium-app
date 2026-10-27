@@ -612,7 +612,7 @@ describe('MR-40: core events by name', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'imap',
+          kind: 'sandbox',
           readOnly: false,
           email: 'a@example.test',
           host: '127.0.0.1',

@@ -63,9 +63,7 @@ describe('A7: the write guard decides per account', () => {
 
   it('keeps the allowlist fixed and small', () => {
     // Never widen this: it is the only thing standing between a write and a real server
-    expect([...SANDBOX_ALLOWLIST].sort()).toEqual(
-      ['127.0.0.1', '::1', 'localhost', 'sandbox-dovecot', 'sandbox-mailpit'].sort()
-    )
+    expect([...SANDBOX_ALLOWLIST].sort()).toEqual(['127.0.0.1', '::1', 'localhost'].sort())
     expect(isSandboxHost('LOCALHOST')).toBe(true)
     expect(isSandboxHost(' 127.0.0.1 ')).toBe(true)
     expect(isSandboxHost('imap.example.com')).toBe(false)

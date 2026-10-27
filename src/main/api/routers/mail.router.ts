@@ -11,6 +11,7 @@ import {
   storedAttachmentName
 } from '../../mailclient/attachments'
 import {
+  checkMailAccountSave,
   checkMailAccountSettings,
   deleteMailAccount,
   listMailAccounts,
@@ -322,6 +323,8 @@ export const mailRouter = t.router({
       .mutation(
         async ({ input }): Promise<{ test: ConnectionTestResult; account?: MailAccountDto }> => {
           try {
+            // I6 (MR-20): settings main refuses never reach a server, not even for the test
+            checkMailAccountSave(input)
             return await mailClient.whileStopped(async () => {
               const test = await testAccount(input)
               return test.ok ? { test, account: saveMailAccount(input) } : { test }
