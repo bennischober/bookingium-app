@@ -8,6 +8,7 @@ import { container } from 'tsyringe'
 import {
   linkableFolder,
   mailAddresses,
+  mailLinkRunner,
   mailLinkTrigger,
   ownMailAddresses,
   resolveLinks,
@@ -24,7 +25,7 @@ setupTestDb()
 // One in-memory DB for the whole file: each test starts from empty tables
 beforeEach(() => {
   const sqlite = getTestDb().sqlite
-  for (const table of ['mail_link', 'person', 'contact', 'app_setting']) {
+  for (const table of ['mail_link', 'person', 'contact_email', 'contact', 'app_setting']) {
     sqlite.prepare(`DELETE FROM ${table}`).run()
   }
 })
@@ -91,6 +92,19 @@ describe('linker resolution (C2)', () => {
         { email: 'ich@example.test', user: 'Postfach@example.test' }
       ])
     ).toEqual(['ich@example.test', 'buero@example.test', 'postfach@example.test'])
+  })
+
+  it('takes an account’s further own addresses as the user’s own too', () => {
+    expect(
+      ownMailAddresses([
+        {
+          email: 'ich@example.test',
+          user: 'ich@example.test',
+          aliases: [' Info@Example.test', 'kein-at', 'ich@example.test']
+        },
+        { email: 'buero@example.test', user: 'buero' }
+      ])
+    ).toEqual(['ich@example.test', 'info@example.test', 'buero@example.test'])
   })
 
   it('inherits the links of the mail it answers', () => {
@@ -197,6 +211,26 @@ describe('linker trigger (MR-28)', () => {
     await settle()
     expect(log).toHaveBeenCalledWith(error)
     expect(link).toHaveBeenCalledTimes(2)
+  })
+
+  it('runs an account on request and folds a request during a folder run into one more pass', async () => {
+    let finish: () => void = () => undefined
+    const link = vi
+      .fn<(accountId: string) => Promise<unknown>>()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)))
+      .mockResolvedValue(undefined)
+    const runner = mailLinkRunner({ link, log: vi.fn() })
+    runner.onEvent(folderDone('acc', 'INBOX', null))
+    await settle()
+    // A contact gained an address while the folder run is still going, twice
+    runner.run('acc')
+    runner.run('acc')
+    runner.run('other')
+    await settle()
+    expect(link.mock.calls).toEqual([['acc'], ['other']])
+    finish()
+    await settle()
+    expect(link.mock.calls).toEqual([['acc'], ['other'], ['acc']])
   })
 
   it('logs a link function that throws instead of crashing the event handler', async () => {
@@ -525,6 +559,264 @@ describe('mail_link repository (C2)', () => {
     // Running the same batch again adds nothing
     expect(svc.linkBatch('acc', ['ich@example.test'], headers)).toBe(0)
     expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
+  })
+
+  /** A further address on an existing contact, as the repositories store it */
+  function addAddress(contactId: number, email: string, position = 0): void {
+    getTestDb()
+      .sqlite.prepare('INSERT INTO contact_email (contact_id, email, position) VALUES (?, ?, ?)')
+      .run(contactId, email, position)
+  }
+
+  const linkCount = (): number =>
+    (getTestDb().sqlite.prepare('SELECT COUNT(*) AS n FROM mail_link').get() as { n: number }).n
+
+  it('resolves a further address of a contact to the records that own it', () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    addAddress(contactId, 'privat@example.test')
+    expect(service().addressOwners(' Privat@Example.TEST ')).toEqual([
+      { entityType: 'person', entityId: personId }
+    ])
+    // The primary address still matches
+    expect(service().addressOwners('erika@example.test')).toEqual([
+      { entityType: 'person', entityId: personId }
+    ])
+  })
+
+  it('links a mail from or to a further address', () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    addAddress(contactId, 'privat@example.test')
+    const svc = service()
+    const headers = [
+      header({ messageId: '<von@example.test>', fromEmail: 'privat@example.test' }),
+      header({
+        messageId: '<an@example.test>',
+        fromEmail: 'ich@example.test',
+        toEmails: ['privat@example.test']
+      })
+    ]
+    expect(svc.linkBatch('acc', ['ich@example.test'], headers)).toBe(2)
+    expect(svc.messagesFor('person', personId, 'acc')).toEqual(
+      expect.arrayContaining([
+        { messageId: 'von@example.test', source: 'address' },
+        { messageId: 'an@example.test', source: 'address' }
+      ])
+    )
+  })
+
+  it('counts a record once when its contact holds the address twice', () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    // The repositories never store this; a hand-edited database might
+    addAddress(contactId, 'erika@example.test')
+    expect(service().addressOwners('erika@example.test')).toEqual([
+      { entityType: 'person', entityId: personId }
+    ])
+  })
+
+  it('counts further addresses against the shared-address cap (host L3)', () => {
+    // 21 contacts that each list the address as a further one: a shared mailbox
+    for (let i = 0; i < 21; i++) {
+      addAddress(seedPerson(`p${i}@example.test`).contactId, 'team@example.test')
+    }
+    expect(service().addressOwners('team@example.test')).toEqual([])
+    // 20 primaries plus one further address are 21 records as well
+    for (let i = 0; i < 20; i++) seedPerson('buero@example.test')
+    addAddress(seedPerson('extra@example.test').contactId, 'buero@example.test')
+    expect(service().addressOwners('buero@example.test')).toEqual([])
+    // 20 in all is still a normal address
+    for (let i = 0; i < 19; i++) seedPerson('kasse@example.test')
+    addAddress(seedPerson('kasse2@example.test').contactId, 'kasse@example.test')
+    expect(service().addressOwners('kasse@example.test')).toHaveLength(20)
+  })
+
+  it('hands a link made by a further address on to the replies', () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    addAddress(contactId, 'privat@example.test')
+    const svc = service()
+    svc.linkBatch(
+      'acc',
+      ['ich@example.test'],
+      [header({ messageId: '<eltern@example.test>', fromEmail: 'privat@example.test' })]
+    )
+    // A reply from an address nobody owns inherits the link of the mail it answers
+    const reply = header({
+      messageId: '<antwort@example.test>',
+      fromEmail: 'fremd@example.test',
+      inReplyTo: '<eltern@example.test>'
+    })
+    expect(svc.linkBatch('acc', ['ich@example.test'], [reply])).toBe(1)
+    expect(svc.messagesFor('person', personId, 'acc')).toContainEqual({
+      messageId: 'antwort@example.test',
+      source: 'thread'
+    })
+  })
+
+  it('rescans from 0 once a contact gained an address, and only then', async () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    const mails = [
+      stored(1),
+      stored(2, { fromEmail: 'privat@example.test' }),
+      stored(3, { fromEmail: 'fremd@example.test' })
+    ]
+    const stub = await stubHeaders((cursor) => ({
+      generation: 'g1',
+      headers: mails.filter((h) => h.id > cursor)
+    }))
+    try {
+      const svc = service()
+      // The first run stores the addresses it linked with; no digest yet is no change
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 1,
+        scanned: 3
+      })
+      // Nothing changed: the run goes on from the cursor
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 0,
+        scanned: 0
+      })
+      expect(stub.cursors).toEqual([0, 3, 3])
+
+      addAddress(contactId, 'privat@example.test')
+      stub.cursors.length = 0
+      // The new address's older mail is found; the first mail is not linked twice
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 1,
+        scanned: 3
+      })
+      expect(stub.cursors).toEqual([0, 3])
+      expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
+    } finally {
+      stub.restore()
+    }
+  })
+
+  it('keeps the cursor of an account that has no address digest yet', async () => {
+    seedPerson('erika@example.test')
+    const settings = container.resolve(SettingsRepository)
+    // An account linked by a build from before the digest
+    settings.setMany({ 'mailLinkCursor:acc': JSON.stringify({ generation: 'g1', id: 5 }) })
+    const stub = await stubHeaders((cursor) => ({
+      generation: 'g1',
+      headers: [stored(5), stored(6)].filter((h) => h.id > cursor)
+    }))
+    try {
+      await service().linkAccount('acc', ['ich@example.test'])
+      expect(stub.cursors).toEqual([5, 6])
+      expect(settings.getAll()['mailLinkAddresses:acc']).toBeDefined()
+    } finally {
+      stub.restore()
+    }
+  })
+
+  it('leaves a dismissed link dismissed when a new address rescans the mail', async () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    const stub = await stubHeaders((cursor) => ({
+      generation: 'g1',
+      headers: [stored(1), stored(2, { fromEmail: 'privat@example.test' })].filter(
+        (h) => h.id > cursor
+      )
+    }))
+    try {
+      const svc = service()
+      await svc.linkAccount('acc', ['ich@example.test'])
+      const row = getTestDb().sqlite.prepare('SELECT id FROM mail_link').get() as { id: number }
+      svc.dismissLink(row.id)
+
+      addAddress(contactId, 'privat@example.test')
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 1,
+        scanned: 2
+      })
+      // Only the new address's mail shows; the dismissed one stays gone
+      expect(svc.messagesFor('person', personId, 'acc')).toEqual([
+        { messageId: '2@example.test', source: 'address' }
+      ])
+    } finally {
+      stub.restore()
+    }
+  })
+
+  it('keeps the links of an address the contact no longer has', async () => {
+    const { contactId, personId } = seedPerson('erika@example.test')
+    addAddress(contactId, 'privat@example.test')
+    const stub = await stubHeaders((cursor) => ({
+      generation: 'g1',
+      headers: [stored(1, { fromEmail: 'privat@example.test' })].filter((h) => h.id > cursor)
+    }))
+    try {
+      const svc = service()
+      await svc.linkAccount('acc', ['ich@example.test'])
+      getTestDb().sqlite.prepare('DELETE FROM contact_email').run()
+      await svc.linkAccount('acc', ['ich@example.test'])
+      expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(1)
+    } finally {
+      stub.restore()
+    }
+  })
+
+  it('links a mail by hand, once', () => {
+    const { personId } = seedPerson('erika@example.test')
+    const svc = service()
+    const input = {
+      accountId: 'acc',
+      messageId: '<hand@example.test>',
+      entityType: 'person' as const,
+      entityId: personId
+    }
+    expect(svc.linkManually(input)).toBe(1)
+    expect(svc.linkManually(input)).toBe(0)
+    expect(svc.messagesFor('person', personId, 'acc')).toEqual([
+      { messageId: 'hand@example.test', source: 'manual' }
+    ])
+  })
+
+  it('brings back a link the user dismissed when they link the mail by hand', () => {
+    const { personId } = seedPerson('erika@example.test')
+    const svc = service()
+    svc.insertLink({
+      accountId: 'acc',
+      messageId: '<a@example.test>',
+      fallbackKey: null,
+      entityType: 'person',
+      entityId: personId,
+      source: 'address'
+    })
+    const row = getTestDb().sqlite.prepare('SELECT id FROM mail_link').get() as { id: number }
+    svc.dismissLink(row.id)
+    expect(
+      svc.linkManually({
+        accountId: 'acc',
+        messageId: 'a@example.test',
+        entityType: 'person',
+        entityId: personId
+      })
+    ).toBe(1)
+    expect(linkCount()).toBe(1)
+    expect(svc.messagesFor('person', personId, 'acc')).toEqual([
+      { messageId: 'a@example.test', source: 'manual' }
+    ])
+  })
+
+  it('refuses to link a mail to a record that does not exist, or without a Message-ID', () => {
+    const { personId } = seedPerson('erika@example.test')
+    const svc = service()
+    expect(() =>
+      svc.linkManually({
+        accountId: 'acc',
+        messageId: '<a@example.test>',
+        entityType: 'company',
+        entityId: 999_999
+      })
+    ).toThrow('Der Datensatz existiert nicht mehr')
+    expect(() =>
+      svc.linkManually({
+        accountId: 'acc',
+        messageId: '<>',
+        entityType: 'person',
+        entityId: personId
+      })
+    ).toThrow('keine Message-ID')
+    expect(linkCount()).toBe(0)
   })
 })
 
