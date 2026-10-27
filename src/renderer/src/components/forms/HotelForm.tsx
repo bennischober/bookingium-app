@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
+import { contactHasValues } from './contactEmailFields'
 import type { FormMode } from '@/hooks/useFormSheet'
 import type {
   CreateHotelInput,
@@ -44,6 +45,7 @@ export function HotelForm({
       },
       contact: {
         email: initialData?.contact?.email ?? '',
+        otherEmails: initialData?.contact?.otherEmails ?? [],
         phone: initialData?.contact?.phone ?? '',
         mobilePhone: initialData?.contact?.mobilePhone ?? '',
         homepage: initialData?.contact?.homepage ?? ''
@@ -51,7 +53,7 @@ export function HotelForm({
     },
     onSubmit: async ({ value }) => {
       const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
-      const hasContact = Object.values(value.contact).some((entry) => entry.trim().length > 0)
+      const hasContact = contactHasValues(value.contact)
       const basePayload = {
         name: value.name.trim(),
         notes: value.notes.trim(),

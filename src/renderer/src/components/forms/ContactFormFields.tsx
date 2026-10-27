@@ -1,12 +1,16 @@
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { Plus, Star, X } from 'lucide-react'
+import { otherEmailProblem, promoteOtherEmail } from './contactEmailFields'
 
 // The parent form instance (TanStack Form). Typed loosely on purpose: these
 // shared fields are embedded in several forms with different value shapes,
 // and TanStack Form's FormApi generic needs 11 type parameters that would
 // couple this component to one parent's exact shape. The Field calls below
-// are string-path fields with string values (contact.noAdvertising is a boolean).
+// are string-path fields with string values (contact.noAdvertising is a boolean,
+// contact.otherEmails a string array; the parent's defaultValues must contain it).
 interface ContactFormFieldsProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any
@@ -36,6 +40,94 @@ export function ContactFormFields({ form, showNoAdvertising = false }: ContactFo
             )}
           </div>
         )}
+      </form.Field>
+
+      <form.Field name="contact.otherEmails" mode="array">
+        {(listField) => {
+          const others: string[] = listField.state.value ?? []
+          return (
+            <div className="space-y-2">
+              <Label>Weitere E-Mail-Adressen</Label>
+              {others.map((_, index) => (
+                <form.Field
+                  key={index}
+                  name={`contact.otherEmails[${index}]`}
+                  validators={{
+                    onChangeListenTo: ['contact.email', 'contact.otherEmails'],
+                    onChange: ({ value }) =>
+                      otherEmailProblem(
+                        value ?? '',
+                        index,
+                        form.getFieldValue('contact.email') ?? '',
+                        form.getFieldValue('contact.otherEmails') ?? []
+                      )
+                  }}
+                >
+                  {(field) => (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id={`contact.otherEmails.${index}`}
+                          type="email"
+                          aria-label={`Weitere E-Mail-Adresse ${index + 1}`}
+                          value={field.state.value || ''}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          placeholder="email@example.com"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Als Haupt-Adresse"
+                          title="Als Haupt-Adresse"
+                          disabled={!(field.state.value || '').trim()}
+                          onClick={() => {
+                            const next = promoteOtherEmail(
+                              form.getFieldValue('contact.email') ?? '',
+                              form.getFieldValue('contact.otherEmails') ?? [],
+                              index
+                            )
+                            form.setFieldValue('contact.email', next.email)
+                            form.setFieldValue('contact.otherEmails', next.otherEmails)
+                          }}
+                        >
+                          <Star />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Adresse entfernen"
+                          title="Adresse entfernen"
+                          onClick={() => listField.removeValue(index)}
+                        >
+                          <X />
+                        </Button>
+                      </div>
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => listField.pushValue('')}
+              >
+                <Plus />
+                Adresse hinzufügen
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet. Rechnungen
+                und Verteiler nutzen die Haupt-Adresse.
+              </p>
+            </div>
+          )
+        }}
       </form.Field>
 
       <div className="grid grid-cols-2 gap-4">

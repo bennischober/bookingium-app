@@ -36,6 +36,7 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
       },
       contact: {
         email: person?.contact?.email || '',
+        otherEmails: person?.contact?.otherEmails ?? [],
         phone: person?.contact?.phone || '',
         mobilePhone: person?.contact?.mobilePhone || '',
         homepage: person?.contact?.homepage || '',

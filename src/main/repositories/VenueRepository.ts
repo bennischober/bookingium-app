@@ -1,5 +1,6 @@
 import { and, eq, like, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
+import { saveContactEmails, withContactEmails } from './contactEmails'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -21,12 +22,14 @@ export class VenueRepository {
       .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
       .orderBy(schema.venue.name)
 
-    return rows.map((row) => ({
-      ...row.venue,
-      address: row.address,
-      contact: row.contact,
-      company: row.company
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.venue,
+        address: row.address,
+        contact: row.contact,
+        company: row.company
+      }))
+    )
   }
 
   async getAllPaginated(pagination: VenuePaginationInput) {
@@ -70,12 +73,14 @@ export class VenueRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = rows.map((row) => ({
-      ...row.venue,
-      address: row.address,
-      contact: row.contact,
-      company: row.company
-    }))
+    const items = withContactEmails(
+      rows.map((row) => ({
+        ...row.venue,
+        address: row.address,
+        contact: row.contact,
+        company: row.company
+      }))
+    )
 
     return {
       items,
@@ -97,12 +102,14 @@ export class VenueRepository {
       .where(eq(schema.venue.company_id, companyId))
       .orderBy(schema.venue.name)
 
-    return rows.map((row) => ({
-      ...row.venue,
-      address: row.address,
-      contact: row.contact,
-      company: row.company
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.venue,
+        address: row.address,
+        contact: row.contact,
+        company: row.company
+      }))
+    )
   }
 
   async getById(id: number) {
@@ -115,12 +122,14 @@ export class VenueRepository {
       .where(eq(schema.venue.id, id))
 
     if (!rows[0]) return null
-    return {
-      ...rows[0].venue,
-      address: rows[0].address,
-      contact: rows[0].contact,
-      company: rows[0].company
-    }
+    return withContactEmails([
+      {
+        ...rows[0].venue,
+        address: rows[0].address,
+        contact: rows[0].contact,
+        company: rows[0].company
+      }
+    ])[0]
   }
 
   async create(input: CreateVenueInput) {
@@ -158,6 +167,7 @@ export class VenueRepository {
           .returning()
           .all()
         contactId = contactResult[0].id
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       const venueResult = tx
@@ -184,12 +194,14 @@ export class VenueRepository {
         .where(eq(schema.venue.id, venueResult[0].id))
         .all()
 
-      return {
-        ...rows[0].venue,
-        address: rows[0].address,
-        contact: rows[0].contact,
-        company: rows[0].company
-      }
+      return withContactEmails([
+        {
+          ...rows[0].venue,
+          address: rows[0].address,
+          contact: rows[0].contact,
+          company: rows[0].company
+        }
+      ])[0]
     })
   }
 
@@ -264,6 +276,7 @@ export class VenueRepository {
             .all()
           contactId = contactResult[0].id
         }
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       tx.update(schema.venue)
@@ -290,12 +303,14 @@ export class VenueRepository {
         .where(eq(schema.venue.id, input.id))
         .all()
 
-      return {
-        ...rows[0].venue,
-        address: rows[0].address,
-        contact: rows[0].contact,
-        company: rows[0].company
-      }
+      return withContactEmails([
+        {
+          ...rows[0].venue,
+          address: rows[0].address,
+          contact: rows[0].contact,
+          company: rows[0].company
+        }
+      ])[0]
     })
   }
 

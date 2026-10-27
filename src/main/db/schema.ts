@@ -49,6 +49,26 @@ export const contact = sqliteTable(
   (table) => [index('contact_email_idx').on(table.email)]
 )
 
+// A contact's further email addresses. contact.email stays the primary one
+// (invoices, mailing lists, forms); these only link mail to the contact's record.
+export const contact_email = sqliteTable(
+  'contact_email',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    contact_id: integer('contact_id')
+      .notNull()
+      .references(() => contact.id, { onDelete: 'cascade' }),
+    // Lower-cased and trimmed on write
+    email: text('email').notNull(),
+    // Order in the form
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    index('contact_email_email_idx').on(table.email),
+    uniqueIndex('contact_email_contact_email_idx').on(table.contact_id, table.email)
+  ]
+)
+
 // Bank table
 export const bank = sqliteTable(
   'bank',
@@ -835,6 +855,7 @@ export const management_share_income = sqliteTable(
 export const schema = {
   address,
   contact,
+  contact_email,
   bank,
   person,
   company,

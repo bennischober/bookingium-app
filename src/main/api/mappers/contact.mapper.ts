@@ -1,7 +1,8 @@
 import { contact } from '../../db/schema'
 import type { ContactDto } from '../schemas/contact.schema'
 
-type ContactEntity = typeof contact.$inferSelect
+/** Repositories read a contact with its further addresses (contactEmails.ts) */
+export type ContactEntity = typeof contact.$inferSelect & { other_emails: string[] }
 
 export class ContactMapper {
   static toDto(entity: ContactEntity | null | undefined): ContactDto | null {
@@ -10,6 +11,7 @@ export class ContactMapper {
     return {
       id: entity.id,
       email: entity.email,
+      otherEmails: entity.other_emails,
       phone: entity.phone ?? '',
       mobilePhone: entity.mobile_phone ?? '',
       homepage: entity.homepage ?? '',
