@@ -1649,6 +1649,29 @@ The two leftovers from I17 the user chose to fix: the open half of [renderer 18]
 **Tests.** `tests/mail_refresh.test.ts` (new, 9); `mail_store_integrity` (+6); the `mail_op_journal` page
 test follows the refresh into `mailRefresh.ts`. Mutation checks and gates are in the I18 report.
 
+### I19: several email addresses per contact [done 2026-10-27, branch `feat/mail-contact-emails`]
+
+A contact held one address, so mail from a person's second address, a company's billing address or a venue's
+booking address was never linked. The design was agreed with the user first: a table for the further addresses,
+a rescan when a contact gains one, an alias field on the mail account, and two actions on a mail.
+
+**What changed.**
+- `db/schema.ts`, migration `0017_contact_email.sql`: `contact_email` (cascade with the contact, unique per
+  contact and address). `contact.email` stays the primary; nothing that reads it changed, and no data moves.
+- `repositories/contactEmails.ts` (new) and the person, company, venue and hotel repositories: the further
+  addresses are normalized, never repeat the primary, and a save without the field keeps them. zod, mappers,
+  seed and `ContactFormFields` ("Weitere E-Mail-Adressen", "Als Haupt-Adresse") carry them.
+- `services/MailLinkService.ts`: `addressOwners` matches every address of a contact under the same cap; an
+  address digest per account resets the cursor when a contact's addresses change (an account without a digest
+  keeps its cursor); `mailLinkRunner` runs every account on a contact save; `linkManually` (new).
+- Mail accounts have "Weitere eigene Adressen" (`aliases`), which `ownMailAddresses` counts as the user's own.
+- `MessageView`: "Zuordnen…" (`LinkMailDialog`, record picker shared with "Als Dokument speichern") and
+  "Absender als Kontakt anlegen" (`CreateContactSheet`, prefilled by `senderContact.ts`).
+
+**Tests.** `tests/contact_emails.test.ts` (new, 14), `tests/mail_aliases_sender.test.ts` (new, 7),
+`tests/mail_link.test.ts` (+14). 18 mutation checks, 17 killed, one equivalent. Gates and open questions
+(hotels are no mail link type) are in the I19 report.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
