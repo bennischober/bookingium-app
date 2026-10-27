@@ -31,6 +31,17 @@ export type LinkableHeader = {
   ccEmails: string[]
 }
 
+/** The records a mail can be linked to by hand ("Zuordnen…"); an event is a deal memo */
+export const MANUAL_LINK_ENTITY_TYPES = ['person', 'company', 'venue', 'band', 'event'] as const
+export type ManualLinkEntityType = (typeof MANUAL_LINK_ENTITY_TYPES)[number]
+const MANUAL_LINK_TABLES = {
+  person: schema.person,
+  company: schema.company,
+  venue: schema.venue,
+  band: schema.band,
+  event: schema.deal_memo
+} as const
+
 export type ResolvedOwner = { entityType: MailLinkEntityType; entityId: number }
 export type ResolvedLink = { owner: ResolvedOwner; source: MailLinkSource }
 
@@ -438,14 +449,38 @@ export class MailLinkService {
     return rows.map((r) => ({ messageId: r.message_id!, source: r.source }))
   }
 
-  /** "Zuordnen…" with a picked record, or a link the user added by hand */
+  /**
+   * "Zuordnen…" with a picked record. A link the user dismissed before comes back,
+   * now as a manual one: picking the record again is the user changing their mind.
+   * Returns 1 when the mail is now linked anew, 0 when it already was.
+   */
   linkManually(input: {
     accountId: string
     messageId: string
-    entityType: MailLinkEntityType
+    entityType: ManualLinkEntityType
     entityId: number
   }): number {
-    return this.insertLink({ ...input, fallbackKey: null, source: 'manual' })
+    const table = MANUAL_LINK_TABLES[input.entityType]
+    const record = db.select({ id: table.id }).from(table).where(eq(table.id, input.entityId)).get()
+    if (!record) throw new Error('Der Datensatz existiert nicht mehr')
+    const messageId = input.messageId.replace(/^</, '').replace(/>$/, '').trim()
+    if (!messageId)
+      throw new Error('Diese Mail hat keine Message-ID und kann nicht zugeordnet werden')
+    const restored = db
+      .update(schema.mail_link)
+      .set({ dismissed: false, source: 'manual' })
+      .where(
+        and(
+          eq(schema.mail_link.mail_account_id, input.accountId),
+          eq(schema.mail_link.message_id, messageId),
+          eq(schema.mail_link.entity_type, input.entityType),
+          eq(schema.mail_link.entity_id, input.entityId),
+          eq(schema.mail_link.dismissed, true)
+        )
+      )
+      .run()
+    if (restored.changes > 0) return 1
+    return this.insertLink({ ...input, messageId, fallbackKey: null, source: 'manual' })
   }
 
   /** Removing a link: dismissed links are never added again automatically */

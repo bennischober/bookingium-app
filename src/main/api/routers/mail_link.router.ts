@@ -1,10 +1,10 @@
 import { z } from 'zod'
-import { initTRPC } from '@trpc/server'
+import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { and, eq, isNotNull, lt, or, desc } from 'drizzle-orm'
 import { db } from '../../db'
 import { schema, MAIL_LINK_ENTITY_TYPES } from '../../db/schema'
-import { MailLinkService } from '../../services/MailLinkService'
+import { MailLinkService, MANUAL_LINK_ENTITY_TYPES } from '../../services/MailLinkService'
 import { mailClient } from '../../mailclient/MailClientService'
 
 const t = initTRPC.create()
@@ -133,6 +133,30 @@ export const mailLinkRouter = t.router({
     .mutation(({ input }) => {
       service.dismissLink(input.id)
       return { ok: true }
+    }),
+
+  /**
+   * "Zuordnen…": links one mail to a record the user picked. A link they removed
+   * before comes back. `linked` is false when the mail was linked to it already.
+   */
+  link: t.procedure
+    .input(
+      z.object({
+        accountId: z.string().min(1),
+        messageId: z.string().min(1),
+        entityType: z.enum(MANUAL_LINK_ENTITY_TYPES),
+        entityId: z.number().int().positive()
+      })
+    )
+    .mutation(({ input }) => {
+      try {
+        return { linked: service.linkManually(input) > 0 }
+      } catch (error) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: error instanceof Error ? error.message : String(error)
+        })
+      }
     }),
 
   /**
