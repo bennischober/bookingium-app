@@ -512,7 +512,9 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   open for destructive keys.
 
 #### MR-38: autosave races with send and re-uploads every attachment (code)
-**Status: partly fixed in I2.** No draft save while a send is in flight or unclear. Hashing attachments for the dirty check is still open.
+**Status: fixed in I2 and I17 (2026-10-27).** No draft save while a send is in flight or unclear (I2). The dirty
+check compares a fingerprint per attachment (`draftDirtyKey` in `composeDraft.ts`); the base64 is no longer
+stringified on every check (I17). A save still carries every attachment, since APPEND needs the whole mail.
 - **Where:** `ComposeView.tsx:304-312` and `:403-454`; `toDraftInput`.
 - **Scenario:**
   - The autosave timer fires during `sendMail` and appends a new draft after the send, an orphan in Entwürfe.

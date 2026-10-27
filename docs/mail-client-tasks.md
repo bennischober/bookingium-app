@@ -23,7 +23,7 @@ Sizes: S ≈ under 150 changed lines, M ≈ 150–500, L ≈ more (split it into
 | Card | Title | Size | Depends on | Status |
 |---|---|---|---|---|
 | T1 | Lint green | S | — | done |
-| T2 | Doc drift | S | — | done (this commit) |
+| T2 | Doc drift | S | — | done |
 | T3 | E2E tests independent of each other | S | — | done |
 | T4 | Sandbox count script | S | — | done |
 | P1 | Prototype: fix F1–F6, rerun fuzz + soak | M | — | open (prototype repo) |
@@ -532,7 +532,7 @@ evidence.
 | `test-search-oracle.ts` | `tests/mail_search_oracle.test.ts` | no | 30k synthetic mails behind `MAIL_LONG=1`; a 2k version always |
 | `test-prune-gates.ts` | `tests/mail_prune_gates.test.ts` (from A2a) | no (fake LIST) | |
 | `test-file-decoupling.ts` | `tests/mail_files.test.ts` (from A3) | no | |
-| `test-uidplus-less.ts` | `tests/mail_uidplus.test.ts` | yes (`:10144`) | skip if down |
+| `test-uidplus-less.ts` | `tests/mail_uidplus.test.ts` | no (stubbed client) | always runs |
 | `test-big-message.ts` | `tests/mail_big_message.test.ts` | yes | 25 MB, behind `MAIL_LONG=1` |
 | `test-crash-points.ts` | `tests/mail_crash_points.test.ts` | yes | |
 | `test-compose.ts` | extend `tests/mail_compose.test.ts` | no | Bcc policy |
@@ -1562,6 +1562,76 @@ counted contacts, and only one own address was excluded.
 
 **Tests.** `tests/mail_search_fold.test.ts` (new, 19), `tests/mail_link_store.test.ts` (new, 5),
 `tests/mail_link.test.ts` (+10, 28 in all). 18 mutation checks, all killed.
+
+### I16: renderer leftovers [fixed 2026-10-26]
+
+Items 15, 17, 18 and 22 of the review agents' README (agent card, reviewed by Claude). `pdfName` was
+threaded to the compose window and never read; the compose branch of `MailWindowPage` did not check
+`canWrite`; the window followed only op events, so an `isDraft` or folder change came late; "Alle
+Anhänge" had an `aria-label` without a role.
+
+**What changed.** `pdfName` is gone from main, preload and the window, and so is the unreachable
+`presetPdfPath` branch; the compose branch needs `canWrite` and says so when the account cannot write (I16
+review); the window follows every event of its account and ignores `image-progress`; the group has
+`role="group"`. Still open from item 18: `MailPage` drops other accounts' events, and sync does not
+invalidate `search`; that needs a cache decision.
+
+**Tests.** `tests/mail_window_leftovers.test.ts` (new, 7, source-pinned: no component-test tooling). 4
+mutation checks, all killed.
+
+### I13: fuzz and soak harness [fixed 2026-10-26]
+
+Review section 5 (agent card, reviewed by Claude). Written fresh from the prototype's idea; no prototype
+file copied.
+
+**What changed.** `tests/fuzz/opGenerator.ts` (seeded, content-free ops), `tests/fuzz/invariants.ts` (no
+message lost or duplicated, store matches server, no op left running, no orphan files; every failure at
+once) and `tests/fuzz/run.ts` (drives bookingum's own core on its own sandbox folders and cleans up).
+`pnpm fuzz:mail -- --seed 7 --ops 30` or `--seeds 50`; not part of `pnpm test`. A failing seed prints the
+seed, the op list and the replay command, never content.
+
+**Tests.** `tests/mail_fuzz_harness.test.ts` (new, 14). A short run: 5 seeds, 100 ops, 0 invariant
+failures. The nightly length (`--seeds 200 --ops 30`) was not run.
+
+### I14: docs drift and PII [fixed 2026-10-26]
+
+Review sections 6 and 8 and the README docs-drift list (agent card, reviewed by Claude). The PII scan read
+only code, and the docs held addresses outside the test domains and two names from imported data.
+
+**What changed.** `tests/no_pii.test.ts` scans `docs/**`, every `*.md` and the mail sources, and reads
+markdown bullets (I14 review). The addresses and names were replaced without being quoted. Every row of
+review section 8 was checked against the code and fixed; `AGENTS.md` and `src/main/AGENTS.md` say the app
+does send mail. Section 6's decisions and the history items were listed for the user, not made.
+
+**Tests.** `tests/no_pii.test.ts` (7, was 3).
+
+### I17: review leftovers [fixed 2026-10-27]
+
+What the coverage check of the review agents' README still listed as open, plus MR-38's second half: [host
+M5], [write path L6], [write path L7], [tests 4] and [tests 5], and the test gap "`close()` during a
+poll-triggered `syncFolder`", which turned out to be a real bug.
+
+**What changed.**
+- `mailclient/attachments.ts` and `mail.router.ts`: the temp folder for opening an attachment is
+  `<messageId>-<hash of account, message and part>` (`attachmentSubfolder`), so two accounts no longer
+  share one.
+- `ComposeView.tsx` and `composeDraft.ts`: the dirty check compares a fingerprint per attachment
+  (`attachmentKey`, `draftDirtyKey`) instead of stringifying the base64 on every check.
+- `core/migrations.ts` (4: `compose_key`), `core/store.ts`, `core/index.ts` and `core/write_engine.ts`: a
+  draft save carries its compose key. A replayed save the editor has since superseded is a noop and removes
+  only its own copy; a save removes the copy the latest earlier save appended as well as the one the editor
+  names.
+- `core/sync.ts`: `storeAppendedDraft` no longer adds to the pass's move correlation set. `syncFolder` and
+  `pollOnce` count as work in flight; `core/index.ts` `close()` stops IDLE and waits for all of it
+  (`waitForWork`), not only for a full pass.
+- `tests/no_pii.test.ts`: comment lines are scanned; phone numbers, BICs and street addresses are detected,
+  and the existing fixtures are counted per file until a person checks them.
+- Docs: the `write_guard.ts` header says the canary flag admits every write; the `mail_uidplus` row and the
+  T2 row are corrected.
+
+**Tests.** `tests/mail_close_during_sync.test.ts` (new, 4); `mail_attachments` (+4), `mail_compose_draft`
+(+4), `mail_draft_replay` (+7), `mail_send_state` (+1), `mail_responsive_audit` (+1), `no_pii` (+5). Mutation
+checks and gates are in the I17 report.
 
 ## Found while working
 

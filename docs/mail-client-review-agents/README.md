@@ -25,8 +25,12 @@ None of them is above Medium. Pick them up from here; the source report is named
   user saved a newer one [write path L7]. I1 stops connect failures from stranding ops (MR-02), so check
   whether a crash between APPEND and the journal update still gets here. The `attempts > 0` probe from MR-15
   finds the old copy by Message-ID, but the replay may still run on a stale body.
+  **Fixed in I17:** a draft save carries its compose key; a replay that a newer save of the same compose
+  superseded is a noop and removes only its own copy, and a save also removes the copy the latest earlier
+  save appended.
 - `storeAppendedDraft` adds to `passInsertedMsgIds` outside a sync pass, which skews move correlation
   [write path L6].
+  **Fixed in I17:** it stores the draft outside the pass's correlation set.
 - The UIDVALIDITY swap [sync M9]:
   - after a hard kill the `__staging__/` folder is visible in the UI;
   - the swap needs twice the folder's size on disk;
@@ -46,6 +50,7 @@ None of them is above Medium. Pick them up from here; the source report is named
 **Host**
 - The temp folder for opening attachments, `${messageId}-${partId}`, can collide across accounts
   [host M5].
+  **Fixed in I17:** the folder name carries a hash of account, message and part (`attachmentSubfolder`).
 - The shared-address cap of the mail linker counts contacts, not owners, and aliases of the user's own
   address are not excluded, so own mail can be linked to many records [host L3].
   **Fixed in I15b:** the cap counts the records behind the address, and every configured account's address
@@ -61,29 +66,43 @@ None of them is above Medium. Pick them up from here; the source report is named
 **Renderer**
 - The compose branch of `MailWindowPage` renders `ComposeView` without a `canWrite` check (defence in depth
   only) [renderer 17].
+  **Fixed in I16.**
 - `MailWindowPage` invalidates only folders and the message, so an `isDraft` or folder change of the shown
   mail is not picked up until a refetch [renderer 18].
+  **Fixed in I16:** the window follows every event of its account. Still open: `MailPage` drops other
+  accounts' events, and sync does not invalidate `search`.
 - The "Archiviert" toast counts `ids.length`, including ids the core skipped [renderer 20]. MR-36 covers the
   hiding, not the count.
+  **Fixed in I10.**
 - The "Alle Anhänge" `<div aria-label>` has no role, so the label is ignored [renderer 22].
+  **Fixed in I16.**
 - `MailWindowPage.tsx:199` (`presetPdfPath` in the non-compose branch) is unreachable [renderer 15]. The
   review doc has only the unused `search.pdfName`.
+  **Fixed in I16**, together with the unused `pdfName`.
 
 **Tests, CI and PII**
 - `fakeSmtp` does no dot-unstuffing [tests 3].
+  **Fixed in I9.**
 - `mail_crash_points` queries Mailpit with `limit=500`, so on a busy sandbox it can miss the message
   [tests 3].
+  **Fixed in I9:** `limit=1000`.
 - `mail-canary.spec.ts` never removes its `onMessage` listeners [tests 3]. Still true after I6 moved it to
   `tests/e2e-canary/`: electron-trpc's exposed `onMessage` gives no way to remove one.
 - CI neither fails nor annotates when the sandbox suites skip [tests 2].
+  **Fixed in I9:** a skipped sandbox suite writes a `::warning::` annotation.
 - `tests/no_pii.test.ts` skips comment lines and detects only email addresses and IBANs: no names, phone
   numbers, postal addresses or BICs [tests 5]. The review doc covers only which files it scans.
+  **Fixed in I17:** comment lines are scanned, and phone numbers, BICs and street addresses are detected.
+  The fixtures that already held some are counted per file until a person checks them. Names are not
+  detected: no pattern tells a real name from an invented one.
 - Docs drift rows missing from section 8 [tests 4]:
   - `docs/mail-client-tasks.md:534` claims `mail_uidplus` runs on the sandbox; unverified, the suite is not
     a `sandboxGate` user;
   - `docs/mail-client-tasks.md:26` "T2 done (this commit)" is a stale relative reference;
   - the `write_guard.ts` header implies the canary is a send-only exception, but the flag admits every write
     (flags, moves, folder delete, expunge); `sendRefusal` restricts only recipients.
+
+  **Fixed in I17:** all three rows.
 
 **Test gaps** named by the reports but not in section 4:
 - `mail_prune_gates` has no folder-level mass-expunge case (empty or truncated `UID FETCH 1:*`);
@@ -93,6 +112,12 @@ None of them is above Medium. Pick them up from here; the source report is named
   operator-only queries;
 - `mail_compose_body` has no forward-header, `<url>` or `<addr>` case for `toEditorHtml` (this is MR-08's
   regression test).
+
+**Fixed:** the mass expunge in I12 (`mail_store_integrity`), `uid_next` in I4 (`mail_mailbox_selection`), the
+IDLE timer and the double events in I15a (`mail_connections`), the search cases in I15b
+(`mail_search_fold`), the forward header in I5 (`mail_compose_body`). `close()` during a poll-triggered
+`syncFolder` in I17 (`mail_close_during_sync`): it was a real bug, `close()` waited only for a full pass and
+closed the store under a poll or a folder sync.
 
 ### Corrected, not dropped
 
