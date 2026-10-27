@@ -88,6 +88,8 @@ export interface JournalRow {
   created_at: string;
   updated_at: string;
   error: string | null;
+  /** I17: the compose session of a draft save (migration 4); null otherwise */
+  compose_key: string | null;
 }
 
 export interface MessageRow {
@@ -278,23 +280,53 @@ export class Store {
   journalEnqueue(op: {
     id?: string; accountId: string; kind: 'flag' | 'move' | 'move_batch' | 'delete' | 'expunge' | 'send' | 'draft_save' | 'draft_delete' | 'folder_create' | 'folder_rename' | 'folder_delete';
     folderPath?: string; folderUidValidity?: string; uid?: number; messageKey?: string;
-    messageId?: string; payload?: unknown; targetFolderPath?: string;
+    messageId?: string; payload?: unknown; targetFolderPath?: string; composeKey?: string;
   }): string {
     const id = op.id ?? crypto.randomUUID();
     const now = new Date(this.clock()).toISOString();
     this.db.prepare(`INSERT INTO op_journal
       (id, account_id, kind, state, folder_path, folder_uidvalidity, uid, message_key,
-       message_id, payload, target_folder_path, attempts, created_at, updated_at)
+       message_id, payload, target_folder_path, attempts, created_at, updated_at, compose_key)
       VALUES (@id, @accountId, @kind, 'pending', @folderPath, @folderUidValidity, @uid,
-       @messageKey, @messageId, @payload, @targetFolderPath, 0, @now, @now)`)
+       @messageKey, @messageId, @payload, @targetFolderPath, 0, @now, @now, @composeKey)`)
       .run({
         id, accountId: op.accountId, kind: op.kind,
         folderPath: op.folderPath ?? null, folderUidValidity: op.folderUidValidity ?? null,
         uid: op.uid ?? null, messageKey: op.messageKey ?? null, messageId: op.messageId ?? null,
         payload: op.payload !== undefined ? JSON.stringify(op.payload) : null,
-        targetFolderPath: op.targetFolderPath ?? null, now,
+        targetFolderPath: op.targetFolderPath ?? null, now, composeKey: op.composeKey ?? null,
       });
     return id;
+  }
+
+  /**
+   * I17 (write path L7): has the compose session of this draft save stored or queued a newer
+   * version since? Ops are ordered by rowid, the order they were journaled in; a newer save
+   * that was cancelled (its APPEND never happened) does not count.
+   */
+  journalDraftSuperseded(op: JournalRow): boolean {
+    if (!op.compose_key) return false;
+    return !!this.db.prepare(`SELECT 1 FROM op_journal
+      WHERE account_id = @account AND compose_key = @key AND kind = 'draft_save'
+        AND rowid > (SELECT rowid FROM op_journal WHERE id = @id)
+        AND state IN ('pending','running','done')
+      LIMIT 1`).get({ account: op.account_id, key: op.compose_key, id: op.id });
+  }
+
+  /**
+   * I17 (write path L7): the UID the latest earlier save of this compose session appended. The
+   * editor names the version it last got back; a save that crashed and was replayed afterwards
+   * appended a copy the editor never heard of, and this is how the next save finds it.
+   */
+  journalLastDraftUidBefore(op: JournalRow): number | null {
+    if (!op.compose_key) return null;
+    const row = this.db.prepare(`SELECT json_extract(payload, '$.appendedUid') AS uid FROM op_journal
+      WHERE account_id = @account AND compose_key = @key AND kind = 'draft_save'
+        AND rowid < (SELECT rowid FROM op_journal WHERE id = @id)
+        AND json_extract(payload, '$.appendedUid') IS NOT NULL
+      ORDER BY rowid DESC LIMIT 1`).get({ account: op.account_id, key: op.compose_key, id: op.id }) as
+      { uid: number } | undefined;
+    return row ? Number(row.uid) : null;
   }
 
   journalGet(id: string): JournalRow | undefined {

@@ -5,11 +5,11 @@
  * shape check, and the two jobs must not be separated:
  *
  *   - shape: an address needs exactly one `@` with text on both sides, and a domain with at
- *     least one dot and no empty label. Without that, `a@b` and `a@.b.de` were accepted
+ *     least one dot and no empty label. Without that, `a@b` and `a@.b.test` were accepted
  *     and the server rejected them at send time.
  *   - safety: none of the characters that can END a header or START another one may appear
  *     (`< > ( ) " , ; : @ \\` and whitespace). A newline in an address is a header
- *     injection: `a@b.de\r\nBcc: victim@example.test` would add a recipient.
+ *     injection: `a@b.test\r\nBcc: victim@example.test` would add a recipient.
  *
  * Deliberately permissive where it can be: non-ASCII (IDN) addresses are VALID and must stay
  * valid. Zod's `z.string().email()` rejects `user@exämple.test`, so it is the wrong tool here -

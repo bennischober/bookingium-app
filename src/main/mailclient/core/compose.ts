@@ -42,7 +42,7 @@ function addresses(list: Address[], field: string): { name: string; address: str
   })
 }
 
-const SEND_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const SEND_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function composeMime(mail: DraftInput, opts: ComposeOptions): Promise<ComposedMime> {
   const [from] = addresses([opts.from], 'From')

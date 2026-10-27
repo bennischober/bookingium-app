@@ -2,6 +2,7 @@
 // The renderer asks for an action ("open" or "save as"), the main process fetches the bytes
 // from the mail worker, writes them to a temp file or a user-chosen path and hands them to
 // the OS. Only the sanitized name crosses back.
+import { createHash } from 'crypto'
 import { writeFile } from 'fs/promises'
 import { isAbsolute, join, relative, resolve } from 'path'
 
@@ -132,6 +133,18 @@ export function safePathIn(folder: string, name: string, fallback = 'Anhang'): s
     throw new Error('Ungültiger Dateiname')
   }
   return join(folder, rel)
+}
+
+/**
+ * I17 (README host M5): the temp subfolder of one attachment. Message ids are per account, and
+ * the old `${messageId}-${partId}` with the dots stripped also made part "1.2" and part "12" one
+ * folder, so two accounts (or two parts) overwrote each other's file. The three ids go into a
+ * hash as a JSON array, which keeps every combination apart without putting the account id in
+ * a path.
+ */
+export function attachmentSubfolder(accountId: string, messageId: number, partId: string): string {
+  const key = JSON.stringify([accountId, messageId, partId])
+  return `${messageId}-${createHash('sha256').update(key).digest('hex').slice(0, 16)}`
 }
 
 /**

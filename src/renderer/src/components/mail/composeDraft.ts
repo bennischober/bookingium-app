@@ -188,6 +188,43 @@ export function toDraftInput(state: ComposeState): DraftInput {
   }
 }
 
+type DraftAttachment = DraftInput['attachments'][number]
+
+// MR-38: attachments never change once added (a new file is a new object), so each one is
+// fingerprinted once and the dirty check compares the fingerprints, not megabytes of base64
+const attachmentKeys = new WeakMap<DraftAttachment, string>()
+
+/** FNV-1a over the base64 text; with the name, type and length beside it a collision is moot */
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16)
+}
+
+/** MR-38: one attachment's fingerprint, computed on first use and cached per object */
+export function attachmentKey(attachment: DraftAttachment): string {
+  let key = attachmentKeys.get(attachment)
+  if (key === undefined) {
+    const { filename, contentType, base64 } = attachment
+    key = JSON.stringify([filename, contentType, base64.length, fnv1a(base64)])
+    attachmentKeys.set(attachment, key)
+  }
+  return key
+}
+
+/**
+ * MR-38: what the dirty check compares - the draft input with every attachment replaced by its
+ * fingerprint. Stringifying the base64 on every keystroke made typing sluggish with 10-20 MB
+ * attached.
+ */
+export function draftDirtyKey(state: ComposeState): string {
+  const input = toDraftInput(state)
+  return JSON.stringify({ ...input, attachments: input.attachments.map(attachmentKey) })
+}
+
 /** B7: most providers refuse mails above 20-25 MB, and base64 adds a third on top */
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 

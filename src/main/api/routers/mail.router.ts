@@ -5,6 +5,7 @@ import { app, BrowserWindow, dialog, shell } from 'electron'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, join } from 'path'
 import {
+  attachmentSubfolder,
   isSafeToOpen,
   markFromInternet,
   safePathIn,
@@ -109,9 +110,8 @@ async function writeAttachment(
   name: string
 ): Promise<string> {
   const dir = attachmentTempDir()
-  // A per-message subfolder keeps same-named attachments from overwriting each other
-  const sub = `${input.messageId}-${input.partId.replace(/[^a-zA-Z0-9]/g, '')}`
-  const folder = join(dir, sub)
+  // A subfolder per account, message and part keeps same-named attachments apart (README host M5)
+  const folder = join(dir, attachmentSubfolder(input.accountId, input.messageId, input.partId))
   await mkdir(folder, { recursive: true })
   const bytes = await attachmentBytes(input)
   const target = safePathIn(folder, name)

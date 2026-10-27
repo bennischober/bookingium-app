@@ -147,3 +147,45 @@ describe('AUDIT B: the G5 local row must not duplicate on the next sync', () => 
     expect(store.listByFolder(draftsId, 0, 10)).toHaveLength(1)
   })
 })
+
+describe('I17 (write path L6): an appended draft is not part of a sync pass', () => {
+  it('keeps the draft out of the move correlation', async () => {
+    const { SyncEngine } = await import('../src/main/mailclient/core/sync')
+    const { store, dir, draftsId } = openStore()
+    store.db.prepare("UPDATE folders SET uid_validity = '99' WHERE imap_path = 'Drafts'").run()
+    const engine = new SyncEngine(
+      {
+        id: ACCOUNT,
+        host: '127.0.0.1',
+        port: 1,
+        security: 'none',
+        user: 'u',
+        pass: 'p',
+        readOnly: false,
+        dataDir: dir
+      },
+      store
+    )
+    const internals = engine as unknown as {
+      passDeletedMsgIds: Set<string>
+      passInsertedMsgIds: Set<string>
+      storeMessage: (
+        folderId: string,
+        validity: string,
+        msg: { uid: number; source: Buffer }
+      ) => Promise<void>
+    }
+    // mailparser keeps the angle brackets, and so does the deleted side
+    internals.passDeletedMsgIds.add('<entwurf@example.test>')
+    const draft = (id: string) =>
+      Buffer.from(`From: a@example.test\r\nMessage-ID: <${id}>\r\nSubject: X\r\n\r\nbody\r\n`)
+
+    await engine.storeAppendedDraft(draftsId, '99', 7, draft('entwurf@example.test'))
+    expect(internals.passInsertedMsgIds.size).toBe(0)
+    expect(engine.detectMoves()).toBe(0)
+
+    // control: the same mail found by a sync pass is counted
+    await internals.storeMessage(draftsId, '99', { uid: 8, source: draft('entwurf@example.test') })
+    expect(engine.detectMoves()).toBe(1)
+  })
+})

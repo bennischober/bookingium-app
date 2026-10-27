@@ -24,7 +24,7 @@ import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_i
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
 import { isCorruptStoreError } from './store_recovery.js';
 import type { MessageHeader, HeaderPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
-import { composeMime, ComposeError, type ComposedMime } from './compose.js';
+import { composeMime, ComposeError, SEND_KEY, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { isDiskFullError } from './disk_full.js';
@@ -1161,9 +1161,12 @@ export class MailCore implements Api {
     const draftsFolder = this.draftsFolder(e);
     const { raw, messageId } = await this.buildMimeMessage(e, draft, { draft: true });
     const oldUid = replaceUid ?? undefined;
+    // I17 (write path L7): the editor's session key ties its saves together, so a replayed older
+    // save does not come back over a newer one (see doDraftSave). It never becomes a Message-ID here.
+    const composeKey = draft.sendKey && SEND_KEY.test(draft.sendKey) ? draft.sendKey : undefined;
     const opId = e.store.journalEnqueue({
       // I1 (MR-15): the Message-ID lets a replay find a copy the APPEND already left
-      accountId: e.config.id, kind: 'draft_save', messageId,
+      accountId: e.config.id, kind: 'draft_save', messageId, composeKey,
       folderPath: draftsFolder.imap_path, folderUidValidity: draftsFolder.uid_validity ?? undefined,
       uid: oldUid,
       payload: { mime: raw.toString('base64'), oldUid },
@@ -1631,9 +1634,11 @@ export class MailCore implements Api {
     await Promise.all([...this.entries.values()].map(e => e.writes.drain(opts?.writeWaitMs ?? 8_000)));
     for (const [, e] of this.entries) {
       e.engine.stopPolling();
-      if (e.engine.isSyncing()) {
-        await e.engine.waitForSync(opts?.syncWaitMs ?? 10_000).catch(() => { });
-      }
+      // I17 (test gap): no new IDLE round starts and a download stops between batches; then the
+      // work in flight (a pass, a poll, a folder sync it or a write's resync started, an IDLE
+      // round) finishes before the store closes. Only a full pass used to be waited for.
+      e.engine.stopIdle();
+      await e.engine.waitForWork(opts?.syncWaitMs ?? 10_000).catch(() => { });
       await e.engine.close();
       // G2/L3c: the write connection is shared across ops now, so close() must end it
       await e.writes.close().catch(() => { });

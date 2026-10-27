@@ -15,6 +15,10 @@
 // not the renderer: `settingsRefusal` runs before an account is saved, `accounts.ts` drops
 // the flag when the account's server, login or address changes, and the core asks
 // `writeRefusal` before it journals any op.
+//
+// I17 (README tests 4): the flag admits every write, not only sends: flags, moves, drafts,
+// folder changes and expunge go through as on the sandbox. `sendRefusal` limits only the
+// recipients of a send, to the account's own address.
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';

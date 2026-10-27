@@ -11,6 +11,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
 import { launchApp, type AppHandle } from './helpers/launch'
+import { attachmentSubfolder } from '../../src/main/mailclient/attachments'
 import {
   E2E_MAIL_PASS,
   E2E_MAIL_USER,
@@ -1127,7 +1128,8 @@ test('an attachment opens from the reader and lands in the temp folder', async (
     // I11 (MR-23): marked as downloaded from the internet, so SmartScreen and Protected View apply.
     // The exact per-message folder: the temp folder keeps earlier runs' files, unmarked ones too
     if (process.platform === 'win32') {
-      const sub = `${mine!.id}-${part!.partId.replace(/[^a-zA-Z0-9]/g, '')}`
+      // I17 (host M5): the folder name carries the account, so two accounts never share one
+      const sub = attachmentSubfolder(sandboxId, mine!.id, part!.partId)
       const zone = await readFile(`${join(written, sub, fileName)}:Zone.Identifier`, 'utf-8')
       expect(zone).toContain('ZoneId=3')
     }
