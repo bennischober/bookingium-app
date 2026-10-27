@@ -46,7 +46,7 @@ import {
   type InvoiceCompose
 } from './mail/invoiceSend'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
-import { MailLinkService } from './services/MailLinkService'
+import { MailLinkService, mailLinkTrigger, ownMailAddresses } from './services/MailLinkService'
 import { listMailAccounts } from './mailclient/accounts'
 import type { OpSummary } from './mailclient/core/types'
 
@@ -645,40 +645,14 @@ app.whenReady().then(async () => {
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
-  // One run per account at a time. A folder event that arrives during a run must not
-  // be dropped: the mails it announced may have been synced after the run's cursor
-  // passed them, so the run is repeated once instead.
-  const linkRunning = new Set<string>()
-  const linkAgain = new Set<string>()
-  const runLinker = (accountId: string): void => {
-    if (linkRunning.has(accountId)) {
-      linkAgain.add(accountId)
-      return
-    }
-    linkRunning.add(accountId)
-    const ownEmail = listMailAccounts().find((a) => a.id === accountId)?.email ?? ''
-    void mailLinks
-      .linkAccount(accountId, ownEmail)
-      .catch(() => undefined)
-      .finally(() => {
-        linkRunning.delete(accountId)
-        // Work that arrived during the run gets its own pass
-        if (linkAgain.delete(accountId)) runLinker(accountId)
-      })
-  }
-  mailClient.events.on('event', (event) => {
-    const e = event as {
-      type?: string
-      accountId?: string
-      event?: { type?: string; path?: string }
-    }
-    if (e.type !== 'sync-event' || e.event?.type !== 'folder-done') return
-    // INBOX and Sent are where the mails that matter arrive
-    const path = e.event.path?.toUpperCase()
-    if (path !== 'INBOX' && !path?.endsWith('SENT')) return
-    if (!e.accountId) return
-    runLinker(e.accountId)
-  })
+  mailClient.events.on(
+    'event',
+    mailLinkTrigger({
+      // Every configured account's address is the user's own (host L3)
+      link: (accountId) => mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts())),
+      log: (error) => console.error('Linking mail failed:', error)
+    })
+  )
   // B6: opened attachments live a day at most
   void cleanAttachmentTemp()
 

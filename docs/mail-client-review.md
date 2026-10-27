@@ -399,6 +399,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   - re-link surviving `.eml` files instead of downloading them again.
 
 #### MR-27: search: the prefix cap misses capitalised words, an all-capped query returns everything, operators alone throw (code)
+**Status: fixed in I15b (2026-10-27).** The cost probe folds the word like the tokenizer (lower case, no diacritics). A query whose terms were all dropped returns no hits instead of every mail. Operators at either end or on their own are dropped, a run keeps one, and a leading NOT goes with its term, as does the NOT of a capped term. `tests/mail_search_fold.test.ts`.
 - **Where:** `core/store.ts:664-700` and `core/index.ts:397-416`.
 - **Scenario:**
   - `fts_vocab` holds folded terms, but the probe uses `'Ver'`, so nothing is capped. German nouns are
@@ -409,6 +410,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   bare operators.
 
 #### MR-28: mail linking: full rescans, missed mail after a rebuild, dismissed links come back (code)
+**Status: fixed in I15b (2026-10-27).** The cursor is the store's generation plus a row id; every page of headers names its generation, and another one restarts the run from 0. Row ids are never handed out twice, so a deleted mail no longer moves the cursor. Each batch is one transaction, dismissed links are not inherited by replies, linker errors are logged, and Sent is found by its special-use, which the core adds to `folder-done`. `tests/mail_link.test.ts`, `tests/mail_link_store.test.ts`.
 - **Where:** `services/MailLinkService.ts:278-290` and `:156-170`; `main/index.ts:675`.
 - **What's wrong:**
   - **A deleted cursor row forces a full rescan.** `storeHasRowAt` needs a row exactly at the cursor. If that

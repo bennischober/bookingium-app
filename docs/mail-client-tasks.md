@@ -1541,6 +1541,28 @@ allowlist expectations in `mail_canary` and `mail_write_guard`; fixtures in six 
 `imap`, which the core now runs read-only, and one used a sandbox kind on a real host. 16 mutation checks,
 all killed. The canary spec, the e2e and the sandbox-backed suites were not run (rule, and Docker down).
 
+### I15b: search and linking [fixed 2026-10-27]
+
+MR-27, MR-28 and [host L3]. The search's cost probe missed capitalised and umlaut prefixes, a query whose
+terms were all capped listed every mail, and operators alone threw. The linker's cursor could skip a
+rebuilt store or rescan everything after a deletion, a batch was not one transaction, dismissed links came
+back with replies, errors were swallowed, and "Gesendete Objekte" was never linked. The shared-address cap
+counted contacts, and only one own address was excluded.
+
+**What changed.**
+- `core/store.ts`: the probe word is folded (`foldFtsTerm`); operators are tidied when the expression is
+  built and again after the cap. Every store has a `store_generation` in `kv`, and row ids come from a
+  high-water mark (`message_id_high`), so the id of a deleted newest mail is never reused (found while
+  working: SQLite without AUTOINCREMENT hands it out again, and the next mail fell behind the cursor).
+- `core/index.ts` and `core/types.ts`: an empty expression returns no hits; `listHeadersSince` returns a
+  `HeaderPage` with the generation; a forwarded `folder-done` carries the folder's special-use.
+- `services/MailLinkService.ts`: the cursor is `{ generation, id }`, an old numeric cursor starts over once;
+  `linkBatch` is one transaction; `threadOwners` skips dismissed links; the cap counts owners;
+  `ownMailAddresses` and `linkableFolder` (new); `mailLinkTrigger` (moved from `main/index.ts`) logs errors.
+
+**Tests.** `tests/mail_search_fold.test.ts` (new, 19), `tests/mail_link_store.test.ts` (new, 5),
+`tests/mail_link.test.ts` (+10, 28 in all). 18 mutation checks, all killed.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test

@@ -3,7 +3,7 @@ import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema, type MailLinkEntityType, type MailLinkSource } from '../db/schema'
 import { mailClient } from '../mailclient/MailClientService'
-import type { MessageHeader } from '../mailclient/core/types'
+import type { HeaderPage } from '../mailclient/core/types'
 import { SettingsRepository } from '../repositories/SettingsRepository'
 
 /**
@@ -38,15 +38,33 @@ export type AddressLookup = (address: string) => ResolvedOwner[]
 /** The links already stored for a Message-ID, for thread inheritance */
 export type ThreadLookup = (messageId: string) => ResolvedOwner[]
 
-/** Every address of a mail, lower-cased and trimmed, without the account's own */
+/** MR-28: where the linker stopped, a row id of one particular store */
+export type LinkCursor = { generation: string | null; id: number }
+
+/**
+ * Host L3: the user's own addresses - every configured account's address, and its login
+ * when that is an address. Mail between them links nothing.
+ */
+export function ownMailAddresses(accounts: { email: string; user: string }[]): string[] {
+  const out = new Set<string>()
+  for (const account of accounts) {
+    for (const value of [account.email, account.user]) {
+      const address = (value ?? '').trim().toLowerCase()
+      if (address.includes('@')) out.add(address)
+    }
+  }
+  return [...out]
+}
+
+/** Every address of a mail, lower-cased and trimmed, without the user's own */
 export function mailAddresses(
   header: Pick<LinkableHeader, 'fromEmail' | 'toEmails' | 'ccEmails'>,
-  ownEmail: string
+  ownAddresses: readonly string[]
 ): string[] {
-  const own = ownEmail.trim().toLowerCase()
+  const own = new Set(ownAddresses.map((a) => a.trim().toLowerCase()))
   return [header.fromEmail, ...header.toEmails, ...header.ccEmails]
     .map((a) => (a ?? '').trim().toLowerCase())
-    .filter((a) => a.length > 0 && a !== own)
+    .filter((a) => a.length > 0 && !own.has(a))
 }
 
 /** The Message-IDs a mail answers or quotes, without the angle brackets */
@@ -64,7 +82,7 @@ export function threadParents(header: Pick<LinkableHeader, 'inReplyTo' | 'refere
  */
 export function resolveLinks(
   header: LinkableHeader,
-  ownEmail: string,
+  ownAddresses: readonly string[],
   lookupAddress: AddressLookup,
   lookupThread: ThreadLookup
 ): ResolvedLink[] {
@@ -77,13 +95,64 @@ export function resolveLinks(
     out.push({ owner, source })
   }
 
-  for (const address of mailAddresses(header, ownEmail)) {
+  for (const address of mailAddresses(header, ownAddresses)) {
     for (const owner of lookupAddress(address)) add(owner, 'address')
   }
   for (const parent of threadParents(header)) {
     for (const owner of lookupThread(parent)) add(owner, 'thread')
   }
   return out
+}
+
+/** A mail-client event as main receives it; only the fields the trigger reads */
+type MailClientEvent = {
+  type?: string
+  accountId?: string
+  event?: { type?: string; path?: string; specialUse?: string | null }
+}
+
+/**
+ * The folders whose mail is linked: INBOX and Sent, where the mails that matter arrive.
+ * Sent is found by its special-use (MR-28), so "Gesendete Objekte" counts as well.
+ */
+export function linkableFolder(folder: { path?: string; specialUse?: string | null }): boolean {
+  return folder.path?.toUpperCase() === 'INBOX' || folder.specialUse === '\\Sent'
+}
+
+/**
+ * C2: runs the linker after a folder sync. One run per account at a time; a folder event
+ * that arrives during a run must not be dropped (the mails it announced may have been
+ * synced after the run's cursor passed them), so the run is repeated once instead. A
+ * failed run is logged (MR-28), never swallowed.
+ */
+export function mailLinkTrigger(deps: {
+  link: (accountId: string) => Promise<unknown>
+  log: (error: unknown) => void
+}): (event: unknown) => void {
+  const running = new Set<string>()
+  const again = new Set<string>()
+  const run = (accountId: string): void => {
+    if (running.has(accountId)) {
+      again.add(accountId)
+      return
+    }
+    running.add(accountId)
+    void Promise.resolve()
+      .then(() => deps.link(accountId))
+      .catch((error) => deps.log(error))
+      .finally(() => {
+        running.delete(accountId)
+        // Work that arrived during the run gets its own pass
+        if (again.delete(accountId)) run(accountId)
+      })
+  }
+  return (event) => {
+    const e = event as MailClientEvent
+    if (e.type !== 'sync-event' || e.event?.type !== 'folder-done') return
+    if (!linkableFolder(e.event)) return
+    if (!e.accountId) return
+    run(e.accountId)
+  }
 }
 
 @injectable()
@@ -94,19 +163,23 @@ export class MailLinkService {
     return `mailLinkCursor:${accountId}`
   }
 
-  /** Stored cursor per account; a missing or broken value starts at 0 */
-  cursorFor(accountId: string): number {
+  /** Stored cursor per account; a missing or broken value starts at 0 of no store */
+  cursorFor(accountId: string): LinkCursor {
+    const start: LinkCursor = { generation: null, id: 0 }
     const raw = this.settings.getAll()[this.cursorKey(accountId)]
-    if (raw === undefined) return 0
+    if (raw === undefined) return start
     try {
-      const parsed = Number(JSON.parse(raw))
-      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+      const parsed = JSON.parse(raw) as { generation?: unknown; id?: unknown } | null
+      // The bare number of earlier builds names no store, so it is not trusted
+      if (typeof parsed?.generation !== 'string' || typeof parsed.id !== 'number') return start
+      if (!Number.isInteger(parsed.id) || parsed.id < 0) return start
+      return { generation: parsed.generation, id: parsed.id }
     } catch {
-      return 0
+      return start
     }
   }
 
-  private saveCursor(accountId: string, cursor: number): void {
+  private saveCursor(accountId: string, cursor: LinkCursor): void {
     this.settings.setMany({ [this.cursorKey(accountId)]: JSON.stringify(cursor) })
   }
 
@@ -119,7 +192,7 @@ export class MailLinkService {
       .from(schema.contact)
       .where(sql`lower(trim(${schema.contact.email})) = ${email}`)
       .all()
-    if (contacts.length === 0 || contacts.length > SHARED_ADDRESS_LIMIT) return []
+    if (contacts.length === 0) return []
     const ids = contacts.map((c) => c.id)
     const out: ResolvedOwner[] = []
     const push = (entityType: MailLinkEntityType, rows: { id: number }[]): void => {
@@ -149,7 +222,8 @@ export class MailLinkService {
         .where(inArray(schema.venue.contact_id, ids))
         .all()
     )
-    return out
+    // Host L3: the cap counts records, not contacts - one contact can stand for many records
+    return out.length > SHARED_ADDRESS_LIMIT ? [] : out
   }
 
   /** Links already stored for a Message-ID (the parent of a thread) */
@@ -163,34 +237,45 @@ export class MailLinkService {
       })
       .from(schema.mail_link)
       .where(
-        and(eq(schema.mail_link.mail_account_id, accountId), eq(schema.mail_link.message_id, id))
+        and(
+          eq(schema.mail_link.mail_account_id, accountId),
+          eq(schema.mail_link.message_id, id),
+          // MR-28: a link the user dismissed is not handed on to the replies
+          eq(schema.mail_link.dismissed, false)
+        )
       )
       .all()
     return rows.map((r) => ({ entityType: r.entity_type, entityId: r.entity_id }))
   }
 
-  /** One linking round over a batch of headers; returns how many links were added */
-  linkBatch(accountId: string, ownEmail: string, headers: LinkableHeader[]): number {
-    let added = 0
-    for (const header of headers) {
-      const links = resolveLinks(
-        header,
-        ownEmail,
-        (address) => this.addressOwners(address),
-        (messageId) => this.threadOwners(messageId, accountId)
-      )
-      for (const link of links) {
-        added += this.insertLink({
-          accountId,
-          messageId: header.messageId,
-          fallbackKey: header.fallbackKey,
-          entityType: link.owner.entityType,
-          entityId: link.owner.entityId,
-          source: link.source
-        })
+  /**
+   * One linking round over a batch of headers; returns how many links were added. The
+   * batch is one transaction (MR-28): one commit instead of one per link, and a batch
+   * that fails leaves nothing behind.
+   */
+  linkBatch(accountId: string, ownAddresses: readonly string[], headers: LinkableHeader[]): number {
+    return db.transaction(() => {
+      let added = 0
+      for (const header of headers) {
+        const links = resolveLinks(
+          header,
+          ownAddresses,
+          (address) => this.addressOwners(address),
+          (messageId) => this.threadOwners(messageId, accountId)
+        )
+        for (const link of links) {
+          added += this.insertLink({
+            accountId,
+            messageId: header.messageId,
+            fallbackKey: header.fallbackKey,
+            entityType: link.owner.entityType,
+            entityId: link.owner.entityId,
+            source: link.source
+          })
+        }
       }
-    }
-    return added
+      return added
+    })
   }
 
   /**
@@ -239,54 +324,42 @@ export class MailLinkService {
 
   /**
    * One linking run: mails after the stored cursor, in batches, yielding between
-   * them so a large mailbox never blocks the main process. A store rebuild (the
-   * cursor points past the newest row) restarts from 0; the unique index makes
-   * re-linking harmless.
+   * them so a large mailbox never blocks the main process. The cursor names the
+   * store it belongs to (MR-28): every row up to its id was linked, in that store
+   * only. A rebuilt or replaced store has another generation, and the run starts
+   * again from 0; the unique index makes re-linking harmless.
    */
   async linkAccount(
     accountId: string,
-    ownEmail: string
+    ownAddresses: readonly string[]
   ): Promise<{ linked: number; scanned: number }> {
-    let cursor = this.cursorFor(accountId)
-    // A rebuild of the store (or a full re-sync) inserts the mails again with fresh,
-    // higher row ids, so a stored cursor would skip them forever. The cursor is only
-    // trusted while the store still holds a mail at or below it.
-    if (cursor > 0 && !(await this.storeHasRowAt(accountId, cursor))) {
-      cursor = 0
-      this.saveCursor(accountId, 0)
-    }
+    let { generation, id: cursor } = this.cursorFor(accountId)
     let linked = 0
     let scanned = 0
     for (;;) {
-      const batch = (await mailClient.call('listHeadersSince', [
+      const page = (await mailClient.call('listHeadersSince', [
         cursor,
         LINK_BATCH,
         accountId
-      ])) as MessageHeader[]
-      if (batch.length === 0) break
-      linked += this.linkBatch(accountId, ownEmail, batch)
-      scanned += batch.length
-      cursor = batch[batch.length - 1].id
-      this.saveCursor(accountId, cursor)
+      ])) as HeaderPage
+      if (page.generation !== generation) {
+        generation = page.generation
+        // These ids belong to another store; the old position says nothing about them
+        if (cursor > 0) {
+          cursor = 0
+          this.saveCursor(accountId, { generation, id: cursor })
+          continue
+        }
+      }
+      if (page.headers.length === 0) break
+      linked += this.linkBatch(accountId, ownAddresses, page.headers)
+      scanned += page.headers.length
+      cursor = page.headers[page.headers.length - 1].id
+      this.saveCursor(accountId, { generation, id: cursor })
       // Yield: the sync must never wait for the linker
       await new Promise((resolve) => setTimeout(resolve, 0))
     }
     return { linked, scanned }
-  }
-
-  /** Whether the store still holds a mail at or below the cursor (else it was rebuilt) */
-  private async storeHasRowAt(accountId: string, cursor: number): Promise<boolean> {
-    try {
-      const rows = (await mailClient.call('listHeadersSince', [
-        Math.max(0, cursor - 1),
-        1,
-        accountId
-      ])) as MessageHeader[]
-      return rows.length > 0 && rows[0].id <= cursor
-    } catch {
-      // Cannot tell: keep the cursor, re-linking is harmless
-      return true
-    }
   }
 
   /** The mails linked to one record, for the history panel of C3 */

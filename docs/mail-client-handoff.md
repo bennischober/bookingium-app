@@ -221,11 +221,11 @@ A card is done when every box holds, the gates pass, and the mutation check is r
       two commit messages): list them, do not rewrite history.
 
 ### I15b: search and linking (MR-27, 28)
-- [ ] MR-27: the probe word is folded; an empty expression returns no hits; bare operators are dropped.
+- [x] MR-27: the probe word is folded; an empty expression returns no hits; bare operators are dropped.
       Tests with capitalised and umlaut prefixes, an all-caps query and operator-only queries.
-- [ ] MR-28: the linker cursor is keyed by generation and id, one transaction per batch, dismissed owners are
+- [x] MR-28: the linker cursor is keyed by generation and id, one transaction per batch, dismissed owners are
       filtered, errors are logged, Sent is found by special-use `\Sent`. Tests for each.
-- [ ] README host L3: the shared-address cap counts owners, and the user's own aliases are excluded.
+- [x] README host L3: the shared-address cap counts owners, and the user's own aliases are excluded.
 
 ### Claude cards
 

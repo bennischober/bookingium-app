@@ -226,8 +226,8 @@ export interface Api {
   replayPendingOps?(accountId?: string): Promise<{ replayed: number; results: Record<string, string> }>;
 
   // --- C2: mail -> record linking ---
-  /** Addresses and ids only, never subjects or bodies (C2). Ordered by row id. */
-  listHeadersSince?(cursor: number, limit: number, accountId?: string): Promise<MessageHeader[]>;
+  /** Addresses and ids only, never subjects or bodies (C2). Ordered by row id; names the store (MR-28). */
+  listHeadersSince?(cursor: number, limit: number, accountId?: string): Promise<HeaderPage>;
   // --- B1: folder create / rename / delete (writable accounts only) ---
   createFolder?(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary>;
   renameFolder?(path: string, newName: string, accountId?: string): Promise<OpSummary>;
@@ -241,6 +241,10 @@ export interface Api {
 }
 
 /** C2: one mail's linking header. Addresses and ids only - no subject, no body. */
+/** MR-28: one page of headers and the generation of the store it came from. A row id is a
+ * position in one store only; a rebuilt or replaced store has a new generation. */
+export type HeaderPage = { generation: string; headers: MessageHeader[] };
+
 export type MessageHeader = {
   id: number;
   messageId: string | null;

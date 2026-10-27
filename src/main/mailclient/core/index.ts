@@ -23,7 +23,7 @@ import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
 import { isCorruptStoreError } from './store_recovery.js';
-import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
+import type { MessageHeader, HeaderPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
@@ -228,7 +228,11 @@ export class MailCore implements Api {
       this.entries.set(a.id, { options: a, config, writeAccount, store, engine, writes });
       // forward sync events to subscribers (Task 5: events are the core's only
       // progress channel — no console writes inside the core)
-      engine.onSyncEvent = ev => this.emitEvent({ type: 'sync-event', accountId: a.id, event: ev });
+      // MR-28: a finished folder carries its special-use, so main finds Sent by `\Sent`, not by name
+      engine.onSyncEvent = ev => this.emitEvent({
+        type: 'sync-event', accountId: a.id,
+        event: ev.type === 'folder-done' ? { ...ev, specialUse: store.getFolderByPath(ev.path)?.special_use ?? null } : ev,
+      });
       // the rejected password must not stay around; the engine has stopped for good anyway
       engine.onAuthFailed = () => this.credentialCache.delete(a.id);
     }
@@ -455,9 +459,17 @@ export class MailCore implements Api {
     const e = this.entry(accountId);
     const store = e.store;
     const t0 = performance.now();
-    const matchExpr = filters.query
+    const matchExpr = filters.query?.trim()
       ? store.capPathologicalPrefixes(store.ftsEscapeUserQuery(filters.query))
       : null;
+    // MR-27: a query whose terms were all dropped (too short, capped, or operators alone) finds
+    // nothing. An empty MATCH would mean "no text filter" and list every mail.
+    if (matchExpr === '') {
+      const none: SearchResult = { items: [], total: 0, elapsedMs: 0, snippetMap: {} };
+      if (filters.wantFacets) none.facets = [];
+      none.elapsedMs = Math.round(performance.now() - t0);
+      return none;
+    }
     const limit = filters.limit ?? 50;
     const { rows, total, elapsedMs } = store.search({
       matchExpr, folderId: filters.folderId, from: filters.from, to: filters.to,
@@ -895,10 +907,12 @@ export class MailCore implements Api {
   /**
    * Headers of the mails with a row id above `cursor`, oldest first. Addresses and
    * ids only: the subject never leaves the worker in clear text for this purpose, it
-   * only enters the fallback hash.
+   * only enters the fallback hash. The page names the store it was read from (MR-28),
+   * so a cursor from a rebuilt or replaced store is recognised as such.
    */
-  async listHeadersSince(cursor: number, limit: number, accountId?: string): Promise<MessageHeader[]> {
+  async listHeadersSince(cursor: number, limit: number, accountId?: string): Promise<HeaderPage> {
     const store = this.entry(accountId).store;
+    const generation = store.generation();
     const rows = store.db.prepare(
       `SELECT id, message_id, in_reply_to, references_json, from_email, to_json, cc_json,
               date, internal_date, subject, size_bytes
@@ -909,7 +923,7 @@ export class MailCore implements Api {
         cc_json: string | null; date: string | null; internal_date: string | null;
         subject: string | null; size_bytes: number | null;
       }>;
-    return rows.map(r => ({
+    const headers = rows.map((r): MessageHeader => ({
       id: r.id,
       messageId: r.message_id,
       fallbackKey: messageFallbackKey({
@@ -925,6 +939,7 @@ export class MailCore implements Api {
       ccEmails: parseAddressList(r.cc_json),
       date: r.date,
     }));
+    return { generation, headers };
   }
 
   async findByMessageIds(ids: string[], accountId?: string): Promise<MessageListItem[]> {

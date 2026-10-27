@@ -217,7 +217,7 @@ I15a (MR-40) the name was ignored, so a host that subscribed twice got every eve
 
 | Event | Payload | Meaning |
 |---|---|---|
-| `sync-event` | `SyncEvent` (`{ type: 'folder-list' \| 'folder-start' \| 'folder-done' \| 'error', path, message }`) | per-folder sync progress; also drives the pollable `getSyncStatus()` |
+| `sync-event` | `SyncEvent` (`{ type: 'folder-list' \| 'folder-start' \| 'folder-done' \| 'error', path, message }`) | per-folder sync progress; also drives the pollable `getSyncStatus()`. The core adds the folder's `specialUse` to `folder-done`, so main finds Sent by `\Sent` (MR-28) |
 | `op-event` | `{ opId, kind, outcome, reason? }` | emitted after every write-op execution and journal state change |
 
 There is deliberately **no** `log` event: the core calls the injected `log` sink

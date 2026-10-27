@@ -127,6 +127,48 @@ export const STAGING_PREFIX = '__staging__/';
 /** I12 (MR-41): staged rows wait for the swap, so nothing that spans folders may show them. */
 const NOT_STAGED = `messages.folder_id NOT IN (SELECT id FROM folders WHERE substr(imap_path, 1, ${STAGING_PREFIX.length}) = '${STAGING_PREFIX}')`;
 
+/** MR-27: one token of a MATCH expression, a quoted prefix term or a boolean operator */
+type FtsOperator = 'OR' | 'AND' | 'NOT';
+type MatchToken = { op: FtsOperator } | { word: string };
+const isFtsOperator = (t: string): t is FtsOperator => t === 'OR' || t === 'AND' || t === 'NOT';
+
+/**
+ * MR-27: FTS5 needs a term on both sides of an operator, or the MATCH throws. Operators at either end
+ * are dropped and a run of them keeps the last. A leading NOT takes its term with it: searching for
+ * that term would turn the user's meaning around.
+ */
+function tidyOperators(tokens: MatchToken[]): MatchToken[] {
+  const out: MatchToken[] = [];
+  let skipTerm = false;
+  for (const t of tokens) {
+    const last = out[out.length - 1];
+    if ('op' in t) {
+      if (!last) { if (t.op === 'NOT') skipTerm = true; continue; }
+      if ('op' in last) out[out.length - 1] = t;
+      else out.push(t);
+    } else if (skipTerm) {
+      skipTerm = false;
+    } else {
+      out.push(t);
+    }
+  }
+  while (out.length && 'op' in out[out.length - 1]) out.pop();
+  return out;
+}
+
+function buildMatchExpr(tokens: MatchToken[]): string {
+  return tokens.map(t => 'op' in t ? t.op : `"${t.word.replace(/"/g, '""')}" *`).join(' ');
+}
+
+/** The tokens of an expression buildMatchExpr made */
+function parseMatchExpr(expr: string): MatchToken[] {
+  const out: MatchToken[] = [];
+  for (const m of expr.matchAll(/"((?:[^"]|"")*)" \*|\b(OR|AND|NOT)\b/g)) {
+    out.push(m[2] ? { op: m[2] as FtsOperator } : { word: m[1].replace(/""/g, '"') });
+  }
+  return out;
+}
+
 export class Store {
   readonly db: BetterSqlite3.Database;
   constructor(dataDir: string, readonly accountId: string, private clock: () => number = Date.now, private log: StoreLogger = {}) {
@@ -427,15 +469,18 @@ export class Store {
   insertMessage(m: Omit<MessageRow, 'id'> & { sort_date?: string | null }): number {
     const withSort = { ...m, sort_date: m.sort_date ?? m.date ?? m.internal_date ?? null };
     const tx = this.db.transaction(() => {
-      const info = this.db.prepare(`INSERT INTO messages (
-        account_id, folder_id, uid, message_key, file_path, message_id, in_reply_to, references_json, thread_id,
+      // MR-28: a row id is never handed out twice. SQLite reuses the id of a deleted newest row, and
+      // the mail linker, which reads the rows after its cursor, would never see the new mail.
+      const id = this.nextMessageId();
+      this.db.prepare(`INSERT INTO messages (
+        id, account_id, folder_id, uid, message_key, file_path, message_id, in_reply_to, references_json, thread_id,
         date, internal_date, sort_date, subject, from_name, from_email, to_json, cc_json, bcc_json, flags_json, modseq,
         has_attachments, attachments_json, size_bytes, snippet, parsed_ok, parse_error)
-        VALUES (@account_id, @folder_id, @uid, @message_key, @file_path, @message_id, @in_reply_to, @references_json, @thread_id,
+        VALUES (@id, @account_id, @folder_id, @uid, @message_key, @file_path, @message_id, @in_reply_to, @references_json, @thread_id,
         @date, @internal_date, @sort_date, @subject, @from_name, @from_email, @to_json, @cc_json, @bcc_json, @flags_json, @modseq,
         @has_attachments, @attachments_json, @size_bytes, @snippet, @parsed_ok, @parse_error)`)
-        .run(withSort);
-      const id = Number(info.lastInsertRowid);
+        .run({ ...withSort, id });
+      this.db.prepare("INSERT OR REPLACE INTO kv (key, value) VALUES ('message_id_high', ?)").run(String(id));
       const body = { id, body_text: m.body_text ?? '', body_html: m.body_html ?? null };
       this.db.prepare('INSERT INTO message_bodies (id, body_text, body_html) VALUES (@id, @body_text, @body_html)').run(body);
       this.db.prepare(`INSERT INTO fts(rowid, subject, from_name, from_email, to_json, body_text, attachments_json)
@@ -444,6 +489,25 @@ export class Store {
       return id;
     });
     return tx();
+  }
+
+  /** The id after the highest one this store ever issued, whether or not that row still exists. */
+  private nextMessageId(): number {
+    const row = this.db.prepare(`SELECT MAX(COALESCE((SELECT MAX(id) FROM messages), 0),
+      COALESCE((SELECT CAST(value AS INTEGER) FROM kv WHERE key = 'message_id_high'), 0)) + 1 AS id`).get() as { id: number };
+    return row.id;
+  }
+
+  /**
+   * MR-28: this store file's identity. A store that was rebuilt or replaced starts with a new one, so a
+   * position in its row ids (the mail linker's cursor) is trusted only for the store that issued it.
+   */
+  generation(): string {
+    const read = () => (this.db.prepare("SELECT value FROM kv WHERE key = 'store_generation'").get() as { value: string } | undefined)?.value;
+    const existing = read();
+    if (existing) return existing;
+    this.db.prepare("INSERT OR IGNORE INTO kv (key, value) VALUES ('store_generation', ?)").run(crypto.randomUUID());
+    return read()!;
   }
 
   /** Full row including the body; lists read the slim messages columns instead. */
@@ -751,15 +815,20 @@ export class Store {
    * never sends them (min-length gate). */
   static readonly MIN_FTS_TERM_LEN = 3;
 
+  /** MR-27: the folding of the FTS tokenizer (unicode61 remove_diacritics 2), lower case without
+   * diacritics. fts_vocab holds folded terms, so a probe has to be folded the same way. */
+  static foldFtsTerm(word: string): string {
+    return word.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  }
+
   ftsEscapeUserQuery(q: string): string {
-    const terms = q.split(/\s+/).map(t => t.trim()).filter(Boolean)
+    const tokens: MatchToken[] = q.split(/\s+/)
       .map(t => t.replace(/[*(){}:^-]/g, ' ').trim())
-      .filter(Boolean)
-      .filter(t => t.length >= Store.MIN_FTS_TERM_LEN || t === 'OR' || t === 'AND' || t === 'NOT')
+      .filter(t => t.length >= Store.MIN_FTS_TERM_LEN || isFtsOperator(t))
       // A boolean keyword stays an operator: quoting it would search for the
       // literal word "OR" and silently return nothing
-      .map(t => (t === 'OR' || t === 'AND' || t === 'NOT') ? t : `"${t.replace(/"/g, '""')}" *`);
-    return terms.join(' ');
+      .map(t => isFtsOperator(t) ? { op: t } : { word: t });
+    return buildMatchExpr(tidyOperators(tokens));
   }
 
   /** Prefix-cost guard: estimate how many rows a prefix term would match via the
@@ -769,12 +838,12 @@ export class Store {
    * pathological prefixes dropped (keeping safe terms so the search still answers). */
   capPathologicalPrefixes(matchExpr: string): string {
     const MAX_PREFIX_DOCS = 20_000;   // ~doclist size the loop can chew in <200 ms
-    const terms = matchExpr.split(/(?<=\*)\s+/); // quoted phrase + star per term
-    const kept: string[] = [];
-    for (const term of terms) {
-      const m = term.match(/^"([^"]+)" \*$/);
-      if (!m) { kept.push(term); continue; }
-      const word = m[1];
+    const kept: MatchToken[] = [];
+    for (const token of parseMatchExpr(matchExpr)) {
+      if ('op' in token) { kept.push(token); continue; }
+      // MR-27: the vocabulary is folded, so an unfolded probe ("Ver") counted nothing and was never capped
+      const word = Store.foldFtsTerm(token.word);
+      if (!word) { kept.push(token); continue; }
       // exact-cost probe: count vocab entries with this prefix
       const row = this.db.prepare(
         `SELECT COUNT(*) c, SUM(doc) docs FROM fts_vocab WHERE term >= ? AND term < ?`
@@ -782,11 +851,14 @@ export class Store {
       const docs = row?.docs ?? 0;
       if (docs > MAX_PREFIX_DOCS) {
         console.log(`[search] prefix "${word}*" capped: ~${docs} docs (limit ${MAX_PREFIX_DOCS}) — term dropped`);
+        // a NOT goes with its term; left behind it would negate the next one
+        const last = kept[kept.length - 1];
+        if (last && 'op' in last && last.op === 'NOT') kept.pop();
         continue;
       }
-      kept.push(term);
+      kept.push(token);
     }
-    return kept.join(' ');
+    return buildMatchExpr(tidyOperators(kept));
   }
 
   /** Slim fetch of display rows for a page of ids, preserving the given order.

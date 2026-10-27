@@ -108,7 +108,8 @@ export function makeSandboxAccount(input: {
 export type SyncEvent =
   | { type: 'folder-list'; folders: string[] }
   | { type: 'folder-start'; path: string; mode: 'full' | 'incremental' }
-  | { type: 'folder-done'; path: string; newCount: number; flagChanges: number; expunged: number; moved: number }
+  // specialUse is added by the core when it forwards the event (MR-28); the engine leaves it out
+  | { type: 'folder-done'; path: string; newCount: number; flagChanges: number; expunged: number; moved: number; specialUse?: string | null }
   | { type: 'error'; path: string | null; message: string };
 
 export type SyncProgress = {
