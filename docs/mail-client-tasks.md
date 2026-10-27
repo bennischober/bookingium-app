@@ -1574,7 +1574,7 @@ Anhänge" had an `aria-label` without a role.
 `presetPdfPath` branch; the compose branch needs `canWrite` and says so when the account cannot write (I16
 review); the window follows every event of its account and ignores `image-progress`; the group has
 `role="group"`. Still open from item 18: `MailPage` drops other accounts' events, and sync does not
-invalidate `search`; that needs a cache decision.
+invalidate `search`; that needs a cache decision (fixed in I18).
 
 **Tests.** `tests/mail_window_leftovers.test.ts` (new, 7, source-pinned: no component-test tooling). 4
 mutation checks, all killed.
@@ -1632,6 +1632,22 @@ poll-triggered `syncFolder`", which turned out to be a real bug.
 **Tests.** `tests/mail_close_during_sync.test.ts` (new, 4); `mail_attachments` (+4), `mail_compose_draft`
 (+4), `mail_draft_replay` (+7), `mail_send_state` (+1), `mail_responsive_audit` (+1), `no_pii` (+5). Mutation
 checks and gates are in the I17 report.
+
+### I18: mail page refresh and swap space [fixed 2026-10-27]
+
+The two leftovers from I17 the user chose to fix: the open half of [renderer 18] and the disk limit of
+[sync M9].
+
+**What changed.**
+- `components/mail/mailRefresh.ts` (new) and `MailPage.tsx`: another account's events mark that account's
+  queries stale instead of being dropped; a sync refreshes `search` with the folders and lists. The keys of
+  several events add up, so a sync event no longer cancels a write's refresh of the open mail and open ops.
+- `core/disk_full.ts` and `core/sync.ts`: the UIDVALIDITY swap checks the free space before it downloads
+  (the old copy's size less what is staged, times 1.2, plus 50 MB) and stops through the disk-full path with
+  a message that names the folder and the missing room. `noteDiskFull` keeps the first reason.
+
+**Tests.** `tests/mail_refresh.test.ts` (new, 9); `mail_store_integrity` (+6); the `mail_op_journal` page
+test follows the refresh into `mailRefresh.ts`. Mutation checks and gates are in the I18 report.
 
 ## Found while working
 
