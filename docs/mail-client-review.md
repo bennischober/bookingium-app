@@ -376,6 +376,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 **Status: fixed in I4 (2026-10-26).** A full disk stops poll, IDLE, `syncFolder`, `syncAll` and the repair. A poll in which no folder answered is not server contact (L3).
 
 #### MR-26: corrupt-store recovery catches only damage to page 1 (code)
+**Status: fixed in I12 (2026-10-27).** Every statement is watched; the first corruption error writes a `.check` marker, and the next open (or one after an unclean shutdown) runs `PRAGMA quick_check` and quarantines on failure. Extended codes, `SQLITE_IOERR_SHORT_READ` and the `cause` chain are matched. Each account opens in its own try/catch, and corruption found by the contacts backfill reopens (and rebuilds) that account once. A rebuild salvages the file map into `relinks` (migration 3) and adopts `.eml` files whose size matches instead of downloading them. `.corrupt-*` files are still kept. `tests/mail_store_integrity.test.ts`.
 - **Where:** `core/store.ts:134-148`, `core/store_recovery.ts` and `core/migrations.ts:54-58`.
 - **What's wrong:**
   - **Detection works only at open.** It triggers only when opening throws. A damaged data or FTS page opens
@@ -523,6 +524,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 - **Fix:** filter by name or subscribe once.
 
 #### MR-41: the UIDVALIDITY swap cannot resume, and nothing guards against mass expunge (code)
+**Status: fixed in I12 (2026-10-27).** An expunge of 20 or more messages that is over 20 % of the folder needs EXAMINE's EXISTS to agree with the UID list, in full sync, incremental sync and the swap. Staging survives a failed pass, the next pass downloads only what is missing, and staged rows are hidden from folders, cross-folder search, facets and threads. Also fixed: staged rows had been inserted into the real folder. `tests/mail_store_integrity.test.ts`.
 - **Where:** `core/sync.ts:620-676`.
 - **What's wrong:**
   - An interrupted swap throws away all staged data. On a flaky connection a large INBOX can restart forever.
@@ -532,6 +534,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
   the staging resumable.
 
 #### MR-42: `storeMessage` can leave a row without its file (code)
+**Status: fixed in I12 (2026-10-27).** The contacts upsert runs after the insert, in its own try/catch that only warns. `tests/mail_store_integrity.test.ts`.
 - **Where:** `core/sync.ts:962-1002`. `insertMessage` commits, then `rememberContactsOf` runs in the same
   `try`, and its catch deletes the file.
 - **Fix:** put the contacts upsert in the insert transaction, or outside the try as non-fatal.

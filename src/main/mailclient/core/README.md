@@ -53,20 +53,54 @@ rebuildable only by deleting the folder by hand, which silently lost all local m
 constructor runs inside `for (const a of options.accounts)` in `index.ts`, so a throw from one corrupt
 store meant **every** account failed to load and the app had no mail at all.
 
-`store_recovery.ts` handles it: on `SQLITE_CORRUPT` or `SQLITE_NOTADB` the store file is **renamed**
+`store_recovery.ts` handles it: on a corruption code (`SQLITE_CORRUPT*`, `SQLITE_NOTADB` or
+`SQLITE_IOERR_SHORT_READ`, also when it is wrapped in an error's `cause`) the store file is **renamed**
 (never deleted - it still holds the user's message bodies) to `<account>.db.corrupt-<timestamp>`, its
 `.db-wal` and `.db-shm` travel with it, and the store is reopened **once**. A warn goes through the
 injected `log` so the user is not left guessing where their mail went.
 
 Two things it deliberately does not do:
 
-- **Only those two codes count.** Measured: a locked DB and a zero-byte file both open fine. Setting a
-  good store aside on a transient failure would be worse than the bug it fixes.
+- **Only corruption codes count.** Measured: a locked DB and a zero-byte file both open fine, and
+  `SQLITE_IOERR`, `SQLITE_BUSY` and `SQLITE_CANTOPEN` are transient. Setting a good store aside on a
+  transient failure would be worse than the bug it fixes.
 - **Exactly one retry.** A second failure is a broken data dir, not corruption, so it throws instead of
   reopening the same file in a loop.
 
-`tests/mail_store_recovery.test.ts` covers both directions, including that a store from a newer build is
-still refused (`StoreVersionError`) and quarantines nothing.
+I12 (MR-26) closed the gaps that left:
+
+- **A damaged data page opens fine.** Only the query that reads it throws. So every statement is watched:
+  the first corruption error writes a `<account>.db.check` marker and warns once. On the next start the
+  marker, or a `-wal` left behind by an unclean shutdown, makes the open run `PRAGMA quick_check` first,
+  and a failed check takes the quarantine path above. A clean start skips the check: it reads the
+  whole file, which costs seconds on a large store.
+- **A rebuild re-links the files.** Before the rebuilt store syncs, `salvageRelinks` reads what it can
+  of the quarantined file into the `relinks` table (migration 3): folder path, UIDVALIDITY, UID, file and
+  size, only for a bare `.eml` name whose file still has the recorded size. The sync then adopts such a
+  file for a UID the server reports with the same size and downloads only the rest. The orphan sweep
+  leaves re-linked files alone until the entry is older than the orphan TTL.
+- **One account is not every account.** `createMailCore` opens each store inside its own try/catch, so
+  an account whose store cannot be opened is skipped with a warning; only when none opens does it throw
+  (and release the data-dir lock). The contacts backfill reads every row and so is where damage usually
+  shows: a corruption error there closes the store and reopens it once, which checks and rebuilds.
+
+`.corrupt-*` files are never cleaned up automatically; they hold the user's mail.
+
+`tests/mail_store_recovery.test.ts` and `tests/mail_store_integrity.test.ts` cover both directions,
+including that a store from a newer build is still refused (`StoreVersionError`) and quarantines nothing.
+
+## A UIDVALIDITY swap resumes, and a short UID list is not a mass expunge
+
+I12 (MR-41). An empty or cut-off `UID FETCH 1:*` looks exactly like a server that expunged everything.
+An expunge of 20 or more messages that is also more than a fifth of the folder therefore needs the UID
+list to be at least as long as the EXISTS of this sync's EXAMINE; otherwise nothing is removed this pass
+and a warning says so. The UIDVALIDITY swap goes through the same guard before it replaces the folder.
+
+The swap stages new rows in a `__staging__/<path>` folder (`STAGING_PREFIX`). Staging survives a failed
+or stopped pass and the next pass downloads only what is not staged yet. Staging of another UIDVALIDITY
+is dropped first, and so is staging whose real folder was pruned. Staged rows are keyed by the real
+folder id and are hidden from `getFolders`, cross-folder search, facets and threads until the swap moves
+them.
 
 ## A full disk pauses sync and says so
 

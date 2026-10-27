@@ -246,9 +246,30 @@ END;
 `);
 }
 
+/**
+ * 3 (I12, MR-26): the file map salvaged from a quarantined store. Folder path, UIDVALIDITY and
+ * UID name a message on the server for good, so a rebuilt store adopts the `.eml` already on
+ * disk instead of downloading it again. A row goes when its message is stored, or after the
+ * orphan TTL; until then the orphan sweep leaves its file alone.
+ */
+function relinks(db: BetterSqlite3.Database): void {
+  db.exec(`
+CREATE TABLE relinks (
+  imap_path TEXT NOT NULL,
+  uid_validity TEXT NOT NULL,
+  uid INTEGER NOT NULL,
+  file_path TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (imap_path, uid_validity, uid)
+) WITHOUT ROWID;
+`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
   { version: 2, name: 'split bodies', up: splitBodies },
+  { version: 3, name: 'relinks', up: relinks },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -14,13 +14,14 @@
 import fs from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
-import { Store, JournalRow, type FolderRow } from './store.js';
+import { Store, JournalRow, STAGING_PREFIX, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, FOLDER_DELETE_REFUSED, type BatchMember, type BatchMoved } from './write_engine.js';
 import { WriteAccount, writeEndpointReachable, isCanary } from './write_guard.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
+import { isCorruptStoreError } from './store_recovery.js';
 import type { MessageHeader, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, AttachmentInfo, ThreadSummary, OpSummary, SavedDraft } from './types.js';
 import { composeMime, ComposeError, type ComposedMime } from './compose.js';
 import { simpleParser } from 'mailparser';
@@ -170,11 +171,14 @@ export class MailCore implements Api {
           : makeSandboxAccount(input);
       // user/pass are resolved lazily via ensureCredentials() before any engine
       // contact — never stored at construction, never logged
-      const store = new Store(dir, a.id, this.clock, this.log);
-      // G9: mail that was already stored before this build has never taught the contacts table who you
-      // correspond with, and the table itself was never populated at all. One pass over the existing rows,
-      // marked in the store's kv table so it runs once and not on every start.
-      store.backfillContactsOnce();
+      // I12 (MR-41): one account whose store cannot be opened is skipped, not fatal for the rest.
+      let store: Store;
+      try {
+        store = this.openAccountStore(dir, a.id);
+      } catch (err) {
+        this.log.warn?.(`mail account ${a.id} could not be opened and is skipped: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
       const engine = new SyncEngine(config, store, {
         forceNoCondstore: options.forceNoCondstore,
         faultWriteCode: options.faultWriteCode,
@@ -215,7 +219,40 @@ export class MailCore implements Api {
       // the rejected password must not stay around; the engine has stopped for good anyway
       engine.onAuthFailed = () => this.credentialCache.delete(a.id);
     }
-    this.activeId = options.accounts[0].id;
+    const first = this.entries.keys().next();
+    if (first.done) {
+      this.lock.release();
+      throw new Error('createMailCore: no mail account could be opened');
+    }
+    this.activeId = first.value;
+  }
+
+  /**
+   * Open one account's store. G9: mail stored before contacts existed never taught the contacts
+   * table who you correspond with, so one pass over the existing rows runs once, marked in kv.
+   * I12 (MR-26/41): that pass reads every row, so it is where a damaged page usually shows up;
+   * the store has marked itself by then, and reopening it once checks and, if needed, rebuilds.
+   * A failed backfill is never fatal: contacts are a convenience.
+   */
+  private openAccountStore(dir: string, id: string): Store {
+    let store = new Store(dir, id, this.clock, this.log);
+    try {
+      store.backfillContactsOnce();
+      return store;
+    } catch (err) {
+      if (!isCorruptStoreError(err)) {
+        this.log.warn?.(`mail account ${id}: contacts backfill failed: ${err instanceof Error ? err.message : String(err)}`);
+        return store;
+      }
+    }
+    try { store.close(); } catch { /* a corrupt handle may refuse the checkpoint; the reopen checks the file */ }
+    store = new Store(dir, id, this.clock, this.log);
+    try {
+      store.backfillContactsOnce();
+    } catch (err) {
+      this.log.warn?.(`mail account ${id}: contacts backfill failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return store;
   }
 
   /** Resolve credentials for an account through the host's provider (lazily). */
@@ -305,7 +342,8 @@ export class MailCore implements Api {
   async getFolders(accountId?: string): Promise<FolderNode[]> {
     const e = this.entry(accountId);
     const store = e.store;
-    const flat = store.allFolders().map(f => {
+    // I12: a UIDVALIDITY swap's staging folder is internal until it is swapped in
+    const flat = store.allFolders().filter(f => !f.imap_path.startsWith(STAGING_PREFIX)).map(f => {
       const counts = store.countByFolder(f.id);
       return {
         id: f.id,
@@ -1419,9 +1457,10 @@ export class MailCore implements Api {
       try {
         const dir = e.store.dataDirResolved;
         if (!fs.existsSync(dir)) continue;
-        const known = new Set(
-          (e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[])
-            .map(r => r.file_path));
+        // I12: files kept for re-linking after a rebuild belong to no row yet; they are
+        // protected until the orphan TTL, then the entry expires and the file is swept
+        const known = e.store.relinkFiles(new Date(now - orphanTtlMs).toISOString());
+        for (const r of e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[]) known.add(r.file_path);
         const orphanDir = path.join(dir, 'orphans');
         const cutoff = now - graceMs;
         for (const f of fs.readdirSync(dir)) {
