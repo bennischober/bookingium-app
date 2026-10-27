@@ -1470,6 +1470,27 @@ joined a renderer name into a path; and preload exposed generic IPC as `window.e
 `tests/mail_attachments.test.ts` (13), a wiring test, and the e2e attachment test. 19 mutation checks, 18
 killed, one equivalent; the report lists them.
 
+### I12: store robustness [fixed 2026-10-27]
+
+MR-26, MR-41 and MR-42. A damaged data page opened fine and broke every later query; one bad store stopped
+every account; a rebuild downloaded the whole mailbox again; an empty `UID FETCH` deleted a folder; an
+interrupted UIDVALIDITY swap started over; and a failed contacts upsert deleted a stored mail's file.
+
+**What changed.**
+- `core/store_recovery.ts` and `core/store.ts`: statements are watched for corruption, which writes a `.check`
+  marker; the next open, or one after an unclean shutdown, runs `quick_check`. Extended codes and `cause` count.
+- `core/index.ts`: each account opens in its own try/catch; corruption found by the contacts backfill
+  reopens that account once.
+- `core/migrations.ts` (v3 `relinks`), `store.ts` and `sync.ts`: a rebuild salvages the file map, and the sync
+  adopts surviving `.eml` files of matching size instead of downloading them; the orphan sweep keeps them
+  until the TTL.
+- `core/sync.ts`: a mass expunge needs EXAMINE's EXISTS; the swap's staging survives failures, resumes, and
+  is hidden from every cross-folder view; staged rows no longer land in the real folder; the contacts upsert
+  is non-fatal.
+
+**Tests.** `tests/mail_store_integrity.test.ts` (new, 23); `tests/mail_store_recovery.test.ts` unchanged. 25
+mutation checks, all killed. The e2e and the sandbox-backed suites were not run (Docker down).
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
