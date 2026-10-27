@@ -1513,6 +1513,34 @@ timers running; and every core event was delivered twice.
 `mail_uidplus` and `mail_write_connection_reuse`. 31 mutation checks, all killed. The e2e and the sandbox-backed suites
 were not run (Docker down).
 
+### I6: canary in main [fixed 2026-10-27]
+
+MR-18, MR-20 and the first decision of review section 6, which the user signed off on 2026-10-27: the
+canary stays a flag with a danger toggle in the account dialog, and main enforces it. Main used to accept
+whatever the renderer sent, a changed server kept the flag, SMTP security was never checked, the allowlist
+held two DNS names, and the core journaled writes for a sandbox kind on a real host.
+
+**What changed.**
+- `core/write_guard.ts`: `smtpRefusal` and `settingsRefusal` (new); `writeRefusal` also refuses a cleartext
+  SMTP login; the allowlist is loopback only.
+- `core/index.ts`: an account the guard refuses gets the production config (read-only); `writableEntry`
+  asks `assertWriteAllowed`; `accountMode` reads the flag from the write account, so a canary reports
+  `canary`.
+- `accounts.ts`: the save is checked in main. The flag ends when the mailbox it names changes (host, port,
+  user, address, SMTP host or port) or is unchecked, and the account is then saved read-only. A packaged
+  build admits a canary only with `BOOKINGIUM_ALLOW_CANARY=1`; `MailClientService.ts` applies the same to a
+  stored canary. `checkMailAccountSettings` checks the SMTP side.
+- `mail.router.ts`: `checkMailAccountSave` runs before the connection test.
+- `MailAccountsCard.tsx`: the SMTP encryption choices follow the SMTP host; a toast says when main ended
+  the admission.
+- `tests/e2e-canary/mail-canary.spec.ts` (moved) and `playwright.canary.config.ts` (new): opt-in with
+  `BOOKINGIUM_CANARY=1`, the account found by its flag, a wrong setup fails.
+
+**Tests.** `tests/mail_canary_save.test.ts` (new, 22) and `tests/mail_canary_main.test.ts` (new, 13);
+allowlist expectations in `mail_canary` and `mail_write_guard`; fixtures in six suites used the kind
+`imap`, which the core now runs read-only, and one used a sandbox kind on a real host. 16 mutation checks,
+all killed. The canary spec, the e2e and the sandbox-backed suites were not run (rule, and Docker down).
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test

@@ -81,5 +81,5 @@ pnpm validate:einvoice   # KoSIT + veraPDF, needs Java 11+
 - E2E runs get a fresh temporary data folder per launch; `BOOKINGIUM_E2E_USER_DATA` points them at a copy, `BOOKINGIUM_NO_LAUNCH=1` suppresses mail-program launches.
 - Print verification means inspecting the generated PDF in `tests/e2e/__screenshots__/`, not the screenshot: pagination bugs are invisible in PNGs.
 - `docs/ARCHITECTURE.md` covers migrations, print documents, e-invoices, mailing lists and follow-ups in depth. Read it before touching those areas.
-- Until card I6 moves it out of `testDir`, a bare `npx playwright test` also picks up `tests/e2e/mail-canary.spec.ts`, which must never run: pass the spec files instead.
+- The canary spec lives in `tests/e2e-canary/` with its own `playwright.canary.config.ts` and skips unless `BOOKINGIUM_CANARY=1`. It reaches a real mailbox: never run it without the user's go-ahead.
 - Mail client work (`src/main/mailclient/`, `components/mail/`, the mail tests): read `docs/mail-client-handoff.md` first. Its standing rules (no `.env`, no mail content in output, the production mailbox stays read-only) apply to every card.

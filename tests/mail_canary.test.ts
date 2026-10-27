@@ -63,9 +63,7 @@ describe('A7 part 2: the canary is admitted by name', () => {
 
   it('does not widen the sandbox allowlist', () => {
     // A second, separate admission path - never a wider allowlist
-    expect([...SANDBOX_ALLOWLIST].sort()).toEqual(
-      ['127.0.0.1', '::1', 'localhost', 'sandbox-dovecot', 'sandbox-mailpit'].sort()
-    )
+    expect([...SANDBOX_ALLOWLIST].sort()).toEqual(['127.0.0.1', '::1', 'localhost'].sort())
     expect(isSandboxHost('imap.ionos.de')).toBe(false)
   })
 

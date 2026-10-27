@@ -32,6 +32,8 @@ throwaway userData folder and assert on rendered German UI or written files.
 - In-app tRPC calls go through `page.evaluate` against `window.electronTRPC`
   (`mail-client.spec.ts` wraps this as `trpc()`).
 - Config: `testDir ./tests/e2e`, 1 worker, `fullyParallel: false`, 60s timeout, no trace.
+- The canary run is NOT here: `tests/e2e-canary/mail-canary.spec.ts`, its own
+  `playwright.canary.config.ts`, opt-in with `BOOKINGIUM_CANARY=1` (I6).
 
 ## ANTI-PATTERNS
 - Never point a spec at a real profile: default is a fresh `mkdtemp` userData. If

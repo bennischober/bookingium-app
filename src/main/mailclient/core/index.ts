@@ -17,7 +17,7 @@ import path from 'path';
 import { Store, JournalRow, STAGING_PREFIX, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult, FOLDER_DELETE_REFUSED, type BatchMember, type BatchMoved } from './write_engine.js';
-import { WriteAccount, writeEndpointReachable, isCanary } from './write_guard.js';
+import { WriteAccount, writeEndpointReachable, isCanary, writeRefusal, assertWriteAllowed } from './write_guard.js';
 import { ConnectionBudget } from './connection_budget.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris, RemoteImageFetchOptions } from './remote_images.js';
@@ -33,10 +33,12 @@ import { autoRetryable, retryDelay, sendPhase } from './op_retry.js';
 import { draftStoreValidity } from './draft_store.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 
-/** A7 part 2: how an account reports itself - the canary is writable but not a sandbox */
-function accountMode(config: { canary?: boolean; readOnly: boolean }): AccountInfo['mode'] {
-  if (isCanary(config)) return 'canary';
-  return config.readOnly ? 'production-readonly' : 'sandbox';
+/** A7 part 2: how an account reports itself - the canary is writable but not a sandbox.
+ * I6 (MR-18): the flag is on the write account; the sync config never carried it, so a canary
+ * used to report itself as 'sandbox'. */
+function accountMode(e: { config: { readOnly: boolean }; writeAccount: WriteAccount }): AccountInfo['mode'] {
+  if (e.config.readOnly) return 'production-readonly';
+  return isCanary(e.writeAccount) ? 'canary' : 'sandbox';
 }
 
 /** A7: a single UID MOVE covers at most this many mails; above that the group is split */
@@ -167,12 +169,14 @@ export class MailCore implements Api {
       };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
       // A7 part 2: the canary is a real mailbox that is writable, so it takes the
-      // production pacing with the write path enabled. Every other account keeps the
-      // kind it was saved as.
-      const config: AccountConfig = isCanary(a)
-        ? makeCanaryAccount(input)
-        : a.kind === 'production-readonly'
-          ? makeProductionAccount(input)
+      // production pacing with the write path enabled. I6 (MR-20): an account the guard
+      // refuses is read-only with the production pacing, whatever kind it was saved as -
+      // a sandbox-kind account on a real host without the flag used to sync read-write
+      // with no connection cap, and journal ops that waited for a flag set later.
+      const config: AccountConfig = writeRefusal(writeAccount) !== null
+        ? makeProductionAccount(input)
+        : isCanary(a)
+          ? makeCanaryAccount(input)
           : makeSandboxAccount(input);
       // user/pass are resolved lazily via ensureCredentials() before any engine
       // contact — never stored at construction, never logged
@@ -285,7 +289,7 @@ export class MailCore implements Api {
     return {
       id: e.config.id,
       email: e.options.email ?? e.config.user,
-      mode: accountMode(e.config),
+      mode: accountMode(e),
       canWrite: !e.config.readOnly && reachable,
     };
   }
@@ -296,7 +300,7 @@ export class MailCore implements Api {
       out.push({
         id,
         email: e.options.email ?? e.config.user,
-        mode: accountMode(e.config),
+        mode: accountMode(e),
         canWrite: !e.config.readOnly,
         active: id === this.activeId,
       });
@@ -1297,6 +1301,8 @@ export class MailCore implements Api {
     const key = id ?? [...this.entries.keys()].find(k => !this.entries.get(k)!.config.readOnly);
     const e = this.entry(key);
     if (e.config.readOnly) throw new Error('WRITE GUARD: account is read-only');
+    // I6 (MR-20): the guard decides before an op is journaled, not only when it connects
+    assertWriteAllowed(e.writeAccount);
     return e;
   }
 

@@ -149,11 +149,18 @@ function MailAccountDialog({
 
   // The server checks the settings first and saves only what passes
   const save = trpcReact.mail.accounts.save.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, input) => {
       setResult(data.test)
       if (!data.account) return
       void utils.mail.invalidate()
       toast.success('E-Mail-Konto gespeichert')
+      // I6 (MR-20): main ends the canary admission when the server, login or address changes
+      if (input.canary && input.kind === 'sandbox' && !data.account.canary) {
+        toast.warning('Freigabe als Testpostfach aufgehoben', {
+          description:
+            'Server, Benutzer oder Adresse haben sich geändert. Das Konto ist jetzt schreibgeschützt; die Freigabe muss neu erteilt werden.'
+        })
+      }
       onOpenChange(false)
     },
     onError: (error) =>
@@ -173,6 +180,10 @@ function MailAccountDialog({
   const securities: ImapSecurity[] = plainAllowed
     ? ['tls', 'starttls', 'none']
     : ['tls', 'starttls']
+  // I6 (MR-20): the SMTP login is judged by its own host, like the main process does
+  const smtpSecurities: ImapSecurity[] = allowsPlainLogin(draft.smtpHost.trim() || draft.host)
+    ? ['tls', 'starttls', 'none']
+    : ['tls', 'starttls']
   const connectionValid =
     draft.host.trim() !== '' &&
     draft.user.trim() !== '' &&
@@ -180,6 +191,7 @@ function MailAccountDialog({
     port > 0 &&
     port < 65536 &&
     securities.includes(draft.security) &&
+    (draft.smtpSecurity === '' || smtpSecurities.includes(draft.smtpSecurity)) &&
     (account !== null || draft.password !== '')
   const valid = connectionValid && draft.email.trim() !== ''
   const busy = test.isLoading || save.isLoading
@@ -391,7 +403,7 @@ function MailAccountDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="imap">Wie IMAP</SelectItem>
-                {securities.map((security) => (
+                {smtpSecurities.map((security) => (
                   <SelectItem key={security} value={security}>
                     {SECURITY_LABELS[security]}
                   </SelectItem>
