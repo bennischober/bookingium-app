@@ -490,4 +490,43 @@ describe('the core around the send (MR-02, MR-05, MR-15)', () => {
     const draft = ops.find((o) => o.kind === 'draft_save')
     expect(draft?.messageId).toMatch(/^[0-9a-f-]{36}@example\.test$/)
   }, 30_000)
+
+  it('journals the editor session key of a draft save, never as its Message-ID (I17)', async () => {
+    const dataDir = scratchDir()
+    const api = core(dataDir, (store) => {
+      store.upsertFolder({
+        imapPath: 'Entwürfe',
+        delimiter: '/',
+        specialUse: '\\Drafts',
+        uidValidity: '1'
+      })
+    })
+    const key = '0f8e2b7a-3c41-4d5e-9a6b-7c8d9e0f1a2b'
+    const draft = (sendKey: string) => ({
+      to: [],
+      cc: [],
+      bcc: [],
+      subject: 'x',
+      bodyText: 'y',
+      bodyHtml: null,
+      attachments: [],
+      inReplyTo: null,
+      references: [],
+      sendKey
+    })
+
+    await api.saveDraft(draft(key), null, ACCOUNT).catch(() => undefined)
+    await api.saveDraft(draft('not-a-key'), null, ACCOUNT).catch(() => undefined)
+    await api.close()
+
+    const store = new Store(path.join(dataDir, ACCOUNT), ACCOUNT)
+    cleanups.push(() => store.close())
+    const rows = store.db
+      .prepare(
+        "SELECT compose_key, message_id FROM op_journal WHERE kind = 'draft_save' ORDER BY rowid"
+      )
+      .all() as { compose_key: string | null; message_id: string }[]
+    expect(rows.map((r) => r.compose_key)).toEqual([key, null])
+    expect(rows[0].message_id.startsWith(key)).toBe(false)
+  }, 30_000)
 })

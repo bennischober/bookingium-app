@@ -98,7 +98,9 @@ describe('G2: a delete announces itself like a send does', () => {
     try {
       await api.deleteToTrash([message.id], ACCOUNT).catch(() => undefined)
     } finally {
-      api.close()
+      // I17: close() now waits for the sync work the failed delete left in flight, so the folder can
+      // only be removed once it is done
+      await api.close()
     }
 
     // The regression: before runOp() existed, a move/delete emitted no 'running' at all

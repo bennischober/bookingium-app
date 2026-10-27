@@ -146,6 +146,8 @@ export class SyncEngine {
   private client: ImapFlow | null = null;          // main connection (sync + writes)
   private idleClient: ImapFlow | null = null;      // dedicated IDLE connection (INBOX)
   private syncing = false;
+  // I17 (test gap): folder syncs and polls in flight outside a full pass (`syncing`)
+  private inFlight = 0;
   private stopped = false;
   private backoffMs = 1000;
   private lastSyncAt: string | null = null;
@@ -443,6 +445,25 @@ export class SyncEngine {
     await this.waitWhilePaused();
   }
 
+  /**
+   * I17 (test gap): is anything still using the store? A full pass, a folder sync (from a poll
+   * or a write's resync), a poll, or any other holder of a folder mutex (IDLE, a repair).
+   */
+  hasWorkInFlight(): boolean {
+    return this.syncing || this.inFlight > 0 || this.syncingFolders.size > 0;
+  }
+
+  /** I17 (test gap): resolve when hasWorkInFlight() turns false (or timeout). close() waits for
+   *  this, not waitForSync: a poll-triggered folder sync is no pass, and the store used to close under it. */
+  waitForWork(timeoutMs = 120_000): Promise<void> {
+    if (!this.hasWorkInFlight()) return Promise.resolve();
+    return new Promise(resolve => {
+      const timer = setTimeout(done, timeoutMs);
+      const check = setInterval(() => { if (!this.hasWorkInFlight()) done(); }, 100);
+      function done() { clearTimeout(timer); clearInterval(check); resolve(); }
+    });
+  }
+
   /** Resolve when the current sync pass finishes (or timeout). */
   waitForSync(timeoutMs = 120_000): Promise<void> {
     if (!this.syncing) return Promise.resolve();
@@ -630,7 +651,13 @@ export class SyncEngine {
     // I4 (MR-31): a folder rename in flight moves this path's rows; syncing the old or the
     // new path meanwhile would download the folder a second time or prune what is moving
     if (this.renamePending(imapPath)) return;
-    await this.withFolderMutex(imapPath, () => this.syncFolderInner(imapPath, opts));
+    // I17 (test gap): counted from here, so a call still waiting for the mutex counts too
+    this.inFlight++;
+    try {
+      await this.withFolderMutex(imapPath, () => this.syncFolderInner(imapPath, opts));
+    } finally {
+      this.inFlight--;
+    }
   }
 
   /** I4 (MR-31): is this path inside the source or target subtree of a pending or running folder rename? */
@@ -1076,7 +1103,9 @@ export class SyncEngine {
     source: Buffer,
     flags?: Set<string>
   ): Promise<void> {
-    await this.storeMessage(folderId, uidValidity, { uid, source, flags });
+    // I17 (write path L6): a draft the client just appended is not mail the sync pass found,
+    // so it stays out of the pass's move correlation
+    await this.storeMessage(folderId, uidValidity, { uid, source, flags }, { outsidePass: true });
   }
 
   /** Testing seam: the worker sets options.faultWriteCode to exercise the disk-full path for real. */
@@ -1094,7 +1123,7 @@ export class SyncEngine {
    */
   private async storeMessage(folderId: string, uidValidity: string, msg: {
     uid: number; source: Buffer; flags?: Set<string>; internalDate?: Date | string; modseq?: bigint; size?: number;
-  }, opts: { keyFolderId?: string; existingPath?: string } = {}): Promise<void> {
+  }, opts: { keyFolderId?: string; existingPath?: string; outsidePass?: boolean } = {}): Promise<void> {
     if (!msg.source) return;
     if (!opts.existingPath) this.faultWrite();
     const key = this.store.messageKey(this.account.id, opts.keyFolderId ?? folderId, uidValidity, msg.uid);
@@ -1136,7 +1165,7 @@ export class SyncEngine {
     const refs = parseReferences(parsed.references);
     const threadId = computeThreadId(parsed, refs);
     const messageId = parsed.messageId || null;
-    if (messageId) this.passInsertedMsgIds.add(messageId);
+    if (messageId && !opts.outsidePass) this.passInsertedMsgIds.add(messageId);
 
     try {
       this.store.insertMessage({
@@ -1473,6 +1502,16 @@ export class SyncEngine {
    */
   async pollOnce(): Promise<boolean> {
     if (this.pollingStop || this.syncing || this.diskFull) return false;
+    // I17 (test gap): a poll writes flags and folder state outside any mutex; close() waits for it
+    this.inFlight++;
+    try {
+      return await this.pollPass();
+    } finally {
+      this.inFlight--;
+    }
+  }
+
+  private async pollPass(): Promise<boolean> {
     const client = await this.connect();
     this.pollCount++;
     const folders = this.store.allFolders();

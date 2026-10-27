@@ -266,10 +266,23 @@ CREATE TABLE relinks (
 `);
 }
 
+/**
+ * 4 (I17, write path L7): the compose session a draft save belongs to. A replayed save can then
+ * tell that the editor has saved a newer version since, and a newer save can find the copy an
+ * older, replayed one left behind. Null for every other op and for saves from an older build.
+ */
+function composeKey(db: BetterSqlite3.Database): void {
+  db.exec(`
+ALTER TABLE op_journal ADD COLUMN compose_key TEXT;
+CREATE INDEX idx_ops_compose ON op_journal(account_id, compose_key) WHERE compose_key IS NOT NULL;
+`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
   { version: 2, name: 'split bodies', up: splitBodies },
   { version: 3, name: 'relinks', up: relinks },
+  { version: 4, name: 'compose key', up: composeKey },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

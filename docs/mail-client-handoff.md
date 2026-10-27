@@ -155,68 +155,70 @@ expected and trivial: keep both sections.
 A card is done when every box holds, the gates pass, and the mutation check is recorded.
 
 ### I9: gate green (MR-17, section 4)
-- [ ] `pnpm test` exits 0, twice in a row. The ECONNRESET is gone because the test logs its clients out
+- [x] `pnpm test` exits 0, twice in a row. The ECONNRESET is gone because the test logs its clients out
       before closing the fake servers, not because the error is swallowed.
-- [ ] `fakeImap` answers an unknown command with `BAD`, and advertises only capabilities it implements. A test
+- [x] `fakeImap` answers an unknown command with `BAD`, and advertises only capabilities it implements. A test
       shows a MOVE against it fails when MOVE is not implemented.
-- [ ] `fakeSmtp` refuses `AUTH LOGIN` without the right credentials, with a test. Optional: dot-unstuffing.
-- [ ] `mail_crash_points.test.ts` can fail: test 2 fails with 0 deliveries and when Mailpit is unreachable;
+- [x] `fakeSmtp` refuses `AUTH LOGIN` without the right credentials, with a test. Optional: dot-unstuffing.
+- [x] `mail_crash_points.test.ts` can fail: test 2 fails with 0 deliveries and when Mailpit is unreachable;
       test 1 checks that the source copy is gone; it removes its own mail; it no longer claims to kill a
       process it does not kill (or it really does).
-- [ ] `mail_sync_time.test.ts` asserts the right behaviour (the sync time does not move without real
+- [x] `mail_sync_time.test.ts` asserts the right behaviour (the sync time does not move without real
       contact), or is marked as pending on I4 with a reason.
-- [ ] CI: a Windows job beside Ubuntu, and a check that the better-sqlite3 build loads under vitest (the
+- [x] CI: a Windows job beside Ubuntu, and a check that the better-sqlite3 build loads under vitest (the
       ABI question). CI fails or annotates visibly when the sandbox suites skip. The branch is not pushed;
       the workflow change is verified locally as far as possible and the report says what only a CI run can
       prove.
-- [ ] `mail-client.spec.ts`: the data-dependent skip near the old line 1369 either runs or fails; fixed
+- [x] `mail-client.spec.ts`: the data-dependent skip near the old line 1369 either runs or fails; fixed
       sleeps that the change touches become waits on a condition.
 
 ### I10: small renderer fixes (MR-13, 35, 36, 37, Low "Renderer")
-- [ ] MR-13: `signature` is in the account DTO; a round-trip test (save, load, compose shows it once).
-- [ ] MR-35: `onWriteTo` and every write button are only wired when `canWrite`; a test on a read-only account.
-- [ ] MR-36: archive filters ids like `trashable`, the action is hidden in the Archive folder, and ids no op
+- [x] MR-13: `signature` is in the account DTO; a round-trip test (save, load, compose shows it once).
+- [x] MR-35: `onWriteTo` and every write button are only wired when `canWrite`; a test on a read-only account.
+- [x] MR-36: archive filters ids like `trashable`, the action is hidden in the Archive folder, and ids no op
       covers are shown again. The "Archiviert" toast counts what the core archived, not `ids.length`
       (README renderer 20).
-- [ ] MR-37: the keyboard handler returns early in `dialog` and `alertdialog` roles, in the compose area and
+- [x] MR-37: the keyboard handler returns early in `dialog` and `alertdialog` roles, in the compose area and
       while compose is open; a test for each.
 - [ ] Low: `hiddenIds` reset on account switch; reopening a draft keeps its HTML; `MailWindowPage` shows an
       error instead of spinning when `getDraft` fails; `addFiles` sets `edited`; the preset PDF counts
       against `MAX_ATTACHMENT_BYTES`; unused `search.pdfName` removed; events of other accounts no longer
       dropped and sync events invalidate `search`; signature applied once; reader icon buttons have an
       `aria-label`; the keyboard effect subscribes once.
-- [ ] Mail e2e passes. Renderer decisions moved into pure modules where needed, so vitest covers them (as
+      Partly done in I10; the I10 report lists what is left. Events of other accounts and `search`
+      invalidation stay open (README renderer 18).
+- [x] Mail e2e passes. Renderer decisions moved into pure modules where needed, so vitest covers them (as
       `opJournal.ts` and `composeSend.ts` do).
 
 ### I16: renderer leftovers (README "Renderer")
-- [ ] 17: the compose branch of `MailWindowPage` renders `ComposeView` only with `canWrite`.
-- [ ] 18: `MailWindowPage` picks up an `isDraft` or folder change of the shown mail (invalidates the queries
-      it reads).
-- [ ] 22: "Alle Anhänge" has a role, so its `aria-label` is read.
-- [ ] 15: the unreachable `presetPdfPath` branch is removed.
-- [ ] (20 is in I10.)
+- [x] 17: the compose branch of `MailWindowPage` renders `ComposeView` only with `canWrite`.
+- [x] 18: `MailWindowPage` picks up an `isDraft` or folder change of the shown mail (invalidates the queries
+      it reads). The window part is done; `MailPage` and `search` stay open (I16 report).
+- [x] 22: "Alle Anhänge" has a role, so its `aria-label` is read.
+- [x] 15: the unreachable `presetPdfPath` branch is removed.
+- [x] (20 is in I10.)
 
 ### I13: fuzz and soak harness (section 5)
-- [ ] An op generator and invariant checker in bookingum's `tests/`, written fresh after the prototype's
+- [x] An op generator and invariant checker in bookingum's `tests/`, written fresh after the prototype's
       ideas; no prototype file copied (state in the report how it was written).
-- [ ] It drives bookingum's own core against the sandbox, on its own sandbox user and folders, and cleans up.
-- [ ] Invariants include at least: no message lost or duplicated after a move or batch move, the local store
+- [x] It drives bookingum's own core against the sandbox, on its own sandbox user and folders, and cleans up.
+- [x] Invariants include at least: no message lost or duplicated after a move or batch move, the local store
       matches the server after a resync, no op left `running` after a run, no orphan files.
-- [ ] Not part of `pnpm test`; a separate script (for example `pnpm fuzz:mail -- --seeds 50 --ops 30`) with
+- [x] Not part of `pnpm test`; a separate script (for example `pnpm fuzz:mail -- --seeds 50 --ops 30`) with
       seed replay. The report gives a short run's counts (seeds, ops, invariant failures) and how to run the
       nightly length.
-- [ ] A failing seed prints the seed and the op list (kinds and ids, never content).
+- [x] A failing seed prints the seed and the op list (kinds and ids, never content).
 
 ### I14: docs drift and PII (sections 6 and 8)
-- [ ] Every row of review section 8 and the README "Docs drift" list fixed, or marked in the report as left
+- [x] Every row of review section 8 and the README "Docs drift" list fixed, or marked in the report as left
       on purpose.
-- [ ] The `AGENTS.md` and `src/main/AGENTS.md` line on sending says what is true: the mail client sends
+- [x] The `AGENTS.md` and `src/main/AGENTS.md` line on sending says what is true: the mail client sends
       over SMTP for writable accounts; the old `mail/` path only writes files.
-- [ ] The real-looking address in `docs/mail-client-tasks.md` and the names in `docs/TODOS.md` are replaced
+- [x] The real-looking address in `docs/mail-client-tasks.md` and the names in `docs/TODOS.md` are replaced
       without being quoted anywhere (not in the diff description, report or commit message).
-- [ ] `tests/no_pii.test.ts` also scans `docs/` and `*.md` and the mail sources, with tests that a planted
+- [x] `tests/no_pii.test.ts` also scans `docs/` and `*.md` and the mail sources, with tests that a planted
       address in each fails it. It still prints only `file:line`.
-- [ ] Section 6's two decisions (the canary design and the phase-2 record) are **not** made by the agent:
+- [x] Section 6's two decisions (the canary design and the phase-2 record) are **not** made by the agent:
       the report lists them as open questions for the user. Likewise the history items (deleted test files,
       two commit messages): list them, do not rewrite history.
 
@@ -226,6 +228,15 @@ A card is done when every box holds, the gates pass, and the mutation check is r
 - [x] MR-28: the linker cursor is keyed by generation and id, one transaction per batch, dismissed owners are
       filtered, errors are logged, Sent is found by special-use `\Sent`. Tests for each.
 - [x] README host L3: the shared-address cap counts owners, and the user's own aliases are excluded.
+
+### I17: review leftovers (README coverage check, MR-38)
+- [x] Host M5: the attachment temp folder cannot collide across accounts.
+- [x] MR-38: the dirty check fingerprints attachments instead of stringifying them.
+- [x] Write path L7: a superseded draft-save replay brings no older version back.
+- [x] Write path L6: `storeAppendedDraft` stays out of the pass's move correlation.
+- [x] Test gap: `close()` waits for a poll and a folder sync, not only a full pass.
+- [x] Tests 5: `no_pii` reads comments and detects phone numbers, BICs and street addresses.
+- [x] Tests 4: the three docs-drift rows; the README and this checklist record what was fixed where.
 
 ### Claude cards
 

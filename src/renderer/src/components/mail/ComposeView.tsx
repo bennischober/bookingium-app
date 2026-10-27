@@ -12,6 +12,7 @@ import {
   type Address,
   type ComposeState,
   addressProblem,
+  draftDirtyKey,
   isValidEmail,
   parseAddress,
   toDraftInput
@@ -295,7 +296,7 @@ export function ComposeView({
   const mailRef = useRef(mail)
   mailRef.current = mail
   const draftUid = useRef(initial.draftUid)
-  const savedText = useRef(JSON.stringify(toDraftInput(initial)))
+  const savedKey = useRef(draftDirtyKey(initial))
   const queue = useRef<Promise<unknown>>(Promise.resolve())
   const closed = useRef(false)
   const onStoredRef = useRef(onStored)
@@ -315,18 +316,20 @@ export function ComposeView({
   const sendKey = useRef(crypto.randomUUID())
   const locked = phase !== 'idle'
 
-  // Draft saves only while idle (MR-38): see draftSaveAllowed
+  // Draft saves only while idle (MR-38): see draftSaveAllowed. The comparison uses
+  // attachment fingerprints, not their base64 (MR-38, see draftDirtyKey)
   const isDirty = () =>
-    draftSaveAllowed(phaseRef.current) &&
-    JSON.stringify(toDraftInput(mailRef.current)) !== savedText.current
+    draftSaveAllowed(phaseRef.current) && draftDirtyKey(mailRef.current) !== savedKey.current
   const save = (): Promise<void> => {
     if (!draftSaveAllowed(phaseRef.current)) {
       return Promise.reject(new Error('Die E-Mail wird gerade gesendet'))
     }
-    const input = toDraftInput(mailRef.current)
+    // I17 (write path L7): the session key ties the saves of this editor together in the journal
+    const input = { ...toDraftInput(mailRef.current), sendKey: sendKey.current }
+    const key = draftDirtyKey(mailRef.current)
     const run = queue.current.then(async () => {
       draftUid.current = await mailApi.saveDraft(input, draftUid.current, accountId)
-      savedText.current = JSON.stringify(input)
+      savedKey.current = key
     })
     queue.current = run.catch(() => undefined)
     return run

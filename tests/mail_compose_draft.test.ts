@@ -2,7 +2,10 @@
 // prefix, the quote and the threading headers that keep it in the conversation
 import { describe, expect, it } from 'vitest'
 import {
+  attachmentKey,
   composeTo,
+  draftDirtyKey,
+  emptyCompose,
   pasteContent,
   forwardCompose,
   parseAddress,
@@ -210,5 +213,45 @@ describe('F13: the caret has room above the quote', () => {
     expect(lines[1]).toBe('')
     expect(lines[2]).toMatch(/^Am .* schrieb /)
     expect(lines[3]).toBe('> Hallo')
+  })
+})
+
+describe('draftDirtyKey (MR-38)', () => {
+  const file = (filename: string, base64: string) => ({
+    filename,
+    contentType: 'application/pdf',
+    base64
+  })
+
+  it('leaves the base64 out of the key', () => {
+    const big = 'QUJD'.repeat(50_000)
+    const key = draftDirtyKey({ ...emptyCompose(), attachments: [file('a.pdf', big)] })
+    expect(key.length).toBeLessThan(500)
+    expect(key).not.toContain('QUJDQUJD')
+  })
+
+  it('changes with the text and with every attachment change', () => {
+    const a = file('a.pdf', 'QUJD')
+    const base = { ...emptyCompose(), attachments: [a] }
+    const key = draftDirtyKey(base)
+    expect(draftDirtyKey({ ...base, subject: 'x' })).not.toBe(key)
+    expect(draftDirtyKey({ ...base, attachments: [] })).not.toBe(key)
+    expect(draftDirtyKey({ ...base, attachments: [file('a.pdf', 'QUJE')] })).not.toBe(key)
+    expect(draftDirtyKey({ ...base, attachments: [file('b.pdf', 'QUJD')] })).not.toBe(key)
+    expect(draftDirtyKey({ ...base, attachments: [a, a] })).not.toBe(key)
+  })
+
+  it('is the same for equal content in new objects', () => {
+    const one = { ...emptyCompose(), attachments: [file('a.pdf', 'QUJD')] }
+    const two = { ...emptyCompose(), attachments: [file('a.pdf', 'QUJD')] }
+    expect(draftDirtyKey(one)).toBe(draftDirtyKey(two))
+  })
+
+  it('fingerprints an attachment once', () => {
+    const a = file('a.pdf', 'QUJD')
+    const first = attachmentKey(a)
+    // Attachments are never mutated; the cache answers for the object, not its current content
+    a.base64 = 'changed'
+    expect(attachmentKey(a)).toBe(first)
   })
 })

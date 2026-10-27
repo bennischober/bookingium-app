@@ -97,7 +97,14 @@ function openStore(): { store: Store; dir: string } {
 /** A draft-save op in the journal; `attempts`/`state` model a crash and its replay */
 function enqueueDraft(
   store: Store,
-  opts: { messageId: string; oldUid?: number; attempts?: number; state?: string }
+  opts: {
+    messageId: string
+    oldUid?: number
+    attempts?: number
+    state?: string
+    composeKey?: string
+    appendedUid?: number
+  }
 ): JournalRow {
   store.upsertFolder({
     imapPath: 'Entwürfe',
@@ -111,9 +118,11 @@ function enqueueDraft(
     folderPath: 'Entwürfe',
     folderUidValidity: '1',
     messageId: opts.messageId,
+    composeKey: opts.composeKey,
     payload: {
       mime: Buffer.from('Subject: x\r\n\r\nHallo\r\n').toString('base64'),
-      oldUid: opts.oldUid
+      oldUid: opts.oldUid,
+      appendedUid: opts.appendedUid
     }
   })
   if (opts.attempts || opts.state) {
@@ -199,5 +208,165 @@ describe('draft replay (A5)', () => {
     expect(result.outcome).toBe('done')
     expect(searches(calls)).toBe(0)
     expect(appends(calls)).toBe(1)
+  })
+})
+
+// I17 (write path L7): the saves of one editor share its session key. A save that crashed and is
+// replayed after the editor saved a newer version must not bring the older text back, and the
+// next save must not leave the copy such a replay appended behind.
+describe('draft replay after a newer save (I17, write path L7)', () => {
+  const KEY = '0f8e2b7a-3c41-4d5e-9a6b-7c8d9e0f1a2b'
+  const deleted = (calls: Call[]): string[] =>
+    calls.filter((c) => c.method === 'messageDelete').map((c) => String(c.args[0]))
+
+  it('stops a replay the editor has saved over, and removes the copy it already appended', async () => {
+    const { store } = openStore()
+    const old = enqueueDraft(store, {
+      messageId: '<alt@example.test>',
+      oldUid: 5,
+      attempts: 1,
+      state: 'running',
+      composeKey: KEY
+    })
+    enqueueDraft(store, {
+      messageId: '<neu@example.test>',
+      oldUid: 5,
+      state: 'done',
+      composeKey: KEY,
+      appendedUid: 50
+    })
+    const { client, calls } = stubClient({ searchHits: [42] })
+
+    const result = await run(engineWith(store, client), old)
+
+    expect(result.outcome).toBe('noop')
+    expect(appends(calls)).toBe(0)
+    // its own copy goes; the version the editor replaced is the newer save's to remove
+    expect(deleted(calls)).toEqual(['42'])
+  })
+
+  it('appends nothing and removes nothing when the stopped replay had not appended yet', async () => {
+    const { store } = openStore()
+    const old = enqueueDraft(store, {
+      messageId: '<alt@example.test>',
+      oldUid: 5,
+      attempts: 1,
+      composeKey: KEY
+    })
+    enqueueDraft(store, { messageId: '<neu@example.test>', state: 'pending', composeKey: KEY })
+    const { client, calls } = stubClient({ searchHits: [] })
+
+    const result = await run(engineWith(store, client), old)
+
+    expect(result.outcome).toBe('noop')
+    expect(appends(calls)).toBe(0)
+    expect(deleted(calls)).toEqual([])
+  })
+
+  it('removes a recorded copy of a stopped replay without probing', async () => {
+    const { store } = openStore()
+    const old = enqueueDraft(store, {
+      messageId: '<alt@example.test>',
+      oldUid: 5,
+      attempts: 1,
+      composeKey: KEY,
+      appendedUid: 42
+    })
+    enqueueDraft(store, { messageId: '<neu@example.test>', state: 'done', composeKey: KEY })
+    const { client, calls } = stubClient({})
+
+    const result = await run(engineWith(store, client), old)
+
+    expect(result.outcome).toBe('noop')
+    expect(searches(calls)).toBe(0)
+    expect(deleted(calls)).toEqual(['42'])
+  })
+
+  it('is not stopped by a newer save that was cancelled or belongs to another editor', async () => {
+    const { store } = openStore()
+    const old = enqueueDraft(store, {
+      messageId: '<alt@example.test>',
+      oldUid: 5,
+      attempts: 1,
+      composeKey: KEY
+    })
+    enqueueDraft(store, { messageId: '<a@example.test>', state: 'cancelled', composeKey: KEY })
+    enqueueDraft(store, {
+      messageId: '<b@example.test>',
+      state: 'done',
+      composeKey: '11111111-2222-4333-8444-555555555555'
+    })
+    const { client, calls } = stubClient({ searchHits: [] })
+
+    const result = await run(engineWith(store, client), old)
+
+    expect(result.outcome).toBe('done')
+    expect(appends(calls)).toBe(1)
+    expect(deleted(calls)).toEqual(['5'])
+  })
+
+  it('removes the copy a replayed earlier save left, besides the one the editor names', async () => {
+    const { store } = openStore()
+    // version 1 stored as 10; version 2 crashed, was replayed and stored as 20, but the editor
+    // never heard of 20 and still names 10 when it saves version 3
+    enqueueDraft(store, {
+      messageId: '<v1@example.test>',
+      state: 'done',
+      composeKey: KEY,
+      appendedUid: 10
+    })
+    enqueueDraft(store, {
+      messageId: '<v2@example.test>',
+      oldUid: 10,
+      state: 'done',
+      composeKey: KEY,
+      appendedUid: 20
+    })
+    const next = enqueueDraft(store, {
+      messageId: '<v3@example.test>',
+      oldUid: 10,
+      composeKey: KEY
+    })
+    const { client, calls } = stubClient({ appendedUid: 30 })
+
+    const result = await run(engineWith(store, client), next)
+
+    expect(result.outcome).toBe('done')
+    expect(appends(calls)).toBe(1)
+    expect(deleted(calls)).toEqual(['10', '20'])
+  })
+
+  it('removes the old version once in a normal chain', async () => {
+    const { store } = openStore()
+    enqueueDraft(store, {
+      messageId: '<v1@example.test>',
+      state: 'done',
+      composeKey: KEY,
+      appendedUid: 10
+    })
+    const next = enqueueDraft(store, {
+      messageId: '<v2@example.test>',
+      oldUid: 10,
+      composeKey: KEY
+    })
+    const { client, calls } = stubClient({ appendedUid: 30 })
+
+    await run(engineWith(store, client), next)
+
+    expect(deleted(calls)).toEqual(['10'])
+  })
+
+  it('looks at nothing else when a save has no session key (an older build)', async () => {
+    const { store } = openStore()
+    enqueueDraft(store, { messageId: '<a@example.test>', state: 'done', appendedUid: 20 })
+    const old = enqueueDraft(store, { messageId: '<b@example.test>', oldUid: 5, attempts: 1 })
+    enqueueDraft(store, { messageId: '<c@example.test>', state: 'done' })
+    const { client, calls } = stubClient({ searchHits: [] })
+
+    const result = await run(engineWith(store, client), old)
+
+    expect(result.outcome).toBe('done')
+    expect(appends(calls)).toBe(1)
+    expect(deleted(calls)).toEqual(['5'])
   })
 })

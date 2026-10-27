@@ -1415,6 +1415,23 @@ export class WriteEngine {
       'Drafts'
     const client = await this.writeClient()
     try {
+      // I17 (write path L7): the editor has saved a newer version since this op was journaled
+      // (a replay after a crash). Appending now would bring the older text back, so this op
+      // stops. A copy an earlier run of it already appended goes; the old version is the
+      // newer save's to remove.
+      if (this.store.journalDraftSuperseded(op)) {
+        const own =
+          payload.appendedUid ??
+          (op.attempts > 0
+            ? await this.findDraftByMessageId(client, draftsPath, op.message_id)
+            : null)
+        if (own != null) {
+          const ab = this.abandoned(signal)
+          if (ab) return ab
+          await this.removeDraft(client, draftsPath, own, op.folder_uidvalidity)
+        }
+        return { outcome: 'noop', reason: 'a newer version of this draft was saved' }
+      }
       // A5: record the new uid durably. A replay after a crash past the APPEND finds
       // it and must NOT append a second copy.
       if (!payload.appendedUid) {
@@ -1467,11 +1484,16 @@ export class WriteEngine {
           }
         }
       }
-      // previous version gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5)
-      if (payload.oldUid != null) {
+      // previous version gone meanwhile → fine, nothing to do (RFC 4549 §5.1 case 5).
+      // I17 (write path L7): besides the version the editor names, the copy the latest earlier
+      // save of this session appended. They are the same unless an earlier save was replayed
+      // after the editor had moved on; then that copy would stay behind as a stale draft.
+      const stale = new Set([payload.oldUid, this.store.journalLastDraftUidBefore(op)])
+      for (const uid of stale) {
+        if (uid == null || uid === payload.appendedUid) continue
         const ab = this.abandoned(signal)
         if (ab) return ab
-        await this.removeDraft(client, draftsPath, payload.oldUid, op.folder_uidvalidity)
+        await this.removeDraft(client, draftsPath, uid, op.folder_uidvalidity)
       }
       return { outcome: 'done' }
     } catch (e) {

@@ -5,6 +5,7 @@ import { dirname, join, relative } from 'path'
 import { describe, expect, it } from 'vitest'
 import {
   ZONE_IDENTIFIER,
+  attachmentSubfolder,
   isSafeToOpen,
   markFromInternet,
   safeAttachmentName,
@@ -137,5 +138,25 @@ describe('attachment paths and stored names (I11)', () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('attachment temp subfolder (I17, README host M5)', () => {
+  it('differs for the same message and part in two accounts', () => {
+    expect(attachmentSubfolder('acc-a', 7, '2')).not.toBe(attachmentSubfolder('acc-b', 7, '2'))
+  })
+
+  it('differs for parts that only differ by a dot', () => {
+    expect(attachmentSubfolder('acc-a', 7, '1.2')).not.toBe(attachmentSubfolder('acc-a', 7, '12'))
+  })
+
+  it('does not let the ids run into each other', () => {
+    expect(attachmentSubfolder('acc-1', 23, '4')).not.toBe(attachmentSubfolder('acc-12', 3, '4'))
+  })
+
+  it('is stable and a single path segment without the account id', () => {
+    const sub = attachmentSubfolder('acc/../x', 7, '1.2')
+    expect(sub).toBe(attachmentSubfolder('acc/../x', 7, '1.2'))
+    expect(sub).toMatch(/^7-[0-9a-f]{16}$/)
   })
 })
