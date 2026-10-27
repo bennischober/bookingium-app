@@ -713,7 +713,9 @@ port the same kind of evidence.
 - **Phase-2 writes are recorded as done.** `docs/mail-client-tasks.md` says A9 phase 2 (writes beyond sending
   to oneself) needs its own go-ahead. G2 and G4 record deletes and moves on the real IONOS mailbox, and A9 is
   still listed as blocked. Record the go-ahead, or correct the record.
-  **Open (2026-10-27):** waits for the user's decision; I6 did not change the record.
+  **Resolved 2026-10-27:** the record was imprecise, not the plan. G2 and G4 ran on the IONOS test mailbox
+  the user set up as the canary, with sends limited to the user's own address; the production mailbox stayed
+  read-only. G2, G4 and A9 now say so. Phase 2 on the production account still needs its own go-ahead.
 - **PII:**
   - `docs/mail-client-tasks.md` (around line 892) contains one real-looking mailbox address.
   - `docs/TODOS.md` (Data section, from before this branch) contains two real-looking person names.
