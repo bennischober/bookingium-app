@@ -282,6 +282,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 ### Medium
 
 #### MR-19: the write connection is a third connection, and a half-open socket stops the queue (code)
+**Status: fixed in I15a (2026-10-27).** Sync, IDLE and the write connection share one `ConnectionBudget` per account. A write asks for its slot as urgent, and the IDLE connection gives its slot back and catches up when it returns. The write connection answers a NOOP (10 s) before reuse, logs out after 30 s idle, uses `IMAP_TIMEOUTS`, and is closed without a LOGOUT when the watchdog gives up, so a hung op settles as `failed`. `tests/mail_connections.test.ts`.
 - **Where:** `core/write_connection.ts` and `core/write_guard.ts:179-190`. Sync caps itself at 2 (sync + IDLE);
   the write pool holds a third one with no idle timeout. `connectWriteImap` does not use `IMAP_TIMEOUTS`, so
   imapflow's ~5 min applies.
@@ -432,6 +433,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 - **Fix:** a retry with backoff, or roll the effect back on `failed` and show it (op panel, card I3).
 
 #### MR-30: transient errors become terminal conflicts (code)
+**Status: fixed in I15a (2026-10-27).** A conflict needs the server's own NO with NONEXISTENT, TRYCREATE or no code. A NO with a transient code, a BYE, a timeout or a closed socket is `failed`, and the client is dropped. `tests/mail_connections.test.ts`.
 - **Where:** `preflight` (`write_engine.ts:303-368`) and `preflightBatch` (616-623).
 - **Scenario:** every `mailboxOpen` error, including a socket reset, becomes the conflict "folder gone". The
   connection is kept after a conflict.
@@ -453,6 +455,7 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 **Status: fixed in I4 (2026-10-26).** The re-key merges into an existing target row, the folder list and `syncFolder` skip paths under a journalled rename, and the write engine locks both subtrees. A rename stuck in `pending` pauses that subtree until the op is resolved.
 
 #### MR-32: resuming a batch move can mark it done wrongly (code)
+**Status: fixed in I15a (2026-10-27).** The target's UIDNEXT is journaled before a MOVE or COPY. A batch resumes only when every source UID is gone, every member has a Message-ID, and each one is found exactly once at or above that UIDNEXT, on distinct UIDs. The single move follows the same UIDNEXT rule, and ops journaled before I15a are not resumed. `tests/mail_batch_move.test.ts`, `tests/mail_connections.test.ts`.
 - **Where:** `write_engine.ts:559-563` and `:670-697`; `resumeHalfMoved` (814).
 - **Scenario:** after any preflight failure, the target is searched by Message-ID and `found[0]` is taken. A
   copy that was already there (a list mail, a CC duplicate) marks the op `done`. Local rows are re-keyed to
@@ -514,12 +517,14 @@ a row, and the fix is not a swallowed error: reverting it brings the unhandled E
 - **Fix:** stop the timer and refuse saves while sending. Hash attachments for the dirty check.
 
 #### MR-39: the IDLE wait leaks timers (confirmed)
+**Status: fixed in I15a (2026-10-27).** One check interval and one cap timer, both cleared by the same `done()` (`idleWait` in `core/sync.ts`). `tests/mail_connections.test.ts`.
 - **Where:** `core/sync.ts:1190-1196`. On a `dirty` wakeup only `poll` is cleared. `stopCheck` (500 ms) and
   `cap` (25 min) keep running.
 - **Scenario:** after a day with many IDLE events, hundreds of 500 ms intervals run in the worker.
 - **Fix:** one `done()` that clears all three.
 
 #### MR-40: every core event reaches the renderer twice (confirmed)
+**Status: fixed in I15a (2026-10-27).** `core.on(name, cb)` delivers only events of that name, and the worker subscribes to each name once. `tests/mail_connections.test.ts`.
 - **Where:** `core/index.ts:111`: `on()` ignores the name. `worker.ts:47-49` subscribes twice.
 - **Fix:** filter by name or subscribe once.
 

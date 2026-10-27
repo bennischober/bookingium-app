@@ -31,11 +31,17 @@ None of them is above Medium. Pick them up from here; the source report is named
   - after a hard kill the `__staging__/` folder is visible in the UI;
   - the swap needs twice the folder's size on disk;
   - `Math.max(...set)` hits the argument limit on folders well above 100k mails.
+
+  **Fixed in I12:** staging is hidden from the folder list and every cross-folder view, and a stopped swap
+  resumes. The spread `Math.max` went in I4. Still open: the swap needs twice the folder's size on disk.
 - The IDLE client is created outside `connectionCount`, so the sync cap of 2 does not count it [sync L2].
   The review doc has only the connection-test half.
+  **Fixed in I15a:** sync, IDLE and writes share one budget per account. The connection test stays outside
+  it (a one-shot check before the account is saved).
 - Corrupt-store recovery: extended codes (`SQLITE_CORRUPT_VTAB` from FTS, `SQLITE_IOERR_SHORT_READ` for a
   truncated file) fall through `isCorruptStoreError` [sync M3, plausible]. MR-26's `startsWith` fix covers
   the first, not the second.
+  **Fixed in I12:** extended codes, `SQLITE_IOERR_SHORT_READ` and the `cause` chain are matched.
 
 **Host**
 - The temp folder for opening attachments, `${messageId}-${partId}`, can collide across accounts

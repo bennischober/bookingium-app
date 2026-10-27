@@ -1491,6 +1491,28 @@ interrupted UIDVALIDITY swap started over; and a failed contacts upsert deleted 
 **Tests.** `tests/mail_store_integrity.test.ts` (new, 23); `tests/mail_store_recovery.test.ts` unchanged. 25
 mutation checks, all killed. The e2e and the sandbox-backed suites were not run (Docker down).
 
+### I15a: connections and errors [fixed 2026-10-27]
+
+MR-19, MR-30, MR-32, MR-39, MR-40 and [sync L2]. Production could hold three connections where the rule
+allows two; a write connection that died during sleep stopped the queue; a reset socket made an op a
+terminal conflict; a crashed move could be resumed onto a copy that was already there; the IDLE wait left
+timers running; and every core event was delivered twice.
+
+**What changed.**
+- `core/connection_budget.ts` (new), `core/index.ts`, `core/sync.ts` and `core/write_engine.ts`: one
+  connection budget per account for sync, IDLE and writes. A write is urgent; IDLE yields its slot and
+  catches up when it comes back.
+- `core/write_connection.ts`: NOOP before reuse (10 s), closed after 30 s idle, closed without LOGOUT when
+  the watchdog gives up. `core/write_guard.ts`: `IMAP_TIMEOUTS` and an `error` listener.
+- `core/write_engine.ts`: `folderMissing` separates the server's NO from connection failures; the target's
+  UIDNEXT is journaled before a move, and a resume needs every source UID gone and exactly one new UID per
+  member.
+- `core/sync.ts`: `idleWait` clears both timers. `core/index.ts` and `worker.ts`: events by name, once.
+
+**Tests.** `tests/mail_connections.test.ts` (new, 28); `tests/mail_batch_move.test.ts` (+7); stubs updated in
+`mail_uidplus` and `mail_write_connection_reuse`. 31 mutation checks, all killed. The e2e and the sandbox-backed suites
+were not run (Docker down).
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
