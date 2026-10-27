@@ -21,7 +21,7 @@ import { STAGING_PREFIX, Store, Flags } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 import { writeMessageFile } from './files.js';
-import { diskFullMessage, isDiskFullError } from './disk_full.js';
+import { diskFullMessage, freeBytesOf, isDiskFullError, swapSpaceMessage, swapSpaceNeeded } from './disk_full.js';
 import { isPathOrChild } from './folders.js';
 import { ConnectionBudget } from './connection_budget.js';
 
@@ -197,6 +197,8 @@ export class SyncEngine {
   // Task 3: testing hook — force the no-CONDSTORE code path even on servers that have it
   // (Task 5: injected via the factory's options.forceNoCondstore, no env reads)
   private readonly simulateNoCondstore: boolean;
+  // I18: free bytes on the store's drive, checked before a UIDVALIDITY swap (a seam for tests)
+  private readonly freeBytes: (dir: string) => number | null;
   // Task 5: injected structured logger (host decides where output goes; core never
   // writes to console directly). Optional — tests may omit it.
   readonly log: { info?: (msg: string) => void; warn?: (msg: string) => void; error?: (msg: string) => void };
@@ -260,6 +262,8 @@ export class SyncEngine {
     log?: { info?: (msg: string) => void; warn?: (msg: string) => void; error?: (msg: string) => void };
     /** I15a: the account's connection budget, shared with the write engine */
     budget?: ConnectionBudget;
+    /** I18: QA seam, free bytes on the drive of `dir` (null = unknown, the swap goes ahead) */
+    freeBytes?: (dir: string) => number | null;
   }) {
     this.progress.accountId = account.id;
     this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
@@ -267,6 +271,7 @@ export class SyncEngine {
     // (Task 5: comes in through the factory options, not process.env)
     this.simulateNoCondstore = options?.forceNoCondstore === true;
     this.faultWriteCode = options?.faultWriteCode;
+    this.freeBytes = options?.freeBytes ?? freeBytesOf;
     this.log = options?.log ?? {};
   }
 
@@ -343,12 +348,15 @@ export class SyncEngine {
    * `resume()` (the retry action): a full disk does not fix itself, and every retry
    * would only download the same message again and fail again (I4).
    */
-  noteDiskFull(path: string | null): void {
+  noteDiskFull(path: string | null, message = diskFullMessage()): void {
     const first = !this.diskFull;
     this.diskFull = true;
-    this.progress.diskFull = diskFullMessage();
     this.progress.phase = 'disk-full';
-    if (first) this.emit({ type: 'error', path, message: diskFullMessage() });
+    // I18: the first reason stays; the pass that stops on it reports the generic one after it
+    if (first) {
+      this.progress.diskFull = message;
+      this.emit({ type: 'error', path, message });
+    }
   }
 
   /** The error a stopped engine answers with, so callers take their disk-full branch. */
@@ -746,8 +754,8 @@ export class SyncEngine {
    * every old row, so it waits until EXAMINE's EXISTS confirms the new UID list.
    */
   private async resyncAfterValidityChange(client: ImapFlow, imapPath: string, folderId: string, uidValidity: string, highestModseq: string | null, uidNext?: number): Promise<void> {
-    const oldRows = this.store.db.prepare('SELECT id, file_path, message_key FROM messages WHERE folder_id = ?')
-      .all(folderId) as { id: number; file_path: string; message_key: string }[];
+    const oldRows = this.store.db.prepare('SELECT id, file_path, message_key, size_bytes FROM messages WHERE folder_id = ?')
+      .all(folderId) as { id: number; file_path: string; message_key: string; size_bytes: number }[];
 
     // stage the fresh download under a temp folder mapping (message_key includes the NEW
     // uidValidity → old and new rows cannot collide, both can coexist during download)
@@ -757,9 +765,19 @@ export class SyncEngine {
     const tempFolder = this.store.upsertFolder({ imapPath: stagingPath, delimiter: '/', specialUse: null, uidValidity });
     const serverUids = new Set<number>();
     for await (const m of client.fetch('1:*', { uid: true }, { uid: true })) serverUids.add(Number(m.uid));
-    const stagedRows = this.store.db.prepare('SELECT id, uid, file_path FROM messages WHERE folder_id = ?')
-      .all(tempFolder.id) as { id: number; uid: number; file_path: string }[];
+    const stagedRows = this.store.db.prepare('SELECT id, uid, file_path, size_bytes FROM messages WHERE folder_id = ?')
+      .all(tempFolder.id) as { id: number; uid: number; file_path: string; size_bytes: number }[];
     const staged = new Set(stagedRows.map(r => r.uid));
+    // I18: the old copy stays until the swap, so the new one needs room next to it. Without that
+    // room the download fails halfway; stop before it starts and say how much is missing. What
+    // is staged stays for the next pass, as after any other stop.
+    const sum = (rows: { size_bytes: number }[]) => rows.reduce((n, r) => n + (r.size_bytes || 0), 0);
+    const needed = swapSpaceNeeded(sum(oldRows), sum(stagedRows));
+    const free = this.freeBytes(this.store.filePath(''));
+    if (free !== null && free < needed) {
+      this.noteDiskFull(imapPath, swapSpaceMessage(imapPath, needed - free));
+      throw this.diskFullError();
+    }
     // BUG FIX (found 2026-10-23, consistency suite after a live staged swap): the
     // staged download previously computed message_key with tempFolder.id — the swap
     // then moved rows to the real folder id but the key kept the staging id baked

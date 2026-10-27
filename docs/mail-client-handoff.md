@@ -238,6 +238,10 @@ A card is done when every box holds, the gates pass, and the mutation check is r
 - [x] Tests 5: `no_pii` reads comments and detects phone numbers, BICs and street addresses.
 - [x] Tests 4: the three docs-drift rows; the README and this checklist record what was fixed where.
 
+### I18: mail page refresh and swap space (renderer 18, sync M9)
+- [x] Renderer 18: `MailPage` marks another account stale on its events; a sync refreshes `search`.
+- [x] Sync M9: the UIDVALIDITY swap checks the free space first and stops through the disk-full path.
+
 ### Claude cards
 
 The checks below are what the review asks for. An agent may draft one of these, but must say so at the top

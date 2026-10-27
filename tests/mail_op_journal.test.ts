@@ -25,6 +25,7 @@ import {
   opEntries,
   opWhere
 } from '../src/renderer/src/components/mail/opJournal'
+import { refreshPlan } from '../src/renderer/src/components/mail/mailRefresh'
 
 const ACCOUNT = 'acc'
 const NOW = Date.parse('2026-10-26T12:00:00.000Z')
@@ -403,9 +404,13 @@ describe('the mail page shows the panel', () => {
   it('fetches the open ops for a writable account and refreshes them on op events', () => {
     expect(page).toMatch(/queryKey: \['mail', accountId, 'open-ops'\]/)
     expect(page).toMatch(/listOpenOps\(accountId\)[\s\S]{0,40}enabled: ready && canWrite/)
-    expect(page).toMatch(
-      /op-event[\s\S]*invalidateQueries\(\{ queryKey: \['mail', accountId, 'open-ops'\] \}\)/
+    // I18: the events go through refreshPlan, which refreshes the open ops after every write
+    expect(page).toMatch(/onData: \(event\) => \{[\s\S]*refreshPlan\(event, accountId\)/)
+    const plan = refreshPlan(
+      { type: 'op-event', accountId: ACCOUNT, opId: 'op-1', kind: 'move', outcome: 'done' },
+      ACCOUNT
     )
+    expect(plan?.keys).toContainEqual(['mail', ACCOUNT, 'open-ops'])
   })
 
   it('asks before discarding and refreshes after every action', () => {
