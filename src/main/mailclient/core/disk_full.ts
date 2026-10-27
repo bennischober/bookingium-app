@@ -14,6 +14,8 @@
 // retried in a loop, but a BUSY, CORRUPT or EACCES failure is NOT disk-full and must keep its own
 // handling - treating them alike would pause sync for reasons a retry could fix.
 
+import fs from 'fs';
+
 /** The only codes that mean "there is no room left". */
 const DISK_FULL_CODES = new Set(['SQLITE_FULL', 'ENOSPC', 'EDQUOT']);
 
@@ -30,4 +32,33 @@ export function isDiskFullError(err: unknown): boolean {
 export function diskFullMessage(): string {
   return 'Speicherplatz voll: der lokale Speicher ist voll, neue E-Mails können nicht gespeichert werden. '
     + 'Platz freigeben und erneut versuchen.';
+}
+
+/**
+ * I18: room a UIDVALIDITY swap needs before it starts. The old copy stays until the new one is
+ * complete, so the new one needs about the old one's size again, less what an earlier pass has
+ * staged already. The share on top and the fixed reserve cover the rows and the search index.
+ */
+export const SWAP_SPACE_FACTOR = 1.2;
+export const SWAP_SPACE_RESERVE = 50_000_000;
+
+export function swapSpaceNeeded(oldBytes: number, stagedBytes: number): number {
+  return Math.ceil(Math.max(0, oldBytes - stagedBytes) * SWAP_SPACE_FACTOR) + SWAP_SPACE_RESERVE;
+}
+
+/** I18: a swap that does not fit; names the folder and roughly how much room is missing. */
+export function swapSpaceMessage(folder: string, missingBytes: number): string {
+  const mb = Math.max(1, Math.ceil(missingBytes / 1_000_000));
+  return `Speicherplatz reicht nicht: der Ordner „${folder}" wurde auf dem Server neu angelegt und muss neu `
+    + `geladen werden, dafür fehlen etwa ${mb} MB. Platz freigeben und erneut versuchen.`;
+}
+
+/** I18: free bytes on the drive that holds `dir`; null when the system cannot tell. */
+export function freeBytesOf(dir: string): number | null {
+  try {
+    const stats = fs.statfsSync(dir);
+    return Number(stats.bavail) * Number(stats.bsize);
+  } catch {
+    return null;
+  }
 }

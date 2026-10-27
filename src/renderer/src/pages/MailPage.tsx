@@ -33,6 +33,7 @@ import { hide, unhide, visible } from '@/components/mail/optimistic'
 import { readingActions } from '@/components/mail/readingActions'
 import { archiveableIds, archivedCount, uncoveredIds } from '@/components/mail/archiveActions'
 import { runningOpLabel, VISIBLE_OPS } from '@/components/mail/opLabel'
+import { refreshBatcher, refreshPlan } from '@/components/mail/mailRefresh'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import {
   type OpAction,
@@ -470,47 +471,28 @@ export default function MailPage() {
   const opList = useMemo(() => opEntries(openOps.data ?? [], opNow), [openOps.data, opNow])
   const [busyOpId, setBusyOpId] = useState<string | null>(null)
 
-  // Refresh folders and lists when the sync stored something new or a change
-  // was made (also in a mail window); batched, the initial download reports every folder
-  const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(refreshTimer.current), [])
+  // Refresh folders, lists and search when the sync stored something new or a change
+  // was made (also in a mail window); batched, the initial download reports every folder.
+  // I18: another account's events mark that account stale instead of being dropped.
+  const [refresher] = useState(() =>
+    refreshBatcher((key) => void queryClient.invalidateQueries({ queryKey: [...key] }))
+  )
+  useEffect(() => () => refresher.dispose(), [refresher])
   trpcReact.mail.events.useSubscription(undefined, {
     enabled: ready,
     onData: (event) => {
-      if (event.accountId !== accountId) return
-      if (event.type === 'op-event') {
-        // H2: show a write op while it runs, but only one the user started. Autosave
-        // (draft_save) and flag changes run in the background every few seconds; showing
-        // those would make the bar flicker nonstop, which is the opposite of quiet.
-        if (VISIBLE_OPS.has(event.kind)) {
-          setRunningOp(event.outcome === 'running' ? event.kind : null)
-        }
-        clearTimeout(refreshTimer.current)
-        refreshTimer.current = setTimeout(() => {
-          refreshLists()
-          void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'message'] })
-          void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'open-ops'] })
-        }, 300)
-        return
+      // H2: show a write op while it runs, but only one the user started. Autosave
+      // (draft_save) and flag changes run in the background every few seconds; showing
+      // those would make the bar flicker nonstop, which is the opposite of quiet.
+      if (
+        event.type === 'op-event' &&
+        event.accountId === accountId &&
+        VISIBLE_OPS.has(event.kind)
+      ) {
+        setRunningOp(event.outcome === 'running' ? event.kind : null)
       }
-      if (event.type !== 'sync-event') return
-      const sync = event.event as {
-        type: string
-        newCount?: number
-        flagChanges?: number
-        expunged?: number
-        moved?: number
-      }
-      const changed =
-        sync.type === 'folder-list' ||
-        (sync.type === 'folder-done' &&
-          Boolean(sync.newCount || sync.flagChanges || sync.expunged || sync.moved))
-      if (!changed) return
-      clearTimeout(refreshTimer.current)
-      refreshTimer.current = setTimeout(() => {
-        void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
-        void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
-      }, 1000)
+      const plan = refreshPlan(event, accountId)
+      if (plan) refresher.add(plan)
     }
   })
 

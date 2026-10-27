@@ -21,6 +21,11 @@ import {
   isCorruptStoreError,
   salvageRelinks
 } from '../src/main/mailclient/core/store_recovery'
+import {
+  SWAP_SPACE_RESERVE,
+  swapSpaceMessage,
+  swapSpaceNeeded
+} from '../src/main/mailclient/core/disk_full'
 
 const ACCOUNT = 'acc'
 
@@ -693,6 +698,121 @@ describe('I12: the UIDVALIDITY swap resumes and stays hidden until it is done (M
       api.close()
     }
   }, 30_000)
+})
+
+describe('I18: a UIDVALIDITY swap checks the free space first', () => {
+  function seeded() {
+    const dir = scratchDir()
+    const store = openStore(dir)
+    const inbox = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/', uidValidity: '1' })
+    const oldFiles = [1, 2, 3].map((uid) => addMessage(store, dir, inbox.id, uid, '1'))
+    return { dir, store, inbox, oldFiles }
+  }
+  const bytesIn = (store: Store, folderId: string): number =>
+    (
+      store.db
+        .prepare('SELECT COALESCE(SUM(size_bytes), 0) AS n FROM messages WHERE folder_id = ?')
+        .get(folderId) as { n: number }
+    ).n
+  function engine(store: Store, dir: string, free: () => number | null) {
+    const config: AccountConfig = {
+      id: ACCOUNT,
+      host: '127.0.0.1',
+      port: 10199,
+      security: 'none',
+      user: 'u',
+      pass: 'p',
+      readOnly: false,
+      dataDir: dir
+    }
+    const seen: string[] = []
+    const sync = new SyncEngine(config, store, {
+      freeBytes: (where) => {
+        seen.push(where)
+        return free()
+      }
+    })
+    return { sync, internals: sync as unknown as Internals, seen }
+  }
+
+  it('stops before downloading when the new copy would not fit, and says how much is missing', async () => {
+    const { dir, store, inbox, oldFiles } = seeded()
+    const needed = swapSpaceNeeded(bytesIn(store, inbox.id), 0)
+    const { sync, internals, seen } = engine(store, dir, () => needed - 3_000_000)
+    const { client, sourceFetched } = fakeClient([10, 11, 12], { exists: 3 })
+
+    await expect(
+      internals.resyncAfterValidityChange(client, 'INBOX', inbox.id, '2', null, 13)
+    ).rejects.toMatchObject({ code: 'ENOSPC' })
+    expect(sourceFetched).toEqual([])
+    expect(uidsOf(store, inbox.id)).toEqual([1, 2, 3])
+    for (const f of oldFiles) expect(fs.existsSync(path.join(dir, f))).toBe(true)
+    expect(store.getFolderByPath('INBOX')!.uid_validity).toBe('1')
+    // the drive the store lives on
+    expect(seen).toEqual([store.filePath('')])
+    expect(sync.isDiskFull).toBe(true)
+    expect(sync.getStatus().diskFull).toBe(swapSpaceMessage('INBOX', 3_000_000))
+  })
+
+  it('keeps the swap message when the stopped pass reports the full disk again', async () => {
+    const { dir, store, inbox } = seeded()
+    const { sync, internals } = engine(store, dir, () => 0)
+    const { client } = fakeClient([10, 11, 12], { exists: 3 })
+    await expect(
+      internals.resyncAfterValidityChange(client, 'INBOX', inbox.id, '2', null, 13)
+    ).rejects.toMatchObject({ code: 'ENOSPC' })
+    // what syncAll does with the error it gets
+    sync.noteDiskFull('INBOX')
+    expect(sync.getStatus().diskFull).toContain('INBOX')
+    // the retry action clears it
+    sync.resume()
+    expect(sync.getStatus().diskFull).toBeNull()
+  })
+
+  it('swaps when exactly the needed room is free', async () => {
+    const { dir, store, inbox } = seeded()
+    const needed = swapSpaceNeeded(bytesIn(store, inbox.id), 0)
+    const { sync, internals } = engine(store, dir, () => needed)
+    const { client } = fakeClient([10, 11, 12], { exists: 3 })
+    await internals.resyncAfterValidityChange(client, 'INBOX', inbox.id, '2', null, 13)
+    expect(uidsOf(store, inbox.id)).toEqual([10, 11, 12])
+    expect(sync.isDiskFull).toBe(false)
+  })
+
+  it('counts what an earlier pass staged as already there', async () => {
+    const { dir, store, inbox } = seeded()
+    const staging = store.upsertFolder({
+      imapPath: `${STAGING_PREFIX}INBOX`,
+      delimiter: '/',
+      uidValidity: '2'
+    })
+    addMessage(store, dir, staging.id, 10, '2')
+    addMessage(store, dir, staging.id, 11, '2')
+    const needed = swapSpaceNeeded(bytesIn(store, inbox.id), bytesIn(store, staging.id))
+    expect(needed).toBeLessThan(swapSpaceNeeded(bytesIn(store, inbox.id), 0))
+    const { internals } = engine(store, dir, () => needed)
+    const { client, sourceFetched } = fakeClient([10, 11, 12], { exists: 3 })
+    await internals.resyncAfterValidityChange(client, 'INBOX', inbox.id, '2', null, 13)
+    expect(sourceFetched).toEqual([12])
+    expect(uidsOf(store, inbox.id)).toEqual([10, 11, 12])
+  })
+
+  it('goes ahead when the free space cannot be read', async () => {
+    const { dir, store, inbox } = seeded()
+    const { internals } = engine(store, dir, () => null)
+    const { client } = fakeClient([10, 11, 12], { exists: 3 })
+    await internals.resyncAfterValidityChange(client, 'INBOX', inbox.id, '2', null, 13)
+    expect(uidsOf(store, inbox.id)).toEqual([10, 11, 12])
+  })
+
+  it('needs the old copy again with a margin, never less than the reserve', () => {
+    expect(swapSpaceNeeded(1_000_000, 0)).toBe(1_200_000 + SWAP_SPACE_RESERVE)
+    expect(swapSpaceNeeded(1_000_000, 400_000)).toBe(720_000 + SWAP_SPACE_RESERVE)
+    // more staged than the old copy (the folder grew): only the reserve
+    expect(swapSpaceNeeded(1_000, 5_000)).toBe(SWAP_SPACE_RESERVE)
+    expect(swapSpaceMessage('Archiv/2024', 1)).toContain('etwa 1 MB')
+    expect(swapSpaceMessage('Archiv/2024', 2_500_001)).toContain('etwa 3 MB')
+  })
 })
 
 describe('I12: a failed contacts upsert keeps the stored mail (MR-42)', () => {
