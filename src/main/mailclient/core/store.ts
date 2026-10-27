@@ -13,7 +13,10 @@ import { isPathOrChild, renamedPath } from './folders.js';
 import fs from 'fs';
 import path from 'path';
 import { runMigrations } from './migrations.js';
-import { isCorruptStoreError, quarantineStoreFiles } from './store_recovery.js';
+import {
+  assertIntact, clearIntegrityCheck, isCorruptStoreError, markForIntegrityCheck, needsIntegrityCheck,
+  quarantineStoreFiles, salvageRelinks, watchForCorruption, type RelinkEntry,
+} from './store_recovery.js';
 
 /** The core's Logger shape, structurally - store.ts must not import index.ts (that would be a cycle). */
 type StoreLogger = { warn?: (msg: string) => void };
@@ -119,6 +122,11 @@ export interface MessageRow {
   sort_date?: string | null;   // materialized COALESCE(date, internal_date); derived on insert if absent
 }
 
+/** I12: staging folders of a UIDVALIDITY swap; never shown, never searched, never pruned by LIST. */
+export const STAGING_PREFIX = '__staging__/';
+/** I12 (MR-41): staged rows wait for the swap, so nothing that spans folders may show them. */
+const NOT_STAGED = `messages.folder_id NOT IN (SELECT id FROM folders WHERE substr(imap_path, 1, ${STAGING_PREFIX.length}) = '${STAGING_PREFIX}')`;
+
 export class Store {
   readonly db: BetterSqlite3.Database;
   constructor(dataDir: string, readonly accountId: string, private clock: () => number = Date.now, private log: StoreLogger = {}) {
@@ -137,7 +145,7 @@ export class Store {
       // A corrupt store is the ONE failure worth recovering from: every row came from the
       // server, so the file is rebuildable - and a throw here runs inside the accounts loop
       // in index.ts, which would leave the app with NO mail, including the accounts whose
-      // stores are fine. Only the two corruption codes qualify; a locked or unwritable store
+      // stores are fine. Only corruption codes qualify; a locked or unwritable store
       // rethrows untouched, because setting a good store aside is worse than failing.
       if (!isCorruptStoreError(err)) throw err;
       const quarantine = quarantineStoreFiles(dbPath, this.clock);
@@ -145,18 +153,35 @@ export class Store {
       // Exactly ONE retry: a second failure is not corruption-triggered recovery any more,
       // it is a broken data dir, and looping would hide that.
       db = this.openStore(dbPath);
+      // I12 (MR-26): the .eml files are still on disk. Re-linking them turns the rebuild
+      // into a metadata pass instead of downloading the whole mailbox again.
+      const salvaged = salvageRelinks(quarantine, dataDir);
+      this.addRelinks(db, salvaged);
+      if (salvaged.length) this.log.warn?.(`mail store for ${accountId}: ${salvaged.length} message file(s) kept for re-linking`);
     }
     this.db = db;
   }
 
   /** Open, configure and migrate one store file; closes the handle on any failure. */
   private openStore(dbPath: string): BetterSqlite3.Database {
+    // I12 (MR-26): a damaged page opens fine and fails only when a query reads it. After an
+    // unclean shutdown, or once a query has hit corruption, the whole file is checked first.
+    const check = needsIntegrityCheck(dbPath);
     const db = new DatabaseConstructor(dbPath);
     try {
       db.pragma('journal_mode = WAL');
       db.pragma('synchronous = NORMAL');
       db.pragma('foreign_keys = ON');
+      if (check) assertIntact(db);
       runMigrations(db);
+      if (check) clearIntegrityCheck(dbPath);
+      let reported = false;
+      watchForCorruption(db, () => {
+        markForIntegrityCheck(dbPath);
+        if (reported) return;
+        reported = true;
+        this.log.warn?.(`mail store for ${this.accountId} hit corruption; it is checked, and rebuilt if needed, on the next start`);
+      });
       return db;
     } catch (err) {
       // never leave a half-opened DB behind (Windows keeps the file locked)
@@ -165,6 +190,34 @@ export class Store {
     }
   }
   readonly dataDirResolved: string;
+
+  // ----- I12: re-linking the files of a quarantined store ----------------------
+  private addRelinks(db: BetterSqlite3.Database, entries: RelinkEntry[]): void {
+    if (!entries.length) return;
+    const at = new Date(this.clock()).toISOString();
+    const insert = db.prepare(`INSERT OR IGNORE INTO relinks (imap_path, uid_validity, uid, file_path, size_bytes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`);
+    db.transaction(() => {
+      for (const e of entries) insert.run(e.imapPath, e.uidValidity, e.uid, e.filePath, e.sizeBytes, at);
+    })();
+  }
+
+  /** The files a rebuilt store may adopt for one folder at one UIDVALIDITY, by UID. */
+  relinksFor(imapPath: string, uidValidity: string): Map<number, { filePath: string; sizeBytes: number }> {
+    const rows = this.db.prepare('SELECT uid, file_path, size_bytes FROM relinks WHERE imap_path = ? AND uid_validity = ?')
+      .all(imapPath, uidValidity) as { uid: number; file_path: string; size_bytes: number }[];
+    return new Map(rows.map(r => [r.uid, { filePath: r.file_path, sizeBytes: r.size_bytes }]));
+  }
+
+  dropRelink(imapPath: string, uidValidity: string, uid: number): void {
+    this.db.prepare('DELETE FROM relinks WHERE imap_path = ? AND uid_validity = ? AND uid = ?').run(imapPath, uidValidity, uid);
+  }
+
+  /** Files the orphan sweep must leave alone; entries older than `expiresBeforeIso` are dropped first. */
+  relinkFiles(expiresBeforeIso: string): Set<string> {
+    this.db.prepare('DELETE FROM relinks WHERE created_at < ?').run(expiresBeforeIso);
+    return new Set((this.db.prepare('SELECT file_path FROM relinks').all() as { file_path: string }[]).map(r => r.file_path));
+  }
 
   /** A3/A4: the ONE way to turn a stored relative file name into a path. Every
    *  message file access goes through here, so the base can never drift. */
@@ -613,15 +666,15 @@ export class Store {
   // threads ------------------------------------------------------------------
   /** Newest-first thread summaries (for the conversation list). */
   listThreads(folderId: string | null, offset: number, limit: number): ThreadRow[] {
-    const folderSql = folderId ? 'WHERE m.folder_id = @folderId' : '';
+    const folderSql = folderId ? 'WHERE messages.folder_id = @folderId' : `WHERE ${NOT_STAGED}`;
     const rows = this.db.prepare(`
-      SELECT m.thread_id AS threadId, COUNT(*) AS count, MAX(m.sort_date) AS newest,
-        SUM(CASE WHEN json_extract(m.flags_json, '$.seen') IS NOT 1 THEN 1 ELSE 0 END) AS unread,
-        SUM(m.has_attachments) AS atts,
-        COUNT(DISTINCT m.id) AS n
-      FROM messages m ${folderSql}
-      GROUP BY m.thread_id
-      HAVING m.thread_id IS NOT NULL
+      SELECT messages.thread_id AS threadId, COUNT(*) AS count, MAX(messages.sort_date) AS newest,
+        SUM(CASE WHEN json_extract(messages.flags_json, '$.seen') IS NOT 1 THEN 1 ELSE 0 END) AS unread,
+        SUM(messages.has_attachments) AS atts,
+        COUNT(DISTINCT messages.id) AS n
+      FROM messages ${folderSql}
+      GROUP BY messages.thread_id
+      HAVING messages.thread_id IS NOT NULL
       ORDER BY newest DESC
       LIMIT @limit OFFSET @offset`).all({ folderId, limit, offset }) as ThreadAggRow[];
     if (!rows.length) return [];
@@ -630,7 +683,7 @@ export class Store {
     const placeholders = [...ids].map(() => '?').join(',');
     const msgs = this.db.prepare(`
       SELECT id, thread_id, subject, from_name, snippet, sort_date FROM messages
-      WHERE thread_id IN (${placeholders})
+      WHERE thread_id IN (${placeholders}) AND ${NOT_STAGED}
       ORDER BY sort_date DESC`).all(...ids) as ThreadMessageRow[];
     const byThread = new Map<string, ThreadMessageRow[]>();
     for (const m of msgs) {
@@ -667,7 +720,8 @@ export class Store {
     if (opts.hasAttachment) where.push('messages.has_attachments = 1');
     if (opts.after) { where.push('COALESCE(messages.date, messages.internal_date) >= @after'); params.after = opts.after; }
     if (opts.before) { where.push('COALESCE(messages.date, messages.internal_date) <= @before'); params.before = opts.before; }
-    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    where.push(NOT_STAGED);
+    const whereSql = 'WHERE ' + where.join(' AND ');
     return this.db.prepare(`SELECT folder_id AS folderId, COUNT(*) AS count FROM messages ${whereSql}
       GROUP BY folder_id ORDER BY count DESC`).all(params) as { folderId: string; count: number }[];
   }
@@ -759,14 +813,14 @@ export class Store {
     const where: string[] = [];
     const params: Record<string, unknown> = { limit: opts.limit, offset: opts.offset };
     if (matchExpr) { where.push('messages.id IN (SELECT rowid FROM fts WHERE fts MATCH @match)'); params.match = matchExpr; }
-    if (opts.folderId) { where.push('messages.folder_id = @folderId'); params.folderId = opts.folderId; }
+    if (opts.folderId) { where.push('messages.folder_id = @folderId'); params.folderId = opts.folderId; } else where.push(NOT_STAGED);
     if (opts.from) { where.push('(messages.from_name LIKE @from OR messages.from_email LIKE @from)'); params.from = `%${opts.from.toLowerCase()}%`; }
     if (opts.to) { where.push('messages.to_json LIKE @to'); params.to = `%${opts.to.toLowerCase()}%`; }
     if (opts.subject) { where.push('messages.subject LIKE @subject'); params.subject = `%${opts.subject.toLowerCase()}%`; }
     if (opts.hasAttachment) where.push('messages.has_attachments = 1');
     if (opts.after) { where.push('COALESCE(messages.date, messages.internal_date) >= @after'); params.after = opts.after; }
     if (opts.before) { where.push('COALESCE(messages.date, messages.internal_date) <= @before'); params.before = opts.before; }
-    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const whereSql = 'WHERE ' + where.join(' AND ');
     const total = (this.db.prepare(`SELECT COUNT(*) c FROM messages ${whereSql}`).get(params) as { c: number }).c;
     // sortBy 'relevance': FTS5 rank (bm25) is only meaningful WITH a match expression;
     // without one, relevance == date fallback.
@@ -784,7 +838,7 @@ export class Store {
       // a bare `SELECT rowid FROM fts` would silently ignore them.
       const cond: string[] = ['fts MATCH @match'];
       const rp: Record<string, unknown> = { match: params.match };
-      if (opts.folderId) { cond.push('messages.folder_id = @folderId'); rp.folderId = opts.folderId; }
+      if (opts.folderId) { cond.push('messages.folder_id = @folderId'); rp.folderId = opts.folderId; } else cond.push(NOT_STAGED);
       if (opts.from) { cond.push('(messages.from_name LIKE @from OR messages.from_email LIKE @from)'); rp.from = params.from; }
       if (opts.to) { cond.push('messages.to_json LIKE @to'); rp.to = params.to; }
       if (opts.subject) { cond.push('messages.subject LIKE @subject'); rp.subject = params.subject; }

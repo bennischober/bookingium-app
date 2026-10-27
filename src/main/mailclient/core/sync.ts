@@ -17,7 +17,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import crypto from 'crypto';
 import fs from 'fs';
-import { Store, Flags } from './store.js';
+import { STAGING_PREFIX, Store, Flags } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 import { writeMessageFile } from './files.js';
@@ -135,6 +135,10 @@ export type SyncProgress = {
   /** Set when a write failed because the disk is full; cleared by resume(). The reason, in German. */
   diskFull?: string | null;
 };
+
+/** I12 (MR-41): an expunge this large in one pass needs EXAMINE's EXISTS to confirm the UID list. */
+const MASS_EXPUNGE_MIN = 20;
+const MASS_EXPUNGE_SHARE = 0.2;
 
 export class SyncEngine {
   private client: ImapFlow | null = null;          // main connection (sync + writes)
@@ -558,7 +562,7 @@ export class SyncEngine {
     //   Gate 3 (staging): staging folders are never pruned here (transient by design).
     const serverPaths = new Set(paths);
     const localFolders = this.store.allFolders().filter(f => f.account_id === this.account.id
-      && !f.imap_path.startsWith('__staging__/') && !renaming(f.imap_path));
+      && !f.imap_path.startsWith(STAGING_PREFIX) && !renaming(f.imap_path));
     // Gate 0 (card A2a): a TRUNCATED/EMPTY LIST response must prune NOTHING — ever.
     // The blast-radius cap (Gate 2) only limits each pass to 25%, so repeated empty
     // LISTs would still nuke the whole cache 25% per pass. An empty result, or one
@@ -603,6 +607,13 @@ export class SyncEngine {
       this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(f.id);
     }
     if (toPrune.length) this.log?.info?.(`folder-list sync: pruned ${toPrune.length} vanished folder(s)`);
+    // I12 (MR-41): staging is kept between passes so a swap can resume; once its real folder
+    // is pruned (through the gates above) there is nothing left to swap into
+    for (const f of this.store.allFolders()) {
+      if (f.imap_path.startsWith(STAGING_PREFIX) && !this.store.getFolderByPath(f.imap_path.slice(STAGING_PREFIX.length))) {
+        this.dropStaging(f.id);
+      }
+    }
     this.emit({ type: 'folder-list', folders: paths });
     return paths;
   }
@@ -694,6 +705,12 @@ export class SyncEngine {
    * (message_key contains uidValidity, so old and new keys cannot collide), and old
    * .eml files are unlinked only afterwards. Local data is never lost on a failed
    * resync — the worst case is a stale copy that the next pass replaces.
+   *
+   * I12 (MR-41): the staged rows really live under the staging folder now (they were inserted
+   * into the real folder, next to the old rows), and they survive a failed pass: the next one
+   * downloads only what is not staged yet, so a large INBOX on a flaky connection converges
+   * instead of starting over. Staging of an older UIDVALIDITY is dropped first. The swap deletes
+   * every old row, so it waits until EXAMINE's EXISTS confirms the new UID list.
    */
   private async resyncAfterValidityChange(client: ImapFlow, imapPath: string, folderId: string, uidValidity: string, highestModseq: string | null, uidNext?: number): Promise<void> {
     const oldRows = this.store.db.prepare('SELECT id, file_path, message_key FROM messages WHERE folder_id = ?')
@@ -701,56 +718,86 @@ export class SyncEngine {
 
     // stage the fresh download under a temp folder mapping (message_key includes the NEW
     // uidValidity → old and new rows cannot collide, both can coexist during download)
-    const tempFolder = this.store.upsertFolder({ imapPath: `__staging__/${imapPath}`, delimiter: '/', specialUse: null, uidValidity });
-    let swapped = false;
-    try {
-      const serverUids = new Set<number>();
-      for await (const m of client.fetch('1:*', { uid: true }, { uid: true })) serverUids.add(Number(m.uid));
-      // BUG FIX (found 2026-10-23, consistency suite after a live staged swap): the
-      // staged download previously computed message_key with tempFolder.id — the swap
-      // then moved rows to the real folder id but the key kept the staging id baked
-      // in, producing unrecomputable keys (sha1(account|stagingId|validity|uid)).
-      // The key must ALWAYS be derived from the REAL folder id; the staging folder
-      // only exists so old and new rows can coexist in the DB during download.
-      await this.downloadMessages(client, [...serverUids], imapPath, tempFolder.id, uidValidity, { newestFirst: true, keyFolderId: folderId });
-
-      // atomic swap: new rows move to the real folder id, old rows' DB rows disappear
-      const swap = this.store.db.transaction(() => {
-        this.store.db.prepare('UPDATE messages SET folder_id = ? WHERE folder_id = ?').run(folderId, tempFolder.id);
-        for (const r of oldRows) this.store.db.prepare('DELETE FROM messages WHERE id = ?').run(r.id);
-        this.store.db.prepare(`UPDATE folders SET uid_validity=@v, uid_next=@n, highest_modseq=@m,
-          last_sync_at=datetime('now'), last_flag_sweep=datetime('now') WHERE id=@id`)
-          .run({ v: uidValidity, n: nextUid(uidNext, serverUids), m: highestModseq, id: folderId });
-      });
-      swap();
-      swapped = true;
-
-      // files: unlink ONLY the old rows' files, and only after the swap committed.
-      // Guard: never unlink a file whose name belongs to a surviving row (by design the
-      // key includes uidValidity, so old and new keys differ — guard costs nothing).
-      const survivingKeys = new Set(
-        (this.store.db.prepare('SELECT message_key FROM messages WHERE folder_id = ?').all(folderId) as { message_key: string }[])
-          .map(r => r.message_key)
-      );
-      for (const r of oldRows) {
-        if (survivingKeys.has(r.message_key)) continue;
-        try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* UIDVALIDITY swap: an unreadable leftover is an orphan for the sweep, never a row without a file */ }
-      }
-      this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
-      this.emit({ type: 'folder-done', path: imapPath, newCount: serverUids.size, flagChanges: 0, expunged: oldRows.length, moved: 0 });
-    } finally {
-      if (!swapped) {
-        // download failed mid-way: remove staged DB rows + their files (re-downloadable);
-        // deleting rows first keeps the FK happy when dropping the staging folder
-        const staged = this.store.db.prepare('SELECT id, file_path FROM messages WHERE folder_id = ?')
-          .all(tempFolder.id) as { id: number; file_path: string }[];
-        this.store.deleteMessages(staged.map(r => r.id));
-        for (const r of staged) {
-          try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* aborted staging download: the file is re-downloadable, so a failed unlink only leaves an orphan */ }
-        }
-        this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
-      }
+    const stagingPath = `${STAGING_PREFIX}${imapPath}`;
+    const prior = this.store.getFolderByPath(stagingPath);
+    if (prior && prior.uid_validity !== uidValidity) this.dropStaging(prior.id);
+    const tempFolder = this.store.upsertFolder({ imapPath: stagingPath, delimiter: '/', specialUse: null, uidValidity });
+    const serverUids = new Set<number>();
+    for await (const m of client.fetch('1:*', { uid: true }, { uid: true })) serverUids.add(Number(m.uid));
+    const stagedRows = this.store.db.prepare('SELECT id, uid, file_path FROM messages WHERE folder_id = ?')
+      .all(tempFolder.id) as { id: number; uid: number; file_path: string }[];
+    const staged = new Set(stagedRows.map(r => r.uid));
+    // BUG FIX (found 2026-10-23, consistency suite after a live staged swap): the
+    // staged download previously computed message_key with tempFolder.id — the swap
+    // then moved rows to the real folder id but the key kept the staging id baked
+    // in, producing unrecomputable keys (sha1(account|stagingId|validity|uid)).
+    // The key must ALWAYS be derived from the REAL folder id; the staging folder
+    // only exists so old and new rows can coexist in the DB during download.
+    await this.downloadMessages(client, [...serverUids].filter(u => !staged.has(u)), imapPath, tempFolder.id, uidValidity, { newestFirst: true, keyFolderId: folderId });
+    // stopped mid-download: what is staged waits for the next pass
+    if (this.stopped) return;
+    if (!this.expungeConfirmed(client, imapPath, serverUids.size, oldRows.length, oldRows.length)) {
+      this.emit({ type: 'folder-done', path: imapPath, newCount: 0, flagChanges: 0, expunged: 0, moved: 0 });
+      return;
     }
+
+    // staged on an earlier pass, expunged since
+    const vanished = stagedRows.filter(r => !serverUids.has(r.uid));
+    this.store.deleteMessages(vanished.map(r => r.id));
+    for (const r of vanished) {
+      try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* the row is gone; a leftover file is an orphan for the sweep */ }
+    }
+
+    // atomic swap: new rows move to the real folder id, old rows' DB rows disappear
+    const swap = this.store.db.transaction(() => {
+      this.store.db.prepare('UPDATE messages SET folder_id = ? WHERE folder_id = ?').run(folderId, tempFolder.id);
+      for (const r of oldRows) this.store.db.prepare('DELETE FROM messages WHERE id = ?').run(r.id);
+      this.store.db.prepare(`UPDATE folders SET uid_validity=@v, uid_next=@n, highest_modseq=@m,
+        last_sync_at=datetime('now'), last_flag_sweep=datetime('now') WHERE id=@id`)
+        .run({ v: uidValidity, n: nextUid(uidNext, serverUids), m: highestModseq, id: folderId });
+      this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(tempFolder.id);
+    });
+    swap();
+
+    // files: unlink ONLY the old rows' files, and only after the swap committed.
+    // Guard: never unlink a file whose name belongs to a surviving row (by design the
+    // key includes uidValidity, so old and new keys differ — guard costs nothing).
+    const survivingKeys = new Set(
+      (this.store.db.prepare('SELECT message_key FROM messages WHERE folder_id = ?').all(folderId) as { message_key: string }[])
+        .map(r => r.message_key)
+    );
+    for (const r of oldRows) {
+      if (survivingKeys.has(r.message_key)) continue;
+      try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* UIDVALIDITY swap: an unreadable leftover is an orphan for the sweep, never a row without a file */ }
+    }
+    this.emit({ type: 'folder-done', path: imapPath, newCount: serverUids.size, flagChanges: 0, expunged: oldRows.length, moved: 0 });
+  }
+
+  /** I12: drop a staging folder with its rows and files (all re-downloadable). Rows first, for the FK. */
+  private dropStaging(stagingId: string): void {
+    const staged = this.store.db.prepare('SELECT id, file_path FROM messages WHERE folder_id = ?')
+      .all(stagingId) as { id: number; file_path: string }[];
+    this.store.deleteMessages(staged.map(r => r.id));
+    for (const r of staged) {
+      try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* re-downloadable: a failed unlink only leaves an orphan */ }
+    }
+    this.store.db.prepare('DELETE FROM folders WHERE id = ?').run(stagingId);
+  }
+
+  /**
+   * I12 (MR-41): an empty or truncated `UID FETCH 1:*` looks exactly like a mass expunge. Up to
+   * MASS_EXPUNGE_MIN rows, or a share of at most MASS_EXPUNGE_SHARE of the folder, go through
+   * as before; anything larger needs the UID list to be at least as long as the EXISTS of the
+   * EXAMINE this sync just ran (imapflow keeps it current with EXISTS and EXPUNGE responses).
+   * Refused, nothing is deleted this pass and the next pass asks again.
+   */
+  private expungeConfirmed(client: ImapFlow, imapPath: string, serverCount: number, expungeCount: number, localCount: number): boolean {
+    if (expungeCount < MASS_EXPUNGE_MIN || expungeCount <= localCount * MASS_EXPUNGE_SHARE) return true;
+    const exists = client.mailbox ? client.mailbox.exists : undefined;
+    if (typeof exists === 'number' && serverCount >= exists) return true;
+    this.log.warn?.(`${imapPath}: the server listed ${serverCount} of ${exists ?? 'an unknown number of'} message(s); ` +
+      `not removing ${expungeCount} of ${localCount} local message(s) this pass`);
+    return false;
   }
 
   // @ts-ignore unused, kept in sync with the prototype
@@ -784,7 +831,7 @@ export class SyncEngine {
     // move/delete removes them server-side mid-playback; the op's completion updates
     // the local row (re-keyed to the destination) and cleanup must not race it.
     const expungedLocal = localRows.filter(r => !serverUids.has(r.uid) && !this.store.opInFlightForMessageKey(r.message_key));
-    if (expungedLocal.length) {
+    if (expungedLocal.length && this.expungeConfirmed(client, imapPath, serverUids.size, expungedLocal.length, localRows.length)) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
         try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* local uid vanished server-side: the row is gone already, a leftover file is an orphan for the sweep */ }
@@ -846,7 +893,7 @@ export class SyncEngine {
 
     // 2. expunged (Task 4: skip UIDs with pending/running write ops — see fullSyncFolder)
     const expungedLocal = localRows.filter(r => !serverUids.has(r.uid) && !this.store.opInFlightForMessageKey(r.message_key));
-    if (expungedLocal.length) {
+    if (expungedLocal.length && this.expungeConfirmed(client, imapPath, serverUids.size, expungedLocal.length, localRows.length)) {
       this.store.deleteMessages(expungedLocal.map(r => r.id));
       for (const r of expungedLocal) {
         try { fs.unlinkSync(this.store.filePath(r.file_path)); } catch { /* server-side expunge: the row is gone already, a leftover file is an orphan for the sweep */ }
@@ -927,7 +974,9 @@ export class SyncEngine {
     // message_key identity uses keyFolderId (the REAL folder id) even when rows are
     // staged under a temp folder mapping — see resyncAfterValidityChange
     const keyFolderId = opts.keyFolderId ?? folderId;
-    const sorted = [...uids].sort((a, b) => opts.newestFirst ? b - a : a - b);
+    const adopted = await this.adoptRelinked(client, uids, imapPath, folderId, keyFolderId, uidValidity);
+    stored += adopted.size;
+    const sorted = uids.filter(u => !adopted.has(u)).sort((a, b) => opts.newestFirst ? b - a : a - b);
     const batchBytes = this.account.batchBytes ?? Infinity;
     const interDelay = this.account.interBatchDelayMs ?? 0;
     const BATCH_COUNT = 100;
@@ -949,7 +998,7 @@ export class SyncEngine {
         uid: true, source: true, flags: true, internalDate: true, size: true,
       }, { uid: true })) {
         if (!msg.source) continue;
-        await this.storeMessage(keyFolderId, uidValidity, { ...msg, source: msg.source });
+        await this.storeMessage(folderId, uidValidity, { ...msg, source: msg.source }, { keyFolderId });
         batchStored++;
         this.progress.messagesDone++;
         this.progress.bytesDone += msg.source.length;
@@ -966,6 +1015,44 @@ export class SyncEngine {
       if (this.stopped) break;
     }
     return stored;
+  }
+
+  /**
+   * I12 (MR-26): after a rebuild, a UID whose `.eml` survived the quarantined store is stored
+   * from that file: only flags and dates are fetched, 500 UIDs per command, instead of the whole
+   * source. Folder path, UIDVALIDITY and UID name one message for good; the file must still have
+   * the recorded size, and the server's RFC822.SIZE must agree when it sends one. Everything that
+   * does not qualify is downloaded as usual. Returns the UIDs that were stored.
+   */
+  private async adoptRelinked(client: ImapFlow, uids: number[], imapPath: string, folderId: string, keyFolderId: string, uidValidity: string): Promise<Set<number>> {
+    const adopted = new Set<number>();
+    const links = this.store.relinksFor(imapPath, uidValidity);
+    if (!links.size) return adopted;
+    const candidates = uids.filter(u => links.has(u)).sort((a, b) => a - b);
+    for (let i = 0; i < candidates.length; i += 500) {
+      const range = uidRange(candidates.slice(i, i + 500));
+      if (!range) continue;
+      await this.gate();
+      for await (const m of client.fetch(range, { uid: true, flags: true, internalDate: true, size: true }, { uid: true })) {
+        const uid = Number(m.uid);
+        const link = links.get(uid);
+        if (!link || (m.size !== undefined && m.size !== link.sizeBytes)) continue;
+        let source: Buffer;
+        try {
+          source = fs.readFileSync(this.store.filePath(link.filePath));
+        } catch {
+          continue;
+        }
+        if (source.length !== link.sizeBytes) continue;
+        await this.storeMessage(folderId, uidValidity, { uid, source, flags: m.flags, internalDate: m.internalDate, modseq: m.modseq },
+          { keyFolderId, existingPath: link.filePath });
+        this.store.dropRelink(imapPath, uidValidity, uid);
+        adopted.add(uid);
+        this.progress.messagesDone++;
+      }
+      if (this.stopped) break;
+    }
+    return adopted;
   }
 
   /**
@@ -994,19 +1081,25 @@ export class SyncEngine {
     if (this.faultWriteCode) throw Object.assign(new Error(`injected write failure (${this.faultWriteCode})`), { code: this.faultWriteCode });
   }
 
+  /**
+   * `keyFolderId`: the folder the message_key is derived from, when the row is staged under
+   * another folder. `existingPath`: I12, a re-linked file that is adopted instead of written;
+   * it is never removed here, because the re-link entry still names it.
+   */
   private async storeMessage(folderId: string, uidValidity: string, msg: {
     uid: number; source: Buffer; flags?: Set<string>; internalDate?: Date | string; modseq?: bigint; size?: number;
-  }): Promise<void> {
+  }, opts: { keyFolderId?: string; existingPath?: string } = {}): Promise<void> {
     if (!msg.source) return;
-    this.faultWrite();
-    const key = this.store.messageKey(this.account.id, folderId, uidValidity, msg.uid);
+    if (!opts.existingPath) this.faultWrite();
+    const key = this.store.messageKey(this.account.id, opts.keyFolderId ?? folderId, uidValidity, msg.uid);
     // idempotency: the IDLE connection and the main sync connection may both reach the
     // same new UID (message_key is UNIQUE) — the second one must be a no-op, not an error.
     if (this.store.getByKey(key)) return;
     // A3: opaque, permanent file name, written crash-safely (tmp -> fsync -> rename).
     // The row points at a file that exists: if the rename keeps failing, the file stays
     // under its .tmp name and that name is what the row stores.
-    const relPath = writeMessageFile(this.store.dataDirResolved, msg.source);
+    const relPath = opts.existingPath ?? writeMessageFile(this.store.dataDirResolved, msg.source);
+    const dropFile = () => { if (!opts.existingPath) this.removeFile(relPath); };
 
     let parsed: Awaited<ReturnType<typeof simpleParser>>;
     try {
@@ -1026,7 +1119,7 @@ export class SyncEngine {
         });
       } catch (insertError) {
         // the other connection won the UNIQUE race: our file belongs to no row
-        this.removeFile(relPath);
+        dropFile();
         if (!/UNIQUE/i.test((insertError as Error).message)) throw insertError;
       }
       return;
@@ -1067,18 +1160,25 @@ export class SyncEngine {
         snippet: (parsed.text || '').replace(/\s+/g, ' ').slice(0, 200),
         parsed_ok: 1, parse_error: null,
       });
-      // G9: every stored mail teaches the compose lookup who you correspond with. Cheap (one
-      // upsert per address, keyed by email) and it is what makes "ionos" find the sender.
+    } catch (insertError) {
+      // the other connection won the UNIQUE race: our file belongs to no row
+      dropFile();
+      if (!/UNIQUE/i.test((insertError as Error).message)) throw insertError;
+      return;
+    }
+    // G9: every stored mail teaches the compose lookup who you correspond with. Cheap (one
+    // upsert per address, keyed by email) and it is what makes "ionos" find the sender.
+    // I12 (MR-42): the row is committed by now, so a failed upsert must not take its file
+    // away - contacts are a convenience and are not worth a row without a file.
+    try {
       this.store.rememberContactsOf({
         from_email: from.email,
         from_name: from.name,
         to_json: JSON.stringify(addrList(parsed.to)),
         cc_json: JSON.stringify(addrList(parsed.cc)),
       });
-    } catch (insertError) {
-      // the other connection won the UNIQUE race: our file belongs to no row
-      this.removeFile(relPath);
-      if (!/UNIQUE/i.test((insertError as Error).message)) throw insertError;
+    } catch (err) {
+      this.log.warn?.(`contacts upsert failed: ${(err as Error).message}`);
     }
   }
 
