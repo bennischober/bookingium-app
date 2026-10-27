@@ -44,6 +44,10 @@ function factory(usable = true): {
         },
         logout: async () => {
           conn.closed = true
+        },
+        noop: async () => undefined,
+        close: () => {
+          conn.closed = true
         }
       }
       latest = conn
@@ -112,6 +116,10 @@ describe('G2/L3c: a dead connection is never reused', () => {
         usable: false,
         logout: async () => {
           throw new Error('socket already closed')
+        },
+        noop: async () => undefined,
+        close: () => {
+          throw new Error('socket already closed')
         }
       }
     })
@@ -146,7 +154,11 @@ vi.mock('../src/main/mailclient/core/write_guard', async () => {
         },
         messageFlagsAdd: async () => true,
         messageDelete: async () => true,
-        logout: async () => undefined
+        logout: async () => undefined,
+        noop: async () => undefined,
+        close: () => undefined,
+        once: () => undefined,
+        on: () => undefined
       }
     }
   }

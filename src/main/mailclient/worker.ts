@@ -45,6 +45,8 @@ function init(options: WorkerInit): void {
     faultWriteCode: process.env['BOOKINGIUM_FAULT_WRITE'] || undefined
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
+  // I15a (MR-40): op events used to arrive only because on() ignored the name (and then twice)
+  core.on('op-event', (event) => send({ type: 'event', event }))
   // G10: image progress travels on the same channel; the renderer shows "3 von 12"
   core.on('image-progress', (event) => send({ type: 'event', event }))
   core.start()

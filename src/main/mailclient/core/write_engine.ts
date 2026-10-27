@@ -18,6 +18,7 @@ import fs from 'fs'
 import { Store, JournalRow } from './store.js'
 import { connectWriteImap, sendRefusal, writeSmtp, WriteAccount } from './write_guard.js'
 import { WriteConnectionPool } from './write_connection.js'
+import type { ConnectionBudget } from './connection_budget.js'
 import { isPathOrChild } from './folders.js'
 
 export type OpResult =
@@ -73,6 +74,42 @@ export function smtpRefused(error: unknown): boolean {
   return ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH'].includes(system)
 }
 
+/** RFC 5530 codes for a NO that will pass: the folder is there, the server cannot serve it now */
+const TRANSIENT_NO_CODES = new Set(['UNAVAILABLE', 'INUSE', 'LIMIT', 'SERVERBUG', 'OVERQUOTA'])
+
+/**
+ * I15a (MR-30): did the server say the folder is not there, or did the connection fail?
+ *
+ * Every SELECT error used to be the conflict "folder gone", a socket reset included, and a
+ * conflict is terminal. Only the server's own answer counts now: a tagged NO, with NONEXISTENT
+ * or TRYCREATE or with no code at all (servers before RFC 5530 say it in text only). A NO with
+ * a transient code, a BYE, a timeout or a closed socket is a failure that a retry can fix.
+ */
+export function folderMissing(error: unknown): boolean {
+  const e = (error ?? {}) as { responseStatus?: unknown; serverResponseCode?: unknown }
+  if (e.serverResponseCode === 'NONEXISTENT' || e.serverResponseCode === 'TRYCREATE') return true
+  if (e.responseStatus !== 'NO') return false
+  return !(typeof e.serverResponseCode === 'string' && TRANSIENT_NO_CODES.has(e.serverResponseCode))
+}
+
+/**
+ * I15a (MR-32): the one UID a moved message got, found by Message-ID at the target. Only UIDs at
+ * or above the UIDNEXT recorded before the move count, and exactly one must: two means another
+ * copy arrived meanwhile, and taking either would be a guess.
+ */
+function arrivedOnce(found: number[] | false | undefined, since: number): number | null {
+  const arrived = (found || []).filter((uid) => uid >= since)
+  return arrived.length === 1 ? arrived[0] : null
+}
+
+/** I15a: the preflight's answer to a failed SELECT */
+function selectFailed(e: unknown): OpResult {
+  const message = ((e as Error)?.message ?? String(e)).slice(0, 80)
+  return folderMissing(e)
+    ? { outcome: 'conflict', reason: `folder gone: ${message}` }
+    : { outcome: 'failed', reason: `select failed: ${message}` }
+}
+
 export class WriteEngine {
   // serialized playback: one operation at a time per account
   private chain: Promise<unknown> = Promise.resolve()
@@ -112,10 +149,13 @@ export class WriteEngine {
       clock?: () => Date
       /** host logger; expunge reports a failed file unlink here (never the file name) */
       log?: { warn?: (msg: string) => void }
+      /** I15a: the account's connection budget, shared with the sync engine */
+      budget?: ConnectionBudget
     }
   ) {
     this.writeAccount = options.writeAccount
     this.credentials = options.credentials
+    this.budget = options.budget ?? null
     this.sinkProbe = options.sinkProbe ?? null
     this.clock = options.clock ?? (() => new Date())
     this.log = options.log ?? null
@@ -123,6 +163,7 @@ export class WriteEngine {
   /** A7: the account this engine writes for */
   private readonly writeAccount: WriteAccount
   private readonly credentials: () => Promise<{ user: string; pass: string }>
+  private readonly budget: ConnectionBudget | null
   private clock: () => Date
   private log: { warn?: (msg: string) => void } | null
   /** A6: true once the watchdog gave up on an op; the queue is stopped for this account */
@@ -184,9 +225,25 @@ export class WriteEngine {
    *
    * The caching itself lives in WriteConnectionPool so it can be tested without a server.
    */
-  private readonly pool = new WriteConnectionPool(() =>
-    this.credentials().then((credentials) => connectWriteImap(this.writeAccount, credentials))
-  )
+  private readonly pool = new WriteConnectionPool(() => this.connectCounted())
+
+  /**
+   * I15a (MR-19): the write connection counts against the account's `maxConnections`. It asks
+   * for its slot as urgent (the user is waiting), which makes the IDLE connection give its slot
+   * back; the slot is returned when the connection closes.
+   */
+  private async connectCounted(): Promise<ImapFlow> {
+    const release = this.budget ? await this.budget.acquire({ urgent: true }) : () => undefined
+    try {
+      const client = await connectWriteImap(this.writeAccount, await this.credentials())
+      client.once('close', release)
+      if (!client.usable) release()
+      return client
+    } catch (e) {
+      release()
+      throw e
+    }
+  }
 
   private writeClient(): Promise<ImapFlow> {
     return this.pool.get()
@@ -270,6 +327,8 @@ export class WriteEngine {
       // G2/L3c: a failed op may have left the shared connection in an unknown state, so
       // it is discarded rather than handed to the next op. The next op reconnects once.
       if (owned.outcome === 'failed' || owned.outcome === 'unknown') await this.dropClient()
+      // I15a: kept for the next click, and closed once it has been idle a while
+      else this.pool.idle()
       return owned
     })
     // a throw outside the body (a mutex, the journal) must not strand the op either
@@ -345,6 +404,10 @@ export class WriteEngine {
       if (first !== 'timeout') return first.r
       // Timed out: abandon the op and give the body a bounded chance to settle
       controller.abort()
+      // I15a (MR-19): close the connection too. An op hung on a dead socket waits for an answer
+      // that never comes; closing rejects its pending command, so the body ends within the
+      // grace period below instead of stopping the queue.
+      this.pool.discard()
       const settled = await Promise.race([
         work.catch(() => null),
         new Promise<'late'>((r) => {
@@ -452,10 +515,7 @@ export class WriteEngine {
     try {
       mb = await client.mailboxOpen(folderPath)
     } catch (e) {
-      return {
-        ok: false,
-        result: { outcome: 'conflict', reason: `folder gone: ${(e as Error).message.slice(0, 80)}` }
-      }
+      return { ok: false, result: selectFailed(e) }
     }
     // UIDVALIDITY must equal what the op was created against
     if (op.folder_uidvalidity && String(mb.uidValidity) !== op.folder_uidvalidity) {
@@ -635,6 +695,9 @@ export class WriteEngine {
             "move refused: server has neither MOVE nor UIDPLUS — the copy+expunge fallback would issue a plain EXPUNGE (removes other clients' \\Deleted messages); no safe per-message deletion exists"
         }
       }
+      // I15a (MR-32): the target's UIDNEXT before anything moves; a resume after a crash then
+      // accepts only a message that arrived at or above it, never a copy that was there already
+      await this.recordTargetUidNext(op, client, targetPath)
       if (hasMove) {
         const result = await client.messageMove(String(op.uid), targetPath, { uid: true })
         if (!result) return { outcome: 'failed', reason: 'MOVE returned false' }
@@ -652,7 +715,7 @@ export class WriteEngine {
         // durable mapping BEFORE deleting anything
         const ab = this.abandoned(signal)
         if (ab) return ab
-        this.store.journalUpdate(op.id, { payload: { ...payload, copiedTo: { uid: destUid } } })
+        this.store.journalUpdate(op.id, { payload: { ...this.payloadOf(op), copiedTo: { uid: destUid } } })
         return await this.finishMovedSource(op, client, destUid, signal)
       }
       return { outcome: 'failed', reason: 'copy returned no destination uid (COPYUID missing)' }
@@ -696,9 +759,12 @@ export class WriteEngine {
     try {
       const pf = await this.preflightBatch(op, client, members)
       if (!pf.ok) {
-        // The move may have happened and the crash come before the journal update
-        const resumed = await this.resumeBatchMoved(op, client, targetPath, members)
-        if (resumed) return { outcome: 'done', detail: 'resumed after crash (found at destination)' }
+        // The move may have happened and the crash come before the journal update. I15a (MR-32):
+        // only then is every source UID gone; one still there means the group did not move.
+        if (pf.allGone) {
+          const resumed = await this.resumeBatchMoved(op, client, targetPath, members)
+          if (resumed) return { outcome: 'done', detail: 'resumed after crash (found at destination)' }
+        }
         return pf.result
       }
 
@@ -716,6 +782,7 @@ export class WriteEngine {
         }
       }
 
+      await this.recordTargetUidNext(op, client, targetPath)
       const uids = members.map((m) => m.uid)
       const result = await client.messageMove(uids.join(','), targetPath, { uid: true })
       if (!result) return { outcome: 'failed', reason: 'MOVE returned false' }
@@ -736,7 +803,7 @@ export class WriteEngine {
         mapped.push({ uid: member.uid, messageKey: member.messageKey, destUid })
       }
       // durable BEFORE the local update: a crash after this line resumes locally
-      this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: mapped } })
+      this.store.journalUpdate(op.id, { payload: { ...this.payloadOf(op), movedTo: mapped } })
       this.applyBatchLocally(op, targetPath, mapped)
       return { outcome: 'done', detail: `${mapped.length} mails moved in one UID MOVE` }
     } catch (e) {
@@ -749,16 +816,13 @@ export class WriteEngine {
     op: JournalRow,
     client: ImapFlow,
     members: BatchMember[]
-  ): Promise<{ ok: true } | { ok: false; result: OpResult }> {
+  ): Promise<{ ok: true } | { ok: false; result: OpResult; allGone?: boolean }> {
     if (!op.folder_path) return { ok: false, result: { outcome: 'conflict', reason: 'op has no folder' } }
     let mb
     try {
       mb = await client.mailboxOpen(op.folder_path)
     } catch (e) {
-      return {
-        ok: false,
-        result: { outcome: 'conflict', reason: `folder gone: ${(e as Error).message.slice(0, 80)}` }
-      }
+      return { ok: false, result: selectFailed(e) }
     }
     if (op.folder_uidvalidity && String(mb.uidValidity) !== op.folder_uidvalidity) {
       return {
@@ -793,6 +857,7 @@ export class WriteEngine {
     if (seen !== members.length) {
       return {
         ok: false,
+        allGone: seen === 0,
         result: { outcome: 'conflict', reason: `batch move: ${members.length - seen} of ${members.length} mails vanished (uid not in server view)` }
       }
     }
@@ -812,22 +877,27 @@ export class WriteEngine {
     targetPath: string,
     members: BatchMember[]
   ): Promise<boolean> {
-    const withId = members.filter((m) => m.messageId)
-    // Without Message-IDs there is nothing to find them by; a resync is the honest answer
-    if (withId.length === 0) return false
+    // I15a (MR-32): every member must be found, so one without a Message-ID cannot be; the
+    // members found used to be marked moved and the rest dropped silently. A resync is the
+    // honest answer then.
+    if (members.some((m) => !m.messageId)) return false
+    const since = this.recordedUidNext(op)
+    if (since === null) return false
     try {
       await client.mailboxOpen(targetPath)
       const mapped: BatchMoved[] = []
-      for (const member of withId) {
+      const taken = new Set<number>()
+      for (const member of members) {
         const found = await client.search(
           { header: { 'message-id': member.messageId! } },
           { uid: true }
         )
-        if (!found || found.length === 0) return false
-        mapped.push({ uid: member.uid, messageKey: member.messageKey, destUid: found[0] })
+        const destUid = arrivedOnce(found, since)
+        if (destUid === null || taken.has(destUid)) return false
+        taken.add(destUid)
+        mapped.push({ uid: member.uid, messageKey: member.messageKey, destUid })
       }
-      const payload = JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<string, unknown>
-      this.store.journalUpdate(op.id, { payload: { ...payload, movedTo: mapped } })
+      this.store.journalUpdate(op.id, { payload: { ...this.payloadOf(op), movedTo: mapped } })
       this.applyBatchLocally(op, targetPath, mapped)
       return true
     } catch {
@@ -962,6 +1032,27 @@ export class WriteEngine {
     return list.some((f) => f.path === path)
   }
 
+  /** The op's payload as the journal has it now (earlier steps of this run may have added to it) */
+  private payloadOf(op: JournalRow): Record<string, unknown> {
+    return JSON.parse(this.store.journalGet(op.id)?.payload || '{}') as Record<string, unknown>
+  }
+
+  /**
+   * I15a (MR-32): ask the target for its UIDNEXT and journal it before a move. Whatever the move
+   * puts there gets a UID at or above it; what was there before stays below.
+   */
+  private async recordTargetUidNext(op: JournalRow, client: ImapFlow, targetPath: string): Promise<void> {
+    const status = await client.status(targetPath, { uidNext: true })
+    if (!status || typeof status.uidNext !== 'number') return
+    this.store.journalUpdate(op.id, { payload: { ...this.payloadOf(op), targetUidNext: status.uidNext } })
+  }
+
+  /** The target's UIDNEXT recorded before the move, or null (an op from before I15a: no resume) */
+  private recordedUidNext(op: JournalRow): number | null {
+    const value = this.payloadOf(op).targetUidNext
+    return typeof value === 'number' ? value : null
+  }
+
   /** Crash between copy and delete: is our message-id already at the destination? */
   private async resumeHalfMoved(
     op: JournalRow,
@@ -969,11 +1060,16 @@ export class WriteEngine {
     targetPath: string
   ): Promise<boolean> {
     if (!op.message_id) return false
+    // I15a (MR-32): found[0] used to be taken, so a copy that was already there (a list mail, a
+    // CC duplicate) marked the move done and re-keyed the row to someone else's UID
+    const since = this.recordedUidNext(op)
+    if (since === null) return false
     try {
       await client.mailboxOpen(targetPath)
       const found = await client.search({ header: { 'message-id': op.message_id } }, { uid: true })
-      if (found && found.length) {
-        this.applyMoveLocally(op, targetPath, found[0])
+      const destUid = arrivedOnce(found, since)
+      if (destUid !== null) {
+        this.applyMoveLocally(op, targetPath, destUid)
         return true
       }
     } catch {

@@ -72,6 +72,10 @@ function stubClient(capabilities: string[]) {
       calls.push({ method: 'messageCopy', args: [] })
       return { uidMap: new Map([[1, 2]]) }
     },
+    status: async (mailbox: string) => {
+      calls.push({ method: 'status', args: [mailbox] })
+      return { path: mailbox, uidNext: 2 }
+    },
     messageFlagsAdd: async () => {
       calls.push({ method: 'messageFlagsAdd', args: [] })
       return true

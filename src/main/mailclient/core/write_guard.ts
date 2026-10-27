@@ -14,6 +14,7 @@ import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';
 import type { ImapSecurity } from './types.js';
+import { IMAP_TIMEOUTS } from './imap_options.js';
 
 export const SANDBOX_ALLOWLIST = new Set([
   '127.0.0.1', 'localhost', '::1',
@@ -185,10 +186,14 @@ export async function connectWriteImap(
     auth: { user: credentials.user, pass: credentials.pass },
     logger: false,
     emitLogs: false,
-    connectionTimeout: 15_000,
-    greetingTimeout: 15_000,
+    // I15a (MR-19): the sync engine's limits; without socketTimeout imapflow waited ~5 min on a
+    // half-open socket before the op failed
+    ...IMAP_TIMEOUTS,
     ...(isSandboxHost(account.imapHost) ? { tls: tlsOptions(account.imapHost) } : {}),
   });
+  // After connect() a dead socket is reported as an 'error' event, which throws in the worker
+  // without a listener. The client is unusable by then and the pool replaces it.
+  client.on('error', () => { /* the op in flight fails on its own; nothing to add here */ });
   await client.connect();
   return client;
 }
