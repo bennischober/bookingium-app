@@ -1,0 +1,668 @@
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Download,
+  Flag,
+  Forward,
+  ImageOff,
+  Link2,
+  Mail,
+  Paperclip,
+  Reply,
+  ReplyAll,
+  FilePlus,
+  Tags,
+  Trash2,
+  UserPlus
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { mailApi } from '@/lib/mailApi'
+import { trpcReact, trpcVanilla } from '@/lib/trpc'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Spinner } from '@/components/ui/spinner'
+import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
+import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
+import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
+import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
+import {
+  formatAddresses,
+  formatFullDate,
+  formatSize,
+  messageKey,
+  safeFileName,
+  saveBytes
+} from './format'
+/** Every link of the mail with its real address; unsafe ones cannot be opened */
+function LinkList({ message }: { message: MessageDetail }) {
+  const [open, setOpen] = useState(false)
+  // Copying is silent otherwise; a toast is the only feedback that it happened
+  const copyLink = async (url: string): Promise<void> => {
+    const result = await window.api.copyMailLink(url)
+    if (result.success) toast.success('Link-Adresse kopiert')
+    else toast.error('Kopieren fehlgeschlagen', { description: result.error })
+  }
+  if (message.links.length === 0) return null
+  return (
+    <footer className="max-h-[40%] shrink-0 overflow-auto border-t px-4 py-2 text-sm">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+        <Link2 className="size-4" />
+        {message.links.length} {message.links.length === 1 ? 'Link' : 'Links'}
+      </button>
+      {open && (
+        <ul className="mt-2 space-y-1">
+          {message.links.map((link) => (
+            <li key={link.index} className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate">{link.text || '(ohne Text)'}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground" title={link.url}>
+                  {link.url}
+                </p>
+              </div>
+              {link.openable ? (
+                <ButtonGroup className="shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    // The main process opens it in the default browser
+                    onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
+                  >
+                    Öffnen
+                  </Button>
+                  {/* F16: copy instead of open - for pasting into another browser or an incognito
+                      window, which opening in the default browser cannot do. The clipboard lives in
+                      the main process, so this goes through window.api. */}
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    title="Link-Adresse kopieren"
+                    aria-label={`Link-Adresse kopieren: ${link.url}`}
+                    onClick={() => void copyLink(link.url)}
+                  >
+                    <Copy className="size-3.5" />
+                  </Button>
+                </ButtonGroup>
+              ) : (
+                <span className="text-xs text-destructive">Gesperrt ({link.scheme || '?'})</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </footer>
+  )
+}
+
+/**
+ * Reading pane. HTML mail is already sanitized by the core and shown in a
+ * sandboxed iframe without scripts or same-origin access; its own CSP blocks
+ * every remote load. Remote images are only fetched on request.
+ */
+export function MessageView({
+  accountId,
+  messageId,
+  canWrite,
+  inTrash,
+  onToggleFlag,
+  onDelete,
+  onArchive,
+  onMarkUnread,
+  onCompose,
+  onWriteTo
+}: {
+  accountId: string
+  messageId: number
+  canWrite: boolean
+  inTrash: boolean
+  onToggleFlag: (id: number, flagged: boolean) => void
+  onDelete: (id: number) => void
+  onArchive?: (id: number) => void
+  /** Marks the open mail unread again */
+  onMarkUnread?: (id: number) => void
+  /** Opens the editor with a reply or forward of this mail (writable accounts only) */
+  onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
+  /** F2: opens a NEW mail to one header address (writable accounts only) */
+  onWriteTo?: (address: { name: string; email: string }) => void
+}) {
+  const detail = useQuery({
+    queryKey: messageKey(accountId, messageId),
+    queryFn: () => mailApi.getMessage(messageId, accountId)
+  })
+  // The version with loaded remote images (the parent keys this view by message)
+  const [withImages, setWithImages] = useState<MessageDetail | null>(null)
+  const [loadingImages, setLoadingImages] = useState(false)
+  // G10: how far the image load has got, so a 72-image mail is not an opaque spinner
+  const [imageProgress, setImageProgress] = useState<{ done: number; total: number } | null>(null)
+  // C5: the attachment the "save as document" dialog is open for
+  // F10: the dialog takes one attachment or all of them
+  const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
+  // "Zuordnen…" and "Kontakt anlegen": both change the app's data, never the mailbox, so
+  // they work on read-only accounts too
+  const [linking, setLinking] = useState(false)
+  const [creatingContact, setCreatingContact] = useState(false)
+  // S1: the whole message is being downloaded (stored without its large parts until now)
+  const [downloading, setDownloading] = useState(false)
+  const queryClient = useQueryClient()
+  // G10: the core reports progress per image; only this message's events matter.
+  // This hook MUST stay above the early returns below - a hook after them is called on
+  // some renders and not others, which is the Rules-of-Hooks violation that crashed the view.
+  trpcReact.mail.events.useSubscription(undefined, {
+    onData: (event) => {
+      if (event.type !== 'image-progress') return
+      if (event.accountId !== accountId || event.messageId !== messageId) return
+      setImageProgress({ done: event.done, total: event.total })
+    }
+  })
+
+  if (detail.isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
+  if (detail.isError || !detail.data) {
+    return (
+      <p className="p-6 text-sm text-destructive">
+        Die E-Mail konnte nicht geladen werden.
+        {detail.error instanceof Error && ` ${detail.error.message}`}
+      </p>
+    )
+  }
+
+  const message = withImages ?? detail.data
+
+  const loadImages = async () => {
+    setLoadingImages(true)
+    setImageProgress(null)
+    try {
+      setWithImages(await mailApi.loadRemoteImages(message.id, message.remoteImages, accountId))
+    } catch (error) {
+      toast.error('Bilder konnten nicht geladen werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    } finally {
+      setLoadingImages(false)
+      setImageProgress(null)
+    }
+  }
+
+  // S1: a message stored without its large parts is downloaded once, before anything reads them.
+  // The core would do it anyway; going through here shows the wait and the real sizes after it.
+  const whole = <T,>(action: (whole: MessageDetail) => Promise<T> | T): Promise<T> =>
+    withWholeMessage(
+      message,
+      {
+        complete: () => mailApi.completeMessage(message.id, accountId),
+        busy: setDownloading,
+        adopt: (done) => {
+          queryClient.setQueryData(messageKey(accountId, messageId), done)
+          // loaded remote images stay; only what the download changed is taken over
+          setWithImages(
+            (w) => w && { ...w, complete: done.complete, attachments: done.attachments }
+          )
+        }
+      },
+      action
+    )
+
+  /** The core's message says why (offline, gone from the server) */
+  const failed = (title: string) => (error: unknown) => {
+    toast.error(title, { description: error instanceof Error ? error.message : undefined })
+  }
+
+  // B6: the main process writes the file; the renderer never gets a path to write to.
+  // I11 (MR-23): nor does it name the file - main takes the stored name.
+  const attachmentInput = (partId: string) => ({
+    accountId,
+    messageId: message.id,
+    partId
+  })
+
+  const openAttachment = async (partId: string) => {
+    try {
+      // A type that may start programs is never opened; main asks whether to save it instead
+      const result = await whole(() =>
+        trpcVanilla.mail.attachments.open.mutate(attachmentInput(partId))
+      )
+      if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
+    } catch (error) {
+      toast.error('Anhang konnte nicht geöffnet werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
+  }
+
+  /** F10: every attachment of this mail, one after another through the same save path */
+  const saveAllAttachments = () =>
+    whole(async (done) => {
+      for (const a of done.attachments.filter((a) => !a.isInline)) await saveFile(a.partId)
+    }).catch(failed('Anhänge konnten nicht geladen werden'))
+
+  const saveAttachmentAs = (partId: string) =>
+    whole(() => saveFile(partId)).catch(failed('Anhang konnte nicht gespeichert werden'))
+
+  const saveFile = async (partId: string) => {
+    try {
+      const result = await trpcVanilla.mail.attachments.saveAs.mutate(attachmentInput(partId))
+      if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
+    } catch (error) {
+      toast.error('Anhang konnte nicht gespeichert werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
+  }
+
+  /** C5 / F10: the dialog reads the files, so they are downloaded before it opens */
+  const toDocuments = (pick: (done: MessageDetail) => MessageDetail['attachments']) =>
+    whole((done) =>
+      setToDocument(pick(done).map((a) => ({ partId: a.partId, filename: a.filename })))
+    ).catch(failed('Anhang konnte nicht geladen werden'))
+
+  /** A forward carries the files: offline it stops here, never a forward without them */
+  const forward = (compose: NonNullable<typeof onCompose>) =>
+    whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
+
+  const saveEml = async () => {
+    try {
+      const bytes = await whole(() => mailApi.getRawEml(message.id, accountId))
+      saveBytes(
+        bytes,
+        `${safeFileName(message.subject, 'E-Mail').slice(0, 80)}.eml`,
+        'message/rfc822'
+      )
+    } catch (error) {
+      toast.error('E-Mail konnte nicht gespeichert werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
+  }
+
+  return (
+    <article className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="E-Mail">
+      <header className="@container max-h-[50%] shrink-0 space-y-2 overflow-auto border-b px-4 py-3">
+        {/* A narrow pane puts the actions above the subject: beside it, they squeezed the
+            subject into a column a few letters wide */}
+        <div className="flex flex-col-reverse gap-2 @xl:flex-row @xl:items-start">
+          <h2 className="min-w-0 flex-1 text-lg font-semibold break-words">
+            {message.subject || '(Kein Betreff)'}
+          </h2>
+          <div className="-ml-2 flex flex-wrap items-center gap-1 @xl:ml-0 @xl:shrink-0 @xl:flex-nowrap">
+            {canWrite && (
+              <>
+                {onCompose && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onCompose(message, 'reply')}
+                      title="Antworten"
+                      aria-label="Antworten"
+                    >
+                      <Reply />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onCompose(message, 'replyAll')}
+                      title="Allen antworten"
+                      aria-label="Allen antworten"
+                    >
+                      <ReplyAll />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => void forward(onCompose)}
+                      disabled={downloading}
+                      title="Weiterleiten"
+                      aria-label="Weiterleiten"
+                    >
+                      <Forward />
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onToggleFlag(message.id, !message.isFlagged)}
+                  title={message.isFlagged ? 'Markierung entfernen' : 'Markieren'}
+                  aria-pressed={message.isFlagged}
+                >
+                  <Flag className={cn(message.isFlagged && 'fill-orange-500 text-orange-500')} />
+                </Button>
+                {onMarkUnread && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onMarkUnread(message.id)}
+                    title="Als ungelesen markieren"
+                  >
+                    <Mail />
+                  </Button>
+                )}
+                {onArchive && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onArchive(message.id)}
+                    title="Archivieren"
+                  >
+                    <Archive />
+                  </Button>
+                )}
+                {!inTrash && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onDelete(message.id)}
+                    title="In den Papierkorb (Entf)"
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setLinking(true)}
+              disabled={!message.messageId}
+              title={
+                message.messageId
+                  ? 'Zuordnen…'
+                  : 'Zuordnen geht nicht: die Mail hat keine Message-ID'
+              }
+              aria-label="Zuordnen…"
+            >
+              <Tags />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setCreatingContact(true)}
+              disabled={!message.fromEmail}
+              title="Absender als Kontakt anlegen"
+              aria-label="Absender als Kontakt anlegen"
+            >
+              <UserPlus />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => void saveEml()}
+              disabled={downloading}
+              title="Original speichern (.eml)"
+            >
+              <Download />
+            </Button>
+          </div>
+        </div>
+
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm">
+          <dt className="text-muted-foreground">Von</dt>
+          <dd className="truncate">
+            <HeaderAddress
+              address={{ name: message.fromName, email: message.fromEmail }}
+              onWriteTo={onWriteTo}
+            />
+          </dd>
+          <dt className="text-muted-foreground">An</dt>
+          <dd className="truncate" title={formatAddresses(message.to)}>
+            <HeaderAddressList addresses={message.to} onWriteTo={onWriteTo} />
+          </dd>
+          {message.cc.length > 0 && (
+            <>
+              <dt className="text-muted-foreground">Cc</dt>
+              <dd className="truncate" title={formatAddresses(message.cc)}>
+                <HeaderAddressList addresses={message.cc} onWriteTo={onWriteTo} />
+              </dd>
+            </>
+          )}
+          <dt className="text-muted-foreground">Datum</dt>
+          <dd>{formatFullDate(message.date ?? message.internalDate)}</dd>
+        </dl>
+
+        {message.attachments.filter((a) => !a.isInline).length > 1 && (
+          // F10: "save all" belongs to the whole set, not to one attachment's menu
+          // I16 item 22: aria-label on a plain div is ignored; a role makes the name reach assistive tech
+          <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Alle Anhänge">
+            <span className="text-xs text-muted-foreground">
+              {message.attachments.filter((a) => !a.isInline).length} Anhänge
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void saveAllAttachments()}
+              disabled={downloading}
+            >
+              <Download />
+              Alle speichern…
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                void toDocuments((done) => done.attachments.filter((a) => !a.isInline))
+              }
+              disabled={downloading}
+            >
+              <FilePlus />
+              Alle als Dokument…
+            </Button>
+          </div>
+        )}
+
+        {message.attachments.length > 0 && (
+          <ul className="flex flex-wrap gap-2" aria-label="Anhänge">
+            {message.attachments
+              .filter((a) => !a.isInline)
+              .map((a) => (
+                <li key={a.partId}>
+                  {/* F10: a click opens the file; the chevron holds the rest, so the
+                      three actions do not clutter the chip */}
+                  <Popover>
+                    <PopoverAnchor asChild>
+                      <ButtonGroup aria-label={a.filename || 'Anhang'}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void openAttachment(a.partId)}
+                          disabled={downloading}
+                          title={`${a.contentType} · ${message.complete ? 'öffnen' : NOT_LOADED_NOTE}`}
+                        >
+                          <Paperclip />
+                          <span className="max-w-56 truncate">{a.filename || 'Anhang'}</span>
+                          {/* S1: until the download, the size is BODYSTRUCTURE's estimate */}
+                          <span className="text-muted-foreground">
+                            {message.complete ? '' : '≈ '}
+                            {formatSize(a.sizeBytes)}
+                          </span>
+                          {!message.complete && (
+                            <span className="text-xs text-muted-foreground">
+                              · {NOT_LOADED_NOTE}
+                            </span>
+                          )}
+                        </Button>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="px-1.5"
+                            aria-label={`${a.filename || 'Anhang'}: weitere Aktionen`}
+                            disabled={downloading}
+                            title="Weitere Aktionen"
+                          >
+                            <ChevronDown />
+                          </Button>
+                        </PopoverTrigger>
+                      </ButtonGroup>
+                    </PopoverAnchor>
+                    {/* Under the chevron that opens it; Radix shifts it back in when there is no room */}
+                    <PopoverContent className="w-56 p-1" align="end">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void saveAttachmentAs(a.partId)}
+                      >
+                        <Download className="size-4 shrink-0 text-muted-foreground" />
+                        Speichern unter…
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() =>
+                          void toDocuments((done) =>
+                            done.attachments.filter((x) => x.partId === a.partId)
+                          )
+                        }
+                      >
+                        <FilePlus className="size-4 shrink-0 text-muted-foreground" />
+                        Als Dokument speichern…
+                      </button>
+                    </PopoverContent>
+                  </Popover>
+                </li>
+              ))}
+          </ul>
+        )}
+
+        {downloading && (
+          <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm">
+            <Spinner className="shrink-0" aria-hidden />
+            <span role="status">Nachricht wird geladen ({formatSize(message.sizeBytes)})…</span>
+          </div>
+        )}
+
+        {message.remoteImageCount > 0 && !withImages && (
+          <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm">
+            <ImageOff className="size-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1">
+              {message.remoteImageCount}{' '}
+              {message.remoteImageCount === 1 ? 'externes Bild wurde' : 'externe Bilder wurden'}{' '}
+              blockiert.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadImages()}
+              disabled={loadingImages}
+            >
+              {loadingImages
+                ? imageProgress
+                  ? `Lädt… ${imageProgress.done} von ${imageProgress.total}`
+                  : 'Wird geladen…'
+                : 'Bilder laden'}
+            </Button>
+          </div>
+        )}
+      </header>
+
+      {message.bodyKind === 'html' && message.html ? (
+        <iframe
+          // No allow-scripts, no allow-same-origin: the mail cannot run code
+          // or reach the app. Links open as popups, which the main process
+          // hands to the default browser.
+          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          srcDoc={message.html}
+          title="Inhalt der E-Mail"
+          className="min-h-0 w-full flex-1 bg-white"
+        />
+      ) : (
+        <pre className="min-h-0 flex-1 overflow-auto px-4 py-3 font-sans text-sm whitespace-pre-wrap">
+          {message.text}
+        </pre>
+      )}
+
+      <LinkList message={message} />
+
+      {toDocument && (
+        <AttachmentToDocumentDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setToDocument(null)
+          }}
+          accountId={accountId}
+          messageId={message.id}
+          storeMessageId={message.messageId}
+          parts={toDocument}
+        />
+      )}
+      {linking && message.messageId && (
+        <LinkMailDialog
+          open
+          onOpenChange={setLinking}
+          accountId={accountId}
+          storeMessageId={message.messageId}
+          subject={message.subject}
+        />
+      )}
+      {creatingContact && (
+        <CreateContactSheet
+          open
+          onOpenChange={setCreatingContact}
+          sender={{ name: message.fromName, email: message.fromEmail }}
+        />
+      )}
+    </article>
+  )
+}
+
+/**
+ * F2: one address in a mail header. A button when the account may write, so a
+ * click starts a NEW mail to that person - not a reply to this one.
+ */
+function HeaderAddress({
+  address,
+  onWriteTo
+}: {
+  address: { name: string; email: string }
+  onWriteTo?: (address: { name: string; email: string }) => void
+}) {
+  const label = formatAddresses([address])
+  if (!onWriteTo || !address.email) return <span title={label}>{label}</span>
+  return (
+    <button
+      type="button"
+      className="hover:underline"
+      title={`Neue E-Mail an ${label}`}
+      onClick={() => onWriteTo(address)}
+    >
+      {label}
+    </button>
+  )
+}
+
+/** The same for a list (An, Cc): every address is its own button */
+function HeaderAddressList({
+  addresses,
+  onWriteTo
+}: {
+  addresses: { name: string; email: string }[]
+  onWriteTo?: (address: { name: string; email: string }) => void
+}) {
+  if (addresses.length === 0) return <span>–</span>
+  return (
+    <>
+      {addresses.map((address, index) => (
+        <span key={`${address.email}-${index}`}>
+          {index > 0 && ', '}
+          <HeaderAddress address={address} onWriteTo={onWriteTo} />
+        </span>
+      ))}
+    </>
+  )
+}

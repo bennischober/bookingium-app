@@ -1,6 +1,8 @@
 import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
+import { ErrorFallback } from '@/components/ErrorFallback'
+import { reportError } from '@/lib/errorReporting'
 import DashboardPage from '@/pages/DashboardPage'
 import Calendar from '@/pages/CalendarPage'
 import BandPage from '@/pages/BandPage'
@@ -16,6 +18,8 @@ import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import ContactListPage from '@/pages/ContactListPage'
+import MailPage from '@/pages/MailPage'
+import MailWindowPage from '@/pages/MailWindowPage'
 import PersonDetailPage from '@/pages/PersonDetailPage'
 import InvoicePage from '@/pages/InvoicePage'
 import InvoiceDetailPage from '@/pages/InvoiceDetailPage'
@@ -117,6 +121,12 @@ const contactListRoute = createRoute({
   component: ContactListPage
 })
 
+const mailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.mail.path,
+  component: MailPage
+})
+
 const eventRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.events.path,
@@ -213,6 +223,13 @@ const managementContractPrintRoute = createRoute({
   component: ManagementContractPrintPage
 })
 
+// A mail in its own window (double-click in the mail list), without the app chrome
+const mailWindowRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mail/window',
+  component: MailWindowPage
+})
+
 const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     indexRoute,
@@ -225,6 +242,7 @@ const routeTree = rootRoute.addChildren([
     venueRoute,
     hotelRoute,
     contactListRoute,
+    mailRoute,
     eventRoute,
     invoiceRoute,
     invoiceDetailRoute,
@@ -238,13 +256,19 @@ const routeTree = rootRoute.addChildren([
     invoicePrintRoute,
     contractPrintRoute,
     managementContractPrintRoute
-  ])
+  ]),
+  mailWindowRoute
 ])
 
 export const router = createRouter({
   routeTree,
   history: hashHistory,
-  defaultPreload: 'intent'
+  defaultPreload: 'intent',
+  // A page that fails to render shows this in its place; the error goes to the local log
+  defaultErrorComponent: ({ reset }) => (
+    <ErrorFallback onRetry={reset} retryLabel="Erneut versuchen" />
+  ),
+  defaultOnCatch: (error, info) => reportError(error, info.componentStack ?? undefined)
 })
 
 declare module '@tanstack/react-router' {

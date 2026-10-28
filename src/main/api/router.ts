@@ -22,6 +22,8 @@ import { exportRouter } from './routers/export.router'
 import { calendarRouter } from './routers/calendar.router'
 import { contactListRouter } from './routers/contact_list.router'
 import { followUpRouter } from './routers/follow_up.router'
+import { mailRouter } from './routers/mail.router'
+import { mailLinkRouter } from './routers/mail_link.router'
 
 const ee = new EventEmitter()
 
@@ -56,7 +58,9 @@ export const router = t.router({
   dataExport: exportRouter,
   calendar: calendarRouter,
   contactList: contactListRouter,
-  followUp: followUpRouter
+  followUp: followUpRouter,
+  mail: mailRouter,
+  mailLink: mailLinkRouter
 })
 
 export type AppRouter = typeof router

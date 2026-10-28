@@ -1,7 +1,15 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { CalendarDays, DatabaseBackup, Download, FolderOpen, RefreshCw, Upload } from 'lucide-react'
+import {
+  CalendarDays,
+  DatabaseBackup,
+  Download,
+  FolderOpen,
+  RefreshCw,
+  ScrollText,
+  Upload
+} from 'lucide-react'
 import { useExportToast } from '@/components/export/useExportToast'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -23,6 +31,9 @@ import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
+import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
+import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -214,6 +225,10 @@ function DataCard() {
       toast.error('Ordner konnte nicht geöffnet werden', { description: error.message })
   })
   const openBackup = trpcReact.settings.openBackup.useMutation()
+  const openErrorLog = trpcReact.settings.openErrorLog.useMutation({
+    onError: (error) =>
+      toast.error('Fehlerprotokoll konnte nicht geöffnet werden', { description: error.message })
+  })
   const showExport = useExportToast()
   const exportAll = trpcReact.dataExport.exportAll.useMutation({
     onSuccess: showExport,
@@ -302,6 +317,19 @@ function DataCard() {
             <FolderOpen className="h-4 w-4" /> Datenordner öffnen
           </Button>
         </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium">Fehlerprotokoll</p>
+            <p className="text-sm text-muted-foreground">
+              Unerwartete Fehler, nur auf diesem Rechner gespeichert, ohne Inhalte von E-Mails. Zum
+              Melden eines Problems die Datei mitschicken.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => openErrorLog.mutate()}>
+            <ScrollText className="h-4 w-4" /> Fehlerprotokoll öffnen
+          </Button>
+        </div>
       </CardContent>
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
@@ -313,6 +341,7 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const activeTab = isSettingsTab(search.tab) ? search.tab : 'general'
+  const mailClientEnabled = useMailClientEnabled()
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
@@ -355,6 +384,8 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
+          <MailClientSwitchCard />
+          {mailClientEnabled && <MailAccountsCard />}
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

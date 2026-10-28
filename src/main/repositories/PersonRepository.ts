@@ -5,6 +5,7 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import type { CreatePersonInput, UpdatePersonInput } from '../api/schemas/person.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
+import { saveContactEmails, withContactEmails } from './contactEmails'
 
 @injectable()
 export class PersonRepository {
@@ -16,11 +17,13 @@ export class PersonRepository {
       .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
       .orderBy(schema.person.last_name, schema.person.first_name)
 
-    return rows.map((row) => ({
-      ...row.person,
-      address: row.address,
-      contact: row.contact
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.person,
+        address: row.address,
+        contact: row.contact
+      }))
+    )
   }
 
   async getAllPaginated(pagination: PaginationInput) {
@@ -66,11 +69,13 @@ export class PersonRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = rawItems.map((row) => ({
-      ...row.person,
-      address: row.address,
-      contact: row.contact
-    }))
+    const items = withContactEmails(
+      rawItems.map((row) => ({
+        ...row.person,
+        address: row.address,
+        contact: row.contact
+      }))
+    )
 
     return {
       items,
@@ -92,11 +97,13 @@ export class PersonRepository {
     if (rows.length === 0) return null
 
     const row = rows[0]
-    return {
-      ...row.person,
-      address: row.address,
-      contact: row.contact
-    }
+    return withContactEmails([
+      {
+        ...row.person,
+        address: row.address,
+        contact: row.contact
+      }
+    ])[0]
   }
 
   async create(input: CreatePersonInput) {
@@ -136,6 +143,7 @@ export class PersonRepository {
           .returning()
           .all()
         contactId = contactResult[0].id
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       // Create person
@@ -162,11 +170,16 @@ export class PersonRepository {
         .all()
 
       const row = created[0]
-      return {
-        ...row.person,
-        address: row.address,
-        contact: row.contact
-      }
+      return withContactEmails(
+        [
+          {
+            ...row.person,
+            address: row.address,
+            contact: row.contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
@@ -246,6 +259,7 @@ export class PersonRepository {
             .all()
           contactId = contactResult[0].id
         }
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       // Update person
@@ -272,11 +286,16 @@ export class PersonRepository {
         .all()
 
       const row = updated[0]
-      return {
-        ...row.person,
-        address: row.address,
-        contact: row.contact
-      }
+      return withContactEmails(
+        [
+          {
+            ...row.person,
+            address: row.address,
+            contact: row.contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 

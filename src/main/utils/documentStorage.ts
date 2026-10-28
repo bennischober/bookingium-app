@@ -1,5 +1,5 @@
 import { basename, join } from 'path'
-import { copyFile, readdir, rename, rm, rmdir, stat, unlink } from 'fs/promises'
+import { copyFile, readdir, rename, rm, rmdir, stat, unlink, writeFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import type { DocumentOwnerType } from '../api/schemas/document.schema'
 import {
@@ -94,6 +94,25 @@ export async function storeOwnerFile(
   const fullFolder = join(getStorageBasePath(), folder)
   const uniqueName = generateUniqueFileName(fullFolder, fileName)
   await copyFile(sourcePath, join(fullFolder, uniqueName))
+  const { size } = await stat(join(fullFolder, uniqueName))
+  return { relativePath: join(folder, uniqueName), fileName: uniqueName, fileSize: size }
+}
+
+/**
+ * C5: writes bytes that never were a file (a mail attachment) into the owner's folder.
+ * Same naming and storage rules as storeOwnerFile, so both kinds end up alike.
+ */
+export async function storeOwnerFileFromBytes(
+  bytes: Uint8Array,
+  ownerType: DocumentOwnerType,
+  ownerId: number,
+  ownerLabel: string,
+  fileName: string
+): Promise<{ relativePath: string; fileName: string; fileSize: number }> {
+  const folder = await ensureOwnerFolder(ownerType, ownerId, ownerLabel)
+  const fullFolder = join(getStorageBasePath(), folder)
+  const uniqueName = generateUniqueFileName(fullFolder, fileName)
+  await writeFile(join(fullFolder, uniqueName), Buffer.from(bytes))
   const { size } = await stat(join(fullFolder, uniqueName))
   return { relativePath: join(folder, uniqueName), fileName: uniqueName, fileSize: size }
 }

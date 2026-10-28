@@ -12,7 +12,15 @@ import { z } from 'zod'
 // thunderbird -> Thunderbird: opens a new email with the PDF attached
 // mailto      -> any other program: email without attachment, PDF shown in Explorer
 // files       -> only saves email and PDF and opens their folder
-export const MailProgramSetting = z.enum(['auto', 'outlook', 'thunderbird', 'mailto', 'files'])
+export const MailProgramSetting = z.enum([
+  'auto',
+  'outlook',
+  'thunderbird',
+  'mailto',
+  'files',
+  // C1: bookingum's own editor, the only one that knows when a mail was sent
+  'bookingum'
+])
 export type MailProgramSetting = z.infer<typeof MailProgramSetting>
 
 export const EmailTemplate = z.object({ subject: z.string(), body: z.string() })
@@ -105,6 +113,12 @@ export const AppSettings = z.object({
   paymentQr: z.boolean().default(true),
   // How "Per E-Mail senden" opens the email (auto: by the system's mail program)
   mailProgram: MailProgramSetting.default('auto'),
+  // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
+  // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
+  mailClient: z.boolean().default(false),
+  // I7: the mail account bookingum's own editor sends invoices from, '' for none chosen.
+  // Never guessed: without a choice, sending from bookingum is refused.
+  invoiceMailAccountId: z.string().default(''),
   // Subject and text of invoice emails, per template language; {Platzhalter}
   invoiceEmailDe: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.de),
   invoiceEmailEn: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.en),
@@ -126,6 +140,8 @@ export const UpdateAppSettingsInput = z
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
+    mailClient: shape.mailClient.unwrap(),
+    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
     invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
     invoiceEmailEn: shape.invoiceEmailEn.unwrap(),
     reminderEmailDe: shape.reminderEmailDe.unwrap(),

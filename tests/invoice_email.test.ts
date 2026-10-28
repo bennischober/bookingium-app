@@ -43,8 +43,8 @@ function printData(overrides: Partial<InvoicePrintDto> = {}, invoice: Partial<In
     issuer: party({ contactName: 'Erika Muster' }),
     recipient: party({
       legalName: 'Veranstalter GmbH',
-      email: 'info@veranstalter.example',
-      contactEmail: 'buchhaltung@veranstalter.example'
+      email: 'info@veranstalter.example.test',
+      contactEmail: 'buchhaltung@veranstalter.example.test'
     }),
     venueName: null,
     eventDate: null,
@@ -55,7 +55,7 @@ function printData(overrides: Partial<InvoicePrintDto> = {}, invoice: Partial<In
 }
 
 const draft: EmailDraft = {
-  to: 'buchhaltung@veranstalter.example',
+  to: 'buchhaltung@veranstalter.example.test',
   subject: 'Rechnung 1040 – Pretty Wild (Zürich)',
   body: 'Guten Tag,\n\nanbei die Rechnung über 2.675,00 €.\n\nGrüße'
 }
@@ -88,7 +88,7 @@ function parseEml(eml: string) {
 describe('invoice email text', () => {
   it('fills the default templates', () => {
     expect(invoiceEmail(printData(), 'de', DEFAULT_INVOICE_EMAIL.de)).toEqual({
-      to: 'buchhaltung@veranstalter.example',
+      to: 'buchhaltung@veranstalter.example.test',
       subject: 'Rechnung 1040 – Pretty Wild',
       body:
         'Guten Tag,\n\nanbei erhalten Sie die Rechnung 1040 vom 19.10.2026 über 2.675,00 €.\n\n' +
@@ -134,7 +134,7 @@ describe('invoice email text', () => {
     const dunning = invoiceEmail(printData(), 'en', DEFAULT_DUNNING_EMAIL.en, now)
     expect(dunning.subject).toBe('Overdue notice: Invoice 1040 – Pretty Wild')
     expect(dunning.body).toContain('by 04.11.2026 at the latest')
-    expect(dunning.to).toBe('buchhaltung@veranstalter.example')
+    expect(dunning.to).toBe('buchhaltung@veranstalter.example.test')
   })
 
   it('keeps unknown placeholders', () => {
@@ -144,11 +144,11 @@ describe('invoice email text', () => {
   })
 
   it('sends to the contact email, else the general one', () => {
-    expect(recipientEmailOf(printData())).toBe('buchhaltung@veranstalter.example')
+    expect(recipientEmailOf(printData())).toBe('buchhaltung@veranstalter.example.test')
     const general = printData({
-      recipient: party({ email: ' info@veranstalter.example ', contactEmail: '' })
+      recipient: party({ email: ' info@veranstalter.example.test ', contactEmail: '' })
     })
-    expect(recipientEmailOf(general)).toBe('info@veranstalter.example')
+    expect(recipientEmailOf(general)).toBe('info@veranstalter.example.test')
     expect(recipientEmailOf(printData({ recipient: null }))).toBe('')
   })
 })
@@ -166,7 +166,7 @@ describe('.eml draft', () => {
     const { headers, parts, boundary } = parseEml(eml)
     expect(boundary).toBe('BOUNDARY')
     expect(headers[0]).toBe('X-Unsent: 1')
-    expect(headers).toContain('To: buchhaltung@veranstalter.example')
+    expect(headers).toContain('To: buchhaltung@veranstalter.example.test')
     expect(headers).toContain('MIME-Version: 1.0')
     const subject = headers.find((line) => line.startsWith('Subject: '))!
     expect(decodeHeader(subject.slice(9))).toBe(draft.subject)
@@ -203,7 +203,7 @@ describe('.eml draft', () => {
 describe('mailto: link', () => {
   it('carries recipient, subject and text', () => {
     const url = mailtoUrl(draft)
-    expect(url.startsWith('mailto:buchhaltung@veranstalter.example?subject=')).toBe(true)
+    expect(url.startsWith('mailto:buchhaltung@veranstalter.example.test?subject=')).toBe(true)
     const params = new URLSearchParams(url.split('?')[1])
     expect(params.get('subject')).toBe(draft.subject)
     expect(params.get('body')).toBe(draft.body.replace(/\n/g, '\r\n'))
@@ -237,7 +237,7 @@ describe('mail program', () => {
         'file:///C:/E-Mail/Rechnung_1040.pdf'
       )
     ).toBe(
-      "to='buchhaltung@veranstalter.example',subject='Rechnung 1040 – Rock’n’Roll, live'," +
+      "to='buchhaltung@veranstalter.example.test',subject='Rechnung 1040 – Rock’n’Roll, live'," +
         "message='C:\\E-Mail\\Rechnung_1040.txt',attachment='file:///C:/E-Mail/Rechnung_1040.pdf'"
     )
     expect(thunderbirdComposeArg({ ...draft, to: '' }, 'a.txt', 'file:///a.pdf')).not.toContain(
@@ -246,10 +246,10 @@ describe('mail program', () => {
   })
 
   it('opens a mailto: link the way Windows starts the program', () => {
-    expect(mailtoProgramArgs('thunderbird', 'mailto:?bcc=a@x.de')).toEqual([
+    expect(mailtoProgramArgs('thunderbird', 'mailto:?bcc=a@x.example.test')).toEqual([
       '-osint',
       '-compose',
-      'mailto:?bcc=a@x.de'
+      'mailto:?bcc=a@x.example.test'
     ])
     expect(mailtoProgramArgs('outlook', 'mailto:')).toEqual(['/c', 'ipm.note', '/m', 'mailto:'])
   })

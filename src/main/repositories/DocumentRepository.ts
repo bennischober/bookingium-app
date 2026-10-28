@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { notArchived } from './archiveFilter'
 import type { DocumentOwnerType, UpdateDocumentInput } from '../api/schemas/document.schema'
 
 type NewDocument = typeof schema.document.$inferInsert
@@ -32,7 +33,8 @@ export class DocumentRepository {
           eq(schema.document.owner_id, schema.deal_memo.id)
         )
       )
-      .where(eq(schema.deal_memo.band_id, bandId))
+      // D3: an archived gig's documents are out of the band's working list
+      .where(and(eq(schema.deal_memo.band_id, bandId), notArchived()))
       .orderBy(desc(schema.deal_memo.date), asc(schema.document.uploaded_at))
     return rows.map((row) => ({
       ...row.document,

@@ -1,11 +1,10 @@
-import { hotel, address as addressTable, contact as contactTable } from '../../db/schema'
+import { hotel, address as addressTable } from '../../db/schema'
 import type { HotelDto, HotelListItemDto } from '../schemas/hotel.schema'
 import { AddressMapper } from './address.mapper'
-import { ContactMapper } from './contact.mapper'
+import { ContactMapper, type ContactEntity } from './contact.mapper'
 
 type HotelEntity = typeof hotel.$inferSelect
 type AddressEntity = typeof addressTable.$inferSelect
-type ContactEntity = typeof contactTable.$inferSelect
 
 type HotelWithRelations = HotelEntity & {
   address?: AddressEntity | null

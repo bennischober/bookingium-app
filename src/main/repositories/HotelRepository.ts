@@ -1,5 +1,6 @@
 import { eq, like, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
+import { saveContactEmails, withContactEmails } from './contactEmails'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -16,11 +17,13 @@ export class HotelRepository {
       .leftJoin(schema.contact, eq(schema.hotel.contact_id, schema.contact.id))
       .orderBy(schema.hotel.name)
 
-    return rows.map((row) => ({
-      ...row.hotel,
-      address: row.address,
-      contact: row.contact
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.hotel,
+        address: row.address,
+        contact: row.contact
+      }))
+    )
   }
 
   async getAllPaginated(pagination: PaginationInput) {
@@ -58,11 +61,13 @@ export class HotelRepository {
       .offset(offset)
 
     return {
-      items: rows.map((row) => ({
-        ...row.hotel,
-        address: row.address,
-        contact: row.contact
-      })),
+      items: withContactEmails(
+        rows.map((row) => ({
+          ...row.hotel,
+          address: row.address,
+          contact: row.contact
+        }))
+      ),
       total,
       page,
       pageSize,
@@ -81,11 +86,13 @@ export class HotelRepository {
 
     if (!rows[0]) return null
 
-    return {
-      ...rows[0].hotel,
-      address: rows[0].address,
-      contact: rows[0].contact
-    }
+    return withContactEmails([
+      {
+        ...rows[0].hotel,
+        address: rows[0].address,
+        contact: rows[0].contact
+      }
+    ])[0]
   }
 
   async create(input: CreateHotelInput) {
@@ -122,6 +129,7 @@ export class HotelRepository {
           .returning()
           .all()
         contactId = contactResult[0].id
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       const hotelResult = tx
@@ -143,11 +151,16 @@ export class HotelRepository {
         .where(eq(schema.hotel.id, hotelResult[0].id))
         .all()
 
-      return {
-        ...rows[0].hotel,
-        address: rows[0].address,
-        contact: rows[0].contact
-      }
+      return withContactEmails(
+        [
+          {
+            ...rows[0].hotel,
+            address: rows[0].address,
+            contact: rows[0].contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
@@ -220,6 +233,7 @@ export class HotelRepository {
             .all()
           contactId = contactResult[0].id
         }
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       tx.update(schema.hotel)
@@ -241,11 +255,16 @@ export class HotelRepository {
         .where(eq(schema.hotel.id, input.id))
         .all()
 
-      return {
-        ...rows[0].hotel,
-        address: rows[0].address,
-        contact: rows[0].contact
-      }
+      return withContactEmails(
+        [
+          {
+            ...rows[0].hotel,
+            address: rows[0].address,
+            contact: rows[0].contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 

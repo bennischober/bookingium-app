@@ -1,3 +1,5 @@
+import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -86,7 +88,12 @@ export default function VenueDetailPage() {
   const id = Number(venueId)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
-  const activeTab = isVenueTab(search.tab) ? search.tab : 'overview'
+  const mailClientEnabled = useMailClientEnabled()
+  // the E-Mails tab exists only with the mail client on
+  const activeTab =
+    isVenueTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled)
+      ? search.tab
+      : 'overview'
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<VenueDto>()
 
@@ -184,6 +191,7 @@ export default function VenueDetailPage() {
           <TabsTrigger value="contacts">Ansprechpartner</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -198,6 +206,11 @@ export default function VenueDetailPage() {
         <TabsContent value="documents">
           <DocumentsPanel ownerType="venue" ownerId={venue.id} title="Dokumente der Spielstätte" />
         </TabsContent>
+        {mailClientEnabled && (
+          <TabsContent value="mails">
+            <MailHistoryPanel entityType="venue" entityId={venue.id} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <FormSheet

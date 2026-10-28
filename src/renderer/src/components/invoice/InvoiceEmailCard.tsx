@@ -22,13 +22,17 @@ import {
 } from '../../../../main/api/schemas/settings.schema'
 import type { InvoiceEmailKind } from '../../../../main/api/schemas/invoice.schema'
 import { INVOICE_EMAIL_PLACEHOLDERS } from '../../../../main/mail/invoiceEmail'
+import { readingActions } from '@/components/mail/readingActions'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 
 const MAIL_PROGRAMS: Array<{ value: MailProgramSetting; label: string }> = [
   { value: 'auto', label: 'Automatisch' },
   { value: 'outlook', label: 'Outlook (klassisch)' },
   { value: 'thunderbird', label: 'Thunderbird' },
   { value: 'mailto', label: 'Anderes Mailprogramm' },
-  { value: 'files', label: 'Nur Dateien speichern' }
+  { value: 'files', label: 'Nur Dateien speichern' },
+  // C1: only offered with the mail client on ("E-Mail (experimentell)")
+  { value: 'bookingum', label: 'bookingum (eigenes E-Mail-Konto)' }
 ]
 
 const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
@@ -37,7 +41,9 @@ const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
   thunderbird: 'Öffnet eine neue E-Mail mit PDF im Anhang.',
   mailto:
     'Öffnet eine neue E-Mail ohne Anhang (z. B. das neue Outlook) und zeigt das PDF zum Hineinziehen.',
-  files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.'
+  files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.',
+  bookingum:
+    'Öffnet die E-Mail im bookingum-Editor; das PDF wird beim Senden angehängt. Nach dem Senden gilt die Rechnung als versendet.'
 }
 
 type Lang = 'de' | 'en'
@@ -131,6 +137,19 @@ export function InvoiceEmailCard() {
   })
 
   const mailProgram = settings.data?.mailProgram ?? 'auto'
+  const mailClientEnabled = useMailClientEnabled()
+  // a value saved before the switch existed stays visible, so the select never shows blank
+  const mailPrograms = MAIL_PROGRAMS.filter(
+    (program) => program.value !== 'bookingum' || mailClientEnabled || mailProgram === 'bookingum'
+  )
+  // I7 (MR-12): the account is chosen here, never guessed - only accounts that may send
+  const mailAccounts = trpcReact.mail.accounts.list.useQuery(undefined, {
+    enabled: mailProgram === 'bookingum'
+  })
+  const sendingAccounts = (mailAccounts.data ?? []).filter(
+    (account) => readingActions(account).canWrite
+  )
+  const invoiceMailAccountId = settings.data?.invoiceMailAccountId ?? ''
   const disabled = settings.isLoading || updateSettings.isPending
 
   return (
@@ -157,7 +176,7 @@ export function InvoiceEmailCard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MAIL_PROGRAMS.map((program) => (
+              {mailPrograms.map((program) => (
                 <SelectItem key={program.value} value={program.value}>
                   {program.label}
                 </SelectItem>
@@ -166,6 +185,37 @@ export function InvoiceEmailCard() {
           </Select>
           <p className="text-xs text-muted-foreground">{MAIL_PROGRAM_HINTS[mailProgram]}</p>
         </div>
+
+        {mailProgram === 'bookingum' && (
+          <div className="max-w-sm space-y-2">
+            <Label htmlFor="settings-invoice-mail-account">Senden von</Label>
+            <Select
+              value={
+                sendingAccounts.some((account) => account.id === invoiceMailAccountId)
+                  ? invoiceMailAccountId
+                  : ''
+              }
+              onValueChange={(value) => updateSettings.mutate({ invoiceMailAccountId: value })}
+              disabled={disabled || sendingAccounts.length === 0}
+            >
+              <SelectTrigger id="settings-invoice-mail-account">
+                <SelectValue placeholder="Konto wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {sendingAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mailAccounts.isSuccess && sendingAccounts.length === 0 && (
+              <p className="text-xs text-destructive">
+                Kein E-Mail-Konto mit Senderecht eingerichtet.
+              </p>
+            )}
+          </div>
+        )}
 
         <Tabs defaultValue="invoice">
           <TabsList aria-label="Vorlage für">

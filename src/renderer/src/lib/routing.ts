@@ -4,6 +4,7 @@ import {
   FileText,
   Guitar,
   Hotel,
+  Inbox,
   Landmark,
   LayoutDashboard,
   Mails,
@@ -48,18 +49,23 @@ export const ROUTES = {
   venues: { path: '/venues', title: 'Spielstätten', group: 'Kontakte', icon: MapPin },
   hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
   contactLists: { path: '/contact-lists', title: 'Verteiler', group: 'Kontakte', icon: Mails },
+  mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
 } as const satisfies Record<string, RouteInfo>
 
 /**
  * Groups the routes by their group property.
+ * @param isShown leaves a route out of the menu (the mail page while its switch is off)
  * @returns An array of grouped routes.
  */
-export const getGroupedRoutes = (): GroupedRoute[] => {
+export const getGroupedRoutes = (
+  isShown: (route: RouteInfo) => boolean = () => true
+): GroupedRoute[] => {
   const grouped = new Map<string, RouteInfo[]>()
 
   Object.values(ROUTES).forEach((route) => {
+    if (!isShown(route)) return
     const group = grouped.get(route.group) || []
     group.push(route)
     grouped.set(route.group, group)

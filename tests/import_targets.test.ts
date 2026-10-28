@@ -94,7 +94,7 @@ describe('band lists', () => {
         'Brainstorm Music Marketing AG',
         'Benjamin Sänger (Gesang), Lisa Drums (Schlagzeug)',
         'Tom Technik',
-        'tom@prettywild.de'
+        'tom@prettywild.example.test'
       ],
       ['', '', '', '', 'Max Bass (Bass)', '', ''],
       ['Ghost Band', '', 'Gibt es nicht GmbH', '', 'Nobody Here', '', ''],
@@ -148,7 +148,7 @@ describe('band lists', () => {
       .from(schema.contact)
       .where(eq(schema.contact.id, lead.contact_id!))
       .get()!
-    expect(leadContact.email).toBe('tom@prettywild.de')
+    expect(leadContact.email).toBe('tom@prettywild.example.test')
   })
 
   it('need the band and company columns', () => {
@@ -169,13 +169,13 @@ describe('company lists', () => {
           [
             'Batschkapp GmbH',
             'Matze Brunner',
-            'matze@batschkapp.de',
+            'matze@batschkapp.example.test',
             'Gwinnerstr. 5',
             '60388',
             'Frankfurt',
             'HE'
           ],
-          ['', 'Verena Schick', 'verena@batschkapp.de', '', '', '', '']
+          ['', 'Verena Schick', 'verena@batschkapp.example.test', '', '', '', '']
         ]
       )
     )
@@ -215,12 +215,12 @@ describe('person lists', () => {
             '12.03.1985',
             'Neue Agentur GmbH',
             'Booking',
-            'anna@agentur.de',
+            'anna@agentur.example.test',
             'Hauptstr. 1',
             '1099',
             'Dresden'
           ],
-          ['', '', '', '', '', 'nur@mail.de', '', '', '']
+          ['', '', '', '', '', 'nur@mail.example.test', '', '', '']
         ]
       )
     )

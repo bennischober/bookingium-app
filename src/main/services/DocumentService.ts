@@ -13,7 +13,8 @@ import {
   moveIntoOwnerFolder,
   ownerFolderFullPath,
   removeIfEmpty,
-  storeOwnerFile
+  storeOwnerFile,
+  storeOwnerFileFromBytes
 } from '../utils/documentStorage'
 
 const MIME_TYPES: Record<string, string> = {
@@ -80,6 +81,42 @@ export class DocumentService {
       file_path: stored.relativePath,
       document_type: input.documentType,
       file_size: Math.max(stored.fileSize, 1)
+    })
+  }
+
+  /**
+   * C5: an attachment of a mail becomes a document of a record. The bytes come from the
+   * mail store (the caller has them already), so this writes the file and records where
+   * it came from - the same storage rules as an upload.
+   */
+  async saveFromMail(input: {
+    ownerType: DocumentOwnerType
+    ownerId: number
+    fileName: string
+    documentType?: string
+    bytes: Uint8Array
+    messageId: string | null
+    mailAccountId: string
+  }) {
+    const label = await this.requireOwnerLabel(input.ownerType, input.ownerId)
+    const name = input.fileName.trim() || 'Anhang'
+    const stored = await storeOwnerFileFromBytes(
+      input.bytes,
+      input.ownerType,
+      input.ownerId,
+      label,
+      name
+    )
+    return await this.documentRepository.create({
+      owner_type: input.ownerType,
+      owner_id: input.ownerId,
+      file_name: stored.fileName,
+      file_type: mimeType(stored.fileName),
+      file_path: stored.relativePath,
+      document_type: input.documentType ?? 'other',
+      file_size: Math.max(stored.fileSize, 1),
+      source_message_id: input.messageId,
+      source_mail_account_id: input.mailAccountId
     })
   }
 

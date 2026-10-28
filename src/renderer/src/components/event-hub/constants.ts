@@ -20,7 +20,7 @@ export function formatDate(iso: string): string {
 }
 
 // Event hub tabs; the active one is kept in the URL (?tab=...)
-export const EVENT_TABS = ['overview', 'itinerary', 'financials', 'documents'] as const
+export const EVENT_TABS = ['overview', 'itinerary', 'financials', 'documents', 'mails'] as const
 export type EventTab = (typeof EVENT_TABS)[number]
 
 export function isEventTab(value: unknown): value is EventTab {

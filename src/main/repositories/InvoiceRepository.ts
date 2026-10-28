@@ -32,6 +32,10 @@ import { computeInvoiceAmounts, fromCents } from '../einvoice/amounts'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
+// UTC with milliseconds for the Verlauf's rows: status changes and emails come
+// from two tables, and whole seconds could not tell their order apart
+const NOW_MS = sql`strftime('%Y-%m-%d %H:%M:%f', 'now')`
+
 type SnapshotRow = typeof schema.invoice_party_snapshot.$inferSelect
 type InvoiceRow = typeof schema.invoice.$inferSelect
 
@@ -1030,27 +1034,117 @@ export class InvoiceRepository {
    * itself also goes on the invoice for the list's envelope; a payment
    * reminder marks an invoice still "gestellt" as overdue.
    */
-  markEmailed(id: number, to: string, kind: InvoiceEmailKind = 'invoice') {
-    db.transaction((tx) => {
-      const email = tx
-        .insert(schema.invoice_email)
-        .values({ invoice_id: id, to, kind })
-        .returning()
+  markEmailed(
+    id: number,
+    to: string,
+    kind: InvoiceEmailKind = 'invoice',
+    /** C1: set only when bookingum sent the mail itself; null for external programs */
+    sent?: { messageId?: string; mailAccountId?: string }
+  ) {
+    db.transaction((tx) => this.markEmailedTx(tx, id, to, kind, sent))
+  }
+
+  private markEmailedTx(
+    tx: Tx,
+    id: number,
+    to: string,
+    kind: InvoiceEmailKind,
+    sent?: { messageId?: string; mailAccountId?: string }
+  ) {
+    const email = tx
+      .insert(schema.invoice_email)
+      .values({
+        invoice_id: id,
+        to,
+        kind,
+        message_id: sent?.messageId ?? null,
+        mail_account_id: sent?.mailAccountId ?? null,
+        created_at: NOW_MS
+      })
+      .returning()
+      .get()
+    if (kind === 'invoice') {
+      tx.update(schema.invoice)
+        .set({ emailed_at: email.created_at, emailed_to: to })
+        .where(eq(schema.invoice.id, id))
+        .run()
+      return
+    }
+    const marked = tx
+      .update(schema.invoice)
+      .set({ status: 'overdue', updated_at: sql`datetime('now')` })
+      .where(and(eq(schema.invoice.id, id), eq(schema.invoice.status, 'issued')))
+      .returning({ id: schema.invoice.id })
+      .all()
+    if (marked.length > 0) this.logStatusTx(tx, id, 'overdue')
+  }
+
+  /** I7: bookingum is about to send this invoice mail; written before the send starts */
+  addPendingEmail(input: {
+    invoiceId: number
+    kind: InvoiceEmailKind
+    to: string
+    mailAccountId: string
+    sendKey: string
+  }) {
+    db.insert(schema.invoice_email_pending)
+      .values({
+        invoice_id: input.invoiceId,
+        kind: input.kind,
+        to: input.to,
+        mail_account_id: input.mailAccountId,
+        send_key: input.sendKey
+      })
+      // A second send under the same key is the same mail; the first row stands
+      .onConflictDoNothing()
+      .run()
+  }
+
+  /** I7: the send was refused before the server took it, so it will never be confirmed */
+  dropPendingEmail(sendKey: string) {
+    db.delete(schema.invoice_email_pending)
+      .where(eq(schema.invoice_email_pending.send_key, sendKey))
+      .run()
+  }
+
+  /** I7: whether an account has invoice mails waiting for their send to be confirmed */
+  hasPendingEmails(mailAccountId: string): boolean {
+    return (
+      db
+        .select({ id: schema.invoice_email_pending.id })
+        .from(schema.invoice_email_pending)
+        .where(eq(schema.invoice_email_pending.mail_account_id, mailAccountId))
+        .limit(1)
+        .get() !== undefined
+    )
+  }
+
+  /**
+   * I7: the send with this key is confirmed. The pending row becomes the invoice's email in
+   * one transaction, so the send and a later confirmation of the same mail mark it once.
+   * Returns the invoice id, or null when nothing was pending under that key and account.
+   */
+  confirmPendingEmail(sendKey: string, mailAccountId: string, messageId: string): number | null {
+    return db.transaction((tx) => {
+      const pending = tx
+        .select()
+        .from(schema.invoice_email_pending)
+        .where(
+          and(
+            eq(schema.invoice_email_pending.send_key, sendKey),
+            eq(schema.invoice_email_pending.mail_account_id, mailAccountId)
+          )
+        )
         .get()
-      if (kind === 'invoice') {
-        tx.update(schema.invoice)
-          .set({ emailed_at: email.created_at, emailed_to: to })
-          .where(eq(schema.invoice.id, id))
-          .run()
-        return
-      }
-      const marked = tx
-        .update(schema.invoice)
-        .set({ status: 'overdue', updated_at: sql`datetime('now')` })
-        .where(and(eq(schema.invoice.id, id), eq(schema.invoice.status, 'issued')))
-        .returning({ id: schema.invoice.id })
-        .all()
-      if (marked.length > 0) this.logStatusTx(tx, id, 'overdue')
+      if (!pending) return null
+      tx.delete(schema.invoice_email_pending)
+        .where(eq(schema.invoice_email_pending.id, pending.id))
+        .run()
+      this.markEmailedTx(tx, pending.invoice_id, pending.to, pending.kind as InvoiceEmailKind, {
+        messageId,
+        mailAccountId
+      })
+      return pending.invoice_id
     })
   }
 
@@ -1076,7 +1170,9 @@ export class InvoiceRepository {
 
   /** Adds the status the invoice moved to to its Verlauf */
   private logStatusTx(tx: Tx, invoiceId: number, status: InvoiceStatus) {
-    tx.insert(schema.invoice_status_change).values({ invoice_id: invoiceId, status }).run()
+    tx.insert(schema.invoice_status_change)
+      .values({ invoice_id: invoiceId, status, created_at: NOW_MS })
+      .run()
   }
 
   /** Changes only the status; assigns the number when a draft is issued */

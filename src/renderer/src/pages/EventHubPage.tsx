@@ -1,3 +1,5 @@
+import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useState } from 'react'
 import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
@@ -12,13 +14,19 @@ import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
+import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
 import { isEventTab } from '@/components/event-hub/constants'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
-  const activeTab = isEventTab(search.tab) ? search.tab : 'overview'
+  const mailClientEnabled = useMailClientEnabled()
+  // the E-Mails tab exists only with the mail client on
+  const activeTab =
+    isEventTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled)
+      ? search.tab
+      : 'overview'
 
   const {
     data: event,
@@ -174,6 +182,7 @@ export function EventHubPage() {
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -204,9 +213,18 @@ export function EventHubPage() {
           />
         </TabsContent>
 
-        <TabsContent value="documents">
+        <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="event" ownerId={event.id} />
+          {/* D1: the band's own documents, read-only here - the rider or tech spec is
+              needed on the gig without a second upload */}
+          <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />
         </TabsContent>
+
+        {mailClientEnabled && (
+          <TabsContent value="mails">
+            <MailHistoryPanel entityType="event" entityId={event.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

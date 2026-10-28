@@ -7,7 +7,8 @@ export const PERSON_TABS = [
   'events',
   'contracts',
   'invoices',
-  'documents'
+  'documents',
+  'mails'
 ] as const
 export type PersonTab = (typeof PERSON_TABS)[number]
 

@@ -1,6 +1,7 @@
 import { injectable } from 'tsyringe'
-import { desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
+import { notArchived, onlyArchived } from './archiveFilter'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
@@ -12,7 +13,10 @@ export class DealMemoRepository {
     const { search } = pagination
     const { page, pageSize, offset } = listPage(pagination)
 
-    const whereClause = search ? like(schema.deal_memo.name, `%${search}%`) : undefined
+    // D3: an archived event is out of the working list; the archive view asks for it
+    const whereClause = search
+      ? and(notArchived(), like(schema.deal_memo.name, `%${search}%`))
+      : notArchived()
 
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
@@ -59,14 +63,14 @@ export class DealMemoRepository {
     }
   }
 
-  /** Events matching `where`, newest first, with band and venue */
+  /** Events matching `where`, newest first, with band and venue. Archived ones are out. */
   private async listWhere(where: SQL | undefined) {
     const rows = await db
       .select()
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
-      .where(where)
+      .where(where ? and(notArchived(), where) : notArchived())
       .orderBy(desc(schema.deal_memo.date), desc(schema.deal_memo.id))
     return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
   }
@@ -200,5 +204,46 @@ export class DealMemoRepository {
 
   async delete(id: number) {
     await db.delete(schema.deal_memo).where(eq(schema.deal_memo.id, id))
+  }
+
+  /** D3: takes an event out of every working view without destroying anything */
+  async archive(id: number) {
+    const result = await db
+      .update(schema.deal_memo)
+      .set({ archived_at: new Date().toISOString() })
+      .where(eq(schema.deal_memo.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  /** D3: brings an archived event back into the working view */
+  async restore(id: number) {
+    const result = await db
+      .update(schema.deal_memo)
+      .set({ archived_at: null })
+      .where(eq(schema.deal_memo.id, id))
+      .returning()
+    return result[0] ?? null
+  }
+
+  /** D3: the archive view - archived events only, newest archived first */
+  async listArchived() {
+    const rows = await db
+      .select()
+      .from(schema.deal_memo)
+      .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
+      .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .where(onlyArchived())
+      .orderBy(desc(schema.deal_memo.archived_at), desc(schema.deal_memo.id))
+    return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
+  }
+
+  /** D3: whether an invoice still points at this event, which blocks a hard delete */
+  async hasLinkedInvoice(id: number): Promise<boolean> {
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.invoice)
+      .where(eq(schema.invoice.deal_memo_id, id))
+    return (rows[0]?.count ?? 0) > 0
   }
 }

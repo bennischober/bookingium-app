@@ -49,6 +49,26 @@ export const contact = sqliteTable(
   (table) => [index('contact_email_idx').on(table.email)]
 )
 
+// A contact's further email addresses. contact.email stays the primary one
+// (invoices, mailing lists, forms); these only link mail to the contact's record.
+export const contact_email = sqliteTable(
+  'contact_email',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    contact_id: integer('contact_id')
+      .notNull()
+      .references(() => contact.id, { onDelete: 'cascade' }),
+    // Lower-cased and trimmed on write
+    email: text('email').notNull(),
+    // Order in the form
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    index('contact_email_email_idx').on(table.email),
+    uniqueIndex('contact_email_contact_email_idx').on(table.contact_id, table.email)
+  ]
+)
+
 // Bank table
 export const bank = sqliteTable(
   'bank',
@@ -296,6 +316,12 @@ export const deal_memo = sqliteTable(
       .references(() => band.id),
     venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
     hotel_id: integer('hotel_id').references(() => hotel.id, { onDelete: 'set null' }),
+    /**
+     * D3: an archived event is out of every working view but still there - its itinerary,
+     * follow-ups, documents, mails and the link from its invoices all survive. Null means
+     * active. A timestamp rather than a boolean, so "when" stays answerable.
+     */
+    archived_at: text('archived_at'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -307,7 +333,8 @@ export const deal_memo = sqliteTable(
     index('deal_memo_band_idx').on(table.band_id),
     index('deal_memo_venue_idx').on(table.venue_id),
     index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
-    index('deal_memo_status_idx').on(table.status)
+    index('deal_memo_status_idx').on(table.status),
+    index('deal_memo_archived_idx').on(table.archived_at)
   ]
 )
 
@@ -491,11 +518,40 @@ export const invoice_email = sqliteTable(
     kind: text('kind').default('invoice').notNull(),
     // Prefilled recipient address, '' when the recipient had none
     to: text('to').default('').notNull(),
+    // C1: the sent mail's Message-ID, set only when bookingum sent it itself -
+    // the external programs cannot report a send, so it stays null there
+    message_id: text('message_id'),
+    // C1: the mail account it was sent from (C4 uses it)
+    mail_account_id: text('mail_account_id'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull()
   },
   (table) => [index('invoice_email_invoice_idx').on(table.invoice_id)]
+)
+
+/**
+ * I7: an invoice mail bookingum is sending. The row is written before the send and turned
+ * into an invoice_email when the send is confirmed - right away, or later, when an unclear
+ * send is found in Sent after the editor was closed or the app restarted.
+ */
+export const invoice_email_pending = sqliteTable(
+  'invoice_email_pending',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    kind: text('kind').default('invoice').notNull(),
+    to: text('to').default('').notNull(),
+    mail_account_id: text('mail_account_id').notNull(),
+    // The editor's send key; the core makes it the local part of the Message-ID
+    send_key: text('send_key').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('invoice_email_pending_send_key_idx').on(table.send_key)]
 )
 
 // Each status an invoice moved to (issued, paid, overdue, back to issued,
@@ -567,6 +623,9 @@ export const document = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     uploaded_by: text('uploaded_by'),
+    // C5: set when the file came from a mail attachment; null for an upload
+    source_message_id: text('source_message_id'),
+    source_mail_account_id: text('source_mail_account_id'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -576,6 +635,47 @@ export const document = sqliteTable(
     index('document_owner_idx').on(table.owner_type, table.owner_id),
     index('document_type_idx').on(table.document_type),
     index('document_uploaded_at_idx').on(table.uploaded_at)
+  ]
+)
+
+// Links between a mail and a record of this app (C2). The mail store stays
+// rebuildable, so the link names the mail by its Message-ID (or a fallback hash) and
+// the account - never the store's row id or message_key. No FK to the entity: like
+// document, the owner is a type plus an id, and a delete trigger removes its links.
+export const MAIL_LINK_ENTITY_TYPES = [
+  'person',
+  'company',
+  'band',
+  'venue',
+  'event',
+  'invoice',
+  'contract'
+] as const
+export type MailLinkEntityType = (typeof MAIL_LINK_ENTITY_TYPES)[number]
+export const MAIL_LINK_SOURCES = ['address', 'thread', 'sent', 'manual'] as const
+export type MailLinkSource = (typeof MAIL_LINK_SOURCES)[number]
+
+export const mail_link = sqliteTable(
+  'mail_link',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mail_account_id: text('mail_account_id').notNull(),
+    // Without the angle brackets, as in the mail store's message_id
+    message_id: text('message_id'),
+    // sha1(date|from_email|size_bytes|subject) for a mail without a Message-ID
+    fallback_key: text('fallback_key'),
+    entity_type: text('entity_type', { enum: MAIL_LINK_ENTITY_TYPES }).notNull(),
+    entity_id: integer('entity_id').notNull(),
+    source: text('source', { enum: MAIL_LINK_SOURCES }).notNull(),
+    // 1 = the user removed an automatic link; the linker never adds it again
+    dismissed: integer('dismissed', { mode: 'boolean' }).default(false).notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('mail_link_entity_idx').on(table.entity_type, table.entity_id),
+    index('mail_link_message_idx').on(table.mail_account_id, table.message_id)
   ]
 )
 
@@ -755,6 +855,7 @@ export const management_share_income = sqliteTable(
 export const schema = {
   address,
   contact,
+  contact_email,
   bank,
   person,
   company,
@@ -772,6 +873,7 @@ export const schema = {
   invoice_party_snapshot,
   invoice_line_item,
   invoice_email,
+  invoice_email_pending,
   invoice_status_change,
   management_contract,
   management_contract_member,
@@ -779,5 +881,6 @@ export const schema = {
   management_share_income,
   app_setting,
   contact_list,
+  mail_link,
   follow_up
 }

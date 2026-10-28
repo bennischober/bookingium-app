@@ -1,4 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 import type { ImportWorkbook } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
 import type { MailMethod } from '../main/mail/mailProgram'
@@ -79,6 +78,12 @@ export interface DocumentAPI {
   }>
   /** Shows a file of sendInvoiceEmail in Explorer */
   showEmailFile: (filePath: string) => Promise<void>
+  /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
+  copyMailLink: (url: string) => Promise<{ success: boolean; error?: string }>
+  /** Opens a mail of the built-in mail client in its own window (or focuses that window) */
+  openMailWindow: (accountId: string, messageId: number) => Promise<void>
+  /** The draft is stored; close the window main was holding open */
+  closeMailWindow: () => void
   /** Open dialog for an Excel file; returns its sheets for the import dialog */
   pickImportWorkbook: () => Promise<{
     success: boolean
@@ -86,11 +91,12 @@ export interface DocumentAPI {
     workbook?: ImportWorkbook
     error?: string
   }>
+  /** An error nothing caught, for the local error log (main scrubs it) */
+  reportError: (report: { message: string; stack?: string }) => void
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: DocumentAPI
   }
 }

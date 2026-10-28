@@ -1,6 +1,7 @@
 # Open items
 
 Done work lives in the git history; this list only holds what is still open.
+Mail client (experimental, off by default), its integration into bookingum and what is still open: see `docs/mail-client.md`.
 
 ## Deadlines
 
@@ -36,7 +37,7 @@ Done work lives in the git history; this list only holds what is still open.
 ## Data
 
 - Persons imported before role parsing existed carry the role in the name
-  ("Booking: Lea Grötzinger", "Geschäftsführer: Thilo Ziegler"). Decided:
+  (a leading "Rolle: " prefix). Decided:
   clean up the data once (move the role onto the membership), the importer
   stays as it is.
 

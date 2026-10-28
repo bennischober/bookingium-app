@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   CommandDialog,
   CommandEmpty,
@@ -27,7 +28,10 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
+import { mailApi } from '@/lib/mailApi'
+import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
 
@@ -48,6 +52,9 @@ type RecentCommand = {
 const RECENTS_STORAGE_KEY = 'bookingium-search-recents'
 const MIN_SEARCH_LENGTH = 2
 const SEARCH_DEBOUNCE_MS = 200
+// C6: the mail search is slower than the app's own, so it waits longer and shows fewer
+const MAIL_DEBOUNCE_MS = 400
+const MAIL_RESULT_LIMIT = 5
 
 // Palette texts per page; titles, icons and order come from the menu config
 const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string[] }> = {
@@ -72,6 +79,10 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/contact-lists': {
     description: 'Empfänger für Rundmails und Newsletter',
     aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']
+  },
+  '/mail': {
+    description: 'Postfach lesen und durchsuchen',
+    aliases: ['mail', 'email', 'inbox', 'posteingang', 'postfach']
   },
   '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
   '/settings': {
@@ -163,6 +174,7 @@ const SearchButton = () => {
   )
 
   const grouped = search.data?.results ?? []
+
   const events = grouped.filter((r) => r.type === 'event')
   const bands = grouped.filter((r) => r.type === 'band')
   const companies = grouped.filter((r) => r.type === 'company')
@@ -170,6 +182,8 @@ const SearchButton = () => {
   const venues = grouped.filter((r) => r.type === 'venue')
   const hotels = grouped.filter((r) => r.type === 'hotel')
   const invoices = grouped.filter((r) => r.type === 'invoice')
+  // D2: files, found by name - the one business object the palette could not see before
+  const documents = grouped.filter((r) => r.type === 'document')
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -217,6 +231,51 @@ const SearchButton = () => {
   const invoicesQuickList = invoices
 
   const hasTypedQuery = debouncedQuery.length >= MIN_SEARCH_LENGTH
+  // C6: mails come from the mail client, not the app database, and only when a mail
+  // account exists. The query is debounced harder than the app search and has its own
+  // query key, so a slow mailbox never holds up the palette's other groups: they render
+  // from `search` while this one is still loading.
+  // The palette is mounted in the root layout from app start, long before an account
+  // may be saved: asking only while it is open keeps the answer current instead of
+  // caching an empty list from the first render.
+  const mailEnabled = useMailClientEnabled()
+  const accounts = trpcReact.mail.accounts.list.useQuery(undefined, {
+    enabled: open && mailEnabled,
+    staleTime: 0
+  })
+  const mailAccountId = mailEnabled ? (accounts.data?.[0]?.id ?? null) : null
+  // the mail page, and a recent jump to it, go while the mail client is switched off
+  const shownRoutes = ROUTE_COMMANDS.filter(
+    (route) => route.path !== ROUTES.mail.path || mailEnabled
+  )
+  const shownRecents = recentCommands.filter(
+    (recent) => recent.path !== ROUTES.mail.path || mailEnabled
+  )
+  const [debouncedMailQuery, setDebouncedMailQuery] = useState('')
+  useEffect(() => {
+    if (!open || !mailAccountId) return
+    const timeout = window.setTimeout(() => setDebouncedMailQuery(query.trim()), MAIL_DEBOUNCE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [open, query, mailAccountId])
+  const mailSearchEnabled =
+    open &&
+    mailAccountId !== null &&
+    debouncedMailQuery.length >= MIN_SEARCH_LENGTH &&
+    debouncedMailQuery === query.trim()
+  const mailResults = useQuery({
+    queryKey: ['mail', mailAccountId, 'search', debouncedMailQuery],
+    queryFn: () =>
+      mailApi.search(
+        { query: debouncedMailQuery, limit: MAIL_RESULT_LIMIT, wantSnippets: false },
+        mailAccountId!
+      ),
+    enabled: mailSearchEnabled,
+    // A palette search is a glance, not a report: keep it cheap and quiet
+    staleTime: 30_000,
+    retry: false
+  })
+  const mails = mailSearchEnabled ? (mailResults.data?.items ?? []) : []
+
   const hasRecordMatches =
     eventsQuickList.length > 0 ||
     personsQuickList.length > 0 ||
@@ -224,7 +283,11 @@ const SearchButton = () => {
     bandsQuickList.length > 0 ||
     venuesQuickList.length > 0 ||
     hotelsQuickList.length > 0 ||
-    invoicesQuickList.length > 0
+    invoicesQuickList.length > 0 ||
+    // D2: a file hit is a hit too
+    documents.length > 0 ||
+    // C6: a mail hit is a hit; the palette must not claim there are none
+    mails.length > 0
 
   const isAnyLoading = searchEnabled && search.isLoading
 
@@ -260,10 +323,10 @@ const SearchButton = () => {
         />
         <CommandList>
           <CommandEmpty>{emptyMessage}</CommandEmpty>
-          {recentCommands.length > 0 && (
+          {shownRecents.length > 0 && (
             <>
               <CommandGroup heading="Letzte Befehle">
-                {recentCommands.map((recent) => (
+                {shownRecents.map((recent) => (
                   <CommandItem
                     key={recent.id}
                     value={recent.label}
@@ -303,7 +366,7 @@ const SearchButton = () => {
           )}
 
           <CommandGroup heading="Navigation">
-            {ROUTE_COMMANDS.map((route) => (
+            {shownRoutes.map((route) => (
               <CommandItem
                 key={route.path}
                 value={`${route.title} ${route.description}`}
@@ -533,6 +596,51 @@ const SearchButton = () => {
                   </CommandItem>
                 ))}
               </CommandGroup>
+
+              {/* C6: mails from the mail client, a separate and slower source than the
+                  app's own records. They render whenever they arrive and never hold up
+                  the groups above. */}
+              {mails.length > 0 && (
+                <CommandGroup heading="E-Mails">
+                  {mails.map((mail) => (
+                    <CommandItem
+                      key={`mail-${mail.id}`}
+                      value={`${mail.subject} ${mail.fromName ?? mail.fromEmail} mail email`}
+                      keywords={['mail', 'email']}
+                      onSelect={() =>
+                        runAndClose(() => window.api.openMailWindow(mailAccountId!, mail.id))
+                      }
+                    >
+                      <Mail />
+                      <span className="truncate">{mail.subject || '(ohne Betreff)'}</span>
+                      <CommandShortcut>{mail.fromName || mail.fromEmail}</CommandShortcut>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {/* D2: a found file opens directly; its record would only make the user look
+                  for it a second time. The sublabel already names that record. */}
+              {documents.length > 0 && (
+                <CommandGroup heading="Dokumente">
+                  {documents.map((document) => (
+                    <CommandItem
+                      key={`document-${document.id}`}
+                      value={`${document.label} ${document.sublabel ?? ''} dokument datei file`}
+                      keywords={['document', 'datei', 'file']}
+                      onSelect={() =>
+                        runAndClose(() => {
+                          if (document.filePath) void openDocument(document.filePath)
+                        })
+                      }
+                    >
+                      <FileText />
+                      <span className="truncate">{document.label}</span>
+                      <CommandShortcut>{document.sublabel ?? 'Dokumente'}</CommandShortcut>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </>
           )}
         </CommandList>

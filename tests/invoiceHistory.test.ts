@@ -27,10 +27,10 @@ describe('invoiceHistory', () => {
       ],
       // latest first, as the invoice carries them
       emails: [
-        { kind: 'dunning', createdAt: '2026-10-24 12:00:00', to: 'x@club.de' },
-        { kind: 'reminder', createdAt: '2026-10-21 12:00:00', to: 'x@club.de' },
+        { kind: 'dunning', createdAt: '2026-10-24 12:00:00', to: 'x@club.example.test' },
+        { kind: 'reminder', createdAt: '2026-10-21 12:00:00', to: 'x@club.example.test' },
         { kind: 'invoice', createdAt: '2026-10-21 11:00:00', to: '' },
-        { kind: 'invoice', createdAt: '2026-10-02 08:30:00', to: 'x@club.de' }
+        { kind: 'invoice', createdAt: '2026-10-02 08:30:00', to: 'x@club.example.test' }
       ],
       cancelledByInvoiceId: 7,
       cancelledByInvoiceNumber: 1041
@@ -40,18 +40,42 @@ describe('invoiceHistory', () => {
       { at: '2026-10-01 08:00:00', label: 'Angelegt' },
       // a plain date counts as the start of its day, after Angelegt though
       { at: '2026-10-01', label: 'Gestellt' },
-      { at: '2026-10-02 08:30:00', label: 'E-Mail erstellt', detail: 'an x@club.de' },
+      { at: '2026-10-02 08:30:00', label: 'E-Mail erstellt', detail: 'an x@club.example.test' },
       { at: '2026-10-20 09:00:00', label: 'Als überfällig markiert' },
       { at: '2026-10-20 09:05:00', label: 'Wieder offen (gestellt)' },
       { at: '2026-10-21 11:00:00', label: 'E-Mail erstellt' },
-      { at: '2026-10-21 12:00:00', label: 'Zahlungserinnerung erstellt', detail: 'an x@club.de' },
+      { at: '2026-10-21 12:00:00', label: 'Zahlungserinnerung erstellt', detail: 'an x@club.example.test' },
       { at: '2026-10-22 10:00:00', label: 'Als bezahlt markiert' },
       {
         at: '2026-10-23 10:00:00',
         label: 'Storniert',
         link: { invoiceId: 7, label: 'Stornorechnung #1041' }
       },
-      { at: '2026-10-24 12:00:00', label: 'Mahnung erstellt', detail: 'an x@club.de' }
+      { at: '2026-10-24 12:00:00', label: 'Mahnung erstellt', detail: 'an x@club.example.test' }
+    ])
+  })
+
+  it('orders same-second entries by their milliseconds, emails first on a tie', () => {
+    const history = invoiceHistory({
+      ...base,
+      statusChanges: [
+        { status: 'issued', createdAt: '2026-10-01 08:00:00' },
+        { status: 'overdue', createdAt: '2026-10-21 12:00:00' },
+        { status: 'paid', createdAt: '2026-10-22 10:00:00.734' }
+      ],
+      emails: [
+        { kind: 'invoice', createdAt: '2026-10-22 10:00:00.120', to: '' },
+        { kind: 'reminder', createdAt: '2026-10-21 12:00:00', to: '' }
+      ]
+    })
+    expect(history.map((entry) => entry.label)).toEqual([
+      'Angelegt',
+      'Gestellt',
+      // Recorded together: the reminder, then the „überfällig“ it causes
+      'Zahlungserinnerung erstellt',
+      'Als überfällig markiert',
+      'E-Mail erstellt',
+      'Als bezahlt markiert'
     ])
   })
 

@@ -41,14 +41,14 @@ test.beforeAll(async () => {
       2500,
       'Teich Events GmbH',
       'Paula Teich',
-      'paula@teich-events.de; info@teich-events.de',
+      'paula@teich-events.example.test; info@teich-events.example.test',
       'Seeweg',
       '3',
       '1099',
       'Dresden',
       'www.rock-am-teich.de'
     ],
-    ['', '', '', '', '', '', 'Max Ufer', 'max@teich-events.de'],
+    ['', '', '', '', '', '', 'Max Ufer', 'max@teich-events.example.test'],
     // Promoter already in the app (seed): linked, not duplicated
     ['', 'Sommerbeben', 'Berlin', '', '800', 'Live Music Berlin GmbH', 'Elke und Johannes']
   ])
@@ -118,7 +118,9 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await page.getByRole('link', { name: 'Firmen' }).first().click()
   await expect(page.locator('tr', { hasText: 'Teich Events GmbH' })).toContainText('Dresden')
   await page.getByRole('link', { name: 'Personen' }).first().click()
-  await expect(page.getByRole('row', { name: /Max Ufer max@teich-events\.de/ })).toBeVisible()
+  await expect(
+    page.getByRole('row', { name: /Max Ufer max@teich-events\.example\.test/ })
+  ).toBeVisible()
 
   // A first name alone ("Elke und Johannes") is a valid person
   await page

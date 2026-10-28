@@ -34,8 +34,13 @@ export type AppHandle = {
   printPageToPdf: () => Promise<Buffer>
 }
 
-export async function launchApp(): Promise<AppHandle> {
-  const userData = createTestUserData()
+export async function launchApp(options: { userData?: string } = {}): Promise<AppHandle> {
+  // An explicit folder is used as-is and never deleted, so a spec can relaunch on the
+  // SAME folder (e.g. to corrupt a store the app wrote itself). Default stays a fresh
+  // throwaway folder per launch.
+  const userData = options.userData
+    ? { dir: options.userData, cleanup: (): void => {} }
+    : createTestUserData()
   const app = await electron.launch({
     // Resolve from the project root (process.cwd()), not __dirname - the
     // playwright transpilation output lives elsewhere.

@@ -186,3 +186,58 @@ describe('moving files from the old layout', () => {
     expect(await service.relocateLegacyFiles()).toEqual({ moved: 0, missing: 1 })
   })
 })
+
+describe('C5: an attachment becomes a document', () => {
+  const service = () => container.resolve(DocumentService)
+
+  it('writes the bytes into the owner folder and records the mail origin', async () => {
+    const bandId = createBand('Antwort Band')
+    const bytes = new Uint8Array([37, 80, 68, 70]) // "%PDF"
+    const saved = await service().saveFromMail({
+      ownerType: 'band',
+      ownerId: bandId,
+      fileName: 'Angebot.pdf',
+      documentType: 'contract',
+      bytes,
+      messageId: '<antwort@example.test>',
+      mailAccountId: 'acc-1'
+    })
+
+    expect(posix(saved.file_path)).toBe(
+      `documents/bands/${bandId}-antwort-band/Angebot.pdf`
+    )
+    expect(saved).toMatchObject({
+      owner_type: 'band',
+      document_type: 'contract',
+      file_size: 4,
+      source_message_id: '<antwort@example.test>',
+      source_mail_account_id: 'acc-1'
+    })
+    expect(existsSync(join(storage, saved.file_path))).toBe(true)
+  })
+
+  it('leaves the origin empty for an upload', async () => {
+    const bandId = createBand('Upload Band')
+    const uploaded = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('rider.pdf'),
+      documentType: 'rider'
+    })
+    expect(uploaded.source_message_id).toBeNull()
+    expect(uploaded.source_mail_account_id).toBeNull()
+  })
+
+  it('refuses an owner that does not exist', async () => {
+    await expect(
+      service().saveFromMail({
+        ownerType: 'band',
+        ownerId: 999_999,
+        fileName: 'x.pdf',
+        bytes: new Uint8Array([1]),
+        messageId: null,
+        mailAccountId: 'acc-1'
+      })
+    ).rejects.toThrow(/nicht gefunden/)
+  })
+})

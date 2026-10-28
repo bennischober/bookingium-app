@@ -3,6 +3,8 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { SettingsService } from '../../services/SettingsService'
+import { errorLogFolder } from '../../utils/errorLog'
+import { mailClient } from '../../mailclient/MailClientService'
 import { UpdateAppSettingsInput, type BackupResultDto } from '../schemas/settings.schema'
 
 const t = initTRPC.create()
@@ -20,13 +22,26 @@ const badRequest = (error: unknown, fallback: string) =>
 export const settingsRouter = t.router({
   get: t.procedure.query(() => service.get()),
 
-  update: t.procedure.input(UpdateAppSettingsInput).mutation(({ input }) => service.update(input)),
+  update: t.procedure.input(UpdateAppSettingsInput).mutation(async ({ input }) => {
+    const settings = service.update(input)
+    // "E-Mail (experimentell)" starts or stops the mail worker at once
+    if (input.mailClient !== undefined) await mailClient.restart()
+    return settings
+  }),
 
   /** Where the app keeps its database and documents */
   dataLocations: t.procedure.query(() => service.dataLocations()),
 
   openDataFolder: t.procedure.mutation(async () => {
     const error = await shell.openPath(service.dataLocations().dataFolder)
+    if (error) throw badRequest(new Error(error), 'Ordner konnte nicht geöffnet werden')
+  }),
+
+  /** The folder of the local error log (utils/errorLog.ts); it exists even before the first entry */
+  openErrorLog: t.procedure.mutation(async () => {
+    const folder = errorLogFolder()
+    if (!folder) throw badRequest(null, 'Kein Fehlerprotokoll eingerichtet')
+    const error = await shell.openPath(folder)
     if (error) throw badRequest(new Error(error), 'Ordner konnte nicht geöffnet werden')
   }),
 

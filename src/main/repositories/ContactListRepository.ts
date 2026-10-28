@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { notArchived } from './archiveFilter'
 
 export interface VenueSource {
   id: number
@@ -75,7 +76,14 @@ export class ContactListRepository {
       })
       .from(schema.deal_memo)
       .innerJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
-      .where(and(isNotNull(schema.deal_memo.venue_id), ne(schema.deal_memo.status, 'cancelled')))
+      .where(
+        and(
+          // D3: an archived gig is not a booking to reach out about
+          notArchived(),
+          isNotNull(schema.deal_memo.venue_id),
+          ne(schema.deal_memo.status, 'cancelled')
+        )
+      )
       .all()) {
       if (row.venueId === null) continue
       const list = bookings.get(row.venueId) ?? []

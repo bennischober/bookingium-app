@@ -132,6 +132,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
       },
       contact: {
         email: company?.contact?.email || '',
+        otherEmails: company?.contact?.otherEmails ?? [],
         phone: company?.contact?.phone || '',
         mobilePhone: company?.contact?.mobilePhone || '',
         homepage: company?.contact?.homepage || '',
