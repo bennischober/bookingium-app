@@ -217,6 +217,9 @@ export class SyncEngine {
     budget?: ConnectionBudget;
     /** I18: QA seam, free bytes on the drive of `dir` (null = unknown, the swap goes ahead) */
     freeBytes?: (dir: string) => number | null;
+    /** The host's credentials into `account` before each login (the factory's ensureCredentials);
+     * without it the account's own user/pass are used as they are */
+    credentials?: () => Promise<unknown>;
   }) {
     this.progress.accountId = account.id;
     this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
@@ -233,6 +236,7 @@ export class SyncEngine {
       isStopped: () => this.stopped,
       stopAfterAuthFailure: () => { this.stopped = true; this.pollingStop = true; },
       authFailed: () => this.onAuthFailed?.(),
+      loadCredentials: async () => { await options?.credentials?.(); },
       waitWhilePaused: () => this.waitWhilePaused(),
     }, options?.forceNoCondstore === true);
     this.ingest = new MessageIngest({

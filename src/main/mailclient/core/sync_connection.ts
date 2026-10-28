@@ -19,6 +19,8 @@ export interface SyncConnectionContext {
   stopAfterAuthFailure(): void;
   /** Then the engine's onAuthFailed hook (the factory drops its cached credentials). */
   authFailed(): void;
+  /** The host's credentials into `account` before a login; a no-op once the factory has them. */
+  loadCredentials(): Promise<void>;
   waitWhilePaused(): Promise<void>;
 }
 
@@ -173,6 +175,16 @@ export class SyncConnection {
     if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
     if (this.client && this.client.usable) return this.client;
     if (this.client) { try { this.client.close(); } catch { /* stale client is already unusable; a failed close leaves nothing to release */ } this.client = null; }
+    // Every login of the engine (a sync, polling, the repair sweep, the S1 download) loads the
+    // credentials first, so none of them depends on start() having done it. Without a password
+    // the server is not contacted: the account is offline, never stopped as a rejected login.
+    try {
+      await this.ctx.loadCredentials();
+      if (!this.account.pass) throw new Error('no password from the host: not logging in');
+    } catch (e) {
+      this.noteConnectFailure(e);
+      throw e;
+    }
     // Task 3: hard connection cap (1 sync + 1 IDLE for prod). I15a (MR-19): the budget is shared
     // with the IDLE connection and the write engine, so all of them count.
     const release = await this.ctx.budget.acquire({ cancelled: () => this.ctx.isStopped() });

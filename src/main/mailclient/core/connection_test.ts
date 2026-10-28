@@ -2,7 +2,7 @@
 // the folders, log out. Exactly one attempt within a hard deadline, never a retry, so a wrong
 // password is sent once and a wrong port answers within seconds instead of dangling.
 import { ImapFlow } from 'imapflow';
-import { IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
+import { IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure, isMissingPassword } from './imap_options.js';
 import type { ImapSecurity } from './types.js';
 
 /** Where the attempt stopped, so the host can say what to change:
@@ -38,7 +38,8 @@ const CERTIFICATE_CODES = new Set([
 ]);
 
 export function classifyConnectionError(err: unknown): ConnectionTestStage {
-  if (isAuthFailure(err)) return 'auth';
+  // an empty password field is the user's to fix like a wrong one
+  if (isAuthFailure(err) || isMissingPassword(err)) return 'auth';
   const e = (err ?? {}) as { code?: unknown; message?: unknown; tlsFailed?: unknown };
   const code = typeof e.code === 'string' ? e.code : '';
   const message = typeof e.message === 'string' ? e.message : '';

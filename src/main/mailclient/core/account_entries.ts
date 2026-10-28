@@ -67,8 +67,8 @@ export class AccountEntries {
         : isCanary(a)
           ? makeCanaryAccount(input)
           : makeSandboxAccount(input);
-      // user/pass are resolved lazily via ensureCredentials() before any engine
-      // contact — never stored at construction, never logged
+      // user/pass are resolved lazily via ensureCredentials(), which the engine calls before
+      // every login — never stored at construction, never logged
       // I12 (MR-41): one account whose store cannot be opened is skipped, not fatal for the rest.
       let store: Store;
       try {
@@ -84,6 +84,7 @@ export class AccountEntries {
         faultWriteCode: options.faultWriteCode,
         log: this.log,
         budget,
+        credentials: () => this.ensureCredentials(a.id),
       });
       const writes = new WriteEngine(store, a.id, {
         writeAccount,

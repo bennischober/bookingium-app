@@ -24,8 +24,16 @@ export function allowsPlainLogin(host: string): boolean {
   return LOOPBACK_HOSTS.has(host.trim().toLowerCase());
 }
 
-/** The server rejected the user name or password (imapflow marks LOGIN/AUTHENTICATE failures). */
+/** The server rejected the user name or password (imapflow marks LOGIN/AUTHENTICATE failures).
+ * imapflow marks its own refusal to log in without a password the same way, though nothing
+ * reached the server: that one is not a rejection and must not stop an account for good. */
 export function isAuthFailure(err: unknown): boolean {
   return typeof err === 'object' && err !== null
-    && (err as { authenticationFailed?: unknown }).authenticationFailed === true;
+    && (err as { authenticationFailed?: unknown }).authenticationFailed === true
+    && !isMissingPassword(err);
+}
+
+/** imapflow's local "No password configured", thrown after the greeting instead of a LOGIN */
+export function isMissingPassword(err: unknown): boolean {
+  return err instanceof Error && err.message === 'No password configured';
 }

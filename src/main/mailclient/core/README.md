@@ -165,8 +165,8 @@ one transaction. Two rules that each cost a bug:
 
 - The write goes through `Store.updateMessage`. The FTS index is external-content with no update trigger, so a direct
   `UPDATE messages` leaves the index on the skeleton's text (an integrity check with rank 1 shows it).
-- The download logs in, so the account's credentials come first: `MailCore.completeRow` calls `ensureCredentials` for an
-  incomplete row. Without them imapflow reports the missing password as a rejected login, and that stops the account.
+- The download logs in on the engine's connection, which loads the account's credentials first (below). imapflow
+  reports a missing password as a rejected login, which would stop the account for good.
 
 Offline, `ensureComplete` throws `OFFLINE_MESSAGE` and the row stays partial; a message gone from the server throws
 `GONE_MESSAGE`; a full disk is the disk-full path above. Nothing evicts a completed message. Tests: the unit suite
@@ -251,8 +251,13 @@ to the first one's mailbox. See docs/mail-client-assessment.md R1 and task A7.
 
 Credentials are resolved **lazily per connection** through the host-provided
 `credentials()` function and are cached only in memory (`ensureCredentials`). The core
-never reads `.env`, never logs credentials, and never stores them on disk. A path that
-connects outside a sync (the S1 download, `completeRow`) resolves them first.
+never reads `.env`, never logs credentials, and never stores them on disk. The sync engine
+loads them in `SyncConnection.connect()` before every login (the factory passes
+`ensureCredentials` as the engine's `credentials` option), so a sync, polling, the repair sweep
+and the S1 download all have them, whichever comes first; IDLE logs in only after the main
+connection is online. Without a password the engine does not contact the server and the account
+is offline, not stopped. `isAuthFailure` leaves out imapflow's local "No password configured":
+only a login the server refused stops an account.
 
 ## Events emitted
 
