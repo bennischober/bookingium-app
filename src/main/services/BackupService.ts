@@ -3,6 +3,7 @@ import { existsSync, statSync } from 'fs'
 import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSqlite, isDbOpen } from '../db'
+import { latestMigrationMillis } from '../db/migrate'
 import { getStorageBasePath } from '../utils/fileStorage'
 import { BACKUP_RETENTION, isBackupDue } from '../backup/policy'
 import {
@@ -160,7 +161,7 @@ export class BackupService {
 
   /** Copies and checks a backup; nothing is replaced until confirmRestore */
   prepareRestore(source: string): Promise<RestoreManifest> {
-    return prepareRestore(source, this.workDir())
+    return prepareRestore(source, this.workDir(), latestMigrationMillis())
   }
 
   cancelRestore(): Promise<void> {
