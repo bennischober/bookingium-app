@@ -33,7 +33,7 @@ test.afterAll(async () => {
 test('exports the filtered list and all lists', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Spielstätten' }).first().click()
-  await page.getByPlaceholder('Spielstätten filtern...').fill('Berg')
+  await page.getByPlaceholder('Spielstätten filtern…').fill('Berg')
   await expect(page.locator('tbody tr')).toHaveCount(1)
 
   const listFile = await saveTo('Spielstätten.xlsx')

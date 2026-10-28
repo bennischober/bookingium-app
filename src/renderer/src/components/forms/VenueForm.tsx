@@ -232,7 +232,7 @@ export function VenueForm({
           <div className="space-y-2">
             <Label htmlFor={field.name}>Verknüpfte Firma (optional)</Label>
             {companies.isLoading ? (
-              <p className="text-sm text-muted-foreground">Firmen werden geladen...</p>
+              <p className="text-sm text-muted-foreground">Firmen werden geladen…</p>
             ) : companies.data && companies.data.length > 0 ? (
               <SearchableSelect
                 id={field.name}
@@ -265,7 +265,7 @@ export function VenueForm({
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting
-            ? 'Speichert...'
+            ? 'Speichert…'
             : mode === 'create'
               ? 'Spielstätte anlegen'
               : 'Änderungen speichern'}

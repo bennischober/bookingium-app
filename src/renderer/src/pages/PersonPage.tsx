@@ -172,7 +172,7 @@ export function PersonPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Personen filtern..."
+        searchPlaceholder="Personen filtern…"
         // A click opens the person page; the pencil keeps the quick-edit sheet
         onRowClick={(person) =>
           navigate({ to: '/persons/$personId', params: { personId: String(person.id) } })

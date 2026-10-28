@@ -212,7 +212,7 @@ export default function CalendarPage() {
           </CardHeader>
           <CardContent>
             {events.isLoading ? (
-              <p className="text-sm text-muted-foreground">Events werden geladen...</p>
+              <p className="text-sm text-muted-foreground">Events werden geladen…</p>
             ) : groupedAgenda.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Keine Events für diese Auswahl geplant.

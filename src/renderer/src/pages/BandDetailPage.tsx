@@ -17,7 +17,7 @@ import { ManagementContractPanel } from '@/components/band/ManagementContractShe
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
-import { EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
+import { Empty, EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
 import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 
 /** Overview: who the band is, who bills and represents it */
@@ -59,21 +59,15 @@ function OverviewTab({ band }: { band: BandDto }) {
             {responsible.firstName} {responsible.lastName}
           </Link>
         ) : (
-          <span className="text-muted-foreground">–</span>
+          <Empty />
         )}
       </InfoCard>
       <InfoCard label="Genre / Gründung">
-        {[band.genre, band.founded].filter(Boolean).join(' · ') || (
-          <span className="text-muted-foreground">–</span>
-        )}
+        {[band.genre, band.founded].filter(Boolean).join(' · ') || <Empty />}
       </InfoCard>
       <div className="md:col-span-2">
         <InfoCard label="Anmerkungen">
-          {band.notes ? (
-            <p className="whitespace-pre-wrap">{band.notes}</p>
-          ) : (
-            <span className="text-muted-foreground">–</span>
-          )}
+          {band.notes ? <p className="whitespace-pre-wrap">{band.notes}</p> : <Empty />}
         </InfoCard>
       </div>
     </div>
@@ -250,7 +244,7 @@ export default function BandDetailPage() {
         onClose={sheet.close}
         mode="edit"
         title="Band bearbeiten"
-        description="Nehmen Sie Änderungen am Bandprofil unten vor."
+        description="Bandinformationen aktualisieren."
       >
         <BandForm
           mode="edit"

@@ -20,6 +20,8 @@ interface CompanyFormProps {
     data: z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
   ) => void
   onCancel: () => void
+  /** true while the save is running, so the form cannot be sent twice */
+  isSubmitting?: boolean
 }
 
 // Resolves a stored relative logo path (or freshly picked absolute path) to a displayable URL
@@ -65,7 +67,12 @@ function LogoPreview({ path }: { path: string }) {
   )
 }
 
-export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
+export function CompanyForm({
+  company,
+  onSubmit,
+  onCancel,
+  isSubmitting = false
+}: CompanyFormProps) {
   // Fetch banks for dropdown
   const banks = trpcReact.bank.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
@@ -361,7 +368,7 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
             <div className="space-y-2">
               <Label htmlFor="bankId">Bank (optional)</Label>
               {banks.isLoading ? (
-                <p className="text-sm text-muted-foreground">Banken werden geladen...</p>
+                <p className="text-sm text-muted-foreground">Banken werden geladen…</p>
               ) : banks.data && banks.data.length > 0 ? (
                 <SearchableSelect
                   id="bankId"
@@ -435,7 +442,9 @@ export function CompanyForm({ company, onSubmit, onCancel }: CompanyFormProps) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Abbrechen
         </Button>
-        <Button type="submit">Firma speichern</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Speichert…' : 'Firma speichern'}
+        </Button>
       </div>
     </form>
   )

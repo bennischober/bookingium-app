@@ -85,7 +85,7 @@ test('scrolls, loads more, sorts and keeps the header in view', async () => {
   )
 
   // Search narrows the list and says so
-  await page.getByPlaceholder('Spielstätten filtern...').fill('Testclub 14')
+  await page.getByPlaceholder('Spielstätten filtern…').fill('Testclub 14')
   await expect(status).toHaveText('10 Spielstätten gefunden')
   await expect(dataRows.first()).toContainText('Testclub 149')
 })

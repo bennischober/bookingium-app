@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/badge'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
@@ -110,10 +109,7 @@ export function EventHubPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 mt-1">
-            <Badge
-              variant="outline"
-              className={cn('capitalize', STATUS_STYLES[event.status] ?? '')}
-            >
+            <Badge variant="outline" className={STATUS_STYLES[event.status] ?? ''}>
               {STATUS_LABELS[event.status] ?? event.status}
             </Badge>
 
