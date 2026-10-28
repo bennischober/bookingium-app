@@ -13,9 +13,9 @@
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import fs from 'fs';
 import path from 'path';
-import { Store, JournalRow, type FolderRow } from './store.js';
+import { Store, JournalRow } from './store.js';
 import { SyncEngine, AccountConfig, SyncEvent } from './sync.js';
-import { WriteEngine, OpResult, FOLDER_DELETE_REFUSED } from './write_engine.js';
+import { WriteEngine, OpResult } from './write_engine.js';
 import { WriteAccount } from './write_guard.js';
 import { RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
@@ -25,10 +25,10 @@ import { simpleParser } from 'mailparser';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { isDiskFullError } from './disk_full.js';
 import { sendPhase } from './op_retry.js';
-import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 import { AccountEntries } from './account_entries.js';
 import { MessageViews } from './message_views.js';
 import { OpApi } from './op_api.js';
+import { FolderApi } from './folder_api.js';
 
 export type Logger = {
   info?: (msg: string) => void;
@@ -119,6 +119,7 @@ export class MailCore implements Api {
   private get entries(): Map<string, AccountEntry> { return this.accounts.entries; }
   private views: MessageViews;
   private ops: OpApi;
+  private folders: FolderApi;
   private lock: DataDirLock;
   private log: Logger;
   private clock: () => number;
@@ -142,9 +143,10 @@ export class MailCore implements Api {
     this.ops = new OpApi({
       log: this.log, isClosed: () => this.closed, entry: id => this.entry(id), writableEntry: id => this.writableEntry(id),
       emitEvent: e => this.emitEvent(e), runOp: (e, op) => this.runOp(e, op), parseFlags: row => this.views.parseFlags(row),
-      refuseFolderDelete: (e, path) => this.refuseFolderDelete(e, path),
-      throwIfServerRefusedDelete: (e, opId) => this.throwIfServerRefusedDelete(e, opId),
+      refuseFolderDelete: (e, path) => this.folders.refuseFolderDelete(e, path),
+      throwIfServerRefusedDelete: (e, opId) => this.folders.throwIfServerRefusedDelete(e, opId),
     });
+    this.folders = new FolderApi({ writableEntry: id => this.writableEntry(id), replayOps: (e, opIds) => this.ops.replayOps(e, opIds), opToSummary: op => this.ops.opToSummary(op) });
     this.accounts.buildEntries(options);
     const first = this.entries.keys().next();
     if (first.done) {
@@ -259,150 +261,13 @@ export class MailCore implements Api {
 
   // ----- folders (B1) -------------------------------------------------------
 
-  /** B1: a new folder under `parentPath`, or at the top level */
-  async createFolder(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary> {
-    const e = this.writableEntry(accountId);
-    const parent = parentPath ? e.store.getFolderByPath(parentPath) : null;
-    if (parentPath && !parent) throw new FolderNameError(`Ordner nicht gefunden: ${parentPath}`);
-    const delimiter = parent?.delimiter ?? DEFAULT_DELIMITER;
-    checkFolderName(name, delimiter);
-    const path = folderPath(parentPath, name, delimiter);
-    if (e.store.getFolderByPath(path)) throw new FolderNameError(`Ordner existiert bereits: ${path}`);
-    const opId = e.store.journalEnqueue({
-      accountId: e.config.id, kind: 'folder_create',
-      folderPath: path,
-      payload: { path, delimiter },
-    });
-    await this.replayOps(e, [opId]);
-    return this.opToSummary(e.store.journalGet(opId)!);
-  }
+  createFolder(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary> { return this.folders.createFolder(parentPath, name, accountId); }
 
-  /** B1: rename a folder's own name; subfolders move with it */
-  async renameFolder(path: string, newName: string, accountId?: string): Promise<OpSummary> {
-    const e = this.writableEntry(accountId);
-    const folder = e.store.getFolderByPath(path);
-    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`);
-    this.refuseProtectedFolder(folder);
-    const delimiter = folder.delimiter || DEFAULT_DELIMITER;
-    checkFolderName(newName, delimiter);
-    const parentPath = path.includes(delimiter) ? path.slice(0, path.lastIndexOf(delimiter)) : null;
-    const to = folderPath(parentPath, newName, delimiter);
-    if (to === path) return this.opToSummary(e.store.journalListRecent(1)[0]);
-    if (e.store.getFolderByPath(to)) throw new FolderNameError(`Ordner existiert bereits: ${to}`);
-    // The whole subtree is renamed, so no op may be pending anywhere in it
-    this.refusePendingOpsIn(e, path, delimiter);
-    const opId = e.store.journalEnqueue({
-      accountId: e.config.id, kind: 'folder_rename',
-      folderPath: path,
-      payload: { from: path, to, delimiter },
-    });
-    await this.replayOps(e, [opId]);
-    return this.opToSummary(e.store.journalGet(opId)!);
-  }
+  renameFolder(path: string, newName: string, accountId?: string): Promise<OpSummary> { return this.folders.renameFolder(path, newName, accountId); }
 
-  /**
-   * B2: move a folder under a new parent (drag and drop). It is the same rename op -
-   * the folder keeps its name and only its parent path changes. Refused before any
-   * server contact when the target is the folder itself, one of its own subfolders, or
-   * when a folder of that name already exists there.
-   */
-  async moveFolder(path: string, newParentPath: string | null, accountId?: string): Promise<OpSummary> {
-    const e = this.writableEntry(accountId)
-    const folder = e.store.getFolderByPath(path)
-    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`)
-    const delimiter = folder.delimiter || DEFAULT_DELIMITER
-    const knownPaths = e.store.allFolders().map((f) => f.imap_path)
-    const refusal = folderMoveRefusal(path, newParentPath, {
-      delimiter,
-      specialUse: folder.special_use,
-      knownPaths
-    })
-    if (refusal) throw new FolderNameError(refusal)
-    const to = folderMoveTarget(path, newParentPath, delimiter)
-    if (to === path) return this.opToSummary(e.store.journalListRecent(1)[0])
-    // The whole subtree moves, so no op may be pending anywhere in it
-    this.refusePendingOpsIn(e, path, delimiter)
-    const opId = e.store.journalEnqueue({
-      accountId: e.config.id,
-      kind: 'folder_rename',
-      folderPath: path,
-      payload: { from: path, to, delimiter }
-    })
-    await this.replayOps(e, [opId])
-    return this.opToSummary(e.store.journalGet(opId)!)
-  }
+  moveFolder(path: string, newParentPath: string | null, accountId?: string): Promise<OpSummary> { return this.folders.moveFolder(path, newParentPath, accountId); }
 
-  /**
-   * B1: delete an empty folder.
-   *
-   * Deleting a folder with mail on IMAP deletes that mail permanently, so this
-   * refuses a folder that still holds mail or has subfolders.
-   */
-  async deleteFolder(path: string, accountId?: string): Promise<OpSummary> {
-    const e = this.writableEntry(accountId);
-    this.refuseFolderDelete(e, path);
-    const opId = e.store.journalEnqueue({
-      accountId: e.config.id, kind: 'folder_delete',
-      folderPath: path,
-      payload: { path },
-    });
-    await this.replayOps(e, [opId]);
-    this.throwIfServerRefusedDelete(e, opId);
-    return this.opToSummary(e.store.journalGet(opId)!);
-  }
-
-  /**
-   * B1, I8 (MR-06): the local checks before a folder_delete is journaled, for deleteFolder
-   * and the undo of a create alike. The op asks the server again right before the DELETE.
-   */
-  private refuseFolderDelete(e: AccountEntry, path: string): void {
-    const folder = e.store.getFolderByPath(path);
-    if (!folder) throw new FolderNameError(`Ordner nicht gefunden: ${path}`);
-    this.refuseProtectedFolder(folder);
-    const delimiter = folder.delimiter || DEFAULT_DELIMITER;
-    const count = e.store.countByFolder(folder.id).total;
-    if (count > 0) {
-      throw new FolderNameError(
-        `Der Ordner enthält noch ${count} E-Mails. Verschieben oder löschen Sie sie zuerst.`
-      );
-    }
-    if (e.store.allFolders().some((f) => isPathOrChild(f.imap_path, path, delimiter) && f.imap_path !== path)) {
-      throw new FolderNameError('Der Ordner enthält noch Unterordner. Löschen Sie sie zuerst.');
-    }
-    this.refusePendingOpsIn(e, path, delimiter);
-  }
-
-  /** I8 (MR-06): the server still had mail or subfolders there - say so instead of "gelöscht" */
-  private throwIfServerRefusedDelete(e: AccountEntry, opId: string): void {
-    const op = e.store.journalGet(opId);
-    if (op?.state === 'conflict' && (op.error ?? '').startsWith(FOLDER_DELETE_REFUSED)) {
-      throw new FolderNameError(
-        'Der Ordner enthält auf dem Server noch E-Mails oder Unterordner und wurde nicht gelöscht. ' +
-        'Der Ordner wird neu abgeglichen.'
-      );
-    }
-  }
-
-  /** B1: INBOX and the special-use folders may never be renamed or deleted */
-  private refuseProtectedFolder(folder: FolderRow): void {
-    if (isProtectedFolder({ path: folder.imap_path, specialUse: folder.special_use })) {
-      throw new FolderNameError('Dieser Ordner kann nicht umbenannt oder gelöscht werden.')
-    }
-  }
-
-  /** B1: no folder op may race a pending one for the folder or its subfolders */
-  private refusePendingOpsIn(e: AccountEntry, path: string, delimiter: string): void {
-    const busy = e.store.journalPending(500).some((op) => {
-      if (op.state !== 'pending' && op.state !== 'running') return false
-      const paths = [op.folder_path, op.target_folder_path].filter(Boolean) as string[]
-      return paths.some((p) => isPathOrChild(p, path, delimiter))
-    })
-    if (busy) {
-      throw new FolderNameError(
-        'Für diesen Ordner läuft noch eine Änderung. Bitte versuchen Sie es gleich noch einmal.'
-      )
-    }
-  }
+  deleteFolder(path: string, accountId?: string): Promise<OpSummary> { return this.folders.deleteFolder(path, accountId); }
 
   // ----- compose (sandbox only) -----
 
@@ -581,8 +446,6 @@ export class MailCore implements Api {
       .filter(a => a.contentDisposition !== 'inline' || !a.contentId)
       .map(a => ({ filename: a.filename || 'Anhang', contentType: a.contentType, content: a.content }));
   }
-
-  private opToSummary(op: JournalRow): OpSummary { return this.ops.opToSummary(op); }
 
   // ----- lifecycle (the shutdown contract; see README.md) -----
 
