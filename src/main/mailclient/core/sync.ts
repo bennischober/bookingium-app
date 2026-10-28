@@ -530,7 +530,10 @@ export class SyncEngine {
       this.emit({ type: 'error', path: null, message: 'folder-list sync: empty or INBOX-less LIST result ignored (safety gate 0)' });
       return paths;
     }
-    // Gate 1a: mark currently-absent folders with a timestamp (first absence = observe)
+    // Gate 1a: mark currently-absent folders with a timestamp (first absence = observe).
+    // `localFolders` was read before these writes, so its `list_absent_since` is what EARLIER
+    // passes left. Gate 1b decides on that snapshot, not by comparing timestamps: two passes
+    // within the same millisecond write the same `now`, and the second then pruned nothing.
     const now = new Date().toISOString();
     for (const f of localFolders) {
       if (!serverPaths.has(f.imap_path)) {
@@ -541,9 +544,8 @@ export class SyncEngine {
         this.store.db.prepare('UPDATE folders SET list_absent_since = NULL WHERE id = ?').run(f.id);
       }
     }
-    // Gate 1b: candidates = absent now AND absent since a PREVIOUS pass
-    const candidates = localFolders.filter(f => !serverPaths.has(f.imap_path)
-      && f.list_absent_since && f.list_absent_since !== now);
+    // Gate 1b: candidates = absent now AND absent since a PREVIOUS pass (the pre-write snapshot)
+    const candidates = localFolders.filter(f => !serverPaths.has(f.imap_path) && f.list_absent_since);
     // Gate 2: blast-radius cap
     const maxPrune = Math.floor(localFolders.length * 0.25);
     const toPrune = candidates.slice(0, Math.max(0, maxPrune));

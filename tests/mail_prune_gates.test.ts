@@ -5,7 +5,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Store } from '../src/main/mailclient/core/store'
 import { SyncEngine, type AccountConfig } from '../src/main/mailclient/core/sync'
 
@@ -13,6 +13,7 @@ const ACCOUNT = 'acc'
 
 const cleanups: (() => void)[] = []
 afterEach(() => {
+  vi.useRealTimers()
   while (cleanups.length) cleanups.pop()!()
 })
 
@@ -164,5 +165,45 @@ describe('folder prune: Gate 0 (A2a)', () => {
     expect(store.getFolderByPath('Projekte')).toBeUndefined()
     expect(folderCount(store)).toBe(ALL_FOLDERS.length - 1)
     expect(messageCount(store)).toBe(ALL_FOLDERS.length - 1)
+  })
+})
+
+describe('folder prune: Gate 1 (debounce)', () => {
+  it('prunes on the second pass even when both passes fall in the same millisecond', async () => {
+    const { store, dir } = openStore()
+    seedFolders(store, dir, ALL_FOLDERS)
+    const engine = engineWithList(
+      store,
+      dir,
+      listed(...ALL_FOLDERS.filter((p) => p !== 'Projekte'))
+    )
+    // A frozen clock: both passes see the same `new Date()`, as two quick passes on a
+    // coarse clock do (this made the Gate 0 test above flaky on CI)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-01-01T09:00:00.000Z') })
+
+    await engine.syncFolderList()
+    expect(store.getFolderByPath('Projekte')).toBeDefined()
+
+    await engine.syncFolderList()
+    expect(store.getFolderByPath('Projekte')).toBeUndefined()
+    expect(folderCount(store)).toBe(ALL_FOLDERS.length - 1)
+  })
+
+  it('a folder that comes back before the second pass is not pruned', async () => {
+    const { store, dir } = openStore()
+    seedFolders(store, dir, ALL_FOLDERS)
+    const list = listed(...ALL_FOLDERS.filter((p) => p !== 'Projekte'))
+    const engine = engineWithList(store, dir, list)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-01-01T09:00:00.000Z') })
+
+    await engine.syncFolderList()
+    list.push(...listed('Projekte'))
+    await engine.syncFolderList()
+    list.pop()
+    // Absent again: this is a first absence once more, so it is only observed
+    await engine.syncFolderList()
+
+    expect(store.getFolderByPath('Projekte')).toBeDefined()
+    expect(folderCount(store)).toBe(ALL_FOLDERS.length)
   })
 })
