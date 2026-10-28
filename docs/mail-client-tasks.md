@@ -1726,7 +1726,22 @@ The engine stays the façade: status and progress, pause/resume, disk full, `syn
    `downloadMessages`, `adoptRelinked`, `expungeConfirmed`, staging cleanup.
 5. `idle_poll.ts`: IDLE, polling and the flag sweep, with `idleWait`, `nextUid`, `uidRange` re-exported.
 
-### R2: `MailCore` (core/index.ts)
+### R2: `MailCore` (core/index.ts) [done 2026-10-28]
+
+**Result.** Seven commits (`5a17be5`, `c357f94`, `05db399`, `45f2601`, `7d86368`, `18c605b`, `4ae115f`), `pnpm test`
+green after each. `index.ts` went from 1703 to 363 lines. The two message keys got their own commit (R2.2), so
+the steps below ran as R2.1 entries, R2.2 keys, R2.3 views, R2.4 ops, R2.5 folders, R2.6 drafts, R2.7
+maintenance. Deviations from the plan below:
+- `getAccount`, `listAccounts` and `selectAccount` live in `account_entries.ts` with the entries they read;
+  `getSyncStatus`, `triggerSync`, `pauseSync` and `resumeSync` stay in the core (they only fan out to the engines).
+- `MOVE_BATCH_LIMIT` moved to `op_api.ts`; `index.ts` re-exports it.
+- `runOp` stays a private core delegate that `OpApi` and `DraftApi` call through their context, because a test
+  replaces it on the core instance; `retryTimers` stays a core getter over `OpApi`'s map for the same reason.
+- `parseFlags` is public on `MessageViews` (`OpApi.planFlagOp` reads it); `refuseFolderDelete` and
+  `throwIfServerRefusedDelete` are public on `FolderApi` (`OpApi.undoOp` uses them).
+- `mail_compose_send` reads `draft_api.ts` instead of `index.ts`, pinning the same throw.
+- Comments in `store.ts`, `store_recovery.ts` and `write_engine.ts` that pointed at `index.ts` now name the
+  module the code moved to (docs commit, comments only).
 
 `MailCore` keeps construction, events, `start`, `close` and the `Api` surface as delegations. Target about
 350 lines.
@@ -1761,7 +1776,7 @@ Independent of R1–R3 (no shared files), so it can run in parallel. The page ke
 
 ### After R1–R3: one parse module
 
-The four `simpleParser` calls (one in `message_ingest.ts`, three in the R2 modules once moved) go through one
+The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views.ts`, two in `draft_api.ts`) go through one
 `parse.ts`, still mailparser. That makes the postal-mime swap a one-file change in the protocol work.
 
 ## Found while working

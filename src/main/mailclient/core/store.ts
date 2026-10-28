@@ -188,7 +188,7 @@ export class Store {
     } catch (err) {
       // A corrupt store is the ONE failure worth recovering from: every row came from the
       // server, so the file is rebuildable - and a throw here runs inside the accounts loop
-      // in index.ts, which would leave the app with NO mail, including the accounts whose
+      // in account_entries.ts, which would leave the app with NO mail, including the accounts whose
       // stores are fine. Only corruption codes qualify; a locked or unwritable store
       // rethrows untouched, because setting a good store aside is worse than failing.
       if (!isCorruptStoreError(err)) throw err;
@@ -912,7 +912,7 @@ export class Store {
   search(opts: { matchExpr: string | null; folderId?: string; from?: string; to?: string; subject?: string; hasAttachment?: boolean; after?: string; before?: string; limit: number; offset: number; sortBy?: 'date' | 'relevance' }): { rows: MessageRow[]; total: number; elapsedMs: number } {
     const t0 = performance.now();
     // NOTE: matchExpr arrives already prefix-capped from the API layer
-    // (capPathologicalPrefixes in index.ts) so core search, facets and snippets share it.
+    // (capPathologicalPrefixes in message_views.ts) so core search, facets and snippets share it.
     const matchExpr = opts.matchExpr;
     const where: string[] = [];
     const params: Record<string, unknown> = { limit: opts.limit, offset: opts.offset };

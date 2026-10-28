@@ -10,7 +10,7 @@ module map and factory reference - read it before changing anything here.
 ## WHERE TO LOOK
 | Task | Location |
 |---|---|
-| Add/change an `Api` method | `types.ts` (contract) + `index.ts` (`MailCore`) |
+| Add/change an `Api` method | `types.ts` (contract) + the collaborator that implements it (`message_views.ts`, `op_api.ts`, `folder_api.ts`, `draft_api.ts`, `maintenance.ts`, `account_entries.ts`) + its one-line delegation in `index.ts` (`MailCore`) |
 | Mail schema change | `migrations.ts` (append-only, `PRAGMA user_version`) |
 | Message/folder/thread queries, search | `store.ts` (weighted BM25, facets, op journal) |
 | IMAP sync, IDLE, UIDVALIDITY | `sync.ts` (façade) -> `folder_sync.ts`, `idle_poll.ts`, `sync_connection.ts` |
@@ -49,7 +49,9 @@ module map and factory reference - read it before changing anything here.
 - Two instances on one store (the lock makes that structurally impossible).
 
 ## HOTSPOTS
-- `index.ts` 1703 - the full `Api` implementation and lifecycle (R2 splits it).
+- `index.ts` 363 + `op_api.ts` 463 + `message_views.ts` 373 - `MailCore` after R2: events, lifecycle and
+  delegations; the op journal calls; the read calls. `account_entries.ts`, `folder_api.ts`, `draft_api.ts`,
+  `maintenance.ts` and `message_keys.ts` hold the rest.
 - `write_engine.ts` 1550 - serialized op playback, verify-before-replay (R3 splits it).
 - `store.ts` 993 - schema, FTS5 search, op journal (has `as any[]` and one
   `console.log` that violate the folder's own rules).

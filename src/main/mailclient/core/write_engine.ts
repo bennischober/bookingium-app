@@ -184,7 +184,7 @@ export class WriteEngine {
     return Math.max(base, Math.round(bytes / 32_000) * 1000)
   }
 
-  /** Wired by index.ts: lets the write path share the sync engine's folder mutexes
+  /** Wired by account_entries.ts: lets the write path share the sync engine's folder mutexes
    *  and request a folder resync after conflicts. */
   attachEngine(hooks: WriteEngine['engineHooks']): void {
     this.engineHooks = hooks
@@ -198,7 +198,7 @@ export class WriteEngine {
     return next as Promise<T>
   }
 
-  /** index.ts hook: ask the sync engine to resync a folder after a conflict. */
+  /** account_entries.ts hook: ask the sync engine to resync a folder after a conflict. */
   requestResync(folderPath: string): void {
     this.engineHooks?.triggerResync(folderPath)
   }
@@ -208,7 +208,7 @@ export class WriteEngine {
     return this.inFlight.has(opId)
   }
 
-  /** index.ts hook: run fn under the sync engine's folder mutex (single-writer rule). */
+  /** account_entries.ts hook: run fn under the sync engine's folder mutex (single-writer rule). */
   runUnderFolderMutex<T>(folderPath: string, fn: () => Promise<T>): Promise<T> {
     if (this.engineHooks)
       return this.engineHooks.withFolderMutex(folderPath, fn as () => Promise<void>) as Promise<T>

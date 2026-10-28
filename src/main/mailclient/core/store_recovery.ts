@@ -2,7 +2,7 @@
 //
 // The store is REBUILDABLE - every row came from the server - so a corrupt file is
 // never data the user cannot get back. What it must not do is kill the core: the
-// constructor runs inside `for (const a of options.accounts)` in index.ts, so a throw
+// constructor runs inside `for (const a of options.accounts)` in account_entries.ts, so a throw
 // here means EVERY account fails to load and the app has no mail at all, including the
 // accounts whose stores are perfectly fine.
 //

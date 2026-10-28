@@ -15,7 +15,14 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 
 | File | Role |
 |---|---|
-| `index.ts` | `createMailCore(options)` factory + `MailCore` (implements the full `Api` contract), lifecycle (`start()`/`close()`), orphan sweep |
+| `index.ts` | `createMailCore(options)` factory + `MailCore`: events, sync status/trigger/pause/resume, lifecycle (`start()`/`close()`); every other `Api` method is a one-line delegation to the modules below |
+| `account_entries.ts` | `AccountEntries`: builds one store + sync engine + write engine per account, lazy credentials, `getAccount`/`listAccounts`/`selectAccount`, `entry`/`writableEntry` |
+| `message_views.ts` | `MessageViews`: the read calls (folders, lists, threads, message, raw source, attachments, remote images, search, header lookups, contacts) and the row-to-DTO mapping |
+| `message_keys.ts` | `messageFallbackKey` + `normalizeMessageId`, the keys mail linking matches on (re-exported from `index.ts`) |
+| `op_api.ts` | `OpApi`: flags, move, trash, archive, expunge from Trash, the op journal calls (list, counts, retry, resolve, cancel, undo), replay and the retry schedule, `MOVE_BATCH_LIMIT` (re-exported from `index.ts`) |
+| `folder_api.ts` | `FolderApi`: create, rename, move and delete folder, and the folder-delete refusals |
+| `draft_api.ts` | `DraftApi`: save/send/delete/discard/get draft and the MIME assembly they share |
+| `maintenance.ts` | `Maintenance`: orphan sweep, missing-file repair, the idle wait both run behind |
 | `store.ts` | SQLite/FTS5 storage: folders, messages, threads, contacts, **search** (weighted BM25, facets, snippets), **operation journal** |
 | `migrations.ts` | Versioned schema migrations (`PRAGMA user_version`): append-only list, one transaction each, a DB from a newer build is refused |
 | `sync.ts` | `SyncEngine`: the sync façade (status, pause/resume, disk full, folder list, `syncAll`, move detection); wires the five modules below |
@@ -57,7 +64,7 @@ prettier-formatted, so hand-ports stay diffable. Do not run `prettier --write` o
 
 Every row in the store came from the server, so the file is **rebuildable** - but it used to be
 rebuildable only by deleting the folder by hand, which silently lost all local mail. Worse, the
-constructor runs inside `for (const a of options.accounts)` in `index.ts`, so a throw from one corrupt
+constructor runs inside `for (const a of options.accounts)` in `account_entries.ts`, so a throw from one corrupt
 store meant **every** account failed to load and the app had no mail at all.
 
 `store_recovery.ts` handles it: on a corruption code (`SQLITE_CORRUPT*`, `SQLITE_NOTADB` or
