@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import { copyableLinkUrl } from './mail/linkClipboard'
+import { isAppDocument } from './utils/navigation'
 
 // Data folder (database, documents): %APPDATA%/bookingum-app for the dev
 // and the installed app alike. Electron would derive it from the app name,
@@ -70,7 +71,9 @@ function createAppWindow(
     ...options,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      // The preload gets only Electron's renderer modules, not Node; electron-vite bundles its
+      // dependencies (electron.vite.config.ts)
+      sandbox: true
     }
   })
 
@@ -123,6 +126,12 @@ function createAppWindow(
       // Not a valid URL
     }
     return { action: 'deny' }
+  })
+
+  // Nothing replaces the app's page: a file dropped on the window or a stray link would load
+  // in its place. Mail links open as popups above, and hash routes never navigate.
+  window.webContents.on('will-navigate', (event, url) => {
+    if (!isAppDocument(url, window.webContents.getURL())) event.preventDefault()
   })
 
   // HMR for renderer base on electron-vite cli.

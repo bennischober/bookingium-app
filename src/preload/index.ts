@@ -52,9 +52,8 @@ const api = {
   pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
 }
 
-process.once('loaded', () => {
-  exposeElectronTRPC()
-})
+// The window is sandboxed, so this runs before the page with Electron's renderer modules only
+exposeElectronTRPC()
 
 // Use `contextBridge` APIs to expose the app API to the renderer only if context isolation is
 // enabled, otherwise just add to the DOM global. I11: no `window.electron` - the toolkit's raw

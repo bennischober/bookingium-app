@@ -15,7 +15,10 @@ export default defineConfig({
       }
     }
   },
-  preload: {},
+  // A sandboxed preload can require only Electron, so its dependencies are bundled
+  preload: {
+    build: { externalizeDeps: false }
+  },
   renderer: {
     resolve: {
       alias: {
