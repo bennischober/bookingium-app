@@ -1649,7 +1649,7 @@ The two leftovers from I17 the user chose to fix: the open half of [renderer 18]
 **Tests.** `tests/mail_refresh.test.ts` (new, 9); `mail_store_integrity` (+6); the `mail_op_journal` page
 test follows the refresh into `mailRefresh.ts`. Mutation checks and gates are in the I18 report.
 
-### I19: several email addresses per contact [done 2026-10-27, branch `feat/mail-contact-emails`]
+### I19: several email addresses per contact [done 2026-10-27, merged 2026-10-28]
 
 A contact held one address, so mail from a person's second address, a company's billing address or a venue's
 booking address was never linked. The design was agreed with the user first: a table for the further addresses,
@@ -1671,6 +1671,15 @@ a rescan when a contact gains one, an alias field on the mail account, and two a
 
 **Tests.** `tests/contact_emails.test.ts` (new, 15), `tests/mail_aliases_sender.test.ts` (new, 7),
 `tests/mail_link.test.ts` (+14). 19 mutation checks, 18 killed, one equivalent. Gates are in the I19 report.
+
+**Review follow-ups (2026-10-28).** The company, venue and hotel repositories read the further addresses back
+through the transaction, as the person repository did. `mailLink.link` refuses an account id that is no
+configured account (`tests/mail_link_account.test.ts`).
+
+**Known limit.** Every contact save starts a linker run for every account, and a save that changes any
+contact's addresses resets every account's cursor, so the next run reads the whole local store again (in
+batches, no server traffic). Cheap at today's mailbox sizes. The targeted fix is a search for just the
+changed addresses; it belongs with the protocol work, which changes how sync finds mail anyway.
 
 ## Found while working
 

@@ -6,6 +6,7 @@ import { db } from '../../db'
 import { schema, MAIL_LINK_ENTITY_TYPES } from '../../db/schema'
 import { MailLinkService, MANUAL_LINK_ENTITY_TYPES } from '../../services/MailLinkService'
 import { mailClient } from '../../mailclient/MailClientService'
+import { listMailAccounts } from '../../mailclient/accounts'
 
 const t = initTRPC.create()
 const service = container.resolve(MailLinkService)
@@ -149,6 +150,10 @@ export const mailLinkRouter = t.router({
       })
     )
     .mutation(({ input }) => {
+      // The id comes from the renderer: no link to an account that is not configured
+      if (!listMailAccounts().some((account) => account.id === input.accountId)) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Das Mail-Konto gibt es nicht mehr' })
+      }
       try {
         return { linked: service.linkManually(input) > 0 }
       } catch (error) {

@@ -194,14 +194,17 @@ export class VenueRepository {
         .where(eq(schema.venue.id, venueResult[0].id))
         .all()
 
-      return withContactEmails([
-        {
-          ...rows[0].venue,
-          address: rows[0].address,
-          contact: rows[0].contact,
-          company: rows[0].company
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...rows[0].venue,
+            address: rows[0].address,
+            contact: rows[0].contact,
+            company: rows[0].company
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
@@ -303,14 +306,17 @@ export class VenueRepository {
         .where(eq(schema.venue.id, input.id))
         .all()
 
-      return withContactEmails([
-        {
-          ...rows[0].venue,
-          address: rows[0].address,
-          contact: rows[0].contact,
-          company: rows[0].company
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...rows[0].venue,
+            address: rows[0].address,
+            contact: rows[0].contact,
+            company: rows[0].company
+          }
+        ],
+        tx
+      )[0]
     })
   }
 

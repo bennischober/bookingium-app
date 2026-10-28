@@ -151,13 +151,16 @@ export class HotelRepository {
         .where(eq(schema.hotel.id, hotelResult[0].id))
         .all()
 
-      return withContactEmails([
-        {
-          ...rows[0].hotel,
-          address: rows[0].address,
-          contact: rows[0].contact
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...rows[0].hotel,
+            address: rows[0].address,
+            contact: rows[0].contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
@@ -252,13 +255,16 @@ export class HotelRepository {
         .where(eq(schema.hotel.id, input.id))
         .all()
 
-      return withContactEmails([
-        {
-          ...rows[0].hotel,
-          address: rows[0].address,
-          contact: rows[0].contact
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...rows[0].hotel,
+            address: rows[0].address,
+            contact: rows[0].contact
+          }
+        ],
+        tx
+      )[0]
     })
   }
 

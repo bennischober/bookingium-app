@@ -206,14 +206,17 @@ export class CompanyRepository {
         .all()
 
       const row = created[0]
-      return withContactEmails([
-        {
-          ...row.company,
-          address: row.address,
-          contact: row.contact,
-          bank: row.bank
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...row.company,
+            address: row.address,
+            contact: row.contact,
+            bank: row.bank
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
@@ -340,14 +343,17 @@ export class CompanyRepository {
         .all()
 
       const row = updated[0]
-      return withContactEmails([
-        {
-          ...row.company,
-          address: row.address,
-          contact: row.contact,
-          bank: row.bank
-        }
-      ])[0]
+      return withContactEmails(
+        [
+          {
+            ...row.company,
+            address: row.address,
+            contact: row.contact,
+            bank: row.bank
+          }
+        ],
+        tx
+      )[0]
     })
   }
 
