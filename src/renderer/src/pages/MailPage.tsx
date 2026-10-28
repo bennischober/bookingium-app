@@ -55,6 +55,8 @@ import {
   single
 } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
+import { useMailSearch } from '@/hooks/useMailSearch'
+import { PAGE_SIZE } from '@/components/mail/paging'
 import { isTypingTarget, shortcutBlocked, shortcutFor } from '@/components/mail/shortcuts'
 import {
   flattenFolders,
@@ -68,13 +70,9 @@ import type {
   FolderNode,
   MessageDetail,
   MessageListItem,
-  OpSummary,
-  SearchFilters
+  OpSummary
 } from '../../../main/mailclient/core/types'
 
-const PAGE_SIZE = 100
-// Shorter queries match too much to be useful (FTS prefix search)
-const MIN_QUERY_LENGTH = 3
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
@@ -99,18 +97,6 @@ const MOVE_TEXTS: Record<
     many: (n, folder) => `${n} E-Mails nach „${folder}“ verschoben`,
     failed: 'Verschieben fehlgeschlagen'
   }
-}
-
-type ExtraFilters = { from: string; after: string; before: string; hasAttachment: boolean }
-const NO_FILTERS: ExtraFilters = { from: '', after: '', before: '', hasAttachment: false }
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), ms)
-    return () => clearTimeout(timer)
-  }, [value, ms])
-  return debounced
 }
 
 export default function MailPage() {
@@ -143,14 +129,9 @@ export default function MailPage() {
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
   // B2: the folder being dragged, so a drop knows what to move
   const [movingFolder, setMovingFolder] = useState<FolderNode | null>(null)
-  const [query, setQuery] = useState('')
   // H2: a write op the user started and that is still running; the sync bar shows it.
   // Autosave and flag ops are excluded (see opLabel.ts) so the bar stays quiet.
   const [runningOp, setRunningOp] = useState<string | null>(null)
-  const [filters, setFilters] = useState<ExtraFilters>(NO_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
-  const [facetFolderId, setFacetFolderId] = useState<string | null>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
   // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
   const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
@@ -183,41 +164,23 @@ export default function MailPage() {
     enabled: ready && folderId !== null
   })
 
-  // Search replaces the folder list while a query or filter is set
-  const searchInput = useDebounced({ query: query.trim(), ...filters }, 180)
-  const hasFilter = Boolean(
-    searchInput.from || searchInput.after || searchInput.before || searchInput.hasAttachment
-  )
-  const searching = searchInput.query.length >= MIN_QUERY_LENGTH || hasFilter
-  const searchFilters: SearchFilters = {
-    query: searchInput.query.length >= MIN_QUERY_LENGTH ? searchInput.query : '',
-    from: searchInput.from || undefined,
-    after: searchInput.after || undefined,
-    before: searchInput.before || undefined,
-    hasAttachment: searchInput.hasAttachment || undefined,
-    folderId: facetFolderId ?? undefined,
-    sortBy: searchInput.query.length >= MIN_QUERY_LENGTH ? 'relevance' : 'date'
-  }
-  const results = useInfiniteQuery({
-    queryKey: ['mail', accountId, 'search', searchFilters],
-    queryFn: ({ pageParam = 0 }) =>
-      mailApi.search(
-        {
-          ...searchFilters,
-          limit: PAGE_SIZE,
-          offset: pageParam as number,
-          wantFacets: pageParam === 0,
-          wantSnippets: true
-        },
-        accountId
-      ),
-    getNextPageParam: (last, pages) => {
-      const loaded = pages.reduce((n, page) => n + page.items.length, 0)
-      return last.items.length === PAGE_SIZE && loaded < last.total ? loaded : undefined
-    },
-    enabled: ready && searching,
-    keepPreviousData: true
-  })
+  const {
+    query,
+    setQuery,
+    filters,
+    setFilters,
+    showFilters,
+    setShowFilters,
+    facetFolderId,
+    setFacetFolderId,
+    searchRef,
+    hasFilter,
+    searching,
+    results,
+    snippets,
+    firstResult,
+    clearSearch
+  } = useMailSearch({ accountId, ready })
 
   // G2/L1: mails the user just moved away are hidden at click time, before the server has
   // answered, so the next mail is immediately selectable and a quick delete-run feels instant.
@@ -259,12 +222,6 @@ export default function MailPage() {
   )
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
-  const snippets = useMemo(
-    () => Object.assign({}, ...(results.data?.pages.map((p) => p.snippetMap) ?? [])),
-    [results.data]
-  ) as Record<number, string>
-  const firstResult = results.data?.pages[0]
-
   const syncStatus = useQuery({
     queryKey: ['mail', accountId, 'sync'],
     queryFn: () => mailApi.getSyncStatus(accountId),
@@ -797,11 +754,6 @@ export default function MailPage() {
   }
 
   const listLoading = searching ? results.isLoading : messages.isLoading || folders.isLoading
-  const clearSearch = () => {
-    setQuery('')
-    setFilters(NO_FILTERS)
-    setFacetFolderId(null)
-  }
   const chooseFolder = (id: string) => {
     setChosenFolderId(id)
     setSelection(EMPTY_SELECTION)
