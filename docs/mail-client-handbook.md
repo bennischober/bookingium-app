@@ -47,10 +47,13 @@ src/main/
 src/renderer/src/
   lib/mailApi.ts                 Proxy: mailApi.method(...args, accountId) → trpc mail.call
   lib/mailConnection.ts          account dialog helpers
-  pages/MailPage.tsx             three-pane mail page (944 lines; split by concern when you touch it)
+  pages/MailPage.tsx             three-pane mail page: layout and wiring (756 lines)
+  hooks/useMailSearch.ts, useMailOps.ts, useMessageActions.ts, useFolderActions.ts, useMailShortcuts.ts
+                                 the page's search, op journal, message and folder actions, keyboard (R4)
   pages/MailWindowPage.tsx       pop-out window for one mail (read + answer)
   components/mail/               FolderTree, MessageList, MessageView, ComposeView, MessageMenu,
-                                 SelectionActions, PaneResizer, composeDraft.ts, format.ts, selection.ts
+                                 SelectionActions, PaneResizer, SyncIndicator, composeDraft.ts, format.ts,
+                                 selection.ts, paging.ts
   components/settings/MailAccountsCard.tsx   accounts in Einstellungen
 tests/
   mail_*.test.ts                 vitest: compose, compose_draft, connection, selection, store_migrations, write_queue

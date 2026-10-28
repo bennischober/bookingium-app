@@ -15,6 +15,8 @@ Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, me
 | Compose / reply / forward | `ComposeView.tsx` (917L) | draft save/send/discard, contact autocomplete |
 | Folder tree | `FolderTree.tsx` | `FolderDrop` contract for drag-to-folder |
 | Pane layout | `PaneResizer.tsx`, `MessageMenu.tsx`, `SelectionActions.tsx` | |
+| Sync bar | `SyncIndicator.tsx` | connection, running op, retry countdown (`useNow`) |
+| MailPage's state and handlers | `@/hooks/useMailSearch`, `useMailOps`, `useMessageActions`, `useFolderActions`, `useMailShortcuts` | R4; `paging.ts` holds the shared `PAGE_SIZE` |
 | Draft state machine | `composeDraft.ts` | `ComposeState`, `emptyCompose`, `replyCompose`, `forwardCompose`, `fromSavedDraft`, `toDraftInput` |
 | Formatting | `format.ts` | `messageKey`, `formatListDate`, `formatSize`, `formatAddresses`, `safeFileName`, `snippetParts` |
 | Multi-select | `selection.ts` | `clickSelection`, `moveSelection`, `selectAll`, `nextAfterRemoval` |

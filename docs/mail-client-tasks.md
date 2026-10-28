@@ -1782,7 +1782,22 @@ Target about 600 lines. The op handlers become functions over a write context:
 2. `write_send.ts`: send, the unknown-outcome probe, filing to Sent, draft save and draft cleanup.
 3. `write_folders.ts`: folder create, rename, delete. Flags and expunge are small and stay.
 
-### R4: `MailPage` (pages/MailPage.tsx)
+### R4: `MailPage` (pages/MailPage.tsx) [done 2026-10-28]
+
+**Result.** Six commits (`349a79b`, `87448fc`, `1ca22ea`, `3d8ffda`, `9bf87a6`, `bae82c8`), `pnpm test` green after
+each. `MailPage.tsx` went from 1400 to 756 lines; `SyncIndicator.tsx` 173, `useMailSearch.ts` 93, `useMailOps.ts` 103,
+`useMessageActions.ts` 294, `useFolderActions.ts` 102, `useMailShortcuts.ts` 94. Deviations from the plan below:
+- The hooks live in `hooks/`, next to the renderer's other hooks; `SyncIndicator` is in `components/mail/` as planned.
+- Each hook takes one context object and returns an object the page destructures, so the moved bodies and the
+  page's JSX stay verbatim. `useMessageActions` and `useMailOps` call `useQueryClient()` themselves.
+- `PAGE_SIZE` moved to the new `components/mail/paging.ts`, because the page and `useMessageActions` both need it.
+- `refreshLists` and `failed` moved up in the page, before the first hook that takes them.
+- `useMailSearch` also owns `clearSearch`; `useMessageActions` also owns `MoveTarget` and `MOVE_TEXTS` and returns
+  `listItems` and `setHiddenIds` (the account switch still clears the set in the page).
+- The source-reading suites follow the code: `mail_sync_bar`, `mail_op_journal`, `mail_archive_actions` (two tests),
+  `mail_optimistic_race`, `mail_renderer_optimism` and `mail_shortcuts_guard` read the new files; the G7 ordering pin
+  now checks the page calls `useMessageActions(` after its messages query. `mail_readonly_actions` and
+  `mail_renderer_low` still read the page.
 
 Independent of R1–R3 (no shared files), so it can run in parallel. The page keeps layout and wiring.
 1. `components/mail/SyncIndicator.tsx` (with `useNow`).
@@ -1812,6 +1827,8 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
+
+- 2026-10-28, R4.6, `hooks/useMailShortcuts.ts:35`: the moved comment "Declared after every handler it calls" now describes the page's `useMailShortcuts(` call site, not the hook, and the handler still re-subscribes on every render (no deps), as the renderer review noted.
 
 - 2026-10-28, R3, `docs/mail-client-handbook.md:119`: recipe 4.2 step 2 still puts a new op's public method in `core/index.ts`; since R2 it belongs in the collaborator (`op_api.ts`, `folder_api.ts`, `draft_api.ts`, whose context has `replayOps`) with a one-line delegation in `index.ts`, and the tree's `index.ts` line (35) still lists the per-account entries that moved to `account_entries.ts`.
 - 2026-10-28, R1, `src/main/mailclient/core/folder_locks.ts:61`: `hasInFlightOps` (and `SyncEngine.hasInFlightOps`, `sync.ts:202`) has no callers in `src/` or `tests/`, already before R1; remove or wire it in a later card.

@@ -15,7 +15,7 @@ exported and imported only by `router.tsx` via `@/pages/<Name>Page`.
 | Detail pages (tabs in `?tab=`) | `BandDetailPage`, `PersonDetailPage`, `CompanyDetailPage`, `VenueDetailPage`, `EventHubPage`, `SettingsPage` | tab guards live in `components/<obj>/constants.ts` |
 | Invoice detail | `InvoiceDetailPage.tsx` | status changes, e-invoice check, history |
 | Print routes (`_print` layout) | `InvoicePrintPage`, `ContractPrintPage`, `ManagementContractPrintPage` | chrome-free; see `components/print/AGENTS.md` |
-| Mail | `MailPage.tsx` (1417L, largest), `MailWindowPage.tsx` | mail window is its own root route |
+| Mail | `MailPage.tsx` (756L), `MailWindowPage.tsx` | mail window is its own root route; the page's state and handlers live in `hooks/useMail*.ts`, `useMessageActions`, `useFolderActions` (R4) |
 | Contact lists (Verteiler) | `ContactListPage.tsx` (615L) | filters + infinite list + booking history |
 
 ## CONVENTIONS
@@ -45,7 +45,7 @@ exported and imported only by `router.tsx` via `@/pages/<Name>Page`.
 - No page-level tRPC client, no direct `trpcVanilla` from a component body during render.
 
 ## HOTSPOTS
-- `MailPage.tsx` 1417L (list + accounts + compose entry), `ContactListPage.tsx` 615L,
+- `MailPage.tsx` 756L (layout and wiring; split in R4 into five hooks and `SyncIndicator`), `ContactListPage.tsx` 615L,
   `PersonDetailPage.tsx` 469L, `CompanyDetailPage.tsx` 406L, `SettingsPage.tsx` 370L.
 - Shared infra every list page depends on: `components/data-table.tsx` (9 pages),
   `components/form-sheet.tsx` (11 pages), `components/export/ExportButton.tsx` (8),

@@ -16,7 +16,7 @@ src/renderer/src/
 ├── pages/         # one component per route - see pages/AGENTS.md
 ├── components/    # shared infra + feature dirs - see components/AGENTS.md
 ├── lib/           # non-hook helpers: trpc, routing, confirm, labels, formatting
-├── hooks/         # reusable hooks (list query, form sheet, stored prefs)
+├── hooks/         # reusable hooks (list query, form sheet, stored prefs) + MailPage's five hooks
 └── assets/index.css   # Tailwind 4 import + oklch tokens (:root / .dark)
 ```
 
