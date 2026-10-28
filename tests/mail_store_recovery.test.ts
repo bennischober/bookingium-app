@@ -9,7 +9,7 @@
 //
 // The rule that matters most is the NEGATIVE one: only the two corruption codes may ever set a store
 // aside. Quarantining on a transient failure would throw away a good store, which is worse than the bug.
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import os from 'os'
@@ -230,12 +230,14 @@ describe('corrupt store: what must NOT be quarantined', () => {
   it('throws when the store cannot be set aside, instead of looping', () => {
     // SC4: on Windows a file with an open handle cannot be renamed (EBUSY, measured). That is the
     // "cannot set it aside" case: the recovery must fail loudly, never reopen the same corrupt file.
+    // Linux renames an open file without complaint, so the refusal is simulated on every platform.
     const dir = scratchDir()
     const dbPath = seedStore(dir)
     corruptMiddle(dbPath)
-    // a foreign process still holds the file: the rename must fail
-    const holder = new Database(dbPath)
-    cleanups.push(() => holder.close())
+    const busy = vi.spyOn(fs, 'renameSync').mockImplementation(() => {
+      throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' })
+    })
+    cleanups.push(() => busy.mockRestore())
 
     expect(() => new Store(dir, 'acc', Date.now, {})).toThrow()
     // and the corrupt file is still there, untouched
