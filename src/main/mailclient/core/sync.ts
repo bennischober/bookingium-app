@@ -48,6 +48,9 @@ export interface AccountConfig {
   requestDelayMs?: number;     // sleep between IMAP commands in sweeps
 }
 
+/** S1: the agreed threshold (5 MB of RFC822.SIZE); a builder that sets it turns partial ingest on */
+export const LAZY_ABOVE_BYTES = 5_000_000;
+
 /** Task 5: account configs are built by the HOST from injected values — the core no
  * longer reads process.env or derives repo paths. These two builders keep the pacing
  * defaults that were tuned for IONOS (Task 3) so hosts get sane numbers for free. */
@@ -69,6 +72,7 @@ export function makeProductionAccount(input: {
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
     interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
     requestDelayMs: 150,           // pace STATUS/UID sweeps
+    lazyAboveBytes: LAZY_ABOVE_BYTES, // S1, on for the first IONOS run; removing it turns partial ingest off
   };
 }
 
@@ -96,11 +100,9 @@ export function makeCanaryAccount(input: {
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
     interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
     requestDelayMs: 150,           // pace STATUS/UID sweeps
+    lazyAboveBytes: LAZY_ABOVE_BYTES,
   };
 }
-
-/** S1: the agreed threshold (5 MB of RFC822.SIZE); a builder that sets it turns partial ingest on */
-export const LAZY_ABOVE_BYTES = 5_000_000;
 
 export function makeSandboxAccount(input: {
   id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;

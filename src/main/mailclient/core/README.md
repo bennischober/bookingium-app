@@ -152,8 +152,8 @@ the real path. It is a QA seam, off unless set.
 
 ## A large message is stored without its large parts
 
-S1. With `AccountConfig.lazyAboveBytes` set (`makeSandboxAccount` sets `LAZY_ABOVE_BYTES`, 5 MB; production and
-canary leave it unset), a message whose server size is above it is stored as a **skeleton**: `skeleton_fetch.ts`
+S1. With `AccountConfig.lazyAboveBytes` set (every account builder sets `LAZY_ABOVE_BYTES`, 5 MB; production and
+canary since the first IONOS run), a message whose server size is above it is stored as a **skeleton**: `skeleton_fetch.ts`
 fetches BODYSTRUCTURE and the sections below the threshold, and `skeleton.ts` rebuilds a MIME file that mailparser
 reads like the whole message, minus the large parts' bytes. The row has `complete = 0`, `size_bytes` is the server's,
 and `attachments_json` carries the estimated sizes.

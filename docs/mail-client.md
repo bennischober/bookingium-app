@@ -42,8 +42,8 @@ the worker paused so a live server never sees more than two connections). Encryp
 STARTTLS, which is required, never opportunistic), never guessed from the port; a login without encryption is
 allowed only to loopback (the sandbox, or a local tunnel).
 
-**Large messages are stored without their large parts (S1).** Above an account's `lazyAboveBytes` (5 MB on sandbox
-accounts; production and canary stay unset until the first S1 run against IONOS) the sync stores a skeleton: headers,
+**Large messages are stored without their large parts (S1).** Above an account's `lazyAboveBytes` (5 MB on every
+account kind; production and canary since 2026-10-28, for the first S1 run against IONOS) the sync stores a skeleton: headers,
 body text and every part below the threshold, with the attachments left out but listed with BODYSTRUCTURE's size
 estimate. The row says `complete = 0`. Lists, search and the reader work from the skeleton; the reader marks each
 attachment "≈ size · wird beim Öffnen geladen". Anything that needs the bytes (opening or saving an attachment, the .eml,

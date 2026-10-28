@@ -1823,7 +1823,7 @@ The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views
 Order: `parse.ts` (done, see above) → S1 design, agreed with the user before any code → S1 implementation. S2 is
 parked.
 
-### S1: large messages, attachments downloaded when opened [done 2026-10-28, sandbox only]
+### S1: large messages, attachments downloaded when opened [done 2026-10-28 in the sandbox; IONOS run prepared]
 
 **Why.** Every downloaded message is stored complete (`folder_sync.ts:428`, `source: true`). A mailbox with press kits,
 photos and scanned contracts fills the disk and the first sync with bytes nobody opens. Opening an attachment is
@@ -2024,6 +2024,28 @@ rare; reading a mail and finding it in search is not.
    message is stored without its large parts" (the two rules from step 6) and notes under credentials and data on
    disk.
 - Production stays read-only: these are fetches. The first run against IONOS waits for the user's go-ahead.
+
+#### S1 against IONOS: the first run [prepared 2026-10-28, waits for the user]
+
+The threshold is on for production and canary accounts (`makeProductionAccount`, `makeCanaryAccount`); taking the
+line out turns partial ingest off again, and rows already stored as skeletons still complete when opened. The run
+is the user's: Claude does not log in to IONOS.
+
+`node scripts/mail-s1-counts.mjs` reads the local stores read-only and prints numbers only: per account the
+message count and, per message above 5 MB or stored incomplete, server size, file size, `complete`, `\Seen`,
+attachment count and size, and whether the file is a skeleton or whole. Baseline 2026-10-28: two stores, none
+above the threshold, neither opened by an S1 build yet.
+
+1. The user sends one mail with an attachment above 5 MB from another mail program to their own IONOS address.
+2. The user starts the app (`pnpm dev`) with the IONOS account, read-only as before, and lets it sync.
+3. With the app closed, `node scripts/mail-s1-counts.mjs`: the mail is a skeleton (small file, `complete` 0, the
+   attachment listed with its estimated size) and not `\Seen`.
+4. The user opens the mail and saves the attachment; then the script again: `complete` 1, file and server size
+   match, attachment size real, still not `\Seen` on the server unless the user marked it.
+5. The log shows at most 2 connections at a time and no `auth-failed`.
+
+**Stop rules.** A rejected login ends the run with no retry, and the threshold comes out of the production
+builder. A structure the skeleton does not cover is downloaded whole by design: note it as a finding, not a failure.
 
 ### S2: QRESYNC [parked 2026-10-28]
 
