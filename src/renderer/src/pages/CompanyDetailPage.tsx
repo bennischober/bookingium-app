@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
+import { useCompanyTabCounts } from '@/hooks/useTabCounts'
 import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
@@ -25,7 +26,8 @@ import {
   EventsTable,
   Fields,
   InfoCard,
-  RowTable
+  RowTable,
+  TabCount
 } from '@/components/detail/DetailParts'
 import type {
   CompanyDto,
@@ -257,6 +259,7 @@ function InvoicesTab({ companyId }: { companyId: number }) {
 export default function CompanyDetailPage() {
   const { companyId } = useParams({ strict: false }) as { companyId?: string }
   const id = parseRecordId(companyId)
+  const counts = useCompanyTabCounts(id)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -364,12 +367,30 @@ export default function CompanyDetailPage() {
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="contacts">Ansprechpartner</TabsTrigger>
-          <TabsTrigger value="bands">Bands</TabsTrigger>
-          <TabsTrigger value="venues">Spielstätten</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="contacts">
+            Ansprechpartner
+            <TabCount count={counts.contacts} />
+          </TabsTrigger>
+          <TabsTrigger value="bands">
+            Bands
+            <TabCount count={counts.bands} />
+          </TabsTrigger>
+          <TabsTrigger value="venues">
+            Spielstätten
+            <TabCount count={counts.venues} />
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            Events
+            <TabCount count={counts.events} />
+          </TabsTrigger>
+          <TabsTrigger value="invoices">
+            Rechnungen
+            <TabCount count={counts.invoices} />
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

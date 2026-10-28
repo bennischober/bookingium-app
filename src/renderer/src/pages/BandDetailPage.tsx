@@ -5,6 +5,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
+import { useBandTabCounts } from '@/hooks/useTabCounts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ import { ManagementContractPanel } from '@/components/band/ManagementContractShe
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
-import { EventsTable, InfoCard } from '@/components/detail/DetailParts'
+import { EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
 import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 
 /** Overview: who the band is, who bills and represents it */
@@ -100,6 +101,7 @@ function EventsTab({ bandId }: { bandId: number }) {
 export default function BandDetailPage() {
   const { bandId } = useParams({ strict: false }) as { bandId?: string }
   const id = parseRecordId(bandId)
+  const counts = useBandTabCounts(id)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -199,10 +201,22 @@ export default function BandDetailPage() {
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="members">Mitglieder</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="contracts">Managementverträge</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="members">
+            Mitglieder
+            <TabCount count={counts.members} />
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            Events
+            <TabCount count={counts.events} />
+          </TabsTrigger>
+          <TabsTrigger value="contracts">
+            Managementverträge
+            <TabCount count={counts.contracts} />
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

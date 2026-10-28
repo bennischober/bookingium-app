@@ -130,3 +130,16 @@ test('search palette and event page open the company page', async () => {
     'Live Music Berlin GmbH'
   )
 })
+
+test('tabs show how many records they hold, nothing when empty', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Firmen' }).first().click()
+  await page.locator('tr', { hasText: COMPANY }).first().click()
+  await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
+
+  // Seed: both demo bands, no venue; Übersicht never counts
+  await expect(page.getByRole('tab', { name: 'Bands' })).toHaveText('Bands2')
+  await expect(page.getByRole('tab', { name: 'Spielstätten' })).toHaveText('Spielstätten')
+  await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveText('Übersicht')
+  await expect(page.getByRole('tab', { name: 'Events' })).toHaveText(/^Events\d+$/)
+})

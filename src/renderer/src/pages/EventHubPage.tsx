@@ -2,6 +2,9 @@ import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useState } from 'react'
 import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
+import { parseRecordId } from '@/lib/recordId'
+import { useEventTabCounts } from '@/hooks/useTabCounts'
+import { TabCount } from '@/components/detail/DetailParts'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +22,7 @@ import { isEventTab } from '@/components/event-hub/constants'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
+  const counts = useEventTabCounts(parseRecordId(eventId))
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -181,7 +185,10 @@ export function EventHubPage() {
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

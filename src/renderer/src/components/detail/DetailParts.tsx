@@ -22,6 +22,12 @@ export function Empty({ children = '–' }: { children?: React.ReactNode }) {
   return <span className="text-muted-foreground">{children}</span>
 }
 
+/** Muted row count after a tab's label; nothing while loading or at zero */
+export function TabCount({ count }: { count: number | undefined }) {
+  if (!count) return null
+  return <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{count}</span>
+}
+
 /** Address as lines ("Street 1", "12345 City", "Country"), or nothing */
 export function AddressLines({ address }: { address: AddressDto | null }) {
   const lines = address
