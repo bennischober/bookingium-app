@@ -13,6 +13,8 @@
 //    'unknown' + probe by Message-ID; never an automatic resend.
 //  - per-account single writer: playback serialized; folder-level mutual exclusion
 //    with the sync engine via engine.withFolderMutex.
+// R3: the move, send/draft and folder ops live in write_moves.ts, write_send.ts and
+// write_folders.ts; this file keeps the queue, the watchdog, preflight, flags and expunge.
 import { ImapFlow } from 'imapflow'
 import fs from 'fs'
 import { Store, JournalRow } from './store.js'

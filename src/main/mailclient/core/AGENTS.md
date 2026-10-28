@@ -14,7 +14,7 @@ module map and factory reference - read it before changing anything here.
 | Mail schema change | `migrations.ts` (append-only, `PRAGMA user_version`) |
 | Message/folder/thread queries, search | `store.ts` (weighted BM25, facets, op journal) |
 | IMAP sync, IDLE, UIDVALIDITY | `sync.ts` (façade) -> `folder_sync.ts`, `idle_poll.ts`, `sync_connection.ts` |
-| Flag/move/delete/expunge/send playback | `write_engine.ts` |
+| Flag/move/delete/expunge/send playback | `write_engine.ts` (queue, watchdog, preflight, flags, expunge) -> `write_moves.ts`, `write_send.ts`, `write_folders.ts` |
 | Which host may be written to | `write_guard.ts` - the only write-path guard |
 | Reply/forward/draft MIME | `compose.ts` |
 | HTML mail sanitizing | `sanitize.ts` (DOMPurify + jsdom, the only DOM user) |
@@ -43,7 +43,7 @@ module map and factory reference - read it before changing anything here.
 - Writing outside `write_guard.ts` - the sync engine must never write.
 - Wiping local data before a staged swap; UIDVALIDITY reset must never wipe.
 - More than 1 sync + 1 IDLE connection, or skipping the per-folder mutex.
-- Trusting a cached SELECT in `write_engine.ts`; blanket `EXPUNGE`; auto-resending
+- Trusting a cached SELECT in the write path (`write_engine.ts`, `write_moves.ts`); blanket `EXPUNGE`; auto-resending
   a send whose outcome is unknown; awaiting the imapflow fetch AsyncGenerator.
 - Editing a shipped migration, or opening a store from a newer build.
 - Two instances on one store (the lock makes that structurally impossible).
@@ -52,7 +52,8 @@ module map and factory reference - read it before changing anything here.
 - `index.ts` 363 + `op_api.ts` 463 + `message_views.ts` 373 - `MailCore` after R2: events, lifecycle and
   delegations; the op journal calls; the read calls. `account_entries.ts`, `folder_api.ts`, `draft_api.ts`,
   `maintenance.ts` and `message_keys.ts` hold the rest.
-- `write_engine.ts` 1550 - serialized op playback, verify-before-replay (R3 splits it).
+- `write_engine.ts` 625 + `write_moves.ts` 486 + `write_send.ts` 391 - op playback after R3: queue, watchdog,
+  preflight, flags and expunge; moves; send and drafts. `write_folders.ts` and `write_select.ts` hold the rest.
 - `store.ts` 993 - schema, FTS5 search, op journal (has `as any[]` and one
   `console.log` that violate the folder's own rules).
 - `sync.ts` 746 + `folder_sync.ts` 515 + `idle_poll.ts` 481 - the sync engine after R1:

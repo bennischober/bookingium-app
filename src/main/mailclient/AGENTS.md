@@ -53,7 +53,8 @@ store, a utility-process worker, and the self-contained `core/` engine.
 
 ## HOTSPOTS
 - `core/index.ts` 363 (split in R2 into `op_api.ts`, `message_views.ts`, `account_entries.ts`,
-  `folder_api.ts`, `draft_api.ts`, `maintenance.ts`, `message_keys.ts`), `core/write_engine.ts` 1550 and
+  `folder_api.ts`, `draft_api.ts`, `maintenance.ts`, `message_keys.ts`), `core/write_engine.ts` 625 (split in R3 into
+  `write_moves.ts`, `write_send.ts`, `write_folders.ts`, `write_select.ts`) and
   the sync engine (`core/sync.ts` 746, split in R1 into `folder_sync.ts`, `idle_poll.ts`,
   `sync_connection.ts`, `message_ingest.ts`, `folder_locks.ts`) - where almost every mail bug lands.
 - `protocol.ts` + `core/types.ts` - the cross-process contract; both must agree.

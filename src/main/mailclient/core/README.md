@@ -31,7 +31,11 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `message_ingest.ts` | `MessageIngest`: storing a fetched message or an appended draft (body file + row), the fault-injection hook |
 | `folder_sync.ts` | `FolderSync`: one folder's pass (CONDSTORE/QRESYNC tiered + UID-sweep fallback), staged UIDVALIDITY swap, downloads, mass-expunge check |
 | `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, STATUS polling, the tiered flag sweep |
-| `write_engine.ts` | `WriteEngine`: crash-safe execution of flag/move/delete/expunge/send/draft ops, serialized playback, verify-before-replay |
+| `write_engine.ts` | `WriteEngine`: crash-safe, serialized playback of journaled ops: the queue, `execute`, the watchdog, the write connection, `preflight`, flags and expunge; the other op kinds go to the four modules below |
+| `write_moves.ts` | `WriteMoves`: single and batch moves (delete, archive and draft delete are moves too), the batch preflight, the resume after a crash, the local half |
+| `write_send.ts` | `WriteSend`: send with its phases, the unknown-outcome probe, filing to Sent, draft save and removing old draft versions; `smtpRefused` (re-exported from `write_engine.ts`) |
+| `write_folders.ts` | `WriteFolders`: folder create, rename, delete; `FOLDER_DELETE_REFUSED` (re-exported from `write_engine.ts`) |
+| `write_select.ts` | `folderMissing` + `selectFailed`: how a preflight reads a failed SELECT (`folderMissing` re-exported from `write_engine.ts`) |
 | `write_connection.ts` | `WriteConnectionPool`: one reused write connection, NOOP before reuse, closed after 30 s idle |
 | `connection_budget.ts` | `ConnectionBudget`: the account's `maxConnections`, shared by sync, IDLE and writes |
 | `write_guard.ts` | THE write guard: fixed loopback allowlist + `assertSandboxHost`; `writeRefusal` per account (canary flag, SMTP encryption), `settingsRefusal` for main's save check (I6); sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
@@ -165,7 +169,7 @@ is saved, with its own 15 s deadline.
 
 ## A failed SELECT is not always a missing folder
 
-I15a (MR-30). `folderMissing(error)` in `write_engine.ts` decides it from the server's own answer: a tagged
+I15a (MR-30). `folderMissing(error)` in `write_select.ts` decides it from the server's own answer: a tagged
 `NO` with `NONEXISTENT` or `TRYCREATE`, or with no response code (servers before RFC 5530), means the folder
 is gone, and the op is a conflict. A `NO` with a transient code (`UNAVAILABLE`, `INUSE`, `LIMIT`,
 `SERVERBUG`, `OVERQUOTA`), a `BYE`, a timeout or a closed socket is `failed`: the client is dropped and a
@@ -268,7 +272,7 @@ by design — the lock protects whole app instances, not individual components.
   plain Node process or Electron main/utility process. Never needed in a renderer.
 - **better-sqlite3**: `store.ts` (native module — rebuilt for Electron's ABI on install).
 - **imapflow / mailparser**: `sync.ts`, write paths, attachment parsing.
-- **nodemailer**: `write_engine.ts` (SMTP send).
+- **nodemailer**: `write_send.ts` (SMTP send), through `writeSmtp` in `write_guard.ts`; `compose.ts` (MIME).
 - **Node built-ins only** otherwise (`fs`, `path`, `crypto`, `net`, `events` semantics
   via plain callbacks). `process.memoryUsage()` is read for the `getSyncStatus()`
   `serverRssMB` field (observability; works in the utility process too).

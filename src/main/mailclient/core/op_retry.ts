@@ -14,7 +14,7 @@ export function retryDelay(round: number): number {
   return Math.min(60_000 * 2 ** Math.max(0, round), 15 * 60_000)
 }
 
-/** I1: the phase a send op's payload records ('smtp' or 'sent'), see WriteEngine.doSend */
+/** I1: the phase a send op's payload records ('smtp' or 'sent'), see WriteSend.doSend */
 export function sendPhase(op: { payload: string | null }): string | undefined {
   try {
     return (JSON.parse(op.payload || '{}') as { phase?: string }).phase

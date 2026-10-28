@@ -1756,7 +1756,25 @@ maintenance. Deviations from the plan below:
 
 `messageFallbackKey` and `normalizeMessageId` move to a small module and stay exported from `index.ts`.
 
-### R3: `WriteEngine` (core/write_engine.ts)
+### R3: `WriteEngine` (core/write_engine.ts) [done 2026-10-28]
+
+**Result.** Four commits (`26ce0c7`, `a336787`, `9ced988`, `1008bc8`), `pnpm test` green after each.
+`write_engine.ts` went from 1550 to 625 lines; `write_moves.ts` 486, `write_send.ts` 391, `write_folders.ts` 138,
+`write_select.ts` 29. Deviations from the plan below:
+- R3.1 is an extra step: `folderMissing` and `selectFailed` went to `write_select.ts` first, because both the
+  engine's `preflight` and the batch preflight in `write_moves.ts` need them and importing them from
+  `write_engine.ts` would be a runtime import cycle (the new modules import only types from it).
+  `write_engine.ts` re-exports `folderMissing`.
+- The handlers are classes with a narrow context (`WriteMoves`, `WriteSend`, `WriteFolders`), not free functions,
+  like the R1 and R2 modules: private forwarders keep the moved bodies verbatim. The engine hands over
+  `writeClient`, `credentials`, `clock`, `sinkProbe` and `engineHooks` as lazy accessors, so tests that replace
+  `writeClient` on the engine and the hooks `attachEngine` sets later still reach the collaborators.
+- `BatchMember`, `BatchMoved`, `smtpRefused` and `FOLDER_DELETE_REFUSED` moved with their code; `write_engine.ts`
+  re-exports them, so no importer changed.
+- `mail_files` reads `writes.moves.applyMoveLocally` instead of `writes.applyMoveLocally`, pinning the same
+  local half.
+- Comments that pointed at `WriteEngine.doSend` (`op_retry.ts`) and the handbook's write-op recipe now name the
+  new modules (docs commit).
 
 The engine keeps the queue, `execute`, the watchdog, the write connection, `drain`, `close` and `preflight`.
 Target about 600 lines. The op handlers become functions over a write context:
@@ -1795,6 +1813,7 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
+- 2026-10-28, R3, `docs/mail-client-handbook.md:119`: recipe 4.2 step 2 still puts a new op's public method in `core/index.ts`; since R2 it belongs in the collaborator (`op_api.ts`, `folder_api.ts`, `draft_api.ts`, whose context has `replayOps`) with a one-line delegation in `index.ts`, and the tree's `index.ts` line (35) still lists the per-account entries that moved to `account_entries.ts`.
 - 2026-10-28, R1, `src/main/mailclient/core/folder_locks.ts:61`: `hasInFlightOps` (and `SyncEngine.hasInFlightOps`, `sync.ts:202`) has no callers in `src/` or `tests/`, already before R1; remove or wire it in a later card.
 - 2026-10-26, review, `docs/mail-client-review.md`: a full review of the branch at `811f04a` found 43 issues (MR-01 to MR-43; 3 critical send-path bugs that can deliver a mail twice) and proposes card group I (I1 to I14). No real-mailbox writes beyond the canary until I1 to I4 land.
 

@@ -37,7 +37,8 @@ src/main/
       store.ts                   SQLite: folders, messages, FTS search, op_journal
       migrations.ts              mail-store schema versions (PRAGMA user_version)
       sync.ts                    SyncEngine: download, flag sweeps, IDLE, folder mutex, storeMessage
-      write_engine.ts            WriteEngine: journaled ops (flag, move, delete, expunge, send, drafts)
+      write_engine.ts            WriteEngine: journaled op queue, watchdog, preflight, flags, expunge
+      write_moves.ts, write_send.ts, write_folders.ts   moves; send and drafts; folder ops (R3)
       write_guard.ts             sandbox allowlist; injected sandbox endpoint (R1)
       compose.ts                 MIME for new/reply/forward/draft
       connection_test.ts         staged one-shot test for the account dialog
@@ -116,7 +117,8 @@ connection. Passwords never reach the renderer, logs or disk in plaintext.
 1. `core/types.ts`: extend `OpKind`. `op_journal.kind` is TEXT without a CHECK, so **no migration** is needed.
    Write the payload shape as a TS type next to it.
 2. `core/index.ts`: a public method that validates input, calls `e.store.journalEnqueue(...)` (state `pending`) and then `this.replayOps(e, [opId])`.
-3. `core/write_engine.ts`: a `case` in `executeOne`, plus `doX(op)`:
+3. `core/write_engine.ts`: a `case` in `executeOne`, plus `doX(op)` in the module that owns the kind (`write_moves.ts`,
+   `write_send.ts`, `write_folders.ts`, or the engine itself for flags and expunge):
    - Open the client through the same helper as the other ops (today `sandboxClient()`; after A7 a per-account
      client). **Never open an ImapFlow yourself.**
    - Preflight: check the state the op expects (the folder exists or does not exist). If it does not hold, return
