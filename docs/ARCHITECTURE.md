@@ -173,7 +173,7 @@ the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
   back from the server), contacts derived from it, and the operation journal,
   whose replay on another computer could send mail twice. `mail/accounts.json`
   holds DPAPI-encrypted passwords that only work for this Windows user. See
-  docs/TODOS.md for the account ids on a new computer.
+  issue #55 for the account ids on a new computer.
 
 ## Migrations
 
