@@ -1,6 +1,7 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
-import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
+import { useDetailTab } from '@/hooks/useDetailTab'
+import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
@@ -322,13 +323,8 @@ export default function PersonDetailPage() {
   const id = parseRecordId(personId)
   const counts = usePersonTabCounts(id)
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
-  // the E-Mails tab exists only with the mail client on
-  const activeTab =
-    isPersonTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled)
-      ? search.tab
-      : 'overview'
+  const activeTab = useDetailTab(isPersonTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<PersonDto>()
 

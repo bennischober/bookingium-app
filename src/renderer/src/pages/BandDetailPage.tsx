@@ -1,6 +1,7 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
-import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
+import { useDetailTab } from '@/hooks/useDetailTab'
+import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
@@ -97,11 +98,8 @@ export default function BandDetailPage() {
   const id = parseRecordId(bandId)
   const counts = useBandTabCounts(id)
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
-  // the E-Mails tab exists only with the mail client on
-  const activeTab =
-    isBandTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled) ? search.tab : 'overview'
+  const activeTab = useDetailTab(isBandTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<BandDto>()
 

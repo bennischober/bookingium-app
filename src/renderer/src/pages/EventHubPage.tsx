@@ -1,7 +1,9 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useDetailTab } from '@/hooks/useDetailTab'
 import { useState } from 'react'
-import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
+import { useParams, useNavigate, useBlocker } from '@tanstack/react-router'
+import { confirmAction } from '@/lib/confirm'
 import { parseRecordId } from '@/lib/recordId'
 import { useEventTabCounts } from '@/hooks/useTabCounts'
 import { TabCount } from '@/components/detail/DetailParts'
@@ -23,13 +25,8 @@ export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const counts = useEventTabCounts(parseRecordId(eventId))
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
-  // the E-Mails tab exists only with the mail client on
-  const activeTab =
-    isEventTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled)
-      ? search.tab
-      : 'overview'
+  const activeTab = useDetailTab(isEventTab, 'overview')
 
   const {
     data: event,
@@ -55,6 +52,21 @@ export function EventHubPage() {
     setIsEditing(false)
   }
 
+  // Leaving the event while editing would drop the changes of every tab; switching tabs keeps them.
+  // No beforeunload: in Electron it would silently keep the window from closing.
+  useBlocker({
+    shouldBlockFn: async ({ current, next }) =>
+      isEditing &&
+      current.pathname !== next.pathname &&
+      !(await confirmAction({
+        title: 'Änderungen verwerfen?',
+        description: 'Das Event wird gerade bearbeitet. Ungespeicherte Änderungen gehen verloren.',
+        confirmLabel: 'Verwerfen',
+        destructive: true
+      })),
+    enableBeforeUnload: false
+  })
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -75,7 +87,7 @@ export function EventHubPage() {
   }
 
   return (
-    <div className="flex flex-col w-full h-full p-6">
+    <div className="flex flex-col w-full min-w-0 h-full p-6">
       {/* ── Page header ── */}
       <div className="mb-6">
         <Button
@@ -154,9 +166,7 @@ export function EventHubPage() {
         {isEditing && (
           <p className="mt-3 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2 inline-flex items-center gap-1.5">
             <Pencil className="h-3 w-3" />
-            Sie befinden sich im Bearbeitungsmodus. Nehmen Sie Änderungen in beliebigen Tabs vor und
-            klicken Sie anschließend auf <strong>Alles speichern</strong> oder{' '}
-            <strong>Verwerfen</strong>.
+            Bearbeitungsmodus – Änderungen in allen Tabs werden gemeinsam gespeichert.
           </p>
         )}
       </div>
@@ -177,7 +187,8 @@ export function EventHubPage() {
         }
         className="flex-1"
       >
-        <TabsList className="mb-6">
+        {/* Tabs wrap onto a second row in narrow windows */}
+        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>

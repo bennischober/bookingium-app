@@ -79,9 +79,9 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Vertrag Berlin.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(
-    page.getByRole('list', { name: 'Dokumente', exact: true })
-  ).toContainText('Vertrag Berlin.pdf')
+  await expect(page.getByRole('list', { name: 'Dokumente', exact: true })).toContainText(
+    'Vertrag Berlin.pdf'
+  )
   // D1: the band's own documents are shown read-only on the gig as well
   await expect(page.getByRole('region', { name: 'Dokumente der Band' })).toContainText(
     'Stageplot.pdf'
@@ -111,4 +111,39 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('dialog').getByRole('button', { name: 'Löschen' }).click()
   await expect(bandDocs).toBeHidden()
   expect(existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf'))).toBe(false)
+})
+
+test('a tab that does not exist is dropped, and leaving an event being edited asks first', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Bands' }).first().click()
+  await page.locator('tr', { hasText: BAND }).first().click()
+  await expect(page.getByRole('heading', { name: BAND })).toBeVisible()
+
+  // The mail client is off: a link to the E-Mails tab shows Übersicht and loses ?tab=mails
+  await page.goto(`${page.url().replace(/\?.*$/, '')}?tab=mails`)
+  await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+  await expect(page).not.toHaveURL(/tab=/)
+
+  await page.getByRole('tab', { name: 'Events' }).click()
+  await page.getByRole('table', { name: 'Events der Band' }).getByText(EVENT).click()
+  await expect(page.getByRole('heading', { name: EVENT })).toBeVisible()
+  await page.getByRole('button', { name: 'Bearbeiten' }).click()
+  await expect(page.getByText('Bearbeitungsmodus – Änderungen in allen Tabs')).toBeVisible()
+
+  // Switching tabs keeps the edit; leaving the event asks first
+  await page.getByRole('tab', { name: 'Finanzen' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await page.getByRole('button', { name: 'Alle Events' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('Änderungen verwerfen?')
+  await dialog.getByRole('button', { name: 'Abbrechen' }).click()
+  await expect(page.getByRole('heading', { name: EVENT })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Alles speichern' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Alle Events' }).click()
+  await dialog.getByRole('button', { name: 'Verwerfen' }).click()
+  await expect(page.getByRole('heading', { name: EVENT })).toBeHidden()
 })
