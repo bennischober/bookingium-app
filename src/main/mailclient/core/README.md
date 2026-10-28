@@ -98,7 +98,7 @@ I12 (MR-26) closed the gaps that left:
   whole file, which costs seconds on a large store.
 - **A rebuild re-links the files.** Before the rebuilt store syncs, `salvageRelinks` reads what it can
   of the quarantined file into the `relinks` table (migration 3): folder path, UIDVALIDITY, UID, file and
-  size, only for a bare `.eml` name whose file still has the recorded size. The sync then adopts such a
+  size, only for a stored `.eml` path (`isStoredMessagePath`) whose file still has the recorded size. The sync then adopts such a
   file for a UID the server reports with the same size and downloads only the rest. The orphan sweep
   leaves re-linked files alone until the entry is older than the orphan TTL.
 - **One account is not every account.** `createMailCore` opens each store inside its own try/catch, so
@@ -328,9 +328,12 @@ MPL-only dependencies.
 
 The core owns and creates everything it needs under the host-provided `dataDir`
 (`<userData>/mail/data` in bookingum): one folder per account (`<dataDir>/<id>/`) with
-the SQLite DB (+ WAL/SHM) and the `.eml` files, and the `.mailcore.lock` file. The `.eml`
-file name is `<message_key>.eml` and the row's `file_path` holds it; a move renames the
-file and updates the row. Always open a file as `path.join(<account dir>, row.file_path)`,
+the SQLite DB (+ WAL/SHM) and the `.eml` files, and the `.mailcore.lock` file. A new
+`.eml` file gets a random name and sits in one of 256 subfolders named after its first two
+characters (`3f/3f….eml`), so no folder holds more than a few thousand files; files
+written before that stay at the top level. The row's `file_path` holds the relative path
+(`/` as separator) and a move keeps the file. `listMessageFiles()` (`files.ts`) reads both
+places. Always open a file as `path.join(<account dir>, row.file_path)`,
 never relative to the working directory. A row with `complete = 0` points at a skeleton
 (S1), not the whole message; `ensureComplete` replaces it before anything reads the large
 parts. All of it can be rebuilt from the server: nothing

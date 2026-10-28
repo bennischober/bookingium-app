@@ -7,6 +7,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { listMessageFiles } from '../src/main/mailclient/core/files'
 import { Store, type MessageRow } from '../src/main/mailclient/core/store'
 import { MessageIngest } from '../src/main/mailclient/core/message_ingest'
 import {
@@ -119,8 +120,7 @@ function setup(engineOpts: Parameters<typeof fakeEngine>[1] = {}, answer?: () =>
     return store.getByKey(store.messageKey(ACCOUNT, inbox.id, '7', 4))!
   }
   const files = () =>
-    fs
-      .readdirSync(dir)
+    listMessageFiles(dir)
       .filter((f) => f.endsWith('.eml'))
       .sort()
   return { store, engine, calls, entry, partial, files, completion: new MessageCompletion() }

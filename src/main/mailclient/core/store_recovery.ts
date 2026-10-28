@@ -28,6 +28,7 @@ import DatabaseConstructor from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { isStoredMessagePath } from './files.js';
 
 /**
  * A store may be set aside for exactly one reason: its file is corrupt. The extended codes
@@ -165,7 +166,7 @@ export function salvageRelinks(quarantinedPath: string, accountDir: string): Rel
       m.file_path AS filePath, m.size_bytes AS sizeBytes
       FROM messages m JOIN folders f ON f.id = m.folder_id`).iterate() as Iterable<RelinkEntry>;
     for (const row of rows) {
-      if (typeof row.filePath !== 'string' || !row.filePath.endsWith('.eml') || path.basename(row.filePath) !== row.filePath) continue;
+      if (typeof row.filePath !== 'string' || !isStoredMessagePath(row.filePath)) continue;
       if (typeof row.imapPath !== 'string' || !row.uidValidity || !Number.isInteger(row.uid)) continue;
       try {
         if (fs.statSync(path.join(accountDir, row.filePath)).size !== row.sizeBytes) continue;

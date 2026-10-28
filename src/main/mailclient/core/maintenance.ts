@@ -3,7 +3,7 @@
 // count. MailCore keeps one-line delegations.
 import fs from 'fs';
 import path from 'path';
-import { isMessageFile, writeMessageFile } from './files.js';
+import { listMessageFiles, writeMessageFile } from './files.js';
 import { isDiskFullError } from './disk_full.js';
 import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import { adoptWholeSource } from './message_complete.js';
@@ -65,13 +65,14 @@ export class Maintenance {
         for (const r of e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[]) known.add(r.file_path);
         const orphanDir = path.join(dir, 'orphans');
         const cutoff = now - graceMs;
-        for (const f of fs.readdirSync(dir)) {
-          if (!isMessageFile(f) || known.has(f)) continue;
+        for (const f of listMessageFiles(dir)) {
+          if (known.has(f)) continue;
           try {
             const abs = path.join(dir, f);
             if (fs.statSync(abs).mtimeMs >= cutoff) continue;
             fs.mkdirSync(orphanDir, { recursive: true });
-            fs.renameSync(abs, path.join(orphanDir, f));
+            // the name is a UUID, so orphans/ stays one flat folder
+            fs.renameSync(abs, path.join(orphanDir, path.basename(f)));
             moved++;
           } catch { /* racing with the row insert — next sweep retries */ }
         }
@@ -122,7 +123,7 @@ export class Maintenance {
     const rows = e.store.db.prepare(
       'SELECT id, folder_id, uid, file_path, size_bytes FROM messages ORDER BY id DESC')
       .all() as { id: number; folder_id: string; uid: number; file_path: string; size_bytes: number }[];
-    const onDisk = new Set(fs.existsSync(dir) ? fs.readdirSync(dir) : []);
+    const onDisk = new Set(listMessageFiles(dir));
     const allMissing = rows.filter(r => !onDisk.has(r.file_path));
     if (!allMissing.length) return { repaired: 0, left: 0 };
     if (e.engine.isDiskFull) return { repaired: 0, left: allMissing.length };
@@ -175,8 +176,7 @@ export class Maintenance {
     const e = this.entry(accountId);
     const dir = e.store.dataDirResolved;
     const rows = e.store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[];
-    const onDisk = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
-    const files = new Set(onDisk.filter(isMessageFile));
+    const files = new Set(listMessageFiles(dir));
     const referenced = new Set(rows.map(r => r.file_path));
     let rowsWithoutFile = 0;
     for (const r of referenced) if (!files.has(r)) rowsWithoutFile++;

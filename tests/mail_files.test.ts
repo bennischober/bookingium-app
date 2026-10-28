@@ -7,7 +7,12 @@ import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Store } from '../src/main/mailclient/core/store'
-import { writeMessageFile, isMessageFile } from '../src/main/mailclient/core/files'
+import {
+  writeMessageFile,
+  isMessageFile,
+  isStoredMessagePath,
+  listMessageFiles
+} from '../src/main/mailclient/core/files'
 import { WriteEngine } from '../src/main/mailclient/core/write_engine'
 
 const cleanups: (() => void)[] = []
@@ -26,14 +31,16 @@ const body = (subject: string): Buffer =>
   Buffer.from(`From: a@example.test\r\nSubject: ${subject}\r\n\r\n${subject}\r\n`)
 
 describe('writeMessageFile (A3 step 1)', () => {
-  it('writes the file under a random, permanent name and returns it', () => {
+  it('writes the file under a random, permanent name in its subfolder and returns it', () => {
     const dir = tempDir()
     const name = writeMessageFile(dir, body('hallo'))
 
-    expect(name).toMatch(/^[0-9a-f-]{36}\.eml$/)
+    // the subfolder is the name's first two characters
+    expect(name).toMatch(/^([0-9a-f]{2})\/\1[0-9a-f-]{34}\.eml$/)
+    expect(isStoredMessagePath(name)).toBe(true)
     expect(fs.readFileSync(path.join(dir, name), 'utf8')).toContain('hallo')
     // no tmp file is left behind
-    expect(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toHaveLength(0)
+    expect(listMessageFiles(dir).filter((f) => f.endsWith('.tmp'))).toHaveLength(0)
   })
 
   it('gives every message its own name', () => {
@@ -41,7 +48,7 @@ describe('writeMessageFile (A3 step 1)', () => {
     const a = writeMessageFile(dir, body('eins'))
     const b = writeMessageFile(dir, body('zwei'))
     expect(a).not.toBe(b)
-    expect(fs.readdirSync(dir).sort()).toEqual([a, b].sort())
+    expect(listMessageFiles(dir).sort()).toEqual([a, b].sort())
   })
 
   it('keeps the file under its tmp name when the rename keeps failing', () => {
@@ -68,7 +75,38 @@ describe('writeMessageFile (A3 step 1)', () => {
     })
 
     expect(() => writeMessageFile(dir, body('kaputt'))).toThrow('disk full')
-    expect(fs.readdirSync(dir)).toHaveLength(0)
+    expect(listMessageFiles(dir)).toHaveLength(0)
+  })
+})
+
+describe('message files in subfolders', () => {
+  it('lists the subfolders and the top level, where older files stay', () => {
+    const dir = tempDir()
+    const fresh = writeMessageFile(dir, body('neu'))
+    // a file written before the subfolders, and its row still names it there
+    fs.writeFileSync(path.join(dir, 'aaaaaaaa-0000-4000-8000-000000000000.eml'), 'x')
+    // not message files: the store, parked orphans, another folder
+    fs.writeFileSync(path.join(dir, 'acc.db'), 'x')
+    fs.mkdirSync(path.join(dir, 'orphans'))
+    fs.writeFileSync(path.join(dir, 'orphans', 'bbbbbbbb-0000-4000-8000-000000000000.eml'), 'x')
+    fs.mkdirSync(path.join(dir, 'attachments'))
+    fs.writeFileSync(path.join(dir, 'attachments', 'c.eml'), 'x')
+
+    expect(listMessageFiles(dir).sort()).toEqual(
+      [fresh, 'aaaaaaaa-0000-4000-8000-000000000000.eml'].sort()
+    )
+    expect(listMessageFiles(path.join(dir, 'missing'))).toEqual([])
+  })
+
+  it('takes only a stored path as one: top level or one subfolder', () => {
+    expect(isStoredMessagePath('3f/3f000000-0000-4000-8000-000000000000.eml')).toBe(true)
+    expect(isStoredMessagePath('3f000000-0000-4000-8000-000000000000.eml')).toBe(true)
+    expect(isStoredMessagePath('3f/3f000000.eml.tmp')).toBe(false)
+    expect(isStoredMessagePath('orphans/3f000000.eml')).toBe(false)
+    expect(isStoredMessagePath('../3f000000.eml')).toBe(false)
+    expect(isStoredMessagePath('3f/../../x.eml')).toBe(false)
+    expect(isStoredMessagePath('3f\\3f000000.eml')).toBe(false)
+    expect(isStoredMessagePath('/3f000000.eml')).toBe(false)
   })
 })
 
@@ -126,7 +164,10 @@ describe('sweep and move (A3 steps 3 and 6)', () => {
     })
 
     // The engine's local half of the move, without any server contact
-    const writes = new WriteEngine(store, 'acc', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials }) as unknown as {
+    const writes = new WriteEngine(store, 'acc', {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    }) as unknown as {
       moves: { applyMoveLocally: (op: unknown, target: string, uid: number) => void }
     }
     writes.moves.applyMoveLocally(store.journalGet(opId)!, 'Archiv', 7)
@@ -257,7 +298,7 @@ describe('storeMessage and consistency (A3 steps 2 and 4)', () => {
     // The consistency check itself lives on MailCore; the counts are computed from
     // the same two sources here, so the store contract is pinned.
     const rows = store.db.prepare('SELECT file_path FROM messages').all() as { file_path: string }[]
-    const files = new Set(fs.readdirSync(dir).filter(isMessageFile))
+    const files = new Set(listMessageFiles(dir))
     const referenced = new Set(rows.map((r) => r.file_path))
     const rowsWithoutFile = [...referenced].filter((r) => !files.has(r)).length
     const filesWithoutRow = [...files].filter((f) => !referenced.has(f)).length

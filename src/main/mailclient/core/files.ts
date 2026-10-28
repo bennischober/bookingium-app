@@ -8,6 +8,11 @@
 // The write order is: tmp file -> fsync -> rename to the final name. A crash therefore
 // leaves either no file, a `.tmp` file, or a complete final file - never a truncated one that
 // a row already points at.
+//
+// Files sit in 256 subfolders named after the first two characters of the name (`3f/3f…eml`),
+// so no folder holds a whole mailbox: Explorer, virus scanners and backups slow down on one
+// folder of tens of thousands of files. Files written before that stay at the top level; their
+// rows name them there, and listMessageFiles() reads both places.
 import fs from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
@@ -24,17 +29,23 @@ const sleepSync = (ms: number): void => {
   }
 }
 
+/** A subfolder writeMessageFile() puts files in */
+const SHARD = /^[0-9a-f]{2}$/
+
 /**
- * Writes `source` as a new message file under `dir` and returns its name relative to
- * `dir`. The name is a random UUID, never derived from the message key.
+ * Writes `source` as a new message file under `dir` and returns its path relative to
+ * `dir`, with `/` as separator (`3f/3f….eml`). The name is a random UUID, never derived
+ * from the message key.
  *
  * When the final rename keeps failing (Windows AV), the file stays under its `.tmp` name
  * and THAT name is returned: the file exists under the returned name in every case, so the
  * row always points at a readable file.
  */
 export function writeMessageFile(dir: string, source: Buffer | Uint8Array): string {
-  fs.mkdirSync(dir, { recursive: true })
-  const name = `${randomUUID()}.eml`
+  const id = randomUUID()
+  const shard = id.slice(0, 2)
+  fs.mkdirSync(path.join(dir, shard), { recursive: true })
+  const name = `${shard}/${id}.eml`
   const tmp = `${name}.tmp`
   const tmpPath = path.join(dir, tmp)
   const finalPath = path.join(dir, name)
@@ -74,4 +85,31 @@ export function writeMessageFile(dir: string, source: Buffer | Uint8Array): stri
 /** True for a name this module hands out (a message file or its in-flight tmp name). */
 export function isMessageFile(name: string): boolean {
   return name.endsWith('.eml') || name.endsWith('.eml.tmp')
+}
+
+/**
+ * Whether `rel` is a path writeMessageFile() hands out for a finished file: a name at the top
+ * level or in one subfolder, never anywhere else (no `..`, no other folder).
+ */
+export function isStoredMessagePath(rel: string): boolean {
+  return /^(?:[0-9a-f]{2}\/)?[^/\\]+\.eml$/.test(rel) && !rel.includes('..')
+}
+
+/**
+ * Every message file under `dir`, as the relative path a row stores: the subfolders and the
+ * top level, where files written before the subfolders stay. Other folders (`orphans/`) are
+ * not read.
+ */
+export function listMessageFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return []
+  const files: string[] = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && isMessageFile(entry.name)) files.push(entry.name)
+    else if (entry.isDirectory() && SHARD.test(entry.name)) {
+      for (const f of fs.readdirSync(path.join(dir, entry.name))) {
+        if (isMessageFile(f)) files.push(`${entry.name}/${f}`)
+      }
+    }
+  }
+  return files
 }
