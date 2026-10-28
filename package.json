@@ -28,7 +28,7 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "fuzz:mail": "esbuild tests/fuzz/run.ts --bundle --platform=node --format=esm --outfile=out/fuzz-mail.mjs --external:imapflow --external:better-sqlite3 --external:mailparser --external:nodemailer --external:jsdom --external:dompurify --log-level=error && node out/fuzz-mail.mjs",
-    "test:sandbox": "vitest run tests/mail_crash_points.test.ts tests/mail_smtp_auth.test.ts tests/mail_skeleton_sandbox.test.ts"
+    "test:sandbox": "vitest run tests/mail_crash_points.test.ts tests/mail_smtp_auth.test.ts tests/mail_skeleton_sandbox.test.ts tests/mail_partial_ingest_sandbox.test.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

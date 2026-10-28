@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { isDiskFullError } from './disk_full.js';
+import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import type { AccountEntry, Logger } from './index.js';
 
 /** What the housekeeping needs from the core. */
@@ -118,8 +119,8 @@ export class Maintenance {
   private async repairAccountFiles(e: AccountEntry, limit: number): Promise<{ repaired: number; left: number }> {
     const dir = e.store.dataDirResolved;
     const rows = e.store.db.prepare(
-      'SELECT id, folder_id, uid, file_path FROM messages ORDER BY id DESC')
-      .all() as { id: number; folder_id: string; uid: number; file_path: string }[];
+      'SELECT id, folder_id, uid, file_path, size_bytes FROM messages ORDER BY id DESC')
+      .all() as { id: number; folder_id: string; uid: number; file_path: string; size_bytes: number }[];
     const onDisk = new Set(fs.existsSync(dir) ? fs.readdirSync(dir) : []);
     const allMissing = rows.filter(r => !onDisk.has(r.file_path));
     if (!allMissing.length) return { repaired: 0, left: 0 };
@@ -138,14 +139,21 @@ export class Maintenance {
       try {
         const done = await e.engine.withSelected(folder.imap_path, folder.uid_validity, async client => {
           let n = 0;
+          // S1: `complete` says what the new file holds, whatever the row held before
+          const rewrite = (id: number, source: Buffer, complete: number) => {
+            const relPath = writeMessageFile(dir, source);
+            e.store.db.prepare('UPDATE messages SET file_path = ?, complete = ? WHERE id = ?').run(relPath, complete, id);
+            n++;
+          };
           for (const row of missing) {
+            // S1: the download pass's threshold; size_bytes is the server size
+            const skeleton = storedAsSkeleton(e.config.lazyAboveBytes, row.size_bytes) ? await fetchSkeleton(client, row.uid) : null;
+            if (skeleton) { rewrite(row.id, skeleton.source, 0); continue; }
             for await (const msg of client.fetch(String(row.uid), {
               uid: true, source: true, flags: true, internalDate: true, size: true,
             }, { uid: true })) {
               if (!msg.source) continue;
-              const relPath = writeMessageFile(dir, msg.source);
-              e.store.db.prepare('UPDATE messages SET file_path = ? WHERE id = ?').run(relPath, row.id);
-              n++;
+              rewrite(row.id, msg.source, 1);
             }
           }
           return n;

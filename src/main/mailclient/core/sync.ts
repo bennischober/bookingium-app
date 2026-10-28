@@ -41,6 +41,9 @@ export interface AccountConfig {
   // Task 3: throttle + pacing for live/production servers (gentle-by-default)
   maxConnections?: number;     // hard cap for sync, IDLE and writes together (I15a: a write takes IDLE's slot)
   batchBytes?: number;         // pause download when a batch exceeds this
+  // S1: a message above this server size (RFC822.SIZE) is stored as its skeleton, without its
+  // large parts, until it is opened. Unset: every message is downloaded whole.
+  lazyAboveBytes?: number;
   interBatchDelayMs?: number;  // sleep between download batches
   requestDelayMs?: number;     // sleep between IMAP commands in sweeps
 }

@@ -44,6 +44,7 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `imap_options.ts` | Shared ImapFlow options (timeouts, socket error listener) |
 | `parse.ts` | the one door to the MIME parser (mailparser): `parseMessage(source)` at ingest, `parseStoredMessage(store, file_path)` for a stored .eml |
 | `skeleton.ts` | S1: a large message without its large parts, rebuilt from BODYSTRUCTURE and fetched sections so mailparser reads it like the whole; size estimates (pure) |
+| `skeleton_fetch.ts` | S1: the threshold check and the fetch of one message's skeleton, for the download pass and repair |
 | `sanitize.ts` | HTML mail sanitizer (DOMPurify + jsdom) — the only module needing a DOM |
 | `remote_images.ts` | opt-in remote-image fetch (URL → data: URI, size/type limited) |
 | `types.ts` | data types + the `Api` contract (the renderer imports these types; the worker calls `MailCore` methods by name) |

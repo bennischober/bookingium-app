@@ -1919,6 +1919,26 @@ rare; reading a mail and finding it in search is not.
    For step 3: the repair sweep (`maintenance.ts:147`) rewrites `file_path` after a full download, so it must also
    set `complete` to match what it wrote.
 3. Partial ingest in the download paths, behind the threshold (off by default until step 5).
+   **Result** [done 2026-10-28]. `AccountConfig.lazyAboveBytes` (`sync.ts`), unset by default: unset, the pass fetches
+   exactly as before. `core/skeleton_fetch.ts` holds `storedAsSkeleton(threshold, size)` and `fetchSkeleton(client,
+   uid, structure?)`, which is null when the structure has no skeleton or a section is missing.
+   - Download pass (`folder_sync.ts` downloadMessages, which IDLE and poll new mail also use): with a threshold, each
+     batch first fetches size, flags, dates and BODYSTRUCTURE. The UIDs at or below the threshold are fetched whole as
+     before. Each one above it is stored as its skeleton, or fetched whole on its own when `fetchSkeleton` is null.
+     Commands are never sent inside a running fetch loop. `bytesDone` counts the bytes actually fetched.
+   - Ingest (`message_ingest.ts`): `msg.partSizes` marks a skeleton. The row gets `complete = 0`, `size_bytes` = the
+     server size, and each attachment's size from `estimatedPartSizes` by `partId` (also for a kept cid image and an
+     attached message, whose skeleton bodies are real or cut down).
+   - Repair (`maintenance.ts`): a row whose `size_bytes` is above the threshold is rewritten as its skeleton, and
+     `complete` is set to what the new file holds, whatever the row held before.
+   Tests: `tests/mail_partial_ingest.test.ts` (scripted server: which UIDs are fetched whole, the partial row, the
+   fallback, the progress bytes, at-threshold stays whole, no threshold asks for no structure).
+   `tests/mail_partial_ingest_sandbox.test.ts` (in `pnpm test:sandbox`) syncs the corpus into a store without and one
+   with a 1000-byte threshold: every row reads the same, sizes are the server's, estimates within 3 %, no `\Seen`,
+   and repair writes a skeleton above and a whole file below the threshold with `complete` to match.
+   Known for step 4: when repair writes a former skeleton row whole (only if the threshold was raised or removed),
+   its attachment sizes stay the estimates; `ensureComplete` rewrites `attachments_json` and should be reused there.
+   Relinked files are whole messages only (file length = `size_bytes`), so a partial row is never relinked.
 4. `ensureComplete` and the consumer doors listed above.
 5. UI states, then the threshold default.
 6. Sandbox suite (`pnpm test:sandbox`, threshold lowered for the test). Cover:

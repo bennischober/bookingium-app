@@ -44,6 +44,7 @@ src/main/
       connection_test.ts         staged one-shot test for the account dialog
       parse.ts                   the one door to mailparser (downloaded source, stored .eml)
       skeleton.ts                S1: large message rebuilt without its large parts (pure)
+      skeleton_fetch.ts          S1: threshold check and skeleton fetch (download pass, repair)
       sanitize.ts, remote_images.ts, imap_options.ts, instance_lock.ts
   api/routers/mail.router.ts     tRPC: mail.call (z.enum(MAIL_API_METHODS)), mail.events (subscription), accounts, test
 src/renderer/src/

@@ -55,12 +55,15 @@ export class MessageIngest {
   }
 
   /**
+   * `msg.partSizes`: S1, `source` is the message's skeleton. The row is stored incomplete, with the
+   * server size (`msg.size`) and each attachment's estimated size by `partId`.
    * `keyFolderId`: the folder the message_key is derived from, when the row is staged under
    * another folder. `existingPath`: I12, a re-linked file that is adopted instead of written;
    * it is never removed here, because the re-link entry still names it.
    */
   async storeMessage(folderId: string, uidValidity: string, msg: {
     uid: number; source: Buffer; flags?: Set<string>; internalDate?: Date | string; modseq?: bigint; size?: number;
+    partSizes?: Map<string, number>;
   }, opts: { keyFolderId?: string; existingPath?: string; outsidePass?: boolean } = {}): Promise<void> {
     if (!msg.source) return;
     if (!opts.existingPath) this.faultWrite();
@@ -73,6 +76,10 @@ export class MessageIngest {
     // under its .tmp name and that name is what the row stores.
     const relPath = opts.existingPath ?? writeMessageFile(this.store.dataDirResolved, msg.source);
     const dropFile = () => { if (!opts.existingPath) this.removeFile(relPath); };
+    // S1: a skeleton row keeps the server size, so the move check and the swap estimate stay right
+    const partial = msg.partSizes;
+    const sizeBytes = partial ? msg.size ?? msg.source.length : msg.source.length;
+    const complete = partial ? 0 : 1;
 
     let parsed: ParsedMessage;
     try {
@@ -87,8 +94,8 @@ export class MessageIngest {
           date: toIso(msg.internalDate), internal_date: toIso(msg.internalDate),
           subject: '', from_name: '', from_email: '', to_json: '[]', cc_json: '[]', bcc_json: '[]',
           flags_json: JSON.stringify(flags), modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
-          has_attachments: 0, attachments_json: '[]', size_bytes: msg.source.length,
-          body_text: '', body_html: null, snippet: '', parsed_ok: 0, parse_error: (e as Error).message,
+          has_attachments: 0, attachments_json: '[]', size_bytes: sizeBytes,
+          body_text: '', body_html: null, snippet: '', parsed_ok: 0, parse_error: (e as Error).message, complete,
         });
       } catch (insertError) {
         // the other connection won the UNIQUE race: our file belongs to no row
@@ -124,10 +131,12 @@ export class MessageIngest {
         has_attachments: (parsed.attachments || []).length > 0 ? 1 : 0,
         attachments_json: JSON.stringify((parsed.attachments || []).map(a => ({
           partId: a.partId || '', filename: a.filename || '', contentType: a.contentType || '',
-          size: a.size || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
+          // a skeleton's attachment bodies are empty (an attached message's cut down): BODYSTRUCTURE's estimate
+          size: (partial?.get(a.partId || '') ?? a.size) || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
           contentId: a.contentId || null,
         }))),
-        size_bytes: msg.source.length,
+        size_bytes: sizeBytes,
+        complete,
         body_text: (parsed.text || '').slice(0, 1_000_000),
         body_html: parsed.html ? parsed.html.slice(0, 5_000_000) : null,
         snippet: (parsed.text || '').replace(/\s+/g, ' ').slice(0, 200),

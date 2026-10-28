@@ -2,11 +2,12 @@
 // UIDVALIDITY swap with its staging folder, downloading and adopting relinked files, and the
 // mass-expunge check. The engine keeps one-line delegations. Tests override some of them on the
 // engine (downloadMessages, fullSyncFolder), so the passes call each other through the context.
-import { ImapFlow } from 'imapflow';
+import { ImapFlow, type FetchMessageObject } from 'imapflow';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, Flags } from './store.js';
 import { isDiskFullError, swapSpaceMessage, swapSpaceNeeded } from './disk_full.js';
 import { flagsFromSet, MessageIngest, toIso } from './message_ingest.js';
+import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
 
 /** I12 (MR-41): an expunge this large in one pass needs EXAMINE's EXISTS to confirm the UID list. */
@@ -398,6 +399,7 @@ export class FolderSync {
    * Task 3: throttled for live servers — batches sized by bytes, inter-batch delay,
    * pause-aware, progress-accounted (messagesDone/bytesDone). newestFirst for the
    * prioritized initial download (recent mail first → search useful early).
+   * S1: with `lazyAboveBytes` set, a message above it is stored as its skeleton.
    */
   async downloadMessages(client: ImapFlow, uids: number[], imapPath: string, folderId: string, uidValidity: string, opts: { newestFirst?: boolean; keyFolderId?: string; yieldToWrites?: boolean } = {}): Promise<number> {
     if (!uids.length) return 0;
@@ -425,18 +427,38 @@ export class FolderSync {
       const range = uidRange(batch);
       if (!range) continue;
       let batchStored = 0;
-      for await (const msg of client.fetch(range, {
-        uid: true, source: true, flags: true, internalDate: true, size: true,
-      }, { uid: true })) {
-        if (!msg.source) continue;
-        await this.storeMessage(folderId, uidValidity, { ...msg, source: msg.source }, { keyFolderId });
+      const keep = async (msg: Parameters<MessageIngest['storeMessage']>[2]) => {
+        await this.storeMessage(folderId, uidValidity, msg, { keyFolderId });
         batchStored++;
         this.progress.messagesDone++;
+        // the bytes that came over the wire: the skeleton's, for a large message
         this.progress.bytesDone += msg.source.length;
         // pause responsive even within a batch: fetch iterator is lazy, so waiting here
         // defers only the next fetch continuation (server command already in flight —
         // acceptable: one batch is ~4 MB)
         if (this.paused) await this.waitWhilePaused();
+      };
+      // S1: sizes and structures first, so the large messages stay out of the whole download
+      const large = this.account.lazyAboveBytes === undefined ? [] : await this.largeIn(client, range);
+      const wholeRange = large.length ? uidRange(batch.filter(u => !large.some(m => m.uid === u))) : range;
+      if (wholeRange) {
+        for await (const msg of client.fetch(wholeRange, {
+          uid: true, source: true, flags: true, internalDate: true, size: true,
+        }, { uid: true })) {
+          if (!msg.source) continue;
+          await keep({ ...msg, source: msg.source });
+        }
+      }
+      for (const meta of large) {
+        await this.gate();
+        const skeleton = await fetchSkeleton(client, meta.uid, meta.bodyStructure);
+        if (skeleton) {
+          await keep({ uid: meta.uid, flags: meta.flags, internalDate: meta.internalDate, modseq: meta.modseq, size: meta.size, ...skeleton });
+          continue;
+        }
+        // a structure the skeleton does not cover: downloaded whole, as below the threshold
+        const whole = await client.fetchOne(String(meta.uid), { uid: true, source: true, flags: true, internalDate: true, size: true }, { uid: true });
+        if (whole && whole.source) await keep({ ...whole, source: whole.source });
       }
       stored += batchStored;
       this.progress.currentFolder = imapPath;
@@ -446,6 +468,15 @@ export class FolderSync {
       if (this.stopped) break;
     }
     return stored;
+  }
+
+  /** S1: the batch's messages above `lazyAboveBytes`, with their structure, flags and dates (no bodies) */
+  private async largeIn(client: ImapFlow, range: string): Promise<FetchMessageObject[]> {
+    const large: FetchMessageObject[] = [];
+    for await (const m of client.fetch(range, { uid: true, size: true, flags: true, internalDate: true, bodyStructure: true }, { uid: true })) {
+      if (storedAsSkeleton(this.account.lazyAboveBytes, m.size)) large.push(m);
+    }
+    return large;
   }
 
   /**
