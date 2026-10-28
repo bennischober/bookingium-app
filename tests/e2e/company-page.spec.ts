@@ -130,3 +130,35 @@ test('search palette and event page open the company page', async () => {
     'Live Music Berlin GmbH'
   )
 })
+
+test('list rows and tab rows open by keyboard; icon buttons are named', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Firmen' }).first().click()
+
+  // Tab reaches a list row; Enter on its pencil keeps the quick edit, not the page
+  const row = page.locator('tr', { hasText: COMPANY }).first()
+  await expect(row).toHaveAttribute('tabindex', '0')
+  await row.getByRole('button', { name: 'Bearbeiten' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Firma bearbeiten' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  await row.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
+
+  // The contact's icon buttons carry the contact's name
+  await page.getByRole('tab', { name: 'Ansprechpartner' }).click()
+  await expect(page.getByRole('button', { name: 'Tom Manager entfernen' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Rolle von Tom Manager bearbeiten' })).toBeVisible()
+
+  // A row in a detail tab opens with Space
+  await page.getByRole('tab', { name: 'Events' }).click()
+  const event = page
+    .getByRole('table', { name: 'Events der Firma' })
+    .locator('tr', { hasText: 'Midnight Symphony - LA Showcase' })
+  await event.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('heading', { name: 'Midnight Symphony - LA Showcase' })).toBeVisible()
+})

@@ -240,6 +240,7 @@ export function PersonMembershipsPanel({
                   size="sm"
                   onClick={() => openEdit(row)}
                   title="Rolle bearbeiten"
+                  aria-label={`Rolle von ${row.entityName} bearbeiten`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -248,6 +249,7 @@ export function PersonMembershipsPanel({
                   size="sm"
                   onClick={() => handleRemove(row)}
                   title="Entfernen"
+                  aria-label={`${row.entityName} entfernen`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
