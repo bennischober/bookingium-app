@@ -747,6 +747,20 @@ export class SyncEngine {
 
   stopIdle(): void { this.idle.stopIdle(); }
 
+  /**
+   * The machine woke from sleep: a socket that was open before may be dead without either side
+   * having noticed (imapflow still reports it usable). Both connections are closed; the next
+   * connect() and the IDLE loop open new ones under the usual budget, backoff and circuit breaker.
+   * Cleared before they are closed, so the circuit breaker does not count them as disconnects.
+   * A pass running on the old connection fails over to a new one folder by folder (MR-30).
+   */
+  dropConnections(): void {
+    const client = this.client;
+    this.client = null;
+    if (client) { try { client.close(); } catch { /* already gone: its slot is released on 'close' */ } }
+    this.idle.dropConnection();
+  }
+
 
   async close(): Promise<void> {
     this.stopIdle();

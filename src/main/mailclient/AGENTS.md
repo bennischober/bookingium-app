@@ -12,8 +12,9 @@ The full guide is `docs/mail-client.md`.
 | Path | Role |
 |---|---|
 | `MailClientService.ts` | host: starts/stops the utility process, relays calls, events and credential requests, crash cap (3 / 60 s) |
+| `systemWake.ts` | wake-from-sleep signal (power monitor, late clock tick, network wait) -> `notifySystemResume()` |
 | `worker.ts` | utility-process entry (second electron-vite main input `mailWorker`), hosts the core |
-| `protocol.ts` | `ToWorker`/`FromWorker`/`MailEvent` messages + `MAIL_API_METHODS` allowlist (33 methods) |
+| `protocol.ts` | `ToWorker`/`FromWorker`/`MailEvent` messages + `MAIL_API_METHODS` allowlist (43 methods) |
 | `accounts.ts` | `<userData>/mail/accounts.json`, password via `safeStorage` only |
 | `core/` | the engine - see `core/AGENTS.md` |
 

@@ -12,6 +12,7 @@ export const MAIL_API_METHODS = [
   'triggerSync',
   'pauseSync',
   'resumeSync',
+  'getInboxUnread',
   'listThreads',
   'getFolders',
   'listMessages',
@@ -76,6 +77,8 @@ export type ToWorker =
   | { type: 'init'; init: WorkerInit }
   | { type: 'call'; id: number; method: MailApiMethod; args: unknown[] }
   | { type: 'credentials'; reqId: number; user?: string; pass?: string; error?: string }
+  /** The machine woke from sleep: reconnect and catch up (MailCore.afterSystemResume) */
+  | { type: 'resume' }
   | { type: 'close' }
 
 export type MailEvent =

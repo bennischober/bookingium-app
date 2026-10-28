@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { app, shell, BrowserWindow, ipcMain, dialog, clipboard } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, clipboard, net, powerMonitor } from 'electron'
 import { basename, join, extname } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -76,6 +76,7 @@ import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
 import { contactAddressEvents } from './repositories/contactEmails'
 import { listMailAccounts } from './mailclient/accounts'
+import { watchSystemWake } from './mailclient/systemWake'
 import type { OpSummary } from './mailclient/core/types'
 
 // One tRPC handler for all windows; each new window is attached to it
@@ -694,6 +695,12 @@ app.whenReady().then(async () => {
   // the "E-Mail (experimentell)" setting is on
   mailClient.setEnabledCheck(() => container.resolve(SettingsService).get().mailClient)
   mailClient.startIfConfigured()
+  // After sleep the worker's sockets may be dead without either side knowing: it reconnects and
+  // catches up once per wake
+  watchSystemWake(() => mailClient.notifySystemResume(), {
+    onResume: (listener) => powerMonitor.on('resume', listener),
+    isOnline: () => net.isOnline()
+  })
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)

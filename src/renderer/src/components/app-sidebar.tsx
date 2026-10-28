@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/sidebar'
 import { getGroupedRoutes, getRouteShortcut, isRouteActive, ROUTES } from '@/lib/routing'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useMailUnreadCount } from '@/hooks/useMailUnreadCount'
+import { unreadBadgeLabel } from '@/components/mail/unreadBadge'
 import { countDue } from '@/lib/followUps'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -33,6 +35,8 @@ export function AppSidebar({
   // Follow-ups due today or overdue, as a count on the Dashboard item
   const followUps = trpcReact.followUp.listOpen.useQuery()
   const dueCount = countDue(followUps.data ?? [])
+  // Unread mail in every account's INBOX, on the E-Mail item (only while the mail client is on)
+  const unreadMail = useMailUnreadCount()
 
   return (
     <Sidebar
@@ -96,6 +100,19 @@ export function AppSidebar({
                         >
                           {dueCount}
                           <span className="sr-only"> Wiedervorlagen fällig</span>
+                        </SidebarMenuBadge>
+                      )}
+                      {item.path === ROUTES.mail.path && unreadMail > 0 && (
+                        <SidebarMenuBadge
+                          title={`${unreadMail} ${unreadMail === 1 ? 'ungelesene E-Mail' : 'ungelesene E-Mails'} im Posteingang`}
+                          className={cn(
+                            'bg-primary/15 text-primary',
+                            collapsed &&
+                              'top-0 right-0 h-4 min-w-4 bg-primary text-[10px] text-primary-foreground'
+                          )}
+                        >
+                          {unreadBadgeLabel(unreadMail)}
+                          <span className="sr-only"> ungelesen im Posteingang</span>
                         </SidebarMenuBadge>
                       )}
                     </SidebarMenuItem>

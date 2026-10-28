@@ -396,6 +396,48 @@ test('the app sidebar collapses on the mail page and remembers it per page', asy
   await expect(expand).toBeVisible()
 })
 
+test('the E-Mail menu entry counts unread mail in every INBOX and follows a change', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const total = async () =>
+    Object.values(await mail<Record<string, number>>('getInboxUnread')).reduce((a, n) => a + n, 0)
+  const badge = page
+    .getByRole('navigation', { name: 'Hauptnavigation' })
+    .locator('[data-sidebar="menu-badge"][title$="im Posteingang"]')
+  // The exact number is in the title; the label stops at 99+
+  const shown = async () =>
+    (await badge.count()) === 0 ? 0 : parseInt((await badge.getAttribute('title')) ?? '', 10)
+
+  // On the Dashboard, where the sidebar is expanded
+  await page.goto(`${page.url().split('#')[0]}#/`)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect.poll(async () => (await shown()) === (await total()), { timeout: 30_000 }).toBe(true)
+
+  // A mail marked read or unread elsewhere changes the badge without a reload
+  const inbox = await waitForInbox(sandboxId)
+  const [first] = await mail<{ id: number; isRead: boolean }[]>(
+    'listMessages',
+    inbox.id,
+    { offset: 0, limit: 1 },
+    sandboxId
+  )
+  const before = await shown()
+  try {
+    await mail('markRead', [first.id], !first.isRead, sandboxId)
+    await expect
+      .poll(async () => (await mail<{ isRead: boolean }>('getMessage', first.id, sandboxId)).isRead)
+      .toBe(!first.isRead)
+    await expect.poll(shown, { timeout: 15_000 }).not.toBe(before)
+    await expect
+      .poll(async () => (await shown()) === (await total()), { timeout: 15_000 })
+      .toBe(true)
+  } finally {
+    await mail('markRead', [first.id], first.isRead, sandboxId)
+  }
+})
+
 test('a mail dragged onto a folder is moved there', async () => {
   const { page } = h
   const sandboxId = await ensureSandboxAccount()

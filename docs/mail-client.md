@@ -51,6 +51,12 @@ events and invoices), not a general mail client.
 - Remote images blocked until "Bilder laden" for that mail.
 - An op journal panel lists stuck, failed and unclear operations with retry, resolve and cancel.
 - A sync bar: syncing, working, offline with the next attempt, disk full, login refused.
+- **Unread badge** on the "E-Mail" menu entry: the unread mails in the INBOX of **every** account
+  (read-only accounts included, so new mail shows even in an account the page is not showing), as the
+  folder tree counts them (`countByFolder`, pending moves left out), "99+" above 99. Only while the
+  switch is on and an account exists; refreshed by the worker's `op-event` and changing `sync-event`
+  (batched like the page's lists, under its own query key), never by a timer
+  (`hooks/useMailUnreadCount.ts`, `components/mail/unreadBadge.ts`, `MailCore.getInboxUnread`).
 
 **In bookingum:**
 
@@ -109,6 +115,18 @@ UIDVALIDITY, existence, identity), the IMAP command, the local update, then `don
 **Events:** `sync-event` and `op-event` flow worker → main → the `mail.events` subscription; the renderer
 invalidates `['mail', accountId, ...]` queries on them and never polls for op results.
 
+**Waking from sleep:** `systemWake.ts` in main (Electron-free, tested on fake timers) watches
+`powerMonitor` 'resume' plus a 30 s clock tick that arrives over two minutes late (sleeps the power monitor
+misses, such as Windows Modern Standby). Signals within 60 s of a wake count once; while `net.isOnline()`
+is false it waits up to 60 s for the network. Then `MailClientService.notifySystemResume()` posts
+`{ type: 'resume' }` (nothing while the worker is starting, stopping or off), and the worker calls
+`MailCore.afterSystemResume()`: per account it closes the sync and the IDLE connection (cleared before
+closing, so no disconnect is counted and the circuit breaker stays shut), closes an **idle** write
+connection without LOGOUT (one an op is using stays, its watchdog owns it), waits for a pass that is
+already running, then runs one `syncAll()`. IDLE reconnects under the usual budget and backoff and starts
+dirty, so it syncs INBOX once. A wake arriving while an account's catch-up is pending joins it; an
+account whose login was rejected is left alone.
+
 ### Code map
 
 ```
@@ -117,6 +135,7 @@ src/main/
                                   invoice:email, mail:copyLink
   mailclient/
     MailClientService.ts          the host: worker lifecycle, crash limit, credentials, connection test
+    systemWake.ts                 wake from sleep (power monitor, late clock tick, network wait)
     worker.ts                     utility-process entry: createMailCore, the allowlist, events to main
     protocol.ts                   main <-> worker messages; MAIL_API_METHODS (the IPC allowlist)
     accounts.ts                   accounts.json, safeStorage, "Nur lesen", writeRefusal for the renderer
@@ -128,6 +147,7 @@ src/main/
 src/renderer/src/
   lib/mailApi.ts                  Proxy: mailApi.method(...args, accountId) -> mail.call
   hooks/useMailClientEnabled.ts   the experimental switch
+  hooks/useMailUnreadCount.ts     the unread badge on the "E-Mail" menu entry
   hooks/useMail*.ts, useMessageActions.ts, useFolderActions.ts   the mail page's logic
   pages/MailPage.tsx, MailWindowPage.tsx
   components/mail/                panes, compose, dialogs; pure logic in *.ts with a vitest each
@@ -319,8 +339,10 @@ Not built, roughly in the order they would matter:
 - **Leaving "experimental":** a few weeks of daily use on the real mailbox; then decide whether the switch
   goes or defaults to on. A backup before the first writes on a real mailbox stays advised.
 - **Onboarding for a large mailbox:** no disk-space check, estimate or pause for the first full sync.
-- **Sleep and resume:** nothing reacts to laptop sleep during IDLE; no multi-day soak has been run.
-- **New-mail notification:** no desktop notification, menu badge or tray.
+- **Multi-day soak:** sleep and resume are handled (see "Waking from sleep"), but no multi-day run against
+  the real mailbox has been done. A network change while the machine stays awake (Wi-Fi to LAN, VPN) is
+  not watched: imapflow's socket timeout, the write pool's NOOP check and the poll notice it, later.
+- **New-mail notification:** no desktop notification or tray icon (the menu badge is built).
 - **Thread view** (`listThreads` exists, the UI does not use it).
 - **Right-click on links** in a mail (decided against for now; the link list has open and copy).
 - **More integration:** mail from contracts, follow-ups closed by a reply or flagged when none came, an event

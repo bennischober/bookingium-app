@@ -90,14 +90,7 @@ export class IdleLoop {
     // closes at once (its loop sees it unusable) and comes back once the write connection idles
     // out; the reconnect then syncs whatever arrived in between.
     this.unregisterIdleYield?.();
-    this.unregisterIdleYield = this.budget.onYieldRequest(() => {
-      const idle = this.idleClient;
-      if (!idle) return;
-      this.idleClient = null;
-      this.idleCatchUp = true;
-      this.progress.idleConnected = false;
-      try { idle.close(); } catch { /* already closed: its slot is released on 'close' */ }
-    });
+    this.unregisterIdleYield = this.budget.onYieldRequest(() => this.dropConnection());
     const loop = async () => {
       while (!this.stopped) {
         // I4: a full disk stops IDLE's syncs too; wait for resume() instead of reconnecting
@@ -213,6 +206,24 @@ export class IdleLoop {
       }
     };
     void loop();
+  }
+
+  /**
+   * Close the IDLE connection now; the loop reconnects (once the main connection is online, within
+   * the budget and its backoff) and starts dirty, so whatever arrived meanwhile is synced. Used when
+   * a write needs the slot (I15a), and after the machine woke from sleep: the socket may have died
+   * without either side noticing, and IDLE would wait on it until the 25-minute cap.
+   *
+   * Cleared before it is closed, so the close counts as no disconnect and the loop's error path
+   * takes it for what it is.
+   */
+  dropConnection(): void {
+    const idle = this.idleClient;
+    if (!idle) return;
+    this.idleClient = null;
+    this.idleCatchUp = true;
+    this.progress.idleConnected = false;
+    try { idle.close(); } catch { /* already closed: its slot is released on 'close' */ }
   }
 
   stopIdle(): void {
