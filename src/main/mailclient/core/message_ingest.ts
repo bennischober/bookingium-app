@@ -128,13 +128,7 @@ export class MessageIngest {
         bcc_json: JSON.stringify(addrList(parsed.bcc)),
         flags_json: JSON.stringify(flags),
         modseq: msg.modseq !== undefined ? String(msg.modseq) : null,
-        has_attachments: (parsed.attachments || []).length > 0 ? 1 : 0,
-        attachments_json: JSON.stringify((parsed.attachments || []).map(a => ({
-          partId: a.partId || '', filename: a.filename || '', contentType: a.contentType || '',
-          // a skeleton's attachment bodies are empty (an attached message's cut down): BODYSTRUCTURE's estimate
-          size: (partial?.get(a.partId || '') ?? a.size) || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
-          contentId: a.contentId || null,
-        }))),
+        ...attachmentColumns(parsed, partial),
         size_bytes: sizeBytes,
         complete,
         body_text: (parsed.text || '').slice(0, 1_000_000),
@@ -173,6 +167,22 @@ export class MessageIngest {
 }
 
 // ---------- helpers ----------
+
+/**
+ * A row's attachment columns from a parse. `partSizes` (S1, a skeleton): its attachment bodies are
+ * empty (an attached message's cut down), so each size is BODYSTRUCTURE's estimate by `partId`.
+ */
+export function attachmentColumns(parsed: ParsedMessage, partSizes?: Map<string, number>): { has_attachments: number; attachments_json: string } {
+  const list = parsed.attachments || [];
+  return {
+    has_attachments: list.length > 0 ? 1 : 0,
+    attachments_json: JSON.stringify(list.map(a => ({
+      partId: a.partId || '', filename: a.filename || '', contentType: a.contentType || '',
+      size: (partSizes?.get(a.partId || '') ?? a.size) || 0, isInline: /inline/i.test(a.contentDisposition || '') || false,
+      contentId: a.contentId || null,
+    }))),
+  };
+}
 
 export function flagsFromSet(set: Set<string> | undefined): Flags {
   const s = set || new Set<string>();

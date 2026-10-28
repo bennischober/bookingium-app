@@ -1940,6 +1940,27 @@ rare; reading a mail and finding it in search is not.
    its attachment sizes stay the estimates; `ensureComplete` rewrites `attachments_json` and should be reused there.
    Relinked files are whole messages only (file length = `size_bytes`), so a partial row is never relinked.
 4. `ensureComplete` and the consumer doors listed above.
+   **Result** [done 2026-10-28]. `core/message_complete.ts`: `MessageCompletion.ensureComplete(entry, row)`, one
+   instance per MailCore. A complete row comes back as it is. Otherwise one `fetchOne` with `source` (`BODY.PEEK[]`)
+   inside `engine.withSelected` (folder mutex, EXAMINE, UIDVALIDITY checked) on the sync connection, then
+   `adoptWholeSource`: parse, write the new file, and in one transaction `file_path`, `complete = 1`,
+   `attachments_json`, `has_attachments` (`WHERE id AND file_path`, so a row changed meanwhile is left alone and the
+   new file removed), then the skeleton file is unlinked. Two callers share one promise; a failed one is forgotten,
+   so the next call tries again.
+   - Errors: null from `withSelected` (UIDVALIDITY) or no message for the UID: "Nachricht ist nicht mehr auf dem
+     Server". Any failure of the server contact: "Offline – der Anhang ist noch nicht geladen" (the original message
+     only in the log, cut to 80 characters). A full disk refuses before the fetch, and one found while writing stops
+     the account like the sync does.
+   - Doors: `getAttachment` and `getRawEml` (`message_views.ts`), `getDraft` and the forward's `attachmentsOf`
+     (`draft_api.ts`) take the row from `ensureComplete`. The document router and attachments open/save go through
+     `getAttachment`, so they need no change.
+   - Repair writes every whole file through `adoptWholeSource`, so a former skeleton row gets the real attachment
+     sizes (the item left from step 3). `attachmentColumns` (`message_ingest.ts`) is the one place the attachment
+     columns are built.
+   Tests: `tests/mail_message_complete.test.ts` (scripted server: the completed row and file, one download for two
+   callers, gone / offline / disk full leave the row as it was, a row deleted during the download, each door, repair
+   of a former skeleton). The sandbox suite completes every partial row of the corpus: file byte-equal to the
+   server's source, `attachments_json` equal to the whole store's, no `\Seen`.
 5. UI states, then the threshold default.
 6. Sandbox suite (`pnpm test:sandbox`, threshold lowered for the test). Cover:
    - a generated message with a binary attachment (example.test addresses) stays partial

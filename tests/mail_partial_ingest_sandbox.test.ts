@@ -3,7 +3,7 @@
 // most of the corpus is stored as skeletons. Every row of the second store must read like the
 // first (headers, text, HTML, attachment list), with the server size, estimated attachment sizes
 // and `complete = 0` above the threshold. Fetching sets no \Seen, and the repair sweep sets
-// `complete` to what it wrote.
+// `complete` to what it wrote. Step 4: completing each partial row stores the server's bytes.
 //
 // Failures name the corpus mail and the differing field, never its content. Skips (with a visible
 // reason) when the sandbox is down; the mails it appends are removed again, the folder stays.
@@ -23,6 +23,7 @@ import {
   type AccountConfig
 } from '../src/main/mailclient/core/sync'
 import { Maintenance } from '../src/main/mailclient/core/maintenance'
+import { MessageCompletion } from '../src/main/mailclient/core/message_complete'
 import type { AccountEntry } from '../src/main/mailclient/core/index'
 
 const FOLDER = 'S1Partial'
@@ -251,5 +252,42 @@ describe.skipIf(!sandboxUp)('S1 partial ingest (sandbox)', () => {
     expect([bigAfter.complete, plainAfter.complete]).toEqual([0, 1])
     expect(fs.statSync(lazy.store.filePath(bigAfter.file_path)).size).toBe(skeletonSize)
     expect(fs.statSync(lazy.store.filePath(plainAfter.file_path)).size).toBe(serverSize.get(plain))
+  }, 60_000)
+
+  // step 4, after repair: it re-reads the rows, whatever repair left them as
+  it('ensureComplete stores the server bytes and the full parse, and sets no \\Seen', async () => {
+    const entry = { config: lazy.config, store: lazy.store, engine: lazy.engine } as AccountEntry
+    const completion = new MessageCompletion()
+    const wrong: string[] = []
+    let completed = 0
+    for (const mail of corpus) {
+      const row = lazy.store.getMessage(lazy.byName.get(mail.name)!.id)!
+      if (row.complete !== 0) continue
+      const done = await completion.ensureComplete(entry, row)
+      completed++
+      const server = await client.fetchOne(
+        String(uids.get(mail.name)),
+        { source: true },
+        { uid: true }
+      )
+      const reference = whole.byName.get(mail.name)!
+      if (!server || !fs.readFileSync(lazy.store.filePath(done.file_path)).equals(server.source!))
+        wrong.push(`${mail.name}: file`)
+      if (done.complete !== 1) wrong.push(`${mail.name}: complete`)
+      if (done.attachments_json !== reference.attachments_json)
+        wrong.push(`${mail.name}: attachments`)
+      if (done.has_attachments !== reference.has_attachments) wrong.push(`${mail.name}: has`)
+    }
+    expect(completed).toBeGreaterThan(0)
+    expect(wrong).toEqual([])
+
+    const seen: string[] = []
+    for await (const m of client.fetch(
+      [...uids.values()].join(','),
+      { flags: true },
+      { uid: true }
+    ))
+      if (m.flags?.has('\\Seen')) seen.push(String(m.uid))
+    expect(seen).toEqual([])
   }, 60_000)
 })

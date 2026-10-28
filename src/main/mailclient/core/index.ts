@@ -25,6 +25,7 @@ import { OpApi } from './op_api.js';
 import { FolderApi } from './folder_api.js';
 import { DraftApi } from './draft_api.js';
 import { Maintenance } from './maintenance.js';
+import { MessageCompletion } from './message_complete.js';
 
 export type Logger = {
   info?: (msg: string) => void;
@@ -118,6 +119,7 @@ export class MailCore implements Api {
   private folders: FolderApi;
   private drafts: DraftApi;
   private maintenance: Maintenance;
+  private completion: MessageCompletion;
   private lock: DataDirLock;
   private log: Logger;
   private clock: () => number;
@@ -137,7 +139,11 @@ export class MailCore implements Api {
     this.lock.acquire();
 
     this.accounts = new AccountEntries({ log: this.log, clock: this.clock, emitEvent: e => this.emitEvent(e) });
-    this.views = new MessageViews({ options, entry: id => this.entry(id), emitEvent: e => this.emitEvent(e) });
+    this.completion = new MessageCompletion(this.log);
+    this.views = new MessageViews({
+      options, entry: id => this.entry(id), emitEvent: e => this.emitEvent(e),
+      ensureComplete: (e, row) => this.completion.ensureComplete(e, row),
+    });
     this.ops = new OpApi({
       log: this.log, isClosed: () => this.closed, entry: id => this.entry(id), writableEntry: id => this.writableEntry(id),
       emitEvent: e => this.emitEvent(e), runOp: (e, op) => this.runOp(e, op), parseFlags: row => this.views.parseFlags(row),
@@ -149,6 +155,7 @@ export class MailCore implements Api {
       clock: this.clock, entry: id => this.entry(id), writableEntry: id => this.writableEntry(id), runOp: (e, op) => this.runOp(e, op),
       replayOps: (e, opIds) => this.ops.replayOps(e, opIds), planFlagOp: (e, ids, delta) => this.ops.planFlagOp(e, ids, delta),
       resyncMovedFolders: (e, opIds) => this.ops.resyncMovedFolders(e, opIds),
+      ensureComplete: (e, row) => this.completion.ensureComplete(e, row),
     });
     this.maintenance = new Maintenance({ entries: this.entries, log: this.log, clock: this.clock, entry: id => this.entry(id) });
     this.accounts.buildEntries(options);

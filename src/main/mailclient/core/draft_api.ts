@@ -1,7 +1,7 @@
 // R2: the draft and send calls of MailCore, out of core/index.ts: save, send, delete, discard
 // and read back a draft, building the MIME (with a forwarded mail's attachments) and finding
 // the Drafts folder. MailCore keeps one-line delegations, and a send runs through its runOp.
-import type { JournalRow } from './store.js';
+import type { JournalRow, MessageRow } from './store.js';
 import type { OpResult } from './write_engine.js';
 import type { DraftInput, SavedDraft } from './types.js';
 import { composeMime, ComposeError, SEND_KEY, type ComposedMime } from './compose.js';
@@ -19,6 +19,8 @@ export interface DraftApiContext {
   replayOps(e: AccountEntry, opIds: string[]): Promise<void>;
   planFlagOp(e: AccountEntry, ids: number[], delta: { add?: string[]; remove?: string[] }): string[];
   resyncMovedFolders(e: AccountEntry, opIds: string[]): void;
+  /** S1: the row with its whole message stored, downloaded first when it holds a skeleton */
+  ensureComplete(e: AccountEntry, row: MessageRow): Promise<MessageRow>;
 }
 
 export class DraftApi {
@@ -31,6 +33,7 @@ export class DraftApi {
   private replayOps(e: AccountEntry, opIds: string[]): Promise<void> { return this.ctx.replayOps(e, opIds); }
   private planFlagOp(e: AccountEntry, ids: number[], delta: { add?: string[]; remove?: string[] }): string[] { return this.ctx.planFlagOp(e, ids, delta); }
   private resyncMovedFolders(e: AccountEntry, opIds: string[]): void { this.ctx.resyncMovedFolders(e, opIds); }
+  private ensureComplete(e: AccountEntry, row: MessageRow): Promise<MessageRow> { return this.ctx.ensureComplete(e, row); }
 
   async saveDraft(draft: DraftInput, replaceUid?: number | null, accountId?: string): Promise<number> {
     const e = this.writableEntry(accountId);
@@ -154,8 +157,10 @@ export class DraftApi {
 
   async getDraft(id: number, accountId?: string): Promise<SavedDraft> {
     const e = this.entry(accountId);
-    const row = e.store.getMessage(id);
-    if (!row) throw new Error(`draft ${id} not found`);
+    const found = e.store.getMessage(id);
+    if (!found) throw new Error(`draft ${id} not found`);
+    // S1: a draft another client saved can be large
+    const row = await this.ensureComplete(e, found);
     // from the stored source, not the row: the row has no Bcc and no attachment content
     const parsed = await parseStoredMessage(e.store, row.file_path);
     const list = (field: typeof parsed.to) => (Array.isArray(field) ? field : field ? [field] : [])
@@ -192,8 +197,10 @@ export class DraftApi {
 
   /** The attachments of a stored message as files, inline images (part of its HTML) left out */
   private async attachmentsOf(e: AccountEntry, id: number): Promise<{ filename: string; contentType: string; content: Buffer }[]> {
-    const row = e.store.getMessage(id);
-    if (!row) throw new Error(`message ${id} not found`);
+    const found = e.store.getMessage(id);
+    if (!found) throw new Error(`message ${id} not found`);
+    // S1: offline this throws, never a forward that silently drops the files
+    const row = await this.ensureComplete(e, found);
     const parsed = await parseStoredMessage(e.store, row.file_path);
     return (parsed.attachments || [])
       .filter(a => a.contentDisposition !== 'inline' || !a.contentId)

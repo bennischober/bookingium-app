@@ -6,6 +6,7 @@ import path from 'path';
 import { isMessageFile, writeMessageFile } from './files.js';
 import { isDiskFullError } from './disk_full.js';
 import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
+import { adoptWholeSource } from './message_complete.js';
 import type { AccountEntry, Logger } from './index.js';
 
 /** What the housekeeping needs from the core. */
@@ -139,22 +140,19 @@ export class Maintenance {
       try {
         const done = await e.engine.withSelected(folder.imap_path, folder.uid_validity, async client => {
           let n = 0;
-          // S1: `complete` says what the new file holds, whatever the row held before
-          const rewrite = (id: number, source: Buffer, complete: number) => {
-            const relPath = writeMessageFile(dir, source);
-            e.store.db.prepare('UPDATE messages SET file_path = ?, complete = ? WHERE id = ?').run(relPath, complete, id);
-            n++;
-          };
           for (const row of missing) {
-            // S1: the download pass's threshold; size_bytes is the server size
+            // S1: the download pass's threshold; size_bytes is the server size. `complete` says
+            // what the new file holds, whatever the row held before.
             const skeleton = storedAsSkeleton(e.config.lazyAboveBytes, row.size_bytes) ? await fetchSkeleton(client, row.uid) : null;
-            if (skeleton) { rewrite(row.id, skeleton.source, 0); continue; }
-            for await (const msg of client.fetch(String(row.uid), {
-              uid: true, source: true, flags: true, internalDate: true, size: true,
-            }, { uid: true })) {
-              if (!msg.source) continue;
-              rewrite(row.id, msg.source, 1);
+            if (skeleton) {
+              const relPath = writeMessageFile(dir, skeleton.source);
+              e.store.db.prepare('UPDATE messages SET file_path = ?, complete = 0 WHERE id = ?').run(relPath, row.id);
+              n++;
+              continue;
             }
+            const msg = await client.fetchOne(String(row.uid), { uid: true, source: true }, { uid: true });
+            // a whole file also replaces a former skeleton row's estimated attachment sizes
+            if (msg && msg.source && await adoptWholeSource(e.store, row, msg.source)) n++;
           }
           return n;
         });

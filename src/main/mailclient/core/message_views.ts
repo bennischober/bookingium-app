@@ -9,12 +9,15 @@ import { parseStoredMessage } from './parse.js';
 import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 import type { MessageHeader, HeaderPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
 import type { AccountEntry, MailCoreEvent, MailCoreOptions } from './index.js';
+import type { MessageRow } from './store.js';
 
 /** What the read calls need from the core. */
 export interface MessageViewsContext {
   readonly options: MailCoreOptions;
   entry(id?: string): AccountEntry;
   emitEvent(e: MailCoreEvent): void;
+  /** S1: the row with its whole message stored, downloaded first when it holds a skeleton */
+  ensureComplete(e: AccountEntry, row: MessageRow): Promise<MessageRow>;
 }
 
 export class MessageViews {
@@ -23,6 +26,7 @@ export class MessageViews {
   private get options(): MailCoreOptions { return this.ctx.options; }
   private entry(id?: string): AccountEntry { return this.ctx.entry(id); }
   private emitEvent(e: MailCoreEvent): void { this.ctx.emitEvent(e); }
+  private ensureComplete(e: AccountEntry, row: MessageRow): Promise<MessageRow> { return this.ctx.ensureComplete(e, row); }
 
   async listThreads(folderId: string | null, opts: { offset: number; limit: number }, accountId?: string): Promise<ThreadSummary[]> {
     const e = this.entry(accountId);
@@ -91,15 +95,18 @@ export class MessageViews {
 
   async getRawEml(id: number, accountId?: string): Promise<Uint8Array> {
     const e = this.entry(accountId);
-    const row = e.store.getMessage(id);
-    if (!row) throw new Error(`message ${id} not found`);
+    const found = e.store.getMessage(id);
+    if (!found) throw new Error(`message ${id} not found`);
+    // S1: never the skeleton file
+    const row = await this.ensureComplete(e, found);
     return new Uint8Array(fs.readFileSync(e.store.filePath(row.file_path)));
   }
 
   async getAttachment(id: number, partId: string, accountId?: string): Promise<Uint8Array> {
     const e = this.entry(accountId);
-    const row = e.store.getMessage(id);
-    if (!row) throw new Error(`message ${id} not found`);
+    const found = e.store.getMessage(id);
+    if (!found) throw new Error(`message ${id} not found`);
+    const row = await this.ensureComplete(e, found);
     const parsed = await parseStoredMessage(e.store, row.file_path);
     const att = (parsed.attachments || []).find(a => a.partId === partId);
     if (!att) throw new Error(`attachment ${partId} not found in message ${id}`);
