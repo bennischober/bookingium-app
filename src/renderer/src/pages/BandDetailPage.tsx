@@ -218,8 +218,8 @@ export default function BandDetailPage() {
         </TabsContent>
         <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="band" ownerId={band.id} title="Dokumente der Band" />
-          {/* D1: the band's documents and its events' documents in one filtered list,
-              instead of a fixed second section below the upload panel */}
+          {/* The band's own documents above (editable), its events' documents below,
+              filtered by category and event */}
           <BandDocumentsView bandId={band.id} />
         </TabsContent>
         {mailClientEnabled && (

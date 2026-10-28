@@ -91,13 +91,15 @@ test('band page shows members, events, contracts and documents', async () => {
   )
   expect(eventFolder).toMatch(/^\d+-\d{4}-\d{2}-\d{2}-the-electric-waves-berlin-tour$/)
 
-  // Back to the band (history), its documents tab lists the event's file in the one
-  // filtered list (D1), labelled with the event it comes from
+  // Back to the band (history), its documents tab lists the event's file below the band's
+  // own documents, labelled with the event it comes from. The band's own file is listed once.
   await page.getByRole('button', { name: 'Zurück', exact: true }).click()
   await page.getByRole('tab', { name: 'Dokumente' }).click()
-  const combined = page.getByRole('region', { name: 'Alle Dokumente der Band' })
+  const combined = page.getByRole('region', { name: 'Dokumente aus Events' })
   await expect(combined).toContainText('Vertrag Berlin.pdf')
   await expect(combined).toContainText(EVENT)
+  await expect(combined).not.toContainText('Stageplot.pdf')
+  await expect(page.getByText('Stageplot.pdf')).toHaveCount(1)
 
   // D1: with files present, both filters are usable (the narrowing itself is unit-tested;
   // Radix animates its popup, which makes an e2e click on an option flaky)
