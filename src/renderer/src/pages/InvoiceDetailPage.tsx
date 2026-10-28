@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
+import { parseRecordId } from '@/lib/recordId'
 import { Button } from '@/components/ui/button'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
@@ -48,20 +49,22 @@ function invoiceTitle(invoice: Pick<InvoiceDto, 'kind' | 'invoiceNumber'>) {
  */
 export default function InvoiceDetailPage() {
   const { invoiceId } = useParams({ strict: false }) as { invoiceId?: string }
-  const id = Number(invoiceId)
+  const id = parseRecordId(invoiceId)
   const navigate = useNavigate()
-  const invoiceQuery = trpcReact.invoice.getById.useQuery(id, {
-    enabled: Number.isInteger(id) && id > 0
+  const invoiceQuery = trpcReact.invoice.getById.useQuery(id ?? 0, {
+    enabled: id !== null
   })
   const invoice = invoiceQuery.data
 
   // A draft has no page; it opens in the sheet
   const draft = invoice !== undefined && invoice !== null && !isInvoiceLocked(invoice.status)
   useEffect(() => {
-    if (draft) void navigate({ to: '/invoices', search: { open: id }, replace: true })
+    if (draft && id !== null)
+      void navigate({ to: '/invoices', search: { open: id }, replace: true })
   }, [draft, id, navigate])
 
-  if (invoiceQuery.isLoading || draft) {
+  // A bad id never loads (the query stays disabled), it is not found
+  if ((id !== null && invoiceQuery.isLoading) || draft) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">Rechnung wird geladen…</p>

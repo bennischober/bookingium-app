@@ -4,6 +4,7 @@ import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
+import { parseRecordId } from '@/lib/recordId'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
@@ -98,7 +99,7 @@ function EventsTab({ bandId }: { bandId: number }) {
  */
 export default function BandDetailPage() {
   const { bandId } = useParams({ strict: false }) as { bandId?: string }
-  const id = Number(bandId)
+  const id = parseRecordId(bandId)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -112,8 +113,8 @@ export default function BandDetailPage() {
     data: band,
     isLoading,
     isError
-  } = trpcReact.band.getById.useQuery(id, {
-    enabled: Number.isFinite(id) && id > 0
+  } = trpcReact.band.getById.useQuery(id ?? 0, {
+    enabled: id !== null
   })
 
   const updateBand = trpcReact.band.update.useMutation({
@@ -127,7 +128,8 @@ export default function BandDetailPage() {
     }
   })
 
-  if (isLoading) {
+  // A bad id never loads (the query stays disabled), it is not found
+  if (id !== null && isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">Band wird geladen…</p>

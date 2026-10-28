@@ -4,6 +4,7 @@ import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
+import { parseRecordId } from '@/lib/recordId'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
@@ -85,7 +86,7 @@ function EventsTab({ venueId }: { venueId: number }) {
  */
 export default function VenueDetailPage() {
   const { venueId } = useParams({ strict: false }) as { venueId?: string }
-  const id = Number(venueId)
+  const id = parseRecordId(venueId)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -101,7 +102,7 @@ export default function VenueDetailPage() {
     data: venue,
     isLoading,
     isError
-  } = trpcReact.venue.getById.useQuery({ id }, { enabled: Number.isFinite(id) && id > 0 })
+  } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   const updateVenue = trpcReact.venue.update.useMutation({
     onSuccess: (data) => {
@@ -116,7 +117,8 @@ export default function VenueDetailPage() {
     }
   })
 
-  if (isLoading) {
+  // A bad id never loads (the query stays disabled), it is not found
+  if (id !== null && isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">Spielstätte wird geladen…</p>
