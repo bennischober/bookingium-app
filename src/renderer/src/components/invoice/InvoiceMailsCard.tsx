@@ -4,18 +4,21 @@ import { formatShortDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { InfoCard } from '@/components/detail/DetailParts'
 import { INVOICE_EMAIL_LABELS } from '@/lib/invoiceLabels'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import type { InvoiceMailDto } from '../../../../main/api/schemas/invoice.schema'
 
 /**
  * C4: the invoice's mails. What bookingum sent (with the time it was sent) and every
  * answer that quotes one of those Message-IDs. The status is never changed from here -
- * an answer only shows, the user decides what it means for the invoice.
+ * an answer only shows, the user decides what it means for the invoice. Hidden with the mail
+ * client off.
  */
 export function InvoiceMailsCard({ invoiceId }: { invoiceId: number }) {
+  const mailClientEnabled = useMailClientEnabled()
   const mails = trpcReact.invoice.mails.useQuery(invoiceId, {
-    enabled: Number.isInteger(invoiceId) && invoiceId > 0
+    enabled: mailClientEnabled && Number.isInteger(invoiceId) && invoiceId > 0
   })
-  if (!mails.data || mails.data.mails.length === 0) return null
+  if (!mailClientEnabled || !mails.data || mails.data.mails.length === 0) return null
 
   const open = (mail: InvoiceMailDto) => {
     if (mail.storeId !== null && mail.accountId) {

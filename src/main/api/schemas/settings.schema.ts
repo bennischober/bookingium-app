@@ -113,6 +113,9 @@ export const AppSettings = z.object({
   paymentQr: z.boolean().default(true),
   // How "Per E-Mail senden" opens the email (auto: by the system's mail program)
   mailProgram: MailProgramSetting.default('auto'),
+  // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
+  // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
+  mailClient: z.boolean().default(false),
   // I7: the mail account bookingum's own editor sends invoices from, '' for none chosen.
   // Never guessed: without a choice, sending from bookingum is refused.
   invoiceMailAccountId: z.string().default(''),
@@ -137,6 +140,7 @@ export const UpdateAppSettingsInput = z
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
+    mailClient: shape.mailClient.unwrap(),
     invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
     invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
     invoiceEmailEn: shape.invoiceEmailEn.unwrap(),

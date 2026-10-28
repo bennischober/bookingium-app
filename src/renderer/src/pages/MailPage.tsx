@@ -59,7 +59,24 @@ import type { MessageDetail, MessageListItem } from '../../../main/mailclient/co
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
 
+/** The mail client, or a note while "E-Mail (experimentell)" is off (the menu then has no entry) */
 export default function MailPage() {
+  const navigate = useNavigate()
+  const settings = trpcReact.settings.get.useQuery()
+  if (!settings.data) return null
+  if (settings.data.mailClient) return <MailClient />
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-2xl font-bold">E-Mail</h1>
+      <p className="text-sm text-muted-foreground">Der E-Mail-Client ist ausgeschaltet.</p>
+      <Button onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}>
+        Zu den Einstellungen
+      </Button>
+    </div>
+  )
+}
+
+function MailClient() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const accounts = trpcReact.mail.accounts.list.useQuery()

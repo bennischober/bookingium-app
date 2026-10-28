@@ -1,7 +1,8 @@
 // Runs the mail core in a utility process (mailWorker.js) and relays calls,
 // events and credential requests. The worker starts on the first call or at
 // app start when accounts exist, and restarts after account changes. A worker
-// that keeps crashing is not restarted until the accounts change again.
+// that keeps crashing is not restarted until the accounts change again. While
+// the "E-Mail (experimentell)" setting is off it never starts and calls fail.
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { EventEmitter } from 'events'
 import { join } from 'path'
@@ -9,9 +10,12 @@ import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
 import { logError } from '../utils/errorLog'
 
-// The local Dovecot/Mailpit sandbox; its SMTP sink listens here
 const CRASH_WINDOW_MS = 60_000
 const MAX_CRASHES = 3
+
+/** What a call gets while the "E-Mail (experimentell)" setting is off */
+export const MAIL_CLIENT_OFF =
+  'Der E-Mail-Client ist ausgeschaltet (Einstellungen → E-Mail → E-Mail (experimentell)).'
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
 
@@ -28,6 +32,12 @@ export class MailClientService {
   private lastError: string | null = null
   /** whileStopped() calls in progress */
   private held = 0
+  /** The "E-Mail (experimentell)" setting; index.ts wires it to the app settings */
+  private enabled: () => boolean = () => true
+
+  setEnabledCheck(check: () => boolean): void {
+    this.enabled = check
+  }
 
   /** starting: the worker opens its stores, which takes minutes while a migration rewrites a large one */
   status(): { running: boolean; starting: boolean; error: string | null } {
@@ -49,9 +59,9 @@ export class MailClientService {
     })
   }
 
-  /** Starts the worker if accounts exist; errors are kept for status() */
+  /** Starts the worker if it is switched on and accounts exist; errors are kept for status() */
   startIfConfigured(): void {
-    if (listMailAccounts().length === 0) return
+    if (!this.enabled() || listMailAccounts().length === 0) return
     this.ensureStarted().catch(() => {})
   }
 
@@ -122,6 +132,7 @@ export class MailClientService {
   }
 
   private ensureStarted(): Promise<void> {
+    if (!this.enabled()) return Promise.reject(new Error(MAIL_CLIENT_OFF))
     if (this.held > 0)
       return Promise.reject(new Error('Mail-Client pausiert für den Verbindungstest'))
     if (this.worker && !this.starting) return Promise.resolve()

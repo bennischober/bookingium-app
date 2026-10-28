@@ -32,6 +32,8 @@ import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
+import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -339,6 +341,7 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const activeTab = isSettingsTab(search.tab) ? search.tab : 'general'
+  const mailClientEnabled = useMailClientEnabled()
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
@@ -381,7 +384,8 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
-          <MailAccountsCard />
+          <MailClientSwitchCard />
+          {mailClientEnabled && <MailAccountsCard />}
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

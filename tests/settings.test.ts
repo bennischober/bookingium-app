@@ -32,6 +32,8 @@ const DEFAULTS = {
   eInvoiceEmbed: true,
   paymentQr: true,
   mailProgram: 'auto',
+  // the built-in mail client is experimental and off until the user turns it on
+  mailClient: false,
   invoiceMailAccountId: '',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
   invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,

@@ -12,7 +12,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
-import { getGroupedRoutes, getRouteShortcut, isRouteActive } from '@/lib/routing'
+import { getGroupedRoutes, getRouteShortcut, isRouteActive, ROUTES } from '@/lib/routing'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { countDue } from '@/lib/followUps'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -27,7 +28,8 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & { collapsed?: boolean }) {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
-  const navGroups = getGroupedRoutes()
+  const mailEnabled = useMailClientEnabled()
+  const navGroups = getGroupedRoutes((route) => route !== ROUTES.mail || mailEnabled)
   // Follow-ups due today or overdue, as a count on the Dashboard item
   const followUps = trpcReact.followUp.listOpen.useQuery()
   const dueCount = countDue(followUps.data ?? [])

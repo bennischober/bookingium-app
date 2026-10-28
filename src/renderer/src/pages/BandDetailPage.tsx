@@ -1,4 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -100,7 +101,10 @@ export default function BandDetailPage() {
   const id = Number(bandId)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
-  const activeTab = isBandTab(search.tab) ? search.tab : 'overview'
+  const mailClientEnabled = useMailClientEnabled()
+  // the E-Mails tab exists only with the mail client on
+  const activeTab =
+    isBandTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled) ? search.tab : 'overview'
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<BandDto>()
 
@@ -197,7 +201,7 @@ export default function BandDetailPage() {
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="contracts">Managementverträge</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
-          <TabsTrigger value="mails">E-Mails</TabsTrigger>
+          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -218,9 +222,11 @@ export default function BandDetailPage() {
               instead of a fixed second section below the upload panel */}
           <BandDocumentsView bandId={band.id} />
         </TabsContent>
-        <TabsContent value="mails">
-          <MailHistoryPanel entityType="band" entityId={band.id} />
-        </TabsContent>
+        {mailClientEnabled && (
+          <TabsContent value="mails">
+            <MailHistoryPanel entityType="band" entityId={band.id} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <FormSheet

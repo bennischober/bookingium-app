@@ -64,7 +64,7 @@ import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
 import { readWorkbook } from './import/readWorkbook'
-import { mailClient } from './mailclient/MailClientService'
+import { MAIL_CLIENT_OFF, mailClient } from './mailclient/MailClientService'
 import type { ComposeDraft, ComposeResult } from './mail/composeWindow'
 import {
   confirmInvoiceSendFromOp,
@@ -546,6 +546,9 @@ ipcMain.handle(
       const draft = invoiceEmail(data, lang, settings[EMAIL_TEMPLATES[kind][lang].key])
       // I7 (MR-12): bookingum sends from the account chosen in the settings, checked
       // before anything is written or opened
+      if (settings.mailProgram === 'bookingum' && !settings.mailClient) {
+        return { success: false, error: MAIL_CLIENT_OFF }
+      }
       const sender =
         settings.mailProgram === 'bookingum'
           ? invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts())
@@ -687,7 +690,9 @@ app.whenReady().then(async () => {
       event
     ).catch((error) => console.error('Confirming an invoice mail failed:', error))
   })
-  // Mail client (utility process): background sync for configured accounts
+  // Mail client (utility process): background sync for configured accounts, only while
+  // the "E-Mail (experimentell)" setting is on
+  mailClient.setEnabledCheck(() => container.resolve(SettingsService).get().mailClient)
   mailClient.startIfConfigured()
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.

@@ -883,7 +883,7 @@ export class Store {
       ).get(word, word.slice(0, -1) + String.fromCharCode(word.charCodeAt(word.length - 1) + 1)) as { c: number; docs: number | null };
       const docs = row?.docs ?? 0;
       if (docs > MAX_PREFIX_DOCS) {
-        console.log(`[search] prefix "${word}*" capped: ~${docs} docs (limit ${MAX_PREFIX_DOCS}) — term dropped`);
+        // too common a prefix: the term is dropped rather than matching most of the mailbox
         // a NOT goes with its term; left behind it would negate the next one
         const last = kept[kept.length - 1];
         if (last && 'op' in last && last.op === 'NOT') kept.pop();

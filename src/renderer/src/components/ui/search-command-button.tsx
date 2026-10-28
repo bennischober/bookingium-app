@@ -31,6 +31,7 @@ import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
 import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
 
@@ -237,11 +238,19 @@ const SearchButton = () => {
   // The palette is mounted in the root layout from app start, long before an account
   // may be saved: asking only while it is open keeps the answer current instead of
   // caching an empty list from the first render.
+  const mailEnabled = useMailClientEnabled()
   const accounts = trpcReact.mail.accounts.list.useQuery(undefined, {
-    enabled: open,
+    enabled: open && mailEnabled,
     staleTime: 0
   })
-  const mailAccountId = accounts.data?.[0]?.id ?? null
+  const mailAccountId = mailEnabled ? (accounts.data?.[0]?.id ?? null) : null
+  // the mail page, and a recent jump to it, go while the mail client is switched off
+  const shownRoutes = ROUTE_COMMANDS.filter(
+    (route) => route.path !== ROUTES.mail.path || mailEnabled
+  )
+  const shownRecents = recentCommands.filter(
+    (recent) => recent.path !== ROUTES.mail.path || mailEnabled
+  )
   const [debouncedMailQuery, setDebouncedMailQuery] = useState('')
   useEffect(() => {
     if (!open || !mailAccountId) return
@@ -314,10 +323,10 @@ const SearchButton = () => {
         />
         <CommandList>
           <CommandEmpty>{emptyMessage}</CommandEmpty>
-          {recentCommands.length > 0 && (
+          {shownRecents.length > 0 && (
             <>
               <CommandGroup heading="Letzte Befehle">
-                {recentCommands.map((recent) => (
+                {shownRecents.map((recent) => (
                   <CommandItem
                     key={recent.id}
                     value={recent.label}
@@ -357,7 +366,7 @@ const SearchButton = () => {
           )}
 
           <CommandGroup heading="Navigation">
-            {ROUTE_COMMANDS.map((route) => (
+            {shownRoutes.map((route) => (
               <CommandItem
                 key={route.path}
                 value={`${route.title} ${route.description}`}

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { SettingsService } from '../../services/SettingsService'
 import { errorLogFolder } from '../../utils/errorLog'
+import { mailClient } from '../../mailclient/MailClientService'
 import { UpdateAppSettingsInput, type BackupResultDto } from '../schemas/settings.schema'
 
 const t = initTRPC.create()
@@ -21,7 +22,12 @@ const badRequest = (error: unknown, fallback: string) =>
 export const settingsRouter = t.router({
   get: t.procedure.query(() => service.get()),
 
-  update: t.procedure.input(UpdateAppSettingsInput).mutation(({ input }) => service.update(input)),
+  update: t.procedure.input(UpdateAppSettingsInput).mutation(async ({ input }) => {
+    const settings = service.update(input)
+    // "E-Mail (experimentell)" starts or stops the mail worker at once
+    if (input.mailClient !== undefined) await mailClient.restart()
+    return settings
+  }),
 
   /** Where the app keeps its database and documents */
   dataLocations: t.procedure.query(() => service.dataLocations()),

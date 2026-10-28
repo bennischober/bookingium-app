@@ -56,12 +56,16 @@ export const ROUTES = {
 
 /**
  * Groups the routes by their group property.
+ * @param isShown leaves a route out of the menu (the mail page while its switch is off)
  * @returns An array of grouped routes.
  */
-export const getGroupedRoutes = (): GroupedRoute[] => {
+export const getGroupedRoutes = (
+  isShown: (route: RouteInfo) => boolean = () => true
+): GroupedRoute[] => {
   const grouped = new Map<string, RouteInfo[]>()
 
   Object.values(ROUTES).forEach((route) => {
+    if (!isShown(route)) return
     const group = grouped.get(route.group) || []
     group.push(route)
     grouped.set(route.group, group)

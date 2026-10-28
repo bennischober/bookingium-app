@@ -36,6 +36,8 @@ function reachable(port: number): Promise<boolean> {
 
 let h: AppHandle
 let userData: string
+/** "E-Mail (experimentell)" as a fresh data folder has it, before the suite turns it on */
+let mailClientDefault: boolean | undefined
 
 /** A tRPC call the way the renderer's ipcLink makes it */
 function trpc<T>(type: 'query' | 'mutation', path: string, input?: unknown): Promise<T> {
@@ -124,6 +126,8 @@ test.beforeAll(async () => {
   }
   h = await launchApp()
   userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
+  mailClientDefault = (await trpc<{ mailClient: boolean }>('query', 'settings.get')).mailClient
+  await turnMailClientOn()
   // Keep the real clipboard untouched; remember what a mail link would copy
   await h.app.evaluate(({ clipboard }) => {
     const store = globalThis as { copiedMailLink?: string }
@@ -146,6 +150,11 @@ type Account = {
   user: string
 }
 type Saved = { test: { ok: boolean; stage?: string }; account?: Account }
+
+/** The mail client is experimental and off in a fresh data folder; a relaunch keeps the setting */
+async function turnMailClientOn(): Promise<void> {
+  await trpc('mutation', 'settings.update', { mailClient: true })
+}
 
 /** Saves through the connection test; fails the test when the server refuses the settings */
 async function saveAccount(input: Record<string, unknown>): Promise<Account> {
@@ -200,6 +209,24 @@ async function ensureReadOnlyAccount(): Promise<string> {
   )
   return existing?.id ?? (await saveAccount(READ_ONLY_ACCOUNT)).id
 }
+
+test('off by default, the mail client shows nowhere and refuses its calls', async () => {
+  expect(mailClientDefault).toBe(false)
+  const menuEntry = h.page.getByRole('link', { name: 'E-Mail', exact: true })
+  try {
+    await trpc('mutation', 'settings.update', { mailClient: false })
+    await h.page.reload()
+    await expect(h.page.getByRole('link', { name: 'Einstellungen' }).first()).toBeVisible()
+    await expect(menuEntry).toHaveCount(0)
+    await expect(trpc('mutation', 'mail.call', { method: 'getFolders', args: [] })).rejects.toThrow(
+      'ausgeschaltet'
+    )
+  } finally {
+    await turnMailClientOn()
+  }
+  await h.page.reload()
+  await expect(menuEntry).toBeVisible()
+})
 
 test('a sandbox account is saved with an encrypted password', async () => {
   // This test proves a FRESH save, so it drops what an earlier test may have saved
@@ -2276,6 +2303,7 @@ test('the app starts and rebuilds when the local mail store is corrupt', async (
     // First launch: a real sandbox account, so the app writes a real store itself
     h = await launchApp({ userData: shared })
     await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
+    await turnMailClientOn()
     const sandboxId = await ensureSandboxAccount()
     await waitForInbox(sandboxId)
     await openMailPage(sandboxId)
@@ -2331,6 +2359,7 @@ test('a full disk shows as its own state, not as offline', async () => {
     //    fail on an empty list instead of on the behaviour it is about.)
     h = await launchApp({ userData: shared })
     await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
+    await turnMailClientOn()
     const sandboxId = await ensureSandboxAccount()
     await waitForInbox(sandboxId)
     await openMailPage(sandboxId)

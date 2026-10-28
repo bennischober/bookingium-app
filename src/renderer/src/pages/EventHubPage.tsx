@@ -1,4 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
+import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useState } from 'react'
 import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
@@ -20,7 +21,12 @@ export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
-  const activeTab = isEventTab(search.tab) ? search.tab : 'overview'
+  const mailClientEnabled = useMailClientEnabled()
+  // the E-Mails tab exists only with the mail client on
+  const activeTab =
+    isEventTab(search.tab) && (search.tab !== 'mails' || mailClientEnabled)
+      ? search.tab
+      : 'overview'
 
   const {
     data: event,
@@ -176,7 +182,7 @@ export function EventHubPage() {
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
           <TabsTrigger value="documents">Dokumente</TabsTrigger>
-          <TabsTrigger value="mails">E-Mails</TabsTrigger>
+          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -214,9 +220,11 @@ export function EventHubPage() {
           <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />
         </TabsContent>
 
-        <TabsContent value="mails">
-          <MailHistoryPanel entityType="event" entityId={event.id} />
-        </TabsContent>
+        {mailClientEnabled && (
+          <TabsContent value="mails">
+            <MailHistoryPanel entityType="event" entityId={event.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
