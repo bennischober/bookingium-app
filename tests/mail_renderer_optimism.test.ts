@@ -9,14 +9,18 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const page = readFileSync(join(process.cwd(), 'src/renderer/src/pages/MailPage.tsx'), 'utf8')
+// R4: the message actions and the optimistic hiding live in the page's useMessageActions hook
+const actions = readFileSync(
+  join(process.cwd(), 'src/renderer/src/hooks/useMessageActions.ts'),
+  'utf8'
+)
 
 /** The body of one named async function, up to the next top-level const */
 function fnBody(name: string): string {
-  const start = page.indexOf(`const ${name} = async (`)
+  const start = actions.indexOf(`const ${name} = async (`)
   expect(start).toBeGreaterThan(-1)
-  const end = page.indexOf('\n  const ', start + 1)
-  return page.slice(start, end === -1 ? undefined : end)
+  const end = actions.indexOf('\n  const ', start + 1)
+  return actions.slice(start, end === -1 ? undefined : end)
 }
 
 describe('criterion 4: every list-mutating action hides at click time', () => {

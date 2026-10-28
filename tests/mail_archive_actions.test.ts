@@ -139,6 +139,9 @@ describe('MR-36: the toast counts what the core archived', () => {
 describe('MR-36: the page wiring', () => {
   const page = (): string =>
     readFileSync(join(process.cwd(), 'src/renderer/src/pages/MailPage.tsx'), 'utf8')
+  // R4: the message actions and the optimistic hiding live in the page's useMessageActions hook
+  const actions = (): string =>
+    readFileSync(join(process.cwd(), 'src/renderer/src/hooks/useMessageActions.ts'), 'utf8')
 
   it('filters the archive ids and hides the action when nothing qualifies', () => {
     // The visible half of the fix. Both are pinned by source because MailPage cannot be rendered here.
@@ -153,13 +156,13 @@ describe('MR-36: the page wiring', () => {
 
   it('shows again every mail the answer does not cover', () => {
     // Without this the skipped rows stayed hidden until a restart, which was the reported symptom.
-    const src = page()
+    const src = actions()
     expect(src).toContain('uncoveredIds(moved, ops, allFolders)')
     expect(src).toContain('unhideMails(stillHidden.map((m) => m.id))')
   })
 
   it('the toast counts what the core archived, not the selection', () => {
-    const src = page()
+    const src = actions()
     expect(src).toContain(
       "target.kind === 'archive' ? archivedCount(moved, ops, allFolders) : ids.length"
     )

@@ -16,25 +16,30 @@ import { describe, expect, it } from 'vitest'
 import { hide, unhide } from '@/components/mail/optimistic'
 
 const page = readFileSync(join(process.cwd(), 'src/renderer/src/pages/MailPage.tsx'), 'utf8')
+// R4: the message actions and the optimistic hiding live in the page's useMessageActions hook
+const actions = readFileSync(
+  join(process.cwd(), 'src/renderer/src/hooks/useMessageActions.ts'),
+  'utf8'
+)
 
 describe('G7: a hidden mail stays hidden while it is still listed', () => {
   it('does not clear the whole set on fresh list data', () => {
     // The regression: setHiddenIds([]) on every listUpdatedAt change
-    expect(page).not.toMatch(/if \(listUpdatedAt\) setHiddenIds\(\[\]\)/)
-    expect(page).not.toMatch(/if \(listUpdatedAt\)\s*\{\s*setHiddenIds\(\[\]\)/)
+    expect(actions).not.toMatch(/if \(listUpdatedAt\) setHiddenIds\(\[\]\)/)
+    expect(actions).not.toMatch(/if \(listUpdatedAt\)\s*\{\s*setHiddenIds\(\[\]\)/)
   })
 
   it('keeps only the ids that are still listed', () => {
     // The fix: filter by presence in the fresh data
-    const effect = page.slice(page.indexOf('const listUpdatedAt'))
+    const effect = actions.slice(actions.indexOf('const listUpdatedAt'))
     expect(effect).toContain('listed.has(id)')
-    // and it must come after the data it reads
-    expect(page.indexOf('const listUpdatedAt')).toBeGreaterThan(page.indexOf('const messages'))
+    // and it must come after the data it reads: the page calls the hook after its messages query
+    expect(page.indexOf('useMessageActions(')).toBeGreaterThan(page.indexOf('const messages'))
   })
 
   it('still restores explicitly on a failed op', () => {
     // A failure must not rely on the refresh: it unhides its own ids
-    const moveAway = page.slice(page.indexOf('const moveAway = async'))
+    const moveAway = actions.slice(actions.indexOf('const moveAway = async'))
     expect(moveAway).toContain('unhideMails(ids)')
   })
 
