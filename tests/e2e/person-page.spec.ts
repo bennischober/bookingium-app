@@ -125,7 +125,7 @@ test('person page shows memberships, events, invoices and documents', async () =
 test('search palette and event page open the person page', async () => {
   const { page } = h
   await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
-  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill('Tom')
+  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen…').fill('Tom')
   await page
     .getByRole('option', { name: /Tom Manager/ })
     .first()

@@ -129,7 +129,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {statsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Anstehende Events werden geladen...</p>
+              <p className="text-sm text-muted-foreground">Anstehende Events werden geladen…</p>
             ) : !stats || stats.upcomingNext7Days.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Keine anstehenden Gigs in den nächsten 7 Tagen.
@@ -181,7 +181,7 @@ export default function DashboardPage() {
           <CardContent>
             {statsQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">
-                Verzeichnis-Statistiken werden geladen...
+                Verzeichnis-Statistiken werden geladen…
               </p>
             ) : (
               <div className="space-y-3">
@@ -225,7 +225,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           {latestInvoicesQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Rechnungen werden geladen...</p>
+            <p className="text-sm text-muted-foreground">Rechnungen werden geladen…</p>
           ) : latestInvoices.length === 0 ? (
             <p className="text-sm text-muted-foreground">Noch keine Rechnungen vorhanden.</p>
           ) : (

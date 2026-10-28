@@ -207,7 +207,7 @@ export default function VenuePage() {
         filtered={Boolean(search) || kind !== 'all'}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Spielstätten filtern..."
+        searchPlaceholder="Spielstätten filtern…"
         // A click opens the venue page; the pencil keeps the quick-edit sheet
         onRowClick={(venue) =>
           navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })

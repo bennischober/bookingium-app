@@ -50,7 +50,7 @@ test('dashboard and events table stay usable at 150% zoom', async () => {
 })
 
 test('band members sheet loads and shows members', async () => {
-  // Regression: the sheet used to hang on 'Mitglieder werden geladen...'
+  // Regression: the sheet used to hang on 'Mitglieder werden geladen…'
   // forever because the combined isLoading included the two disabled
   // (non-active entity type) queries, which TanStack Query v4 reports as
   // isLoading=true.
@@ -67,7 +67,7 @@ test('band members sheet loads and shows members', async () => {
     // Members must appear (not stuck on the loading text)
     await page.waitForSelector('text=John Rockstar', { timeout: 10_000 })
     const body = await page.locator('body').innerText()
-    expect(body).not.toContain('Mitglieder werden geladen...')
+    expect(body).not.toContain('Mitglieder werden geladen…')
     expect(body).toContain('Lead Vocalist')
   } finally {
     await zoomApp.close()

@@ -33,7 +33,7 @@ export function FollowUpsCard() {
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <p className="text-sm text-muted-foreground">Wiedervorlagen werden geladen...</p>
+          <p className="text-sm text-muted-foreground">Wiedervorlagen werden geladen…</p>
         ) : followUps.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Keine offenen Wiedervorlagen. Auf Events, Bands, Spielstätten, Firmen, Personen und

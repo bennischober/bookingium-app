@@ -137,7 +137,7 @@ export function HotelForm({
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting
-            ? 'Speichert...'
+            ? 'Speichert…'
             : mode === 'create'
               ? 'Hotel anlegen'
               : 'Änderungen speichern'}

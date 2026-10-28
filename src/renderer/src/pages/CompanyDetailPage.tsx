@@ -220,14 +220,9 @@ function InvoicesTab({ companyId }: { companyId: number }) {
           cell: (invoice) => formatShortDate(invoice.issueDate),
           className: 'whitespace-nowrap'
         },
-        {
-          header: 'Partner',
-          // Issued invoices name the recipient, received ones the issuer
-          cell: (invoice) =>
-            invoice.companyId === companyId
-              ? `an ${invoice.recipientName}`
-              : `von ${invoice.companyName}`
-        },
+        // Same columns as the invoice list: who issued it, who receives it
+        { header: 'Rechnungssteller', cell: (invoice) => invoice.companyName },
+        { header: 'Rechnungsempfänger', cell: (invoice) => invoice.recipientName },
         { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
         {
           header: 'Status',
@@ -414,6 +409,7 @@ export default function CompanyDetailPage() {
             updateCompany.mutate(data as UpdateCompanyInput)
           }
           onCancel={sheet.close}
+          isSubmitting={updateCompany.isPending}
         />
       </FormSheet>
     </div>

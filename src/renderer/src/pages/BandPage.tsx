@@ -201,7 +201,7 @@ export default function BandPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Bands filtern..."
+        searchPlaceholder="Bands filtern…"
         // A click opens the band page; the pencil keeps the quick-edit sheet
         onRowClick={(band) =>
           navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
