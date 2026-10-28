@@ -1590,13 +1590,25 @@ test('C5: an attachment of a mail becomes a document', async () => {
   try {
     const reader = popup.getByRole('article', { name: 'E-Mail' })
     await expect(reader.getByRole('list', { name: 'Anhänge' })).toBeVisible({ timeout: 30_000 })
-    await reader
-      // F10: the actions live behind the chip's chevron now
-      .getByRole('button', { name: /weitere Aktionen$/ })
-      .first()
-      .click()
+    // F10: the actions live behind the chip's chevron now
+    const chevron = reader.getByRole('button', { name: /weitere Aktionen$/ }).first()
+    await chevron.click()
     // The popover renders in a portal, so it is not inside the article
-    await popup.getByRole('button', { name: 'Als Dokument speichern…' }).click()
+    const toDocument = popup.getByRole('button', { name: 'Als Dokument speichern…' })
+    await expect(toDocument).toBeVisible()
+    // The menu opens under the chevron: right edges aligned while there is room, otherwise
+    // shifted right just enough to stay in the window (polled: the menu zooms in, so its box
+    // settles after the open animation)
+    const chevronBox = (await chevron.boundingBox())!
+    const menu = toDocument.locator('xpath=..')
+    await expect
+      .poll(async () => {
+        const box = (await menu.boundingBox())!
+        const endAligned = chevronBox.x + chevronBox.width - box.width
+        return Math.abs(box.x - Math.max(0, endAligned))
+      })
+      .toBeLessThan(2)
+    await toDocument.click()
 
     const dialog = popup.getByRole('dialog')
     await expect(dialog).toBeVisible()

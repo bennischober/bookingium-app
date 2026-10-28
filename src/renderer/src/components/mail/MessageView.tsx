@@ -24,6 +24,7 @@ import { mailApi } from '@/lib/mailApi'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
@@ -72,7 +73,7 @@ function LinkList({ message }: { message: MessageDetail }) {
                 </p>
               </div>
               {link.openable ? (
-                <div className="flex shrink-0 items-center gap-1">
+                <ButtonGroup className="shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
@@ -85,7 +86,7 @@ function LinkList({ message }: { message: MessageDetail }) {
                       window, which opening in the default browser cannot do. The clipboard lives in
                       the main process, so this goes through window.api. */}
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon-sm"
                     title="Link-Adresse kopieren"
                     aria-label={`Link-Adresse kopieren: ${link.url}`}
@@ -93,7 +94,7 @@ function LinkList({ message }: { message: MessageDetail }) {
                   >
                     <Copy className="size-3.5" />
                   </Button>
-                </div>
+                </ButtonGroup>
               ) : (
                 <span className="text-xs text-destructive">Gesperrt ({link.scheme || '?'})</span>
               )}
@@ -475,11 +476,10 @@ export function MessageView({
                       three actions do not clutter the chip */}
                   <Popover>
                     <PopoverAnchor asChild>
-                      <div className="flex items-center">
+                      <ButtonGroup aria-label={a.filename || 'Anhang'}>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-r-none"
                           onClick={() => void openAttachment(a.partId)}
                           disabled={downloading}
                           title={`${a.contentType} · ${message.complete ? 'öffnen' : NOT_LOADED_NOTE}`}
@@ -501,7 +501,7 @@ export function MessageView({
                           <Button
                             variant="outline"
                             size="sm"
-                            className="rounded-l-none border-l-0 px-1.5"
+                            className="px-1.5"
                             aria-label={`${a.filename || 'Anhang'}: weitere Aktionen`}
                             disabled={downloading}
                             title="Weitere Aktionen"
@@ -509,9 +509,10 @@ export function MessageView({
                             <ChevronDown />
                           </Button>
                         </PopoverTrigger>
-                      </div>
+                      </ButtonGroup>
                     </PopoverAnchor>
-                    <PopoverContent className="w-56 p-1" align="start">
+                    {/* Under the chevron that opens it; Radix shifts it back in when there is no room */}
+                    <PopoverContent className="w-56 p-1" align="end">
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
