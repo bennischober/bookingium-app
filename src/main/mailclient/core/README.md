@@ -3,7 +3,9 @@
 Self-contained mail engine. It was extracted in the prototype (Task 5 Step 1) and has been
 developed in bookingum since 2026-10-23: this copy is the source of truth (see
 docs/mail-client.md). Changes from the prototype are ported by hand, never by copying files
-over this folder (docs/archive/mail-client-assessment.md §4 lists what would be lost).
+over this folder: that would silently drop what bookingum added, among it the versioned
+migrations, the bodies table, the connection-test stages, the stop after a rejected login,
+moves that return ops (batch undo), the compose core and the utility-process host.
 
 Nothing in this folder imports Electron, the renderer, tRPC or anything UI-related; there are
 no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox allowlist in

@@ -5,9 +5,10 @@ events and invoices. This is the one current document for it: what it does, how 
 it, and what is still open. The core's own API, module map and on-disk format are in
 `src/main/mailclient/core/README.md`.
 
-The working documents from building it (task cards, the critical review, handoff briefs, the assessment,
-the per-card reports and the review-agent briefs) are in `docs/archive/`. They are history: where they
-disagree with this file or the code, this file and the code win.
+The working documents from building it (task cards, the critical review with findings MR-01 to MR-43, handoff
+briefs, the assessment, the per-card reports and the review-agent briefs) were removed after the release
+cleanup; their lasting content is in this file. They are in git history at commit `b89d21c`
+(`git show b89d21c:docs/archive/<file>`), and each card's commit message explains its change.
 
 ## Status
 
@@ -254,6 +255,8 @@ only. The suite turns the experimental switch on itself.
 - `node scripts/mail-sandbox-counts.mjs` prints per-folder counts of the e2e mailbox: compare before and
   after a run.
 - Dovecot allows about 10 connections per user: keep tests serial.
+- `pnpm fuzz:mail -- --seed 7 --ops 30` (or `--seeds 50`) runs the seeded fuzz harness (`tests/fuzz/`)
+  against the sandbox. It is deliberately not a `.test.ts`, so `pnpm test` never runs it.
 
 ### Traps (each has cost a session)
 
@@ -278,6 +281,32 @@ only. The suite turns the experimental switch on itself.
 12. better-sqlite3 transactions are synchronous: never `await` inside one.
 13. IDLE and sync can both see the same new UID: `storeMessage` must stay idempotent.
 
+## Decisions (by design)
+
+These look like bugs or gaps but were chosen. Change one only together with the user.
+
+- **Folder delete:** mail that arrives between the server check (`STATUS`, subfolders) and the `DELETE` is
+  lost with the folder. IMAP has no conditional DELETE; the window is one round trip on a folder the user
+  chose to delete. A refused delete stays in the journal as a conflict and is not retried.
+- **A rename stuck in `pending`** pauses the sync of that folder subtree until the op resolves (done, failed
+  or discarded in the op panel); syncing it meanwhile is the race the review found (MR-31).
+- **Invoices:** a second send of the same invoice is allowed: each send has its own key and is its own
+  mail, and the invoice lists both. A pending row of an unclear send that is never confirmed stays; nothing
+  reads it but the confirmation, and it goes with its invoice.
+- **The status of an invoice never changes from mail on its own**, and mail never creates contacts on its
+  own: replies are listed, contacts are created by the user.
+- **Hotels stay out of mail linking** (decided with the user): no link type, no E-Mails tab. A hotel mail
+  that matters is about an event and is linked to that event by hand. The hotel form hides the further
+  addresses field; the table and repository would handle them if that changes.
+- **Remote images:** a name whose DNS answers include any private address is not loaded, even if a public
+  answer would work (the safe side of split-horizon DNS).
+- **Attachments:** a type outside the allowlist is not opened from the app, but can be saved and opened
+  from Explorer; it carries the Mark-of-the-Web, so SmartScreen and Protected View apply.
+- **The sanitizer** lifts `<style>` blocks out itself although DOMPurify would drop them too: belt and
+  braces against a parser mutation that keeps them.
+- **No DKIM/SPF checking** in the client. An idea for later: read the server's `Authentication-Results`
+  and warn on a DMARC fail, or on a display name that matches a contact while the address does not.
+
 ## Dependencies
 
 better-sqlite3 MIT, imapflow MIT, mailparser MIT, nodemailer MIT-0, dompurify MPL-2.0 OR Apache-2.0
@@ -299,6 +328,15 @@ Not built, roughly in the order they would matter:
 - **QRESYNC** (parked): helps only on a QRESYNC server, which IONOS is not; it would feed the existing gated
   deletion path, not a new one.
 - **Servers without UIDPLUS:** permanent delete is refused there rather than emulated.
+
+Known limits of what is built:
+
+- A saved draft reopens as plain text: `fromSavedDraft` (`composeDraft.ts`) drops its formatting.
+- The invoice PDF that main attaches on send is not counted against the editor's 20 MB attachment limit.
+- A UIDVALIDITY swap needs room for both copies of the folder; it checks first and stops with the
+  disk-full message (`core/disk_full.ts`).
+- After a write the write connection stays open for `WRITE_IDLE_MS` (30 s, `core/write_connection.ts`), and
+  IDLE on that account waits as long. Not tuned against IONOS yet.
 
 ## Lessons (keep)
 
