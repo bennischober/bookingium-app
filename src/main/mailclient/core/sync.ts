@@ -19,12 +19,13 @@ import crypto from 'crypto';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, Flags } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
-import { allowsPlainLogin, IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
+import { allowsPlainLogin, isAuthFailure } from './imap_options.js';
 import { writeMessageFile } from './files.js';
 import { diskFullMessage, freeBytesOf, isDiskFullError, swapSpaceMessage, swapSpaceNeeded } from './disk_full.js';
 import { isPathOrChild } from './folders.js';
 import { ConnectionBudget } from './connection_budget.js';
 import { FolderLocks, hasInFlightOps } from './folder_locks.js';
+import { SyncConnection } from './sync_connection.js';
 
 export interface AccountConfig {
   id: string;
@@ -144,14 +145,10 @@ const MASS_EXPUNGE_MIN = 20;
 const MASS_EXPUNGE_SHARE = 0.2;
 
 export class SyncEngine {
-  private client: ImapFlow | null = null;          // main connection (sync + writes)
-  private idleClient: ImapFlow | null = null;      // dedicated IDLE connection (INBOX)
   private syncing = false;
   // I17 (test gap): folder syncs and polls in flight outside a full pass (`syncing`)
   private inFlight = 0;
   private stopped = false;
-  private backoffMs = 1000;
-  private lastSyncAt: string | null = null;
   private progress: SyncProgress = {
     running: false, lastSyncAt: null, idleConnected: false,
     foldersSynced: 0, foldersTotal: 0, newMessages: 0, flagChanges: 0, expunged: 0, errors: [],
@@ -159,9 +156,6 @@ export class SyncEngine {
     phase: 'idle', paused: false, accountId: 'unknown',
     connection: 'connecting', retryAt: null, connectionError: null, diskFull: null,
   };
-  // A rejected login stops all server contact for good: retrying a wrong password gets the
-  // account locked. Only a new engine (the host restarts the core after a save) logs in again.
-  private authFailed = false;
   /** Set when a write failed because the disk is full; cleared by resume(). */
   private diskFull = false;
   /** Called once when the login is rejected (the factory drops its cached credentials). */
@@ -182,19 +176,8 @@ export class SyncEngine {
   // I15a: set when the IDLE connection gave its slot to a write; the reconnect then catches up
   private idleCatchUp = false;
   private unregisterIdleYield: (() => void) | null = null;
-  private consecutiveErrors = 0;
-  private circuitOpenUntil = 0;
-  private static readonly ERROR_THRESHOLD = 5;
-  private static readonly CIRCUIT_COOLDOWN_MS = 60_000;
-  private static readonly REPEATED_DISCONNECT_WINDOW_MS = 10 * 60_000;
-  private static readonly REPEATED_DISCONNECT_LIMIT = 8;
-  private disconnectTimestamps: number[] = [];
-  // Task 3: server capability cache (set on first connect)
-  private condstore = false;
-  private idleCapable = false;
-  // Task 3: testing hook — force the no-CONDSTORE code path even on servers that have it
-  // (Task 5: injected via the factory's options.forceNoCondstore, no env reads)
-  private readonly simulateNoCondstore: boolean;
+  // R1: the IMAP connections, backoff, circuit breaker and capabilities (sync_connection.ts)
+  private readonly conn: SyncConnection;
   // I18: free bytes on the store's drive, checked before a UIDVALIDITY swap (a seam for tests)
   private readonly freeBytes: (dir: string) => number | null;
   // Task 5: injected structured logger (host decides where output goes; core never
@@ -229,13 +212,43 @@ export class SyncEngine {
   }) {
     this.progress.accountId = account.id;
     this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
-    // Task 3: kill-switch for testing the no-CONDSTORE path against Dovecot
-    // (Task 5: comes in through the factory options, not process.env)
-    this.simulateNoCondstore = options?.forceNoCondstore === true;
     this.faultWriteCode = options?.faultWriteCode;
     this.freeBytes = options?.freeBytes ?? freeBytesOf;
     this.log = options?.log ?? {};
+    // Task 3: kill-switch for testing the no-CONDSTORE path against Dovecot
+    // (Task 5: comes in through the factory options, not process.env)
+    this.conn = new SyncConnection({
+      account: this.account,
+      budget: this.budget,
+      log: this.log,
+      progress: () => this.progress,
+      emit: e => this.emit(e),
+      isStopped: () => this.stopped,
+      stopAfterAuthFailure: () => { this.stopped = true; this.pollingStop = true; },
+      authFailed: () => this.onAuthFailed?.(),
+      waitWhilePaused: () => this.waitWhilePaused(),
+    }, options?.forceNoCondstore === true);
   }
+
+  private get client(): ImapFlow | null { return this.conn.client; }
+  private set client(client: ImapFlow | null) { this.conn.client = client; }
+  private get idleClient(): ImapFlow | null { return this.conn.idleClient; }
+  private set idleClient(client: ImapFlow | null) { this.conn.idleClient = client; }
+  private get backoffMs(): number { return this.conn.backoffMs; }
+  private set backoffMs(ms: number) { this.conn.backoffMs = ms; }
+  private get lastSyncAt(): string | null { return this.conn.lastSyncAt; }
+  private get authFailed(): boolean { return this.conn.authFailed; }
+  private get circuitOpenUntil(): number { return this.conn.circuitOpenUntil; }
+  private noteConnectFailure(e: unknown): void { this.conn.noteConnectFailure(e); }
+  private noteError(context: string): boolean { return this.conn.noteError(context); }
+  private noteSuccess(): void { this.conn.noteSuccess(); }
+  private noteServerContact(): void { this.conn.noteServerContact(); }
+  private noteDisconnect(): boolean { return this.conn.noteDisconnect(); }
+  private gate(): Promise<void> { return this.conn.gate(); }
+  private newClient(): ImapFlow { return this.conn.newClient(); }
+  private detectCapabilities(): Promise<void> { return this.conn.detectCapabilities(); }
+  get hasCondstore(): boolean { return this.conn.hasCondstore; }
+  private connect(): Promise<ImapFlow> { return this.conn.connect(); }
 
   get isSandbox(): boolean { return !this.account.readOnly; }
 
@@ -243,30 +256,6 @@ export class SyncEngine {
     const retryAt = this.progress.connection === 'offline' && this.nextPollAt !== null
       ? new Date(this.nextPollAt).toISOString() : null;
     return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt };
-  }
-
-  /** A connection attempt failed: a rejected login stops the engine, anything else is offline. */
-  private noteConnectFailure(e: unknown): void {
-    if (this.authFailed) return;
-    const message = e instanceof Error ? e.message : String(e);
-    if (!isAuthFailure(e)) {
-      this.progress.connection = 'offline';
-      this.progress.connectionError = message;
-      return;
-    }
-    this.authFailed = true;
-    this.stopped = true;
-    this.pollingStop = true;
-    this.progress.connection = 'auth-failed';
-    this.progress.connectionError = message;
-    this.progress.idleConnected = false;
-    this.emit({ type: 'error', path: null, message: 'login rejected: no further attempts until the account is saved again' });
-    try { this.onAuthFailed?.(); } catch { /* the stop above stands either way */ }
-  }
-
-  private noteOnline(): void {
-    this.progress.connection = 'online';
-    this.progress.connectionError = null;
   }
 
   isSyncing(): boolean { return this.syncing; }
@@ -360,62 +349,6 @@ export class SyncEngine {
   }
 
   /**
-   * Task 3: circuit breaker for the live server. Consecutive errors or repeated
-   * disconnects open the circuit for a cooldown; the caller must stop and report.
-   * Returns true when the circuit is open (caller should abort the pass).
-   */
-  private noteError(context: string): boolean {
-    this.consecutiveErrors++;
-    if (this.consecutiveErrors >= SyncEngine.ERROR_THRESHOLD) {
-      this.circuitOpenUntil = Date.now() + SyncEngine.CIRCUIT_COOLDOWN_MS;
-      this.emit({ type: 'error', path: null, message: `circuit breaker OPEN (${context}): ${this.consecutiveErrors} consecutive errors — cooling down ${SyncEngine.CIRCUIT_COOLDOWN_MS / 1000}s` });
-      return true;
-    }
-    return false;
-  }
-
-  private noteSuccess(): void {
-    this.consecutiveErrors = 0;
-  }
-
-  /**
-   * H1: record that the server answered. The UI shows this as "Synchronisiert HH:MM",
-   * so it must move on every successful contact - not only at the end of a full
-   * syncAll(). The poll runs every 2 minutes and is the thing that keeps the mailbox
-   * current; while it never touched this value the label could sit hours in the past and
-   * the user reasonably read it as "my mail is stale".
-   */
-  private noteServerContact(): void {
-    this.lastSyncAt = new Date().toISOString();
-    this.progress.lastSyncAt = this.lastSyncAt;
-  }
-
-  private noteDisconnect(): boolean {
-    const now = Date.now();
-    this.disconnectTimestamps = this.disconnectTimestamps.filter(t => now - t < SyncEngine.REPEATED_DISCONNECT_WINDOW_MS);
-    this.disconnectTimestamps.push(now);
-    if (this.disconnectTimestamps.length >= SyncEngine.REPEATED_DISCONNECT_LIMIT) {
-      this.circuitOpenUntil = now + SyncEngine.CIRCUIT_COOLDOWN_MS;
-      this.emit({ type: 'error', path: null, message: `circuit breaker OPEN: ${this.disconnectTimestamps.length} disconnects in ${SyncEngine.REPEATED_DISCONNECT_WINDOW_MS / 60000} min — server may be rate-limiting; stopping sync activity` });
-      this.disconnectTimestamps = [];
-      return true;
-    }
-    return false;
-  }
-
-  private async gate(): Promise<void> {
-    if (Date.now() < this.circuitOpenUntil) {
-      const waitMs = this.circuitOpenUntil - Date.now();
-      this.emit({ type: 'error', path: null, message: `circuit open: waiting ${Math.ceil(waitMs / 1000)}s before next server contact` });
-      await new Promise(r => setTimeout(r, waitMs));
-      this.circuitOpenUntil = 0;
-      this.consecutiveErrors = 0;
-      this.disconnectTimestamps = [];
-    }
-    await this.waitWhilePaused();
-  }
-
-  /**
    * I17 (test gap): is anything still using the store? A full pass, a folder sync (from a poll
    * or a write's resync), a poll, or any other holder of a folder mutex (IDLE, a repair).
    */
@@ -443,71 +376,6 @@ export class SyncEngine {
         if (!this.syncing) { clearTimeout(timer); clearInterval(check); resolve(); }
       }, 250);
     });
-  }
-
-  private newClient(): ImapFlow {
-    const client = new ImapFlow({
-      host: this.account.host,
-      port: this.account.port,
-      ...imapSecurityOptions(this.account.security),
-      auth: { user: this.account.user, pass: this.account.pass },
-      // enables CONDSTORE + QRESYNC (+UTF8=ACCEPT) automatically after login.
-      // Harmless when the server lacks them (server just ignores ENABLE).
-      qresync: true,
-      logger: false, emitLogs: false,
-      ...IMAP_TIMEOUTS,
-    });
-    // After connect() imapflow reports a dead connection (socket timeout, reset) as an 'error'
-    // event, which would throw without a listener. The connection is closed by then; the next
-    // connect() or the IDLE loop opens a new one.
-    client.on('error', (err: Error) => {
-      this.log.warn?.(`imap connection error: ${err.message}`);
-    });
-    return client;
-  }
-
-  /** Task 3: server capabilities, detected once per engine (used to pick sync strategy). */
-  private async detectCapabilities(): Promise<void> {
-    if (this.condstore || this.idleCapable) return;   // already detected
-    const client = await this.connect();
-    const caps = client.capabilities;
-    this.condstore = this.simulateNoCondstore ? false : (caps?.has?.('CONDSTORE') === true);
-    this.idleCapable = caps?.has?.('IDLE') !== false;  // absent list → assume yes (mandatory since IMAP4rev1)
-    if (this.simulateNoCondstore) {
-      this.emit({ type: 'error', path: null, message: 'forceNoCondstore option set — forcing UID-sweep sync strategy (test mode)' });
-    }
-  }
-
-  get hasCondstore(): boolean { return this.condstore; }
-
-  private async connect(): Promise<ImapFlow> {
-    if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
-    await this.gate();
-    if (this.authFailed) throw new Error('login rejected earlier: not logging in again');
-    if (this.client && this.client.usable) return this.client;
-    if (this.client) { try { this.client.close(); } catch { /* stale client is already unusable; a failed close leaves nothing to release */ } this.client = null; }
-    // Task 3: hard connection cap (1 sync + 1 IDLE for prod). I15a (MR-19): the budget is shared
-    // with the IDLE connection and the write engine, so all of them count.
-    const release = await this.budget.acquire({ cancelled: () => this.stopped });
-    const client = this.newClient();
-    try {
-      await client.connect();
-    } catch (e) {
-      release();
-      this.noteConnectFailure(e);
-      this.noteDisconnect();
-      throw e;
-    }
-    this.noteOnline();
-    client.on('close', () => {
-      release();
-      if (this.client === client || this.idleClient === client) this.noteDisconnect();
-    });
-    if (!client.usable) release();
-    this.client = client;
-    this.backoffMs = 1000;
-    this.noteSuccess();
-    return client;
   }
 
   // Task 5: optional event sink — the factory forwards these to the host via
