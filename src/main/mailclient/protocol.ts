@@ -90,5 +90,6 @@ export type FromWorker =
   | { type: 'result'; id: number; value?: unknown; error?: string }
   | { type: 'credentials-request'; reqId: number; accountId: string }
   | { type: 'event'; event: MailEvent }
-  | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
+  // `stack` only for an error the worker itself did not catch
+  | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string; stack?: string }
   | { type: 'closed' }

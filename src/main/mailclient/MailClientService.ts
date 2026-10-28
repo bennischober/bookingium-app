@@ -7,6 +7,7 @@ import { EventEmitter } from 'events'
 import { join } from 'path'
 import { canaryAllowed, listMailAccounts, mailCredentials, mailRoot } from './accounts'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
+import { logError } from '../utils/errorLog'
 
 // The local Dovecot/Mailpit sandbox; its SMTP sink listens here
 const CRASH_WINDOW_MS = 60_000
@@ -180,6 +181,10 @@ export class MailClientService {
             break
           case 'log':
             console[msg.level](`[mail] ${msg.message}`)
+            // the core's log.error is kept for real failures; the expected ones arrive as events
+            if (msg.level === 'error') {
+              logError('mail-core', { message: msg.message, stack: msg.stack })
+            }
             break
         }
       })
@@ -191,6 +196,7 @@ export class MailClientService {
         if (!this.stopping && code !== 0) {
           this.crashes.push(Date.now())
           console.error(`[mail] worker exited with code ${code}`)
+          logError('mail-worker', `mail worker exited with code ${code}`, { fatal: true })
           fail(this.lastError ?? `Mail-Client abgestürzt (Code ${code})`)
         } else if (!settled) {
           fail(this.lastError ?? 'Mail-Client wurde beendet')

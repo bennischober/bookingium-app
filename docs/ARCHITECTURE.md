@@ -107,7 +107,15 @@ data/bookingum.db                         SQLite database (WAL)
 storage/documents/<type>/<id>-<name>/     Documents of events, bands,
                                           companies, venues, persons
 storage/logos/<companyId>/                Company logos and signatures
+logs/errors.log (+ errors.1/2.log)        Local error log, JSONL, ~1 MB each
 ```
+
+The error log (`src/main/utils/errorLog.ts`) records unexpected errors only:
+crashes and uncaught errors of main, the mail worker and the renderer, render
+errors a boundary caught, and the mail core's `log.error`. Offline, rejected
+logins and server refusals stay out unless nothing caught them. Addresses and
+the home folder are scrubbed, lengths capped, at most 30 entries a minute;
+nothing is uploaded. Einstellungen › Daten opens the folder.
 
 Documents belong to an owner by `owner_type` + `owner_id` (no foreign key);
 triggers in the initial migration delete the rows with the owner, the owner's

@@ -49,7 +49,11 @@ const api = {
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
-  pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook')
+  pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook'),
+
+  /** An error nothing caught, for the local error log */
+  reportError: (report: { message: string; stack?: string }) =>
+    ipcRenderer.send('error-log:report', report)
 }
 
 // The window is sandboxed, so this runs before the page with Electron's renderer modules only

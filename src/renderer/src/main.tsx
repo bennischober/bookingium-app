@@ -10,6 +10,10 @@ import { Toaster } from '@/components/ui/sonner'
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost'
 import { FolderNameDialogHost } from '@/components/mail/FolderNameDialogHost'
 import { FollowUpDialogHost } from '@/components/follow-ups/FollowUpDialogHost'
+import { AppErrorBoundary } from '@/components/ErrorFallback'
+import { installErrorReporting } from '@/lib/errorReporting'
+
+installErrorReporting()
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,17 +36,19 @@ const queryClient = new QueryClient({
 function AppRoot() {
   return (
     <React.StrictMode>
-      <trpcReact.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <RouterProvider router={router} />
-            <Toaster />
-            <ConfirmDialogHost />
-            <FolderNameDialogHost />
-            <FollowUpDialogHost />
-          </ThemeProvider>
-        </QueryClientProvider>
-      </trpcReact.Provider>
+      <AppErrorBoundary>
+        <trpcReact.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+              <ConfirmDialogHost />
+              <FolderNameDialogHost />
+              <FollowUpDialogHost />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </trpcReact.Provider>
+      </AppErrorBoundary>
     </React.StrictMode>
   )
 }

@@ -1,6 +1,8 @@
 import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
+import { ErrorFallback } from '@/components/ErrorFallback'
+import { reportError } from '@/lib/errorReporting'
 import DashboardPage from '@/pages/DashboardPage'
 import Calendar from '@/pages/CalendarPage'
 import BandPage from '@/pages/BandPage'
@@ -261,7 +263,12 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   history: hashHistory,
-  defaultPreload: 'intent'
+  defaultPreload: 'intent',
+  // A page that fails to render shows this in its place; the error goes to the local log
+  defaultErrorComponent: ({ reset }) => (
+    <ErrorFallback onRetry={reset} retryLabel="Erneut versuchen" />
+  ),
+  defaultOnCatch: (error, info) => reportError(error, info.componentStack ?? undefined)
 })
 
 declare module '@tanstack/react-router' {

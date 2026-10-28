@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { SettingsService } from '../../services/SettingsService'
+import { errorLogFolder } from '../../utils/errorLog'
 import { UpdateAppSettingsInput, type BackupResultDto } from '../schemas/settings.schema'
 
 const t = initTRPC.create()
@@ -27,6 +28,14 @@ export const settingsRouter = t.router({
 
   openDataFolder: t.procedure.mutation(async () => {
     const error = await shell.openPath(service.dataLocations().dataFolder)
+    if (error) throw badRequest(new Error(error), 'Ordner konnte nicht geöffnet werden')
+  }),
+
+  /** The folder of the local error log (utils/errorLog.ts); it exists even before the first entry */
+  openErrorLog: t.procedure.mutation(async () => {
+    const folder = errorLogFolder()
+    if (!folder) throw badRequest(null, 'Kein Fehlerprotokoll eingerichtet')
+    const error = await shell.openPath(folder)
     if (error) throw badRequest(new Error(error), 'Ordner konnte nicht geöffnet werden')
   }),
 

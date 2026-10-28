@@ -1,7 +1,7 @@
 // E2E: Einstellungen – own company, default country, invoice numbering,
 // import entry point and a backup into a chosen folder.
 import { test, expect } from '@playwright/test'
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
@@ -100,4 +100,46 @@ test('the colour scheme is set in settings, the logo leads home', async () => {
 
   await page.getByRole('link', { name: 'Bookingium' }).click()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+})
+
+test('an error nothing caught lands in the local error log, scrubbed', async () => {
+  const { page } = h
+  const userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
+  const logFile = join(userData, 'logs', 'errors.log')
+  const probes = (): { source: string; message: string; stack?: string }[] =>
+    existsSync(logFile)
+      ? readFileSync(logFile, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line))
+          .filter((entry) => String(entry.message).includes('e2e probe'))
+      : []
+
+  // A throw in a timer and a promise nobody awaits: both reach the window, then main
+  await page.evaluate(() => {
+    setTimeout(() => {
+      throw new Error('e2e probe thrown for someone@example.test')
+    })
+    void Promise.reject(new Error('e2e probe rejected'))
+  })
+  await expect.poll(() => probes().length).toBe(2)
+  const [thrown, rejected] = probes()
+  expect(thrown.source).toBe('renderer')
+  expect(thrown.message).toBe('Error: e2e probe thrown for <email>')
+  expect(JSON.stringify(probes())).not.toContain('someone@example.test')
+  expect(rejected.message).toBe('Error: e2e probe rejected')
+
+  // Einstellungen › Daten opens the folder
+  await h.app.evaluate(({ shell }) => {
+    shell.openPath = (async (target: string) => {
+      ;(globalThis as { openedPath?: string }).openedPath = target
+      return ''
+    }) as never
+  })
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Daten' }).click()
+  await page.getByRole('button', { name: 'Fehlerprotokoll öffnen' }).click()
+  await expect
+    .poll(() => h.app.evaluate(() => (globalThis as { openedPath?: string }).openedPath))
+    .toBe(join(userData, 'logs'))
 })

@@ -17,6 +17,19 @@ function send(msg: FromWorker): void {
   port.postMessage(msg)
 }
 
+// Nothing caught it (an unhandled rejection ends up here too): the worker dies, so this is the
+// last word for the error log. The message may not get out before the exit; the main process
+// records the exit code either way.
+process.on('uncaughtExceptionMonitor', (error: unknown) => {
+  const e = error instanceof Error ? error : new Error(String(error))
+  send({
+    type: 'log',
+    level: 'error',
+    message: `uncaught: ${e.name}: ${e.message}`,
+    stack: e.stack
+  })
+})
+
 function requestCredentials(accountId: string): Promise<{ user: string; pass: string }> {
   const reqId = nextReqId++
   return new Promise((resolve, reject) => {

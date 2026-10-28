@@ -6,6 +6,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import { copyableLinkUrl } from './mail/linkClipboard'
 import { isAppDocument } from './utils/navigation'
+import { initErrorLog, logError } from './utils/errorLog'
 
 // Data folder (database, documents): %APPDATA%/bookingum-app for the dev
 // and the installed app alike. Electron would derive it from the app name,
@@ -15,6 +16,31 @@ if (process.env.BOOKINGIUM_USER_DATA) {
 } else {
   app.setPath('userData', join(app.getPath('appData'), 'bookingum-app'))
 }
+// Real bugs only, on this machine (utils/errorLog.ts); set up before anything else can fail.
+// The monitor leaves Electron's own handling of an uncaught exception as it was.
+initErrorLog({ folder: join(app.getPath('userData'), 'logs'), version: app.getVersion() })
+process.on('uncaughtExceptionMonitor', (error) => logError('main', error, { fatal: true }))
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason)
+  logError('main', reason)
+})
+// A window's renderer or a helper process died; the mail worker's exit is recorded by
+// MailClientService, which knows whether it was stopped on purpose
+app.on('render-process-gone', (_event, _contents, details) => {
+  if (details.reason === 'clean-exit' || details.reason === 'killed') return
+  logError('process', `renderer gone: ${details.reason} (exit code ${details.exitCode})`, {
+    fatal: true
+  })
+})
+app.on('child-process-gone', (_event, details) => {
+  if (details.type === 'Utility' || details.reason === 'clean-exit' || details.reason === 'killed')
+    return
+  logError(
+    'process',
+    `${details.type} process gone: ${details.reason} (exit code ${details.exitCode})`,
+    { fatal: true }
+  )
+})
 // One app per data folder: a second one would open the same database and mail
 // store. The lock is taken per userData, so tests with their own folder still run
 // next to the app. A second start brings the running window to the front instead.
@@ -557,6 +583,17 @@ ipcMain.handle(
     }
   }
 )
+
+/**
+ * The renderer's errors nothing caught, and render errors a boundary caught
+ * (renderer lib/errorReporting.ts). Only the text and stack arrive; errorLog scrubs both.
+ */
+ipcMain.on('error-log:report', (event, report: unknown) => {
+  if (!BrowserWindow.fromWebContents(event.sender)) return
+  const { message, stack } = (report ?? {}) as { message?: unknown; stack?: unknown }
+  if (typeof message !== 'string') return
+  logError('renderer', { message, stack: typeof stack === 'string' ? stack : undefined })
+})
 
 ipcMain.handle('mail:showFile', (_event, { filePath }: { filePath: string }) => {
   showEmailFile(filePath)

@@ -91,6 +91,8 @@ export interface DocumentAPI {
     workbook?: ImportWorkbook
     error?: string
   }>
+  /** An error nothing caught, for the local error log (main scrubs it) */
+  reportError: (report: { message: string; stack?: string }) => void
 }
 
 declare global {
