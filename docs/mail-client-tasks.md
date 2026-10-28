@@ -1962,6 +1962,26 @@ rare; reading a mail and finding it in search is not.
    of a former skeleton). The sandbox suite completes every partial row of the corpus: file byte-equal to the
    server's source, `attachments_json` equal to the whole store's, no `\Seen`.
 5. UI states, then the threshold default.
+   **Result** [done 2026-10-28]. A new API method `completeMessage(id)` (`message_views.ts`, in `MAIL_API_METHODS`)
+   runs `ensureComplete` and answers with the `MessageDetail`, now complete with the real attachment sizes.
+   - `components/mail/completion.ts` `withWholeMessage(message, deps, action)`: a complete message runs the action at
+     once. Otherwise it downloads first, with the wait shown, takes the answer over and runs the action with it. A
+     failed download rejects with the core's message and never runs the action.
+   - MessageView: on an incomplete message each attachment chip shows "≈ size · wird beim Öffnen geladen" (the title
+     too). Open, "Speichern unter…", "Alle speichern…", .eml, "Als Dokument speichern…" / "Alle als Dokument…" and
+     "Weiterleiten" go through `withWholeMessage`. While it runs, a status line shows "Nachricht wird geladen (size)…"
+     and those buttons are disabled. A failure is the action's toast with the core's message as its description,
+     e.g. "Anhang konnte nicht geöffnet werden" / "Offline – der Anhang ist noch nicht geladen". The query cache and
+     a loaded-images copy take over `complete` and the attachment list. There is no byte progress: `fetchOne` reports
+     none, so the wait shows a spinner and the message size.
+   - The document dialog and the forward editor open only after the download, so neither can meet a skeleton. The
+     list's forward (context menu, Ctrl+L, `MailPage` `composeFromList`) waits the same way, with a loading toast.
+   - Threshold default: `LAZY_ABOVE_BYTES = 5_000_000` (`sync.ts`), set by `makeSandboxAccount`. Production and
+     canary stay unset until the user's go-ahead for the first S1 run against IONOS; turning it on there is
+     one line in each builder.
+   Tests: `tests/mail_completion.test.ts` (complete runs at once; order busy → download → idle → adopt → action;
+   a failure ends the wait and skips the action), `completeMessage` in `tests/mail_message_complete.test.ts`, and the
+   builder defaults in `tests/mail_partial_ingest.test.ts`. MessageView itself is covered by step 7's e2e.
 6. Sandbox suite (`pnpm test:sandbox`, threshold lowered for the test). Cover:
    - a generated message with a binary attachment (example.test addresses) stays partial
    - list, search and attachment names are right

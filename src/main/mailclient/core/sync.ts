@@ -99,6 +99,9 @@ export function makeCanaryAccount(input: {
   };
 }
 
+/** S1: the agreed threshold (5 MB of RFC822.SIZE); a builder that sets it turns partial ingest on */
+export const LAZY_ABOVE_BYTES = 5_000_000;
+
 export function makeSandboxAccount(input: {
   id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {
@@ -109,6 +112,7 @@ export function makeSandboxAccount(input: {
     user: input.user, pass: input.pass,
     readOnly: false,            // sandbox: write path enabled (but only via write_guard)
     dataDir: input.dataDir,
+    lazyAboveBytes: LAZY_ABOVE_BYTES,
   };
 }
 

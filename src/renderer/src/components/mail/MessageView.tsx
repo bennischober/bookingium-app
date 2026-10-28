@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
   ChevronDown,
@@ -30,6 +30,7 @@ import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocume
 import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
 import {
   formatAddresses,
   formatFullDate,
@@ -151,6 +152,9 @@ export function MessageView({
   // they work on read-only accounts too
   const [linking, setLinking] = useState(false)
   const [creatingContact, setCreatingContact] = useState(false)
+  // S1: the whole message is being downloaded (stored without its large parts until now)
+  const [downloading, setDownloading] = useState(false)
+  const queryClient = useQueryClient()
   // G10: the core reports progress per image; only this message's events matter.
   // This hook MUST stay above the early returns below - a hook after them is called on
   // some renders and not others, which is the Rules-of-Hooks violation that crashed the view.
@@ -195,6 +199,30 @@ export function MessageView({
     }
   }
 
+  // S1: a message stored without its large parts is downloaded once, before anything reads them.
+  // The core would do it anyway; going through here shows the wait and the real sizes after it.
+  const whole = <T,>(action: (whole: MessageDetail) => Promise<T> | T): Promise<T> =>
+    withWholeMessage(
+      message,
+      {
+        complete: () => mailApi.completeMessage(message.id, accountId),
+        busy: setDownloading,
+        adopt: (done) => {
+          queryClient.setQueryData(messageKey(accountId, messageId), done)
+          // loaded remote images stay; only what the download changed is taken over
+          setWithImages(
+            (w) => w && { ...w, complete: done.complete, attachments: done.attachments }
+          )
+        }
+      },
+      action
+    )
+
+  /** The core's message says why (offline, gone from the server) */
+  const failed = (title: string) => (error: unknown) => {
+    toast.error(title, { description: error instanceof Error ? error.message : undefined })
+  }
+
   // B6: the main process writes the file; the renderer never gets a path to write to.
   // I11 (MR-23): nor does it name the file - main takes the stored name.
   const attachmentInput = (partId: string) => ({
@@ -206,7 +234,9 @@ export function MessageView({
   const openAttachment = async (partId: string) => {
     try {
       // A type that may start programs is never opened; main asks whether to save it instead
-      const result = await trpcVanilla.mail.attachments.open.mutate(attachmentInput(partId))
+      const result = await whole(() =>
+        trpcVanilla.mail.attachments.open.mutate(attachmentInput(partId))
+      )
       if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
     } catch (error) {
       toast.error('Anhang konnte nicht geöffnet werden', {
@@ -216,12 +246,15 @@ export function MessageView({
   }
 
   /** F10: every attachment of this mail, one after another through the same save path */
-  const saveAllAttachments = async (list: MessageDetail['attachments']) => {
-    const visible = list.filter((a) => !a.isInline)
-    for (const a of visible) await saveAttachmentAs(a.partId)
-  }
+  const saveAllAttachments = () =>
+    whole(async (done) => {
+      for (const a of done.attachments.filter((a) => !a.isInline)) await saveFile(a.partId)
+    }).catch(failed('Anhänge konnten nicht geladen werden'))
 
-  const saveAttachmentAs = async (partId: string) => {
+  const saveAttachmentAs = (partId: string) =>
+    whole(() => saveFile(partId)).catch(failed('Anhang konnte nicht gespeichert werden'))
+
+  const saveFile = async (partId: string) => {
     try {
       const result = await trpcVanilla.mail.attachments.saveAs.mutate(attachmentInput(partId))
       if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
@@ -232,9 +265,19 @@ export function MessageView({
     }
   }
 
+  /** C5 / F10: the dialog reads the files, so they are downloaded before it opens */
+  const toDocuments = (pick: (done: MessageDetail) => MessageDetail['attachments']) =>
+    whole((done) =>
+      setToDocument(pick(done).map((a) => ({ partId: a.partId, filename: a.filename })))
+    ).catch(failed('Anhang konnte nicht geladen werden'))
+
+  /** A forward carries the files: offline it stops here, never a forward without them */
+  const forward = (compose: NonNullable<typeof onCompose>) =>
+    whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
+
   const saveEml = async () => {
     try {
-      const bytes = await mailApi.getRawEml(message.id, accountId)
+      const bytes = await whole(() => mailApi.getRawEml(message.id, accountId))
       saveBytes(
         bytes,
         `${safeFileName(message.subject, 'E-Mail').slice(0, 80)}.eml`,
@@ -282,7 +325,8 @@ export function MessageView({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => onCompose(message, 'forward')}
+                      onClick={() => void forward(onCompose)}
+                      disabled={downloading}
                       title="Weiterleiten"
                       aria-label="Weiterleiten"
                     >
@@ -359,6 +403,7 @@ export function MessageView({
               variant="ghost"
               size="icon-sm"
               onClick={() => void saveEml()}
+              disabled={downloading}
               title="Original speichern (.eml)"
             >
               <Download />
@@ -400,7 +445,8 @@ export function MessageView({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => void saveAllAttachments(message.attachments)}
+              onClick={() => void saveAllAttachments()}
+              disabled={downloading}
             >
               <Download />
               Alle speichern…
@@ -409,12 +455,9 @@ export function MessageView({
               variant="ghost"
               size="sm"
               onClick={() =>
-                setToDocument(
-                  message.attachments
-                    .filter((a) => !a.isInline)
-                    .map((a) => ({ partId: a.partId, filename: a.filename }))
-                )
+                void toDocuments((done) => done.attachments.filter((a) => !a.isInline))
               }
+              disabled={downloading}
             >
               <FilePlus />
               Alle als Dokument…
@@ -438,11 +481,21 @@ export function MessageView({
                           size="sm"
                           className="rounded-r-none"
                           onClick={() => void openAttachment(a.partId)}
-                          title={`${a.contentType} · öffnen`}
+                          disabled={downloading}
+                          title={`${a.contentType} · ${message.complete ? 'öffnen' : NOT_LOADED_NOTE}`}
                         >
                           <Paperclip />
                           <span className="max-w-56 truncate">{a.filename || 'Anhang'}</span>
-                          <span className="text-muted-foreground">{formatSize(a.sizeBytes)}</span>
+                          {/* S1: until the download, the size is BODYSTRUCTURE's estimate */}
+                          <span className="text-muted-foreground">
+                            {message.complete ? '' : '≈ '}
+                            {formatSize(a.sizeBytes)}
+                          </span>
+                          {!message.complete && (
+                            <span className="text-xs text-muted-foreground">
+                              · {NOT_LOADED_NOTE}
+                            </span>
+                          )}
                         </Button>
                         <PopoverTrigger asChild>
                           <Button
@@ -450,6 +503,7 @@ export function MessageView({
                             size="sm"
                             className="rounded-l-none border-l-0 px-1.5"
                             aria-label={`${a.filename || 'Anhang'}: weitere Aktionen`}
+                            disabled={downloading}
                             title="Weitere Aktionen"
                           >
                             <ChevronDown />
@@ -469,7 +523,11 @@ export function MessageView({
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => setToDocument([{ partId: a.partId, filename: a.filename }])}
+                        onClick={() =>
+                          void toDocuments((done) =>
+                            done.attachments.filter((x) => x.partId === a.partId)
+                          )
+                        }
                       >
                         <FilePlus className="size-4 shrink-0 text-muted-foreground" />
                         Als Dokument speichern…
@@ -479,6 +537,13 @@ export function MessageView({
                 </li>
               ))}
           </ul>
+        )}
+
+        {downloading && (
+          <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm">
+            <Spinner className="shrink-0" aria-hidden />
+            <span role="status">Nachricht wird geladen ({formatSize(message.sizeBytes)})…</span>
+          </div>
         )}
 
         {message.remoteImageCount > 0 && !withImages && (

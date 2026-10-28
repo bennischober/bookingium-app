@@ -187,6 +187,7 @@ export interface Api {
   // messages
   listMessages(folderId: string, opts: { offset: number; limit: number }): Promise<MessageListItem[]>;
   getMessage(id: number): Promise<MessageDetail>;
+  completeMessage(id: number): Promise<MessageDetail>;   // S1: a skeleton row's whole message, once
   getRawEml(id: number): Promise<Uint8Array>;
   getAttachment(id: number, partId: string): Promise<Uint8Array>;
   loadRemoteImages(id: number, remoteImages: RemoteImageRef[]): Promise<MessageDetail>;   // opt-in per message

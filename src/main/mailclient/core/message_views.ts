@@ -93,6 +93,14 @@ export class MessageViews {
     return this.toDetail(e, row, null);
   }
 
+  /** S1: downloads a skeleton row's whole message (the UI waits for it before a forward or a document) */
+  async completeMessage(id: number, accountId?: string): Promise<MessageDetail> {
+    const e = this.entry(accountId);
+    const found = e.store.getMessage(id);
+    if (!found) throw new Error(`message ${id} not found`);
+    return this.toDetail(e, await this.ensureComplete(e, found), null);
+  }
+
   async getRawEml(id: number, accountId?: string): Promise<Uint8Array> {
     const e = this.entry(accountId);
     const found = e.store.getMessage(id);

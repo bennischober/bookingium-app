@@ -250,6 +250,19 @@ describe('S1: the doors that read the stored file complete it first', () => {
     expect(calls.length).toBe(1)
   })
 
+  it('completeMessage answers with the whole message: complete, real attachment sizes', async () => {
+    const { views, partial, calls } = doors()
+    const row = await partial()
+    expect((await views.getMessage(row.id)).complete).toBe(false)
+    const done = await views.completeMessage(row.id)
+    expect(done.complete).toBe(true)
+    expect(done.attachments.map((a) => a.sizeBytes)).toEqual([PDF.length])
+    expect(calls.length).toBe(1)
+    // asked again, nothing is downloaded
+    await views.completeMessage(row.id)
+    expect(calls.length).toBe(1)
+  })
+
   it('getRawEml never returns the skeleton', async () => {
     const { views, partial } = doors()
     const row = await partial()

@@ -20,6 +20,7 @@ Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, me
 | Draft state machine | `composeDraft.ts` | `ComposeState`, `emptyCompose`, `replyCompose`, `forwardCompose`, `fromSavedDraft`, `toDraftInput` |
 | Formatting | `format.ts` | `messageKey`, `formatListDate`, `formatSize`, `formatAddresses`, `safeFileName`, `snippetParts` |
 | Multi-select | `selection.ts` | `clickSelection`, `moveSelection`, `selectAll`, `nextAfterRemoval` |
+| Large mail not yet downloaded (S1) | `completion.ts` | `withWholeMessage`: MessageView's open, save, .eml, document and forward wait for `mailApi.completeMessage`; `NOT_LOADED_NOTE` |
 
 ## CONVENTIONS
 - Data access goes through `mailApi` (`@/lib/mailApi`), NOT `trpcReact`: it proxies the main-process

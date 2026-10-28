@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { ComposeView } from '@/components/mail/ComposeView'
 import { readingActions } from '@/components/mail/readingActions'
+import { withWholeMessage } from '@/components/mail/completion'
 import { archiveableIds } from '@/components/mail/archiveActions'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import { SyncIndicator } from '@/components/mail/SyncIndicator'
@@ -250,7 +251,23 @@ export default function MailPage() {
         queryKey: messageKey(accountId, id),
         queryFn: () => mailApi.getMessage(id, accountId)
       })
-      .then((message) => composeFrom(message, kind))
+      .then((message) =>
+        kind === 'forward'
+          ? // S1: a forward carries the files, so a mail stored without them is downloaded first
+            withWholeMessage(
+              message,
+              {
+                complete: () => mailApi.completeMessage(id, accountId),
+                busy: (on) =>
+                  on
+                    ? toast.loading('Nachricht wird geladen…', { id: `complete-${id}` })
+                    : toast.dismiss(`complete-${id}`),
+                adopt: (whole) => queryClient.setQueryData(messageKey(accountId, id), whole)
+              },
+              (whole) => composeFrom(whole, kind)
+            ).catch(failed('Anhänge konnten nicht geladen werden'))
+          : composeFrom(message, kind)
+      )
       .catch(failed('Die E-Mail konnte nicht geladen werden'))
   }
 

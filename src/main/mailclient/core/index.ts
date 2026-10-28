@@ -214,6 +214,8 @@ export class MailCore implements Api {
 
   getMessage(id: number, accountId?: string): Promise<MessageDetail> { return this.views.getMessage(id, accountId); }
 
+  completeMessage(id: number, accountId?: string): Promise<MessageDetail> { return this.views.completeMessage(id, accountId); }
+
   getRawEml(id: number, accountId?: string): Promise<Uint8Array> { return this.views.getRawEml(id, accountId); }
 
   getAttachment(id: number, partId: string, accountId?: string): Promise<Uint8Array> { return this.views.getAttachment(id, partId, accountId); }

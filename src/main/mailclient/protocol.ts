@@ -16,6 +16,7 @@ export const MAIL_API_METHODS = [
   'getFolders',
   'listMessages',
   'getMessage',
+  'completeMessage',
   'getRawEml',
   'getAttachment',
   'loadRemoteImages',
