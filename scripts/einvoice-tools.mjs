@@ -1,13 +1,17 @@
 // The e-invoice reference validators, one command away (dev/CI only, never
 // part of the app package):
 //   node scripts/einvoice-tools.mjs setup     download + install, print env
+//   node scripts/einvoice-tools.mjs check     both checks on the PDFs already there
 //   node scripts/einvoice-tools.mjs validate  setup, build, e2e, both checks
+// CI runs these as separate steps (.github/workflows/ci.yml): setup also
+// writes the env to $GITHUB_ENV there, and check fails when a suite skipped.
 // Pinned versions land in the gitignored .tools/ folder; every download is
 // checked against the SHA-256 below and skipped when already there. Both
 // validators are Java programs, so Java 11+ must be on the PATH.
 import { spawnSync } from 'child_process'
 import { createHash } from 'crypto'
 import {
+  appendFileSync,
   chmodSync,
   existsSync,
   mkdirSync,
@@ -212,16 +216,12 @@ function step(title, command, env = process.env) {
   if (run.status !== 0) fail(`${title} failed (${command})`)
 }
 
-async function validate() {
-  const env = { ...process.env, ...(await setup()) }
-  step('Build', 'pnpm build')
+const pdfDir = join(root, 'tests/e2e/__screenshots__')
+const pdfs = () =>
+  existsSync(pdfDir) ? readdirSync(pdfDir).filter((f) => /^einvoice-.*\.pdf$/.test(f)) : []
 
-  // Old PDFs must not pass for new ones: the e2e test writes them fresh
-  const pdfDir = join(root, 'tests/e2e/__screenshots__')
-  const pdfs = () =>
-    existsSync(pdfDir) ? readdirSync(pdfDir).filter((f) => /^einvoice-.*\.pdf$/.test(f)) : []
-  for (const file of pdfs()) rmSync(join(pdfDir, file))
-  step('E-invoice e2e (writes the PDFs)', 'pnpm exec playwright test tests/e2e/einvoice.spec.ts')
+/** Both validator suites on the PDFs the e2e test wrote; a skipped suite fails */
+function check(env) {
   if (pdfs().length === 0) fail(`The e2e test wrote no einvoice-*.pdf into ${pdfDir}`)
 
   // Both tests skip themselves when something is missing: count what ran
@@ -242,6 +242,16 @@ async function validate() {
   console.log(`\n✔ KoSIT and veraPDF accept the e-invoices (${pdfs().length} PDFs checked).`)
 }
 
+async function validate() {
+  const env = { ...process.env, ...(await setup()) }
+  step('Build', 'pnpm build')
+
+  // Old PDFs must not pass for new ones: the e2e test writes them fresh
+  for (const file of pdfs()) rmSync(join(pdfDir, file))
+  step('E-invoice e2e (writes the PDFs)', 'pnpm exec playwright test tests/e2e/einvoice.spec.ts')
+  check(env)
+}
+
 const command = process.argv[2] ?? 'validate'
 if (command === 'setup') {
   const env = await setup()
@@ -249,8 +259,19 @@ if (command === 'setup') {
   for (const [key, value] of Object.entries(env)) {
     console.log(isWindows ? `  $env:${key} = "${value}"` : `  export ${key}="${value}"`)
   }
+  // GitHub Actions: the job's later steps see these variables
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      Object.entries(env)
+        .map(([key, value]) => `${key}=${value}\n`)
+        .join('')
+    )
+  }
+} else if (command === 'check') {
+  check({ ...process.env, ...(await setup()) })
 } else if (command === 'validate') {
   await validate()
 } else {
-  fail(`Unknown command "${command}" (setup | validate)`)
+  fail(`Unknown command "${command}" (setup | check | validate)`)
 }

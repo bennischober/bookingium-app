@@ -13,12 +13,16 @@
 #     Dovecot/Mailpit sandbox and are slow; several are gated on that sandbox existing, and a
 #     skip is not a pass. Running them here would either need the containers in the job or
 #     produce a green build that proves nothing. They stay a manual gate for now.
-#   - the e-invoice validators (KoSIT/veraPDF) need Java 11+ and external binaries; those
-#     suites self-skip without them.
+#     The one exception is tests/e2e/einvoice.spec.ts, which the einvoice job runs (below).
 #
 # The sandbox-backed suites (mail crash points, SMTP auth) therefore SKIP in CI. That skip is
 # annotated as a GitHub warning (tests/helpers/sandboxGate.ts), so the run summary says what it
 # could not prove instead of showing a plain green.
+#
+# The e-invoice validators (KoSIT for the XML, veraPDF for PDF/A-3b) run in their own job,
+# ubuntu only: it needs Java, ~45 MB of pinned tools and a build plus one e2e spec, so it runs
+# beside the gate instead of holding it up. Those suites self-skip without the tools or PDFs,
+# and that skip is a failure there (scripts/einvoice-tools.mjs check).
 name: CI
 
 on:
@@ -96,3 +100,79 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # The same steps as `pnpm validate:einvoice`, one by one so the log shows which one failed.
+  einvoice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # KoSIT and veraPDF are Java programs; 11 is their floor and what the local runs use
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Electron binary
+        run: pnpm exec install-electron
+
+      # The installed validators, keyed on the script that pins their versions and checksums.
+      # Restore and save are split so a red validator run still keeps the download.
+      - name: Restore validators
+        id: tools
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .tools/kosit
+            .tools/verapdf-*
+          key: einvoice-tools-${{ runner.os }}-${{ hashFiles('scripts/einvoice-tools.mjs') }}
+
+      # Downloads and installs what the cache did not bring, then exports KOSIT_VALIDATOR,
+      # KOSIT_CONFIG and VERAPDF to the later steps via $GITHUB_ENV
+      - name: Validators
+        run: node scripts/einvoice-tools.mjs setup
+
+      - name: Save validators
+        if: steps.tools.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .tools/kosit
+            .tools/verapdf-*
+          key: ${{ steps.tools.outputs.cache-primary-key }}
+
+      - name: Build
+        run: pnpm build
+
+      # Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor, and Chromium's
+      # sandbox needs them: without this Electron aborts before the first window opens.
+      - name: Allow the Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Writes tests/e2e/__screenshots__/einvoice-*.pdf for veraPDF. Only this spec: the
+      # others need the mail sandbox or are not part of this job.
+      - name: E-invoice e2e (writes the PDFs)
+        run: xvfb-run --auto-servernum pnpm exec playwright test tests/e2e/einvoice.spec.ts
+
+      # Runs both validator suites and fails unless both ran and passed: they skip themselves
+      # when a tool or PDF is missing, and a skip is not a pass.
+      - name: KoSIT (XML) and veraPDF (PDF/A-3b)
+        run: node scripts/einvoice-tools.mjs check
+
+      # The PDFs and XML veraPDF/KoSIT judged, for reading a red run (built from the seed data)
+      - name: Upload the e-invoice PDFs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: einvoice-pdfs
+          path: tests/e2e/__screenshots__/einvoice-*
+          if-no-files-found: ignore
