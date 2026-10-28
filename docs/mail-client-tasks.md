@@ -1818,6 +1818,103 @@ lazy-attachment work will fetch parts that are not stored.
 The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views.ts`, two in `draft_api.ts`) go through one
 `parse.ts`, still mailparser. That makes the postal-mime swap a one-file change in the protocol work.
 
+## S: sync and storage protocol (plan 2026-10-28)
+
+Order: `parse.ts` (done, see above) → S1 design, agreed with the user before any code → S1 implementation. S2 is
+parked.
+
+### S1: large messages, attachments downloaded when opened [design, not approved yet]
+
+**Why.** Every downloaded message is stored complete (`folder_sync.ts:428`, `source: true`). A mailbox with press kits,
+photos and scanned contracts fills the disk and the first sync with bytes nobody opens. Opening an attachment is
+rare; reading a mail and finding it in search is not.
+
+**Decisions for the user** (recommendation first):
+1. Threshold: a message whose server size (RFC822.SIZE) is above **5 MB** is stored without its large parts. It is a
+   per-account option next to `batchBytes` (`sync.ts:43`), with no UI until someone needs one. Below the threshold,
+   nothing changes.
+2. What "opened" downloads: **the whole message**, once, and from then on the row is complete like any other. The
+   alternative, fetching and caching single parts, saves bytes when one of several large files is opened. But it
+   adds a second kind of storage that every consumer below would have to know.
+3. No eviction in v1: a completed message stays complete.
+
+**Storage.**
+- New core migration (append-only): `messages.complete INTEGER NOT NULL DEFAULT 1`. Existing rows are complete.
+- For a large message, the download path fetches `size`, `bodyStructure` and `BODY.PEEK[HEADER]`. For each text body
+  part (`text/plain`, `text/html`, not an attachment) it fetches `BODY.PEEK[<part>.MIME]` and `BODY.PEEK[<part>]`.
+  imapflow 2.9 supports `bodyStructure` and `bodyParts` and always uses PEEK, so fetching never sets `\Seen`.
+- Each text part is parsed through `parse.ts` as a small MIME of its own, so transfer encoding and charset stay
+  mailparser's job.
+- The file at `file_path` holds the header block. The row is built as today from the header and text parts.
+  `attachments_json` and `has_attachments` come from BODYSTRUCTURE. `size_bytes` keeps the **server size**, not the
+  file length, and `complete = 0`.
+- Only the server download paths (folder download pass, IDLE/poll new mail, repair) apply the threshold. Messages
+  the app stores itself (sent mail, appended drafts, `existingPath`) are always complete.
+
+**Completion** (`ensureComplete(entry, row)`, a new core module):
+- Fetches `BODY.PEEK[]` for the UID over the account's existing sync connection, behind its gate. No extra
+  connection (production connection limit).
+- Writes a new file with `writeMessageFile`. In one transaction it sets `file_path`, `complete = 1` and
+  `attachments_json`/`has_attachments` from the full parse.
+- Then it unlinks the header file. A leftover is an orphan for the sweep.
+- Two calls for the same row share one promise.
+- Errors carry no mail content:
+  - UIDVALIDITY changed, or the UID is gone: "Nachricht ist nicht mehr auf dem Server"
+  - offline: "Offline – der Anhang ist noch nicht geladen"
+
+**Consumers of the stored file** (mapped 2026-10-28):
+
+| Consumer | Where | With `complete = 0` |
+|----------|-------|---------------------|
+| Read a message | `message_views.ts` getMessage (row fields only) | unchanged; `MessageDetail` gets `complete`, attachment list from BODYSTRUCTURE |
+| Open / save attachment | `mail.router.ts` attachments.open/saveAs → `getAttachment` | `ensureComplete` first |
+| Attachment → document (C5) | `document.router.ts:75` → `getAttachment` | `ensureComplete` first |
+| Raw .eml | `message_views.ts:92` `getRawEml` | `ensureComplete` first; never returns the header file |
+| Forward with attachments | `draft_api.ts` `attachmentsOf` | `ensureComplete` first; offline is an error, never a forward that silently drops the files |
+| Read back a draft | `draft_api.ts` `getDraft` | `ensureComplete` first (drafts from other clients can be large) |
+| Search, `hasAttachment` filter | FTS over `body_text` and `attachments_json` | unchanged, provided BODYSTRUCTURE yields the same attachment list as mailparser (step 1) |
+| Move check | `write_moves.ts:275` compares `size_bytes` with the server size | unchanged because `size_bytes` stays the server size |
+| Swap space check (I18) | `folder_sync.ts:154` sums `size_bytes` | overestimates for partial rows, which is safe |
+| Relink after recovery | `folder_sync.ts:473` requires file length = `size_bytes` | partial rows are not relinked and download again as partial; accepted for v1 |
+| Repair sweep | `maintenance.ts:142` re-downloads `source: true` | goes through the same threshold as the download pass |
+| Orphan sweep, deletes, prune | `maintenance.ts:63`, `folder_sync.ts`, `write_engine.ts` removeLocally | unchanged (the header file is the row's file) |
+| Inline `cid:` images | `sanitize.ts:218` makes placeholders; the renderer resolves none | unchanged (see "Found while working") |
+
+**UI.**
+- MessageView marks attachments of an incomplete message with their size and "wird beim Öffnen geladen". It shows
+  progress while `ensureComplete` runs.
+- Opening offline shows the error above.
+- "Als .eml speichern", "Als Dokument speichern" and "Weiterleiten" wait for the download the same way.
+
+**Steps** (one commit each, `pnpm test` green after each):
+1. Equivalence test, which gates everything after it. Over the fixture corpus and a sandbox folder, the attachment
+   list derived from BODYSTRUCTURE equals mailparser's `partId`, `filename`, `contentType`, `isInline`, `contentId`
+   and `has_attachments`. If part numbers differ, step 4 maps them before the design goes on.
+2. Migration and store: the `complete` column, the row type, `MessageDetail.complete`.
+3. Partial ingest in the download paths, behind the threshold (off by default until step 5).
+4. `ensureComplete` and the consumer doors listed above.
+5. UI states, then the threshold default.
+6. Sandbox suite (`pnpm test:sandbox`, threshold lowered for the test). Cover:
+   - a generated message with a binary attachment (example.test addresses) stays partial
+   - list, search and attachment names are right
+   - `getAttachment` and `getRawEml` return the original bytes and complete the row
+   - forward carries the file
+   - `\Seen` is untouched
+   - proxy down gives the offline error
+7. e2e for the "wird beim Öffnen geladen" state, then docs (`docs/mail-client.md` Sync, core README).
+- Production stays read-only: these are fetches. The first run against IONOS waits for the user's go-ahead.
+
+### S2: QRESYNC [parked 2026-10-28]
+
+The connection already enables QRESYNC (`core/sync.ts:6`), and CONDSTORE servers already get flag changes through
+`changedSince` (`folder_sync.ts:351`). What QRESYNC would add is `VANISHED` instead of the full UID list for
+deletions.
+- That helps only on a QRESYNC server. IONOS, the production server, has neither CONDSTORE nor QRESYNC
+  (`docs/mail-client.md`, Sync). Gmail, as far as known, has CONDSTORE but not QRESYNC; not verified here.
+- It would add a second deletion path next to the gated UID-list sweep.
+- **Revisit when** an account runs on a QRESYNC server. Even then, `VANISHED` feeds the existing three-gate
+  deletion path rather than a path of its own.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
@@ -1833,6 +1930,8 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
+
+- 2026-10-28, S1 design, `core/sanitize.ts:21`: the comment says the UI resolves `cid:` images from local attachments, but no renderer code reads `data-cid`, so inline images stay placeholders.
 
 - 2026-10-28, R4.6, `hooks/useMailShortcuts.ts:35`: the moved comment "Declared after every handler it calls" now describes the page's `useMailShortcuts(` call site, not the hook, and the handler still re-subscribes on every render (no deps), as the renderer review noted.
 
