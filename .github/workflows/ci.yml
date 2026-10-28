@@ -1,4 +1,4 @@
-# R9: the quality gate, run on every push and pull request.
+# The quality gate, run on every push and pull request.
 #
 # Until now every gate ran by hand, which is how a permanently red e2e assertion survived for
 # months without anyone noticing. This job runs exactly what the project's own gate list says:
@@ -27,7 +27,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/mail-client]
+    branches: [main]
   pull_request:
 
 concurrency:

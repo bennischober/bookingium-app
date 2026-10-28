@@ -1,8 +1,8 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-10-24
-**Commit:** 5dd65f6
-**Branch:** feat/mail-client
+**Generated:** 2026-10-28
+**Commit:** 74f9e87
+**Branch:** main
 
 ## OVERVIEW
 Bookingium - local-first Electron desktop app for concert booking and band management (events, contracts, invoices, bands, venues, contacts). Electron 44 main process + React 19 renderer, SQLite via Drizzle, tRPC over IPC, German UI. `docs/ARCHITECTURE.md` is the long-form guide; the files below are the index agents need.
@@ -14,7 +14,7 @@ bookingum-app/
 ├── src/preload/       # contextBridge API (window.api) + electron-trpc
 ├── src/renderer/src/  # React app: router, pages/, components/, lib/, hooks/
 ├── tests/             # vitest suites (in-memory SQLite) + e2e/ Playwright specs
-├── docs/              # ARCHITECTURE, UI_LANGUAGE, TODOS, mail-client
+├── docs/              # ARCHITECTURE, UI_LANGUAGE, mail-client (open work: GitHub issues)
 ├── scripts/           # dev-only .mjs CLIs (e-invoice validators, icons, mail sandbox)
 └── sample_data/       # gitignored real master data (see ANTI-PATTERNS)
 ```
@@ -78,6 +78,7 @@ pnpm validate:einvoice   # KoSIT + veraPDF, needs Java 11+
 
 ## NOTES
 - Quality gate order: `pnpm test && pnpm lint && pnpm typecheck && pnpm build`, then `npx playwright test`.
+- Open work lives in GitHub issues (`gh issue list`, labels `area:*`, `decision`, `chore`, `parked`), not in docs. A known gap found while working becomes an issue; a PR that fixes one says `Fixes #<n>`.
 - E2E runs get a fresh temporary data folder per launch; `BOOKINGIUM_E2E_USER_DATA` points them at a copy, `BOOKINGIUM_NO_LAUNCH=1` suppresses mail-program launches.
 - Print verification means inspecting the generated PDF in `tests/e2e/__screenshots__/`, not the screenshot: pagination bugs are invisible in PNGs.
 - `docs/ARCHITECTURE.md` covers migrations, print documents, e-invoices, mailing lists and follow-ups in depth. Read it before touching those areas.

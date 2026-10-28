@@ -15,8 +15,9 @@ German UI.
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-lightgrey)
+[![CI](https://github.com/bennischober/bookingium-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bennischober/bookingium-app/actions/workflows/ci.yml)
 
-[Features](#features) · [Getting started](#getting-started) · [Quality gates](#quality-gates) · [Packaging](#packaging) · [Docs](#documentation)
+[Features](#features) · [Getting started](#getting-started) · [Quality gates](#quality-gates) · [Packaging](#packaging) · [Docs](#documentation) · [Issues](https://github.com/bennischober/bookingium-app/issues)
 
 </div>
 
@@ -35,7 +36,8 @@ German UI.
 - **Invoices** with per-company numbering on issue, line items, tax handling,
   Storno, print-to-PDF (German/English agency templates) with embedded
   e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps;
-  „Per E-Mail senden“ opens the email with the PDF in Outlook or Thunderbird
+  „Per E-Mail senden“ opens the email with the PDF in Outlook, Thunderbird
+  or the built-in mail client
 - **Bands** with detail page: members, events, management contracts (print)
   and quarterly management-share invoices, documents
 - **Companies and venues/festivals** with detail pages (contacts, bands,
@@ -44,8 +46,16 @@ German UI.
   (`documents/bands/3-pretty-wild/…`), drag and drop
 - **Import** of Excel lists (venues/festivals, bands, companies, persons)
   with detected column mapping, preview and duplicate matching
+- **Mail client** (experimental, off by default; Einstellungen › E-Mail):
+  IMAP/SMTP accounts to read, search, file and send mail, an „E-Mails“ tab on
+  the detail pages for the mail linked to that band, company, venue, person
+  or event, and an unread count in the menu
 - **Export** of every list to Excel, a **calendar file** (.ics) of all events
-  kept up to date, **backups** of database and documents
+  kept up to date
+- **Backups** of database and documents: manual, and automatic once a day
+  into a folder of your choice (a synced OneDrive/Dropbox folder works),
+  keeping one per day for a week and one per week for a month; restore from
+  Einstellungen › Daten
 - **Calendar**, **dashboard**, **search everything** (Ctrl+K), back/forward
   navigation (Alt+←/→), searchable pickers, lists that scroll as one
   table (pinned headers, sortable columns, more rows load while scrolling)
@@ -80,6 +90,11 @@ pnpm build          # typecheck + electron-vite build
 npx playwright test # e2e (needs pnpm build first): the built app with the
                     # main workflows (import, export, documents, print, …)
 ```
+
+CI ([`ci.yml`](.github/workflows/ci.yml)) runs test, lint, typecheck and build
+on Ubuntu and Windows for every push to `main` and every pull request, and in
+a second job the e-invoice validators (KoSIT, veraPDF) on the generated
+invoices. The other e2e specs and the mail sandbox suites stay a local gate.
 
 Each e2e app launch gets a fresh, temporary data folder that the app migrates
 and seeds on start, so tests never touch your real database
@@ -130,4 +145,10 @@ the coding guidelines.
 | --- | --- |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, data on disk, migrations, the end-to-end recipe, coding guidelines |
 | [UI_LANGUAGE.md](docs/UI_LANGUAGE.md) | German UI rules and glossary |
-| [TODOS.md](docs/TODOS.md) | Open items and roadmap |
+| [mail-client.md](docs/mail-client.md) | The mail client: architecture, sync, write path, rules for working on it |
+
+Open work (bugs, features, decisions, chores) is tracked in
+[GitHub issues](https://github.com/bennischober/bookingium-app/issues), labelled
+by area (`area:mail`, `area:calendar`, `area:einvoice`, `area:backup`,
+`area:ui`, `area:build`).
+The docs describe what is built and why; they hold no to-do lists.

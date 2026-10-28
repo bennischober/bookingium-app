@@ -2,8 +2,8 @@
 
 The built-in mail client: read, search, file and send mail from bookingum, tied to the app's people,
 events and invoices. This is the one current document for it: what it does, how it is built, how to work on
-it, and what is still open. The core's own API, module map and on-disk format are in
-`src/main/mailclient/core/README.md`.
+it, and its known limits (open work is in GitHub issues). The core's own API, module map and on-disk format
+are in `src/main/mailclient/core/README.md`.
 
 The working documents from building it (task cards, the critical review with findings MR-01 to MR-43, handoff
 briefs, the assessment, the per-card reports and the review-agent briefs) were removed after the release
@@ -334,22 +334,10 @@ better-sqlite3 MIT, imapflow MIT, mailparser MIT, nodemailer MIT-0, dompurify MP
 
 ## Open
 
-Not built, roughly in the order they would matter:
-
-- **Leaving "experimental":** a few weeks of daily use on the real mailbox; then decide whether the switch
-  goes or defaults to on. A backup before the first writes on a real mailbox stays advised.
-- **Onboarding for a large mailbox:** no disk-space check, estimate or pause for the first full sync.
-- **Multi-day soak:** sleep and resume are handled (see "Waking from sleep"), but no multi-day run against
-  the real mailbox has been done. A network change while the machine stays awake (Wi-Fi to LAN, VPN) is
-  not watched: imapflow's socket timeout, the write pool's NOOP check and the poll notice it, later.
-- **New-mail notification:** no desktop notification or tray icon (the menu badge is built).
-- **Thread view** (`listThreads` exists, the UI does not use it).
-- **Right-click on links** in a mail (decided against for now; the link list has open and copy).
-- **More integration:** mail from contracts, follow-ups closed by a reply or flagged when none came, an event
-  created from a booking request, mail templates beyond invoices, rules or auto-filing.
-- **QRESYNC** (parked): helps only on a QRESYNC server, which IONOS is not; it would feed the existing gated
-  deletion path, not a new one.
-- **Servers without UIDPLUS:** permanent delete is refused there rather than emulated.
+What is not built yet is tracked as GitHub issues with the label
+[`area:mail`](https://github.com/bennischober/bookingium-app/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Amail),
+starting with leaving "experimental" (#62) and the multi-day soak (#64). Right-click on links in a mail
+was decided against for now: the link list has open and copy.
 
 Known limits of what is built:
 
