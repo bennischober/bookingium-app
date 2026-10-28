@@ -3,12 +3,14 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { SettingsService } from '../../services/SettingsService'
+import { BackupService } from '../../services/BackupService'
 import { errorLogFolder } from '../../utils/errorLog'
 import { mailClient } from '../../mailclient/MailClientService'
 import { UpdateAppSettingsInput, type BackupResultDto } from '../schemas/settings.schema'
 
 const t = initTRPC.create()
 const service = container.resolve(SettingsService)
+const backups = container.resolve(BackupService)
 
 // Only folders created by createBackup may be opened via openBackup
 const createdBackups = new Set<string>()
@@ -58,7 +60,7 @@ export const settingsRouter = t.router({
       : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return { canceled: true, folder: null }
     try {
-      const folder = await service.createBackup(result.filePaths[0])
+      const folder = await backups.createManualBackup(result.filePaths[0])
       createdBackups.add(folder)
       return { canceled: false, folder }
     } catch (error) {

@@ -33,6 +33,7 @@ import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
+import { BackupCard } from '@/components/settings/BackupCard'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -289,8 +290,8 @@ function DataCard() {
           <div className="min-w-0">
             <p className="font-medium">Sicherung</p>
             <p className="text-sm text-muted-foreground">
-              Kopiert Datenbank und Dokumente in einen neuen Ordner (mit Anleitung zum
-              Wiederherstellen).
+              Kopiert Datenbank und Dokumente einmalig in einen neuen Ordner. Solche Sicherungen
+              werden nie automatisch gelöscht.
             </p>
           </div>
           <Button
@@ -392,6 +393,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="data" className="space-y-6">
           <DataCard />
+          <BackupCard />
         </TabsContent>
       </Tabs>
     </div>

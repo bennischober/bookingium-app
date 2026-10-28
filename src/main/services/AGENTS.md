@@ -17,12 +17,13 @@ rules, orchestration, and the side effects that must follow a mutation.
 | Spreadsheet import, remembered mappings | `ImportService.ts` |
 | Dashboard aggregates, global search | `DashboardService.ts`, `SearchService.ts` |
 | ICS calendar feed | `CalendarFeedService.ts` |
-| Settings, backup folder | `SettingsService.ts` |
+| Settings, data folder | `SettingsService.ts` |
+| Automatic and manual backups, restore | `BackupService.ts` (rules and files in `../backup/`) |
 
 ## CONVENTIONS
 - Constructor injection: `constructor(@inject(Repo) private repo: Repo) {}`.
-  Exactly one `@singleton()` (`CalendarFeedService`) because it owns a debounce
-  timer.
+  Two `@singleton()`s, both because they own timers: `CalendarFeedService`
+  (debounce) and `BackupService` (startup and hourly checks, the running backup).
 - Most services are thin. Real logic lives in `InvoiceService` (status guards),
   `EInvoiceService`, `ExportService` (column definitions), `ContactListService`
   (filters) and `ImportService`.
@@ -35,8 +36,8 @@ rules, orchestration, and the side effects that must follow a mutation.
   `SearchService`, `CalendarFeedService` and `SettingsService` query `db`/
   `schema` (or `getSqlite()`) directly - one IPC round-trip, small payload.
 - Pure helpers are exported next to the class and unit-tested directly:
-  `venueMatches`/`buildContactList`/`contactListCsv`, `mappingKey`,
-  `backupFolderName`.
+  `venueMatches`/`buildContactList`/`contactListCsv`, `mappingKey`.
+  Backup rules (`backupFolderName`, retention, due) are in `../backup/policy.ts`.
 - Services return raw entities or `null` and throw plain `Error` with German
   messages; they never throw `TRPCError` (that is the router's job).
 

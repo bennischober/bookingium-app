@@ -9,7 +9,9 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
-import { SettingsService, backupFolderName } from '../src/main/services/SettingsService'
+import { SettingsService } from '../src/main/services/SettingsService'
+import { BackupService } from '../src/main/services/BackupService'
+import { BACKUP_MARKER, backupFolderName } from '../src/main/backup/policy'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
 import {
@@ -110,7 +112,7 @@ describe('backup', () => {
     expect(backupFolderName(date)).toBe('Bookingium-Sicherung 2026-10-19 14-30')
     const target = join(root, 'Sicherungen')
     mkdirSync(target)
-    const folder = await container.resolve(SettingsService).createBackup(target, date)
+    const folder = await container.resolve(BackupService).createManualBackup(target, date)
 
     expect(folder).toBe(join(target, 'Bookingium-Sicherung 2026-10-19 14-30'))
     expect(
@@ -120,6 +122,11 @@ describe('backup', () => {
       )
     ).toBe('rider')
     expect(existsSync(join(folder, 'LIESMICH.txt'))).toBe(true)
+    // a manual backup is never removed by the automatic retention
+    expect(JSON.parse(readFileSync(join(folder, BACKUP_MARKER), 'utf-8'))).toMatchObject({
+      app: 'bookingium',
+      kind: 'manual'
+    })
 
     const copy = new Database(join(folder, 'bookingum.db'), { readonly: true })
     try {

@@ -54,6 +54,7 @@ import { container } from 'tsyringe'
 import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
 import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
+import { BackupService } from './services/BackupService'
 import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
@@ -662,6 +663,13 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Einstellungen › Daten › "Sicherung wiederherstellen…": a restore staged before the restart
+  // replaces the data now, before anything opens the database
+  try {
+    container.resolve(BackupService).applyStagedRestore()
+  } catch (error) {
+    console.error('Applying a staged restore failed:', error)
+  }
   runMigrations()
   // Files from the old storage/events/<id>/ layout move to storage/documents/
   await container
@@ -678,6 +686,8 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+  // Automatic backups: checked after startup, then hourly; each run copies in the background
+  container.resolve(BackupService).start(app.getVersion())
   // I7 (H3): an invoice mail whose send was unclear is marked once the core confirms it -
   // by the startup probe too, so this listens before the client starts
   const invoiceLedger = container.resolve(InvoiceService)
@@ -740,6 +750,7 @@ let mailStopped = false
 app.on('before-quit', (event) => {
   if (mailStopped) return
   event.preventDefault()
+  container.resolve(BackupService).stop()
   void mailClient
     .stop()
     .catch((error) => console.error('Stopping the mail client failed:', error))
