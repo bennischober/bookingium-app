@@ -26,11 +26,9 @@ function formatEventDate(iso: string): string {
 }
 
 export function BandDocumentsView({ bandId }: { bandId: number }) {
-  const { data: own = [], isLoading: ownLoading } = trpcReact.document.listByOwner.useQuery({
-    ownerType: 'band',
-    ownerId: bandId
-  })
-  const { data: fromEvents = [], isLoading: eventsLoading } =
+  // The band's own documents are listed (and edited) by the DocumentsPanel above this view;
+  // listing them here as well showed every band file twice under the same heading
+  const { data: fromEvents = [], isLoading } =
     trpcReact.document.listEventDocumentsForBand.useQuery(bandId)
 
   const [category, setCategory] = useState<string>(ALL)
@@ -39,26 +37,21 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
   // The events that actually have documents - a filter over empty entries is noise
   const events = useMemo(() => eventsOf(fromEvents), [fromEvents])
 
-  const categories = useMemo(
-    () => categoriesOf(own, fromEvents, DOCUMENT_TYPE_LABELS),
-    [own, fromEvents]
-  )
+  const categories = useMemo(() => categoriesOf([], fromEvents, DOCUMENT_TYPE_LABELS), [fromEvents])
 
-  // The band's own documents are shown under "Band", the events' under their event
   const rows = useMemo(
-    () => rowsOf(own, fromEvents, { category, eventId }),
-    [own, fromEvents, category, eventId]
+    () => rowsOf([], fromEvents, { category, eventId }),
+    [fromEvents, category, eventId]
   )
 
-  const isLoading = ownLoading || eventsLoading
   const filtered = category !== ALL || eventId !== ALL
-  const total = own.length + fromEvents.length
+  const total = fromEvents.length
 
   return (
-    <section aria-label="Alle Dokumente der Band" className="space-y-3">
+    <section aria-label="Dokumente aus Events" className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h3 className="font-semibold">
-          Dokumente der Band{' '}
+          Dokumente aus Events{' '}
           {total > 0 && (
             <span className="text-muted-foreground">
               ({filtered ? `${rows.length} von ${total}` : total})
@@ -101,10 +94,12 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
         <p className="text-sm text-muted-foreground">Dokumente werden geladen…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {total === 0 ? 'Noch keine Dokumente.' : 'Keine Dokumente für diese Auswahl.'}
+          {total === 0
+            ? 'Noch keine Dokumente in den Events der Band.'
+            : 'Keine Dokumente für diese Auswahl.'}
         </p>
       ) : (
-        <ul className="rounded-lg border" aria-label="Dokumentliste der Band">
+        <ul className="rounded-lg border" aria-label="Dokumentliste aus Events">
           {rows.map(({ doc, event }) => (
             <li
               key={`${event ? `event-${event.id}` : 'band'}-${doc.id}`}
