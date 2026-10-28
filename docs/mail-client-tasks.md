@@ -1807,7 +1807,13 @@ Independent of R1–R3 (no shared files), so it can run in parallel. The page ke
 5. `useFolderActions`: folder actions and moving a folder.
 6. `useMailShortcuts`: the keyboard handler.
 
-### After R1–R3: one parse module
+### After R1–R3: one parse module [done 2026-10-28]
+
+**Result.** `core/parse.ts` has `parseMessage(source)` (ingest) and `parseStoredMessage(store, file_path)` (the three
+calls that read a stored .eml: `getAttachment`, `getDraft`, `attachmentsOf`). `ParsedMessage` replaces the
+`Awaited<ReturnType<typeof simpleParser>>` type in ingest. No behaviour change; `tests/mail_compose.test.ts` still calls
+mailparser directly to check composed MIME, which is test code, not a core call. The stored-file door is where the
+lazy-attachment work will fetch parts that are not stored.
 
 The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views.ts`, two in `draft_api.ts`) go through one
 `parse.ts`, still mailparser. That makes the postal-mime swap a one-file change in the protocol work.

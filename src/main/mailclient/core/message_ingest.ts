@@ -1,7 +1,7 @@
 // R1: storing one downloaded message, out of SyncEngine: the crash-safe file, the parsed row,
 // the pass's move correlation and the contacts it teaches. Folder sync, IDLE and the write
 // engine's appended drafts all store through here.
-import { simpleParser } from 'mailparser';
+import { parseMessage, type ParsedMessage } from './parse.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import type { Flags, Store } from './store.js';
@@ -74,9 +74,9 @@ export class MessageIngest {
     const relPath = opts.existingPath ?? writeMessageFile(this.store.dataDirResolved, msg.source);
     const dropFile = () => { if (!opts.existingPath) this.removeFile(relPath); };
 
-    let parsed: Awaited<ReturnType<typeof simpleParser>>;
+    let parsed: ParsedMessage;
     try {
-      parsed = await simpleParser(msg.source);
+      parsed = await parseMessage(msg.source);
     } catch (e) {
       // insert minimal row so the message is not silently lost
       const flags = flagsFromSet(msg.flags);

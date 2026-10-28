@@ -1,12 +1,11 @@
 // R2: the draft and send calls of MailCore, out of core/index.ts: save, send, delete, discard
 // and read back a draft, building the MIME (with a forwarded mail's attachments) and finding
 // the Drafts folder. MailCore keeps one-line delegations, and a send runs through its runOp.
-import fs from 'fs';
 import type { JournalRow } from './store.js';
 import type { OpResult } from './write_engine.js';
 import type { DraftInput, SavedDraft } from './types.js';
 import { composeMime, ComposeError, SEND_KEY, type ComposedMime } from './compose.js';
-import { simpleParser } from 'mailparser';
+import { parseStoredMessage } from './parse.js';
 import { sendPhase } from './op_retry.js';
 import type { AccountEntry } from './index.js';
 
@@ -158,7 +157,7 @@ export class DraftApi {
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`draft ${id} not found`);
     // from the stored source, not the row: the row has no Bcc and no attachment content
-    const parsed = await simpleParser(fs.readFileSync(e.store.filePath(row.file_path)));
+    const parsed = await parseStoredMessage(e.store, row.file_path);
     const list = (field: typeof parsed.to) => (Array.isArray(field) ? field : field ? [field] : [])
       .flatMap(a => a.value)
       .filter(a => a.address)
@@ -195,7 +194,7 @@ export class DraftApi {
   private async attachmentsOf(e: AccountEntry, id: number): Promise<{ filename: string; contentType: string; content: Buffer }[]> {
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    const parsed = await simpleParser(fs.readFileSync(e.store.filePath(row.file_path)));
+    const parsed = await parseStoredMessage(e.store, row.file_path);
     return (parsed.attachments || [])
       .filter(a => a.contentDisposition !== 'inline' || !a.contentId)
       .map(a => ({ filename: a.filename || 'Anhang', contentType: a.contentType, content: a.content }));

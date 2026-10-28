@@ -42,6 +42,7 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `compose.ts` | MIME building for new mail, reply, reply-all, forward and drafts (built once, sent and appended as the same bytes) |
 | `connection_test.ts` | One-shot staged connection test for the account dialog (DNS, TCP, TLS, login, folders) |
 | `imap_options.ts` | Shared ImapFlow options (timeouts, socket error listener) |
+| `parse.ts` | the one door to the MIME parser (mailparser): `parseMessage(source)` at ingest, `parseStoredMessage(store, file_path)` for a stored .eml |
 | `sanitize.ts` | HTML mail sanitizer (DOMPurify + jsdom) — the only module needing a DOM |
 | `remote_images.ts` | opt-in remote-image fetch (URL → data: URI, size/type limited) |
 | `types.ts` | data types + the `Api` contract (the renderer imports these types; the worker calls `MailCore` methods by name) |
@@ -271,7 +272,7 @@ by design — the lock protects whole app instances, not individual components.
 - **jsdom + DOMPurify**: only `sanitize.ts`. Pure JS, creates its own DOM — runs in a
   plain Node process or Electron main/utility process. Never needed in a renderer.
 - **better-sqlite3**: `store.ts` (native module — rebuilt for Electron's ABI on install).
-- **imapflow / mailparser**: `sync.ts`, write paths, attachment parsing.
+- **imapflow / mailparser**: `sync.ts`, write paths; mailparser only through `parse.ts`.
 - **nodemailer**: `write_send.ts` (SMTP send), through `writeSmtp` in `write_guard.ts`; `compose.ts` (MIME).
 - **Node built-ins only** otherwise (`fs`, `path`, `crypto`, `net`, `events` semantics
   via plain callbacks). `process.memoryUsage()` is read for the `getSyncStatus()`

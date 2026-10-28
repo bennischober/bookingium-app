@@ -17,6 +17,7 @@ module map and factory reference - read it before changing anything here.
 | Flag/move/delete/expunge/send playback | `write_engine.ts` (queue, watchdog, preflight, flags, expunge) -> `write_moves.ts`, `write_send.ts`, `write_folders.ts` |
 | Which host may be written to | `write_guard.ts` - the only write-path guard |
 | Reply/forward/draft MIME | `compose.ts` |
+| MIME parsing | `parse.ts` - every `simpleParser` call goes through it; do not import mailparser elsewhere |
 | HTML mail sanitizing | `sanitize.ts` (DOMPurify + jsdom, the only DOM user) |
 | Remote images | `remote_images.ts` |
 | Account dialog connection test | `connection_test.ts` |

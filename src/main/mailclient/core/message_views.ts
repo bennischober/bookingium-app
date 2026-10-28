@@ -5,7 +5,7 @@ import fs from 'fs';
 import { STAGING_PREFIX } from './store.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris } from './remote_images.js';
-import { simpleParser } from 'mailparser';
+import { parseStoredMessage } from './parse.js';
 import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 import type { MessageHeader, HeaderPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
 import type { AccountEntry, MailCoreEvent, MailCoreOptions } from './index.js';
@@ -100,8 +100,7 @@ export class MessageViews {
     const e = this.entry(accountId);
     const row = e.store.getMessage(id);
     if (!row) throw new Error(`message ${id} not found`);
-    const source = fs.readFileSync(e.store.filePath(row.file_path));
-    const parsed = await simpleParser(source);
+    const parsed = await parseStoredMessage(e.store, row.file_path);
     const att = (parsed.attachments || []).find(a => a.partId === partId);
     if (!att) throw new Error(`attachment ${partId} not found in message ${id}`);
     return new Uint8Array(att.content);
