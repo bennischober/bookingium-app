@@ -89,7 +89,7 @@ test('venue page shows overview, contacts, events and documents', async () => {
 test('search palette and event page open the venue page', async () => {
   const { page } = h
   await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
-  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill('Whisky')
+  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen…').fill('Whisky')
   await page.getByRole('option', { name: /The Whisky a Go Go/ }).click()
   await expect(page.getByRole('heading', { name: 'The Whisky a Go Go' })).toBeVisible()
 

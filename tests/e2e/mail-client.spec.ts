@@ -1247,7 +1247,7 @@ test('the search palette finds mails and opens one in its window', async () => {
     // The palette finds it by subject, in its own group
     await page.goto(`${page.url().split('#')[0]}#/mail`)
     await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
-    await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill(tag)
+    await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen…').fill(tag)
     const group = page.getByRole('group', { name: 'E-Mails' })
     await expect(group).toBeVisible({ timeout: 30_000 })
     const hit = group.getByRole('option').filter({ hasText: tag })
@@ -1354,7 +1354,7 @@ test("a mail from a person's address appears in their E-Mails tab", async () => 
     // after the folder sync, so the panel is polled rather than slept on.
     await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
     await page
-      .getByPlaceholder('Seiten, Einträge oder Aktionen suchen...')
+      .getByPlaceholder('Seiten, Einträge oder Aktionen suchen…')
       .fill(LINKED_PERSON.firstName)
     await page
       .getByRole('option', {

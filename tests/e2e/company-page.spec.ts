@@ -69,10 +69,9 @@ test('company page shows contacts, bands, events, invoices and documents', async
 
   await page.getByRole('tab', { name: 'Rechnungen' }).click()
   const invoices = page.getByRole('table', { name: 'Rechnungen der Firma' })
-  await expect(invoices.locator('tr', { hasText: '#1040' })).toContainText(
-    'von Live Music Berlin GmbH'
-  )
-  await expect(invoices.locator('tr', { hasText: 'an Midnight Symphony' })).toContainText('Entwurf')
+  await expect(invoices.getByRole('columnheader', { name: 'Rechnungssteller' })).toBeVisible()
+  await expect(invoices.locator('tr', { hasText: '#1040' })).toContainText('Live Music Berlin GmbH')
+  await expect(invoices.locator('tr', { hasText: 'Midnight Symphony' })).toContainText('Entwurf')
   // An invoice opens its page; back returns to the tab
   await invoices.locator('tr', { hasText: '#1040' }).click()
   await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
@@ -111,7 +110,7 @@ test('company page shows contacts, bands, events, invoices and documents', async
 test('search palette and event page open the company page', async () => {
   const { page } = h
   await page.getByRole('button', { name: 'Alles suchen (Ctrl+K)' }).click()
-  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill('Live Music')
+  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen…').fill('Live Music')
   await page.getByRole('option', { name: /Live Music Berlin GmbH/ }).click()
   await expect(page.getByRole('heading', { name: 'Live Music Berlin GmbH' })).toBeVisible()
 

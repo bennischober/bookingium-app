@@ -74,7 +74,7 @@ test('the search palette opens a settings tab', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Dashboard' }).first().click()
   await page.keyboard.press('Control+k')
-  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen...').fill('Vorlagen')
+  await page.getByPlaceholder('Seiten, Einträge oder Aktionen suchen…').fill('Vorlagen')
   await page.getByRole('option', { name: /E-Mail-Vorlagen und Mailprogramm/ }).click()
   await expect(page.getByRole('tab', { name: 'E-Mail' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.locator('#settings-email-subject-de')).toBeVisible()

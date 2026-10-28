@@ -294,7 +294,7 @@ const SearchButton = () => {
   const emptyMessage = useMemo(() => {
     if (!hasTypedQuery)
       return `Geben Sie mindestens ${MIN_SEARCH_LENGTH} Zeichen ein, um Einträge zu suchen.`
-    if (isAnyLoading) return 'Suche läuft...'
+    if (isAnyLoading) return 'Suche läuft…'
     if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
     return 'Keine Ergebnisse gefunden.'
   }, [hasTypedQuery, isAnyLoading, hasRecordMatches])
@@ -310,14 +310,14 @@ const SearchButton = () => {
         title="Alles suchen (Ctrl+K)"
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-70" />
-        <span className="hidden flex-1 truncate lg:inline">Alles suchen...</span>
+        <span className="hidden flex-1 truncate lg:inline">Alles suchen…</span>
         <kbd className="pointer-events-none hidden rounded border border-muted-foreground/30 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-background lg:inline">
           Ctrl+K
         </kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Seiten, Einträge oder Aktionen suchen..."
+          placeholder="Seiten, Einträge oder Aktionen suchen…"
           value={query}
           onValueChange={setQuery}
         />

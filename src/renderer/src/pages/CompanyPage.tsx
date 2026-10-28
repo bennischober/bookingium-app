@@ -226,7 +226,7 @@ export function CompanyPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Firmen filtern..."
+        searchPlaceholder="Firmen filtern…"
         // A click opens the company page; the pencil keeps the quick-edit sheet
         onRowClick={(company) =>
           navigate({ to: '/companies/$companyId', params: { companyId: String(company.id) } })
@@ -267,6 +267,7 @@ export function CompanyPage() {
           company={formSheet.selectedItem || undefined}
           onSubmit={formSheet.mode === 'create' ? handleCreate : handleUpdate}
           onCancel={formSheet.close}
+          isSubmitting={createMutation.isPending || updateMutation.isPending}
         />
       </FormSheet>
     </div>

@@ -413,7 +413,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           </CardHeader>
           <CardContent>
             {invoices.isLoading ? (
-              <p className="text-sm text-muted-foreground">Rechnungen werden geladen...</p>
+              <p className="text-sm text-muted-foreground">Rechnungen werden geladen…</p>
             ) : (invoices.data?.length ?? 0) === 0 ? (
               <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <FileText className="h-4 w-4" />

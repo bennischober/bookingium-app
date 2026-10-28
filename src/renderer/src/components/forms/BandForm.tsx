@@ -131,7 +131,7 @@ export function BandForm({
               Firma <span className="text-destructive">*</span>
             </Label>
             {companies.isLoading ? (
-              <div className="text-sm text-muted-foreground">Firmen werden geladen...</div>
+              <div className="text-sm text-muted-foreground">Firmen werden geladen…</div>
             ) : companies.data && companies.data.length > 0 ? (
               <SearchableSelect
                 id={field.name}
@@ -160,7 +160,7 @@ export function BandForm({
           <div className="space-y-2">
             <Label htmlFor={field.name}>Technischer Leiter (TL)</Label>
             {persons.isLoading ? (
-              <div className="text-sm text-muted-foreground">Personen werden geladen...</div>
+              <div className="text-sm text-muted-foreground">Personen werden geladen…</div>
             ) : persons.data && persons.data.length > 0 ? (
               <SearchableSelect
                 id={field.name}
@@ -250,7 +250,7 @@ export function BandForm({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Weitere Anmerkungen hinzufügen..."
+              placeholder="Weitere Anmerkungen hinzufügen…"
               rows={4}
               disabled={isSubmitting}
             />
@@ -265,7 +265,7 @@ export function BandForm({
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting
-            ? 'Speichert...'
+            ? 'Speichert…'
             : mode === 'create'
               ? 'Band anlegen'
               : 'Änderungen speichern'}

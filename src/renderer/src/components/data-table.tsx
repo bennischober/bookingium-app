@@ -87,7 +87,7 @@ export function DataTable<TData>({
   filtered = false,
   search = '',
   onSearchChange,
-  searchPlaceholder = 'Suchen...',
+  searchPlaceholder = 'Suchen…',
   actionButton,
   onRowClick
 }: DataTableProps<TData>) {
@@ -215,7 +215,7 @@ export function DataTable<TData>({
                   colSpan={columns.length}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
-                  Lädt...
+                  Lädt…
                 </td>
               </tr>
             ) : table.getRowModel().rows.length === 0 ? (

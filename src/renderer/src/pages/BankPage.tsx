@@ -168,7 +168,7 @@ export default function BankPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Banken filtern..."
+        searchPlaceholder="Banken filtern…"
         isLoading={banks.isLoading}
         total={listTotal(banks.data)}
         actionButton={

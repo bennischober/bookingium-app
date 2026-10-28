@@ -163,7 +163,7 @@ export default function InvoicePage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Rechnungen filtern..."
+        searchPlaceholder="Rechnungen filtern…"
         isLoading={invoices.isLoading}
         total={listTotal(invoices.data)}
         actionButton={

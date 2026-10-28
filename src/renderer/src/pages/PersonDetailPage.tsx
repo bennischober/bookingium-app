@@ -228,7 +228,7 @@ function ContractsTab({ personId }: { personId: number }) {
   const navigate = useNavigate()
   const contracts = trpcReact.managementContract.listByPerson.useQuery(personId)
   const bands = trpcReact.band.getListItems.useQuery()
-  const bandName = (id: number) => bands.data?.find((band) => band.id === id)?.name ?? '…'
+  const bandName = (id: number) => bands.data?.find((band) => band.id === id)?.name ?? '–'
   return (
     <RowTable
       label="Managementverträge der Person"

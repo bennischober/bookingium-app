@@ -20,6 +20,8 @@ English.
 4. **Exception:** the English agency invoice template (`AgencyEnTemplate` in
    `InvoiceDocument.tsx`) stays English.
 5. Formal address ("Sie"), German typography: „Anführungszeichen“, `…`, `–`.
+   Write the ellipsis as one character (`Suchen…`, `Lädt…`, „Zuordnen…“), never
+   three dots; `...` stays only in code (spread syntax).
 
 ## Glossary
 

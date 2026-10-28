@@ -163,7 +163,7 @@ export default function HotelPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Hotels filtern..."
+        searchPlaceholder="Hotels filtern…"
         isLoading={hotels.isLoading}
         total={listTotal(hotels.data)}
         actionButton={
