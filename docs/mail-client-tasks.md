@@ -1823,7 +1823,7 @@ The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views
 Order: `parse.ts` (done, see above) → S1 design, agreed with the user before any code → S1 implementation. S2 is
 parked.
 
-### S1: large messages, attachments downloaded when opened [done 2026-10-28 in the sandbox; IONOS run prepared]
+### S1: large messages, attachments downloaded when opened [done 2026-10-28; sandbox and the first IONOS run]
 
 **Why.** Every downloaded message is stored complete (`folder_sync.ts:428`, `source: true`). A mailbox with press kits,
 photos and scanned contracts fills the disk and the first sync with bytes nobody opens. Opening an attachment is
@@ -1976,9 +1976,9 @@ rare; reading a mail and finding it in search is not.
      none, so the wait shows a spinner and the message size.
    - The document dialog and the forward editor open only after the download, so neither can meet a skeleton. The
      list's forward (context menu, Ctrl+L, `MailPage` `composeFromList`) waits the same way, with a loading toast.
-   - Threshold default: `LAZY_ABOVE_BYTES = 5_000_000` (`sync.ts`), set by `makeSandboxAccount`. Production and
-     canary stay unset until the user's go-ahead for the first S1 run against IONOS; turning it on there is
-     one line in each builder.
+   - Threshold default: `LAZY_ABOVE_BYTES = 5_000_000` (`sync.ts`), set by every account builder. Production and
+     canary got it on 2026-10-28 for the first S1 run against IONOS (below); taking the line out turns partial
+     ingest off there again.
    Tests: `tests/mail_completion.test.ts` (complete runs at once; order busy → download → idle → adopt → action;
    a failure ends the wait and skips the action), `completeMessage` in `tests/mail_message_complete.test.ts`, and the
    builder defaults in `tests/mail_partial_ingest.test.ts`. MessageView itself is covered by step 7's e2e.
@@ -2025,7 +2025,7 @@ rare; reading a mail and finding it in search is not.
    disk.
 - Production stays read-only: these are fetches. The first run against IONOS waits for the user's go-ahead.
 
-#### S1 against IONOS: the first run [prepared 2026-10-28, waits for the user]
+#### S1 against IONOS: the first run [done 2026-10-28, passed]
 
 The threshold is on for production and canary accounts (`makeProductionAccount`, `makeCanaryAccount`); taking the
 line out turns partial ingest off again, and rows already stored as skeletons still complete when opened. The run
@@ -2046,6 +2046,18 @@ above the threshold, neither opened by an S1 build yet.
 
 **Stop rules.** A rejected login ends the run with no retry, and the threshold comes out of the production
 builder. A structure the skeleton does not cover is downloaded whole by design: note it as a finding, not a failure.
+
+**Result 2026-10-28 (the user's run, numbers only).** Passed; no stop rule hit, no error, offline or login state.
+- After the sync: the account went from 17 to 18 messages; the new row was 8.51 MB on the server, stored as a
+  0.01 MB skeleton, `complete` 0, one attachment listed at an estimated 6.21 MB. The other account was unchanged
+  (124 messages).
+- The user opened the mail before the first count: it stayed a skeleton, so showing a large message does not
+  download it.
+- After saving the attachment: `complete` 1, file 8.51 MB (the server size), attachment 6.20 MB, stored whole.
+- `\Seen` was already set before the sync, by another program; the app cannot have set it (read-only account:
+  `MailPage` marks read only when the account can write, `markRead` takes only writable entries, and every fetch is
+  `BODY.PEEK` under `EXAMINE`). So this run does not show `\Seen` surviving on an unread mail; the sandbox suite does.
+- The threshold stays on for production and canary.
 
 ### S2: QRESYNC [parked 2026-10-28]
 

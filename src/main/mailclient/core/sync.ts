@@ -72,7 +72,7 @@ export function makeProductionAccount(input: {
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
     interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
     requestDelayMs: 150,           // pace STATUS/UID sweeps
-    lazyAboveBytes: LAZY_ABOVE_BYTES, // S1, on for the first IONOS run; removing it turns partial ingest off
+    lazyAboveBytes: LAZY_ABOVE_BYTES, // S1, on since the first IONOS run (2026-10-28); removing it turns partial ingest off
   };
 }
 
