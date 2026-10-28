@@ -278,11 +278,20 @@ CREATE INDEX idx_ops_compose ON op_journal(account_id, compose_key) WHERE compos
 `);
 }
 
+/**
+ * 5 (S1): whether the row's file holds the whole message. 0 marks a large message stored as its
+ * skeleton (core/skeleton.ts), completed when something needs its bytes. Every existing row is complete.
+ */
+function completeFlag(db: BetterSqlite3.Database): void {
+  db.exec(`ALTER TABLE messages ADD COLUMN complete INTEGER NOT NULL DEFAULT 1`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
   { version: 2, name: 'split bodies', up: splitBodies },
   { version: 3, name: 'relinks', up: relinks },
   { version: 4, name: 'compose key', up: composeKey },
+  { version: 5, name: 'complete flag', up: completeFlag },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

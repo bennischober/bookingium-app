@@ -334,6 +334,7 @@ export class MessageViews {
       inReplyTo: row.in_reply_to,
       references: this.safeJson(row.references_json, []),
       sizeBytes: row.size_bytes,
+      complete: row.complete !== 0,
       bodyKind: row.body_html ? 'html' : 'text',
       html,
       text: row.body_text,

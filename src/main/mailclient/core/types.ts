@@ -41,6 +41,7 @@ export type MessageDetail = MessageListItem & {
   inReplyTo: string | null;
   references: string[];
   sizeBytes: number;
+  complete: boolean;       // S1: false while large parts are not downloaded (attachment sizes are estimates)
   // rendering-safe body
   bodyKind: 'html' | 'text';
   html: string | null;     // sanitized + links rewritten + remote srcs neutralized

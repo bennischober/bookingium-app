@@ -14,6 +14,7 @@ import {
   type Migration
 } from '../src/main/mailclient/core/migrations'
 import { Store, type MessageRow } from '../src/main/mailclient/core/store'
+import { createMailCore } from '../src/main/mailclient/core/index'
 
 const ACCOUNT = 'acc'
 
@@ -232,47 +233,47 @@ describe('runMigrations', () => {
   })
 })
 
+let n = 0
+function message(folderId: string, subject: string, body: string): Omit<MessageRow, 'id'> {
+  n++
+  return {
+    account_id: ACCOUNT,
+    folder_id: folderId,
+    uid: n,
+    message_key: `key-${n}`,
+    file_path: `key-${n}.eml`,
+    message_id: null,
+    in_reply_to: null,
+    references_json: '[]',
+    thread_id: null,
+    date: '2026-03-04T05:06:07.000Z',
+    internal_date: null,
+    subject,
+    from_name: '',
+    from_email: '',
+    to_json: '[]',
+    cc_json: '[]',
+    bcc_json: '[]',
+    flags_json: '{}',
+    modseq: null,
+    has_attachments: 0,
+    attachments_json: '[]',
+    size_bytes: 0,
+    body_text: body,
+    body_html: `<p>${body}</p>`,
+    snippet: '',
+    parsed_ok: 1,
+    parse_error: null
+  }
+}
+
+function storeWithFolder(): { store: Store; folderId: string } {
+  const store = open(tempDir())
+  const folder = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
+  return { store, folderId: folder.id }
+}
+
 describe('message bodies (migration 2)', () => {
-  let n = 0
-  function message(folderId: string, subject: string, body: string): Omit<MessageRow, 'id'> {
-    n++
-    return {
-      account_id: ACCOUNT,
-      folder_id: folderId,
-      uid: n,
-      message_key: `key-${n}`,
-      file_path: `key-${n}.eml`,
-      message_id: null,
-      in_reply_to: null,
-      references_json: '[]',
-      thread_id: null,
-      date: '2026-03-04T05:06:07.000Z',
-      internal_date: null,
-      subject,
-      from_name: '',
-      from_email: '',
-      to_json: '[]',
-      cc_json: '[]',
-      bcc_json: '[]',
-      flags_json: '{}',
-      modseq: null,
-      has_attachments: 0,
-      attachments_json: '[]',
-      size_bytes: 0,
-      body_text: body,
-      body_html: `<p>${body}</p>`,
-      snippet: '',
-      parsed_ok: 1,
-      parse_error: null
-    }
-  }
-
-  function storeWithFolder(): { store: Store; folderId: string } {
-    const store = open(tempDir())
-    const folder = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
-    return { store, folderId: folder.id }
-  }
-
   const hits = (store: Store, word: string): number[] =>
     store
       .search({ matchExpr: store.ftsEscapeUserQuery(word), limit: 50, offset: 0 })
@@ -324,5 +325,63 @@ describe('message bodies (migration 2)', () => {
     expect(store.db.prepare('SELECT COUNT(*) AS n FROM message_bodies').get()).toEqual({ n: 0 })
     expect(hits(store, 'pflaumenmus')).toEqual([])
     expect(store.ftsIntegrityCheck()).toBe(true)
+  })
+})
+
+describe('complete flag (migration 5)', () => {
+  it('marks every row of an adopted store complete', () => {
+    const dir = tempDir()
+    writeLegacyDb(dir)
+    const store = open(dir)
+    expect(columns(store.db, 'messages')).toContain('complete')
+    expect(store.getByKey('k7')).toMatchObject({ complete: 1 })
+  })
+
+  it('stores a row complete unless told otherwise, and keeps the flag through updates', () => {
+    const { store, folderId } = storeWithFolder()
+    const whole = store.insertMessage(message(folderId, 'Ganz', 'Text'))
+    const skeleton = store.insertMessage({ ...message(folderId, 'Skelett', 'Text'), complete: 0 })
+    expect(store.getMessage(whole)?.complete).toBe(1)
+    expect(store.getMessage(skeleton)?.complete).toBe(0)
+
+    // an update that does not mention the flag keeps it
+    store.updateMessage(skeleton, { subject: 'Skelett neu' })
+    expect(store.getMessage(skeleton)).toMatchObject({ subject: 'Skelett neu', complete: 0 })
+    // completion sets it
+    store.updateMessage(skeleton, { complete: 1 })
+    expect(store.getMessage(skeleton)?.complete).toBe(1)
+  })
+
+  it('reaches MessageDetail as a boolean', async () => {
+    // the core keeps each account in <dataDir>/<accountId>/
+    const dataDir = tempDir()
+    const dir = path.join(dataDir, ACCOUNT)
+    fs.mkdirSync(dir)
+    const store = new Store(dir, ACCOUNT)
+    const folder = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/' })
+    const whole = store.insertMessage(message(folder.id, 'Ganz', 'Text'))
+    const skeleton = store.insertMessage({ ...message(folder.id, 'Skelett', 'Text'), complete: 0 })
+    store.close()
+
+    // nothing here talks to a server: the endpoint is unreachable on purpose
+    const api = createMailCore({
+      dataDir,
+      accounts: [
+        {
+          id: ACCOUNT,
+          kind: 'sandbox',
+          host: '127.0.0.1',
+          port: 1,
+          security: 'none',
+          credentials: async () => ({ user: 'a@example.test', pass: 'x' })
+        }
+      ]
+    })
+    try {
+      expect((await api.getMessage(whole, ACCOUNT)).complete).toBe(true)
+      expect((await api.getMessage(skeleton, ACCOUNT)).complete).toBe(false)
+    } finally {
+      api.close()
+    }
   })
 })

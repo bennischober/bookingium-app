@@ -46,6 +46,7 @@ function message(overrides: Partial<MessageDetail> = {}): MessageDetail {
     inReplyTo: '<m1@example.test>',
     references: ['<m1@example.test>'],
     sizeBytes: 100,
+    complete: true,
     bodyKind: 'text',
     html: null,
     text: 'Zeile eins\n> alt\n',

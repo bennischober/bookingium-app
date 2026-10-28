@@ -122,6 +122,7 @@ export interface MessageRow {
   parsed_ok: number;
   parse_error: string | null;
   sort_date?: string | null;   // materialized COALESCE(date, internal_date); derived on insert if absent
+  complete?: number;           // S1 (migration 5): 0 while the file is a skeleton; 1 on insert if absent
 }
 
 /** I12: staging folders of a UIDVALIDITY swap; never shown, never searched, never pruned by LIST. */
@@ -499,7 +500,7 @@ export class Store {
   /** Row, body and FTS entry in one transaction: every message has exactly one of each
    * (the delete trigger relies on it, see migration 2). */
   insertMessage(m: Omit<MessageRow, 'id'> & { sort_date?: string | null }): number {
-    const withSort = { ...m, sort_date: m.sort_date ?? m.date ?? m.internal_date ?? null };
+    const withSort = { ...m, sort_date: m.sort_date ?? m.date ?? m.internal_date ?? null, complete: m.complete ?? 1 };
     const tx = this.db.transaction(() => {
       // MR-28: a row id is never handed out twice. SQLite reuses the id of a deleted newest row, and
       // the mail linker, which reads the rows after its cursor, would never see the new mail.
@@ -507,10 +508,10 @@ export class Store {
       this.db.prepare(`INSERT INTO messages (
         id, account_id, folder_id, uid, message_key, file_path, message_id, in_reply_to, references_json, thread_id,
         date, internal_date, sort_date, subject, from_name, from_email, to_json, cc_json, bcc_json, flags_json, modseq,
-        has_attachments, attachments_json, size_bytes, snippet, parsed_ok, parse_error)
+        has_attachments, attachments_json, size_bytes, snippet, parsed_ok, parse_error, complete)
         VALUES (@id, @account_id, @folder_id, @uid, @message_key, @file_path, @message_id, @in_reply_to, @references_json, @thread_id,
         @date, @internal_date, @sort_date, @subject, @from_name, @from_email, @to_json, @cc_json, @bcc_json, @flags_json, @modseq,
-        @has_attachments, @attachments_json, @size_bytes, @snippet, @parsed_ok, @parse_error)`)
+        @has_attachments, @attachments_json, @size_bytes, @snippet, @parsed_ok, @parse_error, @complete)`)
         .run({ ...withSort, id });
       this.db.prepare("INSERT OR REPLACE INTO kv (key, value) VALUES ('message_id_high', ?)").run(String(id));
       const body = { id, body_text: m.body_text ?? '', body_html: m.body_html ?? null };
@@ -574,13 +575,13 @@ export class Store {
       date=@date, internal_date=@internal_date, sort_date=@sort_date, subject=@subject, from_name=@from_name, from_email=@from_email,
       to_json=@to_json, cc_json=@cc_json, bcc_json=@bcc_json, flags_json=@flags_json, modseq=@modseq,
       has_attachments=@has_attachments, attachments_json=@attachments_json, size_bytes=@size_bytes,
-      snippet=@snippet, parsed_ok=@parsed_ok, parse_error=@parse_error
+      snippet=@snippet, parsed_ok=@parsed_ok, parse_error=@parse_error, complete=@complete
       WHERE id=@id`);
     const body = this.db.prepare(`INSERT INTO message_bodies (id, body_text, body_html) VALUES (@id, @body_text, @body_html)
       ON CONFLICT(id) DO UPDATE SET body_text=excluded.body_text, body_html=excluded.body_html`);
     const tx = this.db.transaction(() => {
       ftsDelete.run(row);
-      update.run({ ...merged, sort_date: merged.sort_date ?? merged.date ?? merged.internal_date ?? null });
+      update.run({ ...merged, sort_date: merged.sort_date ?? merged.date ?? merged.internal_date ?? null, complete: merged.complete ?? 1 });
       body.run({ id, body_text: merged.body_text ?? '', body_html: merged.body_html ?? null });
       ftsInsert.run({ ...merged, body_text: merged.body_text ?? '' });
     });

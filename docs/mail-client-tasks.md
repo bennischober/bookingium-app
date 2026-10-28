@@ -1910,6 +1910,14 @@ rare; reading a mail and finding it in search is not.
    For step 3: a partial row's `attachments_json` sizes come from `estimatedPartSizes`, keyed by `partId` with `''`
    for a single-part message (see "Found while working").
 2. Migration and store: the `complete` column, the row type, `MessageDetail.complete`.
+   **Result** [done 2026-10-28]. Core migration 5 adds `messages.complete INTEGER NOT NULL DEFAULT 1`. `MessageRow`
+   has it optional, like `sort_date`: `insertMessage` writes 1 unless told otherwise, and `updateMessage` keeps the
+   row's value unless the patch sets it. `MessageDetail.complete` is a boolean. Every other write to `messages`
+   is a targeted `UPDATE` that leaves the flag alone, so moves, flag changes and swaps keep it.
+   Tests in `tests/mail_store_migrations.test.ts`: an adopted store is complete, insert and update, and the
+   `MessageDetail` mapping.
+   For step 3: the repair sweep (`maintenance.ts:147`) rewrites `file_path` after a full download, so it must also
+   set `complete` to match what it wrote.
 3. Partial ingest in the download paths, behind the threshold (off by default until step 5).
 4. `ensureComplete` and the consumer doors listed above.
 5. UI states, then the threshold default.
