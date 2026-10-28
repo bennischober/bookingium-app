@@ -70,3 +70,59 @@ describe('mailLink.link', () => {
     ])
   })
 })
+
+describe('mailLink.listByEntity', () => {
+  it('says the mailbox is unavailable when the lookup fails, rather than calling the mails gone', async () => {
+    const { mailLinkRouter } = await import('../src/main/api/routers/mail_link.router')
+    const { mailClient } = await import('../src/main/mailclient/MailClientService')
+    const sqlite = getTestDb().sqlite
+    const personId = Number(
+      sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Max','Mustermann')").run()
+        .lastInsertRowid
+    )
+    sqlite
+      .prepare(
+        "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source) VALUES ('acc','<x@example.test>','person',?,'address')"
+      )
+      .run(personId)
+    const caller = mailLinkRouter.createCaller({})
+    const input = { entityType: 'person' as const, entityId: personId, limit: 20 }
+
+    const call = vi.spyOn(mailClient, 'call').mockRejectedValueOnce(new Error('worker down'))
+    const down = await caller.listByEntity(input)
+    expect(down.unavailable).toBe(true)
+    expect(down.rows).toHaveLength(1)
+
+    call.mockResolvedValueOnce([])
+    const gone = await caller.listByEntity(input)
+    expect(gone.unavailable).toBe(false)
+    expect(gone.rows[0].storeId).toBeNull()
+    call.mockRestore()
+  })
+
+  it('shows a dismissed link again after "Rückgängig"', async () => {
+    const { mailLinkRouter } = await import('../src/main/api/routers/mail_link.router')
+    const { mailClient } = await import('../src/main/mailclient/MailClientService')
+    const sqlite = getTestDb().sqlite
+    const personId = Number(
+      sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Erika','Beispiel')").run()
+        .lastInsertRowid
+    )
+    const linkId = Number(
+      sqlite
+        .prepare(
+          "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source) VALUES ('acc','<y@example.test>','person',?,'address')"
+        )
+        .run(personId).lastInsertRowid
+    )
+    const call = vi.spyOn(mailClient, 'call').mockResolvedValue([])
+    const caller = mailLinkRouter.createCaller({})
+    const input = { entityType: 'person' as const, entityId: personId, limit: 20 }
+
+    await caller.dismiss({ id: linkId })
+    expect((await caller.listByEntity(input)).rows).toHaveLength(0)
+    await caller.restore({ id: linkId })
+    expect((await caller.listByEntity(input)).rows.map((row) => row.id)).toEqual([linkId])
+    call.mockRestore()
+  })
+})

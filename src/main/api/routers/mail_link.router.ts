@@ -99,11 +99,15 @@ export const mailLinkRouter = t.router({
       hasAttachments: boolean
     }
     const items: MailRow[] = []
+    // A failed lookup (worker down, store locked) is not "the mail is gone": the panel says
+    // the mailbox is unreachable instead of marking every row as no longer in it
+    let unavailable = false
     for (const [account, ids] of byAccount) {
-      const found = (await mailClient
-        .call('findByMessageIds', [ids, account])
-        .catch(() => [])) as MailRow[]
-      items.push(...found)
+      try {
+        items.push(...((await mailClient.call('findByMessageIds', [ids, account])) as MailRow[]))
+      } catch {
+        unavailable = true
+      }
     }
     const byId = new Map(items.map((m) => [normalizeId(m.messageId), m]))
 
@@ -124,7 +128,8 @@ export const mailLinkRouter = t.router({
           hasAttachments: mail?.hasAttachments ?? false
         }
       }),
-      nextCursor
+      nextCursor,
+      unavailable
     }
   }),
 
@@ -133,6 +138,14 @@ export const mailLinkRouter = t.router({
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(({ input }) => {
       service.dismissLink(input.id)
+      return { ok: true }
+    }),
+
+  /** "Rückgängig" after "Zuordnung entfernen": the link shows again, as it was */
+  restore: t.procedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(({ input }) => {
+      service.restoreLink(input.id)
       return { ok: true }
     }),
 

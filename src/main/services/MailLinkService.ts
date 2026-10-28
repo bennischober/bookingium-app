@@ -487,4 +487,9 @@ export class MailLinkService {
   dismissLink(id: number): void {
     db.update(schema.mail_link).set({ dismissed: true }).where(eq(schema.mail_link.id, id)).run()
   }
+
+  /** Undoes dismissLink: the link shows again and the linker treats it as before */
+  restoreLink(id: number): void {
+    db.update(schema.mail_link).set({ dismissed: false }).where(eq(schema.mail_link.id, id)).run()
+  }
 }
