@@ -57,11 +57,17 @@ export type MailAccountDto = Omit<
   smtpHost: string
   smtpPort: number
   smtpSecurity: ImapSecurity
+  /**
+   * Why the write guard refuses these stored settings (a cleartext login across a network,
+   * saved before main checked it), or null. Kept apart from `readOnly`, which stays the user's
+   * own setting, so the renderer offers no write the core would refuse.
+   */
+  writeRefusal: string | null
 }
 
 export type SaveMailAccountInput = Omit<
   MailAccountDto,
-  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity' | 'aliases'
+  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity' | 'aliases' | 'writeRefusal'
 > & {
   id?: string
   /** omitted: keep the stored ones */
@@ -148,20 +154,31 @@ export function smtpOf(
   }
 }
 
-const toDto = (account: StoredAccount): MailAccountDto => ({
-  id: account.id,
-  readOnly: account.readOnly,
-  host: account.host,
-  port: account.port,
-  security: securityOf(account),
-  user: account.user,
-  email: account.email,
-  // MR-13: the renderer reads this to put a signature on a new mail. It was stored and
-  // never handed back, so every account looked like it had none.
-  signature: account.signature,
-  aliases: account.aliases ?? [],
-  ...smtpOf(account)
-})
+const toDto = (account: StoredAccount): MailAccountDto => {
+  const security = securityOf(account)
+  const smtp = smtpOf(account)
+  return {
+    id: account.id,
+    readOnly: account.readOnly,
+    host: account.host,
+    port: account.port,
+    security,
+    user: account.user,
+    email: account.email,
+    // MR-13: the renderer reads this to put a signature on a new mail. It was stored and
+    // never handed back, so every account looked like it had none.
+    signature: account.signature,
+    aliases: account.aliases ?? [],
+    ...smtp,
+    // the same check the core's write guard makes, so the UI and the core agree
+    writeRefusal: settingsRefusal({
+      imapHost: account.host,
+      security,
+      smtpHost: smtp.smtpHost,
+      smtpSecurity: smtp.smtpSecurity
+    })
+  }
+}
 
 /** Refuses settings the core would refuse later: no password in the clear across a network */
 export function checkMailAccountSettings(input: {

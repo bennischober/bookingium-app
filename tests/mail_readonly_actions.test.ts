@@ -24,6 +24,14 @@ describe('MR-35: which reading-pane actions an account may offer', () => {
     expect(actions).toEqual({ canWrite: false, canCompose: false, canWriteTo: false })
   })
 
+  it('offers none on an account the write guard refuses', () => {
+    // Stored with a cleartext SMTP login to a real server: "Nur lesen" is off, but the core
+    // refuses every write, so a draft's autosave would fail the same way.
+    const actions = readingActions({ readOnly: false, writeRefusal: 'SMTP-Server braucht …' })
+    expect(actions).toEqual({ canWrite: false, canCompose: false, canWriteTo: false })
+    expect(readingActions({ readOnly: false, writeRefusal: null }).canWrite).toBe(true)
+  })
+
   it('offers none when there is no account at all', () => {
     // While the account list is still loading, an editor must not open either.
     expect(readingActions(null)).toEqual({

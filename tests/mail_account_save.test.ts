@@ -239,6 +239,46 @@ describe('I6: encryption is checked in main', () => {
   })
 })
 
+describe('the write guard reaches the renderer', () => {
+  it('reports no refusal for a real mailbox with encryption, or the loopback test server', async () => {
+    const { saveMailAccount, listMailAccounts } = await accounts()
+    saveMailAccount(real() as never)
+    saveMailAccount(
+      real({
+        host: '127.0.0.1',
+        port: 3143,
+        security: 'none',
+        smtpHost: '127.0.0.1',
+        smtpPort: 1025,
+        smtpSecurity: 'none'
+      }) as never
+    )
+    expect(listMailAccounts().map((a) => a.writeRefusal)).toEqual([null, null])
+  })
+
+  it('reports the refusal for an account stored with a cleartext SMTP login, readOnly unchanged', async () => {
+    // saved before main checked this; the core runs it read-only, so the UI must not offer writes
+    const { listMailAccounts } = await accounts()
+    storeRaw([
+      {
+        id: 'x',
+        readOnly: false,
+        host: 'imap.example.test',
+        port: 993,
+        security: 'tls',
+        user: 'u',
+        email: 'x@example.test',
+        smtpHost: 'smtp.example.test',
+        smtpPort: 25,
+        smtpSecurity: 'none'
+      }
+    ])
+    const [listed] = listMailAccounts()
+    expect(listed.readOnly).toBe(false)
+    expect(listed.writeRefusal).toMatch(/SMTP-Server braucht eine Verschlüsselung/)
+  })
+})
+
 describe('I6: the router checks before the connection test', () => {
   it('throws what a save would throw, and writes nothing', async () => {
     const { checkMailAccountSave, listMailAccounts } = await accounts()

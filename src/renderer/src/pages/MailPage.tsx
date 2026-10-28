@@ -398,7 +398,10 @@ export default function MailPage() {
           <span
             className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
             role="note"
-            title="Nichts wird am Server geändert: kein Lesen-Markieren, Löschen oder Verschieben."
+            title={
+              account?.writeRefusal ??
+              'Nichts wird am Server geändert: kein Lesen-Markieren, Löschen oder Verschieben.'
+            }
           >
             <Lock className="size-3" />
             Nur lesen

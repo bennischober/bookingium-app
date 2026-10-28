@@ -33,6 +33,7 @@ const account = (overrides: Partial<MailAccountDto> = {}): MailAccountDto => ({
   smtpHost: '127.0.0.1',
   smtpPort: 1025,
   smtpSecurity: 'none',
+  writeRefusal: null,
   ...overrides
 })
 

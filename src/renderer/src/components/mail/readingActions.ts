@@ -7,8 +7,11 @@
  *
  * The rule is one line - only a writable account may write - but it lives here so both pages share
  * it and vitest can hold it, instead of the same expression being written twice in .tsx.
+ *
+ * "Writable" is what the core's write guard says, not only the "Nur lesen" setting: an account
+ * stored with a cleartext login across a network comes with a `writeRefusal` and writes nothing.
  */
-export type ReadingAccount = { readOnly: boolean } | null | undefined
+export type ReadingAccount = { readOnly: boolean; writeRefusal?: string | null } | null | undefined
 
 export type ReadingActions = {
   /** every write action: flag, move, delete, expunge */
@@ -21,6 +24,6 @@ export type ReadingActions = {
 
 /** No account yet (the list is still loading) may do nothing either. */
 export function readingActions(account: ReadingAccount): ReadingActions {
-  const canWrite = account?.readOnly === false
+  const canWrite = account?.readOnly === false && !account.writeRefusal
   return { canWrite, canCompose: canWrite, canWriteTo: canWrite }
 }

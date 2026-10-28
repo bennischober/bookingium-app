@@ -35,9 +35,13 @@ import type { ConnectionTestResult } from '../../../../main/mailclient/core/conn
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
 import type { ImapSecurity } from '../../../../main/mailclient/core/types'
 
-/** The badge in the list: read-only, the local test server, or nothing for a normal account */
+/**
+ * The badge in the list: read-only, refused by the write guard (stored with a cleartext login),
+ * the local test server, or nothing for a normal account
+ */
 function accountBadge(account: MailAccountDto): string | null {
   if (account.readOnly) return 'Nur lesen'
+  if (account.writeRefusal) return 'Schreiben gesperrt'
   return allowsPlainLogin(account.host) ? 'Test-Server (lokal)' : null
 }
 
@@ -516,8 +520,13 @@ export function MailAccountsCard() {
                   </p>
                 </div>
                 {accountBadge(account) && (
-                  <Badge variant={account.readOnly ? 'secondary' : 'outline'}>
-                    {account.readOnly && <Lock className="mr-1 h-3 w-3" />}
+                  <Badge
+                    variant={account.readOnly || account.writeRefusal ? 'secondary' : 'outline'}
+                    title={account.writeRefusal ?? undefined}
+                  >
+                    {(account.readOnly || account.writeRefusal) && (
+                      <Lock className="mr-1 h-3 w-3" />
+                    )}
                     {accountBadge(account)}
                   </Badge>
                 )}
