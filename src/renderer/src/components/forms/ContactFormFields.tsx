@@ -17,9 +17,17 @@ interface ContactFormFieldsProps {
   // Shows the Keine-Werbung switch (persons, companies and venues; the parent's
   // defaultValues must then contain contact.noAdvertising)
   showNoAdvertising?: boolean
+  // Shows the further addresses (the parent's defaultValues must then contain
+  // contact.otherEmails). Off for hotels: they only fill the itinerary and get no
+  // mail, and the further addresses are only used for mail linking.
+  showOtherEmails?: boolean
 }
 
-export function ContactFormFields({ form, showNoAdvertising = false }: ContactFormFieldsProps) {
+export function ContactFormFields({
+  form,
+  showNoAdvertising = false,
+  showOtherEmails = true
+}: ContactFormFieldsProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Kontaktinformationen</h3>
@@ -42,93 +50,95 @@ export function ContactFormFields({ form, showNoAdvertising = false }: ContactFo
         )}
       </form.Field>
 
-      <form.Field name="contact.otherEmails" mode="array">
-        {(listField) => {
-          const others: string[] = listField.state.value ?? []
-          return (
-            <div className="space-y-2">
-              <Label>Weitere E-Mail-Adressen</Label>
-              {others.map((_, index) => (
-                <form.Field
-                  key={index}
-                  name={`contact.otherEmails[${index}]`}
-                  validators={{
-                    onChangeListenTo: ['contact.email', 'contact.otherEmails'],
-                    onChange: ({ value }) =>
-                      otherEmailProblem(
-                        value ?? '',
-                        index,
-                        form.getFieldValue('contact.email') ?? '',
-                        form.getFieldValue('contact.otherEmails') ?? []
-                      )
-                  }}
-                >
-                  {(field) => (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id={`contact.otherEmails.${index}`}
-                          type="email"
-                          aria-label={`Weitere E-Mail-Adresse ${index + 1}`}
-                          value={field.state.value || ''}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          onBlur={field.handleBlur}
-                          placeholder="email@example.com"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Als Haupt-Adresse"
-                          title="Als Haupt-Adresse"
-                          disabled={!(field.state.value || '').trim()}
-                          onClick={() => {
-                            const next = promoteOtherEmail(
-                              form.getFieldValue('contact.email') ?? '',
-                              form.getFieldValue('contact.otherEmails') ?? [],
-                              index
-                            )
-                            form.setFieldValue('contact.email', next.email)
-                            form.setFieldValue('contact.otherEmails', next.otherEmails)
-                          }}
-                        >
-                          <Star />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Adresse entfernen"
-                          title="Adresse entfernen"
-                          onClick={() => listField.removeValue(index)}
-                        >
-                          <X />
-                        </Button>
+      {showOtherEmails && (
+        <form.Field name="contact.otherEmails" mode="array">
+          {(listField) => {
+            const others: string[] = listField.state.value ?? []
+            return (
+              <div className="space-y-2">
+                <Label>Weitere E-Mail-Adressen</Label>
+                {others.map((_, index) => (
+                  <form.Field
+                    key={index}
+                    name={`contact.otherEmails[${index}]`}
+                    validators={{
+                      onChangeListenTo: ['contact.email', 'contact.otherEmails'],
+                      onChange: ({ value }) =>
+                        otherEmailProblem(
+                          value ?? '',
+                          index,
+                          form.getFieldValue('contact.email') ?? '',
+                          form.getFieldValue('contact.otherEmails') ?? []
+                        )
+                    }}
+                  >
+                    {(field) => (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id={`contact.otherEmails.${index}`}
+                            type="email"
+                            aria-label={`Weitere E-Mail-Adresse ${index + 1}`}
+                            value={field.state.value || ''}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            onBlur={field.handleBlur}
+                            placeholder="email@example.com"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Als Haupt-Adresse"
+                            title="Als Haupt-Adresse"
+                            disabled={!(field.state.value || '').trim()}
+                            onClick={() => {
+                              const next = promoteOtherEmail(
+                                form.getFieldValue('contact.email') ?? '',
+                                form.getFieldValue('contact.otherEmails') ?? [],
+                                index
+                              )
+                              form.setFieldValue('contact.email', next.email)
+                              form.setFieldValue('contact.otherEmails', next.otherEmails)
+                            }}
+                          >
+                            <Star />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Adresse entfernen"
+                            title="Adresse entfernen"
+                            onClick={() => listField.removeValue(index)}
+                          >
+                            <X />
+                          </Button>
+                        </div>
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
+                        )}
                       </div>
-                      {field.state.meta.errors.length > 0 && (
-                        <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => listField.pushValue('')}
-              >
-                <Plus />
-                Adresse hinzufügen
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet. Rechnungen
-                und Verteiler nutzen die Haupt-Adresse.
-              </p>
-            </div>
-          )
-        }}
-      </form.Field>
+                    )}
+                  </form.Field>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => listField.pushValue('')}
+                >
+                  <Plus />
+                  Adresse hinzufügen
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet.
+                  Rechnungen und Verteiler nutzen die Haupt-Adresse.
+                </p>
+              </div>
+            )
+          }}
+        </form.Field>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <form.Field name="contact.phone">

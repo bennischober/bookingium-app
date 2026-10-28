@@ -2,6 +2,8 @@
 // others live in `contact_email`. The person, company, venue and hotel repositories
 // all write them through the same helpers, so each gets a round trip here.
 import 'reflect-metadata'
+import fs from 'fs'
+import path from 'path'
 import { describe, expect, it, vi } from 'vitest'
 import { container } from 'tsyringe'
 import { setupTestDb, getTestDb } from './helpers/setup'
@@ -243,6 +245,18 @@ describe('contact form helpers', () => {
       email: 'b@example.test',
       otherEmails: ['c@example.test']
     })
+  })
+
+  it('leaves the further addresses off the hotel form', () => {
+    // Hotels only fill the itinerary and get no mail; the further addresses are only for
+    // mail linking. Without the field in the payload, the stored ones stay as they are.
+    // No component test tooling, so the form's source is checked.
+    const source = fs.readFileSync(
+      path.join(__dirname, '../src/renderer/src/components/forms/HotelForm.tsx'),
+      'utf-8'
+    )
+    expect(source).toContain('<ContactFormFields form={form} showOtherEmails={false} />')
+    expect(source).not.toContain('otherEmails:')
   })
 
   it('counts a contact with only further addresses as filled in', () => {

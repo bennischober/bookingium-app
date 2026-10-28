@@ -1660,7 +1660,8 @@ a rescan when a contact gains one, an alias field on the mail account, and two a
   contact and address). `contact.email` stays the primary; nothing that reads it changed, and no data moves.
 - `repositories/contactEmails.ts` (new) and the person, company, venue and hotel repositories: the further
   addresses are normalized, never repeat the primary, and a save without the field keeps them. zod, mappers,
-  seed and `ContactFormFields` ("Weitere E-Mail-Adressen", "Als Haupt-Adresse") carry them.
+  seed and `ContactFormFields` ("Weitere E-Mail-Adressen", "Als Haupt-Adresse") carry them. The hotel form
+  hides the field: hotels stay out of mail linking (decided with the user; they only fill the itinerary).
 - `services/MailLinkService.ts`: `addressOwners` matches every address of a contact under the same cap; an
   address digest per account resets the cursor when a contact's addresses change (an account without a digest
   keeps its cursor); `mailLinkRunner` runs every account on a contact save; `linkManually` (new).
@@ -1668,9 +1669,8 @@ a rescan when a contact gains one, an alias field on the mail account, and two a
 - `MessageView`: "Zuordnen…" (`LinkMailDialog`, record picker shared with "Als Dokument speichern") and
   "Absender als Kontakt anlegen" (`CreateContactSheet`, prefilled by `senderContact.ts`).
 
-**Tests.** `tests/contact_emails.test.ts` (new, 14), `tests/mail_aliases_sender.test.ts` (new, 7),
-`tests/mail_link.test.ts` (+14). 18 mutation checks, 17 killed, one equivalent. Gates and open questions
-(hotels are no mail link type) are in the I19 report.
+**Tests.** `tests/contact_emails.test.ts` (new, 15), `tests/mail_aliases_sender.test.ts` (new, 7),
+`tests/mail_link.test.ts` (+14). 19 mutation checks, 18 killed, one equivalent. Gates are in the I19 report.
 
 ## Found while working
 

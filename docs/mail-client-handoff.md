@@ -248,6 +248,7 @@ A card is done when every box holds, the gates pass, and the mutation check is r
       inheritance hold; a new address rescans from 0, an account without a digest keeps its cursor.
 - [x] Mail account aliases count as the user's own (the I15b open question).
 - [x] "Zuordnen…" links a mail by hand; "Absender als Kontakt anlegen" prefills a person.
+- [x] Hotels stay out of mail linking (user decision); the hotel form hides the further addresses.
 
 ### Claude cards
 
