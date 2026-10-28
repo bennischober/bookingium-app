@@ -83,7 +83,7 @@ export async function appendTestMail(
   host: string,
   port: number,
   subject: string,
-  attachment?: { filename: string; contentType: string; body: string },
+  attachment?: { filename: string; contentType: string; body: string | Buffer },
   /** the sender; defaults to the suite's own address */
   fromEmail = E2E_MAIL_USER,
   /** an HTML body instead of the plain one; the text part stays */
@@ -140,7 +140,10 @@ export async function appendTestMail(
             'Content-Transfer-Encoding: base64',
             `Content-Disposition: attachment; filename="${attachment.filename}"`,
             '',
-            Buffer.from(attachment.body).toString('base64'),
+            // 76 per line (RFC 2045): a large attachment is not one multi-megabyte line
+            Buffer.from(attachment.body)
+              .toString('base64')
+              .replace(/.{76}(?=.)/g, '$&\r\n'),
             `--${boundary}--`,
             ''
           ].join('\r\n')

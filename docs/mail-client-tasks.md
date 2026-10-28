@@ -1823,7 +1823,7 @@ The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views
 Order: `parse.ts` (done, see above) → S1 design, agreed with the user before any code → S1 implementation. S2 is
 parked.
 
-### S1: large messages, attachments downloaded when opened [approved 2026-10-28, in progress]
+### S1: large messages, attachments downloaded when opened [done 2026-10-28, sandbox only]
 
 **Why.** Every downloaded message is stored complete (`folder_sync.ts:428`, `source: true`). A mailbox with press kits,
 photos and scanned contracts fills the disk and the first sync with bytes nobody opens. Opening an attachment is
@@ -2012,6 +2012,17 @@ rare; reading a mail and finding it in search is not.
      rejected login, so the account stopped ("login rejected earlier"). `MailCore.completeRow` resolves the
      credentials first for an incomplete row.
 7. e2e for the "wird beim Öffnen geladen" state, then docs (`docs/mail-client.md` Sync, core README).
+   **Result** [done 2026-10-28]. `tests/e2e/mail-client.spec.ts` "a large attachment is loaded when it is opened":
+   the test appends a mail with a 4.2 MB random attachment (about 5.6 MB on the server) to the e2e user's INBOX. The
+   app's sandbox account stores it partial. In the mail window, the chip shows "≈" and "wird beim Öffnen geladen".
+   "Speichern unter…" (save dialog stubbed to a temp path) shows "Nachricht wird geladen", and afterwards the chip
+   shows the real size, the file equals the original bytes, and the row is complete. `appendTestMail` takes a
+   `Buffer` and wraps base64 at 76 characters. Mutations checked: without the note the test fails at the first
+   check; a save that skips `withWholeMessage` fails at the wait check. The chip alone does not catch the second
+   one, because the core completes the mail anyway and the reader catches up.
+   Docs: `docs/mail-client.md` Sync has a paragraph on large messages. The core README has a section "A large
+   message is stored without its large parts" (the two rules from step 6) and notes under credentials and data on
+   disk.
 - Production stays read-only: these are fetches. The first run against IONOS waits for the user's go-ahead.
 
 ### S2: QRESYNC [parked 2026-10-28]

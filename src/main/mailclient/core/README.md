@@ -150,6 +150,29 @@ Two traps this cost, both worth knowing before touching the path:
 `BOOKINGIUM_FAULT_WRITE=<code>` makes the worker fail every local write with that code, so an e2e can exercise
 the real path. It is a QA seam, off unless set.
 
+## A large message is stored without its large parts
+
+S1. With `AccountConfig.lazyAboveBytes` set (`makeSandboxAccount` sets `LAZY_ABOVE_BYTES`, 5 MB; production and
+canary leave it unset), a message whose server size is above it is stored as a **skeleton**: `skeleton_fetch.ts`
+fetches BODYSTRUCTURE and the sections below the threshold, and `skeleton.ts` rebuilds a MIME file that mailparser
+reads like the whole message, minus the large parts' bytes. The row has `complete = 0`, `size_bytes` is the server's,
+and `attachments_json` carries the estimated sizes.
+
+Every door that reads the stored file (`getAttachment`, `getRawEml`, documents, forward drafts) calls
+`MessageCompletion.ensureComplete` first (`message_complete.ts`). It downloads the whole message once (callers share the
+download), and `adoptWholeSource` points the row at the new file with `complete = 1` and the real attachment list in
+one transaction. Two rules that each cost a bug:
+
+- The write goes through `Store.updateMessage`. The FTS index is external-content with no update trigger, so a direct
+  `UPDATE messages` leaves the index on the skeleton's text (an integrity check with rank 1 shows it).
+- The download logs in, so the account's credentials come first: `MailCore.completeRow` calls `ensureCredentials` for an
+  incomplete row. Without them imapflow reports the missing password as a rejected login, and that stops the account.
+
+Offline, `ensureComplete` throws `OFFLINE_MESSAGE` and the row stays partial; a message gone from the server throws
+`GONE_MESSAGE`; a full disk is the disk-full path above. Nothing evicts a completed message. Tests: the unit suite
+`mail_message_complete`, the sandbox suites `mail_skeleton_sandbox`, `mail_partial_ingest_sandbox`,
+`mail_complete_sandbox`, and the e2e "a large attachment is loaded when it is opened".
+
 ## One connection budget per account
 
 I15a (MR-19, sync L2). Sync, IDLE and the write engine draw from one `ConnectionBudget` per account,
@@ -228,7 +251,8 @@ to the first one's mailbox. See docs/mail-client-assessment.md R1 and task A7.
 
 Credentials are resolved **lazily per connection** through the host-provided
 `credentials()` function and are cached only in memory (`ensureCredentials`). The core
-never reads `.env`, never logs credentials, and never stores them on disk.
+never reads `.env`, never logs credentials, and never stores them on disk. A path that
+connects outside a sync (the S1 download, `completeRow`) resolves them first.
 
 ## Events emitted
 
@@ -302,6 +326,8 @@ The core owns and creates everything it needs under the host-provided `dataDir`
 the SQLite DB (+ WAL/SHM) and the `.eml` files, and the `.mailcore.lock` file. The `.eml`
 file name is `<message_key>.eml` and the row's `file_path` holds it; a move renames the
 file and updates the row. Always open a file as `path.join(<account dir>, row.file_path)`,
-never relative to the working directory. All of it can be rebuilt from the server: nothing
+never relative to the working directory. A row with `complete = 0` points at a skeleton
+(S1), not the whole message; `ensureComplete` replaces it before anything reads the large
+parts. All of it can be rebuilt from the server: nothing
 that must survive (links to persons, invoices) may live here — that belongs in bookingum's
 app database.

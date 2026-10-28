@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test'
 import { connect, createServer, type AddressInfo } from 'net'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { readFile, readdir } from 'fs/promises'
+import { randomBytes } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -2035,6 +2036,116 @@ test('the bulk attachment actions sit above the chips, not in one attachment men
     }
   } finally {
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, 'e2e-f10-bulk-')
+  }
+})
+
+// S1 step 7: a mail above the sandbox account's threshold (5 MB) is stored without its attachment.
+// The reader says so on the chip, and saving the attachment downloads the whole mail first.
+const LAZY_TAG = 'e2e-s1-lazy-'
+
+test('a large attachment is loaded when it is opened', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const tag = `${LAZY_TAG}${Date.now()}`
+  const fileName = 'gross.bin'
+  // about 5.6 MB as base64, above the threshold
+  const bytes = randomBytes(4_200_000)
+  const dir = mkdtempSync(join(tmpdir(), 'bookingum-e2e-s1-'))
+  const target = join(dir, fileName)
+  type Detail = { complete: boolean; attachments: { filename: string; sizeBytes: number }[] }
+
+  try {
+    await appendTestMail(SANDBOX.host, SANDBOX.port, tag, {
+      filename: fileName,
+      contentType: 'application/octet-stream',
+      body: bytes
+    })
+    await mail('triggerSync', true, sandboxId)
+    const mine = await waitFor(
+      async () => {
+        const inbox = (await mail<Folder[]>('getFolders', sandboxId)).find(
+          (f) => f.path === 'INBOX'
+        )!
+        const items = await mail<{ id: number; subject: string }[]>(
+          'listMessages',
+          inbox.id,
+          { offset: 0, limit: 50 },
+          sandboxId
+        )
+        return items.find((m) => m.subject === tag) ?? null
+      },
+      (m) => m !== null,
+      120_000
+    )
+    const before = await mail<Detail>('getMessage', mine!.id, sandboxId)
+    expect(before.complete, 'stored without its attachment').toBe(false)
+    expect(before.attachments.map((a) => a.filename)).toEqual([fileName])
+
+    // The save dialog answers with a path of the test's own
+    await h.app.evaluate(({ dialog }, filePath) => {
+      const store = globalThis as { realShowSaveDialog?: unknown }
+      store.realShowSaveDialog ??= dialog.showSaveDialog
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath })) as never
+    }, target)
+
+    await openMailPage(sandboxId)
+    const [popup] = await Promise.all([
+      h.app.waitForEvent('window'),
+      page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+        sandboxId,
+        mine!.id
+      ] as const)
+    ])
+    try {
+      const reader = popup.getByRole('article', { name: 'E-Mail' })
+      // The chip, not its "gross.bin: weitere Aktionen" menu button
+      const chip = reader
+        .getByRole('list', { name: 'Anhänge' })
+        .getByRole('button', { name: /^gross\.bin(?!: weitere)/ })
+      // Before: the estimate and the note
+      await expect(chip).toContainText('wird beim Öffnen geladen', { timeout: 30_000 })
+      await expect(chip).toContainText('≈')
+
+      // The wait is short on loopback, so an observer records whether it was shown at all. The
+      // chip alone would not tell: the core completes the mail on its own, and the reader catches up
+      await popup.evaluate(() => {
+        const w = window as unknown as { sawDownload?: boolean }
+        w.sawDownload = false
+        new MutationObserver(() => {
+          const shown = [...document.querySelectorAll('[role="status"]')].some((e) =>
+            e.textContent?.startsWith('Nachricht wird geladen')
+          )
+          if (shown) w.sawDownload = true
+        }).observe(document.body, { childList: true, subtree: true, characterData: true })
+      })
+      await reader.getByRole('button', { name: `${fileName}: weitere Aktionen` }).click()
+      await popup.getByRole('button', { name: 'Speichern unter…' }).click()
+
+      // After: the whole mail is stored, the chip shows the real size, the file is the original
+      await expect(chip).not.toContainText('wird beim Öffnen geladen', { timeout: 60_000 })
+      await expect(chip).not.toContainText('≈')
+      expect(
+        await popup.evaluate(() => (window as unknown as { sawDownload?: boolean }).sawDownload),
+        'the wait was shown'
+      ).toBe(true)
+      await expect.poll(() => existsSync(target), { timeout: 30_000 }).toBe(true)
+      await expect.poll(() => readFileSync(target).length, { timeout: 30_000 }).toBe(bytes.length)
+      expect(readFileSync(target).equals(bytes)).toBe(true)
+      const after = await mail<Detail>('getMessage', mine!.id, sandboxId)
+      expect(after.complete).toBe(true)
+      expect(after.attachments[0].sizeBytes).toBe(bytes.length)
+    } finally {
+      await popup.close()
+    }
+  } finally {
+    await h.app.evaluate(({ dialog }) => {
+      const store = globalThis as { realShowSaveDialog?: unknown }
+      if (store.realShowSaveDialog) dialog.showSaveDialog = store.realShowSaveDialog as never
+    })
+    rmSync(dir, { recursive: true, force: true })
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, LAZY_TAG)
   }
 })
 

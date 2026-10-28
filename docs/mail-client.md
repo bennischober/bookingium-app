@@ -42,6 +42,16 @@ the worker paused so a live server never sees more than two connections). Encryp
 STARTTLS, which is required, never opportunistic), never guessed from the port; a login without encryption is
 allowed only to loopback (the sandbox, or a local tunnel).
 
+**Large messages are stored without their large parts (S1).** Above an account's `lazyAboveBytes` (5 MB on sandbox
+accounts; production and canary stay unset until the first S1 run against IONOS) the sync stores a skeleton: headers,
+body text and every part below the threshold, with the attachments left out but listed with BODYSTRUCTURE's size
+estimate. The row says `complete = 0`. Lists, search and the reader work from the skeleton; the reader marks each
+attachment "≈ size · wird beim Öffnen geladen". Anything that needs the bytes (opening or saving an attachment, the .eml,
+"Als Dokument speichern", forwarding) first downloads the whole message once, shows the wait, and then works on the
+whole file; the row is complete from then on. Offline, the action fails with "Offline – der Anhang ist noch nicht
+geladen" and the row stays as it was. The download never sets `\Seen`. There is no eviction: a completed message stays
+complete. Details: `core/README.md` and `docs/mail-client-tasks.md` (S1).
+
 ## Write path (never lose mail, never send twice)
 - Every action is written to a persistent **op journal** before anything touches the server; ops resume or are safely abandoned after a crash.
 - Before every mutating command: fresh SELECT, UIDVALIDITY check, UID addressing only, identity check against the local record.
