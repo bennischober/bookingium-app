@@ -127,9 +127,9 @@ describe('sweep and move (A3 steps 3 and 6)', () => {
 
     // The engine's local half of the move, without any server contact
     const writes = new WriteEngine(store, 'acc', { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials }) as unknown as {
-      applyMoveLocally: (op: unknown, target: string, uid: number) => void
+      moves: { applyMoveLocally: (op: unknown, target: string, uid: number) => void }
     }
-    writes.applyMoveLocally(store.journalGet(opId)!, 'Archiv', 7)
+    writes.moves.applyMoveLocally(store.journalGet(opId)!, 'Archiv', 7)
 
     const moved = store.getMessage(id)!
     expect(moved.folder_id).toBe(archive.id)
