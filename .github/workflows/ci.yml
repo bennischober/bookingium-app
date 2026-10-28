@@ -52,6 +52,13 @@ jobs:
       # scripts for an allowlist - it is on that list, so this installs without --ignore-scripts
       - run: pnpm install --frozen-lockfile
 
+      # Electron 44 has no postinstall: the binary is downloaded on the first require('electron').
+      # Left to the test run, parallel vitest workers start that download at once and race on
+      # extracting into the same dist folder (Windows: os error 183, "Electron failed to install
+      # correctly"). Downloading it once here leaves nothing for the workers to fetch.
+      - name: Electron binary
+        run: pnpm exec install-electron
+
       # The ABI question, answered explicitly instead of failing deep inside the first DB suite.
       # postinstall rebuilds better-sqlite3 for Electron's ABI, while vitest loads it under plain
       # Node 24. If those differ, every DB suite dies with NODE_MODULE_VERSION and the cause is
