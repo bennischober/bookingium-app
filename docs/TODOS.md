@@ -34,13 +34,6 @@ Mail client (experimental, off by default), its integration into bookingum and w
   address there (e.g. a direct download link from OneDrive/Dropbox) — to be
   tried with the real setup.
 
-## Data
-
-- Persons imported before role parsing existed carry the role in the name
-  (a leading "Rolle: " prefix). Decided:
-  clean up the data once (move the role onto the membership), the importer
-  stays as it is.
-
 ## Technical
 
 - `calendar.tsx` and `sidebar.tsx` (generated ui components) still use
