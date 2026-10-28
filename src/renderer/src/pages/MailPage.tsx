@@ -30,9 +30,7 @@ import {
   withSignature,
   composeTo
 } from '@/components/mail/composeDraft'
-import { FolderTree, type FolderAction } from '@/components/mail/FolderTree'
-import { confirmAction } from '@/lib/confirm'
-import { askFolderName } from '@/lib/folderName'
+import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
 import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
@@ -43,6 +41,7 @@ import { useStoredWidth } from '@/hooks/useStoredWidth'
 import { useMailSearch } from '@/hooks/useMailSearch'
 import { useMailOps } from '@/hooks/useMailOps'
 import { useMessageActions } from '@/hooks/useMessageActions'
+import { useFolderActions } from '@/hooks/useFolderActions'
 import { PAGE_SIZE } from '@/components/mail/paging'
 import { isTypingTarget, shortcutBlocked, shortcutFor } from '@/components/mail/shortcuts'
 import {
@@ -53,11 +52,7 @@ import {
   isTrash,
   messageKey
 } from '@/components/mail/format'
-import type {
-  FolderNode,
-  MessageDetail,
-  MessageListItem
-} from '../../../main/mailclient/core/types'
+import type { MessageDetail, MessageListItem } from '../../../main/mailclient/core/types'
 
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
@@ -91,8 +86,6 @@ export default function MailPage() {
   } | null>(null)
   // The mails being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
-  // B2: the folder being dragged, so a drop knows what to move
-  const [movingFolder, setMovingFolder] = useState<FolderNode | null>(null)
   // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
   const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
@@ -163,6 +156,13 @@ export default function MailPage() {
       refreshLists,
       failed
     })
+
+  const { movingFolder, setMovingFolder, moveFolderTo, folderAction } = useFolderActions({
+    accountId,
+    folders,
+    refreshLists,
+    failed
+  })
 
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
@@ -291,82 +291,6 @@ export default function MailPage() {
             : undefined
       }
     : { openWindow }
-
-  /**
-   * B2: move the dragged folder under `target` (null = top level). The core
-   * refuses a move into itself or its own subtree and a name clash there.
-   */
-  const moveFolderTo = async (target: FolderNode | null) => {
-    const folder = movingFolder
-    setMovingFolder(null)
-    if (!folder) return
-    try {
-      await mailApi.moveFolder(folder.path, target?.path ?? null, accountId)
-      await folders.refetch()
-      toast.success(
-        target
-          ? `„${folderLabel(folder)}“ nach „${folderLabel(target)}“ verschoben`
-          : `„${folderLabel(folder)}“ nach oben verschoben`
-      )
-    } catch (error) {
-      toast.error('Ordner konnte nicht verschoben werden', {
-        description: error instanceof Error ? error.message : undefined
-      })
-    }
-  }
-
-  // B1: create / rename / delete a folder. The name is asked for in a small
-  // dialog; the core validates it again and refuses protected folders.
-  const folderAction = async (action: FolderAction, folder: FolderNode | null) => {
-    // "Neuer Ordner…" on INBOX means top level, not inside INBOX: IMAP has no
-    // subfolders of INBOX, and the card's path builder puts a child under its parent.
-    const delimiter = folder?.delimiter ?? '/'
-    const parentPath = action !== 'create' ? null : !folder || isInbox(folder) ? null : folder.path
-    const title =
-      action === 'create'
-        ? parentPath
-          ? `Neuer Ordner in „${folderLabel(folder!)}“`
-          : 'Neuer Ordner'
-        : action === 'rename'
-          ? 'Ordner umbenennen'
-          : 'Ordner löschen'
-    const current = action === 'rename' && folder ? folder.path.split(delimiter).pop() : ''
-    if (action === 'delete') {
-      if (!folder) return
-      const confirmed = await confirmAction({
-        title: `„${folderLabel(folder) || folder.name}“ löschen?`,
-        description:
-          'Der Ordner wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-      if (!confirmed) return
-      try {
-        await mailApi.deleteFolder(folder.path, accountId)
-      } catch (error) {
-        failed('Ordner konnte nicht gelöscht werden')(error)
-        return
-      }
-      refreshLists()
-      toast.success('Ordner gelöscht')
-      return
-    }
-    const name = await askFolderName({ title, initial: current })
-    if (name === null) return
-    try {
-      if (action === 'create') await mailApi.createFolder(parentPath, name, accountId)
-      else if (folder) await mailApi.renameFolder(folder.path, name, accountId)
-    } catch (error) {
-      failed(
-        action === 'create'
-          ? 'Ordner konnte nicht angelegt werden'
-          : 'Ordner konnte nicht umbenannt werden'
-      )(error)
-      return
-    }
-    refreshLists()
-    toast.success(action === 'create' ? 'Ordner angelegt' : 'Ordner umbenannt')
-  }
 
   const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
     openedId.current = null
