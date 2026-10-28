@@ -249,12 +249,14 @@ export function MessageView({
 
   return (
     <article className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="E-Mail">
-      <header className="max-h-[50%] shrink-0 space-y-2 overflow-auto border-b px-4 py-3">
-        <div className="flex items-start gap-2">
+      <header className="@container max-h-[50%] shrink-0 space-y-2 overflow-auto border-b px-4 py-3">
+        {/* A narrow pane puts the actions above the subject: beside it, they squeezed the
+            subject into a column a few letters wide */}
+        <div className="flex flex-col-reverse gap-2 @xl:flex-row @xl:items-start">
           <h2 className="min-w-0 flex-1 text-lg font-semibold break-words">
             {message.subject || '(Kein Betreff)'}
           </h2>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="-ml-2 flex flex-wrap items-center gap-1 @xl:ml-0 @xl:shrink-0 @xl:flex-nowrap">
             {canWrite && (
               <>
                 {onCompose && (

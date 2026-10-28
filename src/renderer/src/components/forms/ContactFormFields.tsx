@@ -54,9 +54,11 @@ export function ContactFormFields({
         <form.Field name="contact.otherEmails" mode="array">
           {(listField) => {
             const others: string[] = listField.state.value ?? []
+            // Sits right under the primary address (cancels the parent's space-y-4); the
+            // label and the hint show only once there is a further address
             return (
-              <div className="space-y-2">
-                <Label>Weitere E-Mail-Adressen</Label>
+              <div className="-mt-2 space-y-2">
+                {others.length > 0 && <Label className="block pt-2">Weitere E-Mail-Adressen</Label>}
                 {others.map((_, index) => (
                   <form.Field
                     key={index}
@@ -123,17 +125,21 @@ export function ContactFormFields({
                 ))}
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="-ml-2 h-7 px-2 text-muted-foreground hover:text-foreground"
+                  title="Mails von und an weitere Adressen werden dem Kontakt ebenfalls zugeordnet"
                   onClick={() => listField.pushValue('')}
                 >
                   <Plus />
-                  Adresse hinzufügen
+                  Weitere Adresse
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet.
-                  Rechnungen und Verteiler nutzen die Haupt-Adresse.
-                </p>
+                {others.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet.
+                    Rechnungen und Verteiler nutzen die Haupt-Adresse.
+                  </p>
+                )}
               </div>
             )
           }}
