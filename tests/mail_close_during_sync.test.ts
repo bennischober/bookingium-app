@@ -33,7 +33,6 @@ function account() {
     accounts: [
       {
         id: ACCOUNT,
-        kind: 'sandbox' as const,
         readOnly: true,
         email: 'a@example.test',
         host: '127.0.0.1',

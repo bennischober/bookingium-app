@@ -403,7 +403,6 @@ describe('the core around the send (MR-02, MR-05, MR-15)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox' as const,
           readOnly: false,
           email: 'a@example.test',
           host: '127.0.0.1',

@@ -40,23 +40,22 @@ export interface MailCoreOptions {
   /** Account configurations. Credentials are NEVER stored here — see credentials. */
   accounts: Array<{
     id: string;
-    kind: 'sandbox' | 'production-readonly';
+    /** "Nur lesen": the app reads this mailbox and writes nothing to it */
+    readOnly: boolean;
     host: string;
     port: number;
-    /** encryption; 'none' is refused for production accounts */
+    /** encryption; 'none' only on the loopback test server */
     security: ImapSecurity;
     /** A7: this account's own SMTP endpoint; defaults to host:1025 for older settings */
     smtpHost?: string;
     smtpPort?: number;
     /** A7: the SMTP encryption, which is not the IMAP one; defaults to `security` */
     smtpSecurity?: ImapSecurity;
-    /** A7 part 2: admit this account as the one real mailbox writes may reach */
-    canary?: boolean;
     /** credentials provider — the HOST supplies them (e.g. Electron safeStorage);
      * called lazily per connection so the host controls lifetime/decryption */
     credentials: () => Promise<{ user: string; pass: string }>;
-    /** static display identity (shown in the UI); for sandbox accounts typically
-     * the same address the credentials return */
+    /** static display identity (shown in the UI), typically the same address the
+     * credentials return */
     email?: string;
   }>;
   /** Sandbox write target (IMAP+SMTP). REQUIRED if any account is writable;
@@ -224,7 +223,7 @@ export class MailCore implements Api {
 
   search(filters: SearchFilters, accountId?: string): Promise<SearchResult> { return this.views.search(filters, accountId); }
 
-  // ----- write operations (sandbox only; guard refuses anything else) -----
+  // ----- write operations (writable accounts; the guard refuses "Nur lesen" and cleartext logins) -----
 
   markRead(ids: number[], read: boolean, accountId?: string): Promise<void> { return this.ops.markRead(ids, read, accountId); }
 
@@ -276,7 +275,7 @@ export class MailCore implements Api {
 
   deleteFolder(path: string, accountId?: string): Promise<OpSummary> { return this.folders.deleteFolder(path, accountId); }
 
-  // ----- compose (sandbox only) -----
+  // ----- compose (writable accounts) -----
 
   getContacts(partial: string, accountId?: string): Promise<{ name: string; email: string }[]> { return this.views.getContacts(partial, accountId); }
 

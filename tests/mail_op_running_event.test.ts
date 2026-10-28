@@ -32,7 +32,6 @@ const mkCore = (dataDir: string) =>
     accounts: [
       {
         id: ACCOUNT,
-        kind: 'sandbox' as const,
         readOnly: false,
         email: 'a@example.test',
         host: '127.0.0.1',

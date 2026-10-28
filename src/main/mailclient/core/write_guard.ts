@@ -1,24 +1,15 @@
 // Write-guard: ALL IMAP/SMTP write operations live here, and this module decides
-// PER ACCOUNT whether a write may go out. The loopback allowlist is fixed and the
-// decision is made from the account itself - no global "the sandbox" anymore.
+// PER ACCOUNT whether a write may go out, from the account itself.
 //
-// A7 part 1: an account may be written to only if it is a sandbox account AND both
-// its IMAP and SMTP hosts are on the loopback allowlist.
-//
-// A7 part 2: the CANARY is the one exception - exactly one real mailbox, admitted by
-// name. Not a third account kind: `MailAccountKind` is read in 22 places and every one
-// of them would be a place a real account could slip through, while this admission is
-// auditable on one screen and revoked by switching the flag off in the account dialog (it was a
-// hard-coded id in the prototype; this is a flag set from the UI).
-//
-// I6 (MR-20): the flag design is signed off by the user (2026-10-27) and main enforces it,
-// not the renderer: `settingsRefusal` runs before an account is saved, `accounts.ts` drops
-// the flag when the account's server, login or address changes, and the core asks
-// `writeRefusal` before it journals any op.
-//
-// I17 (README tests 4): the flag admits every write, not only sends: flags, moves, drafts,
-// folder changes and expunge go through as on the sandbox. `sendRefusal` limits only the
-// recipients of a send, to the account's own address.
+// One account kind (2026-10-28, before the merge): every account is writable unless the user
+// set it to "Nur lesen". The sandbox, the read-only production kind and the canary (one real
+// mailbox, sends to its own address only) are gone; the user lifted their accounts to writable.
+// What stays fixed:
+//   - a read-only account never gets a write, checked before an op is journaled and again when
+//     it connects;
+//   - no login in the clear off loopback, IMAP or SMTP - checked when an account is saved
+//     (`settingsRefusal`) and before every write (`writeRefusal`);
+//   - certificate checks are relaxed on the loopback allowlist only (the local test server).
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import net from 'net';
@@ -31,47 +22,11 @@ export const SANDBOX_ALLOWLIST = new Set([
   '127.0.0.1', 'localhost', '::1',
 ]);
 
-/**
- * A7 part 2: whether this account is the canary - the ONE real mailbox writes may reach.
- *
- * A flag rather than an account id: the id names the account's data folder, so
- * re-keying an account to admit it would make it download everything again. A flag
- * is also revocable without touching the file, and `saveMailAccount` enforces that at
- * most one account carries it.
- *
- * It is still an explicit manual step - a danger-styled toggle in the account dialog
- * behind a confirm that names the consequence, never something the app sets itself.
- * `kind` stays the outer gate: the canary is saved as a sandbox account, so the guard
- * is what decides whether it may write.
- */
-export interface CanaryFlag {
-  canary?: boolean
-}
-
-/** Whether this account is the canary - the single real mailbox writes may reach */
-export function isCanary(account: CanaryFlag): boolean {
-  return account.canary === true
-}
-
-/**
- * A7 part 2: at most one account may be the canary.
- *
- * Admitting a second real mailbox would widen the write path without anyone
- * deciding to, so saving a canary clears the flag on every other account. Pure, so
- * the rule is tested without Electron's account store.
- */
-export function withSingleCanary<T extends CanaryFlag & { id: string }>(
-  accounts: T[],
-  admittedId: string
-): T[] {
-  return accounts.map((a) => (a.id === admittedId ? a : { ...a, canary: undefined }))
-}
-
 /** What the write guard needs to know about one account */
 export interface WriteAccount {
   id: string;
-  /** 'sandbox' is the only kind that may be written to */
-  kind: 'sandbox' | 'production-readonly';
+  /** "Nur lesen": the app reads this mailbox and writes nothing to it */
+  readOnly: boolean;
   imapHost: string;
   imapPort: number;
   security: ImapSecurity;
@@ -84,13 +39,6 @@ export interface WriteAccount {
    * see smtpSecurityOf().
    */
   smtpSecurity?: ImapSecurity;
-  /**
-   * A7 part 2: the account's own address. A canary send may only go to an address
-   * this app owns, and this is what it owns - so a canary cannot mail a stranger.
-   */
-  email?: string;
-  /** A7 part 2: the canary flag - the single real mailbox writes may reach */
-  canary?: boolean;
 }
 
 /** The endpoints a write needs; credentials come from the host, never from here */
@@ -109,42 +57,23 @@ export function isSandboxHost(host: string): boolean {
   return SANDBOX_ALLOWLIST.has(normalizeHost(host));
 }
 
-/** Throws unless the host is on the loopback allowlist */
-export function assertSandboxHost(host: string): void {
-  if (!isSandboxHost(host)) {
-    throw new Error(`WRITE GUARD: refusing write operation against non-sandbox host "${host}". ` +
-      `Write operations are only permitted against ${[...SANDBOX_ALLOWLIST].join(', ')}.`);
-  }
-}
-
 /**
- * A7: the reason an account may not be written to, or null when it may.
- *
- * The canary is admitted by name, whatever its hosts: it is a real mailbox, so its
- * TLS is verified (it is not on the loopback allowlist, see tlsOptions). Every other
- * account must be a sandbox account on the loopback allowlist - a production account
- * is read-only by design, and a sandbox account pointed at a real server is refused
- * rather than trusted.
+ * The reason an account may not be written to, or null when it may: it is set to "Nur lesen",
+ * or its settings would log in without encryption across a network (an account stored before
+ * main checked that).
  */
 export function writeRefusal(account: WriteAccount): string | null {
-  // kind is the OUTER gate: only a sandbox-kind account gets the write path at all
-  if (account.kind !== 'sandbox') {
-    return `Konto ${account.id} ist schreibgeschützt.`
+  if (account.readOnly) {
+    return `Konto ${account.id} ist auf „Nur lesen“ gestellt.`;
   }
-  // A7 part 2: the canary is then admitted by name, whatever its hosts - it is a
-  // real mailbox, so its TLS is verified (it is not on the loopback allowlist)
-  if (!isCanary(account) && (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost))) {
-    return `Konto ${account.id}: Schreiben ist nur gegen den lokalen Testserver erlaubt.`
-  }
-  // I6 (MR-20): an account stored before main checked this must not log in to SMTP in the clear
-  const smtp = smtpRefusal(account)
-  if (smtp) return `Konto ${account.id}: ${smtp}`
-  return null
+  const settings = settingsRefusal(account);
+  if (settings) return `Konto ${account.id}: ${settings}`;
+  return null;
 }
 
 /**
  * I6 (MR-20): why the SMTP settings would send the password in the clear, or null. Host-based like
- * the IMAP check in `accounts.ts`: only the loopback sandbox may log in without encryption.
+ * the IMAP check: only the loopback test server may log in without encryption.
  */
 export function smtpRefusal(account: Pick<WriteAccount, 'smtpHost' | 'security' | 'smtpSecurity'>): string | null {
   if (smtpSecurityOf(account) === 'none' && !allowsPlainLogin(account.smtpHost)) {
@@ -154,47 +83,17 @@ export function smtpRefusal(account: Pick<WriteAccount, 'smtpHost' | 'security' 
 }
 
 /**
- * I6 (MR-20): why main refuses to SAVE an account with these settings, or null.
- *
- * The renderer offers the sandbox kind only in a development build, but main used to accept
- * whatever it was sent. A sandbox-kind account gets the write path, so off the loopback
- * allowlist it is accepted only as the canary; anything else is a real mailbox and is saved
- * as read-only. The SMTP check holds for every kind: a cleartext login is never right.
+ * I6 (MR-20): why main refuses to SAVE an account with these settings, or null: a password in the
+ * clear across a network, on the IMAP or the SMTP side. Read-only accounts too - the IMAP login
+ * is the same either way, and a read-only account may be made writable later.
  */
-export function settingsRefusal(account: WriteAccount): string | null {
-  const smtp = smtpRefusal(account)
-  if (smtp) return smtp
-  if (account.kind === 'sandbox' && !isCanary(account) &&
-    (!isSandboxHost(account.imapHost) || !isSandboxHost(account.smtpHost))) {
-    return 'Ein echtes Postfach ohne Freigabe als Testpostfach kann nur gelesen werden (Art „Nur lesen“).'
-  }
-  return null
-}
-
-/**
- * A7 part 2: why this send may not go out, or null when it may.
- *
- * The canary is a real mailbox, so its mail leaves the machine. Phase 1 of the canary
- * is the user's own address only - never another person - so every recipient must be
- * the account's own address. Sandbox accounts are unrestricted here: they reach a local
- * sink that keeps nothing.
- */
-export function sendRefusal(
-  account: WriteAccount,
-  recipients: string[]
+export function settingsRefusal(
+  account: Pick<WriteAccount, 'imapHost' | 'security' | 'smtpHost' | 'smtpSecurity'>
 ): string | null {
-  if (!isCanary(account)) return null
-  const own = (account.email ?? '').trim().toLowerCase()
-  if (!own) {
-    return `Konto ${account.id}: eigene Adresse fehlt, Versand gesperrt.`
+  if (account.security === 'none' && !allowsPlainLogin(account.imapHost)) {
+    return 'Ein echtes Postfach braucht eine Verschlüsselung (SSL/TLS oder STARTTLS).'
   }
-  const foreign = recipients
-    .map((to) => to.trim().toLowerCase())
-    .filter((to) => to !== own)
-  if (foreign.length) {
-    return `Konto ${account.id}: Testpostfach sendet nur an die eigene Adresse.`
-  }
-  return null
+  return smtpRefusal(account)
 }
 
 /** Throws unless this account may be written to */
@@ -241,7 +140,7 @@ export async function connectWriteImap(
 
 /**
  * A7: the SMTP encryption of an account. Accounts saved before the setting existed
- * fall back to the IMAP security, which is right for the sandbox (both are 'none')
+ * fall back to the IMAP security, which is right for the local test server (both are 'none')
  * and conservative for anything else (TLS on both sides rather than cleartext).
  */
 export function smtpSecurityOf(account: Pick<WriteAccount, 'security' | 'smtpSecurity'>): ImapSecurity {
@@ -261,7 +160,7 @@ export function writeSmtp(
     secure: security === 'tls',
     ...(security === 'starttls' ? { requireTLS: true } : {}),
     ...(isSandboxHost(account.smtpHost) ? { tls: tlsOptions(account.smtpHost) } : {}),
-    // A7: the server authenticates the sender. Without this the sandbox still works
+    // A7: the server authenticates the sender. Without this the local test server still works
     // (Mailpit accepts anything) and every real server refuses with 530/535.
     auth: { user: credentials.user, pass: credentials.pass },
   });

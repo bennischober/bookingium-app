@@ -24,6 +24,7 @@ import {
   testImapConnection,
   type ConnectionTestResult
 } from '../../mailclient/core/connection_test'
+import { allowsPlainLogin } from '../../mailclient/core/imap_options'
 import { mailClient } from '../../mailclient/MailClientService'
 import { MAIL_API_METHODS, type MailEvent } from '../../mailclient/protocol'
 import { container } from 'tsyringe'
@@ -45,7 +46,8 @@ const badRequest = (error: unknown, fallback: string) =>
 
 const SaveMailAccountInput = z.object({
   id: z.string().optional(),
-  kind: z.enum(['sandbox', 'production-readonly']),
+  /** "Nur lesen": the app reads this mailbox and writes nothing to it */
+  readOnly: z.boolean(),
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535),
   security: z.enum(['tls', 'starttls', 'none']),
@@ -62,9 +64,7 @@ const SaveMailAccountInput = z.object({
   smtpHost: z.string().min(1).optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   /** A7: the SMTP encryption; defaults to the IMAP security */
-  smtpSecurity: z.enum(['tls', 'starttls', 'none']).optional(),
-  /** A7 part 2: admit this account as the one real mailbox writes may reach */
-  canary: z.boolean().optional()
+  smtpSecurity: z.enum(['tls', 'starttls', 'none']).optional()
 })
 
 const TestMailAccountInput = SaveMailAccountInput.omit({ email: true })
@@ -309,7 +309,7 @@ export const mailRouter = t.router({
      */
     test: t.procedure.input(TestMailAccountInput).mutation(async ({ input }) => {
       try {
-        return input.id && input.kind !== 'sandbox'
+        return input.id && !allowsPlainLogin(input.host)
           ? await mailClient.whileStopped(() => testAccount(input))
           : await testAccount(input)
       } catch (error) {

@@ -24,7 +24,7 @@ setupTestDb()
 
 const account = (overrides: Partial<MailAccountDto> = {}): MailAccountDto => ({
   id: 'sandbox-1',
-  kind: 'sandbox',
+  readOnly: false,
   host: '127.0.0.1',
   port: 3143,
   security: 'none',
@@ -33,46 +33,51 @@ const account = (overrides: Partial<MailAccountDto> = {}): MailAccountDto => ({
   smtpHost: '127.0.0.1',
   smtpPort: 1025,
   smtpSecurity: 'none',
-  canary: false,
   ...overrides
 })
 
 describe('invoiceSendAccount (MR-12)', () => {
-  const to = 'buchhaltung@club.example.test'
-
   it('takes the chosen account', () => {
     const chosen = account({ id: 'b' })
-    expect(invoiceSendAccount('b', [account({ id: 'a' }), chosen], to)).toEqual({
+    expect(invoiceSendAccount('b', [account({ id: 'a' }), chosen])).toEqual({
       account: chosen
     })
   })
 
   it('refuses when none is chosen, even with a writable account at hand', () => {
-    expect(invoiceSendAccount('', [account()], to)).toEqual({
+    expect(invoiceSendAccount('', [account()])).toEqual({
       error: expect.stringContaining('Kein Absenderkonto gewählt')
     })
   })
 
   it('refuses a chosen account that was deleted', () => {
-    expect(invoiceSendAccount('gone', [account()], to)).toEqual({
+    expect(invoiceSendAccount('gone', [account()])).toEqual({
       error: expect.stringContaining('gibt es nicht mehr')
     })
   })
 
-  it('refuses a production account, which is read-only', () => {
-    const prod = account({ id: 'prod', kind: 'production-readonly' })
-    expect(invoiceSendAccount('prod', [prod], to)).toEqual({
-      error: expect.stringContaining('schreibgeschützt')
+  it('refuses an account set to Nur lesen', () => {
+    const prod = account({ id: 'prod', readOnly: true })
+    expect(invoiceSendAccount('prod', [prod])).toEqual({
+      error: expect.stringContaining('Nur lesen')
     })
   })
 
-  it('refuses the canary for anyone but its own address', () => {
-    const canary = account({ id: 'c', host: 'imap.example.test', canary: true })
-    expect(invoiceSendAccount('c', [canary], to)).toEqual({
-      error: expect.stringContaining('nur an die eigene Adresse')
+  it('takes a real mailbox for any recipient', () => {
+    const live = account({
+      id: 'live',
+      host: 'imap.example.test',
+      security: 'tls',
+      smtpHost: 'smtp.example.test',
+      smtpSecurity: 'tls'
     })
-    expect(invoiceSendAccount('c', [canary], 'bookingum-e2e@example.test')).toEqual({
-      account: canary
+    expect(invoiceSendAccount('live', [live])).toEqual({ account: live })
+  })
+
+  it('refuses a real mailbox that would log in without encryption', () => {
+    const clear = account({ id: 'clear', host: 'imap.example.test', smtpHost: 'smtp.example.test' })
+    expect(invoiceSendAccount('clear', [clear])).toEqual({
+      error: expect.stringContaining('Verschlüsselung')
     })
   })
 })

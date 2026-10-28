@@ -33,7 +33,7 @@ Built and tested (unit + Playwright E2E against the local Dovecot sandbox, all g
   is the source of truth; prototype changes are ported by hand, never copied over).
 - Accounts with connection test, sync in a utility process, FTS5 search, reading with sanitized HTML and blocked
   remote images, one store per mailbox, one running app per data folder.
-- Writing (sandbox accounts only, the write guard refuses production): flags, move, drag onto folders,
+- Writing (every account not set to "Nur lesen"): flags, move, drag onto folders,
   delete to Trash, archive, undo; drafts, reply / reply-all / forward, send; pop-out mail window.
 - Multi-select (click, Ctrl/Shift, Shift+arrows, Ctrl+A, checkboxes), bulk pane, batch undo, right-click menu,
   mark unread.
@@ -41,8 +41,8 @@ Built and tested (unit + Playwright E2E against the local Dovecot sandbox, all g
 Not built: folder management, permanent delete in the UI, attachments in compose from bookingum documents, any
 link between mails and persons / companies / bands / events / invoices.
 
-**Production gate:** the real IONOS account stays read-only until a canary mailbox exists and the write-path
-suite has passed against it. The user has not created the canary mailbox yet. Do not weaken the write guard.
+**Production:** since 2026-10-28 the real IONOS account is writable by the user's decision; the account kinds
+and the canary gate are gone. The user makes the first real sends. Agents never connect to it.
 
 ---
 
@@ -142,9 +142,8 @@ crash replay, search oracle on 30k synthetic mails). Use synthetic mail only.
 1. Fix F1–F6 in the prototype, or tell opencode to do it there (it owns the fuzz/soak harness), then rerun the
    long fuzz and the 2 h soak on both Dovecot profiles.
 2. Port the table above into `src/main/mailclient/core/` by hand, with unit tests; F7 included.
-3. Canary: the user creates a canary mailbox at IONOS. Then run the write-path suite against it under an
-   account-level allowlist (prototype `.env.canary` rules, synthetic mail, a handful of sends). Only after it passes
-   may the write guard allow that one account, and later the real one. **Waits on the user.**
+3. ~~Canary~~ - dropped 2026-10-28 by the user's decision: accounts are writable unless set to "Nur lesen", and the
+   user makes the first real sends on IONOS.
 
 ### B. Mail client features still missing
 
@@ -168,8 +167,7 @@ mails belong to it. Order:
     `mailto:`, or files). Add a method "Bookingum" to the mail-program setting
     (`src/main/api/schemas/settings.schema.ts`): it opens the inline editor prefilled with recipient, subject,
     text and the PDF attached (callers: `InvoiceEmailButton.tsx`, `InvoicePrintPage.tsx`, `contact_list.router.ts`).
-    The old methods stay as fallback. Real sending waits on the canary (A3); until then this works for sandbox
-    accounts only.
+    The old methods stay as fallback. It works for every account not set to "Nur lesen".
 11. **Mail ↔ record links.** A table that links a message (by Message-ID + account, which survives moves and
     re-syncs, not by row id or UID) to a person / company / band / event / invoice / contract. Links are made:
     - automatically by address: a mail's from/to/cc matched against the email addresses of persons and companies;
@@ -223,8 +221,8 @@ Bookingum becomes the one place where the agency's work happens:
 - **End-to-end references.** A mail sent for an invoice points at that invoice; a reply points at the same thread;
   an attachment saved from it becomes a document of the same record. Nothing is matched by file name or folder
   alone; the database holds the relations.
-- **Safety first, always.** Local-first store, journaled writes with undo, exactly-once send, no write to a real
-  mailbox before a canary proves the path, no mail content in logs or reports.
+- **Safety first, always.** Local-first store, journaled writes with undo, exactly-once send, agents never write to a real
+  mailbox, no mail content in logs or reports.
 - Next big items after this: e-invoice obligations (ZUGFeRD in 2027, mandatory 2028-01-01, see `docs/TODOS.md`),
   code signing and auto-update.
 
@@ -232,7 +230,7 @@ Bookingum becomes the one place where the agency's work happens:
 
 ## 5. Rules that stay in force
 
-- Production IONOS account read-only until the canary passes; at most 2 connections to production; never retry a
+- Agents never connect to the production IONOS account; at most 2 connections to production; never retry a
   failed login.
 - Never print, paste or commit mail content (bodies, subjects, addresses, attachment names), including the
   sandbox Dovecot mail and Playwright `test-results/` snapshots and error-context files. Counts, UIDs and hashes only.

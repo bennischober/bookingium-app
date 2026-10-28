@@ -110,7 +110,6 @@ describe('the core names the store and the Sent folder (MR-28)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
           readOnly: false,
           email: 'links@example.test',
           host: '127.0.0.1',

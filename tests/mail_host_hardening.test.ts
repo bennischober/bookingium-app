@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 const account = {
-  kind: 'production-readonly',
+  readOnly: true,
   host: 'imap.example.test',
   port: 993,
   security: 'tls',

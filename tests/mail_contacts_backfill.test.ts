@@ -160,8 +160,6 @@ describe('G9: mail history teaches the compose lookup', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
-          canary: true,
           readOnly: false,
           email: 'a@example.test',
           host: '127.0.0.1',

@@ -5,7 +5,7 @@
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { EventEmitter } from 'events'
 import { join } from 'path'
-import { canaryAllowed, listMailAccounts, mailCredentials, mailRoot } from './accounts'
+import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
 import { logError } from '../utils/errorLog'
 
@@ -213,20 +213,18 @@ export class MailClientService {
     if (accounts.length === 0) throw new Error('Kein E-Mail-Konto eingerichtet')
     return {
       dataDir: join(mailRoot(), 'data'),
-      // A7: each account carries its OWN write endpoint; the core's guard decides
-      // per account and refuses anything outside the loopback allowlist
+      // A7: each account carries its OWN write endpoint; the core's guard decides per account
+      // ("Nur lesen", and no login in the clear off loopback)
       accounts: accounts.map((account) => ({
         id: account.id,
-        kind: account.kind,
+        readOnly: account.readOnly,
         host: account.host,
         port: account.port,
         security: account.security,
         email: account.email,
         smtpHost: account.smtpHost,
         smtpPort: account.smtpPort,
-        smtpSecurity: account.smtpSecurity,
-        // I6 (MR-20): a packaged build without the switch treats a stored canary as read-only
-        canary: account.canary && canaryAllowed()
+        smtpSecurity: account.smtpSecurity
       }))
     }
   }

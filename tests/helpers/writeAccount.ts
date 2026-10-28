@@ -13,7 +13,7 @@ export const SANDBOX_PASS = 'testpass'
 export function sandboxWriteAccount(over: Partial<WriteAccount> = {}): WriteAccount {
   return {
     id: 'sandbox',
-    kind: 'sandbox',
+    readOnly: false,
     imapHost: SANDBOX_HOST,
     imapPort: SANDBOX_IMAP_PORT,
     security: 'none',

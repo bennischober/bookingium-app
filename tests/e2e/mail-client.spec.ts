@@ -137,7 +137,14 @@ test.afterAll(async () => {
   await h?.close()
 })
 
-type Account = { id: string; kind: string; email: string; host: string; port: number; user: string }
+type Account = {
+  id: string
+  readOnly: boolean
+  email: string
+  host: string
+  port: number
+  user: string
+}
 type Saved = { test: { ok: boolean; stage?: string }; account?: Account }
 
 /** Saves through the connection test; fails the test when the server refuses the settings */
@@ -156,7 +163,7 @@ type Folder = {
 }
 
 const SANDBOX_ACCOUNT = {
-  kind: 'sandbox',
+  readOnly: false,
   host: SANDBOX.host,
   port: SANDBOX.port,
   security: 'none',
@@ -166,7 +173,7 @@ const SANDBOX_ACCOUNT = {
 }
 
 const READ_ONLY_ACCOUNT = {
-  kind: 'production-readonly',
+  readOnly: true,
   host: SANDBOX.host,
   port: SANDBOX.ionosLikePort,
   security: 'none',
@@ -182,16 +189,14 @@ const listAccounts = (): Promise<Account[]> => trpc<Account[]>('query', 'mail.ac
  * instead of reading an id an earlier test may not have saved (card T3).
  */
 async function ensureSandboxAccount(): Promise<string> {
-  const existing = (await listAccounts()).find(
-    (a) => a.kind === 'sandbox' && a.user === SANDBOX_USER
-  )
+  const existing = (await listAccounts()).find((a) => !a.readOnly && a.user === SANDBOX_USER)
   return existing?.id ?? (await saveAccount(SANDBOX_ACCOUNT)).id
 }
 
 /** The read-only account (IONOS-like profile), saved on first use. */
 async function ensureReadOnlyAccount(): Promise<string> {
   const existing = (await listAccounts()).find(
-    (a) => a.kind === 'production-readonly' && a.port === SANDBOX.ionosLikePort
+    (a) => a.readOnly && a.port === SANDBOX.ionosLikePort
   )
   return existing?.id ?? (await saveAccount(READ_ONLY_ACCOUNT)).id
 }
@@ -908,7 +913,7 @@ test('the mail page offers no writes for a read-only account', async () => {
 test('the settings list the mail accounts', async () => {
   const { page } = h
   const accounts = await listAccounts()
-  const hasReadOnly = accounts.some((a) => a.kind === 'production-readonly')
+  const hasReadOnly = accounts.some((a) => a.readOnly)
   await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
   const list = page.getByRole('list', { name: 'E-Mail-Konten' })
   await expect(list.getByRole('listitem')).toHaveCount(accounts.length)

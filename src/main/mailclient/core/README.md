@@ -38,7 +38,7 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `write_select.ts` | `folderMissing` + `selectFailed`: how a preflight reads a failed SELECT (`folderMissing` re-exported from `write_engine.ts`) |
 | `write_connection.ts` | `WriteConnectionPool`: one reused write connection, NOOP before reuse, closed after 30 s idle |
 | `connection_budget.ts` | `ConnectionBudget`: the account's `maxConnections`, shared by sync, IDLE and writes |
-| `write_guard.ts` | THE write guard: fixed loopback allowlist + `assertSandboxHost`; `writeRefusal` per account (canary flag, SMTP encryption), `settingsRefusal` for main's save check (I6); sandbox endpoints are injected (`injectSandboxConfig`), never read from env |
+| `write_guard.ts` | THE write guard: `writeRefusal` per account ("Nur lesen", no cleartext login off loopback, IMAP or SMTP), `settingsRefusal` for main's save check (I6); certificate checks relaxed on the fixed loopback allowlist only |
 | `compose.ts` | MIME building for new mail, reply, reply-all, forward and drafts (built once, sent and appended as the same bytes) |
 | `connection_test.ts` | One-shot staged connection test for the account dialog (DNS, TCP, TLS, login, folders) |
 | `imap_options.ts` | Shared ImapFlow options (timeouts, socket error listener) |
@@ -152,8 +152,8 @@ the real path. It is a QA seam, off unless set.
 
 ## A large message is stored without its large parts
 
-S1. With `AccountConfig.lazyAboveBytes` set (every account builder sets `LAZY_ABOVE_BYTES`, 5 MB; production and
-canary since the first IONOS run), a message whose server size is above it is stored as a **skeleton**: `skeleton_fetch.ts`
+S1. With `AccountConfig.lazyAboveBytes` set (every account builder sets `LAZY_ABOVE_BYTES`, 5 MB; real
+mailboxes since the first IONOS run), a message whose server size is above it is stored as a **skeleton**: `skeleton_fetch.ts`
 fetches BODYSTRUCTURE and the sections below the threshold, and `skeleton.ts` rebuilds a MIME file that mailparser
 reads like the whole message, minus the large parts' bytes. The row has `complete = 0`, `size_bytes` is the server's,
 and `attachments_json` carries the estimated sizes.
@@ -223,13 +223,12 @@ const core = createMailCore({
   dataDir: '/abs/path/data',           // REQUIRED absolute; accounts get subdirs <dataDir>/<id>
   accounts: [{
     id: 'main',
-    kind: 'sandbox',                   // or 'production-readonly'
+    readOnly: false,                   // true = "Nur lesen": the core writes nothing to it
     host: 'imap.example.com',
     port: 993,
     credentials: async () => ({ user: 'u', pass: 'p' }),  // host supplies (Electron safeStorage)
     email: 'me@example.com',           // optional display identity (From header fallback)
   }],
-  sandbox: { imapHost, imapPort, smtpHost, smtpPort, user, pass },  // REQUIRED if any account is writable; hosts must be on the guard allowlist
   sinkProbe: async (messageId) => boolean,   // optional send-sink probe (Mailpit)
   log: { info?, warn?, error? },             // default: silent
   clock: () => number,                       // default Date.now (deterministic tests)
@@ -245,9 +244,9 @@ core.sweepOrphans();  // remove .eml files without rows (grace 10 min) — host 
 await core.close();   // shutdown contract, see below
 ```
 
-Note on `sandbox`: it is ONE global endpoint for all writable accounts (the host passes the
-first sandbox account). With more than one sandbox account, writes for the second one would go
-to the first one's mailbox. See docs/mail-client-assessment.md R1 and task A7.
+Writes go to each account's own IMAP and SMTP endpoints (A7); there is no global sandbox endpoint.
+An account's mode is `read-only` ("Nur lesen" or settings the guard refuses), `sandbox` (loopback
+host, the local test server) or `live` (a real server, paced like a production mailbox).
 
 Credentials are resolved **lazily per connection** through the host-provided
 `credentials()` function and are cached only in memory (`ensureCredentials`). The core

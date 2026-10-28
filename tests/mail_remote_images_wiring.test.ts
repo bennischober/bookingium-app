@@ -111,7 +111,7 @@ async function coreWithImage(enabled: boolean): Promise<{ api: MailCore; id: num
     accounts: [
       {
         id: ACCOUNT,
-        kind: 'sandbox',
+        readOnly: false,
         host: '127.0.0.1',
         port: 1,
         security: 'none',

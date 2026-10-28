@@ -29,7 +29,7 @@ describe('mailLink.link', () => {
     const { saveMailAccount } = await import('../src/main/mailclient/accounts')
     const { mailLinkRouter } = await import('../src/main/api/routers/mail_link.router')
     const account = saveMailAccount({
-      kind: 'sandbox',
+      readOnly: false,
       host: '127.0.0.1',
       port: 10143,
       security: 'none',

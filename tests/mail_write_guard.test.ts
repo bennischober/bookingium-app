@@ -1,5 +1,5 @@
 // A7 part 1: writes go to THAT account's servers. The guard decides per account
-// from the account itself - no global "the sandbox" anymore. The rules are pure, so
+// from the account itself: "Nur lesen" and no cleartext login off loopback. The rules are pure, so
 // they are tested directly; the two-account case runs against two fake IMAP servers,
 // which record each connection's LOGIN and keep a mailbox per user.
 import net from 'net'
@@ -10,6 +10,7 @@ import {
   assertWriteAllowed,
   connectWriteImap,
   isSandboxHost,
+  settingsRefusal,
   smtpSecurityOf,
   tlsOptions,
   writeRefusal,
@@ -23,7 +24,7 @@ const SMTP_PORT = 1025
 
 const sandbox = (over: Partial<WriteAccount> = {}): WriteAccount => ({
   id: 'a',
-  kind: 'sandbox',
+  readOnly: false,
   imapHost: HOST,
   imapPort: PORT,
   security: 'none',
@@ -33,32 +34,41 @@ const sandbox = (over: Partial<WriteAccount> = {}): WriteAccount => ({
 })
 
 describe('A7: the write guard decides per account', () => {
-  it('allows a sandbox account on the loopback allowlist', () => {
+  it('allows a writable account on the local test server', () => {
     expect(writeRefusal(sandbox())).toBeNull()
     expect(() => assertWriteAllowed(sandbox())).not.toThrow()
   })
 
-  it('refuses a production account, whatever its host', () => {
-    // A real mailbox is read-only by design: the guard is not what stops it there
-    expect(writeRefusal(sandbox({ kind: 'production-readonly' }))).toMatch(/schreibgeschützt/)
-    expect(() => assertWriteAllowed(sandbox({ kind: 'production-readonly' }))).toThrow(
-      /WRITE GUARD/
-    )
+  it('allows a writable real mailbox with encryption on both sides', () => {
+    const real = sandbox({
+      imapHost: 'imap.example.test',
+      security: 'tls',
+      smtpHost: 'smtp.example.test',
+      smtpSecurity: 'starttls'
+    })
+    expect(writeRefusal(real)).toBeNull()
   })
 
-  it('refuses a sandbox account whose IMAP host is not on the allowlist', () => {
-    expect(writeRefusal(sandbox({ imapHost: 'imap.example.com' }))).toMatch(/lokalen Testserver/)
-    expect(() => assertWriteAllowed(sandbox({ imapHost: 'imap.example.com' }))).toThrow(
-      /WRITE GUARD/
-    )
+  it('refuses an account set to Nur lesen, whatever its host', () => {
+    expect(writeRefusal(sandbox({ readOnly: true }))).toMatch(/Nur lesen/)
+    expect(() => assertWriteAllowed(sandbox({ readOnly: true }))).toThrow(/WRITE GUARD/)
+    const real = sandbox({ readOnly: true, imapHost: 'imap.example.test', security: 'tls' })
+    expect(writeRefusal(real)).toMatch(/Nur lesen/)
   })
 
-  it('refuses a sandbox account whose SMTP host is not on the allowlist', () => {
-    // Sending is a write too: a loopback IMAP does not make a real SMTP server safe
-    expect(writeRefusal(sandbox({ smtpHost: 'smtp.example.com' }))).toMatch(/lokalen Testserver/)
-    expect(() => assertWriteAllowed(sandbox({ smtpHost: 'smtp.example.com' }))).toThrow(
-      /WRITE GUARD/
-    )
+  it('refuses a real IMAP server without encryption', () => {
+    const clear = sandbox({ imapHost: 'imap.example.test' })
+    expect(writeRefusal(clear)).toMatch(/Verschlüsselung/)
+    expect(() => assertWriteAllowed(clear)).toThrow(/WRITE GUARD/)
+    expect(settingsRefusal(clear)).toMatch(/echtes Postfach/)
+  })
+
+  it('refuses a real SMTP server without encryption', () => {
+    // Sending is a write too: a loopback IMAP does not make a cleartext login to a real server safe
+    const clear = sandbox({ smtpHost: 'smtp.example.test' })
+    expect(writeRefusal(clear)).toMatch(/SMTP-Server/)
+    expect(() => assertWriteAllowed(clear)).toThrow(/WRITE GUARD/)
+    expect(writeRefusal({ ...clear, smtpSecurity: 'tls' })).toBeNull()
   })
 
   it('keeps the allowlist fixed and small', () => {

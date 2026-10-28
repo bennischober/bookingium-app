@@ -407,7 +407,7 @@ describe('I12: re-linked files are adopted, not downloaded (MR-26)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
+          readOnly: false,
           host: '127.0.0.1',
           port: 10199,
           security: 'none',
@@ -431,7 +431,7 @@ describe('I12: re-linked files are adopted, not downloaded (MR-26)', () => {
 describe('I12: one account that cannot be opened is skipped (MR-26)', () => {
   const account = (id: string) => ({
     id,
-    kind: 'sandbox' as const,
+    readOnly: false,
     host: '127.0.0.1',
     port: 10199,
     security: 'none' as const,
@@ -682,7 +682,7 @@ describe('I12: the UIDVALIDITY swap resumes and stays hidden until it is done (M
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
+          readOnly: false,
           host: '127.0.0.1',
           port: 10199,
           security: 'none',

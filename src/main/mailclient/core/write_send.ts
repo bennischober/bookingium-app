@@ -2,7 +2,7 @@
 // for an unknown outcome, filing to Sent, draft save and the removal of old draft versions.
 import type { ImapFlow } from 'imapflow'
 import type { Store, JournalRow } from './store.js'
-import { sendRefusal, writeSmtp, WriteAccount } from './write_guard.js'
+import { writeSmtp, WriteAccount } from './write_guard.js'
 import type { OpResult, WriteEngine } from './write_engine.js'
 
 
@@ -73,14 +73,6 @@ export class WriteSend {
   async doSend(op: JournalRow, signal: AbortSignal): Promise<OpResult> {
     const payload = JSON.parse(op.payload || '{}') as SendPayload
     const mimeBuf = Buffer.from(payload.mime, 'base64')
-    // A7 part 2: the canary is a real mailbox, so phase 1 sends to the account's own
-    // address only. Refused before any connection opens.
-    const refusal = sendRefusal(this.writeAccount, [
-      ...payload.envelope.to,
-      ...payload.envelope.cc,
-      ...payload.envelope.bcc
-    ])
-    if (refusal) return { outcome: 'failed', reason: `WRITE GUARD: ${refusal}` }
     if (payload.phase === 'sent') {
       // a replay after the server took the mail (checked first: it is the one sure state):
       // filing is all that is left. Probe first, the APPEND may have happened before the

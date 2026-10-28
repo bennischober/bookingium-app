@@ -17,7 +17,7 @@ import {
 import { createMailCore } from '../src/main/mailclient/core/index'
 import { Store } from '../src/main/mailclient/core/store'
 import {
-  makeProductionAccount,
+  makeReadOnlyAccount,
   makeSandboxAccount,
   SyncEngine
 } from '../src/main/mailclient/core/sync'
@@ -287,7 +287,7 @@ describe('credentials from the host', () => {
       accounts: [
         {
           id: 'acc',
-          kind: 'sandbox' as const,
+          readOnly: false,
           email: 'a@example.test',
           host: '127.0.0.1',
           port,
@@ -362,7 +362,7 @@ describe('credentials from the host', () => {
 describe('production account settings', () => {
   it('refuses a production account without encryption', () => {
     expect(() =>
-      makeProductionAccount({
+      makeReadOnlyAccount({
         id: 'prod',
         host: 'imap.example.test',
         port: 143,

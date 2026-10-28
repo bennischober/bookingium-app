@@ -369,7 +369,7 @@ describe('complete flag (migration 5)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
+          readOnly: false,
           host: '127.0.0.1',
           port: 1,
           security: 'none',

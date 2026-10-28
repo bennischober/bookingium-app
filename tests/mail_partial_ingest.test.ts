@@ -11,8 +11,8 @@ import type { MessageStructureObject } from 'imapflow'
 import { Store, type MessageRow } from '../src/main/mailclient/core/store'
 import {
   LAZY_ABOVE_BYTES,
-  makeCanaryAccount,
-  makeProductionAccount,
+  makeLiveAccount,
+  makeReadOnlyAccount,
   makeSandboxAccount,
   SyncEngine,
   type AccountConfig
@@ -246,7 +246,7 @@ describe('S1 threshold default', () => {
   it('is the agreed 5 MB on every account kind', () => {
     expect(LAZY_ABOVE_BYTES).toBe(5_000_000)
     expect(makeSandboxAccount(input).lazyAboveBytes).toBe(LAZY_ABOVE_BYTES)
-    expect(makeProductionAccount(input).lazyAboveBytes).toBe(LAZY_ABOVE_BYTES)
-    expect(makeCanaryAccount(input).lazyAboveBytes).toBe(LAZY_ABOVE_BYTES)
+    expect(makeReadOnlyAccount(input).lazyAboveBytes).toBe(LAZY_ABOVE_BYTES)
+    expect(makeLiveAccount(input).lazyAboveBytes).toBe(LAZY_ABOVE_BYTES)
   })
 })

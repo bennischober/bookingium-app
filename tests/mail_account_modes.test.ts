@@ -1,10 +1,9 @@
-// I6 (MR-18, MR-20): the write guard as main enforces it, and the core that asks it.
+// One account kind (2026-10-28): the write guard as main enforces it, and the core that asks it.
 //
-// The pure rules first: SMTP needs encryption off loopback, a sandbox kind on a real host is
-// saved only as the canary, and the allowlist is loopback only (the docker-internal names resolved
-// through DNS with certificate checks off). Then the core: an account the guard refuses is read-only
-// whatever kind it was saved as, a write is refused BEFORE it is journaled, and the canary reports
-// itself as 'canary' (MR-18: the sync config never carried the flag, so it said 'sandbox').
+// The pure rules first: no cleartext login off loopback, IMAP or SMTP, and the allowlist is
+// loopback only (the docker-internal names resolved through DNS with certificate checks off). Then
+// the core: an account reports 'read-only', 'sandbox' or 'live', an account the guard refuses is
+// read-only whatever it was saved as, and a write is refused BEFORE it is journaled.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -20,23 +19,22 @@ import {
   type WriteAccount
 } from '../src/main/mailclient/core/write_guard'
 
-const canary = (over: Partial<WriteAccount> = {}): WriteAccount => ({
-  id: 'testpostfach',
-  canary: true,
-  kind: 'sandbox',
+/** A real mailbox, off the loopback allowlist, with TLS on both sides */
+const real = (over: Partial<WriteAccount> = {}): WriteAccount => ({
+  id: 'postfach',
+  readOnly: false,
   imapHost: 'imap.example.test',
   imapPort: 993,
   security: 'tls',
   smtpHost: 'smtp.example.test',
   smtpPort: 465,
   smtpSecurity: 'tls',
-  email: 'testpostfach@example.test',
   ...over
 })
 
 const sandbox = (over: Partial<WriteAccount> = {}): WriteAccount => ({
   id: 'a',
-  kind: 'sandbox',
+  readOnly: false,
   imapHost: '127.0.0.1',
   imapPort: 10143,
   security: 'none',
@@ -66,40 +64,45 @@ describe('I6: smtpRefusal', () => {
   })
 })
 
-describe('I6: settingsRefusal', () => {
-  it('admits a sandbox kind on a real host as the canary only', () => {
-    expect(settingsRefusal(canary())).toBeNull()
-    expect(settingsRefusal(canary({ canary: undefined }))).toMatch(/Nur lesen/)
-    expect(settingsRefusal(canary({ canary: undefined, imapHost: '127.0.0.1' }))).toMatch(
-      /Nur lesen/
+describe('settingsRefusal', () => {
+  it('admits a real mailbox with encryption on both sides', () => {
+    expect(settingsRefusal(real())).toBeNull()
+    expect(settingsRefusal(real({ security: 'starttls', smtpSecurity: 'starttls' }))).toBeNull()
+  })
+
+  it('refuses a cleartext IMAP login to a real server', () => {
+    expect(settingsRefusal(real({ security: 'none', smtpSecurity: 'tls' }))).toMatch(
+      /echtes Postfach braucht eine Verschlüsselung/
     )
   })
 
-  it('leaves a read-only account and the loopback sandbox alone', () => {
-    expect(settingsRefusal(canary({ kind: 'production-readonly', canary: undefined }))).toBeNull()
-    expect(settingsRefusal(sandbox())).toBeNull()
+  it('checks SMTP whether the account is read-only or not', () => {
+    // the setting is a property of the server, and a read-only account may be made writable later
+    for (const readOnly of [true, false]) {
+      expect(settingsRefusal(real({ readOnly, smtpSecurity: 'none' }))).toMatch(/SMTP/)
+    }
   })
 
-  it('checks SMTP for every kind, the canary included', () => {
-    for (const kind of ['production-readonly', 'sandbox'] as const) {
-      expect(settingsRefusal(canary({ kind, smtpSecurity: 'none' }))).toMatch(/SMTP/)
-    }
+  it('leaves the loopback test server alone', () => {
+    expect(settingsRefusal(sandbox())).toBeNull()
   })
 })
 
-describe('I6: writeRefusal', () => {
-  it('refuses a canary stored with a cleartext SMTP login', () => {
+describe('writeRefusal', () => {
+  it('lets a writable real mailbox write', () => {
+    expect(writeRefusal(real())).toBeNull()
+  })
+
+  it('refuses an account set to Nur lesen first', () => {
+    expect(writeRefusal(real({ readOnly: true, smtpSecurity: 'none' }))).toMatch(/Nur lesen/)
+  })
+
+  it('refuses an account stored with a cleartext SMTP login', () => {
     // an account saved before main checked this
-    expect(writeRefusal(canary({ smtpSecurity: 'none' }))).toMatch(/SMTP/)
+    expect(writeRefusal(real({ smtpSecurity: 'none' }))).toMatch(/SMTP/)
   })
 
-  it('names the real host first for a non-canary account', () => {
-    expect(writeRefusal(canary({ canary: undefined, smtpSecurity: 'none' }))).toMatch(
-      /lokalen Testserver/
-    )
-  })
-
-  it('keeps the loopback sandbox writable', () => {
+  it('keeps the loopback test server writable', () => {
     expect(writeRefusal(sandbox())).toBeNull()
   })
 })
@@ -109,12 +112,13 @@ describe('I6: the allowlist is loopback only', () => {
     for (const host of ['sandbox-dovecot', 'sandbox-mailpit']) {
       expect(isSandboxHost(host)).toBe(false)
       expect(tlsOptions(host).rejectUnauthorized).toBe(true)
-      expect(writeRefusal(sandbox({ imapHost: host }))).toMatch(/lokalen Testserver/)
+      // and a cleartext login to them is a login across a network
+      expect(writeRefusal(sandbox({ imapHost: host }))).toMatch(/Verschlüsselung/)
     }
   })
 })
 
-describe('I6: the core asks the guard', () => {
+describe('the core asks the guard', () => {
   const cleanups: (() => unknown)[] = []
   afterEach(async () => {
     while (cleanups.length) await cleanups.pop()!()
@@ -128,13 +132,13 @@ describe('I6: the core asks the guard', () => {
   const REAL = '127.0.0.2'
 
   function core(account: Record<string, unknown>) {
-    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bookingum-mail-canary-main-'))
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bookingum-mail-modes-'))
     const api = createMailCore({
       dataDir,
       accounts: [
         {
           id: 'k',
-          kind: 'sandbox',
+          readOnly: false,
           email: 'k@example.test',
           host: '127.0.0.1',
           port: 1,
@@ -150,33 +154,50 @@ describe('I6: the core asks the guard', () => {
     return { api, entry }
   }
 
-  it('reports the canary as a canary (MR-18)', async () => {
+  it('reports the loopback test server as the sandbox', async () => {
+    const { api } = core({})
+    const [summary] = await api.listAccounts!()
+    expect(summary.mode).toBe('sandbox')
+  })
+
+  it('reports a writable real mailbox as live', async () => {
     const { api } = core({
       host: REAL,
       security: 'tls',
       smtpHost: REAL,
       smtpPort: 1,
-      smtpSecurity: 'tls',
-      canary: true
+      smtpSecurity: 'tls'
     })
     const [summary] = await api.listAccounts!()
-    expect(summary.mode).toBe('canary')
-    expect(summary.canWrite).toBe(true)
+    expect(summary.mode).toBe('live')
   })
 
-  it('runs a sandbox kind on a real host without the flag read-only', async () => {
-    const { api, entry } = core({ host: REAL, security: 'tls', smtpSecurity: 'tls' })
+  it('runs an account set to Nur lesen read-only, and journals nothing', async () => {
+    const { api, entry } = core({ readOnly: true, host: REAL, security: 'tls' })
     const [summary] = await api.listAccounts!()
-    expect(summary.mode).toBe('production-readonly')
+    expect(summary.mode).toBe('read-only')
     expect(summary.canWrite).toBe(false)
+    await expect(api.markRead([1], true, 'k')).rejects.toThrow(/WRITE GUARD/)
+    expect(entry.store.journalCountByState()).toEqual({})
+  })
+
+  it('runs a real mailbox stored with a cleartext login read-only', async () => {
+    const { api, entry } = core({
+      host: REAL,
+      security: 'tls',
+      smtpHost: REAL,
+      smtpSecurity: 'none'
+    })
+    const [summary] = await api.listAccounts!()
+    expect(summary.mode).toBe('read-only')
     await expect(api.markRead([1], true, 'k')).rejects.toThrow(/WRITE GUARD/)
     expect(entry.store.journalCountByState()).toEqual({})
   })
 
   it('refuses a write the guard refuses before it is journaled', async () => {
     const { api, entry } = core({})
-    // the account was admitted, then its endpoint is no longer one the guard accepts
-    entry.writeAccount.imapHost = REAL
+    // the account was admitted, then it was set to Nur lesen
+    entry.writeAccount.readOnly = true
     await expect(api.markRead([1], true, 'k')).rejects.toThrow(/WRITE GUARD/)
     expect(entry.store.journalCountByState()).toEqual({})
   })

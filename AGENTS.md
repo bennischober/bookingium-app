@@ -54,7 +54,7 @@ Only the symbols that cross a subtree boundary are listed here; per-area tables 
 - `.partial()` on an `UpdateXInput` whose create input uses `.optional().default()` - defaults are re-applied and columns wiped. Merge with `input.x ?? existing.x`.
 - Editing an applied migration or `src/main/db/migrations/meta/*`. Add a new migration and review the generated SQL: drizzle-kit drops `ON DELETE` on `ADD COLUMN`.
 - Real master data (names, IBANs, addresses, signatures) in code, seeds, tests or commit messages - only the gitignored `sample_data/internal-seed.json`.
-- Assuming the app never sends mail: the mail client (`src/main/mailclient/`) **does** transmit over SMTP for writable accounts, and so does the `invoice:email` channel when the mail program is set to bookingum (it opens the compose window on the sandbox account). Only the legacy `mail/` path and the other mail-program settings write files and hand them to the user's mail program.
+- Assuming the app never sends mail: the mail client (`src/main/mailclient/`) **does** transmit over SMTP for writable accounts, and so does the `invoice:email` channel when the mail program is set to bookingum (it opens the compose window on the chosen sending account). Only the legacy `mail/` path and the other mail-program settings write files and hand them to the user's mail program.
 - Translating stored enum values. Render them through label maps.
 - A second tRPC client in the renderer - electron-trpc keys responses by operation id.
 
@@ -81,5 +81,5 @@ pnpm validate:einvoice   # KoSIT + veraPDF, needs Java 11+
 - E2E runs get a fresh temporary data folder per launch; `BOOKINGIUM_E2E_USER_DATA` points them at a copy, `BOOKINGIUM_NO_LAUNCH=1` suppresses mail-program launches.
 - Print verification means inspecting the generated PDF in `tests/e2e/__screenshots__/`, not the screenshot: pagination bugs are invisible in PNGs.
 - `docs/ARCHITECTURE.md` covers migrations, print documents, e-invoices, mailing lists and follow-ups in depth. Read it before touching those areas.
-- The canary spec lives in `tests/e2e-canary/` with its own `playwright.canary.config.ts` and skips unless `BOOKINGIUM_CANARY=1`. It reaches a real mailbox: never run it without the user's go-ahead.
+- Mail accounts have one kind since 2026-10-28: writable unless set to "Nur lesen". Agents never connect to the user's real mailbox (IONOS); e2e and unit tests use the loopback sandbox only.
 - Mail client work (`src/main/mailclient/`, `components/mail/`, the mail tests): read `docs/mail-client-handoff.md` first. Its standing rules (no `.env`, no mail content in output, the production mailbox stays read-only) apply to every card.

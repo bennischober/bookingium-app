@@ -83,7 +83,7 @@ async function runOnce(
       accounts: [
         {
           id: 'fuzz',
-          kind: 'sandbox',
+          readOnly: false,
           host: HOST,
           port: PORT,
           security: 'none',

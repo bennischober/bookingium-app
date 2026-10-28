@@ -35,7 +35,7 @@ afterEach(() => {
 })
 
 const account = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
-  kind: 'sandbox',
+  readOnly: false,
   host: '127.0.0.1',
   port: 10143,
   security: 'none',

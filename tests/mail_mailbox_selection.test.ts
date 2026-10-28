@@ -168,8 +168,6 @@ describe('I4 (MR-09): the file repair reads the folder of the row', () => {
       dataDir,
       accounts: ids.map((id) => ({
         id,
-        kind: 'sandbox' as const,
-        canary: true,
         readOnly: false,
         email: `${id}@example.test`,
         host: '127.0.0.1',

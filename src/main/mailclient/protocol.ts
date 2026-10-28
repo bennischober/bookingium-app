@@ -54,7 +54,8 @@ export type MailApiMethod = (typeof MAIL_API_METHODS)[number]
 /** Account as the worker sees it: no password, credentials are requested on demand */
 export type WorkerAccount = {
   id: string
-  kind: 'sandbox' | 'production-readonly'
+  /** "Nur lesen": the worker never writes to this mailbox */
+  readOnly: boolean
   host: string
   port: number
   security: ImapSecurity
@@ -64,8 +65,6 @@ export type WorkerAccount = {
   smtpPort?: number
   /** A7: the SMTP encryption, which is not the IMAP one; missing in older settings */
   smtpSecurity?: ImapSecurity
-  /** A7 part 2: this account is the one real mailbox writes may reach */
-  canary?: boolean
 }
 
 export type WorkerInit = {

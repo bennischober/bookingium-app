@@ -5,7 +5,7 @@
 // main reads the PDF it registered and attaches it. The invoice counts as emailed once the
 // send is confirmed - by the send itself, or later, when an unclear send turns up in Sent.
 import { randomUUID } from 'crypto'
-import { sendRefusal, writeRefusal, type WriteAccount } from '../mailclient/core/write_guard'
+import { writeRefusal, type WriteAccount } from '../mailclient/core/write_guard'
 import type { DraftInput, OpSummary } from '../mailclient/core/types'
 import type { MailAccountDto } from '../mailclient/accounts'
 import type { InvoiceEmailKind } from '../api/schemas/invoice.schema'
@@ -24,15 +24,13 @@ export type InvoiceCompose = {
 function toWriteAccount(account: MailAccountDto): WriteAccount {
   return {
     id: account.id,
-    kind: account.kind,
+    readOnly: account.readOnly,
     imapHost: account.host,
     imapPort: account.port,
     security: account.security,
     smtpHost: account.smtpHost,
     smtpPort: account.smtpPort,
-    smtpSecurity: account.smtpSecurity,
-    email: account.email,
-    canary: account.canary
+    smtpSecurity: account.smtpSecurity
   }
 }
 
@@ -43,16 +41,14 @@ function toWriteAccount(account: MailAccountDto): WriteAccount {
  */
 export function invoiceSendAccount(
   accountId: string,
-  accounts: readonly MailAccountDto[],
-  to: string
+  accounts: readonly MailAccountDto[]
 ): { account: MailAccountDto } | { error: string } {
   if (!accountId) {
     return { error: 'Kein Absenderkonto gewählt (Einstellungen › E-Mail › Senden von)' }
   }
   const account = accounts.find((a) => a.id === accountId)
   if (!account) return { error: 'Das gewählte Absenderkonto gibt es nicht mehr' }
-  const write = toWriteAccount(account)
-  const refusal = writeRefusal(write) ?? sendRefusal(write, to ? [to] : [])
+  const refusal = writeRefusal(toWriteAccount(account))
   return refusal ? { error: refusal } : { account }
 }
 

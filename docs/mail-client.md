@@ -2,7 +2,7 @@
 
 Status: **spike, branch `feat/mail-client`**. The core was built and proven in a standalone prototype
 (`D:\Projects\Arbeit\Brainstorm\email-prototype`, tasks 1–5, reports `REPORT*.md`). This document records the decisions
-so the integration does not re-litigate them. Not in the release until the canary and pilot gates below are passed.
+so the integration does not re-litigate them. Since 2026-10-28 every account is writable unless set to "Nur lesen"; the canary gate was dropped by the user's sign-off.
 
 **Source of truth:** since 2026-10-23 the core is developed here, in `src/main/mailclient/core/`. The prototype is a test
 bench; changes made there are ported by hand, never copied over the core.
@@ -43,7 +43,7 @@ STARTTLS, which is required, never opportunistic), never guessed from the port; 
 allowed only to loopback (the sandbox, or a local tunnel).
 
 **Large messages are stored without their large parts (S1).** Above an account's `lazyAboveBytes` (5 MB on every
-account kind; production and canary since the first S1 run against IONOS, 2026-10-28, which passed) the sync stores a skeleton: headers,
+account; real mailboxes since the first S1 run against IONOS, 2026-10-28, which passed) the sync stores a skeleton: headers,
 body text and every part below the threshold, with the attachments left out but listed with BODYSTRUCTURE's size
 estimate. The row says `complete = 0`. Lists, search and the reader work from the skeleton; the reader marks each
 attachment "≈ size · wird beim Öffnen geladen". Anything that needs the bytes (opening or saving an attachment, the .eml,
@@ -80,10 +80,11 @@ better-sqlite3 MIT, imapflow MIT, mailparser MIT, nodemailer MIT-0, jsdom MIT, d
 All permissive; no GPL/AGPL. Re-check when adding packages.
 
 ## Rollout gates
-1. Sandbox only (now). 2. Read-only pilot with the real user next to Outlook (1–2 weeks). 3. Canary mailbox on the IONOS contract:
-write-path suite, few sends. 4. Staged writes on the real account: flags -> move -> delete -> send, kill switch and a backup before each.
+1. Sandbox only. 2. Read-only pilot with the real user next to Outlook. 3. (2026-10-28) The account kinds and the canary
+gate were dropped: every account is writable unless set to "Nur lesen", and the user makes the first real sends on IONOS
+themself. A backup before the first writes on a real mailbox stays advised.
 Search and sync correctness are verified on a full-size store before each stage.
 
 ## Open
-Canary mailbox (not created yet), app-specific features (per-customer correspondence, send invoice/reminder through the client),
+App-specific features (per-customer correspondence, send invoice/reminder through the client),
 onboarding (account setup, first sync is long and throttled), malicious-mail test corpus, UIDPLUS-less servers.

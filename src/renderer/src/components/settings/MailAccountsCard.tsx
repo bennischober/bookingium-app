@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react'
+import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -30,27 +30,21 @@ import {
   SECURITY_LABELS,
   SECURITY_PORTS
 } from '@/lib/mailConnection'
-import type { MailAccountDto, MailAccountKind } from '../../../../main/mailclient/accounts'
+import type { MailAccountDto } from '../../../../main/mailclient/accounts'
 import type { ConnectionTestResult } from '../../../../main/mailclient/core/connection_test'
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
 import type { ImapSecurity } from '../../../../main/mailclient/core/types'
 
-const KIND_LABELS: Record<MailAccountKind, string> = {
-  'production-readonly': 'Nur lesen',
-  sandbox: 'Test-Server (lokal)'
+/** The badge in the list: read-only, the local test server, or nothing for a normal account */
+function accountBadge(account: MailAccountDto): string | null {
+  if (account.readOnly) return 'Nur lesen'
+  return allowsPlainLogin(account.host) ? 'Test-Server (lokal)' : null
 }
-
-/**
- * A7 part 2: the canary is saved as a sandbox account (so it gets the write path)
- * but it is a real mailbox, so it must not be labelled a local test server.
- */
-const CANARY_LABEL = 'Testpostfach (echt)'
 
 type Draft = {
   id?: string
-  kind: MailAccountKind
-  /** A7 part 2: this draft is the canary mailbox, not a local test server */
-  canary?: boolean
+  /** "Nur lesen": Bookingium writes nothing to this mailbox */
+  readOnly: boolean
   email: string
   host: string
   port: string
@@ -68,7 +62,7 @@ type Draft = {
 }
 
 const EMPTY_DRAFT: Draft = {
-  kind: 'production-readonly',
+  readOnly: false,
   email: '',
   host: '',
   port: '993',
@@ -141,10 +135,9 @@ function MailAccountDialog({
               aliases: account.aliases.join(', '),
               smtpHost: account.smtpHost,
               smtpPort: String(account.smtpPort),
-              smtpSecurity: account.smtpSecurity,
-              canary: account.canary
+              smtpSecurity: account.smtpSecurity
             }
-          : { ...EMPTY_DRAFT, kind: 'production-readonly' }
+          : EMPTY_DRAFT
       )
       setResult(null)
     }
@@ -158,18 +151,11 @@ function MailAccountDialog({
 
   // The server checks the settings first and saves only what passes
   const save = trpcReact.mail.accounts.save.useMutation({
-    onSuccess: (data, input) => {
+    onSuccess: (data) => {
       setResult(data.test)
       if (!data.account) return
       void utils.mail.invalidate()
       toast.success('E-Mail-Konto gespeichert')
-      // I6 (MR-20): main ends the canary admission when the server, login or address changes
-      if (input.canary && input.kind === 'sandbox' && !data.account.canary) {
-        toast.warning('Freigabe als Testpostfach aufgehoben', {
-          description:
-            'Server, Benutzer oder Adresse haben sich geändert. Das Konto ist jetzt schreibgeschützt; die Freigabe muss neu erteilt werden.'
-        })
-      }
       onOpenChange(false)
     },
     onError: (error) =>
@@ -183,8 +169,7 @@ function MailAccountDialog({
   }
   const port = Number(draft.port)
   // No login without encryption across a network. Host-based, exactly like the
-  // main process's check: a canary is saved as a sandbox account but is a real
-  // mailbox, so its kind must not be what unlocks a cleartext login.
+  // main process's check: only the local test server may log in without one.
   const plainAllowed = allowsPlainLogin(draft.host)
   const securities: ImapSecurity[] = plainAllowed
     ? ['tls', 'starttls', 'none']
@@ -205,19 +190,6 @@ function MailAccountDialog({
   const aliases = parseAliases(draft.aliases)
   const valid = connectionValid && draft.email.trim() !== '' && aliases.invalid === null
   const busy = test.isLoading || save.isLoading
-  // The local test server only makes sense on a developer machine
-  const kinds: MailAccountKind[] =
-    import.meta.env.DEV || account?.kind === 'sandbox'
-      ? ['production-readonly', 'sandbox']
-      : ['production-readonly']
-
-  const changeKind = (kind: MailAccountKind) =>
-    set(
-      kind !== 'sandbox' && draft.security === 'none' && !allowsPlainLogin(draft.host)
-        ? { kind, security: 'tls', port: String(SECURITY_PORTS.tls) }
-        : { kind }
-    )
-
   // Follow the usual port unless the user typed another one
   const changeSecurity = (security: ImapSecurity) =>
     set(
@@ -226,28 +198,9 @@ function MailAccountDialog({
         : { security }
     )
 
-  // A7 part 2: admitting the canary is an explicit step that names the consequence
-  const setCanary = async (on: boolean) => {
-    if (!on) {
-      set({ canary: false })
-      return
-    }
-    if (
-      await confirmAction({
-        title: 'Dieses echte Postfach freigeben?',
-        description:
-          'Bookingium schreibt dann in dieses Postfach: markieren, verschieben, löschen und senden. Gesendet wird nur an die eigene Adresse. Höchstens ein Konto kann das sein – ein anderes verliert die Freigabe.',
-        confirmLabel: 'Freigeben',
-        destructive: true
-      })
-    ) {
-      set({ canary: true })
-    }
-  }
-
   const connection = () => ({
     id: account?.id,
-    kind: draft.kind,
+    readOnly: draft.readOnly,
     host: draft.host.trim(),
     port,
     security: draft.security,
@@ -274,8 +227,7 @@ function MailAccountDialog({
       ...connection(),
       email: draft.email.trim(),
       signature: draft.signature.trim() || undefined,
-      aliases: aliases.aliases,
-      canary: draft.canary === true
+      aliases: aliases.aliases
     })
   }
 
@@ -293,27 +245,6 @@ function MailAccountDialog({
               gespeichert.
             </DialogDescription>
           </DialogHeader>
-
-          {kinds.length > 1 && (
-            <div className="space-y-2">
-              <Label htmlFor="mail-account-kind">Art</Label>
-              <Select
-                value={draft.kind}
-                onValueChange={(kind) => changeKind(kind as MailAccountKind)}
-              >
-                <SelectTrigger id="mail-account-kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {kinds.map((kind) => (
-                    <SelectItem key={kind} value={kind}>
-                      {KIND_LABELS[kind]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="mail-account-email">E-Mail-Adresse</Label>
@@ -472,43 +403,27 @@ function MailAccountDialog({
             />
           </div>
 
-          {draft.kind === 'production-readonly' && (
-            <p className="flex gap-2 text-xs text-muted-foreground">
-              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Bookingium liest das Postfach nur: Es verschiebt, markiert und löscht nichts und
-              sendet keine E-Mails.
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                id="mail-account-read-only"
+                type="checkbox"
+                checked={draft.readOnly}
+                onChange={(e) => set({ readOnly: e.target.checked })}
+                aria-describedby="mail-account-read-only-hint"
+              />
+              Nur lesen
+            </label>
+            <p
+              id="mail-account-read-only-hint"
+              className="flex gap-2 text-xs text-muted-foreground"
+            >
+              {draft.readOnly && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+              {draft.readOnly
+                ? 'Bookingium liest das Postfach nur: Es verschiebt, markiert und löscht nichts und sendet keine E-Mails.'
+                : 'Bookingium kann E-Mails markieren, verschieben, löschen und über den SMTP-Server senden.'}
             </p>
-          )}
-
-          {/* A7 part 2: the ONE real mailbox writes may reach. Danger-styled and behind a
-              confirm that names the consequence, so it is never something the app sets itself. */}
-          {draft.kind === 'sandbox' && (
-            <div className="rounded-md border border-destructive/40 p-3">
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={draft.canary === true}
-                  onChange={(e) => void setCanary(e.target.checked)}
-                  aria-describedby="mail-account-canary-hint"
-                />
-                <span>
-                  <span className="flex items-center gap-1 font-medium text-destructive">
-                    <TriangleAlert className="h-3.5 w-3.5" />
-                    Als echtes Testpostfach freigeben
-                  </span>
-                  <span
-                    id="mail-account-canary-hint"
-                    className="block text-xs text-muted-foreground"
-                  >
-                    Bookingium schreibt dann in dieses echte Postfach: markieren, verschieben,
-                    löschen und senden – aber nur an die eigene Adresse. Höchstens ein Konto kann
-                    das sein; ein anderes verliert die Freigabe.
-                  </span>
-                </span>
-              </label>
-            </div>
-          )}
+          </div>
 
           {busy && (
             <p className="text-sm text-muted-foreground" role="status">
@@ -600,12 +515,12 @@ export function MailAccountsCard() {
                     {SECURITY_LABELS[account.security]}
                   </p>
                 </div>
-                <Badge
-                  variant={account.kind === 'sandbox' && !account.canary ? 'outline' : 'secondary'}
-                >
-                  {account.kind === 'production-readonly' && <Lock className="mr-1 h-3 w-3" />}
-                  {account.canary ? CANARY_LABEL : KIND_LABELS[account.kind]}
-                </Badge>
+                {accountBadge(account) && (
+                  <Badge variant={account.readOnly ? 'secondary' : 'outline'}>
+                    {account.readOnly && <Lock className="mr-1 h-3 w-3" />}
+                    {accountBadge(account)}
+                  </Badge>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"

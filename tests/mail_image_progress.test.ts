@@ -87,8 +87,6 @@ async function coreWithImages(
     accounts: [
       {
         id: ACCOUNT,
-        kind: 'sandbox',
-        canary: true,
         readOnly: false,
         email: 'a@example.test',
         host: '127.0.0.1',

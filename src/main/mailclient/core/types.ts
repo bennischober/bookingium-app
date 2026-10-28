@@ -100,14 +100,14 @@ export type SearchResult = {
   facets?: { folderId: string; count: number }[];   // Task 3: per-folder hit counts
 };
 
-export type MailAccountMode = 'sandbox' | 'production-readonly' | 'canary';
+/** 'read-only': set to "Nur lesen" (or refused by the write guard); 'sandbox': the local test server; 'live': a real, writable mailbox */
+export type MailAccountMode = 'read-only' | 'sandbox' | 'live';
 
 export type AccountInfo = {
   id: string;
   email: string;
-  /** A7 part 2: 'canary' is the one real mailbox that may be written to */
   mode: MailAccountMode;                     // drives what the UI enables
-  canWrite: boolean;                         // true only for a sandbox account or the canary
+  canWrite: boolean;                         // writable and its server answers
 };
 
 export type SyncStatus = {

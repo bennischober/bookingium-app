@@ -33,7 +33,7 @@ const mkOptions = (dataDir: string) => ({
   accounts: [
     {
       id: ACCOUNT,
-      kind: 'sandbox' as const,
+      readOnly: false,
       host: '127.0.0.1',
       port: 10199, // deliberately unreachable: this test never contacts a server
       security: 'none' as const,

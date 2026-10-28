@@ -4,21 +4,19 @@
 // delegations; tests read its `entries`, which is this same Map.
 import path from 'path';
 import { Store } from './store.js';
-import { SyncEngine, AccountConfig, makeProductionAccount, makeSandboxAccount, makeCanaryAccount } from './sync.js';
+import { SyncEngine, AccountConfig, makeReadOnlyAccount, makeSandboxAccount, makeLiveAccount } from './sync.js';
 import { WriteEngine } from './write_engine.js';
-import { WriteAccount, writeEndpointReachable, isCanary, writeRefusal, assertWriteAllowed } from './write_guard.js';
+import { WriteAccount, writeEndpointReachable, isSandboxHost, writeRefusal, assertWriteAllowed } from './write_guard.js';
 import { ConnectionBudget } from './connection_budget.js';
 import { isCorruptStoreError } from './store_recovery.js';
 import { draftStoreValidity } from './draft_store.js';
 import type { AccountInfo, AccountSummary } from './types.js';
 import type { AccountEntry, Logger, MailCoreEvent, MailCoreOptions } from './index.js';
 
-/** A7 part 2: how an account reports itself - the canary is writable but not a sandbox.
- * I6 (MR-18): the flag is on the write account; the sync config never carried it, so a canary
- * used to report itself as 'sandbox'. */
+/** How an account reports itself: read-only, the local test server, or a real writable mailbox */
 function accountMode(e: { config: { readOnly: boolean }; writeAccount: WriteAccount }): AccountInfo['mode'] {
-  if (e.config.readOnly) return 'production-readonly';
-  return isCanary(e.writeAccount) ? 'canary' : 'sandbox';
+  if (e.config.readOnly) return 'read-only';
+  return isSandboxHost(e.writeAccount.imapHost) ? 'sandbox' : 'live';
 }
 
 /** What the accounts need from the core. */
@@ -46,27 +44,24 @@ export class AccountEntries {
       // A7: the account's own endpoints; SMTP defaults to the IMAP host on 1025
       const writeAccount: WriteAccount = {
         id: a.id,
-        kind: a.kind,
+        readOnly: a.readOnly,
         imapHost: a.host,
         imapPort: a.port,
         security: a.security,
         smtpHost: a.smtpHost?.trim() ? a.smtpHost.trim() : a.host,
         smtpPort: a.smtpPort ?? 1025,
         smtpSecurity: a.smtpSecurity,
-        email: a.email,
-        canary: a.canary,
       };
       const input = { id: a.id, host: a.host, port: a.port, security: a.security, user: '', pass: '', dataDir: dir };
-      // A7 part 2: the canary is a real mailbox that is writable, so it takes the
-      // production pacing with the write path enabled. I6 (MR-20): an account the guard
-      // refuses is read-only with the production pacing, whatever kind it was saved as -
-      // a sandbox-kind account on a real host without the flag used to sync read-write
-      // with no connection cap, and journal ops that waited for a flag set later.
+      // An account set to "Nur lesen", or one the guard refuses (I6, MR-20: settings stored
+      // before main checked them), syncs read-only with the real-mailbox pacing. A writable
+      // real mailbox keeps that pacing with the write path on; only the loopback test server
+      // runs without a connection cap.
       const config: AccountConfig = writeRefusal(writeAccount) !== null
-        ? makeProductionAccount(input)
-        : isCanary(a)
-          ? makeCanaryAccount(input)
-          : makeSandboxAccount(input);
+        ? makeReadOnlyAccount(input)
+        : isSandboxHost(a.host)
+          ? makeSandboxAccount(input)
+          : makeLiveAccount(input);
       // user/pass are resolved lazily via ensureCredentials(), which the engine calls before
       // every login — never stored at construction, never logged
       // I12 (MR-41): one account whose store cannot be opened is skipped, not fatal for the rest.

@@ -66,7 +66,6 @@ beforeAll(() => {
     accounts: [
       {
         id: ACCOUNT,
-        kind: 'sandbox',
         readOnly: false,
         email: 'fold@example.test',
         host: '127.0.0.1',

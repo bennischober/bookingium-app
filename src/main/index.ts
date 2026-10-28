@@ -548,7 +548,7 @@ ipcMain.handle(
       // before anything is written or opened
       const sender =
         settings.mailProgram === 'bookingum'
-          ? invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts(), draft.to)
+          ? invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts())
           : null
       if (sender && 'error' in sender) return { success: false, error: sender.error }
       const name = fileName.replace(/\.pdf$/i, '')

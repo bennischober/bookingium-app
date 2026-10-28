@@ -59,7 +59,7 @@ here are also imported by the renderer.
   commit messages - only the gitignored `sample_data/internal-seed.json`.
 - Assuming the app never sends mail: the mail client (`mailclient/`) **does** transmit over
   SMTP for writable accounts, and so does `invoice:email` when the mail program is bookingum
-  (it opens the compose window on the sandbox account). Only the legacy `mail/` path and the
+  (it opens the compose window on the chosen sending account). Only the legacy `mail/` path and the
   other mail-program settings write files and open the user's mail program.
 - Importing `electron` eagerly from `db/` or the pure modules (`db/index.ts` wraps
   it in `try { require('electron') } catch` with a temp-dir fallback).

@@ -87,7 +87,7 @@ Values must survive structured clone (no class instances or functions). `Buffer`
 **Writing** (for example, flagging):
 
 1. `MailCore.markFlagged(ids, flagged, accountId)` → `writableEntry(accountId)`. This throws for
-   `production-readonly`, so the user sees a German error.
+   an account set to "Nur lesen", so the user sees a German error.
 2. The core plans the op: `store.journalEnqueue(...)` (state `pending`). **The journal row comes first**, before
    any server contact.
 3. `replayOps` → `WriteEngine.execute(op)`: queued on one serial chain (`enqueue`), under the folder mutex, then
@@ -164,7 +164,7 @@ since the mail store can be deleted and rebuilt.
   in event handlers or effects.
 - UI text is German and follows `docs/UI_LANGUAGE.md`: plain words, no IT jargon ("E-Mail-Konto", not "IMAP
   account"), no exclamation marks, errors say what happened and what to do.
-- Write actions are hidden (not just disabled) for `production-readonly` accounts. The E2E test checks this.
+- Write actions are hidden (not just disabled) for accounts set to "Nur lesen". The E2E test checks this.
 - Use Radix primitives from `components/ui/` (dialogs, menus) like the rest of the app.
 
 ---
@@ -239,8 +239,8 @@ pnpm -s exec playwright test tests/e2e/mail-client.spec.ts
 
 ## 8. Production (the real IONOS account)
 
-- Read-only until the canary passes (gate 3), and only the user decides when. Account kind `production-readonly`;
-  `writableEntry` refuses writes; `write_guard.ts` allows loopback hosts only.
+- Writable since 2026-10-28 by the user's decision (the kinds and the canary are gone); the user can set it to
+  "Nur lesen" in the settings. Agents never connect to it. `write_guard.ts` refuses cleartext logins off loopback.
 - At most 2 simultaneous connections. **Never retry a failed login** (IONOS locks accounts); the core stops all
   contact after a rejected login, so keep that behavior.
 - Do not connect to production at all unless a card says so **and** the user said go in this session.
@@ -339,7 +339,7 @@ pnpm -s exec playwright test tests/e2e/mail-client.spec.ts
 - When a fix needs a design decision the docs do not make (for example the shape of the per-account write
   endpoint, A7).
 - When a gate fails for reasons outside your change.
-- Before starting the canary, the read-only pilot, or anything marked "user" in the task list.
+- Before starting the read-only pilot, or anything marked "user" in the task list.
 
 ## 13. How to report at the end of a card
 

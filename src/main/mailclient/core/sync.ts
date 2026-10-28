@@ -1,5 +1,5 @@
 // Two-way sync engine (Task 2 Step 1).
-// READ path: works against any IMAP server (production = read-only EXAMINE, sandbox = read-write).
+// READ path: works against any IMAP server (a read-only account EXAMINEs, a writable one opens read-write).
 // WRITE path: lives exclusively in write_guard.ts (sandbox host allowlist) — never here.
 //
 // Sync algorithm per folder:
@@ -36,7 +36,7 @@ export interface AccountConfig {
   security: ImapSecurity;
   user: string;    // resolved lazily by the host's credentials provider (createMailCore)
   pass: string;
-  readOnly: boolean;           // true for production
+  readOnly: boolean;           // true for an account set to "Nur lesen"
   dataDir: string;             // ABSOLUTE (createMailCore resolves it; core never guesses paths)
   // Task 3: throttle + pacing for live/production servers (gentle-by-default)
   maxConnections?: number;     // hard cap for sync, IDLE and writes together (I15a: a write takes IDLE's slot)
@@ -52,14 +52,14 @@ export interface AccountConfig {
 export const LAZY_ABOVE_BYTES = 5_000_000;
 
 /** Task 5: account configs are built by the HOST from injected values — the core no
- * longer reads process.env or derives repo paths. These two builders keep the pacing
+ * longer reads process.env or derives repo paths. The real-mailbox builders keep the pacing
  * defaults that were tuned for IONOS (Task 3) so hosts get sane numbers for free. */
-export function makeProductionAccount(input: {
+export function makeReadOnlyAccount(input: {
   id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {
   // never a password in the clear across a network
   if (input.security === 'none' && !allowsPlainLogin(input.host)) {
-    throw new Error(`account ${input.id}: a production account needs TLS or STARTTLS`);
+    throw new Error(`account ${input.id}: a real mailbox needs TLS or STARTTLS`);
   }
   return {
     id: input.id,
@@ -77,13 +77,11 @@ export function makeProductionAccount(input: {
 }
 
 /**
- * A7 part 2: the canary mailbox. A real server, so it gets the production pacing
- * (2 connections, ~4 MB batches, paced STATUS sweeps) - but unlike a production account
- * it is writable, because the whole point is to prove the write path against a real
- * mailbox. The guard decides whether a write may actually go out; this only builds the
- * account, so a canary that is not admitted is still read-only in practice.
+ * A real, writable mailbox. A real server, so it gets the same pacing as a read-only one
+ * (2 connections, ~4 MB batches, paced STATUS sweeps). The guard still decides whether a
+ * write may actually go out; this only builds the account.
  */
-export function makeCanaryAccount(input: {
+export function makeLiveAccount(input: {
   id: string; host: string; port: number; security: ImapSecurity; user: string; pass: string; dataDir: string;
 }): AccountConfig {
   if (input.security === 'none' && !allowsPlainLogin(input.host)) {
@@ -94,7 +92,7 @@ export function makeCanaryAccount(input: {
     host: input.host, port: input.port,
     security: input.security,
     user: input.user, pass: input.pass,
-    readOnly: false,              // writable, but only through write_guard's admission
+    readOnly: false,              // writable, but only through write_guard
     dataDir: input.dataDir,
     maxConnections: 2,             // sync + IDLE, or sync + write (I15a) - hard cap, gentle to the live server
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
@@ -112,7 +110,7 @@ export function makeSandboxAccount(input: {
     host: input.host, port: input.port,
     security: input.security,
     user: input.user, pass: input.pass,
-    readOnly: false,            // sandbox: write path enabled (but only via write_guard)
+    readOnly: false,            // local test server: write path enabled, no pacing (but only via write_guard)
     dataDir: input.dataDir,
     lazyAboveBytes: LAZY_ABOVE_BYTES,
   };

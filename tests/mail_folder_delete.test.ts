@@ -195,7 +195,6 @@ describe('deleteFolder and the undo of a create (MR-06)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox' as const,
           readOnly: false,
           email: 'a@example.test',
           host: '127.0.0.1',

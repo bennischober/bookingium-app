@@ -14,13 +14,13 @@ const source = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8
 
 describe('MR-35: which reading-pane actions an account may offer', () => {
   it('offers every write action on a sandbox account', () => {
-    const actions = readingActions({ kind: 'sandbox' })
+    const actions = readingActions({ readOnly: false })
     expect(actions).toEqual({ canWrite: true, canCompose: true, canWriteTo: true })
   })
 
   it('offers none of them on a read-only account', () => {
     // The regression: the production account could start an editor whose autosave failed silently.
-    const actions = readingActions({ kind: 'production-readonly' })
+    const actions = readingActions({ readOnly: true })
     expect(actions).toEqual({ canWrite: false, canCompose: false, canWriteTo: false })
   })
 

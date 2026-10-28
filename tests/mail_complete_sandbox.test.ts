@@ -204,7 +204,7 @@ describe.skipIf(!sandboxUp)('S1 completion through the core (sandbox)', () => {
       accounts: [
         {
           id: ACCOUNT,
-          kind: 'sandbox',
+          readOnly: false,
           host: SANDBOX_HOST,
           port: relay.port,
           security: 'none',

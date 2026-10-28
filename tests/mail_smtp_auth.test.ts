@@ -64,7 +64,7 @@ const mime = (subject: string, messageId: string): Buffer =>
 function writeAccount(smtpPort: number): WriteAccount {
   return {
     id: 'smtp-auth',
-    kind: 'sandbox',
+    readOnly: false,
     imapHost: HOST,
     imapPort: IMAP_PORT,
     security: 'none',
