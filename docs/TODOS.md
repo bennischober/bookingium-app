@@ -13,9 +13,6 @@ Mail client (experimental, off by default), its integration into bookingum and w
   0 % need the reason in the Steuerhinweis. Left to do:
   - Run real invoices through the check before 2028 (waits for the first
     real invoices; none exist yet).
-  - KoSIT and veraPDF run on demand with `pnpm validate:einvoice`; wire
-    that command into CI once there is one (runner with Java 11+, cache
-    `.tools/`; the e2e step needs a display, e.g. xvfb on Linux).
 
 ## Product
 
@@ -35,11 +32,6 @@ Mail client (experimental, off by default), its integration into bookingum and w
   tried with the real setup.
 
 ## Data
-
-- Persons imported before role parsing existed carry the role in the name
-  (a leading "Rolle: " prefix). Decided:
-  clean up the data once (move the role onto the membership), the importer
-  stays as it is.
 
 - **Backups (open questions):**
   - Encryption: backups in OneDrive/Dropbox are plain SQLite and documents.
