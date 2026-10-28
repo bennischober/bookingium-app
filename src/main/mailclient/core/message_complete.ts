@@ -75,17 +75,18 @@ export class MessageCompletion {
  * Points the row at a new file holding its whole message: `file_path`, `complete = 1` and the
  * attachment list of the full parse in one transaction, then the old file is unlinked (a leftover
  * is an orphan for the sweep). False when the row no longer has `row.file_path`: the new file is
- * removed again. A message mailparser cannot read keeps its attachment columns.
+ * removed again. A message mailparser cannot read keeps its attachment columns. The write goes
+ * through `updateMessage`, the one path that keeps the external-content FTS index in step.
  */
 export async function adoptWholeSource(store: Store, row: Pick<MessageRow, 'id' | 'file_path'>, source: Buffer): Promise<boolean> {
   let columns: ReturnType<typeof attachmentColumns> | null = null;
   try { columns = attachmentColumns(await parseMessage(source)); } catch { /* the bytes are still the message */ }
   const relPath = writeMessageFile(store.dataDirResolved, source);
-  const changed = store.db.transaction(() => columns
-    ? store.db.prepare('UPDATE messages SET file_path = ?, complete = 1, attachments_json = ?, has_attachments = ? WHERE id = ? AND file_path = ?')
-      .run(relPath, columns.attachments_json, columns.has_attachments, row.id, row.file_path).changes
-    : store.db.prepare('UPDATE messages SET file_path = ?, complete = 1 WHERE id = ? AND file_path = ?')
-      .run(relPath, row.id, row.file_path).changes)();
+  const changed = store.db.transaction(() => {
+    if (store.getMessage(row.id)?.file_path !== row.file_path) return 0;
+    store.updateMessage(row.id, { file_path: relPath, complete: 1, ...columns });
+    return 1;
+  })();
   const stale = changed ? row.file_path : relPath;
   try { fs.unlinkSync(store.filePath(stale)); } catch { /* already gone (repair), or held open: the sweep takes it */ }
   return changed > 0;

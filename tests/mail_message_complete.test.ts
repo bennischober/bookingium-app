@@ -161,6 +161,26 @@ describe('S1: ensureComplete', () => {
     expect(files()).not.toContain(skeletonFile)
   })
 
+  it('keeps the search index in step with the new attachment list', async () => {
+    const { entry, partial, store, completion } = setup()
+    const row = await partial()
+    const indexed = (token: string): number[] =>
+      (
+        store.db.prepare('SELECT rowid FROM fts WHERE fts MATCH ?').all(`"${token}"`) as {
+          rowid: number
+        }[]
+      ).map((r) => r.rowid)
+    expect(indexed(String(ESTIMATE))).toEqual([row.id])
+
+    await completion.ensureComplete(entry, row)
+
+    // the estimate left the index with the old list; a stale entry would corrupt the next delete
+    expect(indexed(String(ESTIMATE))).toEqual([])
+    expect(() =>
+      store.db.exec(`INSERT INTO fts(fts, rank) VALUES('integrity-check', 1)`)
+    ).not.toThrow()
+  })
+
   it('shares one download between two callers', async () => {
     const { entry, partial, engine, calls, completion } = setup()
     const row = await partial()

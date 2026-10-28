@@ -12,7 +12,7 @@
 // account wiring (store + sync engine + write engine with shared folder mutexes),
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import path from 'path';
-import { Store, JournalRow } from './store.js';
+import { Store, JournalRow, MessageRow } from './store.js';
 import { SyncEngine, AccountConfig, SyncEvent } from './sync.js';
 import { WriteEngine, OpResult } from './write_engine.js';
 import { WriteAccount } from './write_guard.js';
@@ -142,7 +142,7 @@ export class MailCore implements Api {
     this.completion = new MessageCompletion(this.log);
     this.views = new MessageViews({
       options, entry: id => this.entry(id), emitEvent: e => this.emitEvent(e),
-      ensureComplete: (e, row) => this.completion.ensureComplete(e, row),
+      ensureComplete: (e, row) => this.completeRow(e, row),
     });
     this.ops = new OpApi({
       log: this.log, isClosed: () => this.closed, entry: id => this.entry(id), writableEntry: id => this.writableEntry(id),
@@ -155,7 +155,7 @@ export class MailCore implements Api {
       clock: this.clock, entry: id => this.entry(id), writableEntry: id => this.writableEntry(id), runOp: (e, op) => this.runOp(e, op),
       replayOps: (e, opIds) => this.ops.replayOps(e, opIds), planFlagOp: (e, ids, delta) => this.ops.planFlagOp(e, ids, delta),
       resyncMovedFolders: (e, opIds) => this.ops.resyncMovedFolders(e, opIds),
-      ensureComplete: (e, row) => this.completion.ensureComplete(e, row),
+      ensureComplete: (e, row) => this.completeRow(e, row),
     });
     this.maintenance = new Maintenance({ entries: this.entries, log: this.log, clock: this.clock, entry: id => this.entry(id) });
     this.accounts.buildEntries(options);
@@ -168,6 +168,14 @@ export class MailCore implements Api {
   }
 
   private ensureCredentials(id: string): Promise<{ user: string; pass: string }> { return this.accounts.ensureCredentials(id); }
+
+  /** S1: the download logs in on the sync connection, so the account's credentials come first, as
+   * for a sync. Without them imapflow reports a missing password as a rejected login, which stops
+   * the account. A complete row needs neither. */
+  private async completeRow(e: AccountEntry, row: MessageRow): Promise<MessageRow> {
+    if (row.complete === 0) await this.ensureCredentials(e.config.id);
+    return this.completion.ensureComplete(e, row);
+  }
 
   // ----- account/system -----
 

@@ -1989,6 +1989,28 @@ rare; reading a mail and finding it in search is not.
    - forward carries the file
    - `\Seen` is untouched
    - proxy down gives the offline error
+   **Result** [done 2026-10-28]. `tests/mail_complete_sandbox.test.ts`, in `pnpm test:sandbox`, drives a real
+   `createMailCore` against Dovecot through a loopback relay the test can take down. Three generated messages
+   (example.test sender, a 3.8 MB random binary attachment, about 5.2 MB on the server) go to the folder
+   `S1Complete`; a `SyncEngine` with `LAZY_ABOVE_BYTES` stores them as skeletons. The suite checks:
+   - partial rows, `sizeBytes` equal to the server's, stored file under a tenth of it, attachment estimate within 3 %
+   - `listMessages` (`hasAttachments`, names) and `search` with `hasAttachment` find all three
+   - relay down: `getAttachment` rejects with the offline message, the row stays partial, the one warning is the
+     relay's refusal (not a login), and the sync status is `offline`
+   - `getAttachment` and `getRawEml` return the server's bytes and complete the row (file length = server size)
+   - `saveDraft` with `forwardsFrom` (a draft, never sent) carries the attachment bytes
+   - no `\Seen` on the three uids, and the FTS integrity check passes after reopening the store
+   The suite removes its messages and drafts and its data folder. Mutations checked: each of the two fixes below,
+   a relay that never goes down and a forward without `forwardsFrom` each fail a test. The sandbox integrity check
+   alone does not catch the FTS bug (the indexed text of these mails is the same before and after completion); the
+   unit test does.
+   Two bugs fixed on the way:
+   - The completion's write (`adoptWholeSource`, also the repair path) updated `messages` directly, so the
+     external-content FTS index kept the skeleton's text. It now goes through `Store.updateMessage`. Unit test:
+     "keeps the search index in step with the new attachment list".
+   - A completion before the first sync logged in without credentials. imapflow reports the missing password as a
+     rejected login, so the account stopped ("login rejected earlier"). `MailCore.completeRow` resolves the
+     credentials first for an incomplete row.
 7. e2e for the "wird beim Öffnen geladen" state, then docs (`docs/mail-client.md` Sync, core README).
 - Production stays read-only: these are fetches. The first run against IONOS waits for the user's go-ahead.
 
@@ -2020,6 +2042,9 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
 - 2026-10-28, S1 design, `core/sanitize.ts:21`: the comment says the UI resolves `cid:` images from local attachments, but no renderer code reads `data-cid`. Corrected in S1 step 1: simpleParser already inlines every `cid:` image it finds among the attachments as a `data:` URL before sanitizing, so only unmatched `cid:` links reach the placeholder. The comment is still wrong about who resolves them.
+- 2026-10-28, S1 step 6, `core/index.ts:335` / `core/maintenance.ts`: `repairMissingFiles` downloads without `ensureCredentials`, so a repair before the first sync can stop the account the way a completion did (fixed there with `completeRow`).
+- 2026-10-28, S1 step 6, `core/index.ts:313`: `start()` starts IDLE and polling without waiting for `ensureCredentials`; if one connects before the credentials resolve, the login fails as "No password configured" and the account stops.
+- 2026-10-28, S1 step 6, `core/sync_connection.ts:60` / `imap_options.ts` `isAuthFailure`: imapflow's "No password configured" counts as a rejected login, so a missing credential is final instead of a retryable setup error.
 - 2026-10-28, S1 step 1, `core/message_ingest.ts` / `mail.router.ts:76` / `document.router.ts:66`: a single-part attachment message (the root is the attachment) has no mailparser `partId`, so ingest stores `''`. Both routers require `partId` `min(1)` and `getAttachment` compares `a.partId === partId`, so that attachment cannot be opened or saved as a document. Confirmed with the corpus's single-part PDF.
 
 - 2026-10-28, R4.6, `hooks/useMailShortcuts.ts:35`: the moved comment "Declared after every handler it calls" now describes the page's `useMailShortcuts(` call site, not the hook, and the handler still re-subscribes on every render (no deps), as the renderer review noted.
