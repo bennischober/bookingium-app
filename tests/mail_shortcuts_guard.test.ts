@@ -66,7 +66,11 @@ describe('MR-37: where a mail shortcut must not fire', () => {
 describe('MR-37: the page uses the guard', () => {
   it('asks shortcutBlocked before mapping a key', () => {
     // Pinned by source: the effect cannot be rendered here, and this is the line that was missing.
-    const src = readFileSync(join(process.cwd(), 'src/renderer/src/pages/MailPage.tsx'), 'utf8')
+    // R4: the keyboard handler lives in the page's useMailShortcuts hook
+    const src = readFileSync(
+      join(process.cwd(), 'src/renderer/src/hooks/useMailShortcuts.ts'),
+      'utf8'
+    )
     expect(src).toContain('shortcutBlocked(')
     // and it must be asked BEFORE shortcutFor decides an action
     const blockedAt = src.indexOf('shortcutBlocked(')
