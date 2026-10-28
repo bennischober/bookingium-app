@@ -5,6 +5,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
+import { parseRecordId } from '@/lib/recordId'
 import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
@@ -255,7 +256,7 @@ function InvoicesTab({ companyId }: { companyId: number }) {
  */
 export default function CompanyDetailPage() {
   const { companyId } = useParams({ strict: false }) as { companyId?: string }
-  const id = Number(companyId)
+  const id = parseRecordId(companyId)
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const mailClientEnabled = useMailClientEnabled()
@@ -271,7 +272,7 @@ export default function CompanyDetailPage() {
     data: company,
     isLoading,
     isError
-  } = trpcReact.company.getById.useQuery({ id }, { enabled: Number.isFinite(id) && id > 0 })
+  } = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   const updateCompany = trpcReact.company.update.useMutation({
     onSuccess: (data) => {
@@ -284,7 +285,8 @@ export default function CompanyDetailPage() {
     }
   })
 
-  if (isLoading) {
+  // A bad id never loads (the query stays disabled), it is not found
+  if (id !== null && isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <p className="text-muted-foreground">Firma wird geladen…</p>

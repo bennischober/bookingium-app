@@ -96,3 +96,18 @@ test('Alt + „+“ / Ctrl+N creates what the list shows, elsewhere offers the +
   await expect(page.getByRole('dialog', { name: 'Neues Event anlegen' })).toBeVisible()
   await page.keyboard.press('Escape')
 })
+
+test('a detail route with a bad id shows "nicht gefunden" instead of loading forever', async () => {
+  const { page } = h
+  for (const [path, text] of [
+    ['/band/abc', 'Band nicht gefunden.'],
+    ['/companies/abc', 'Firma nicht gefunden.'],
+    ['/persons/abc', 'Person nicht gefunden.'],
+    ['/venues/abc', 'Spielstätte nicht gefunden.'],
+    ['/invoices/abc', 'Rechnung nicht gefunden.'],
+    ['/band/99999', 'Band nicht gefunden.']
+  ]) {
+    await page.evaluate((hash) => (window.location.hash = hash), path)
+    await expect(page.getByText(text)).toBeVisible()
+  }
+})
