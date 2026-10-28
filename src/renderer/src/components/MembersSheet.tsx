@@ -296,6 +296,7 @@ export function MembersPanel({
                   size="sm"
                   onClick={() => openEdit(member)}
                   title="Rolle bearbeiten"
+                  aria-label={`Rolle von ${member.personName} bearbeiten`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -304,6 +305,7 @@ export function MembersPanel({
                   size="sm"
                   onClick={() => handleRemove(member)}
                   title="Entfernen"
+                  aria-label={`${member.personName} entfernen`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
