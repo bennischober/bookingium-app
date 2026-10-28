@@ -12,7 +12,6 @@
 // account wiring (store + sync engine + write engine with shared folder mutexes),
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import fs from 'fs';
-import { createHash } from 'crypto';
 import path from 'path';
 import { Store, JournalRow, STAGING_PREFIX, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, SyncEvent } from './sync.js';
@@ -30,6 +29,7 @@ import { foldersToResync } from './resync_scope.js';
 import { autoRetryable, retryDelay, sendPhase } from './op_retry.js';
 import { checkFolderName, folderPath, folderMoveRefusal, folderMoveTarget, isPathOrChild, isProtectedFolder, DEFAULT_DELIMITER, FolderNameError } from './folders.js';
 import { AccountEntries } from './account_entries.js';
+import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 
 /** A7: a single UID MOVE covers at most this many mails; above that the group is split */
 export const MOVE_BATCH_LIMIT = 500;
@@ -1487,25 +1487,7 @@ export function createMailCore(options: MailCoreOptions): MailCore {
   return new MailCore(options);
 }
 
-/**
- * C2: a stable key for a mail without a Message-ID. The subject goes into the
- * hash and never leaves the worker in clear text for this purpose, so two mails
- * that differ only in subject stay distinct.
- */
-export function messageFallbackKey(input: {
-  date: string | null;
-  fromEmail: string | null;
-  sizeBytes: number | null;
-  subject: string | null;
-}): string {
-  const normalized = [
-    (input.date ?? '').trim(),
-    (input.fromEmail ?? '').trim().toLowerCase(),
-    String(input.sizeBytes ?? ''),
-    (input.subject ?? '').trim(),
-  ].join('|');
-  return createHash('sha1').update(normalized, 'utf8').digest('hex');
-}
+export { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 
 /** A JSON address array from the store, tolerating NULL and junk */
 function parseAddressList(raw: string | null): string[] {
@@ -1524,9 +1506,4 @@ function parseJsonArray(raw: string | null): string[] {
   } catch {
     return [];
   }
-}
-
-/** A Message-ID without its angle brackets, so both forms compare equal */
-export function normalizeMessageId(raw: string | null | undefined): string {
-  return (raw ?? '').replace(/^</, '').replace(/>$/, '').trim();
 }
