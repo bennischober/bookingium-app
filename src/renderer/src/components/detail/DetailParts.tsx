@@ -1,6 +1,7 @@
 // Building blocks shared by the detail pages (band, company, venue)
 import { useNavigate } from '@tanstack/react-router'
 import { cn, formatShortDate } from '@/lib/utils'
+import { CLICKABLE_ROW_FOCUS, clickableRowProps } from '@/lib/clickableRow'
 import { Badge } from '@/components/ui/badge'
 import { STATUS_LABELS, STATUS_STYLES } from '@/components/event-hub/constants'
 import type { DealMemoListItemDto } from '../../../../main/api/schemas/deal_memo.schema'
@@ -67,7 +68,7 @@ export function Fields({ fields }: { fields: [string, string | null | undefined]
 /** `className` applies to the header and the cells (e.g. text-right) */
 export type Column<T> = { header: string; cell: (row: T) => React.ReactNode; className?: string }
 
-/** A list as a table; a click on a row opens it */
+/** A list as a table; a click on a row, or Enter on a focused row, opens it */
 export function RowTable<T extends { id: number }>({
   label,
   rows,
@@ -104,8 +105,8 @@ export function RowTable<T extends { id: number }>({
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="cursor-pointer border-t hover:bg-muted/50"
-              onClick={() => onRowClick(row)}
+              className={cn('cursor-pointer border-t hover:bg-muted/50', CLICKABLE_ROW_FOCUS)}
+              {...clickableRowProps(() => onRowClick(row))}
             >
               {columns.map((column) => (
                 <td key={column.header} className={cn('px-3 py-2', column.className)}>

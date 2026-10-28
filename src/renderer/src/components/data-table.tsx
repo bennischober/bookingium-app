@@ -10,6 +10,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { CLICKABLE_ROW_FOCUS, clickableRowProps } from '@/lib/clickableRow'
 
 // The 'actions' column hugs its buttons at the right edge of the table
 // (w-px shrinks it to its content); any spare width goes to the data
@@ -231,8 +232,11 @@ export function DataTable<TData>({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className={cn('group border-t hover:bg-muted/50', onRowClick && 'cursor-pointer')}
-                  onClick={() => onRowClick?.(row.original)}
+                  className={cn(
+                    'group border-t hover:bg-muted/50',
+                    onRowClick && ['cursor-pointer', CLICKABLE_ROW_FOCUS]
+                  )}
+                  {...(onRowClick && clickableRowProps(() => onRowClick(row.original)))}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
