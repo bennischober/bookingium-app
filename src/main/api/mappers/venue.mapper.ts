@@ -1,16 +1,10 @@
-import {
-  venue,
-  address as addressTable,
-  contact as contactTable,
-  company as companyTable
-} from '../../db/schema'
+import { venue, address as addressTable, company as companyTable } from '../../db/schema'
 import type { VenueDto, VenueListItemDto } from '../schemas/venue.schema'
 import { AddressMapper } from './address.mapper'
-import { ContactMapper } from './contact.mapper'
+import { ContactMapper, type ContactEntity } from './contact.mapper'
 
 type VenueEntity = typeof venue.$inferSelect
 type AddressEntity = typeof addressTable.$inferSelect
-type ContactEntity = typeof contactTable.$inferSelect
 type CompanyEntity = typeof companyTable.$inferSelect
 
 type VenueWithRelations = VenueEntity & {

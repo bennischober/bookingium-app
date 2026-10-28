@@ -6,6 +6,7 @@ import { copyLogoToStorage } from '../utils/fileStorage'
 import {
   address,
   contact,
+  contact_email,
   bank,
   person,
   company,
@@ -194,6 +195,13 @@ export async function seedDatabase() {
         homepage: ''
       })
       .returning()
+
+    // Further addresses: mail from these is linked to the contact as well
+    await db.insert(contact_email).values([
+      { contact_id: personContact1.id, email: 'booking@music.example.test', position: 0 },
+      { contact_id: companyContact1.id, email: 'office@soundwave.example.test', position: 0 },
+      { contact_id: companyContact1.id, email: 'billing@soundwave.example.test', position: 1 }
+    ])
 
     // ========================================
     // Create Banks

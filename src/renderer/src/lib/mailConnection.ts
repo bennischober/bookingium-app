@@ -48,3 +48,16 @@ export function retryIn(iso: string, now: number): string {
   const s = Math.max(0, Math.round((new Date(iso).getTime() - now) / 1000))
   return s < 60 ? `in ${s} s` : `in ${Math.round(s / 60)} min`
 }
+
+/**
+ * The further own addresses of an account as typed: separated by commas, semicolons or
+ * line breaks. `invalid` names the first entry that is no address, for the dialog's hint.
+ */
+export function parseAliases(text: string): { aliases: string[]; invalid: string | null } {
+  const aliases = text
+    .split(/[\s,;]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+  const invalid = aliases.find((entry) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entry)) ?? null
+  return { aliases, invalid }
+}

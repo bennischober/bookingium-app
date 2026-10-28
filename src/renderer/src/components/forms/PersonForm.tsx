@@ -15,13 +15,15 @@ interface PersonFormProps {
   person?: PersonDto
   onSubmit: (data: z.infer<typeof CreatePersonInput> & { id?: number }) => void
   onCancel: () => void
+  // Create mode only: values a new person starts with (a mail's sender, say)
+  prefill?: { firstName?: string; lastName?: string; email?: string }
 }
 
-export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
+export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormProps) {
   const form = useForm({
     defaultValues: {
-      firstName: person?.firstName || '',
-      lastName: person?.lastName || '',
+      firstName: person?.firstName || prefill?.firstName || '',
+      lastName: person?.lastName || prefill?.lastName || '',
       birthday: person?.birthday || null,
       notes: person?.notes || '',
       address: {
@@ -35,7 +37,8 @@ export function PersonForm({ person, onSubmit, onCancel }: PersonFormProps) {
         countryCode: person?.address?.countryCode || ''
       },
       contact: {
-        email: person?.contact?.email || '',
+        email: person?.contact?.email || prefill?.email || '',
+        otherEmails: person?.contact?.otherEmails ?? [],
         phone: person?.contact?.phone || '',
         mobilePhone: person?.contact?.mobilePhone || '',
         homepage: person?.contact?.homepage || '',

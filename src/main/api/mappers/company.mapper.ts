@@ -1,17 +1,11 @@
 import { CompanyDto, CompanyListItemDto } from '../schemas/company.schema'
-import {
-  company,
-  address as addressTable,
-  contact as contactTable,
-  bank as bankTable
-} from '../../db/schema'
+import { company, address as addressTable, bank as bankTable } from '../../db/schema'
 import { AddressMapper } from './address.mapper'
-import { ContactMapper } from './contact.mapper'
+import { ContactMapper, type ContactEntity } from './contact.mapper'
 import { BankMapper } from './bank.mapper'
 
 type CompanyEntity = typeof company.$inferSelect
 type AddressEntity = typeof addressTable.$inferSelect
-type ContactEntity = typeof contactTable.$inferSelect
 type BankEntity = typeof bankTable.$inferSelect
 
 type CompanyWithRelations = CompanyEntity & {

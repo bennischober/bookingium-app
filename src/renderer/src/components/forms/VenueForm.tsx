@@ -14,6 +14,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
+import { contactHasValues } from './contactEmailFields'
 import { trpcReact } from '@/lib/trpc'
 import type { FormMode } from '@/hooks/useFormSheet'
 import {
@@ -61,6 +62,7 @@ export function VenueForm({
       },
       contact: {
         email: initialData?.contact?.email ?? '',
+        otherEmails: initialData?.contact?.otherEmails ?? [],
         phone: initialData?.contact?.phone ?? '',
         mobilePhone: initialData?.contact?.mobilePhone ?? '',
         homepage: initialData?.contact?.homepage ?? '',
@@ -71,9 +73,7 @@ export function VenueForm({
       const parsedCapacity = value.capacity.trim() ? Number(value.capacity) : null
       const capacity = Number.isNaN(parsedCapacity) ? null : parsedCapacity
       const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
-      const { noAdvertising, ...contactFields } = value.contact
-      const hasContact =
-        noAdvertising || Object.values(contactFields).some((entry) => entry.trim().length > 0)
+      const hasContact = contactHasValues(value.contact)
       const basePayload = {
         name: value.name.trim(),
         kind: value.kind,

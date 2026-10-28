@@ -242,6 +242,14 @@ A card is done when every box holds, the gates pass, and the mutation check is r
 - [x] Renderer 18: `MailPage` marks another account stale on its events; a sync refreshes `search`.
 - [x] Sync M9: the UIDVALIDITY swap checks the free space first and stops through the disk-full path.
 
+### I19: several email addresses per contact (feat/mail-contact-emails)
+- [x] `contact_email` table; the primary stays `contact.email`; a save without the field keeps the others.
+- [x] The linker matches every address of a contact under the same cap; dismissed links and thread
+      inheritance hold; a new address rescans from 0, an account without a digest keeps its cursor.
+- [x] Mail account aliases count as the user's own (the I15b open question).
+- [x] "Zuordnen…" links a mail by hand; "Absender als Kontakt anlegen" prefills a person.
+- [x] Hotels stay out of mail linking (user decision); the hotel form hides the further addresses.
+
 ### Claude cards
 
 The checks below are what the review asks for. An agent may draft one of these, but must say so at the top

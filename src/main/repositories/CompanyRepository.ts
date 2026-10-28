@@ -1,6 +1,7 @@
 import { injectable } from 'tsyringe'
 import { eq, like, or, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
+import { saveContactEmails, withContactEmails } from './contactEmails'
 import { db } from '../db'
 import { company, address, contact, bank } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
@@ -16,12 +17,14 @@ export class CompanyRepository {
       .leftJoin(contact, eq(company.contact_id, contact.id))
       .leftJoin(bank, eq(company.bank_id, bank.id))
 
-    return rows.map((row) => ({
-      ...row.company,
-      address: row.address,
-      contact: row.contact,
-      bank: row.bank
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.company,
+        address: row.address,
+        contact: row.contact,
+        bank: row.bank
+      }))
+    )
   }
 
   /** Companies naming the person as invoice contact (e-invoice seller contact), by name */
@@ -35,12 +38,14 @@ export class CompanyRepository {
       .where(eq(company.invoice_contact_person_id, personId))
       .orderBy(company.name)
 
-    return rows.map((row) => ({
-      ...row.company,
-      address: row.address,
-      contact: row.contact,
-      bank: row.bank
-    }))
+    return withContactEmails(
+      rows.map((row) => ({
+        ...row.company,
+        address: row.address,
+        contact: row.contact,
+        bank: row.bank
+      }))
+    )
   }
 
   async getAllPaginated(pagination: PaginationInput) {
@@ -83,12 +88,14 @@ export class CompanyRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = rows.map((row) => ({
-      ...row.company,
-      address: row.address,
-      contact: row.contact,
-      bank: row.bank
-    }))
+    const items = withContactEmails(
+      rows.map((row) => ({
+        ...row.company,
+        address: row.address,
+        contact: row.contact,
+        bank: row.bank
+      }))
+    )
 
     return {
       items,
@@ -111,12 +118,14 @@ export class CompanyRepository {
     if (rows.length === 0) return null
 
     const row = rows[0]
-    return {
-      ...row.company,
-      address: row.address,
-      contact: row.contact,
-      bank: row.bank
-    }
+    return withContactEmails([
+      {
+        ...row.company,
+        address: row.address,
+        contact: row.contact,
+        bank: row.bank
+      }
+    ])[0]
   }
 
   async create(input: CreateCompanyInput) {
@@ -160,6 +169,7 @@ export class CompanyRepository {
           .returning()
           .all()
         contactId = contactResult[0].id
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       // Create company
@@ -196,12 +206,14 @@ export class CompanyRepository {
         .all()
 
       const row = created[0]
-      return {
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }
+      return withContactEmails([
+        {
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }
+      ])[0]
     })
   }
 
@@ -285,6 +297,7 @@ export class CompanyRepository {
             .all()
           contactId = contactResult[0].id
         }
+        saveContactEmails(tx, contactId, input.contact.email, input.contact.otherEmails)
       }
 
       // Update company. Every optional key keeps the stored value when absent
@@ -327,12 +340,14 @@ export class CompanyRepository {
         .all()
 
       const row = updated[0]
-      return {
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }
+      return withContactEmails([
+        {
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }
+      ])[0]
     })
   }
 
@@ -370,11 +385,13 @@ export class CompanyRepository {
     if (rows.length === 0) return null
 
     const row = rows[0]
-    return {
-      ...row.company,
-      address: row.address,
-      contact: row.contact,
-      bank: row.bank
-    }
+    return withContactEmails([
+      {
+        ...row.company,
+        address: row.address,
+        contact: row.contact,
+        bank: row.bank
+      }
+    ])[0]
   }
 }

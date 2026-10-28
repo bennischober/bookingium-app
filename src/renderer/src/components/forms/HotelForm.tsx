@@ -129,7 +129,7 @@ export function HotelForm({
       <AddressFormFields form={form} />
 
       <Separator />
-      <ContactFormFields form={form} />
+      <ContactFormFields form={form} showOtherEmails={false} />
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

@@ -1,11 +1,10 @@
-import { person, address as addressTable, contact as contactTable } from '../../db/schema'
+import { person, address as addressTable } from '../../db/schema'
 import type { PersonDto, PersonListItemDto } from '../schemas/person.schema'
 import { AddressMapper } from './address.mapper'
-import { ContactMapper } from './contact.mapper'
+import { ContactMapper, type ContactEntity } from './contact.mapper'
 
 type PersonEntity = typeof person.$inferSelect
 type AddressEntity = typeof addressTable.$inferSelect
-type ContactEntity = typeof contactTable.$inferSelect
 
 type PersonWithRelations = PersonEntity & {
   address?: AddressEntity | null

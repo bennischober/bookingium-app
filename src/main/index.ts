@@ -46,7 +46,8 @@ import {
   type InvoiceCompose
 } from './mail/invoiceSend'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
-import { MailLinkService, mailLinkTrigger, ownMailAddresses } from './services/MailLinkService'
+import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
+import { contactAddressEvents } from './repositories/contactEmails'
 import { listMailAccounts } from './mailclient/accounts'
 import type { OpSummary } from './mailclient/core/types'
 
@@ -645,14 +646,17 @@ app.whenReady().then(async () => {
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
-  mailClient.events.on(
-    'event',
-    mailLinkTrigger({
-      // Every configured account's address is the user's own (host L3)
-      link: (accountId) => mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts())),
-      log: (error) => console.error('Linking mail failed:', error)
-    })
-  )
+  const mailLinkRuns = mailLinkRunner({
+    // Every configured account's address and alias is the user's own (host L3)
+    link: (accountId) => mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts())),
+    log: (error) => console.error('Linking mail failed:', error)
+  })
+  mailClient.events.on('event', mailLinkRuns.onEvent)
+  // A contact that gained an address gets its older mail too: the run sees the changed
+  // addresses and starts again from the first mail
+  contactAddressEvents.on('saved', () => {
+    for (const account of listMailAccounts()) mailLinkRuns.run(account.id)
+  })
   // B6: opened attachments live a day at most
   void cleanAttachmentTemp()
 

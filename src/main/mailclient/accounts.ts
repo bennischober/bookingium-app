@@ -32,6 +32,11 @@ type StoredAccount = {
   /** B8: plain-text signature, appended to new mail and above the quote; not secret */
   signature?: string
   /**
+   * The user's further own addresses that reach this mailbox (a forwarder such as info@).
+   * Lower-cased; the mail linker never links a record through them. Never a sender.
+   */
+  aliases?: string[]
+  /**
    * A7: this account's own SMTP endpoint. Missing in accounts saved before the
    * setting existed, see smtpOf(). Sandbox defaults to the IMAP host on 1025.
    */
@@ -51,8 +56,12 @@ type StoredAccount = {
 }
 
 /** Account without its password, safe to hand to the renderer */
-export type MailAccountDto = Omit<StoredAccount, 'password' | 'security' | 'smtpSecurity'> & {
+export type MailAccountDto = Omit<
+  StoredAccount,
+  'password' | 'security' | 'smtpSecurity' | 'aliases'
+> & {
   security: ImapSecurity
+  aliases: string[]
   /** A7: resolved, so the renderer shows what a write would actually use */
   smtpHost: string
   smtpPort: number
@@ -67,9 +76,11 @@ export type MailAccountDto = Omit<StoredAccount, 'password' | 'security' | 'smtp
 
 export type SaveMailAccountInput = Omit<
   MailAccountDto,
-  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity' | 'canary'
+  'id' | 'smtpHost' | 'smtpPort' | 'smtpSecurity' | 'canary' | 'aliases'
 > & {
   id?: string
+  /** omitted: keep the stored ones */
+  aliases?: string[]
   /** omitted when editing: keep the stored password */
   password?: string
   /** A7: optional - defaults to the IMAP host on 1025 */
@@ -143,6 +154,7 @@ const toDto = (account: StoredAccount): MailAccountDto => ({
   // MR-13: the renderer reads this to put a signature on a new mail. It was stored and
   // never handed back, so every account looked like it had none.
   signature: account.signature,
+  aliases: account.aliases ?? [],
   ...smtpOf(account),
   canary: isCanary(account)
 })
@@ -210,6 +222,22 @@ function canaryIdentity(account: StoredAccount): string {
   ])
 }
 
+/**
+ * The further own addresses as stored: lower-cased and trimmed, address-shaped, once each
+ * and without the account's own address. None at all is stored as no list.
+ */
+export function normalizeAliases(email: string, aliases: readonly string[]): string[] | undefined {
+  const seen = new Set([email.trim().toLowerCase()])
+  const out: string[] = []
+  for (const alias of aliases) {
+    const address = alias.trim().toLowerCase()
+    if (!address.includes('@') || seen.has(address)) continue
+    seen.add(address)
+    out.push(address)
+  }
+  return out.length > 0 ? out : undefined
+}
+
 export function listMailAccounts(): MailAccountDto[] {
   return readAll().map(toDto)
 }
@@ -259,6 +287,10 @@ function resolveMailAccount(input: SaveMailAccountInput): {
     // form and saving would wipe a signature the user never edited.
     signature:
       input.signature === undefined ? existing?.signature : input.signature.trim() || undefined,
+    aliases:
+      input.aliases === undefined
+        ? existing?.aliases
+        : normalizeAliases(input.email, input.aliases),
     smtpHost: input.smtpHost?.trim() ? input.smtpHost.trim() : undefined,
     smtpPort: input.smtpPort,
     smtpSecurity: input.smtpSecurity,

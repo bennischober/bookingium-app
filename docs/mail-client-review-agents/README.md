@@ -56,7 +56,8 @@ None of them is above Medium. Pick them up from here; the source report is named
 - The shared-address cap of the mail linker counts contacts, not owners, and aliases of the user's own
   address are not excluded, so own mail can be linked to many records [host L3].
   **Fixed in I15b:** the cap counts the records behind the address, and every configured account's address
-  (and its login, when that is an address) counts as the user's own.
+  (and its login, when that is an address) counts as the user's own. **Since I19** an account's further own
+  addresses ("Weitere eigene Adressen") count too.
 - An invoice whose send ended "Versand unklar" is never marked emailed [host H3, scenario 3]. **Partly fixed
   by I2:** "Im Ordner Gesendet prüfen" calls `onSent`, which reports `composeSent`. Still open when the
   compose window was closed and the startup probe confirms the send later: nothing marks the invoice then.

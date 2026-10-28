@@ -15,7 +15,9 @@ import {
   Reply,
   ReplyAll,
   FilePlus,
-  Trash2
+  Tags,
+  Trash2,
+  UserPlus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { mailApi } from '@/lib/mailApi'
@@ -25,6 +27,8 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
+import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
+import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import {
   formatAddresses,
@@ -143,6 +147,10 @@ export function MessageView({
   // C5: the attachment the "save as document" dialog is open for
   // F10: the dialog takes one attachment or all of them
   const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
+  // "Zuordnen…" and "Kontakt anlegen": both change the app's data, never the mailbox, so
+  // they work on read-only accounts too
+  const [linking, setLinking] = useState(false)
+  const [creatingContact, setCreatingContact] = useState(false)
   // G10: the core reports progress per image; only this message's events matter.
   // This hook MUST stay above the early returns below - a hook after them is called on
   // some renders and not others, which is the Rules-of-Hooks violation that crashed the view.
@@ -324,6 +332,30 @@ export function MessageView({
             <Button
               variant="ghost"
               size="icon-sm"
+              onClick={() => setLinking(true)}
+              disabled={!message.messageId}
+              title={
+                message.messageId
+                  ? 'Zuordnen…'
+                  : 'Zuordnen geht nicht: die Mail hat keine Message-ID'
+              }
+              aria-label="Zuordnen…"
+            >
+              <Tags />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setCreatingContact(true)}
+              disabled={!message.fromEmail}
+              title="Absender als Kontakt anlegen"
+              aria-label="Absender als Kontakt anlegen"
+            >
+              <UserPlus />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => void saveEml()}
               title="Original speichern (.eml)"
             >
@@ -499,6 +531,22 @@ export function MessageView({
           messageId={message.id}
           storeMessageId={message.messageId}
           parts={toDocument}
+        />
+      )}
+      {linking && message.messageId && (
+        <LinkMailDialog
+          open
+          onOpenChange={setLinking}
+          accountId={accountId}
+          storeMessageId={message.messageId}
+          subject={message.subject}
+        />
+      )}
+      {creatingContact && (
+        <CreateContactSheet
+          open
+          onOpenChange={setCreatingContact}
+          sender={{ name: message.fromName, email: message.fromEmail }}
         />
       )}
     </article>
