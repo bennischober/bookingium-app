@@ -14,3 +14,7 @@ playwright-report/
 tests/e2e/__screenshots__/
 # E-invoice validators (pnpm validate:einvoice)
 .tools/
+
+*.tsbuildinfo
+.vitest/
+.omo/
