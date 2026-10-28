@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
+import { useVenueTabCounts } from '@/hooks/useTabCounts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,14 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { isVenueTab } from '@/components/venue/constants'
-import { AddressLines, Empty, EventsTable, Fields, InfoCard } from '@/components/detail/DetailParts'
+import {
+  AddressLines,
+  Empty,
+  EventsTable,
+  Fields,
+  InfoCard,
+  TabCount
+} from '@/components/detail/DetailParts'
 import {
   VENUE_KIND_LABELS,
   type UpdateVenueInput,
@@ -88,6 +96,7 @@ function EventsTab({ venueId }: { venueId: number }) {
 export default function VenueDetailPage() {
   const { venueId } = useParams({ strict: false }) as { venueId?: string }
   const id = parseRecordId(venueId)
+  const counts = useVenueTabCounts(id)
   const navigate = useNavigate()
   const mailClientEnabled = useMailClientEnabled()
   const activeTab = useDetailTab(isVenueTab, 'overview')
@@ -186,9 +195,18 @@ export default function VenueDetailPage() {
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="contacts">Ansprechpartner</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="contacts">
+            Ansprechpartner
+            <TabCount count={counts.contacts} />
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            Events
+            <TabCount count={counts.events} />
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

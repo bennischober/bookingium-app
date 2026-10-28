@@ -4,6 +4,9 @@ import { useDetailTab } from '@/hooks/useDetailTab'
 import { useState } from 'react'
 import { useParams, useNavigate, useBlocker } from '@tanstack/react-router'
 import { confirmAction } from '@/lib/confirm'
+import { parseRecordId } from '@/lib/recordId'
+import { useEventTabCounts } from '@/hooks/useTabCounts'
+import { TabCount } from '@/components/detail/DetailParts'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +23,7 @@ import { isEventTab } from '@/components/event-hub/constants'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
+  const counts = useEventTabCounts(parseRecordId(eventId))
   const navigate = useNavigate()
   const mailClientEnabled = useMailClientEnabled()
   const activeTab = useDetailTab(isEventTab, 'overview')
@@ -188,7 +192,10 @@ export function EventHubPage() {
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

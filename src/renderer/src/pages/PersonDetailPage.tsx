@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
+import { usePersonTabCounts } from '@/hooks/useTabCounts'
 import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
@@ -26,7 +27,8 @@ import {
   EventsTable,
   Fields,
   InfoCard,
-  RowTable
+  RowTable,
+  TabCount
 } from '@/components/detail/DetailParts'
 import type {
   CreatePersonInput,
@@ -319,6 +321,7 @@ function InvoicesTab({ personId }: { personId: number }) {
 export default function PersonDetailPage() {
   const { personId } = useParams({ strict: false }) as { personId?: string }
   const id = parseRecordId(personId)
+  const counts = usePersonTabCounts(id)
   const navigate = useNavigate()
   const mailClientEnabled = useMailClientEnabled()
   const activeTab = useDetailTab(isPersonTab, 'overview')
@@ -419,13 +422,34 @@ export default function PersonDetailPage() {
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="bands">Bands</TabsTrigger>
-          <TabsTrigger value="companies">Firmen</TabsTrigger>
-          <TabsTrigger value="venues">Spielstätten</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="contracts">Managementverträge</TabsTrigger>
-          <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          <TabsTrigger value="bands">
+            Bands
+            <TabCount count={counts.bands} />
+          </TabsTrigger>
+          <TabsTrigger value="companies">
+            Firmen
+            <TabCount count={counts.companies} />
+          </TabsTrigger>
+          <TabsTrigger value="venues">
+            Spielstätten
+            <TabCount count={counts.venues} />
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            Events
+            <TabCount count={counts.events} />
+          </TabsTrigger>
+          <TabsTrigger value="contracts">
+            Managementverträge
+            <TabCount count={counts.contracts} />
+          </TabsTrigger>
+          <TabsTrigger value="invoices">
+            Rechnungen
+            <TabCount count={counts.invoices} />
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Dokumente
+            <TabCount count={counts.documents} />
+          </TabsTrigger>
           {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 

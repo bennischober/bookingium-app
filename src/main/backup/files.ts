@@ -191,8 +191,13 @@ export async function pruneBackups(
   return deleted
 }
 
-/** Throws a German message unless `file` is an intact Bookingium database */
-export function checkBackupDatabase(file: string): void {
+/**
+ * Throws a German message unless `file` is an intact Bookingium database this app can run on.
+ * `appMigrationMillis` is the created-at of the app's newest migration: a backup whose database
+ * records a later one comes from a newer version, and this app would run on a schema it does
+ * not know.
+ */
+export function checkBackupDatabase(file: string, appMigrationMillis: number): void {
   let sqlite: Database.Database
   try {
     sqlite = new Database(file, { readonly: true, fileMustExist: true })
@@ -206,6 +211,20 @@ export function checkBackupDatabase(file: string): void {
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'app_setting'")
       .get()
     if (!table) throw new Error('Die Datei ist keine Bookingium-Datenbank.')
+    const journal = sqlite
+      .prepare("select 1 from sqlite_master where type = 'table' and name = '__drizzle_migrations'")
+      .get()
+    const last = journal
+      ? (
+          sqlite.prepare('select max(created_at) as last from __drizzle_migrations').get() as {
+            last: number | null
+          }
+        ).last
+      : null
+    if (last !== null && Number(last) > appMigrationMillis)
+      throw new Error(
+        'Die Sicherung stammt aus einer neueren Version von Bookingium. Bitte zuerst Bookingium aktualisieren, dann wiederherstellen.'
+      )
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Die ')) throw error
     throw new Error('Die Datenbank der Sicherung ist beschädigt.')
@@ -225,9 +244,13 @@ export type RestoreManifest = {
 /**
  * Copies a backup into the local work folder and checks it, without replacing anything yet.
  * The copy is what a confirmed restore applies, so the chosen folder is only read once and a
- * synced folder changing meanwhile cannot matter.
+ * synced folder changing meanwhile cannot matter. `appMigrationMillis`: see checkBackupDatabase.
  */
-export async function prepareRestore(source: string, workDir: string): Promise<RestoreManifest> {
+export async function prepareRestore(
+  source: string,
+  workDir: string,
+  appMigrationMillis: number
+): Promise<RestoreManifest> {
   const name = basename(source)
   if (name.startsWith(BACKUP_TEMP_PREFIX))
     throw new Error('Diese Sicherung wurde nicht fertig geschrieben.')
@@ -238,7 +261,7 @@ export async function prepareRestore(source: string, workDir: string): Promise<R
   await mkdir(incoming, { recursive: true })
   try {
     await copyFile(join(source, DB_FILE), join(incoming, DB_FILE))
-    checkBackupDatabase(join(incoming, DB_FILE))
+    checkBackupDatabase(join(incoming, DB_FILE), appMigrationMillis)
     const hasStorage = existsSync(join(source, STORAGE))
     if (hasStorage) await cp(join(source, STORAGE), join(incoming, STORAGE), { recursive: true })
     const marker = await readMarker(source)

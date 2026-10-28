@@ -161,3 +161,16 @@ test('list rows and tab rows open by keyboard; icon buttons are named', async ()
   await page.keyboard.press('Space')
   await expect(page.getByRole('heading', { name: 'Midnight Symphony - LA Showcase' })).toBeVisible()
 })
+
+test('tabs show how many records they hold, nothing when empty', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Firmen' }).first().click()
+  await page.locator('tr', { hasText: COMPANY }).first().click()
+  await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
+
+  // Seed: both demo bands, no venue; Übersicht never counts
+  await expect(page.getByRole('tab', { name: 'Bands' })).toHaveText('Bands2')
+  await expect(page.getByRole('tab', { name: 'Spielstätten' })).toHaveText('Spielstätten')
+  await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveText('Übersicht')
+  await expect(page.getByRole('tab', { name: 'Events' })).toHaveText(/^Events\d+$/)
+})
