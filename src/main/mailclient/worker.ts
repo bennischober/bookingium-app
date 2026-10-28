@@ -172,6 +172,15 @@ port.on('message', (e) => {
       }
       break
     }
+    case 'resume':
+      void core?.afterSystemResume().catch((error: unknown) =>
+        send({
+          type: 'log',
+          level: 'warn',
+          message: `resume: ${error instanceof Error ? error.message : String(error)}`
+        })
+      )
+      break
     case 'close':
       void (async () => {
         try {

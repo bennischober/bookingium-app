@@ -192,6 +192,11 @@ so production saw three logins where the rule allows two.
 - When the op watchdog gives up, the pool closes the connection without a LOGOUT. That rejects the
   hung command, so the op settles as `failed` instead of stopping the queue.
 - The write connection uses the sync engine's `IMAP_TIMEOUTS` and has an `error` listener.
+- **After sleep** (`MailCore.afterSystemResume()`, sent by the host on a wake): every account closes its
+  sync and IDLE connection (`SyncEngine.dropConnections()`, cleared before closing so the circuit breaker
+  counts no disconnect) and an idle write connection (`WriteEngine.dropIdleConnection()`; one an op is
+  using stays). After a pass already running it runs one `syncAll()`; further wake signals join the
+  pending catch-up, and an account whose login was rejected is skipped. IDLE reconnects dirty.
 
 The account dialog's `connection_test.ts` is a one-shot test outside the budget: it runs before the account
 is saved, with its own 15 s deadline.

@@ -131,6 +131,16 @@ export class MailClientService {
     }
   }
 
+  /**
+   * The machine woke from sleep (systemWake.ts): a running worker drops its connections and
+   * catches up. One that is starting or stopped needs nothing, it connects afresh anyway.
+   */
+  notifySystemResume(): void {
+    const worker = this.worker
+    if (!worker || this.starting || this.stopping) return
+    this.post(worker, { type: 'resume' })
+  }
+
   private ensureStarted(): Promise<void> {
     if (!this.enabled()) return Promise.reject(new Error(MAIL_CLIENT_OFF))
     if (this.held > 0)

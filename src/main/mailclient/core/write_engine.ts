@@ -204,6 +204,16 @@ export class WriteEngine {
     return this.pool.drop()
   }
 
+  /**
+   * The machine woke from sleep: close the cached connection without a LOGOUT (a dead socket
+   * would not answer it), so the next op connects afresh instead of first waiting out the NOOP
+   * check. An op in flight keeps its connection: closing it under the op could turn a send into
+   * an unclear one, and the op's own timeouts and the watchdog already cover a dead socket.
+   */
+  dropIdleConnection(): void {
+    if (this.bodies.size === 0) this.pool.discard()
+  }
+
   /** G2/L3c: close the shared connection; the journal makes the next start safe */
   async close(): Promise<void> {
     await this.dropClient()

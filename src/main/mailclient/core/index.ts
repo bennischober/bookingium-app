@@ -124,6 +124,9 @@ export class MailCore implements Api {
   private clock: () => number;
   private get retryTimers(): Map<string, ReturnType<typeof setTimeout>> { return this.ops.retryTimers; }
   private closed = false;
+  private started = false;
+  /** Sleep and resume: the catch-up each account is running, which a further wake signal joins */
+  private resumeCatchUps = new Map<string, Promise<void>>();
 
   constructor(readonly options: MailCoreOptions) {
     if (!path.isAbsolute(options.dataDir)) {
@@ -193,6 +196,16 @@ export class MailCore implements Api {
       return;
     }
     await e.engine.syncAll({ full }).catch(err => this.log.error?.(`sync error: ${(err as Error).message}`));
+  }
+
+  /** The unread mails in each account's INBOX, as its folder shows them (pending moves left out). Counts only. */
+  async getInboxUnread(): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    for (const [id, e] of this.entries) {
+      const inbox = e.store.getFolderByPath('INBOX');
+      counts[id] = inbox ? e.store.countByFolder(inbox.id).unread : 0;
+    }
+    return counts;
   }
 
   async pauseSync(accountId?: string): Promise<void> {
@@ -300,6 +313,7 @@ export class MailCore implements Api {
   /** Start background activity for all accounts: initial sync, IDLE (INBOX), polling.
    * Writable accounts also replay pending journal ops (crash recovery). */
   start(): void {
+    this.started = true;
     for (const [id, e] of this.entries) {
       // the engine loads the credentials before it logs in, so IDLE and polling need not wait here
       void e.engine.syncAll()
@@ -317,6 +331,36 @@ export class MailCore implements Api {
         }, 5_000).unref();
       }
     }
+  }
+
+  /**
+   * The machine woke from sleep (the host watches the power monitor). Sockets opened before it
+   * may be dead without either side knowing, so every account drops its sync, IDLE and idle
+   * write connection and runs one catch-up pass. A wake signal that arrives while an account's
+   * catch-up is still pending joins it instead of starting another, so resume, a clock jump and a
+   * returning network never add up to a reconnect storm. A login rejected earlier stays stopped.
+   */
+  afterSystemResume(): Promise<void> {
+    if (this.closed || !this.started) return Promise.resolve();
+    const runs = [...this.entries].map(([id, e]) => {
+      const pending = this.resumeCatchUps.get(id);
+      if (pending) return pending;
+      const run = this.catchUpAfterResume(id, e).finally(() => this.resumeCatchUps.delete(id));
+      this.resumeCatchUps.set(id, run);
+      return run;
+    });
+    return Promise.all(runs).then(() => undefined);
+  }
+
+  private async catchUpAfterResume(id: string, e: AccountEntry): Promise<void> {
+    if (e.engine.getStatus().connection === 'auth-failed') return;
+    e.engine.dropConnections();
+    e.writes.dropIdleConnection();
+    // a pass that was running fails over to new connections; the catch-up follows it, once
+    if (e.engine.isSyncing()) await e.engine.waitForSync(120_000);
+    if (this.closed) return;
+    await e.engine.syncAll()
+      .catch(err => this.log.error?.(`resume sync (${id}) failed: ${(err as Error).message}`));
   }
 
   whenIdleForMaintenance(timeoutMs?: number): Promise<boolean> { return this.maintenance.whenIdleForMaintenance(timeoutMs); }

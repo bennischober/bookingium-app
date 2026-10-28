@@ -180,6 +180,8 @@ export interface Api {
   pauseSync?(accountId?: string): Promise<void>;
   resumeSync?(accountId?: string): Promise<void>;
   listThreads?(folderId: string | null, opts: { offset: number; limit: number }): Promise<ThreadSummary[]>;
+  /** The unread mails in each account's INBOX, by account id (the menu badge) */
+  getInboxUnread?(): Promise<Record<string, number>>;
 
   // folders
   getFolders(): Promise<FolderNode[]>;
