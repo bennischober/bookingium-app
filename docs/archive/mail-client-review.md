@@ -1,5 +1,7 @@
 # Mail client: critical review (2026-10-26)
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 **Scope:** branch `feat/mail-client` at `811f04a`, the about 100 commits since the handoff (`5dd65f6`), plus
 prototype Task 6 (`REPORT6.md`). **Method:** five read-only reviews in parallel (core write path; sync, store
 and recovery; host, IPC and security; renderer; tests, CI and docs), each finding re-checked in the code before

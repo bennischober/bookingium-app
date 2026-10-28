@@ -1,5 +1,7 @@
 # Test, CI and docs review: feat/mail-client (read-only, 2026-10-26)
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 ## 1. Gate results (local, Windows)
 
 **`pnpm -s test` exits 1 (CI would be red).** I ran it twice and got the same result both times.

@@ -1,7 +1,7 @@
 # Open items
 
 Done work lives in the git history; this list only holds what is still open.
-Mail client, its integration into bookingum and the direction: see `docs/mail-client-tasks.md` (living plan) and `docs/mail-client-review.md` (open bugs and gaps, 2026-10-26).
+Mail client (experimental, off by default), its integration into bookingum and what is still open: see `docs/mail-client.md`.
 
 ## Deadlines
 

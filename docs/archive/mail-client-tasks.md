@@ -1,5 +1,7 @@
 # Mail client: task cards
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 Written 2026-10-24 on `feat/mail-client` (`62f5956` + this commit). Each card is one unit of work for one agent
 session: goal, why, prerequisites, files, steps, acceptance criteria, tests, traps and size. Take the cards **in
 order**, unless a card says it can run in parallel. Before you start any card, read `docs/mail-client-handbook.md`

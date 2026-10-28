@@ -1,5 +1,7 @@
 # Raw reports behind `docs/mail-client-review.md`
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 These are the five read-only agent reports that `docs/mail-client-review.md` (commit `d59b8e9`) was written
 from. They are kept unedited, so the evidence behind each MR entry (line numbers, imapflow traces, test
 names) is not lost. Line numbers are as of `811f04a` and have moved since.

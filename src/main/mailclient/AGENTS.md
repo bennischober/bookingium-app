@@ -4,7 +4,9 @@
 
 ## OVERVIEW
 A complete IMAP/SMTP mail client living in the main process: host service, account
-store, a utility-process worker, and the self-contained `core/` engine.
+store, a utility-process worker, and the self-contained `core/` engine. Experimental and off by
+default: `setEnabledCheck` (the `mailClient` setting) gates `startIfConfigured` and `ensureStarted`.
+The full guide is `docs/mail-client.md`.
 
 ## STRUCTURE
 | Path | Role |

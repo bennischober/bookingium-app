@@ -1,5 +1,7 @@
 # Mail client: handoff brief for the remaining review cards
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 Written 2026-10-26, at `57a53a5` on `feat/mail-client`. Cards I1 to I3 are done (`docs/mail-client-tasks.md`,
 section I). This brief is for agents (opencode/omo or others) that pick up the rest. Claude reviews each
 branch afterwards. Read this file, `docs/mail-client-review.md` (the finding behind each MR number) and the

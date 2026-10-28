@@ -1,3 +1,5 @@
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 MAIL CORE REVIEW: SYNC / STORE / FILES / RECOVERY / SEARCH (read-only)
 
 This was a read-only review. I made no edits and did not run the app or any test file. I read every file in my area, plus the imapflow 2.9.0 source for mailboxOpen and fetch, and checked the mail tests that cover this area.

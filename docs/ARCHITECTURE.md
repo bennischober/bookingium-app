@@ -15,6 +15,7 @@ end-to-end, and the coding guidelines.
 | Validation      | zod v4 (DTOs double as API contracts)                                                               |
 | Files           | exceljs (import/export), pdf.js (print preview), pdf-lib (e-invoice in the PDF)                     |
 | Tests           | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF)                                  |
+| Mail            | imapflow, mailparser, nodemailer, DOMPurify (the experimental mail client)                          |
 | Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml)                                              |
 
 The app icon's source is `build/icon.svg`. After changing it, `pnpm icons`
@@ -47,6 +48,9 @@ src/main/              Main process
   mail/                "Per E-Mail senden": email text from the template,
                        .eml writer, mail program choice (pure); openEmail.ts
                        writes the files and opens the mail program
+  mailclient/          The IMAP mail client (experimental, off by default):
+                       MailClientService (host), worker.ts (utility process),
+                       core/ (sync, store, write engine); docs/mail-client.md
   utils/               fileStorage (storage root, logos), documentStorage
                        (documents/<type>/<id>-<name>/ folders)
   index.ts             Window, IPC handlers (print, invoice email, files,
@@ -108,6 +112,8 @@ storage/documents/<type>/<id>-<name>/     Documents of events, bands,
                                           companies, venues, persons
 storage/logos/<companyId>/                Company logos and signatures
 logs/errors.log (+ errors.1/2.log)        Local error log, JSONL, ~1 MB each
+mail/accounts.json                        Mail accounts (passwords via safeStorage)
+mail/data/<accountId>/                    Mail store (SQLite + FTS5) and .eml files
 ```
 
 The error log (`src/main/utils/errorLog.ts`) records unexpected errors only:
@@ -242,8 +248,12 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   Explorer shows the PDF to drag in, no program: the folder opens. Each
   email is a row in `invoice_email` (time, prefilled address), listed in
   the invoice's Verlauf; the latest is also on the invoice
-  (`emailed_at`/`emailed_to`) for the list's envelope. No email is ever
-  sent by the app. e2e runs set `BOOKINGIUM_NO_LAUNCH=1` (files only).
+  (`emailed_at`/`emailed_to`) for the list's envelope. These ways send
+  nothing themselves. The one that does is `mailProgram` „bookingum“,
+  offered only with the mail client on: the compose window opens on the
+  account chosen under „Senden von“, sends over SMTP, and the invoice
+  counts as sent only after a real send (`docs/mail-client.md`). e2e runs
+  set `BOOKINGIUM_NO_LAUNCH=1` (files only).
 - **Invoice page** (`/invoices/$invoiceId`, `InvoiceDetailPage`): one per
   issued invoice, with its data, the e-invoice check, the status changes it
   still allows (Stornieren included) and a „Verlauf“ (`lib/invoiceHistory.ts`):
@@ -404,3 +414,14 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   works after the sheet or wizard that saved has closed.
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.
+
+## Mail client (experimental)
+
+An IMAP mail client in `src/main/mailclient/`, off by default (setting
+`mailClient`, Einstellungen › E-Mail › „E-Mail (experimentell)“). Off, main
+never starts its worker and refuses `mail.call`; the renderer checks
+`useMailClientEnabled()` and shows no menu entry, mail search, E-Mails tabs or
+invoice mails card. On, a utility process runs the core (its own SQLite store
+per account, apart from the app DB); links to app records live in `mail_link`
+in the app DB. Everything else — architecture, sync, the write path, rules
+for working on it and what is still open — is in `docs/mail-client.md`.

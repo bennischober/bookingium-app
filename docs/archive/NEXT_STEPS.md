@@ -1,5 +1,7 @@
 # Next steps: mail client and integration (handoff)
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 Written 2026-10-24 on `feat/mail-client` (state: `0cdf750` plus this document) so another agent
 (opencode) can pick the work up. Read `docs/mail-client.md` first (design, decisions, rules), then this file.
 

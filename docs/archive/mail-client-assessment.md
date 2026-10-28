@@ -1,5 +1,7 @@
 # Mail client: assessment of the prototype and of the port into bookingum
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 Written 2026-10-24 on `feat/mail-client` at `62f5956` by Claude Opus 5.5, for the agents that continue the work
 (opencode with smaller models). It records how mature each part is, what the evidence for that is worth, and
 where the risks are. Read it before you change anything in `src/main/mailclient/`.

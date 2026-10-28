@@ -1,3 +1,5 @@
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 ## Write-path review: IMAP mail core (feat/mail-client)
 
 This was a read-only review: no edits, no commits, no server connections, no mail content opened. I did not run any vitest. Every finding comes from reading the code and the tests. All paths are under `C:\Users\benni\Documents\repos\bookingum-app\src\main\mailclient\`.

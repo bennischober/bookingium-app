@@ -1,3 +1,5 @@
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 ## Review: main-process host, IPC, integration and security boundaries (feat/mail-client)
 
 Scope: MailClientService/worker/protocol/accounts/attachments, mail/mail_link/invoice routers, MailLinkService, SearchService, src/main/mail, preload, index.ts window and IPC handlers, migrations 0010-0015, and the core sanitize/remote_images/address/write_guard modules. I made no edits.

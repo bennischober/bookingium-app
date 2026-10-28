@@ -3,13 +3,13 @@
 Self-contained mail engine. It was extracted in the prototype (Task 5 Step 1) and has been
 developed in bookingum since 2026-10-23: this copy is the source of truth (see
 docs/mail-client.md). Changes from the prototype are ported by hand, never by copying files
-over this folder (docs/mail-client-assessment.md §4 lists what would be lost).
+over this folder (docs/archive/mail-client-assessment.md §4 lists what would be lost).
 
 Nothing in this folder imports Electron, the renderer, tRPC or anything UI-related; there are
 no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox allowlist in
 `write_guard.ts`. The host is `../MailClientService.ts` (main process) and `../worker.ts`
-(the utility process that runs the core). The prototype's static boundary check
-(`test-core-boundary.ts`) has not been ported yet (docs/mail-client-tasks.md, A8).
+(the utility process that runs the core). `tests/mail_core_boundary.test.ts` (A8, ported from
+the prototype's `test-core-boundary.ts`) holds this boundary.
 
 ## Module map
 

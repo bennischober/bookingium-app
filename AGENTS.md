@@ -14,7 +14,7 @@ bookingum-app/
 ├── src/preload/       # contextBridge API (window.api) + electron-trpc
 ├── src/renderer/src/  # React app: router, pages/, components/, lib/, hooks/
 ├── tests/             # vitest suites (in-memory SQLite) + e2e/ Playwright specs
-├── docs/              # ARCHITECTURE, UI_LANGUAGE, TODOS, mail-client notes
+├── docs/              # ARCHITECTURE, UI_LANGUAGE, TODOS, mail-client; archive/ = mail client history
 ├── scripts/           # dev-only .mjs CLIs (e-invoice validators, icons, mail sandbox)
 └── sample_data/       # gitignored real master data (see ANTI-PATTERNS)
 ```
@@ -27,7 +27,7 @@ bookingum-app/
 | Renderer route | `src/renderer/src/router.tsx` + `lib/routing.ts` | `ROUTES` drives menu order and Alt+<n> shortcuts |
 | Print / PDF output | `src/renderer/src/components/print/`, `contract/`, `invoice/` | `_print` layout is chrome-free |
 | E-invoice (ZUGFeRD/XRechnung) | `src/main/einvoice/` | check-first, then XML |
-| IMAP mail client | `src/main/mailclient/` | host service + utility-process worker |
+| IMAP mail client | `src/main/mailclient/`, `docs/mail-client.md` | host service + utility-process worker; experimental switch |
 | German UI wording | `docs/UI_LANGUAGE.md` | label maps, never translate stored values |
 
 ## CODE MAP
@@ -81,5 +81,5 @@ pnpm validate:einvoice   # KoSIT + veraPDF, needs Java 11+
 - E2E runs get a fresh temporary data folder per launch; `BOOKINGIUM_E2E_USER_DATA` points them at a copy, `BOOKINGIUM_NO_LAUNCH=1` suppresses mail-program launches.
 - Print verification means inspecting the generated PDF in `tests/e2e/__screenshots__/`, not the screenshot: pagination bugs are invisible in PNGs.
 - `docs/ARCHITECTURE.md` covers migrations, print documents, e-invoices, mailing lists and follow-ups in depth. Read it before touching those areas.
-- Mail accounts have one kind since 2026-10-28: writable unless set to "Nur lesen". Agents never connect to the user's real mailbox (IONOS); e2e and unit tests use the loopback sandbox only.
-- Mail client work (`src/main/mailclient/`, `components/mail/`, the mail tests): read `docs/mail-client-handoff.md` first. Its standing rules (no `.env`, no mail content in output, the production mailbox stays read-only) apply to every card.
+- The mail client is experimental and off by default (setting `mailClient`, Einstellungen › E-Mail); off, the worker never starts and the renderer shows none of it. Mail accounts have one kind since 2026-10-28: writable unless set to "Nur lesen". Agents never connect to the user's real mailbox (IONOS); e2e and unit tests use the loopback sandbox only.
+- Mail client work (`src/main/mailclient/`, `components/mail/`, the mail tests): read `docs/mail-client.md` first. Its rules (no `.env`, no mail content in output, never touch the real mailbox) apply to every change. `docs/archive/` holds the working documents from building it: history, not instructions.

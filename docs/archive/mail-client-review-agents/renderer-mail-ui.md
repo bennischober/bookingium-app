@@ -1,3 +1,5 @@
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 RENDERER BUG HUNT: bookingum mail client (feat/mail-client). This was a read-only review. I edited and ran nothing. No mail content was read from any data directory.
 
 Status legend: "Confirmed" means I verified it by reading the code. "Plausible" means it depends on behaviour I did not fully trace.

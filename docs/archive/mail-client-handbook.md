@@ -1,5 +1,7 @@
 # Mail client: handbook for agents
 
+> **Archived 2026-10-28.** A historical working document from building the mail client, kept as a record; it is not maintained. The current description is `docs/mail-client.md`.
+
 How to work on the mail client in bookingum without breaking it. Written 2026-10-24 for agents that pick up the
 work (opencode). It assumes no memory of earlier sessions: everything you need is here or linked from here.
 

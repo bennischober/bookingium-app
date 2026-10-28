@@ -5,7 +5,8 @@ pure logic.
 
 ## OVERVIEW
 Mail-client UI (IMAP/SMTP via the main process). TSX views for list, folders, message, compose; three
-`.ts` modules hold the pure logic so vitest can test it without a DOM.
+`.ts` modules hold the pure logic so vitest can test it without a DOM. Anything mail outside the mail
+page shows only while `useMailClientEnabled()` is true (the experimental switch, off by default).
 
 ## WHERE TO LOOK
 | Task | File | Notes |
