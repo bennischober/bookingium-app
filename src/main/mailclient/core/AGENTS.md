@@ -18,6 +18,7 @@ module map and factory reference - read it before changing anything here.
 | Which host may be written to | `write_guard.ts` - the only write-path guard |
 | Reply/forward/draft MIME | `compose.ts` |
 | MIME parsing | `parse.ts` - every `simpleParser` call goes through it; do not import mailparser elsewhere |
+| Large message without its large parts (S1) | `skeleton.ts` (pure); equivalence proven by `tests/mail_skeleton_sandbox.test.ts` |
 | HTML mail sanitizing | `sanitize.ts` (DOMPurify + jsdom, the only DOM user) |
 | Remote images | `remote_images.ts` |
 | Account dialog connection test | `connection_test.ts` |

@@ -1823,13 +1823,13 @@ The four `simpleParser` calls (one in `message_ingest.ts`, one in `message_views
 Order: `parse.ts` (done, see above) → S1 design, agreed with the user before any code → S1 implementation. S2 is
 parked.
 
-### S1: large messages, attachments downloaded when opened [design, not approved yet]
+### S1: large messages, attachments downloaded when opened [approved 2026-10-28, in progress]
 
 **Why.** Every downloaded message is stored complete (`folder_sync.ts:428`, `source: true`). A mailbox with press kits,
 photos and scanned contracts fills the disk and the first sync with bytes nobody opens. Opening an attachment is
 rare; reading a mail and finding it in search is not.
 
-**Decisions for the user** (recommendation first):
+**Decisions** (agreed by the user 2026-10-28):
 1. Threshold: a message whose server size (RFC822.SIZE) is above **5 MB** is stored without its large parts. It is a
    per-account option next to `batchBytes` (`sync.ts:43`), with no UI until someone needs one. Below the threshold,
    nothing changes.
@@ -1840,14 +1840,22 @@ rare; reading a mail and finding it in search is not.
 
 **Storage.**
 - New core migration (append-only): `messages.complete INTEGER NOT NULL DEFAULT 1`. Existing rows are complete.
-- For a large message, the download path fetches `size`, `bodyStructure` and `BODY.PEEK[HEADER]`. For each text body
-  part (`text/plain`, `text/html`, not an attachment) it fetches `BODY.PEEK[<part>.MIME]` and `BODY.PEEK[<part>]`.
-  imapflow 2.9 supports `bodyStructure` and `bodyParts` and always uses PEEK, so fetching never sets `\Seen`.
-- Each text part is parsed through `parse.ts` as a small MIME of its own, so transfer encoding and charset stay
-  mailparser's job.
-- The file at `file_path` holds the header block. The row is built as today from the header and text parts.
-  `attachments_json` and `has_attachments` come from BODYSTRUCTURE. `size_bytes` keeps the **server size**, not the
-  file length, and `complete = 0`.
+- For a large message, the download path fetches `size` and `bodyStructure`. Then it fetches the raw header sections
+  (`HEADER`, `<part>.MIME`, and `<part>.HEADER` of an attached message) and the bodies of the parts mailparser reads
+  as text (`text/plain`, `text/html`, `message/delivery-status`, not marked as attachment), plus the bodies of
+  `image/*` parts with a Content-ID. simpleParser inlines those as `data:` URLs wherever the HTML links them by `cid:`,
+  so the reading view stays the same. A message that is large because of its inline images saves little; accepted.
+  imapflow 2.9 supports `bodyStructure` and `bodyParts` and uses `BODY.PEEK` for them (BINARY only when asked for), so
+  fetching never sets `\Seen`.
+- `core/skeleton.ts` rebuilds the message from those sections, with every other part left with an empty body (the
+  **skeleton**). mailparser reads the skeleton like the full message. So headers, text, HTML, the attachment list,
+  `partId`, filename, content type and Content-ID are the same **by construction**. Only the attachment sizes come
+  from BODYSTRUCTURE, as an estimate until completion. Refined during step 1: the first draft derived the attachment
+  list from BODYSTRUCTURE itself, which would have meant redoing mailparser's rules.
+- An unusual structure (no boundary, a top-level `message/rfc822`) gives no skeleton, and that message is downloaded
+  whole.
+- The file at `file_path` holds the skeleton, and the row is built from it exactly as today. `size_bytes` keeps the
+  **server size**, not the file length, and `complete = 0`.
 - Only the server download paths (folder download pass, IDLE/poll new mail, repair) apply the threshold. Messages
   the app stores itself (sent mail, appended drafts, `existingPath`) are always complete.
 
@@ -1856,7 +1864,7 @@ rare; reading a mail and finding it in search is not.
   connection (production connection limit).
 - Writes a new file with `writeMessageFile`. In one transaction it sets `file_path`, `complete = 1` and
   `attachments_json`/`has_attachments` from the full parse.
-- Then it unlinks the header file. A leftover is an orphan for the sweep.
+- Then it unlinks the skeleton file. A leftover is an orphan for the sweep.
 - Two calls for the same row share one promise.
 - Errors carry no mail content:
   - UIDVALIDITY changed, or the UID is gone: "Nachricht ist nicht mehr auf dem Server"
@@ -1869,16 +1877,16 @@ rare; reading a mail and finding it in search is not.
 | Read a message | `message_views.ts` getMessage (row fields only) | unchanged; `MessageDetail` gets `complete`, attachment list from BODYSTRUCTURE |
 | Open / save attachment | `mail.router.ts` attachments.open/saveAs → `getAttachment` | `ensureComplete` first |
 | Attachment → document (C5) | `document.router.ts:75` → `getAttachment` | `ensureComplete` first |
-| Raw .eml | `message_views.ts:92` `getRawEml` | `ensureComplete` first; never returns the header file |
+| Raw .eml | `message_views.ts:92` `getRawEml` | `ensureComplete` first; never returns the skeleton file |
 | Forward with attachments | `draft_api.ts` `attachmentsOf` | `ensureComplete` first; offline is an error, never a forward that silently drops the files |
 | Read back a draft | `draft_api.ts` `getDraft` | `ensureComplete` first (drafts from other clients can be large) |
-| Search, `hasAttachment` filter | FTS over `body_text` and `attachments_json` | unchanged, provided BODYSTRUCTURE yields the same attachment list as mailparser (step 1) |
+| Search, `hasAttachment` filter | FTS over `body_text` and `attachments_json` | unchanged: the skeleton yields the same text and attachment list (proven in step 1) |
 | Move check | `write_moves.ts:275` compares `size_bytes` with the server size | unchanged because `size_bytes` stays the server size |
 | Swap space check (I18) | `folder_sync.ts:154` sums `size_bytes` | overestimates for partial rows, which is safe |
 | Relink after recovery | `folder_sync.ts:473` requires file length = `size_bytes` | partial rows are not relinked and download again as partial; accepted for v1 |
 | Repair sweep | `maintenance.ts:142` re-downloads `source: true` | goes through the same threshold as the download pass |
-| Orphan sweep, deletes, prune | `maintenance.ts:63`, `folder_sync.ts`, `write_engine.ts` removeLocally | unchanged (the header file is the row's file) |
-| Inline `cid:` images | `sanitize.ts:218` makes placeholders; the renderer resolves none | unchanged (see "Found while working") |
+| Orphan sweep, deletes, prune | `maintenance.ts:63`, `folder_sync.ts`, `write_engine.ts` removeLocally | unchanged (the skeleton file is the row's file) |
+| Inline `cid:` images | simpleParser inlines matched ones as `data:` URLs; `sanitize.ts:218` placeholders the rest | unchanged: the skeleton keeps `image/*` bodies with a Content-ID |
 
 **UI.**
 - MessageView marks attachments of an incomplete message with their size and "wird beim Öffnen geladen". It shows
@@ -1887,9 +1895,20 @@ rare; reading a mail and finding it in search is not.
 - "Als .eml speichern", "Als Dokument speichern" and "Weiterleiten" wait for the download the same way.
 
 **Steps** (one commit each, `pnpm test` green after each):
-1. Equivalence test, which gates everything after it. Over the fixture corpus and a sandbox folder, the attachment
-   list derived from BODYSTRUCTURE equals mailparser's `partId`, `filename`, `contentType`, `isInline`, `contentId`
-   and `has_attachments`. If part numbers differ, step 4 maps them before the design goes on.
+1. `core/skeleton.ts` plus the equivalence test, which gates everything after it. Over a generated corpus appended to
+   the sandbox Dovecot, mailparser on the skeleton equals mailparser on the full message: headers, text, HTML and
+   every attachment's `partId`, `filename`, `contentType`, `isInline` and `contentId`. The estimated sizes are close
+   to the real ones.
+   **Result** [done 2026-10-28]. `core/skeleton.ts`: `skeletonSections(structure)`, `buildSkeleton(structure, header,
+   sections)` and `estimatedPartSizes(structure)`, pure, null for what it does not cover.
+   `tests/mail_skeleton_sandbox.test.ts` (in `pnpm test:sandbox`) appends a corpus of 14 generated structures
+   (`tests/helpers/mimeCorpus.ts`) to the Dovecot folder `S1Skeleton` and compares mailparser on both fetches: headers,
+   text, HTML, and each attachment's `partId`, filename, content type, disposition, Content-ID, `cid` and `related`.
+   All 14 are equal, every estimate is within 3 %, and the 200 KB case's skeleton is under a tenth of the message.
+   A mutation that dropped the cid image bodies failed exactly the three cid cases on `html`.
+   `tests/mail_skeleton.test.ts` covers the sections, the null cases, assembly and the estimates.
+   For step 3: a partial row's `attachments_json` sizes come from `estimatedPartSizes`, keyed by `partId` with `''`
+   for a single-part message (see "Found while working").
 2. Migration and store: the `complete` column, the row type, `MessageDetail.complete`.
 3. Partial ingest in the download paths, behind the threshold (off by default until step 5).
 4. `ensureComplete` and the consumer doors listed above.
@@ -1931,7 +1950,8 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
-- 2026-10-28, S1 design, `core/sanitize.ts:21`: the comment says the UI resolves `cid:` images from local attachments, but no renderer code reads `data-cid`, so inline images stay placeholders.
+- 2026-10-28, S1 design, `core/sanitize.ts:21`: the comment says the UI resolves `cid:` images from local attachments, but no renderer code reads `data-cid`. Corrected in S1 step 1: simpleParser already inlines every `cid:` image it finds among the attachments as a `data:` URL before sanitizing, so only unmatched `cid:` links reach the placeholder. The comment is still wrong about who resolves them.
+- 2026-10-28, S1 step 1, `core/message_ingest.ts` / `mail.router.ts:76` / `document.router.ts:66`: a single-part attachment message (the root is the attachment) has no mailparser `partId`, so ingest stores `''`. Both routers require `partId` `min(1)` and `getAttachment` compares `a.partId === partId`, so that attachment cannot be opened or saved as a document. Confirmed with the corpus's single-part PDF.
 
 - 2026-10-28, R4.6, `hooks/useMailShortcuts.ts:35`: the moved comment "Declared after every handler it calls" now describes the page's `useMailShortcuts(` call site, not the hook, and the handler still re-subscribes on every render (no deps), as the renderer review noted.
 
