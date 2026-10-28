@@ -12,7 +12,10 @@ import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { runningOpLabel } from '@/components/mail/opLabel'
 
-const page = readFileSync(join(process.cwd(), 'src/renderer/src/pages/MailPage.tsx'), 'utf8')
+const page = readFileSync(
+  join(process.cwd(), 'src/renderer/src/components/mail/SyncIndicator.tsx'),
+  'utf8'
+)
 
 /** The SyncIndicator function body, so assertions cannot match elsewhere in the page */
 function indicatorBody(): string {
