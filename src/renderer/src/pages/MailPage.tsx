@@ -20,17 +20,8 @@ import { ComposeView } from '@/components/mail/ComposeView'
 import { hide, unhide, visible } from '@/components/mail/optimistic'
 import { readingActions } from '@/components/mail/readingActions'
 import { archiveableIds, archivedCount, uncoveredIds } from '@/components/mail/archiveActions'
-import { VISIBLE_OPS } from '@/components/mail/opLabel'
-import { refreshBatcher, refreshPlan } from '@/components/mail/mailRefresh'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import { SyncIndicator } from '@/components/mail/SyncIndicator'
-import {
-  type OpAction,
-  type OpEntry,
-  actionResult,
-  discardConfirm,
-  opEntries
-} from '@/components/mail/opJournal'
 import {
   type ComposeState,
   emptyCompose,
@@ -56,6 +47,7 @@ import {
 } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
 import { useMailSearch } from '@/hooks/useMailSearch'
+import { useMailOps } from '@/hooks/useMailOps'
 import { PAGE_SIZE } from '@/components/mail/paging'
 import { isTypingTarget, shortcutBlocked, shortcutFor } from '@/components/mail/shortcuts'
 import {
@@ -129,9 +121,6 @@ export default function MailPage() {
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
   // B2: the folder being dragged, so a drop knows what to move
   const [movingFolder, setMovingFolder] = useState<FolderNode | null>(null)
-  // H2: a write op the user started and that is still running; the sync bar shows it.
-  // Autosave and flag ops are excluded (see opLabel.ts) so the bar stays quiet.
-  const [runningOp, setRunningOp] = useState<string | null>(null)
   // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
   const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
@@ -146,6 +135,15 @@ export default function MailPage() {
   )
 
   const ready = Boolean(account) && workerStatus.data?.running === true
+
+  const refreshLists = () => {
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
+  }
+
+  const failed = (title: string) => (error: unknown) =>
+    toast.error(title, { description: error instanceof Error ? error.message : undefined })
 
   const folders = useQuery({
     queryKey: ['mail', accountId, 'folders'],
@@ -222,6 +220,7 @@ export default function MailPage() {
   )
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
+
   const syncStatus = useQuery({
     queryKey: ['mail', accountId, 'sync'],
     queryFn: () => mailApi.getSyncStatus(accountId),
@@ -238,48 +237,13 @@ export default function MailPage() {
   })
   const loginFailed = syncStatus.data?.connection === 'auth-failed'
 
-  // I3: writes that need the user (unclear sends, rejected or failed changes, stuck ones).
-  // Every op-event refreshes it; the interval catches an op turning stuck by just waiting.
-  const openOps = useQuery({
-    queryKey: ['mail', accountId, 'open-ops'],
-    queryFn: () => mailApi.listOpenOps(accountId),
-    enabled: ready && canWrite,
-    refetchInterval: 30_000
+  const { runningOp, opList, opNow, busyOpId, runOpAction } = useMailOps({
+    accountId,
+    ready,
+    canWrite,
+    refreshLists,
+    failed
   })
-  const opNow = openOps.dataUpdatedAt || Date.now()
-  const opList = useMemo(() => opEntries(openOps.data ?? [], opNow), [openOps.data, opNow])
-  const [busyOpId, setBusyOpId] = useState<string | null>(null)
-
-  // Refresh folders, lists and search when the sync stored something new or a change
-  // was made (also in a mail window); batched, the initial download reports every folder.
-  // I18: another account's events mark that account stale instead of being dropped.
-  const [refresher] = useState(() =>
-    refreshBatcher((key) => void queryClient.invalidateQueries({ queryKey: [...key] }))
-  )
-  useEffect(() => () => refresher.dispose(), [refresher])
-  trpcReact.mail.events.useSubscription(undefined, {
-    enabled: ready,
-    onData: (event) => {
-      // H2: show a write op while it runs, but only one the user started. Autosave
-      // (draft_save) and flag changes run in the background every few seconds; showing
-      // those would make the bar flicker nonstop, which is the opposite of quiet.
-      if (
-        event.type === 'op-event' &&
-        event.accountId === accountId &&
-        VISIBLE_OPS.has(event.kind)
-      ) {
-        setRunningOp(event.outcome === 'running' ? event.kind : null)
-      }
-      const plan = refreshPlan(event, accountId)
-      if (plan) refresher.add(plan)
-    }
-  })
-
-  const refreshLists = () => {
-    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
-    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
-    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
-  }
 
   // Double-click: the mail in its own window; a draft is edited there, not twice
   const openWindow = (id: number) => {
@@ -328,38 +292,6 @@ export default function MailPage() {
     }
     openedId.current = null
     setCompose(null)
-  }
-
-  const failed = (title: string) => (error: unknown) =>
-    toast.error(title, { description: error instanceof Error ? error.message : undefined })
-
-  // I3: an action from the op panel. Discarding asks first; the core resyncs the op's folders,
-  // so a hidden mail or a local flag gives way to what the server has.
-  const runOpAction = async (entry: OpEntry, action: OpAction) => {
-    if (action === 'discard') {
-      if (!(await confirmAction({ ...discardConfirm(entry), destructive: true }))) return
-    }
-    setBusyOpId(entry.op.id)
-    try {
-      if (action === 'discard') {
-        await mailApi.cancelOp(entry.op.id, accountId)
-        toast.success('Verworfen')
-      } else {
-        const result =
-          action === 'resolve'
-            ? await mailApi.resolveOp(entry.op.id, accountId)
-            : await mailApi.retryOp(entry.op.id, accountId)
-        const { ok, text } = actionResult(action, result.outcome)
-        if (ok) toast.success(text)
-        else toast.error(text)
-      }
-    } catch (error) {
-      failed('Aktion fehlgeschlagen')(error)
-    } finally {
-      setBusyOpId(null)
-      void openOps.refetch()
-      refreshLists()
-    }
   }
 
   const afterFlags = () => {

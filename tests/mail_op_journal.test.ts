@@ -394,18 +394,23 @@ describe('the mail page shows the panel', () => {
     path.join(__dirname, '../src/renderer/src/pages/MailPage.tsx'),
     'utf8'
   )
+  // R4: the open ops, their actions and the event subscription live in the page's useMailOps hook
+  const ops = fs.readFileSync(
+    path.join(__dirname, '../src/renderer/src/hooks/useMailOps.ts'),
+    'utf8'
+  )
   const fnBody = (name: string) => {
-    const start = page.indexOf(`const ${name} = `)
+    const start = ops.indexOf(`const ${name} = `)
     expect(start).toBeGreaterThan(-1)
-    const end = page.indexOf('\n  const ', start + 1)
-    return page.slice(start, end === -1 ? undefined : end)
+    const end = ops.indexOf('\n  const ', start + 1)
+    return ops.slice(start, end === -1 ? undefined : end)
   }
 
   it('fetches the open ops for a writable account and refreshes them on op events', () => {
-    expect(page).toMatch(/queryKey: \['mail', accountId, 'open-ops'\]/)
-    expect(page).toMatch(/listOpenOps\(accountId\)[\s\S]{0,40}enabled: ready && canWrite/)
+    expect(ops).toMatch(/queryKey: \['mail', accountId, 'open-ops'\]/)
+    expect(ops).toMatch(/listOpenOps\(accountId\)[\s\S]{0,40}enabled: ready && canWrite/)
     // I18: the events go through refreshPlan, which refreshes the open ops after every write
-    expect(page).toMatch(/onData: \(event\) => \{[\s\S]*refreshPlan\(event, accountId\)/)
+    expect(ops).toMatch(/onData: \(event\) => \{[\s\S]*refreshPlan\(event, accountId\)/)
     const plan = refreshPlan(
       { type: 'op-event', accountId: ACCOUNT, opId: 'op-1', kind: 'move', outcome: 'done' },
       ACCOUNT
