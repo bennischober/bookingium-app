@@ -53,6 +53,9 @@ afterEach(() => {
 
 const at = (day: number, hours = 9, month = 9) => new Date(2026, month, day, hours, 0)
 
+/** Created-at of the app's newest migration, as prepareRestore is told */
+const APP_MIGRATION = 1_800_000_000_000
+
 /** A small Bookingium-like database file in WAL mode, as the live one is */
 function makeDb(file: string, label: string): void {
   mkdirSync(join(file, '..'), { recursive: true })
@@ -286,29 +289,57 @@ describe('restoring a backup', () => {
     const { workDir } = locations()
     const empty = join(root, 'leer')
     mkdirSync(empty)
-    await expect(prepareRestore(empty, workDir)).rejects.toThrow('bookingum.db fehlt')
+    await expect(prepareRestore(empty, workDir, APP_MIGRATION)).rejects.toThrow(
+      'bookingum.db fehlt'
+    )
 
     const broken = join(root, 'kaputt')
     mkdirSync(broken)
     writeFileSync(join(broken, 'bookingum.db'), 'keine Datenbank')
-    await expect(prepareRestore(broken, workDir)).rejects.toThrow('Datenbank der Sicherung')
+    await expect(prepareRestore(broken, workDir, APP_MIGRATION)).rejects.toThrow(
+      'Datenbank der Sicherung'
+    )
 
     const foreign = join(root, 'fremd')
     mkdirSync(foreign)
     new Database(join(foreign, 'bookingum.db')).exec('create table other (id)').close()
-    await expect(prepareRestore(foreign, workDir)).rejects.toThrow('keine Bookingium-Datenbank')
+    await expect(prepareRestore(foreign, workDir, APP_MIGRATION)).rejects.toThrow(
+      'keine Bookingium-Datenbank'
+    )
 
     const unfinished = join(root, `${BACKUP_TEMP_PREFIX}abc`)
     mkdirSync(unfinished)
-    await expect(prepareRestore(unfinished, workDir)).rejects.toThrow('nicht fertig')
+    await expect(prepareRestore(unfinished, workDir, APP_MIGRATION)).rejects.toThrow('nicht fertig')
     expect(preparedRestore(workDir)).toBeNull()
+  })
+
+  it('refuses a backup from a newer version and accepts one from this or an older one', async () => {
+    const { source } = arrange()
+    const { workDir } = locations()
+    const sqlite = new Database(join(source, 'bookingum.db'))
+    sqlite.exec(
+      'create table __drizzle_migrations (id integer primary key, hash text, created_at numeric)'
+    )
+    const record = sqlite.prepare(
+      'insert into __drizzle_migrations (hash, created_at) values (?, ?)'
+    )
+    record.run('older', APP_MIGRATION - 1000)
+    record.run('newer', APP_MIGRATION + 1000)
+    sqlite.close()
+
+    await expect(prepareRestore(source, workDir, APP_MIGRATION)).rejects.toThrow('neueren Version')
+    expect(preparedRestore(workDir)).toBeNull()
+
+    await expect(prepareRestore(source, workDir, APP_MIGRATION + 1000)).resolves.toMatchObject({
+      source
+    })
   })
 
   it('applies a confirmed restore at the next start', async () => {
     const { source } = arrange()
     const { dataDir, storageDir, workDir } = locations()
 
-    const manifest = await prepareRestore(source, workDir)
+    const manifest = await prepareRestore(source, workDir, APP_MIGRATION)
     expect(manifest).toEqual({
       source,
       backupCreatedAt: at(20).toISOString(),
@@ -319,7 +350,7 @@ describe('restoring a backup', () => {
     expect(preparedRestore(workDir)).toBeNull()
     expect(readLabel(join(dataDir, 'bookingum.db'))).toBe('current')
 
-    await prepareRestore(source, workDir)
+    await prepareRestore(source, workDir, APP_MIGRATION)
     await stageRestore(workDir)
     const outcome = applyStagedRestore(locations(), at(21))
     expect(outcome).toEqual({
@@ -342,7 +373,7 @@ describe('restoring a backup', () => {
   it('discards a restore that was picked but not confirmed', async () => {
     const { source } = arrange()
     const { workDir } = locations()
-    await prepareRestore(source, workDir)
+    await prepareRestore(source, workDir, APP_MIGRATION)
     await cancelRestore(workDir)
     expect(preparedRestore(workDir)).toBeNull()
     await expect(stageRestore(workDir)).rejects.toThrow('Keine Wiederherstellung')
@@ -352,7 +383,7 @@ describe('restoring a backup', () => {
     const { source } = arrange()
     const userData = join(root, 'userData')
     const { dataDir, workDir } = locations()
-    await prepareRestore(source, workDir)
+    await prepareRestore(source, workDir, APP_MIGRATION)
     await stageRestore(workDir)
     // the documents cannot go to a folder whose parent is a file
     writeFileSync(join(root, 'blockiert'), '')

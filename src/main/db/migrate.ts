@@ -114,6 +114,12 @@ export function upgradeLegacyDatabase(sqlite: Database.Database, migrationsFolde
   })()
 }
 
+/** Created-at of the newest migration; a database recording a later one is from a newer version */
+export function latestMigrationMillis(): number {
+  const migrations = readMigrationFiles({ migrationsFolder: resolveMigrationsFolder() })
+  return Math.max(...migrations.map((m) => m.folderMillis))
+}
+
 export function runMigrations(): void {
   const migrationsFolder = resolveMigrationsFolder()
 
