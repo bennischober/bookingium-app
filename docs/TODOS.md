@@ -41,6 +41,17 @@ Mail client (experimental, off by default), its integration into bookingum and w
   clean up the data once (move the role onto the membership), the importer
   stays as it is.
 
+- **Backups (open questions):**
+  - Encryption: backups in OneDrive/Dropbox are plain SQLite and documents.
+    Encrypting them (a password the user must not lose) is undecided.
+  - New computer: mail accounts re-created there get new ids, so the
+    `mail_link` rows of a restored backup point at no account and the
+    "E-Mails" tabs stay empty until mail is linked again. A mapping (by
+    address) on the first account setup would keep them.
+  - `backup/before-restore/` is never cleaned up; one copy per restore.
+  - A backup from a newer app version is restored without a check; the older
+    app then runs on a schema it does not know.
+
 ## Technical
 
 - `calendar.tsx` and `sidebar.tsx` (generated ui components) still use

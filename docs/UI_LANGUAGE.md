@@ -39,6 +39,7 @@ English.
 | Actions                               | Aktionen                                                 |
 | 311 venues / found / loaded           | 311 Spielstätten / … gefunden / … geladen                |
 | Import / Export / Backup              | Importieren / Exportieren / Sicherung                    |
+| Automatic backup / Restore            | Automatische Sicherung / Wiederherstellen                |
 | Print / Save as PDF                   | Drucken / Als PDF speichern                              |
 | Notes                                 | Anmerkungen                                              |
 | Loading …                             | … wird geladen / Lädt …                                  |

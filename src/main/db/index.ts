@@ -48,6 +48,11 @@ export function getSqlite(): Database.Database {
   return sqlite as Database.Database
 }
 
+/** Whether the database is open; a staged restore must be applied before it is */
+export function isDbOpen(): boolean {
+  return sqlite !== null
+}
+
 export function getDbPath(): string {
   if (!dbInstance) getDb()
   return currentDbPath

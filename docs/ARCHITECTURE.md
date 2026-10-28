@@ -114,6 +114,8 @@ storage/logos/<companyId>/                Company logos and signatures
 logs/errors.log (+ errors.1/2.log)        Local error log, JSONL, ~1 MB each
 mail/accounts.json                        Mail accounts (passwords via safeStorage)
 mail/data/<accountId>/                    Mail store (SQLite + FTS5) and .eml files
+backup/state.json                         Automatic backup settings and status
+backup/before-restore/                    The data as it was before each restore
 ```
 
 The error log (`src/main/utils/errorLog.ts`) records unexpected errors only:
@@ -127,6 +129,51 @@ Documents belong to an owner by `owner_type` + `owner_id` (no foreign key);
 triggers in the initial migration delete the rows with the owner, the owner's
 service removes the folder. Settings are key/value rows in `app_setting`,
 typed and defaulted by `AppSettings` (settings.schema.ts).
+
+## Backups
+
+`src/main/backup/` (no Electron: `policy.ts` holds the pure rules, `files.ts`
+the file work) and `BackupService` (timers, status). Einstellungen › Daten has
+the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
+
+- **A backup folder** is `Bookingium-Sicherung YYYY-MM-DD HH-MM` (local time,
+  ` (2)` within the same minute) with `bookingum.db`, `storage/`,
+  `LIESMICH.txt` and the marker `bookingium-sicherung.json`
+  (`{app, format, kind: auto | manual | before-restore, createdAt, appVersion}`).
+- **Never live data in a synced folder.** The database is snapshotted with
+  SQLite's backup API into the local `backup/` folder first, then copied. The
+  folder is written as `.bookingium-unfertig-<id>` and renamed when complete
+  (retried while OneDrive or Dropbox holds a file), so a folder named like a
+  backup is always a whole one.
+- **When:** 30 s after start, then hourly, a backup runs once the last success
+  is 20 hours old (a day minus slack, so opening the app a little earlier each
+  day still gives a daily backup). Not on close: quitting would wait for the
+  copy, and a shutdown cuts it off. A run never throws; the error goes to the
+  status shown in the settings.
+- **Retention:** the newest automatic backup of each of the last 7 days that
+  have one, and of each of the last 4 weeks (Monday-based). Days without a
+  backup do not count, so a break never empties the folder. Only folders with
+  our name AND a marker of kind `auto` are deleted; temp folders only with our
+  marker and older than a day. Manual backups and anything else stay.
+- **Settings and status** live in `backup/state.json`, not in the database:
+  the folder is a path on this computer, and restoring an older database must
+  not switch backups off or send them elsewhere.
+- **Restore:** "Sicherung wiederherstellen…" copies the chosen backup into
+  `backup/restore-incoming/` and checks it (`quick_check`, an `app_setting`
+  table). After the confirmation the current state is backed up into
+  `backup/before-restore/`, the copy is renamed to `backup/restore-staged/`
+  and the app restarts. At the next start, before `runMigrations()` opens the
+  database, `applyStagedRestore` moves the current database (with `-wal` and
+  `-shm`) and `storage/` aside, moves the staged ones in, and puts everything
+  back if a step fails (the staged copy then becomes `restore-failed-<time>`).
+  Migrations then bring an older backup up to the current schema.
+- **Mail is not included.** `mail_link`, `invoice_email` and
+  `invoice_email_pending` are app tables, so they are in every backup. The
+  per-account stores (`mail/data/<accountId>/`) hold the IMAP cache (it comes
+  back from the server), contacts derived from it, and the operation journal,
+  whose replay on another computer could send mail twice. `mail/accounts.json`
+  holds DPAPI-encrypted passwords that only work for this Windows user. See
+  docs/TODOS.md for the account ids on a new computer.
 
 ## Migrations
 
