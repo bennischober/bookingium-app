@@ -47,7 +47,7 @@ describe('isUnclearSend (MR-03)', () => {
   })
 
   it('matches the message the core actually throws', () => {
-    const core = readFileSync(join(process.cwd(), 'src/main/mailclient/core/index.ts'), 'utf8')
+    const core = readFileSync(join(process.cwd(), 'src/main/mailclient/core/draft_api.ts'), 'utf8')
     const thrown = core.match(/throw new Error\(`(Versand unklar[^:`]*)/)
     expect(thrown).not.toBeNull()
     expect(isUnclearSend(new Error(thrown![1]))).toBe(true)
