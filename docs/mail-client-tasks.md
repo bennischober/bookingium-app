@@ -1707,7 +1707,12 @@ The non-mail ones (`InvoiceRepository`, `InvoiceForm`, `CreateEventWizard`) wait
 - At the end of each card: the full gate, the sandbox suites (Docker up) and
   `npx playwright test tests/e2e/mail-client.spec.ts`.
 
-### R1: `SyncEngine` (core/sync.ts)
+### R1: `SyncEngine` (core/sync.ts) [done 2026-10-28]
+
+**Result.** Five commits (`77c2119`, `014647b`, `37c0d62`, `fde191c`, `e794698`), `pnpm test` green after each.
+`sync.ts` went from 1782 to 746 lines, not about 450: the constructor wires five contexts, and the account
+builders, the exported types and the one-line delegations stay on the façade. One deviation from the plan
+below: `nextUid` and `uidRange` live in `folder_sync.ts` (its passes use them), and `sync.ts` re-exports them.
 
 The engine stays the façade: status and progress, pause/resume, disk full, `syncFolderList`, `syncAll`,
 `detectMoves`, `close`. Target about 450 lines. Out of it, in this order:
@@ -1775,6 +1780,7 @@ store shows the same number before it is taken. The Ctrl+Enter-twice guard still
 
 (Agents: add one line per finding: date, card, file:line, one sentence. No mail content.)
 
+- 2026-10-28, R1, `src/main/mailclient/core/folder_locks.ts:61`: `hasInFlightOps` (and `SyncEngine.hasInFlightOps`, `sync.ts:202`) has no callers in `src/` or `tests/`, already before R1; remove or wire it in a later card.
 - 2026-10-26, review, `docs/mail-client-review.md`: a full review of the branch at `811f04a` found 43 issues (MR-01 to MR-43; 3 critical send-path bugs that can deliver a mail twice) and proposes card group I (I1 to I14). No real-mailbox writes beyond the canary until I1 to I4 land.
 
 ---

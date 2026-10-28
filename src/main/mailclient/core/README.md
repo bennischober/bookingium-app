@@ -18,7 +18,12 @@ no `process.env` reads and no hard-coded paths, ports or URLs except the sandbox
 | `index.ts` | `createMailCore(options)` factory + `MailCore` (implements the full `Api` contract), lifecycle (`start()`/`close()`), orphan sweep |
 | `store.ts` | SQLite/FTS5 storage: folders, messages, threads, contacts, **search** (weighted BM25, facets, snippets), **operation journal** |
 | `migrations.ts` | Versioned schema migrations (`PRAGMA user_version`): append-only list, one transaction each, a DB from a newer build is refused |
-| `sync.ts` | `SyncEngine`: two-way IMAP sync (CONDSTORE/QRESYNC tiered + UID-sweep fallback), IDLE, pacing, circuit breaker, staged UIDVALIDITY swap |
+| `sync.ts` | `SyncEngine`: the sync façade (status, pause/resume, disk full, folder list, `syncAll`, move detection); wires the five modules below |
+| `folder_locks.ts` | `FolderLocks`: the per-folder mutex sync and writes share, yielding a folder to waiting writes |
+| `sync_connection.ts` | `SyncConnection`: the sync and IDLE clients, capability detection, backoff, circuit breaker, connection state |
+| `message_ingest.ts` | `MessageIngest`: storing a fetched message or an appended draft (body file + row), the fault-injection hook |
+| `folder_sync.ts` | `FolderSync`: one folder's pass (CONDSTORE/QRESYNC tiered + UID-sweep fallback), staged UIDVALIDITY swap, downloads, mass-expunge check |
+| `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, STATUS polling, the tiered flag sweep |
 | `write_engine.ts` | `WriteEngine`: crash-safe execution of flag/move/delete/expunge/send/draft ops, serialized playback, verify-before-replay |
 | `write_connection.ts` | `WriteConnectionPool`: one reused write connection, NOOP before reuse, closed after 30 s idle |
 | `connection_budget.ts` | `ConnectionBudget`: the account's `maxConnections`, shared by sync, IDLE and writes |

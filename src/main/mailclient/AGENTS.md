@@ -52,6 +52,7 @@ store, a utility-process worker, and the self-contained `core/` engine.
   database, the mail store is rebuildable from the server.
 
 ## HOTSPOTS
-- `core/sync.ts` 1465 and `core/index.ts` 1565 - the two files almost every mail
-  bug lands in.
+- `core/index.ts` 1703, `core/write_engine.ts` 1550 and the sync engine (`core/sync.ts` 746,
+  split in R1 into `folder_sync.ts`, `idle_poll.ts`, `sync_connection.ts`, `message_ingest.ts`,
+  `folder_locks.ts`) - where almost every mail bug lands.
 - `protocol.ts` + `core/types.ts` - the cross-process contract; both must agree.

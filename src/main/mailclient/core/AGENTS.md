@@ -13,7 +13,7 @@ module map and factory reference - read it before changing anything here.
 | Add/change an `Api` method | `types.ts` (contract) + `index.ts` (`MailCore`) |
 | Mail schema change | `migrations.ts` (append-only, `PRAGMA user_version`) |
 | Message/folder/thread queries, search | `store.ts` (weighted BM25, facets, op journal) |
-| IMAP sync, IDLE, UIDVALIDITY | `sync.ts` |
+| IMAP sync, IDLE, UIDVALIDITY | `sync.ts` (façade) -> `folder_sync.ts`, `idle_poll.ts`, `sync_connection.ts` |
 | Flag/move/delete/expunge/send playback | `write_engine.ts` |
 | Which host may be written to | `write_guard.ts` - the only write-path guard |
 | Reply/forward/draft MIME | `compose.ts` |
@@ -49,8 +49,9 @@ module map and factory reference - read it before changing anything here.
 - Two instances on one store (the lock makes that structurally impossible).
 
 ## HOTSPOTS
-- `sync.ts` 1465 - tiered CONDSTORE/QRESYNC sync, IDLE, pacing, circuit breaker.
-- `index.ts` 1565 - the full `Api` implementation and lifecycle.
-- `store.ts` 586 - schema, FTS5 search, op journal (has `as any[]` and one
+- `index.ts` 1703 - the full `Api` implementation and lifecycle (R2 splits it).
+- `write_engine.ts` 1550 - serialized op playback, verify-before-replay (R3 splits it).
+- `store.ts` 993 - schema, FTS5 search, op journal (has `as any[]` and one
   `console.log` that violate the folder's own rules).
-- `write_engine.ts` 525 - serialized op playback, verify-before-replay.
+- `sync.ts` 746 + `folder_sync.ts` 515 + `idle_poll.ts` 481 - the sync engine after R1:
+  façade, one folder's tiered pass, IDLE and polling.
