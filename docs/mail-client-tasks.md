@@ -1681,6 +1681,84 @@ contact's addresses resets every account's cursor, so the next run reads the who
 batches, no server traffic). Cheap at today's mailbox sizes. The targeted fix is a search for just the
 changed addresses; it belongs with the protocol work, which changes how sync finds mail anyway.
 
+## R: split the mail god objects (before the merge, plan 2026-10-28)
+
+Four files hold most of the mail client: `core/sync.ts` (`SyncEngine`, 1782 lines), `core/index.ts` (`MailCore`,
+1703), `core/write_engine.ts` (`WriteEngine`, 1550) and `pages/MailPage.tsx` (1400). They come before the
+protocol work because that work lands in exactly this code, and one review should then see the final shape.
+The non-mail ones (`InvoiceRepository`, `InvoiceForm`, `CreateEventWizard`) wait until after the merge.
+
+**Rules for every R card.**
+- Behavior-preserving moves only. No renamed events, no changed messages, no fixes on the way: anything found
+  goes under "Found while working" and gets its own card.
+- One extraction per commit, with `pnpm test` green after each. `git diff --color-moved=dimmed-zebra` should
+  show the bodies as moved, not rewritten; the only new lines are the seams (constructor wiring, a context
+  object, one-line delegations).
+- Collaborators, not inheritance or mixins: the class keeps its public surface and owns small objects (or
+  module functions) that get a narrow context with the state they need. `MailCore` must keep every `Api`
+  method, because the worker dispatches by method name; those become one-line delegations.
+- The core keeps its style (semicolons, `.js` suffixes, no Electron, no prettier). `core/index.ts` stays the
+  one entry module: what it exports today, it still exports (re-exported where the code moved).
+- Tests that reach inside stay valid: `mail_watchdog` uses `WriteEngine.withWatchdog` and `queueStopped`,
+  `mail_canary_main` uses `MailCore.entries`. Eight suites read `MailPage.tsx` source (`mail_archive_actions`,
+  `mail_optimistic_race`, `mail_op_journal`, `mail_readonly_actions`, `mail_renderer_low`,
+  `mail_renderer_optimism`, `mail_shortcuts_guard`, `mail_sync_bar`); they follow the code to its new file,
+  pinning the same lines, as `mail_op_journal` did in I18.
+- At the end of each card: the full gate, the sandbox suites (Docker up) and
+  `npx playwright test tests/e2e/mail-client.spec.ts`.
+
+### R1: `SyncEngine` (core/sync.ts)
+
+The engine stays the façade: status and progress, pause/resume, disk full, `syncFolderList`, `syncAll`,
+`detectMoves`, `close`. Target about 450 lines. Out of it, in this order:
+1. `folder_locks.ts`: the folder mutex, `yieldFolderToWrites`, the waiting-writes and in-flight counts
+   (`withFolderMutex`, `withFolderMutexPublic`, `hasInFlightOps`). Shared with `WriteEngine` through the
+   existing hooks, so it goes first.
+2. `sync_connection.ts`: the IMAP clients, capability detection, backoff, circuit breaker, disconnect count,
+   `gate`, `noteConnectFailure`/`noteOnline`/`noteServerContact`.
+3. `message_ingest.ts`: `storeMessage`, `storeAppendedDraft`, `removeFile`, the fault-injection hook.
+4. `folder_sync.ts`: one folder's pass: `syncFolderInner`, full and incremental sync, the UIDVALIDITY swap,
+   `downloadMessages`, `adoptRelinked`, `expungeConfirmed`, staging cleanup.
+5. `idle_poll.ts`: IDLE, polling and the flag sweep, with `idleWait`, `nextUid`, `uidRange` re-exported.
+
+### R2: `MailCore` (core/index.ts)
+
+`MailCore` keeps construction, events, `start`, `close` and the `Api` surface as delegations. Target about
+350 lines.
+1. `account_entries.ts`: building the entries, `openAccountStore`, credentials, `entry`/`writableEntry`.
+2. `message_views.ts`: the row-to-DTO mapping (`toListItem`, `toDetail`, flags, attachments) and the read
+   calls: folders, lists, threads, message, raw, attachment, remote images, search, headers, lookups, contacts.
+3. `op_api.ts`: flags, move, trash, archive, expunge from Trash, and the op journal calls (list, retry,
+   resolve, cancel, undo, replay, the retry schedule).
+4. `folder_api.ts`: create, rename, move and delete folder with their refusals.
+5. `draft_api.ts`: save, send, delete, discard and get draft, MIME building, attachments of a stored mail.
+6. `maintenance.ts`: orphan sweep, file repair, consistency check, `whenIdleForMaintenance`.
+
+`messageFallbackKey` and `normalizeMessageId` move to a small module and stay exported from `index.ts`.
+
+### R3: `WriteEngine` (core/write_engine.ts)
+
+The engine keeps the queue, `execute`, the watchdog, the write connection, `drain`, `close` and `preflight`.
+Target about 600 lines. The op handlers become functions over a write context:
+1. `write_moves.ts`: single and batch moves, their preflight and resume after a crash, the local apply.
+2. `write_send.ts`: send, the unknown-outcome probe, filing to Sent, draft save and draft cleanup.
+3. `write_folders.ts`: folder create, rename, delete. Flags and expunge are small and stay.
+
+### R4: `MailPage` (pages/MailPage.tsx)
+
+Independent of R1–R3 (no shared files), so it can run in parallel. The page keeps layout and wiring.
+1. `components/mail/SyncIndicator.tsx` (with `useNow`).
+2. `useMailSearch`: query, filters, debounce, results, snippets, facet folder.
+3. `useMailOps`: open ops, op actions, the refresh batcher.
+4. `useMessageActions`: read, flag, move, archive, trash, expunge, empty Trash, the optimistic hiding.
+5. `useFolderActions`: folder actions and moving a folder.
+6. `useMailShortcuts`: the keyboard handler.
+
+### After R1–R3: one parse module
+
+The four `simpleParser` calls (one in `message_ingest.ts`, three in the R2 modules once moved) go through one
+`parse.ts`, still mailparser. That makes the postal-mime swap a one-file change in the protocol work.
+
 ## Found while working
 
 ### "A sent mail can be delivered twice" (found during I10) - not a send bug, fixed in the test
