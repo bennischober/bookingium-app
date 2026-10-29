@@ -119,6 +119,9 @@ export const AppSettings = z.object({
   // "Verteiler (experimentell)": off until the user turns it on; the lists are still built around
   // venues and Veranstalter (#80). Off, the renderer hides the page, its data stays.
   contactLists: z.boolean().default(false),
+  // "Karte (experimentell)": the map preview (#102), off until the user turns it on. Off, the
+  // renderer hides the page; the lookup runs offline by postcode (bundled GeoNames table).
+  mapPreview: z.boolean().default(false),
   // I7: the mail account bookingum's own editor sends invoices from, '' for none chosen.
   // Never guessed: without a choice, sending from bookingum is refused.
   invoiceMailAccountId: z.string().default(''),
@@ -145,6 +148,7 @@ export const UpdateAppSettingsInput = z
     mailProgram: shape.mailProgram.unwrap(),
     mailClient: shape.mailClient.unwrap(),
     contactLists: shape.contactLists.unwrap(),
+    mapPreview: shape.mapPreview.unwrap(),
     invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
     invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
     invoiceEmailEn: shape.invoiceEmailEn.unwrap(),

@@ -38,6 +38,8 @@ const DEFAULTS = {
   mailClient: false,
   // Verteiler are experimental too until they cover more than venues and Veranstalter (#80)
   contactLists: false,
+  // The map preview (#102) is experimental and off until the user turns it on
+  mapPreview: false,
   invoiceMailAccountId: '',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
   invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,

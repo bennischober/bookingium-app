@@ -78,6 +78,10 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/clubs': { description: 'Clubs öffnen', aliases: ['locations', 'venues', 'spielstätten'] },
   '/festivals': { description: 'Festivals öffnen', aliases: ['locations', 'open air'] },
   '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
+  '/map': {
+    description: 'Events, Clubs und Festivals auf der Karte',
+    aliases: ['karte', 'tourplanung', 'gebietsschutz', 'radius']
+  },
   '/contact-lists': {
     description: 'Empfänger für Rundmails und Newsletter',
     aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']
