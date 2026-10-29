@@ -170,6 +170,8 @@ export default function BankPage() {
         onSearchChange={setSearch}
         searchPlaceholder="Banken filtern…"
         isLoading={banks.isLoading}
+        error={banks.error}
+        onRetry={() => void banks.refetch()}
         total={listTotal(banks.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

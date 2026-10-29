@@ -213,6 +213,8 @@ export default function VenuePage() {
           navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
         }
         isLoading={venues.isLoading}
+        error={venues.error}
+        onRetry={() => void venues.refetch()}
         total={listTotal(venues.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

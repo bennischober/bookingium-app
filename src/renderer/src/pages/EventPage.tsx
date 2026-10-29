@@ -249,6 +249,8 @@ export function EventPage() {
           onSearchChange={setSearch}
           searchPlaceholder="Events filtern…"
           isLoading={events.isLoading}
+          error={events.error}
+          onRetry={() => void events.refetch()}
           total={listTotal(events.data)}
           actionButton={
             <div className="flex flex-wrap items-center gap-2">

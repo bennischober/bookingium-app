@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { STATUS_LABELS, STATUS_STYLES } from '@/components/event-hub/constants'
 import type { DealMemoListItemDto } from '../../../../main/api/schemas/deal_memo.schema'
 import type { AddressDto } from '../../../../main/api/schemas/address.schema'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
+import type { QueryError } from '@/lib/queryErrors'
 
 export function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -68,26 +70,35 @@ export function Fields({ fields }: { fields: [string, string | null | undefined]
 /** `className` applies to the header and the cells (e.g. text-right) */
 export type Column<T> = { header: string; cell: (row: T) => React.ReactNode; className?: string }
 
+/** The parts of a list query a table shows: rows, loading, error and retry */
+export type ListQuery<T> = {
+  data: T[] | undefined
+  isLoading: boolean
+  error: QueryError
+  refetch: () => unknown
+}
+
 /** A list as a table; a click on a row, or Enter on a focused row, opens it */
 export function RowTable<T extends { id: number }>({
   label,
-  rows,
-  isLoading,
+  query,
   loading,
   empty,
   columns,
   onRowClick
 }: {
   label: string
-  rows: T[] | undefined
-  isLoading: boolean
+  query: ListQuery<T>
   loading: string
   empty: string
   columns: Column<T>[]
   onRowClick: (row: T) => void
 }) {
-  if (isLoading) return <p className="text-sm text-muted-foreground">{loading}</p>
-  if (!rows?.length) return <p className="text-sm text-muted-foreground">{empty}</p>
+  const rows = query.data
+  if (query.isLoading) return <LoadingRow>{loading}</LoadingRow>
+  if (query.error && !rows)
+    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+  if (!rows?.length) return <EmptyState>{empty}</EmptyState>
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -127,14 +138,12 @@ export function RowTable<T extends { id: number }>({
  */
 export function EventsTable<T extends DealMemoListItemDto>({
   label,
-  events,
-  isLoading,
+  query,
   empty,
   columns
 }: {
   label: string
-  events: T[] | undefined
-  isLoading: boolean
+  query: ListQuery<T>
   empty: string
   columns: Column<T>[]
 }) {
@@ -142,8 +151,7 @@ export function EventsTable<T extends DealMemoListItemDto>({
   return (
     <RowTable
       label={label}
-      rows={events}
-      isLoading={isLoading}
+      query={query}
       loading="Events werden geladen…"
       empty={empty}
       columns={[

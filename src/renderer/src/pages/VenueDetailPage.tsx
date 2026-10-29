@@ -4,6 +4,8 @@ import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useVenueTabCounts } from '@/hooks/useTabCounts'
@@ -81,8 +83,7 @@ function EventsTab({ venueId }: { venueId: number }) {
   return (
     <EventsTable
       label="Events der Spielstätte"
-      events={events.data}
-      isLoading={events.isLoading}
+      query={events}
       empty="Noch keine Events in dieser Spielstätte."
       columns={[{ header: 'Band', cell: (event) => event.bandName }]}
     />
@@ -106,7 +107,9 @@ export default function VenueDetailPage() {
   const {
     data: venue,
     isLoading,
-    isError
+    isError,
+    error,
+    refetch
   } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   const updateVenue = trpcReact.venue.update.useMutation({
@@ -131,7 +134,11 @@ export default function VenueDetailPage() {
     )
   }
 
-  if (isError || !venue) {
+  if (isError && !isNotFound(error)) {
+    return <PageErrorState error={error} onRetry={() => void refetch()} />
+  }
+
+  if (!venue) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Spielstätte nicht gefunden.</p>

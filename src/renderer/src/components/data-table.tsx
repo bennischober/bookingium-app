@@ -11,6 +11,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { CLICKABLE_ROW_FOCUS, clickableRowProps } from '@/lib/clickableRow'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
+import type { QueryError } from '@/lib/queryErrors'
 
 // The 'actions' column hugs its buttons at the right edge of the table
 // (w-px shrinks it to its content); any spare width goes to the data
@@ -53,6 +55,9 @@ interface DataTableProps<TData> {
   /** "311 Spielstätten" / "1 Spielstätte" */
   itemLabel: { singular: string; plural: string }
   isLoading?: boolean
+  /** Loading failed: shown instead of "Keine Ergebnisse" while no rows are loaded */
+  error?: QueryError
+  onRetry?: () => void
   /** More rows can be loaded (they load when the end scrolls into view) */
   hasMore?: boolean
   isLoadingMore?: boolean
@@ -80,6 +85,8 @@ export function DataTable<TData>({
   total,
   itemLabel,
   isLoading = false,
+  error,
+  onRetry,
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
@@ -212,20 +219,24 @@ export function DataTable<TData>({
           <tbody>
             {isLoading ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  Lädt…
+                <td colSpan={columns.length} className="px-4 py-8 text-center">
+                  <LoadingRow />
+                </td>
+              </tr>
+            ) : error && data.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8">
+                  <ErrorState
+                    error={error}
+                    onRetry={() => onRetry?.()}
+                    className="items-center text-center"
+                  />
                 </td>
               </tr>
             ) : table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  Keine Ergebnisse gefunden.
+                <td colSpan={columns.length} className="px-4 py-8 text-center">
+                  <EmptyState>Keine Ergebnisse gefunden.</EmptyState>
                 </td>
               </tr>
             ) : (
@@ -274,10 +285,12 @@ export function DataTable<TData>({
       <div className="mt-2 flex shrink-0 items-center justify-between gap-2 text-sm text-muted-foreground">
         <span role="status">
           {isLoading
-            ? 'Lädt…'
-            : `${total.toLocaleString('de-DE')} ${total === 1 ? itemLabel.singular : itemLabel.plural}${
-                filtered ? ' gefunden' : ''
-              }`}
+            ? 'Wird geladen…'
+            : error && data.length === 0
+              ? 'Nicht geladen'
+              : `${total.toLocaleString('de-DE')} ${total === 1 ? itemLabel.singular : itemLabel.plural}${
+                  filtered ? ' gefunden' : ''
+                }`}
         </span>
         {hasMore && (
           <span>{data.length.toLocaleString('de-DE')} geladen – weitere beim Scrollen</span>

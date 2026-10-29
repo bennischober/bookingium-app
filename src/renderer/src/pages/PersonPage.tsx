@@ -178,6 +178,8 @@ export function PersonPage() {
           navigate({ to: '/persons/$personId', params: { personId: String(person.id) } })
         }
         isLoading={persons.isLoading}
+        error={persons.error}
+        onRetry={() => void persons.refetch()}
         total={listTotal(persons.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

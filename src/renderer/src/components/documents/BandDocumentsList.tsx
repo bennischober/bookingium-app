@@ -1,4 +1,5 @@
 import { FileText, FolderOpen } from 'lucide-react'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,16 +16,22 @@ import { formatFileSize, openDocument, revealDocument } from './documentFiles'
  * Read-only on purpose: a file is managed where it was uploaded, and that is the band.
  */
 export function BandDocumentsList({ bandId, bandName }: { bandId: number; bandName?: string }) {
-  const { data: documents = [], isLoading } = trpcReact.document.listByOwner.useQuery({
+  const documentsQuery = trpcReact.document.listByOwner.useQuery({
     ownerType: 'band',
     ownerId: bandId
   })
 
-  if (isLoading) {
+  const documents = documentsQuery.data ?? []
+
+  if (documentsQuery.isLoading || documentsQuery.isError) {
     return (
       <section aria-label="Dokumente der Band">
         <h3 className="mb-1 font-semibold">Dokumente der Band</h3>
-        <p className="text-sm text-muted-foreground">Dokumente werden geladen…</p>
+        {documentsQuery.isLoading ? (
+          <LoadingRow>Dokumente werden geladen…</LoadingRow>
+        ) : (
+          <ErrorState error={documentsQuery.error} onRetry={() => void documentsQuery.refetch()} />
+        )}
       </section>
     )
   }
@@ -43,7 +50,7 @@ export function BandDocumentsList({ bandId, bandName }: { bandId: number; bandNa
       </p>
 
       {documents.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Keine Dokumente in der Band.</p>
+        <EmptyState>Keine Dokumente in der Band.</EmptyState>
       ) : (
         <ul className="rounded-lg border" aria-label="Dokumente der Band">
           {documents.map((doc) => (

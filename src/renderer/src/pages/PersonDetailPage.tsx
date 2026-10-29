@@ -5,6 +5,8 @@ import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { usePersonTabCounts } from '@/hooks/useTabCounts'
@@ -142,8 +144,7 @@ function BandsTab({ personId }: { personId: number }) {
         <SectionTitle>Technischer Leiter von</SectionTitle>
         <RowTable
           label="Bands als Technischer Leiter"
-          rows={ledBands.data}
-          isLoading={ledBands.isLoading}
+          query={ledBands}
           loading="Bands werden geladen…"
           empty="Für keine Band als Technischer Leiter eingetragen."
           columns={[
@@ -173,8 +174,7 @@ function CompaniesTab({ personId }: { personId: number }) {
         <SectionTitle>Ansprechpartner für Rechnungen bei</SectionTitle>
         <RowTable
           label="Firmen mit der Person als Ansprechpartner für Rechnungen"
-          rows={billed.data}
-          isLoading={billed.isLoading}
+          query={billed}
           loading="Firmen werden geladen…"
           empty="Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen."
           columns={[
@@ -198,8 +198,7 @@ function EventsTab({ personId }: { personId: number }) {
   return (
     <EventsTable
       label="Events der Person"
-      events={events.data}
-      isLoading={events.isLoading}
+      query={events}
       empty="Keine Events mit dieser Person als LoPro-Kontakt oder Technischer Leiter."
       columns={[
         {
@@ -235,8 +234,7 @@ function ContractsTab({ personId }: { personId: number }) {
   return (
     <RowTable
       label="Managementverträge der Person"
-      rows={contracts.data}
-      isLoading={contracts.isLoading}
+      query={contracts}
       loading="Verträge werden geladen…"
       empty="In keinem Managementvertrag aufgeführt."
       columns={[
@@ -275,8 +273,7 @@ function InvoicesTab({ personId }: { personId: number }) {
   return (
     <RowTable
       label="Rechnungen an die Person"
-      rows={invoices.data}
-      isLoading={invoices.isLoading}
+      query={invoices}
       loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen an diese Person."
       columns={[
@@ -331,7 +328,9 @@ export default function PersonDetailPage() {
   const {
     data: person,
     isLoading,
-    isError
+    isError,
+    error,
+    refetch
   } = trpcReact.person.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   const updatePerson = trpcReact.person.update.useMutation({
@@ -358,7 +357,11 @@ export default function PersonDetailPage() {
     )
   }
 
-  if (isError || !person) {
+  if (isError && !isNotFound(error)) {
+    return <PageErrorState error={error} onRetry={() => void refetch()} />
+  }
+
+  if (!person) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Person nicht gefunden.</p>

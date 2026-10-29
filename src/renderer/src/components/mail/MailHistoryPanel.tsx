@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Mail, Paperclip, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { formatListDate } from '@/components/mail/format'
@@ -60,17 +61,10 @@ export function MailHistoryPanel({
   })
 
   if (links.isLoading) {
-    return <p className="text-sm text-muted-foreground">E-Mails werden geladen…</p>
+    return <LoadingRow>E-Mails werden geladen…</LoadingRow>
   }
   if (links.isError) {
-    return (
-      <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">E-Mails konnten nicht geladen werden.</p>
-        <Button variant="outline" size="sm" onClick={() => void links.refetch()}>
-          Erneut versuchen
-        </Button>
-      </div>
-    )
+    return <ErrorState error={links.error} onRetry={() => void links.refetch()} />
   }
   const pages = links.data?.pages ?? []
   // The mailbox did not answer: rows without a mail are not known to be gone
@@ -78,7 +72,7 @@ export function MailHistoryPanel({
   const rows = pages.flatMap((page) => page.rows).filter((row) => !removed.has(row.id))
   if (rows.length === 0) {
     return (
-      <div className="space-y-1 text-sm text-muted-foreground">
+      <EmptyState className="space-y-1">
         <p>Keine E-Mails zugeordnet.</p>
         <p>
           E-Mails werden über die E-Mail-Adressen der Kontakte automatisch zugeordnet. Andere ordnen
@@ -88,7 +82,7 @@ export function MailHistoryPanel({
           </Link>{' '}
           mit „Zuordnen…“ zu.
         </p>
-      </div>
+      </EmptyState>
     )
   }
 
