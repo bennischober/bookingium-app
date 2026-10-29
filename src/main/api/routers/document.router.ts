@@ -93,10 +93,16 @@ export const documentRouter = t.router({
     }),
 
   /**
-   * Update document metadata (e.g., document type, uploaded_by).
+   * Update document metadata (e.g., document type, uploaded_by, display name).
    */
   update: t.procedure.input(UpdateDocumentInput).mutation(async ({ input }) => {
+    // A name that is only whitespace means "use the file name again", which is
+    // not an error - normalizeDisplayName turns it into null. Anything else is
+    // taken as typed, cleaned of path separators and control characters.
     const document = await documentService.updateDocument(input)
+    if (!document) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
+    }
     return DocumentMapper.toDto(document)
   }),
 

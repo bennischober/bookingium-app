@@ -4,6 +4,7 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
 import type { DocumentOwnerType, UpdateDocumentInput } from '../api/schemas/document.schema'
+import { normalizeDisplayName } from '../api/schemas/document.schema'
 
 type NewDocument = typeof schema.document.$inferInsert
 
@@ -112,6 +113,12 @@ export class DocumentRepository {
 
     if (input.uploadedBy !== undefined) {
       updates.uploaded_by = input.uploadedBy
+    }
+
+    // The file on disk keeps its name; only the shown name changes. An empty or
+    // whitespace-only name clears the override, so the file name shows again.
+    if (input.displayName !== undefined) {
+      updates.display_name = normalizeDisplayName(input.displayName)
     }
 
     const result = await db
