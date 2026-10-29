@@ -36,6 +36,8 @@ const DEFAULTS = {
   mailProgram: 'auto',
   // the built-in mail client is experimental and off until the user turns it on
   mailClient: false,
+  // Verteiler are experimental too until they cover more than venues and Veranstalter (#80)
+  contactLists: false,
   invoiceMailAccountId: '',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
   invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,

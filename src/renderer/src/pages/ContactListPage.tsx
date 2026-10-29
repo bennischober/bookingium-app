@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -75,7 +76,22 @@ function activeFilterCount(filters: ContactListFilters): number {
 
 const addresses = (count: number) => `${count} ${count === 1 ? 'Adresse' : 'Adressen'}`
 
+/** The Verteiler, or a note while "Verteiler (experimentell)" is off (the menu then has no entry) */
 export default function ContactListPage() {
+  const navigate = useNavigate()
+  const settings = trpcReact.settings.get.useQuery()
+  if (!settings.data) return null
+  if (settings.data.contactLists) return <ContactLists />
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-2xl font-bold">Verteiler</h1>
+      <p className="text-sm text-muted-foreground">Die Verteiler sind ausgeschaltet.</p>
+      <Button onClick={() => void navigate({ to: '/settings' })}>Zu den Einstellungen</Button>
+    </div>
+  )
+}
+
+function ContactLists() {
   const [filters, setFilters] = useState<ContactListFilters>(EMPTY_FILTERS)
   const [savedId, setSavedId] = useState<number | null>(null)
   const [nameDialog, setNameDialog] = useState<{ id?: number; name: string } | null>(null)

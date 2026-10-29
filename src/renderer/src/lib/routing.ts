@@ -56,7 +56,7 @@ export const ROUTES = {
 
 /**
  * Groups the routes by their group property.
- * @param isShown leaves a route out of the menu (the mail page while its switch is off)
+ * @param isShown leaves a route out of the menu (a page while its experimental switch is off)
  * @returns An array of grouped routes.
  */
 export const getGroupedRoutes = (

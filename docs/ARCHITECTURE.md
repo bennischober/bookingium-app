@@ -407,6 +407,12 @@ mails. Bookingium sends nothing itself: German law (§ 7 UWG) only allows
 advertising emails with consent or an existing business relationship, and
 bulk sending belongs in a newsletter service that handles unsubscribes.
 
+The page is experimental and off by default (setting `contactLists`,
+Einstellungen › Allgemein › "Verteiler (experimentell)") until it covers
+recipients beyond venues and Veranstalter, such as radio stations (#80).
+Off, the menu and the search leave it out (`hooks/useRouteShown.ts`) and the
+route shows a note; saved lists stay. When #80 is done, the switch goes.
+
 - **Sources:** every venue and festival gives up to three kinds of
   recipient: its own address (Spielstätte/Festival), its Ansprechpartner
   (venue members) and its Veranstalter (the owning company's own email).

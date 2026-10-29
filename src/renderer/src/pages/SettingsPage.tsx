@@ -33,6 +33,7 @@ import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
+import { ContactListsSwitchCard } from '@/components/settings/ContactListsSwitchCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
@@ -377,6 +378,7 @@ export default function SettingsPage() {
         <TabsContent value="general" className="space-y-6">
           <GeneralCard />
           <AppearanceCard />
+          <ContactListsSwitchCard />
         </TabsContent>
         <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />
