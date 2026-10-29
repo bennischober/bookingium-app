@@ -56,7 +56,7 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Stageplot.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  const bandDocs = page.getByRole('list', { name: 'Dokumente der Band' })
+  const bandDocs = page.getByRole('table', { name: 'Dokumente der Band' })
   await expect(bandDocs).toContainText('Stageplot.pdf')
   await bandDocs.getByRole('combobox', { name: 'Art von Stageplot.pdf' }).click()
   await page.getByRole('option', { name: 'Stageplot' }).click()
@@ -79,7 +79,7 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Vertrag Berlin.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente', exact: true })).toContainText(
+  await expect(page.getByRole('table', { name: 'Dokumente', exact: true })).toContainText(
     'Vertrag Berlin.pdf'
   )
   // D1: the band's own documents are shown read-only on the gig as well
@@ -106,7 +106,9 @@ test('band page shows members, events, contracts and documents', async () => {
   await expect(combined.getByRole('combobox', { name: 'Nach Kategorie filtern' })).toBeEnabled()
   await expect(combined.getByRole('combobox', { name: 'Nach Event filtern' })).toBeEnabled()
 
-  // Deleting removes the file
+  // Deleting moves the file to the OS trash: the row goes and the file leaves the
+  // documents folder. That it stays recoverable is `shell.trashItem` in the router;
+  // the unit tests cover the split (path handed over before the row is removed).
   await bandDocs.getByRole('button', { name: 'Stageplot.pdf löschen' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Löschen' }).click()
   await expect(bandDocs).toBeHidden()

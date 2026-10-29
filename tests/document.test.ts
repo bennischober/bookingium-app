@@ -187,6 +187,50 @@ describe('moving files from the old layout', () => {
   })
 })
 
+describe('deleting a document', () => {
+  const service = () => container.resolve(DocumentService)
+
+  it('hands the file path to the caller and keeps the record until it is removed', async () => {
+    const bandId = createBand('Trash Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('alt.pdf'),
+      documentType: 'other'
+    })
+
+    // The router moves this path to the OS trash before the row goes; the service
+    // must report it and must not delete anything on its own
+    const found = await service().detachFileForTrash(doc.id)
+    expect(found?.filePath).toBe(join(storage, doc.file_path))
+    expect(existsSync(join(storage, doc.file_path))).toBe(true)
+    expect(await service().getById(doc.id)).not.toBeNull()
+
+    await service().deleteDocumentRecord(doc.id)
+    expect(await service().getById(doc.id)).toBeNull()
+  })
+
+  it('reports no file for a record whose file is already gone', async () => {
+    const bandId = createBand('Missing File Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('weg2.pdf'),
+      documentType: 'other'
+    })
+    rmSync(join(storage, doc.file_path), { force: true })
+
+    // A missing file is not an error: the record still goes, without a path to trash
+    expect(await service().detachFileForTrash(doc.id)).toMatchObject({ filePath: null })
+    await service().deleteDocumentRecord(doc.id)
+    expect(await service().getById(doc.id)).toBeNull()
+  })
+
+  it('reports nothing for an id that does not exist', async () => {
+    expect(await service().detachFileForTrash(999_999)).toBeNull()
+  })
+})
+
 describe('C5: an attachment becomes a document', () => {
   const service = () => container.resolve(DocumentService)
 
@@ -203,9 +247,7 @@ describe('C5: an attachment becomes a document', () => {
       mailAccountId: 'acc-1'
     })
 
-    expect(posix(saved.file_path)).toBe(
-      `documents/bands/${bandId}-antwort-band/Angebot.pdf`
-    )
+    expect(posix(saved.file_path)).toBe(`documents/bands/${bandId}-antwort-band/Angebot.pdf`)
     expect(saved).toMatchObject({
       owner_type: 'band',
       document_type: 'contract',

@@ -101,13 +101,22 @@ export const documentRouter = t.router({
   }),
 
   /**
-   * Delete a document (both the file and the database record).
+   * Delete a document: its file goes to the OS trash (recoverable), then the record is removed.
+   * A file that is already gone is no error - the record still goes.
    */
   delete: t.procedure.input(z.number()).mutation(async ({ input: documentId }) => {
-    const document = await documentService.deleteDocument(documentId)
-    if (!document) {
+    const found = await documentService.detachFileForTrash(documentId)
+    if (!found) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
     }
+    if (found.filePath) {
+      try {
+        await shell.trashItem(found.filePath)
+      } catch (error) {
+        throw badRequest(error, 'Datei konnte nicht in den Papierkorb verschoben werden')
+      }
+    }
+    await documentService.deleteDocumentRecord(documentId)
   }),
 
   /** Opens the owner's document folder in the file manager */
