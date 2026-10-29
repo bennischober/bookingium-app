@@ -256,7 +256,7 @@ export class ImportRepository {
           .from(schema.venue)
           .where(eq(schema.venue.id, draft.existingId))
           .get()
-        if (!row) throw new Error(`Spielstätte ${draft.existingId} nicht gefunden`)
+        if (!row) throw new Error(`Club / Festival ${draft.existingId} nicht gefunden`)
         const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
         const changes = emptyOnly(row, {

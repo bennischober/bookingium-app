@@ -44,8 +44,9 @@ describe('list export', () => {
 
     const all = await service().table({ list: 'venues' })
     expect(all.rows).toHaveLength(15)
+    expect(all.name).toBe('Clubs und Festivals')
     expect(all.columns.map((column) => column.header).slice(0, 5)).toEqual([
-      'Spielstätte',
+      'Club / Festival',
       'Art',
       'Kapazität',
       'Genres',
@@ -53,6 +54,9 @@ describe('list export', () => {
     ])
 
     const festivals = await service().table({ list: 'venues', kind: 'festival' })
+    // Each list page exports its own kind under its own name
+    expect(festivals.name).toBe('Festivals')
+    expect((await service().table({ list: 'venues', kind: 'venue' })).name).toBe('Clubs')
     expect(festivals.rows.map((row) => row[0])).toEqual([
       'Club 12',
       'Club 15',
@@ -122,7 +126,7 @@ describe('CSV', () => {
       'Bands',
       'Personen',
       'Firmen',
-      'Spielstätten',
+      'Clubs und Festivals',
       'Hotels',
       'Events',
       'Rechnungen',

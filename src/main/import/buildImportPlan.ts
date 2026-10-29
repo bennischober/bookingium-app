@@ -835,7 +835,7 @@ function missingColumns(request: ImportRequest): string[] {
     case 'venues':
       return has('venueName') || has('companyName')
         ? []
-        : ['Ordnen Sie eine Spalte „Spielstätte / Festival“ oder „Veranstalter (Firma)“ zu.']
+        : ['Ordnen Sie eine Spalte „Club / Festival“ oder „Veranstalter (Firma)“ zu.']
     case 'companies':
       return has('companyName') ? [] : ['Ordnen Sie die Spalte „Firma“ zu.']
     case 'bands':

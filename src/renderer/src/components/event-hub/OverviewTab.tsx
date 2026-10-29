@@ -153,7 +153,7 @@ export function OverviewTab({
         />
         <SwappableEntityCard
           icon={<MapPin className="h-3.5 w-3.5" />}
-          title="Spielstätte"
+          title="Club / Festival"
           currentName={event.venueName}
           currentDetail={
             event.venue?.capacity ? `Kapazität: ${event.venue.capacity.toLocaleString()}` : null
@@ -165,7 +165,7 @@ export function OverviewTab({
           isSaving={updateMutation.isPending}
           nullable={true}
           href={event.venueId ? `/venues/${event.venueId}` : undefined}
-          empty="Keine Spielstätte zugewiesen"
+          empty="Kein Club / Festival zugewiesen"
         />
       </div>
 

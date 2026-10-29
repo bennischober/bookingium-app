@@ -32,14 +32,14 @@ English.
 | Settings                              | Einstellungen                                            |
 | Settings tabs                         | Allgemein / Rechnungen / E-Mail / Kalender / Daten       |
 | Defaults (general settings card)      | Voreinstellungen                                         |
-| Venues                                | Spielstätten                                             |
+| Venues (two lists, by venue kind)     | Clubs / Festivals                                        |
 | Persons / Companies / Banks           | Personen / Firmen / Banken                               |
 | Search everything                     | Alles suchen                                             |
 | Back / Forward                        | Zurück / Vorwärts                                        |
 | Create / New / Add                    | Anlegen / Neu / Hinzufügen                               |
 | Edit / Delete / Save / Cancel / Close | Bearbeiten / Löschen / Speichern / Abbrechen / Schließen |
 | Actions                               | Aktionen                                                 |
-| 311 venues / found / loaded           | 311 Spielstätten / … gefunden / … geladen                |
+| 311 clubs / found / loaded            | 311 Clubs / … gefunden / … geladen                       |
 | Import / Export / Backup              | Importieren / Exportieren / Sicherung                    |
 | Automatic backup / Restore            | Automatische Sicherung / Wiederherstellen                |
 | Print / Save as PDF                   | Drucken / Als PDF speichern                              |
@@ -51,13 +51,14 @@ English.
 
 | English                                     | German                                              |
 | ------------------------------------------- | --------------------------------------------------- |
-| Venue / Festival (venue kind)               | Spielstätte / Festival                              |
+| Venue / Festival (venue kind)               | Club / Festival                                     |
+| Any venue, either kind (not „Spielstätte“)  | Club / Festival, Clubs und Festivals                |
 | Promoter (company behind a venue)           | Veranstalter                                        |
 | Contact person                              | Ansprechpartner                                     |
 | Members (band)                              | Mitglieder                                          |
 | A person's memberships / roles              | Zugehörigkeiten / Rollen                            |
 | Member of / assigned to (person page)       | Mitglied in / Zugehörig zu                          |
-| Add to band / company / venue               | Zur Band / Firma / Spielstätte hinzufügen           |
+| Add to band / company / venue               | Zur Band / Firma / Zu Club / Festival hinzufügen    |
 | Technical lead                              | Technischer Leiter (TL)                             |
 | LoPro contact / TL of the band (event role) | LoPro-Kontakt / TL der Band                         |
 | Contract role member / representative       | Mitglied / Bevollmächtigt                           |

@@ -115,7 +115,13 @@ export class ExportService {
       sortBy: input.sortBy,
       sortDir: input.sortDir
     }
-    const name = EXPORT_LIST_LABELS[input.list]
+    // The Clubs and Festivals pages each export their own kind
+    const name =
+      input.list === 'venues' && input.kind
+        ? input.kind === 'festival'
+          ? 'Festivals'
+          : 'Clubs'
+        : EXPORT_LIST_LABELS[input.list]
 
     switch (input.list) {
       case 'bands': {
@@ -197,7 +203,7 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Spielstätte' },
+            { header: 'Club / Festival' },
             { header: 'Art' },
             { header: 'Kapazität', kind: 'number' },
             { header: 'Genres' },
@@ -244,7 +250,7 @@ export class ExportService {
             { header: 'Datum', kind: 'date' },
             { header: 'Event' },
             { header: 'Band' },
-            { header: 'Spielstätte' },
+            { header: 'Club / Festival' },
             { header: 'Status' },
             { header: 'Deal' }
           ],

@@ -26,7 +26,7 @@ test.afterAll(async () => {
 
 test('venue page shows overview, contacts, events and documents', async () => {
   const { page } = h
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
 
   // The pencil keeps the quick-edit sheet
   await page
@@ -34,7 +34,7 @@ test('venue page shows overview, contacts, events and documents', async () => {
     .first()
     .getByRole('button', { name: 'Bearbeiten' })
     .click()
-  await expect(page.getByRole('dialog', { name: 'Spielstätte bearbeiten' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Club bearbeiten' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toBeHidden()
 
@@ -42,7 +42,8 @@ test('venue page shows overview, contacts, events and documents', async () => {
   await page.locator('tr', { hasText: VENUE }).first().click()
   await expect(page.getByRole('heading', { name: VENUE })).toBeVisible()
   const breadcrumb = page.getByRole('navigation', { name: 'breadcrumb' })
-  await expect(breadcrumb).toContainText('Spielstätten')
+  await expect(page).toHaveURL(/#\/clubs\/\d+$/)
+  await expect(breadcrumb).toContainText('Clubs')
   await expect(breadcrumb).toContainText(VENUE)
   await expect(page.getByText('Art / Kapazität')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Live Music Berlin GmbH' })).toBeVisible()
@@ -53,7 +54,7 @@ test('venue page shows overview, contacts, events and documents', async () => {
   await expect(page.getByText('Tom Manager')).toBeVisible()
 
   await page.getByRole('tab', { name: 'Events' }).click()
-  const events = page.getByRole('table', { name: 'Events der Spielstätte' })
+  const events = page.getByRole('table', { name: 'Events des Clubs' })
   await expect(events.locator('tr', { hasText: EVENT })).toContainText('The Electric Waves')
 
   // Venue document: copied into documents/venues/<id>-berghain/
@@ -64,7 +65,7 @@ test('venue page shows overview, contacts, events and documents', async () => {
     dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
   }, file)
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente der Spielstätte' })).toContainText(
+  await expect(page.getByRole('list', { name: 'Dokumente des Clubs' })).toContainText(
     'Bühnenplan.pdf'
   )
   const storage = join(
@@ -81,8 +82,8 @@ test('venue page shows overview, contacts, events and documents', async () => {
   await page.getByRole('tab', { name: 'Übersicht' }).click()
   await page.getByRole('link', { name: 'Live Music Berlin GmbH' }).click()
   await expect(page.getByRole('heading', { name: 'Live Music Berlin GmbH' })).toBeVisible()
-  await page.getByRole('tab', { name: 'Spielstätten' }).click()
-  await page.getByRole('table', { name: 'Spielstätten der Firma' }).getByText(VENUE).click()
+  await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
+  await page.getByRole('table', { name: 'Clubs und Festivals der Firma' }).getByText(VENUE).click()
   await expect(page.getByRole('heading', { name: VENUE })).toBeVisible()
 })
 
@@ -93,15 +94,17 @@ test('search palette and event page open the venue page', async () => {
   await page.getByRole('option', { name: /The Whisky a Go Go/ }).click()
   await expect(page.getByRole('heading', { name: 'The Whisky a Go Go' })).toBeVisible()
 
-  // From the LA event back to its venue via the Spielstätte card
+  // From the LA event back to its venue via the Club / Festival card
   await page.getByRole('tab', { name: 'Events' }).click()
   await page
-    .getByRole('table', { name: 'Events der Spielstätte' })
+    .getByRole('table', { name: 'Events des Clubs' })
     .getByText('Midnight Symphony - LA Showcase')
     .click()
   await expect(page.getByRole('heading', { name: 'Midnight Symphony - LA Showcase' })).toBeVisible()
   await page.locator('a[href*="/venues/"]', { hasText: 'Ansehen' }).click()
   await expect(page.getByRole('heading', { name: 'The Whisky a Go Go' })).toBeVisible()
+  // The link does not know the kind: the page moves itself below the Clubs list
+  await expect(page).toHaveURL(/#\/clubs\/\d+$/)
   await expect(page.getByRole('navigation', { name: 'breadcrumb' })).toContainText(
     'The Whisky a Go Go'
   )

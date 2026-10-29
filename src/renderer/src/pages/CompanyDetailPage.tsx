@@ -146,12 +146,12 @@ function VenuesTab({ companyId }: { companyId: number }) {
   const venues = trpcReact.venue.listByCompany.useQuery(companyId)
   return (
     <RowTable
-      label="Spielstätten der Firma"
+      label="Clubs und Festivals der Firma"
       query={venues}
-      loading="Spielstätten werden geladen…"
-      empty="Keine Spielstätten mit dieser Firma."
+      loading="Clubs und Festivals werden geladen…"
+      empty="Keine Clubs und Festivals mit dieser Firma."
       columns={[
-        { header: 'Spielstätte', cell: (venue) => venue.name, className: 'font-medium' },
+        { header: 'Name', cell: (venue) => venue.name, className: 'font-medium' },
         { header: 'Art', cell: (venue) => VENUE_KIND_LABELS[venue.kind] },
         { header: 'Stadt', cell: (venue) => venue.address?.city || '–' },
         {
@@ -177,7 +177,7 @@ function EventsTab({ companyId }: { companyId: number }) {
       columns={[
         {
           // One column for both keeps the table within narrow windows
-          header: 'Band / Spielstätte',
+          header: 'Band / Club / Festival',
           cell: (event) => (
             <>
               <div>{event.bandName}</div>
@@ -371,7 +371,7 @@ export default function CompanyDetailPage() {
             <TabCount count={counts.bands} />
           </TabsTrigger>
           <TabsTrigger value="venues">
-            Spielstätten
+            Clubs / Festivals
             <TabCount count={counts.venues} />
           </TabsTrigger>
           <TabsTrigger value="events">

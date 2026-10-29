@@ -13,14 +13,14 @@ export const ImportTarget = z.enum(['venues', 'bands', 'companies', 'persons'])
 export type ImportTarget = z.infer<typeof ImportTarget>
 
 export const IMPORT_TARGET_LABELS: Record<ImportTarget, string> = {
-  venues: 'Spielstätten / Festivals',
+  venues: 'Clubs / Festivals',
   bands: 'Bands',
   companies: 'Firmen',
   persons: 'Personen'
 }
 
 export const IMPORT_TARGET_DESCRIPTIONS: Record<ImportTarget, string> = {
-  venues: 'Eine Zeile pro Spielstätte oder Festival, mit Veranstalter und Ansprechpartnern.',
+  venues: 'Eine Zeile pro Club oder Festival, mit Veranstalter und Ansprechpartnern.',
   bands:
     'Eine Zeile pro Band, mit Mitgliedern. Die Firma der Band muss schon angelegt sein; Zeilen ohne Namen ergänzen Mitglieder der Band darüber.',
   companies: 'Eine Zeile pro Firma, mit Anschrift und Ansprechpartnern.',
@@ -62,8 +62,8 @@ export type ImportField = z.infer<typeof ImportField>
 
 const FIELD_LABELS: Record<ImportField, string> = {
   ignore: 'Nicht importieren',
-  venueName: 'Spielstätte / Festival',
-  venueCity: 'Ort der Spielstätte',
+  venueName: 'Club / Festival',
+  venueCity: 'Ort des Clubs / Festivals',
   region: 'Land / Bundesland',
   capacity: 'Kapazität / Zuschauer',
   bandName: 'Band',
@@ -218,7 +218,7 @@ export const ImportFile = z.object({
 export type ImportFile = z.infer<typeof ImportFile>
 
 export const ImportOptions = z.object({
-  // Venues only: Spielstätte or Festival
+  // Venues only: Club or Festival
   kind: VenueKind,
   // ISO code used when a row names no country, '' for none
   defaultCountry: z.string()

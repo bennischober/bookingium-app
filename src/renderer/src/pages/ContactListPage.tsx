@@ -29,7 +29,7 @@ import {
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { useExportToast } from '@/components/export/useExportToast'
 import { confirmAction } from '@/lib/confirm'
-import { VENUE_KIND_LABELS, VenueKind } from '../../../main/api/schemas/venue.schema'
+import { VenueKind } from '../../../main/api/schemas/venue.schema'
 import {
   BookedFilter,
   ContactListFilters,
@@ -229,7 +229,7 @@ function ContactLists() {
     },
     {
       id: 'venues',
-      header: 'Spielstätten',
+      header: 'Clubs / Festivals',
       cell: ({ row }) => {
         const names = row.original.venues.map((venue) =>
           venue.role ? `${venue.name} (${venue.role})` : venue.name
@@ -351,7 +351,7 @@ function ContactLists() {
               >
                 {VenueKind.options.map((kind) => (
                   <ToggleGroupItem key={kind} value={kind}>
-                    {kind === 'venue' ? 'Spielstätten' : 'Festivals'}
+                    {kind === 'venue' ? 'Clubs' : 'Festivals'}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -369,7 +369,7 @@ function ContactLists() {
               >
                 {RecipientType.options.map((type) => (
                   <ToggleGroupItem key={type} value={type}>
-                    {type === 'venue' ? VENUE_KIND_LABELS.venue : RECIPIENT_TYPE_LABELS[type]}
+                    {RECIPIENT_TYPE_LABELS[type]}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -447,10 +447,10 @@ function ContactLists() {
                   label: genre
                 }))}
                 placeholder="Alle Genres"
-                emptyText="Keine Genres. Bei Spielstätten und Bands eintragen."
+                emptyText="Keine Genres. Bei Clubs, Festivals und Bands eintragen."
               />
               <p className="text-xs text-muted-foreground">
-                Genres der Spielstätte und der Bands, die dort gespielt haben.
+                Genres des Clubs / Festivals und der Bands, die dort gespielt haben.
               </p>
             </div>
 

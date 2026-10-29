@@ -12,7 +12,8 @@ const CREATE_ITEMS = [
   { label: 'Band', route: ROUTES.bands },
   { label: 'Person', route: ROUTES.persons },
   { label: 'Firma', route: ROUTES.companies },
-  { label: 'Spielstätte', route: ROUTES.venues },
+  { label: 'Club', route: ROUTES.clubs },
+  { label: 'Festival', route: ROUTES.festivals },
   { label: 'Hotel', route: ROUTES.hotels },
   { label: 'Bank', route: ROUTES.banks }
 ]

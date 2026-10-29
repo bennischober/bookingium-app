@@ -51,8 +51,8 @@ export function MailClientSwitchCard() {
         </div>
         <p className="text-xs text-muted-foreground">
           Noch in Erprobung. Eingeschaltet erscheinen „E-Mail“ im Menü, die Konten unten und der
-          Reiter „E-Mails“ bei Bands, Personen, Firmen, Spielstätten und Events. Ausgeschaltet wird
-          nichts gelöscht: Konten und heruntergeladene E-Mails bleiben gespeichert.
+          Reiter „E-Mails“ bei Bands, Personen, Firmen, Clubs, Festivals und Events. Ausgeschaltet
+          wird nichts gelöscht: Konten und heruntergeladene E-Mails bleiben gespeichert.
         </p>
       </CardContent>
     </Card>

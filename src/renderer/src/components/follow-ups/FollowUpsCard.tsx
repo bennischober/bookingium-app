@@ -36,7 +36,7 @@ export function FollowUpsCard() {
           <p className="text-sm text-muted-foreground">Wiedervorlagen werden geladen…</p>
         ) : followUps.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Keine offenen Wiedervorlagen. Auf Events, Bands, Spielstätten, Firmen, Personen und
+            Keine offenen Wiedervorlagen. Auf Events, Bands, Clubs, Festivals, Firmen, Personen und
             Rechnungen über „Wiedervorlage“ anlegen.
           </p>
         ) : (

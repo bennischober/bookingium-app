@@ -1,4 +1,10 @@
-import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
+import {
+  createRouter,
+  createRootRoute,
+  createRoute,
+  Outlet,
+  redirect
+} from '@tanstack/react-router'
 import { createHashHistory } from '@tanstack/react-router'
 import RootLayout from '@/components/layout/root-layout'
 import { ErrorFallback } from '@/components/ErrorFallback'
@@ -101,11 +107,27 @@ const bankRoute = createRoute({
   component: BankPage
 })
 
-const venueRoute = createRoute({
+const clubRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
-  path: ROUTES.venues.path,
+  path: ROUTES.clubs.path,
   validateSearch: validateListSearch,
-  component: VenuePage
+  component: () => <VenuePage key="venue" kind="venue" />
+})
+
+const festivalRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.festivals.path,
+  validateSearch: validateListSearch,
+  component: () => <VenuePage key="festival" kind="festival" />
+})
+
+// The list before Clubs and Festivals were split
+const venueListRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/venues',
+  beforeLoad: () => {
+    throw redirect({ to: ROUTES.clubs.path, replace: true })
+  }
 })
 
 const hotelRoute = createRoute({
@@ -176,12 +198,30 @@ const companyDetailRoute = createRoute({
   component: CompanyDetailPage
 })
 
+const validateVenueSearch = (search: Record<string, unknown>): { tab?: VenueTab } => ({
+  tab: isVenueTab(search.tab) ? search.tab : undefined
+})
+
+const clubDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/clubs/$venueId',
+  validateSearch: validateVenueSearch,
+  component: VenueDetailPage
+})
+
+const festivalDetailRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/festivals/$venueId',
+  validateSearch: validateVenueSearch,
+  component: VenueDetailPage
+})
+
+// Links that do not know the kind (search, follow-ups, memberships) and older links: the page
+// moves itself to /clubs/<id> or /festivals/<id> once the venue is loaded
 const venueDetailRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/venues/$venueId',
-  validateSearch: (search: Record<string, unknown>): { tab?: VenueTab } => ({
-    tab: isVenueTab(search.tab) ? search.tab : undefined
-  }),
+  validateSearch: validateVenueSearch,
   component: VenueDetailPage
 })
 
@@ -239,7 +279,9 @@ const routeTree = rootRoute.addChildren([
     personDetailRoute,
     companyRoute,
     bankRoute,
-    venueRoute,
+    clubRoute,
+    festivalRoute,
+    venueListRoute,
     hotelRoute,
     contactListRoute,
     mailRoute,
@@ -250,6 +292,8 @@ const routeTree = rootRoute.addChildren([
     bandDetailRoute,
     settingsRoute,
     companyDetailRoute,
+    clubDetailRoute,
+    festivalDetailRoute,
     venueDetailRoute
   ]),
   printLayoutRoute.addChildren([

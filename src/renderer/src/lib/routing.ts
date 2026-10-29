@@ -11,6 +11,7 @@ import {
   MapPin,
   Music2,
   Settings,
+  Tent,
   Users,
   type LucideIcon
 } from 'lucide-react'
@@ -46,7 +47,9 @@ export const ROUTES = {
   bands: { path: '/band', title: 'Bands', group: 'Kontakte', icon: Guitar },
   persons: { path: '/persons', title: 'Personen', group: 'Kontakte', icon: Users },
   companies: { path: '/companies', title: 'Firmen', group: 'Kontakte', icon: Building2 },
-  venues: { path: '/venues', title: 'Spielstätten', group: 'Kontakte', icon: MapPin },
+  // Both are venues in the database (venue.kind); the detail page lives under the list of its kind
+  clubs: { path: '/clubs', title: 'Clubs', group: 'Kontakte', icon: MapPin },
+  festivals: { path: '/festivals', title: 'Festivals', group: 'Kontakte', icon: Tent },
   hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
   contactLists: { path: '/contact-lists', title: 'Verteiler', group: 'Kontakte', icon: Mails },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },

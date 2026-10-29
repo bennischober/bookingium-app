@@ -10,7 +10,10 @@ import { findCountry, isGermanStateCode, normalizeKey } from './normalize'
 
 // Header spellings (compared without case, spaces and punctuation)
 const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
-  ['venueName', ['venue', 'spielstätte', 'spielstaette', 'club', 'festival', 'halle']],
+  [
+    'venueName',
+    ['venue', 'spielstätte', 'spielstaette', 'club', 'festival', 'clubfestival', 'halle']
+  ],
   ['venueCity', ['city', 'w', 'wo']],
   ['region', ['land', 'bundesland', 'country', 'state', 'staat', 'region']],
   ['capacity', ['cc', 'cap', 'kapazität', 'kapazitaet', 'capacity', 'zuschauer', 'besucher']],

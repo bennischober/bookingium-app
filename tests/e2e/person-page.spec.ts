@@ -60,7 +60,7 @@ test('person page shows memberships, events, invoices and documents', async () =
     page.getByText('Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen.')
   ).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Spielstätten' }).click()
+  await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
   await expect(page.getByRole('link', { name: 'Berghain' })).toBeVisible()
   await expect(page.getByText('Stage Manager')).toBeVisible()
 

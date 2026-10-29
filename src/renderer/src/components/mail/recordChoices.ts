@@ -16,7 +16,7 @@ export const RECORD_LABELS: Record<RecordType, string> = {
   event: 'Event',
   band: 'Band',
   company: 'Firma',
-  venue: 'Spielstätte',
+  venue: 'Club / Festival',
   person: 'Person'
 }
 

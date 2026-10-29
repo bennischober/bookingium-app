@@ -9,7 +9,7 @@ export const RecipientType = z.enum(['venue', 'member', 'promoter'])
 export type RecipientType = z.infer<typeof RecipientType>
 
 export const RECIPIENT_TYPE_LABELS: Record<RecipientType, string> = {
-  venue: 'Spielstätte/Festival',
+  venue: 'Club/Festival',
   member: 'Ansprechpartner',
   promoter: 'Veranstalter'
 }

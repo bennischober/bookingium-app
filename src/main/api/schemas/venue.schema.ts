@@ -9,7 +9,7 @@ export const VenueKind = z.enum(['venue', 'festival'])
 export type VenueKind = z.infer<typeof VenueKind>
 
 export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
-  venue: 'Spielstätte',
+  venue: 'Club',
   festival: 'Festival'
 }
 

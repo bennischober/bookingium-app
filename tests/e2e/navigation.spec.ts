@@ -89,6 +89,21 @@ test('Alt + „+“ / Ctrl+N creates what the list shows, elsewhere offers the +
   await page.keyboard.press('Escape')
   await expect(sheet).toHaveCount(0)
 
+  // Festivals: a new venue of that kind
+  await page.getByRole('link', { name: 'Festivals' }).first().click()
+  await expect(crumbs).toContainText('Festivals')
+  await page.keyboard.press('Control+n')
+  const festival = page.getByRole('dialog', { name: 'Festival anlegen' })
+  await expect(festival).toBeVisible()
+  await expect(festival.getByRole('combobox', { name: 'Art' })).toHaveText('Festival')
+  await page.keyboard.press('Escape')
+  await expect(festival).toHaveCount(0)
+
+  // The list from before the split opens the Clubs
+  await page.evaluate(() => (window.location.hash = '/venues'))
+  await expect(page.getByRole('heading', { name: 'Clubs' })).toBeVisible()
+  await expect(page).toHaveURL(/#\/clubs$/)
+
   // Events: the new-event wizard
   await page.getByRole('link', { name: 'Events' }).first().click()
   await expect(crumbs).toContainText('Events')
@@ -103,7 +118,8 @@ test('a detail route with a bad id shows "nicht gefunden" instead of loading for
     ['/band/abc', 'Band nicht gefunden.'],
     ['/companies/abc', 'Firma nicht gefunden.'],
     ['/persons/abc', 'Person nicht gefunden.'],
-    ['/venues/abc', 'Spielstätte nicht gefunden.'],
+    ['/clubs/abc', 'Club oder Festival nicht gefunden.'],
+    ['/venues/abc', 'Club oder Festival nicht gefunden.'],
     ['/invoices/abc', 'Rechnung nicht gefunden.'],
     ['/band/99999', 'Band nicht gefunden.']
   ]) {

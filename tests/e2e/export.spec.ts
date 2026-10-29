@@ -37,11 +37,11 @@ test.afterAll(async () => {
 
 test('exports the filtered list and all lists', async () => {
   const { page } = h
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
-  await page.getByPlaceholder('Spielstätten filtern…').fill('Berg')
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
+  await page.getByPlaceholder('Clubs filtern…').fill('Berg')
   await expect(page.locator('tbody tr')).toHaveCount(1)
 
-  const listFile = await saveTo('Spielstätten.csv')
+  const listFile = await saveTo('Clubs.csv')
   await page.getByRole('button', { name: 'Exportieren' }).click()
   await expect(page.getByText('1 Zeile exportiert')).toBeVisible()
 
@@ -49,7 +49,7 @@ test('exports the filtered list and all lists', async () => {
   expect([...readFileSync(listFile).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
   const list = readCsv(listFile)
   expect(list).toHaveLength(2)
-  expect(list[0][0]).toBe('Spielstätte')
+  expect(list[0][0]).toBe('Club / Festival')
   expect(list[1][0]).toBe('Berghain')
 
   // All lists: one file each in a new folder inside the chosen one
@@ -63,7 +63,16 @@ test('exports the filtered list and all lists', async () => {
 
   const [folder] = readdirSync(outDir).filter((name) => name.startsWith('Bookingium Export'))
   expect(readdirSync(join(outDir, folder)).sort()).toEqual(
-    ['Bands', 'Banken', 'Events', 'Firmen', 'Hotels', 'Personen', 'Rechnungen', 'Spielstätten']
+    [
+      'Bands',
+      'Banken',
+      'Events',
+      'Firmen',
+      'Hotels',
+      'Personen',
+      'Rechnungen',
+      'Clubs und Festivals'
+    ]
       .map((name) => `${name}.csv`)
       .sort()
   )

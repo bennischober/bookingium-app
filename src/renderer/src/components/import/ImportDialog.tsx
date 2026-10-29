@@ -44,7 +44,7 @@ type Entity = keyof ImportPreview['summary']
 const NO_COUNTRY = 'none'
 
 const KIND_PLURALS: Record<VenueKind, string> = {
-  venue: 'Spielstätten',
+  venue: 'Clubs',
   festival: 'Festivals'
 }
 
@@ -54,7 +54,7 @@ const PREVIEW_COLUMNS: Record<
   { primary: string | null; company: string; persons: string | null; continuation: string }
 > = {
   venues: {
-    primary: null, // Spielstätte / Festival, by kind
+    primary: null, // Club / Festival, by kind
     company: 'Veranstalter',
     persons: 'Ansprechpartner',
     continuation: 'weiterer Kontakt zur Zeile darüber'
@@ -103,7 +103,7 @@ function summaryEntities(target: ImportTarget, kind: VenueKind): Array<[Entity, 
 
 // "1 Band angelegt" (labels that differ in the singular)
 const SINGULAR: Record<string, string> = {
-  Spielstätten: 'Spielstätte',
+  Clubs: 'Club',
   Festivals: 'Festival',
   Bands: 'Band',
   Firmen: 'Firma',
@@ -149,6 +149,8 @@ interface ImportDialogProps {
   onOpenChange: (open: boolean) => void
   /** What the list holds when opened from a list page (else detected) */
   target?: ImportTarget
+  /** Clubs or festivals, when opened from one of those lists (else detected); still changeable */
+  kind?: VenueKind
 }
 
 /**
@@ -158,14 +160,19 @@ interface ImportDialogProps {
  * empty fields filled. The mapping is remembered for lists with the same
  * columns.
  */
-export function ImportDialog({ open, onOpenChange, target: fixedTarget }: ImportDialogProps) {
+export function ImportDialog({
+  open,
+  onOpenChange,
+  target: fixedTarget,
+  kind: fixedKind
+}: ImportDialogProps) {
   const utils = trpcReact.useUtils()
   const [step, setStep] = useState<Step>('file')
   const [picking, setPicking] = useState(false)
   const [file, setFile] = useState<ImportFile | null>(null)
   const [target, setTarget] = useState<ImportTarget>(fixedTarget ?? 'venues')
   const [mapping, setMapping] = useState<ImportField[]>([])
-  const [kind, setKind] = useState<VenueKind>('venue')
+  const [kind, setKind] = useState<VenueKind>(fixedKind ?? 'venue')
   const [defaultCountry, setDefaultCountry] = useState('')
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -190,7 +197,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
     const nextTarget = fixedTarget ?? next.suggestedTarget
     setTarget(nextTarget)
     setMapping(next.suggestedMappings[nextTarget])
-    setKind(next.suggestedKind)
+    setKind(fixedKind ?? next.suggestedKind)
     setDefaultCountry(next.suggestedCountry)
     setExcluded(new Set())
   }
@@ -311,7 +318,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
           <DialogTitle>Daten importieren</DialogTitle>
           <DialogDescription>
             {step === 'file' &&
-              'Eine CSV-Liste mit Spielstätten, Bands, Firmen oder Personen übernehmen.'}
+              'Eine CSV-Liste mit Clubs, Festivals, Bands, Firmen oder Personen übernehmen.'}
             {step === 'mapping' && IMPORT_TARGET_DESCRIPTIONS[target]}
             {step === 'preview' &&
               'Vorhandene Einträge (gleicher Name) werden nur ergänzt, nie überschrieben. Zeilen abwählen, um sie auszulassen.'}

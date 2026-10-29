@@ -19,23 +19,17 @@ import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import { VENUE_KIND_LABELS, VenueKind, type VenueDto } from '../../../main/api/schemas/venue.schema'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+import type { VenueKind, VenueDto } from '../../../main/api/schemas/venue.schema'
+import { VENUE_KIND_COPY, venueDetailPath } from '@/components/venue/constants'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
-export default function VenuePage() {
+/** The Clubs list or the Festivals list: the same venue table, one kind each */
+export default function VenuePage({ kind }: { kind: VenueKind }) {
+  const copy = VENUE_KIND_COPY[kind]
   const { sorting, setSorting, sortInput } = useListSorting('venues', { id: 'name', desc: false })
   const [search, setSearch] = useState('')
-  const [kind, setKind] = useState<VenueKind | 'all'>('all')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'venue'
     id: number
@@ -57,7 +51,7 @@ export default function VenuePage() {
     {
       pageSize: LIST_CHUNK_SIZE,
       search: search || undefined,
-      kind: kind === 'all' ? undefined : kind,
+      kind,
       ...sortInput
     },
     infiniteListOptions
@@ -67,12 +61,12 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Spielstätte erstellt', {
+      toast.success(`${copy.singular} erstellt`, {
         description: `${venue.name} wurde erfolgreich erstellt.`
       })
     },
     onError: (error) => {
-      toast.error('Spielstätte konnte nicht erstellt werden', { description: error.message })
+      toast.error(`${copy.singular} konnte nicht erstellt werden`, { description: error.message })
     }
   })
 
@@ -80,24 +74,26 @@ export default function VenuePage() {
     onSuccess: (venue) => {
       utils.venue.getAllPaginated.invalidate()
       formSheet.close()
-      toast.success('Spielstätte aktualisiert', {
+      toast.success(`${copy.singular} aktualisiert`, {
         description: `${venue.name} wurde erfolgreich aktualisiert.`
       })
     },
     onError: (error) => {
-      toast.error('Spielstätte konnte nicht aktualisiert werden', { description: error.message })
+      toast.error(`${copy.singular} konnte nicht aktualisiert werden`, {
+        description: error.message
+      })
     }
   })
 
   const deleteMutation = trpcReact.venue.delete.useMutation({
     onSuccess: () => {
       utils.venue.getAllPaginated.invalidate()
-      toast.success('Spielstätte gelöscht', {
-        description: 'Die Spielstätte wurde erfolgreich gelöscht.'
+      toast.success(`${copy.singular} gelöscht`, {
+        description: `${copy.article} wurde erfolgreich gelöscht.`
       })
     },
     onError: (error) => {
-      toast.error('Spielstätte konnte nicht gelöscht werden', { description: error.message })
+      toast.error(`${copy.singular} konnte nicht gelöscht werden`, { description: error.message })
     }
   })
 
@@ -119,16 +115,6 @@ export default function VenuePage() {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
-    },
-    {
-      accessorKey: 'kind',
-      header: 'Art',
-      cell: ({ row }) =>
-        row.original.kind === 'festival' ? (
-          <Badge variant="secondary">{VENUE_KIND_LABELS.festival}</Badge>
-        ) : (
-          VENUE_KIND_LABELS.venue
-        )
     },
     {
       accessorKey: 'company',
@@ -185,32 +171,30 @@ export default function VenuePage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Spielstätten</h1>
+        <h1 className="text-2xl font-bold mb-2">{copy.plural}</h1>
         <p className="text-sm text-muted-foreground">
-          Verwalten Sie alle Event-Spielstätten und Kapazitäten.
+          {kind === 'festival'
+            ? 'Verwalten Sie alle Festivals und ihre Kapazitäten.'
+            : 'Verwalten Sie alle Clubs, Hallen und ihre Kapazitäten.'}
         </p>
       </div>
 
       <DataTable
         columns={columns}
         data={listRows(venues.data)}
-        itemLabel={
-          kind === 'festival'
-            ? { singular: 'Festival', plural: 'Festivals' }
-            : { singular: 'Spielstätte', plural: 'Spielstätten' }
-        }
+        itemLabel={{ singular: copy.singular, plural: copy.plural }}
         hasMore={venues.hasNextPage ?? false}
         isLoadingMore={venues.isFetchingNextPage}
         onLoadMore={() => void venues.fetchNextPage()}
         sorting={sorting}
         onSortingChange={setSorting}
-        filtered={Boolean(search) || kind !== 'all'}
+        filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Spielstätten filtern…"
+        searchPlaceholder={`${copy.plural} filtern…`}
         // A click opens the venue page; the pencil keeps the quick-edit sheet
         onRowClick={(venue) =>
-          navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
+          navigate({ to: venueDetailPath(kind), params: { venueId: String(venue.id) } })
         }
         isLoading={venues.isLoading}
         error={venues.error}
@@ -218,29 +202,9 @@ export default function VenuePage() {
         total={listTotal(venues.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={kind}
-              onValueChange={(value) => {
-                setKind(value as VenueKind | 'all')
-              }}
-            >
-              <SelectTrigger className="w-40" aria-label="Art filtern">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Arten</SelectItem>
-                <SelectItem value="venue">Spielstätten</SelectItem>
-                <SelectItem value="festival">Festivals</SelectItem>
-              </SelectContent>
-            </Select>
-            <ExportButton
-              list="venues"
-              sort={sortInput}
-              search={search}
-              kind={kind === 'all' ? undefined : kind}
-            />
-            <ImportButton target="venues" />
-            <Button onClick={() => formSheet.openCreate()}>+ Neue Spielstätte anlegen</Button>
+            <ExportButton list="venues" sort={sortInput} search={search} kind={kind} />
+            <ImportButton target="venues" kind={kind} />
+            <Button onClick={() => formSheet.openCreate()}>+ {copy.newOne} anlegen</Button>
           </div>
         }
       />
@@ -259,16 +223,21 @@ export default function VenuePage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Spielstätte anlegen' : 'Spielstätte bearbeiten'}
+        title={
+          formSheet.mode === 'create'
+            ? `${copy.singular} anlegen`
+            : `${VENUE_KIND_COPY[formSheet.selectedItem?.kind ?? kind].singular} bearbeiten`
+        }
         description={
           formSheet.mode === 'create'
-            ? 'Fügen Sie eine neue Spielstätte zu Ihrem Verzeichnis hinzu.'
-            : 'Spielstätteninformationen aktualisieren.'
+            ? `${copy.newOne} im Verzeichnis anlegen.`
+            : 'Angaben aktualisieren.'
         }
       >
         <VenueForm
           mode={formSheet.mode}
           initialData={formSheet.selectedItem}
+          defaultKind={kind}
           onSubmit={(data) => {
             if ('id' in data) {
               updateMutation.mutate(data)

@@ -52,7 +52,7 @@ interface DataTableProps<TData> {
   data: TData[]
   /** All rows matching the search/filter (shown in the status line) */
   total: number
-  /** "311 Spielstätten" / "1 Spielstätte" */
+  /** "311 Clubs" / "1 Club" */
   itemLabel: { singular: string; plural: string }
   isLoading?: boolean
   /** Loading failed: shown instead of "Keine Ergebnisse" while no rows are loaded */

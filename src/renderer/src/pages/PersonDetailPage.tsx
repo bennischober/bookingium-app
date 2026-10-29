@@ -202,7 +202,7 @@ function EventsTab({ personId }: { personId: number }) {
       empty="Keine Events mit dieser Person als LoPro-Kontakt oder Technischer Leiter."
       columns={[
         {
-          header: 'Band / Spielstätte',
+          header: 'Band / Club / Festival',
           cell: (event) => (
             <>
               <div>{event.bandName}</div>
@@ -434,7 +434,7 @@ export default function PersonDetailPage() {
             <TabCount count={counts.companies} />
           </TabsTrigger>
           <TabsTrigger value="venues">
-            Spielstätten
+            Clubs / Festivals
             <TabCount count={counts.venues} />
           </TabsTrigger>
           <TabsTrigger value="events">
