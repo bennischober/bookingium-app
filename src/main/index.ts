@@ -64,7 +64,7 @@ import { EMAIL_TEMPLATES } from './api/schemas/settings.schema'
 import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import { openEmail, showEmailFile } from './mail/openEmail'
-import { readWorkbook } from './import/readWorkbook'
+import { readImportFile } from './import/readImportFile'
 import { MAIL_CLIENT_OFF, mailClient } from './mailclient/MailClientService'
 import type { ComposeDraft, ComposeResult } from './mail/composeWindow'
 import {
@@ -611,16 +611,16 @@ ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string 
 })
 
 /**
- * IPC Handler: pick an Excel workbook for the import dialog and return its
- * sheets (rows as text plus a suggested column mapping)
+ * IPC Handler: pick a CSV file for the import dialog and return its rows (as
+ * text, plus a suggested column mapping)
  */
-ipcMain.handle('import:pickWorkbook', async (event) => {
+ipcMain.handle('import:pickFile', async (event) => {
   try {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
-      title: 'Excel-Datei importieren',
+      title: 'CSV-Datei importieren',
       properties: ['openFile'],
-      filters: [{ name: 'Excel-Arbeitsmappe', extensions: ['xlsx', 'xlsm'] }]
+      filters: [{ name: 'CSV-Datei', extensions: ['csv', 'txt'] }]
     }
     const result = owner
       ? await dialog.showOpenDialog(owner, options)
@@ -628,12 +628,14 @@ ipcMain.handle('import:pickWorkbook', async (event) => {
     if (result.canceled || result.filePaths.length === 0) return { success: true, canceled: true }
     const { defaultCountry } = container.resolve(SettingsService).get()
     // Detected mappings, or the ones used last time for the same columns
-    const workbook = container
+    const file = container
       .resolve(ImportService)
-      .withRememberedMappings(await readWorkbook(result.filePaths[0], defaultCountry))
-    return { success: true, canceled: false, workbook }
+      .withRememberedMappings(
+        await readImportFile(result.filePaths[0], defaultCountry, app.getSystemLocale())
+      )
+    return { success: true, canceled: false, file }
   } catch (error) {
-    console.error('Error reading workbook:', error)
+    console.error('Error reading import file:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

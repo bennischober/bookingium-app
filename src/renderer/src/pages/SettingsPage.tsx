@@ -260,7 +260,7 @@ function DataCard() {
           <div className="min-w-0">
             <p className="font-medium">Import</p>
             <p className="text-sm text-muted-foreground">
-              Excel-Listen übernehmen; vorhandene Einträge werden nur ergänzt.
+              CSV-Listen übernehmen, etwa aus Excel; vorhandene Einträge werden nur ergänzt.
             </p>
           </div>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
@@ -272,8 +272,8 @@ function DataCard() {
           <div className="min-w-0">
             <p className="font-medium">Export</p>
             <p className="text-sm text-muted-foreground">
-              Alle Listen als Excel-Datei, ein Tabellenblatt je Liste. Einzelne Listen lassen sich
-              auf ihrer Seite exportieren.
+              Alle Listen als CSV-Dateien, eine Datei je Liste in einem neuen Ordner. Einzelne
+              Listen lassen sich auf ihrer Seite exportieren.
             </p>
           </div>
           <Button

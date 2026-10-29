@@ -1,11 +1,12 @@
-// E2E: import festivals with their promoters and contacts from an Excel file
+// E2E: import festivals with their promoters and contacts from a CSV file
 // (layout of the Rockfestivals list: month headings, follow-up contact rows).
-// The workbook is generated here and the open dialog is stubbed in main.
+// The file is generated here as Excel saves "CSV UTF-8" in a German regional
+// format (BOM, semicolons) and the open dialog is stubbed in main.
 import { test, expect } from '@playwright/test'
-import ExcelJS from 'exceljs'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { CSV_BOM, toCsv } from '../../src/main/csv/csv'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
@@ -13,10 +14,8 @@ let fixtureDir: string
 
 test.beforeAll(async () => {
   fixtureDir = mkdtempSync(join(tmpdir(), 'bookingum-import-'))
-  const file = join(fixtureDir, 'Festivals.xlsx')
-  const workbook = new ExcelJS.Workbook()
-  const sheet = workbook.addWorksheet('national')
-  sheet.addRows([
+  const file = join(fixtureDir, 'Festivals.csv')
+  const rows = [
     [
       'Monat',
       'Festival',
@@ -37,8 +36,8 @@ test.beforeAll(async () => {
       '',
       'Rock am Teich',
       'Teichwiese',
-      new Date(Date.UTC(2026, 5, 12)),
-      2500,
+      '12.06.2026',
+      '2500',
       'Teich Events GmbH',
       'Paula Teich',
       'paula@teich-events.example.test; info@teich-events.example.test',
@@ -51,8 +50,8 @@ test.beforeAll(async () => {
     ['', '', '', '', '', '', 'Max Ufer', 'max@teich-events.example.test'],
     // Promoter already in the app (seed): linked, not duplicated
     ['', 'Sommerbeben', 'Berlin', '', '800', 'Live Music Berlin GmbH', 'Elke und Johannes']
-  ])
-  await workbook.xlsx.writeFile(file)
+  ]
+  writeFileSync(file, CSV_BOM + toCsv(rows, ';'), 'utf-8')
 
   h = await launchApp()
   await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
@@ -72,7 +71,7 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await page.getByRole('button', { name: 'Importieren' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'Excel-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
 
   // Mapping detected from the headers; festivals because of the "Festival" column
   await expect(dialog.getByRole('combobox', { name: 'Importieren als' })).toHaveText('Festival')

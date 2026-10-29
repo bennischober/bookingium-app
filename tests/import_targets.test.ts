@@ -11,11 +11,7 @@ import { ImportService } from '../src/main/services/ImportService'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { detectMapping, detectMappings, suggestTarget } from '../src/main/import/detectMapping'
 import { parseBirthday, parsePersons } from '../src/main/import/normalize'
-import type {
-  ImportRequest,
-  ImportTarget,
-  ImportWorkbook
-} from '../src/main/api/schemas/import.schema'
+import type { ImportRequest, ImportTarget, ImportFile } from '../src/main/api/schemas/import.schema'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -254,24 +250,22 @@ describe('remembered mappings', () => {
     req.mapping = ['bandName', 'companyName', 'members']
     service().commit(req)
 
-    const workbook: ImportWorkbook = {
-      fileName: 'bands.xlsx',
-      sheets: [
-        {
-          name: 'Tabelle1',
-          headers,
-          rows: [],
-          suggestedTarget: 'venues',
-          suggestedMappings: detectMappings(headers, []),
-          mappingRemembered: false,
-          suggestedKind: 'venue',
-          suggestedCountry: 'DE'
-        }
-      ]
+    const file: ImportFile = {
+      fileName: 'bands.csv',
+      table: {
+        name: 'bands',
+        headers,
+        rows: [],
+        suggestedTarget: 'venues',
+        suggestedMappings: detectMappings(headers, []),
+        mappingRemembered: false,
+        suggestedKind: 'venue',
+        suggestedCountry: 'DE'
+      }
     }
-    const [sheet] = service().withRememberedMappings(workbook).sheets
-    expect(sheet.mappingRemembered).toBe(true)
-    expect(sheet.suggestedTarget).toBe('bands')
-    expect(sheet.suggestedMappings.bands).toEqual(['bandName', 'companyName', 'members'])
+    const table = service().withRememberedMappings(file).table
+    expect(table?.mappingRemembered).toBe(true)
+    expect(table?.suggestedTarget).toBe('bands')
+    expect(table?.suggestedMappings.bands).toEqual(['bandName', 'companyName', 'members'])
   })
 })

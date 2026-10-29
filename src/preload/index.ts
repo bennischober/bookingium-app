@@ -49,7 +49,7 @@ const api = {
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
-  pickImportWorkbook: () => ipcRenderer.invoke('import:pickWorkbook'),
+  pickImportFile: () => ipcRenderer.invoke('import:pickFile'),
 
   /** An error nothing caught, for the local error log */
   reportError: (report: { message: string; stack?: string }) =>

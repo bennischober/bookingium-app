@@ -11,6 +11,7 @@ import {
   type SaveContactListInput,
   type SavedContactListDto
 } from '../api/schemas/contactList.schema'
+import { toCsv } from '../csv/csv'
 
 // Mailing lists (Verteiler). Recipients come from venues and festivals: the
 // venue's own address, its Ansprechpartner and its Veranstalter (owning
@@ -185,13 +186,10 @@ export function buildContactList(
 
 const CSV_HEADERS = ['E-Mail', 'Vorname', 'Nachname', 'Firma', 'Spielstätte', 'Ort', 'Land', 'Art']
 
-function csvField(value: string): string {
-  return /[",;\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
-}
-
 /**
- * Comma-separated, UTF-8, one header row: imports into Brevo, CleverReach,
- * Mailchimp and the like (map the columns there)
+ * Comma-separated whatever the regional format, UTF-8 without BOM, one
+ * header row: imports into Brevo, CleverReach, Mailchimp and the like (map
+ * the columns there)
  */
 export function contactListCsv(recipients: ContactListRecipientDto[]): string {
   const lines = [
@@ -207,7 +205,7 @@ export function contactListCsv(recipients: ContactListRecipientDto[]): string {
       row.types.map((type) => RECIPIENT_TYPE_LABELS[type]).join('; ')
     ])
   ]
-  return lines.map((line) => line.map(csvField).join(',')).join('\r\n') + '\r\n'
+  return toCsv(lines, ',')
 }
 
 function parseFilters(raw: string): ContactListFilters {

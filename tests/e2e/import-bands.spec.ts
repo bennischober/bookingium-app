@@ -1,10 +1,12 @@
 // E2E: a band list imported from Einstellungen – the list type is detected,
-// bands of unknown companies are skipped, members land on the band page.
+// bands of unknown companies are skipped, members land on the band page. The
+// file is comma-separated UTF-8 without BOM, as an English regional format
+// or another program writes it.
 import { test, expect } from '@playwright/test'
-import ExcelJS from 'exceljs'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { toCsv } from '../../src/main/csv/csv'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
@@ -12,9 +14,8 @@ let fixtureDir: string
 
 test.beforeAll(async () => {
   fixtureDir = mkdtempSync(join(tmpdir(), 'bookingum-import-bands-'))
-  const file = join(fixtureDir, 'Bands.xlsx')
-  const workbook = new ExcelJS.Workbook()
-  workbook.addWorksheet('Künstler').addRows([
+  const file = join(fixtureDir, 'Künstler.csv')
+  const rows = [
     ['Band', 'Genre', 'Firma', 'Mitglieder', 'TL', 'E-Mail'],
     [
       'Neon Harbour',
@@ -26,8 +27,8 @@ test.beforeAll(async () => {
     ],
     ['', '', '', 'Pia Takt (Schlagzeug)'],
     ['Ghost Band', 'Rock', 'Unbekannte GmbH', 'Niemand Hier']
-  ])
-  await workbook.xlsx.writeFile(file)
+  ]
+  writeFileSync(file, toCsv(rows, ','), 'utf-8')
 
   h = await launchApp()
   await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
@@ -48,7 +49,7 @@ test('imports a band list with members from the settings page', async () => {
   await page.getByRole('button', { name: 'Daten importieren…' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'Excel-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
   await expect(dialog.getByRole('combobox', { name: 'Liste enthält' })).toHaveText('Bands')
   await expect(dialog.getByRole('combobox', { name: 'Spalte D übernehmen als' })).toHaveText(
     'Mitglieder'
@@ -80,6 +81,6 @@ test('imports a band list with members from the settings page', async () => {
   // Same columns again: the mapping is remembered
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
-  await dialog.getByRole('button', { name: 'Excel-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
   await expect(dialog.getByText('Zuordnung vom letzten Import')).toBeVisible()
 })

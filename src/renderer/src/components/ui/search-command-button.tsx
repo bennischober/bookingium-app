@@ -126,7 +126,7 @@ const SETTINGS_COMMANDS: Array<{
     tab: 'data',
     label: 'Import, Export und Sicherung',
     icon: DatabaseBackup,
-    aliases: ['backup', 'excel', 'datenordner', 'data folder']
+    aliases: ['backup', 'csv', 'excel', 'datenordner', 'data folder']
   }
 ]
 
