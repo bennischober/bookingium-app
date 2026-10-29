@@ -52,8 +52,7 @@ src/renderer/src/
   infra (`data-table.tsx`, `form-sheet.tsx`), camelCase for helper modules.
 - No barrel/`index.ts` anywhere; always import the module path. Tabs of detail pages live in the
   URL (`?tab=`), validated by an `is<Tab>()` guard in the route.
-- Tailwind 4: CSS vars in arbitrary values use `w-(--var)`; the v3 form `w-[--var]` is invalid
-  (still present in `components/ui/sidebar.tsx` and `calendar.tsx` - do not copy it).
+- Tailwind 4: CSS vars in arbitrary values use `w-(--var)`; the v3 form `w-[--var]` is invalid.
 
 ## ANTI-PATTERNS
 - Never create a second tRPC client: electron-trpc matches responses by operation id, which

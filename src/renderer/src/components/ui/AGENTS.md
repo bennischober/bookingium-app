@@ -39,8 +39,8 @@ config in the repo-root `components.json`). Presentational only: no business log
   one accepted exception.
 - Never edit generated primitives (`sidebar.tsx`, `calendar.tsx`) into app-specific components - wrap
   them instead.
-- Tailwind 4 variable syntax: `w-(--var)` is correct; the v3 `w-[--var]` form still present in
-  `sidebar.tsx` and `calendar.tsx` produces invalid CSS. Do not replicate it.
+- Tailwind 4 variable syntax: `w-(--var)` is correct; the v3 `w-[--var]` form produces invalid
+  CSS. A freshly generated shadcn primitive may still carry it - convert it on the way in.
 - Do not re-export primitives from a barrel; import `@/components/ui/<file>` directly.
 - Do not add `print:` UI affordances here - print chrome is handled by the `_print` route and
   `sonner.tsx`'s `print:hidden!`.
