@@ -135,6 +135,15 @@ triggers in the initial migration delete the rows with the owner, the owner's
 service removes the folder. Settings are key/value rows in `app_setting`,
 typed and defaulted by `AppSettings` (settings.schema.ts).
 
+Documents are listed newest first (`uploaded_at` desc) and shown through one
+`DocumentTable` (Name · Typ · Quelle · Größe · Hochgeladen · actions), with
+`readOnly` for lists that only show files managed elsewhere. Its table formats
+come from `components/documents/documentSort.ts`: sizes use the German decimal
+comma (`1,5 MB`, whole bytes without a fraction) and dates use
+`formatShortDate` (`11.06.2026`) - not a second date style. Deleting a document
+moves its file to the OS trash (`shell.trashItem`, so it stays recoverable) and
+then removes the row; a file that is already gone is no error.
+
 ## Backups
 
 `src/main/backup/` (no Electron: `policy.ts` holds the pure rules, `files.ts`

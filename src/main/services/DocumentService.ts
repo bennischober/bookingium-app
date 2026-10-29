@@ -2,12 +2,13 @@ import { injectable, inject } from 'tsyringe'
 import { basename, dirname, extname } from 'path'
 import { existsSync } from 'fs'
 import { DocumentRepository } from '../repositories/DocumentRepository'
+import type { schema } from '../db/schema'
 import type {
   DocumentOwnerType,
   UpdateDocumentInput,
   UploadDocumentInput
 } from '../api/schemas/document.schema'
-import { deleteDocumentFile, getDocumentFullPath } from '../utils/fileStorage'
+import { deleteDocumentFile, findDocumentFile, getDocumentFullPath } from '../utils/fileStorage'
 import {
   isInDocumentsLayout,
   moveIntoOwnerFolder,
@@ -135,6 +136,24 @@ export class DocumentService {
     }
     await this.documentRepository.delete(id)
     return doc
+  }
+
+  /**
+   * Moves a document's file to the OS trash, then deletes its record. The renderer
+   * passes the absolute path to `shell.trashItem`; the service only decides what
+   * goes and whether the row survives.
+   */
+  async detachFileForTrash(
+    id: number
+  ): Promise<{ doc: typeof schema.document.$inferSelect; filePath: string | null } | null> {
+    const doc = await this.getById(id)
+    if (!doc) return null
+    return { doc, filePath: await findDocumentFile(doc.file_path) }
+  }
+
+  /** Removes the record once its file reached the trash (or was already gone) */
+  async deleteDocumentRecord(id: number) {
+    await this.documentRepository.delete(id)
   }
 
   async getFullPath(id: number) {
