@@ -38,6 +38,17 @@ test.afterAll(async () => {
 
 const copied = () => h.app.evaluate(() => (globalThis as { copied?: string }).copied ?? '')
 
+test('stays out of the menu until switched on in the settings', async () => {
+  const { page } = h
+  const menu = page.getByRole('navigation', { name: 'Hauptnavigation' })
+  await expect(menu.getByRole('link', { name: 'Spielstätten' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: 'Verteiler' })).toHaveCount(0)
+
+  await menu.getByRole('link', { name: 'Einstellungen' }).click()
+  await page.getByRole('switch', { name: 'Verteiler einschalten' }).click()
+  await expect(menu.getByRole('link', { name: 'Verteiler' })).toBeVisible()
+})
+
 test('builds, saves and exports a mailing list', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Verteiler' }).first().click()

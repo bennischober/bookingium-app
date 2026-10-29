@@ -32,6 +32,7 @@ import { mailApi } from '@/lib/mailApi'
 import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useRouteShown } from '@/hooks/useRouteShown'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
 
@@ -244,13 +245,10 @@ const SearchButton = () => {
     staleTime: 0
   })
   const mailAccountId = mailEnabled ? (accounts.data?.[0]?.id ?? null) : null
-  // the mail page, and a recent jump to it, go while the mail client is switched off
-  const shownRoutes = ROUTE_COMMANDS.filter(
-    (route) => route.path !== ROUTES.mail.path || mailEnabled
-  )
-  const shownRecents = recentCommands.filter(
-    (recent) => recent.path !== ROUTES.mail.path || mailEnabled
-  )
+  // pages behind a switched-off experimental switch, and recent jumps to them, go
+  const routeShown = useRouteShown()
+  const shownRoutes = ROUTE_COMMANDS.filter((route) => routeShown(route.path))
+  const shownRecents = recentCommands.filter((recent) => routeShown(recent.path))
   const [debouncedMailQuery, setDebouncedMailQuery] = useState('')
   useEffect(() => {
     if (!open || !mailAccountId) return
