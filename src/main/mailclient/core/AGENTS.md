@@ -1,7 +1,5 @@
 # src/main/mailclient/core - Mail Engine
 
-**Score:** 9 (distinct domain: dependency-free engine with its own rules)
-
 ## OVERVIEW
 The mail engine itself: SQLite/FTS5 store, IMAP sync, crash-safe write playback,
 MIME compose, sanitizing. Runs in the utility process; `core/README.md` is the full

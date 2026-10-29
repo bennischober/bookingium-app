@@ -1,7 +1,5 @@
 # src/main/db - Schema, Migrations, Seed
 
-**Score:** 9 (distinct domain: every table and migration lives here) · 4 modules + 10 migrations
-
 ## OVERVIEW
 Drizzle schema for 27 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
@@ -13,7 +11,7 @@ database handle, and the demo seed.
 | Lazy handle, WAL, test swap | `index.ts` (`getDb`, `getSqlite`, `getDbPath`, `useTestDb`, `db` proxy) |
 | Migration runner, legacy adoption | `migrate.ts` (`runMigrations`, `upgradeLegacyDatabase`, `setMigrationsFolder`) |
 | Demo data | `seed.ts` |
-| Generated SQL | `migrations/0000_initial.sql` .. `0009_invoice_email_kind.sql` |
+| Generated SQL | `migrations/*.sql` |
 | Generated snapshots | `migrations/meta/*` (do not touch) |
 
 ## CONVENTIONS

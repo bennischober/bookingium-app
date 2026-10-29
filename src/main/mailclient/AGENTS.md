@@ -1,7 +1,5 @@
 # src/main/mailclient - Built-in IMAP Client
 
-**Score:** 12 · 17 TS files, 5k LOC, 62 import references
-
 ## OVERVIEW
 A complete IMAP/SMTP mail client living in the main process: host service, account
 store, a utility-process worker, and the self-contained `core/` engine. Experimental and off by

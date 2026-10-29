@@ -1,7 +1,5 @@
 # tests/ - KNOWLEDGE BASE
 
-**Score:** 8 (33 files, 394 import refs) - distinct domain: the only test tree.
-
 ## OVERVIEW
 Vitest unit/integration suites (~6.1k LOC) that drive services, repositories and
 pure helpers against an in-memory SQLite built by the REAL drizzle migrations.
@@ -18,7 +16,7 @@ tests/
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| Invoice / payment QR / documents | `invoice*.test.ts`, `payment_qr.test.ts`, `document.test.ts` | largest cluster; `einvoice.test.ts` is 768L |
+| Invoice / payment QR / documents | `invoice*.test.ts`, `payment_qr.test.ts`, `document.test.ts` | largest cluster |
 | E-invoice validators | `einvoice.kosit.test.ts`, `einvoice.verapdf.test.ts` | env-gated, skip without tools |
 | Mail client core | `mail_*.test.ts` | store, migrations, write queue, compose |
 | CRUD + relations | `company*.test.ts`, `person_relations`, `contact_list`, `management_*` | service-level roundtrips |
@@ -52,11 +50,8 @@ tests/
 - Do not add a second `setupTestDb()` per file or a per-`describe` DB reset.
 
 ## HOTSPOTS
-- `einvoice.test.ts` 768L, `invoice.test.ts` 393L, `mail_store_migrations.test.ts` and
-  `import.test.ts` 328L, `contact_list.test.ts` 308L.
-- Highest fan-in helpers: `setupTestDb`/`getTestDb` (18 suites), `EINVOICE_SAMPLES` (2 suites).
-- Most test-coupled source: `src/main/services/CompanyService` (13 suites),
-  `src/main/db/schema` and `src/main/db/index` (12 each) - schema/migration edits ripple widest.
+- `src/main/db/schema` and `src/main/db/index` are imported by most DB suites - schema and
+  migration edits ripple widest.
 
 ## COMMANDS
 ```bash
