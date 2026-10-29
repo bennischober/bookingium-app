@@ -568,8 +568,8 @@ export class WriteEngine {
     if (!row) return
     // flags_json is a JSON OBJECT {"seen":bool,...} (store convention), not an array
     const flags = JSON.parse(row.flags_json) as Record<string, boolean>
-    for (const f of payload.add || []) flags[f.replace('\\', '').toLowerCase()] = true
-    for (const f of payload.remove || []) flags[f.replace('\\', '').toLowerCase()] = false
+    for (const f of payload.add || []) flags[f.replace(/^\\/, '').toLowerCase()] = true
+    for (const f of payload.remove || []) flags[f.replace(/^\\/, '').toLowerCase()] = false
     this.store.updateMessageFlags(row.id, JSON.stringify(flags))
   }
 
