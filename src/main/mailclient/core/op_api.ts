@@ -63,8 +63,8 @@ export class OpApi {
       if (!folder) continue;
       const flags = this.parseFlags(row);
       const flip: Record<string, boolean | undefined> = {};
-      for (const f of delta.add || []) flip[f.replace('\\', '').toLowerCase()] = true;
-      for (const f of delta.remove || []) flip[f.replace('\\', '').toLowerCase()] = false;
+      for (const f of delta.add || []) flip[f.replace(/^\\/, '').toLowerCase()] = true;
+      for (const f of delta.remove || []) flip[f.replace(/^\\/, '').toLowerCase()] = false;
       const next = {
         seen: flip.seen !== undefined ? flip.seen : flags.seen,
         flagged: flip.flagged !== undefined ? flip.flagged : flags.flagged,

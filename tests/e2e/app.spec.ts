@@ -69,11 +69,14 @@ test('contract prints to the real PDF output', async () => {
 
   // Render pages to PNG via pdfjs v4 (with standard fonts) for inspection.
   // Failure here is a diagnostic-only issue - the PDF itself is the assertion.
-  const { execSync } = await import('child_process')
+  const { execFileSync } = await import('child_process')
   try {
-    execSync(`node ${resolve(process.cwd(), 'tests/e2e/helpers/pdf2png.mjs')} ${out} ${dir}`, {
-      stdio: 'inherit'
-    })
+    // Arguments, not a command line: no shell, and paths with spaces stay whole
+    execFileSync(
+      process.execPath,
+      [resolve(process.cwd(), 'tests/e2e/helpers/pdf2png.mjs'), out, dir],
+      { stdio: 'inherit' }
+    )
   } catch {
     console.log('pdf2png rendering failed (diagnostic only) - contract.pdf is still valid')
   }
