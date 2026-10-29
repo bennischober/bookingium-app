@@ -1,0 +1,1 @@
+ALTER TABLE `mail_link` ADD `mail_date` text;

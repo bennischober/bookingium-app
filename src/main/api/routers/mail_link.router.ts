@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
-import { and, eq, isNotNull, lt, or, desc } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, lt, or, desc } from 'drizzle-orm'
 import { db } from '../../db'
 import { schema, MAIL_LINK_ENTITY_TYPES } from '../../db/schema'
 import { MailLinkService, MANUAL_LINK_ENTITY_TYPES } from '../../services/MailLinkService'
@@ -10,6 +10,25 @@ import { listMailAccounts } from '../../mailclient/accounts'
 
 const t = initTRPC.create()
 const service = container.resolve(MailLinkService)
+
+/**
+ * The mail's own date, for storing it on a new link. The store answers by
+ * Message-ID; a store that is down or does not know the mail leaves the date
+ * null instead of failing the link - the tab then sorts that row last rather
+ * than by a wrong date.
+ */
+async function mailDateFor(accountId: string, messageId: string): Promise<string | null> {
+  const id = messageId.replace(/^</, '').replace(/>$/, '').trim()
+  if (!id) return null
+  try {
+    const found = (await mailClient.call('findByMessageIds', [[id], accountId])) as {
+      date?: string | null
+    }[]
+    return found[0]?.date ?? null
+  } catch {
+    return null
+  }
+}
 
 /** C3: one row of the E-Mails tab. No mail content, only what the panel shows. */
 export type MailLinkRow = {
@@ -26,13 +45,24 @@ export type MailLinkRow = {
   fromEmail: string | null
   date: string | null
   hasAttachments: boolean
+  /** the mail's read state, so the row matches the /mail list; null when gone */
+  unread: boolean | null
+  /**
+   * The event a band's tab shows this mail through, so the row says where it
+   * came from; null for the record's own links
+   */
+  sourceEvent: { id: number; name: string } | null
 }
 
 const ListByEntityInput = z.object({
   entityType: z.enum(MAIL_LINK_ENTITY_TYPES),
   entityId: z.number().int().positive(),
-  /** the last row's id, for the next page */
-  cursor: z.number().int().positive().optional(),
+  /**
+   * The last row of the previous page, for the next one. Sorting by the mail's
+   * own date means the row id alone is not a position, so the cursor carries the
+   * date as well - a link made today to a March mail sorts by March.
+   */
+  cursor: z.object({ mailDate: z.string().nullable(), id: z.number().int().positive() }).optional(),
   limit: z.number().int().min(1).max(100).default(20)
 })
 
@@ -68,16 +98,30 @@ export const mailLinkRouter = t.router({
           eq(schema.mail_link.dismissed, false),
           // A mail without a Message-ID has no store row to show
           isNotNull(schema.mail_link.message_id),
-          input.cursor ? lt(schema.mail_link.id, input.cursor) : undefined,
+          // The next page starts below the last row of this one. Rows without a
+          // date sort last, so they are only reached once no dated row is left.
+          input.cursor
+            ? or(
+                lt(schema.mail_link.mail_date, input.cursor.mailDate ?? ''),
+                and(
+                  eq(schema.mail_link.mail_date, input.cursor.mailDate ?? ''),
+                  lt(schema.mail_link.id, input.cursor.id)
+                )
+              )
+            : undefined,
           or(...conditions)
         )
       )
-      .orderBy(desc(schema.mail_link.id))
+      // Newest mail first: a mail linked by hand today from a March thread
+      // sorts where the mail belongs, not where the link was made
+      .orderBy(desc(schema.mail_link.mail_date), desc(schema.mail_link.id))
       .limit(input.limit + 1)
       .all()
 
     const page = rows.slice(0, input.limit)
-    const nextCursor = rows.length > input.limit ? (page[page.length - 1]?.id ?? null) : null
+    const last = page[page.length - 1]
+    const nextCursor =
+      rows.length > input.limit && last ? { mailDate: last.mail_date ?? null, id: last.id } : null
 
     // The rows themselves come from the mail store, by Message-ID. A link names its
     // own account, so a record's mails are looked up per account.
@@ -97,6 +141,7 @@ export const mailLinkRouter = t.router({
       fromEmail: string
       date: string | null
       hasAttachments: boolean
+      unread?: boolean
     }
     const items: MailRow[] = []
     // A failed lookup (worker down, store locked) is not "the mail is gone": the panel says
@@ -110,6 +155,21 @@ export const mailLinkRouter = t.router({
       }
     }
     const byId = new Map(items.map((m) => [normalizeId(m.messageId), m]))
+
+    // The event names a band's tab shows its mails through, in one query for
+    // the page (the band's own links have no event)
+    const eventIds = [
+      ...new Set(page.filter((link) => link.entity_type === 'event').map((link) => link.entity_id))
+    ]
+    const events = new Map<number, string>()
+    if (eventIds.length > 0) {
+      const rows = db
+        .select({ id: schema.deal_memo.id, name: schema.deal_memo.name })
+        .from(schema.deal_memo)
+        .where(inArray(schema.deal_memo.id, eventIds))
+        .all()
+      for (const row of rows) events.set(row.id, row.name)
+    }
 
     return {
       rows: page.map((link): MailLinkRow => {
@@ -125,7 +185,17 @@ export const mailLinkRouter = t.router({
           fromName: mail?.fromName ?? null,
           fromEmail: mail?.fromEmail ?? null,
           date: mail?.date ?? null,
-          hasAttachments: mail?.hasAttachments ?? false
+          hasAttachments: mail?.hasAttachments ?? false,
+          unread: mail?.unread ?? null,
+          // Only a band's tab mixes in an event's links, so only there does a
+          // row need to say which event it came from
+          sourceEvent:
+            link.entity_type === 'event' && link.entity_id !== input.entityId
+              ? {
+                  id: link.entity_id,
+                  name: events.get(link.entity_id) ?? ''
+                }
+              : null
         }
       }),
       nextCursor,
@@ -162,13 +232,17 @@ export const mailLinkRouter = t.router({
         entityId: z.number().int().positive()
       })
     )
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       // The id comes from the renderer: no link to an account that is not configured
       if (!listMailAccounts().some((account) => account.id === input.accountId)) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Das Mail-Konto gibt es nicht mehr' })
       }
       try {
-        return { linked: service.linkManually(input) > 0 }
+        // The mail's own date, so the tab sorts by it and not by when the user
+        // linked it. A store that does not answer leaves it null (the row then
+        // sorts last rather than by a wrong date).
+        const mailDate = await mailDateFor(input.accountId, input.messageId)
+        return { linked: service.linkManually({ ...input, mailDate }) > 0 }
       } catch (error) {
         throw new TRPCError({
           code: 'BAD_REQUEST',

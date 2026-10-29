@@ -671,6 +671,10 @@ export const mail_link = sqliteTable(
     entity_type: text('entity_type', { enum: MAIL_LINK_ENTITY_TYPES }).notNull(),
     entity_id: integer('entity_id').notNull(),
     source: text('source', { enum: MAIL_LINK_SOURCES }).notNull(),
+    // The mail's own date, stored when the link is made so the tab can sort by
+    // it - the link's created_at says when the user linked it, not when the mail
+    // was sent (a March mail linked by hand today must not sort above yesterday's)
+    mail_date: text('mail_date'),
     // 1 = the user removed an automatic link; the linker never adds it again
     dismissed: integer('dismissed', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
