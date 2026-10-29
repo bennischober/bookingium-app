@@ -39,6 +39,8 @@ export const DocumentDto = z.object({
   ownerType: DocumentOwnerType,
   ownerId: z.number(),
   fileName: z.string(),
+  /** The name the user gave it; null = the file name on disk is shown */
+  displayName: z.string().nullable(),
   fileType: z.string(),
   // Relative to the storage folder
   filePath: z.string(),
@@ -86,7 +88,30 @@ export type UploadDocumentInput = z.infer<typeof UploadDocumentInput>
 export const UpdateDocumentInput = z.object({
   id: z.number(),
   documentType: DocumentType.optional(),
-  uploadedBy: z.string().optional()
+  uploadedBy: z.string().optional(),
+  /** A new name; null or empty clears it back to the file name */
+  displayName: z.string().nullable().optional()
 })
 
 export type UpdateDocumentInput = z.infer<typeof UpdateDocumentInput>
+
+/** Longest display name the lists can show without cutting the extension off */
+export const DOCUMENT_DISPLAY_NAME_MAX = 120
+
+/**
+ * Cleans a name the user typed: trimmed, no path separators (it is not a path),
+ * no control characters, and at most DOCUMENT_DISPLAY_NAME_MAX characters.
+ * Returns null for a name that is empty after cleaning, so "clear" and "whitespace"
+ * are the same thing.
+ */
+export function normalizeDisplayName(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const cleaned = raw
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[\\/]/g, '-')
+    .trim()
+    .slice(0, DOCUMENT_DISPLAY_NAME_MAX)
+    .trim()
+  return cleaned.length > 0 ? cleaned : null
+}

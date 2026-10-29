@@ -231,6 +231,68 @@ describe('deleting a document', () => {
   })
 })
 
+describe('renaming a document', () => {
+  const service = () => container.resolve(DocumentService)
+
+  it('stores the shown name and leaves the file on disk alone', async () => {
+    const bandId = createBand('Rename Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('scan_0042.pdf'),
+      documentType: 'other'
+    })
+    expect(doc.display_name).toBeNull()
+
+    const renamed = await service().updateDocument({
+      id: doc.id,
+      displayName: 'Rechnung März.pdf'
+    })
+    expect(renamed).toMatchObject({
+      display_name: 'Rechnung März.pdf',
+      // The file keeps the name it had, so the folder stays readable and a
+      // rename cannot fail on a locked file
+      file_name: 'scan_0042.pdf',
+      file_path: doc.file_path
+    })
+    expect(existsSync(join(storage, doc.file_path))).toBe(true)
+  })
+
+  it('clears the name back to the file name for an empty one', async () => {
+    const bandId = createBand('Clear Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('rider_neu.pdf'),
+      documentType: 'rider'
+    })
+    await service().updateDocument({ id: doc.id, displayName: 'Rider' })
+    expect((await service().getById(doc.id))!.display_name).toBe('Rider')
+
+    // Whitespace is the same as empty: the file name shows again
+    const cleared = await service().updateDocument({ id: doc.id, displayName: '   ' })
+    expect(cleared!.display_name).toBeNull()
+  })
+
+  it('keeps a name that is not being changed, and the type change still works', async () => {
+    const bandId = createBand('Keep Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('presse.pdf'),
+      documentType: 'press'
+    })
+    await service().updateDocument({ id: doc.id, displayName: 'Presse Februar.pdf' })
+
+    // A type change alone must not wipe the name (the defaults trap in AGENTS.md)
+    const typed = await service().updateDocument({ id: doc.id, documentType: 'photo' })
+    expect(typed).toMatchObject({
+      document_type: 'photo',
+      display_name: 'Presse Februar.pdf'
+    })
+  })
+})
+
 describe('C5: an attachment becomes a document', () => {
   const service = () => container.resolve(DocumentService)
 

@@ -10,7 +10,10 @@ export type DocumentSort = { key: DocumentSortKey; desc: boolean }
 /** Newest first: the order the list shows before the user picks a column */
 export const DEFAULT_DOCUMENT_SORT: DocumentSort = { key: 'uploadedAt', desc: true }
 
-type SortableDocument = Pick<DocumentDto, 'fileName' | 'documentType' | 'fileSize' | 'uploadedAt'>
+type SortableDocument = Pick<
+  DocumentDto,
+  'fileName' | 'displayName' | 'documentType' | 'fileSize' | 'uploadedAt'
+>
 
 /** German labels decide the type order ("Vertrag" before "Sonstiges"), not the stored value */
 function typeLabel(document: SortableDocument, labels: Record<string, string>): string {
@@ -25,7 +28,8 @@ function compare(
 ): number {
   switch (key) {
     case 'name':
-      return left.fileName.localeCompare(right.fileName, 'de', { numeric: true })
+      // The shown name decides the order, so a renamed file sorts where it reads
+      return shownName(left).localeCompare(shownName(right), 'de', { numeric: true })
     case 'type':
       return typeLabel(left, labels).localeCompare(typeLabel(right, labels), 'de')
     case 'size':
@@ -51,6 +55,19 @@ export function sortDocuments<T extends { doc: SortableDocument }>(
 /** The next sort state when a header is clicked: same column flips, a new one starts ascending */
 export function nextDocumentSort(current: DocumentSort, key: DocumentSortKey): DocumentSort {
   return current.key === key ? { key, desc: !current.desc } : { key, desc: false }
+}
+
+/** The name a list shows: the user's name if there is one, else the file name on disk */
+export function shownName(document: Pick<DocumentDto, 'fileName' | 'displayName'>): string {
+  const display = document.displayName?.trim()
+  return display && display.length > 0 ? display : document.fileName
+}
+
+/** The extension of the file name on disk, for a rename that keeps it ("Rider.pdf" -> ".pdf") */
+export function fileNameExtension(fileName: string): string {
+  const dot = fileName.lastIndexOf('.')
+  // A leading dot is a hidden file, not an extension
+  return dot > 0 ? fileName.slice(dot) : ''
 }
 
 /** "1,5 MB" / "512 B" - German decimal comma, no trailing ".0" */

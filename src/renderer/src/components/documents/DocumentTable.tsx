@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ArrowUpDown, FileText, FolderOpen, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, FileText, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,8 +25,10 @@ import {
 import { openDocument, revealDocument } from './documentFiles'
 import {
   DEFAULT_DOCUMENT_SORT,
+  fileNameExtension,
   formatFileSize,
   nextDocumentSort,
+  shownName,
   sortDocuments,
   type DocumentSort,
   type DocumentSortKey
@@ -72,6 +74,8 @@ export function DocumentTable({
 }) {
   const [sort, setSort] = useState<DocumentSort>(DEFAULT_DOCUMENT_SORT)
   const [busyId, setBusyId] = useState<number | null>(null)
+  // The row being renamed and the text typed so far; null = no row is editing
+  const [renaming, setRenaming] = useState<{ id: number; value: string } | null>(null)
 
   const sorted = useMemo(() => sortDocuments(rows, sort, DOCUMENT_TYPE_LABELS), [rows, sort])
 
@@ -98,6 +102,23 @@ export function DocumentTable({
       })
     }
   })
+
+  /**
+   * Keeps the extension of the file on disk when the user leaves it out: renaming
+   * "Scan" to "Rechnung" gives "Rechnung.pdf", not a file without a suffix.
+   */
+  const saveName = (doc: DocumentDto | EventDocumentDto) => {
+    if (!renaming || renaming.id !== doc.id) return
+    const typed = renaming.value.trim()
+    setRenaming(null)
+    // Unchanged, or cleared back to the file name: nothing to send
+    if (typed === shownName(doc)) return
+    const extension = fileNameExtension(doc.fileName)
+    const next =
+      typed.length === 0 ? null : typed.endsWith(extension) ? typed : `${typed}${extension}`
+    setBusyId(doc.id)
+    updateDocument.mutate({ id: doc.id, displayName: next }, { onSettled: () => setBusyId(null) })
+  }
 
   if (isLoading) return <LoadingRow>Dokumente werden geladen…</LoadingRow>
   if (error && rows.length === 0) return <ErrorState error={error} onRetry={() => onRetry?.()} />
@@ -153,16 +174,53 @@ export function DocumentTable({
               className="border-t hover:bg-muted/50"
             >
               <td className="px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => void openDocument(doc.filePath)}
-                  className="flex min-w-0 items-center gap-2 text-left hover:underline"
-                >
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate" title={doc.fileName}>
-                    {doc.fileName}
-                  </span>
-                </button>
+                {renaming?.id === doc.id ? (
+                  <input
+                    autoFocus
+                    aria-label={`Name von ${doc.fileName}`}
+                    className="w-full rounded border bg-background px-2 py-1 text-sm"
+                    value={renaming.value}
+                    disabled={busyId === doc.id}
+                    onChange={(event) => setRenaming({ id: doc.id, value: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        saveName(doc)
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setRenaming(null)
+                      }
+                    }}
+                    // Leaving the field keeps what was typed, like Enter does
+                    onBlur={() => saveName(doc)}
+                  />
+                ) : (
+                  <div className="flex min-w-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openDocument(doc.filePath)}
+                      className="flex min-w-0 items-center gap-2 text-left hover:underline"
+                    >
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate" title={doc.fileName}>
+                        {shownName(doc)}
+                      </span>
+                    </button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Umbenennen"
+                        aria-label={`${shownName(doc)} umbenennen`}
+                        className="shrink-0"
+                        onClick={() => setRenaming({ id: doc.id, value: shownName(doc) })}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
               </td>
               <td className="px-3 py-2 whitespace-nowrap">
                 {readOnly ? (

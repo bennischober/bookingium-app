@@ -62,6 +62,15 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('option', { name: 'Stageplot' }).click()
   await expect(page.getByText('Dokument aktualisiert')).toBeVisible()
 
+  // Renaming shows a new name in the list but leaves the file on disk as it is,
+  // so the folder stays readable and a rename cannot fail on a locked file
+  await bandDocs.getByRole('button', { name: 'Stageplot.pdf umbenennen' }).click()
+  const nameField = bandDocs.getByRole('textbox', { name: 'Name von Stageplot.pdf' })
+  await nameField.fill('Bühnenplan')
+  await nameField.press('Enter')
+  await expect(bandDocs).toContainText('Bühnenplan.pdf')
+  await expect(page.getByText('Dokument aktualisiert')).toBeVisible()
+
   const storage = join(
     await h.app.evaluate(({ app }) => app.getPath('userData')),
     'storage',
@@ -98,8 +107,9 @@ test('band page shows members, events, contracts and documents', async () => {
   const combined = page.getByRole('region', { name: 'Dokumente aus Events' })
   await expect(combined).toContainText('Vertrag Berlin.pdf')
   await expect(combined).toContainText(EVENT)
-  await expect(combined).not.toContainText('Stageplot.pdf')
-  await expect(page.getByText('Stageplot.pdf')).toHaveCount(1)
+  // The band's own file is the renamed one now; it is listed once, not twice
+  await expect(combined).not.toContainText('Bühnenplan.pdf')
+  await expect(page.getByText('Bühnenplan.pdf')).toHaveCount(1)
 
   // D1: with files present, both filters are usable (the narrowing itself is unit-tested;
   // Radix animates its popup, which makes an e2e click on an option flaky)
@@ -109,7 +119,8 @@ test('band page shows members, events, contracts and documents', async () => {
   // Deleting moves the file to the OS trash: the row goes and the file leaves the
   // documents folder. That it stays recoverable is `shell.trashItem` in the router;
   // the unit tests cover the split (path handed over before the row is removed).
-  await bandDocs.getByRole('button', { name: 'Stageplot.pdf löschen' }).click()
+  // The row is found by its shown name, which the rename above changed.
+  await bandDocs.getByRole('button', { name: 'Bühnenplan.pdf löschen' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Löschen' }).click()
   await expect(bandDocs).toBeHidden()
   expect(existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf'))).toBe(false)
