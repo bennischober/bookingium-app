@@ -265,6 +265,16 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
     from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
     `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page
     edits memberships from the person's side (`PersonMembershipsPanel`).
+
+    A tab's shape follows what the rows are. Records you open use `RowTable`
+    (`components/detail/DetailParts.tsx`); links you edit in place use cards;
+    the overview uses `InfoCard`. A `RowTable` is full width, and only a card
+    list is narrowed (`max-w-2xl`). Give `RowTable` an `itemLabel` so a long tab
+    says how many rows it holds, and a `sortValue` on the columns that should
+    sort - without one the table keeps the order the query delivered. Relationship
+    tabs look alike: the memberships card on top, the linked records below (the
+    Bands, Companies and Spielstätten tabs of the person page).
+
 11. **Seed** (optional demo data) — `src/main/db/seed.ts`; real master data
     only in the gitignored `sample_data/internal-seed.json`.
 12. **Tests** — unit tests in `tests/`, an e2e spec in `tests/e2e/`.

@@ -147,9 +147,19 @@ function BandsTab({ personId }: { personId: number }) {
           query={ledBands}
           loading="Bands werden geladen…"
           empty="Für keine Band als Technischer Leiter eingetragen."
+          itemLabel={{ singular: 'Band', plural: 'Bands' }}
           columns={[
-            { header: 'Band', cell: (band) => band.name, className: 'font-medium' },
-            { header: 'Genre', cell: (band) => band.genre || '–' }
+            {
+              header: 'Band',
+              cell: (band) => band.name,
+              className: 'font-medium',
+              sortValue: (band) => band.name
+            },
+            {
+              header: 'Genre',
+              cell: (band) => band.genre || '–',
+              sortValue: (band) => band.genre || ''
+            }
           ]}
           onRowClick={(band) =>
             navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
@@ -177,9 +187,19 @@ function CompaniesTab({ personId }: { personId: number }) {
           query={billed}
           loading="Firmen werden geladen…"
           empty="Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen."
+          itemLabel={{ singular: 'Firma', plural: 'Firmen' }}
           columns={[
-            { header: 'Firma', cell: (company) => company.name, className: 'font-medium' },
-            { header: 'Stadt', cell: (company) => company.address?.city || '–' }
+            {
+              header: 'Firma',
+              cell: (company) => company.name,
+              className: 'font-medium',
+              sortValue: (company) => company.name
+            },
+            {
+              header: 'Stadt',
+              cell: (company) => company.address?.city || '–',
+              sortValue: (company) => company.address?.city || ''
+            }
           ]}
           onRowClick={(company) =>
             navigate({ to: '/companies/$companyId', params: { companyId: String(company.id) } })
@@ -305,8 +325,14 @@ function ContractsTab({ personId }: { personId: number }) {
       query={contracts}
       loading="Verträge werden geladen…"
       empty="In keinem Managementvertrag aufgeführt."
+      itemLabel={{ singular: 'Vertrag', plural: 'Verträge' }}
       columns={[
-        { header: 'Band', cell: (contract) => bandName(contract.bandId), className: 'font-medium' },
+        {
+          header: 'Band',
+          cell: (contract) => bandName(contract.bandId),
+          className: 'font-medium',
+          sortValue: (contract) => bandName(contract.bandId)
+        },
         {
           header: 'Beginn',
           cell: (contract) => (contract.startDate ? formatShortDate(contract.startDate) : '–'),
@@ -344,16 +370,19 @@ function InvoicesTab({ personId }: { personId: number }) {
       query={invoices}
       loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen an diese Person."
+      itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
       columns={[
         {
           header: 'Nr.',
           cell: (invoice) => invoiceNumberLabel(invoice.invoiceNumber),
-          className: 'whitespace-nowrap font-medium'
+          className: 'whitespace-nowrap font-medium',
+          sortValue: (invoice) => invoice.invoiceNumber ?? ''
         },
         {
           header: 'Datum',
           cell: (invoice) => formatShortDate(invoice.issueDate),
-          className: 'whitespace-nowrap'
+          className: 'whitespace-nowrap',
+          sortValue: (invoice) => invoice.issueDate
         },
         { header: 'Von', cell: (invoice) => invoice.companyName },
         { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
