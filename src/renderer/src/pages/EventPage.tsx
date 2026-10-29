@@ -139,7 +139,7 @@ export function EventPage() {
     },
     {
       accessorKey: 'venueName',
-      header: 'Spielstätte',
+      header: 'Club / Festival',
       cell: (info) => (info.getValue() as string | null) ?? '-'
     },
     {

@@ -59,7 +59,7 @@ export function MembersPanel({
   open?: boolean
 }) {
   const entityLabel =
-    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Spielstätte'
+    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Club / Festival'
   const nouns = MEMBER_NOUNS[entityType]
   const utils = trpcReact.useUtils()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -385,7 +385,7 @@ export function MembersSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const entityLabel =
-    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Spielstätte'
+    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Club / Festival'
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

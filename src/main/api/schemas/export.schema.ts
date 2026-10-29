@@ -23,7 +23,7 @@ export const EXPORT_LIST_LABELS: Record<ExportList, string> = {
   bands: 'Bands',
   persons: 'Personen',
   companies: 'Firmen',
-  venues: 'Spielstätten',
+  venues: 'Clubs und Festivals',
   hotels: 'Hotels',
   events: 'Events',
   invoices: 'Rechnungen',
@@ -34,7 +34,7 @@ export const EXPORT_LIST_LABELS: Record<ExportList, string> = {
 export const ExportListInput = z.object({
   list: ExportList,
   search: z.string().optional(),
-  // Spielstätten only
+  // Clubs and festivals only
   kind: VenueKind.optional(),
   // The grid's sort order
   sortBy: z.string().optional(),

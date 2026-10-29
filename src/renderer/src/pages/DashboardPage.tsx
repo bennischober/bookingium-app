@@ -190,7 +190,7 @@ export default function DashboardPage() {
                   <span className="font-semibold">{stats?.directory.bands ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Spielstätten</span>
+                  <span className="text-muted-foreground">Clubs / Festivals</span>
                   <span className="font-semibold">{stats?.directory.venues ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">

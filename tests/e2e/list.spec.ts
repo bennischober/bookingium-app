@@ -32,7 +32,7 @@ test.beforeAll(async () => {
     dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
   }, file)
   const { page } = h
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
   await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
@@ -53,7 +53,7 @@ test('scrolls, loads more, sorts and keeps the header in view', async () => {
   const dataRows = page.locator('tbody tr:has(td:nth-child(2))')
   const nameHeader = page.getByRole('columnheader', { name: /Name/ })
 
-  await expect(status).toHaveText('152 Spielstätten')
+  await expect(status).toHaveText('152 Clubs')
   await expect(dataRows).toHaveCount(100)
   await expect(page.getByText('100 geladen – weitere beim Scrollen')).toBeVisible()
 
@@ -76,14 +76,14 @@ test('scrolls, loads more, sorts and keeps the header in view', async () => {
 
   // Remembered for this list
   await page.getByRole('link', { name: 'Bands' }).first().click()
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
   await expect(page.getByRole('columnheader', { name: /Kapazität/ })).toHaveAttribute(
     'aria-sort',
     'descending'
   )
 
   // Search narrows the list and says so
-  await page.getByPlaceholder('Spielstätten filtern…').fill('Testclub 14')
-  await expect(status).toHaveText('10 Spielstätten gefunden')
+  await page.getByPlaceholder('Clubs filtern…').fill('Testclub 14')
+  await expect(status).toHaveText('10 Clubs gefunden')
   await expect(dataRows.first()).toContainText('Testclub 149')
 })

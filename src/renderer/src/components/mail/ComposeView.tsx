@@ -52,7 +52,7 @@ const AUTOSAVE_MS = 1500
 const SOURCE_LABELS: Record<'person' | 'company' | 'venue' | 'mail', string> = {
   person: 'Kontakt',
   company: 'Firma',
-  venue: 'Spielstätte',
+  venue: 'Club / Festival',
   mail: 'Aus E-Mails'
 }
 

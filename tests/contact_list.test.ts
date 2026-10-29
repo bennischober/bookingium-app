@@ -150,7 +150,9 @@ describe('mailing lists', () => {
     expect(lea).toMatchObject({ name: 'Lea Berg', firstName: 'Lea', types: ['member'] })
     expect(lea?.venues.map((entry) => entry.name)).toEqual(['Club Zentral', 'Wiesen Open Air'])
     expect(lea?.venues[0].role).toBe('Booking')
-    const promoter = result.recipients.find((row) => row.email === 'office@kulturbetrieb.example.test')
+    const promoter = result.recipients.find(
+      (row) => row.email === 'office@kulturbetrieb.example.test'
+    )
     expect(promoter).toMatchObject({
       company: 'Kulturbetrieb GmbH',
       types: ['promoter'],
@@ -159,7 +161,10 @@ describe('mailing lists', () => {
   })
 
   it('filter by kind and recipient type', () => {
-    expect(emails({ kinds: ['festival'] })).toEqual(['LEA@club-zentral.example.test', 'hallo@wiesen.example.test'])
+    expect(emails({ kinds: ['festival'] })).toEqual([
+      'LEA@club-zentral.example.test',
+      'hallo@wiesen.example.test'
+    ])
     expect(emails({ recipientTypes: ['promoter'] })).toEqual(['office@kulturbetrieb.example.test'])
     expect(emails({ kinds: ['venue'], recipientTypes: ['venue'] })).toEqual([
       'booking@halle-sued.example.test',
@@ -168,7 +173,10 @@ describe('mailing lists', () => {
   })
 
   it('filter by country, state and PLZ', () => {
-    expect(emails({ countryCodes: ['at'] })).toEqual(['LEA@club-zentral.example.test', 'hallo@wiesen.example.test'])
+    expect(emails({ countryCodes: ['at'] })).toEqual([
+      'LEA@club-zentral.example.test',
+      'hallo@wiesen.example.test'
+    ])
     expect(emails({ states: ['bayern'] })).toEqual([
       'booking@halle-sued.example.test',
       'office@kulturbetrieb.example.test'
@@ -193,7 +201,9 @@ describe('mailing lists', () => {
       'lea@club-zentral.example.test',
       'office@kulturbetrieb.example.test'
     ])
-    expect(emails({ capacityMin: 100, recipientTypes: ['venue'] })).not.toContain('hallo@wiesen.example.test')
+    expect(emails({ capacityMin: 100, recipientTypes: ['venue'] })).not.toContain(
+      'hallo@wiesen.example.test'
+    )
   })
 
   it('filter by genre: venue tags and genres of bands booked there', () => {
@@ -206,7 +216,9 @@ describe('mailing lists', () => {
       'info@club-zentral.example.test'
     ])
     // Pop: the festival; the hall's pop show was cancelled
-    expect(emails({ genres: ['Indie'], recipientTypes: ['venue'] })).toEqual(['hallo@wiesen.example.test'])
+    expect(emails({ genres: ['Indie'], recipientTypes: ['venue'] })).toEqual([
+      'hallo@wiesen.example.test'
+    ])
   })
 
   it('filter by past bookings, optionally of one band', () => {
@@ -260,7 +272,9 @@ describe('mailing lists', () => {
       notes: '',
       contact: { email: 'hallo@wiesen.example.test', phone: '', mobilePhone: '', homepage: '' }
     })
-    expect(service.build(filters()).excluded.map((row) => row.email)).toEqual(['hallo@wiesen.example.test'])
+    expect(service.build(filters()).excluded.map((row) => row.email)).toEqual([
+      'hallo@wiesen.example.test'
+    ])
     // Genres untouched by an update that doesn't send them
     expect((await venues.getVenueById(festival.id))?.genres).toBe('')
     service.setNoAdvertising('hallo@wiesen.example.test', false)
@@ -291,7 +305,7 @@ describe('mailing list output', () => {
       .resolve(ContactListService)
       .build(filters({ recipientTypes: ['member', 'promoter'] }))
     expect(contactListCsv(recipients).split('\r\n')).toEqual([
-      'E-Mail,Vorname,Nachname,Firma,Spielstätte,Ort,Land,Art',
+      'E-Mail,Vorname,Nachname,Firma,Club/Festival,Ort,Land,Art',
       'office@kulturbetrieb.example.test,,,Kulturbetrieb GmbH,"Club Zentral; Halle Süd",Stadt,Deutschland,Veranstalter',
       'lea@club-zentral.example.test,Lea,Berg,,"Club Zentral; Wiesen Open Air",Stadt,Deutschland,Ansprechpartner',
       ''
@@ -299,8 +313,12 @@ describe('mailing list output', () => {
   })
 
   it('puts the addresses in BCC, separated for the mail program', () => {
-    expect(bccMailtoUrl(['a@x.example.test', 'b+1@y.example.test'], 'outlook')).toBe('mailto:?bcc=a@x.example.test;b%2B1@y.example.test')
-    expect(bccMailtoUrl(['a@x.example.test', 'b@y.example.test'], 'mailto')).toBe('mailto:?bcc=a@x.example.test,b@y.example.test')
+    expect(bccMailtoUrl(['a@x.example.test', 'b+1@y.example.test'], 'outlook')).toBe(
+      'mailto:?bcc=a@x.example.test;b%2B1@y.example.test'
+    )
+    expect(bccMailtoUrl(['a@x.example.test', 'b@y.example.test'], 'mailto')).toBe(
+      'mailto:?bcc=a@x.example.test,b@y.example.test'
+    )
     const many = Array.from({ length: 200 }, (_, i) => `kontakt${i}@spielstaette.de`)
     expect(bccMailtoUrl(many, 'mailto')).toBeNull()
     expect(bccMailtoUrl(many.slice(0, 10), 'mailto')!.length).toBeLessThan(MAX_MAILTO_LENGTH)

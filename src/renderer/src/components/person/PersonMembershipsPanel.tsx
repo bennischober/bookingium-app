@@ -35,9 +35,9 @@ const LABELS: Record<MembershipType, { entity: string; add: string; empty: strin
     empty: 'Keiner Firma zugeordnet.'
   },
   venue: {
-    entity: 'Spielstätte',
-    add: 'Zur Spielstätte hinzufügen',
-    empty: 'Keiner Spielstätte zugeordnet.'
+    entity: 'Club / Festival',
+    add: 'Zu Club / Festival hinzufügen',
+    empty: 'Keinem Club und keinem Festival zugeordnet.'
   }
 }
 
@@ -142,7 +142,7 @@ export function PersonMembershipsPanel({
     handlers('Zur Firma hinzugefügt')
   )
   const addVenue = trpcReact.relation.addVenueMember.useMutation(
-    handlers('Zur Spielstätte hinzugefügt')
+    handlers('Zu Club / Festival hinzugefügt')
   )
   const updateBand = trpcReact.relation.updateBandMember.useMutation(
     handlers('Zugehörigkeit aktualisiert')

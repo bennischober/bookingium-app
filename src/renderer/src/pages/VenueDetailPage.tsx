@@ -1,7 +1,8 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useDetailTab } from '@/hooks/useDetailTab'
-import { useParams, useNavigate, Link } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { useParams, useNavigate, useRouterState, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageErrorState } from '@/components/load-states'
@@ -17,7 +18,13 @@ import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
-import { isVenueTab } from '@/components/venue/constants'
+import {
+  isMisplacedVenuePath,
+  isVenueTab,
+  VENUE_KIND_COPY,
+  venueDetailPath,
+  venueListPath
+} from '@/components/venue/constants'
 import {
   AddressLines,
   Empty,
@@ -78,21 +85,22 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
 }
 
 /** Events at this venue, newest first */
-function EventsTab({ venueId }: { venueId: number }) {
-  const events = trpcReact.dealMemo.listByVenue.useQuery(venueId)
+function EventsTab({ venue }: { venue: VenueDto }) {
+  const events = trpcReact.dealMemo.listByVenue.useQuery(venue.id)
   return (
     <EventsTable
-      label="Events der Spielstätte"
+      label={`Events ${venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'}`}
       query={events}
-      empty="Noch keine Events in dieser Spielstätte."
+      empty={`Noch keine Events ${venue.kind === 'festival' ? 'auf diesem Festival' : 'in diesem Club'}.`}
       columns={[{ header: 'Band', cell: (event) => event.bandName }]}
     />
   )
 }
 
 /**
- * Venue page: everything about one venue or festival in tabs (contacts,
- * events, documents). Quick edits stay in the sheet.
+ * Venue page: everything about one club or festival in tabs (contacts,
+ * events, documents). Quick edits stay in the sheet. It answers at /clubs/<id>,
+ * /festivals/<id> and /venues/<id>, and moves itself to the path of its kind.
  */
 export default function VenueDetailPage() {
   const { venueId } = useParams({ strict: false }) as { venueId?: string }
@@ -103,6 +111,7 @@ export default function VenueDetailPage() {
   const activeTab = useDetailTab(isVenueTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<VenueDto>()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   const {
     data: venue,
@@ -112,16 +121,30 @@ export default function VenueDetailPage() {
     refetch
   } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
+  // Links that do not know the kind, older /venues links, or the kind changed in the sheet:
+  // replace the URL with the one below the right list, keeping the tab
+  const misplaced = venue ? isMisplacedVenuePath(pathname, venue) : false
+  const venueKind = venue?.kind
+  useEffect(() => {
+    if (!misplaced || !venueKind || id === null) return
+    void navigate({
+      to: venueDetailPath(venueKind),
+      params: { venueId: String(id) },
+      search: { tab: activeTab !== 'overview' ? activeTab : undefined },
+      replace: true
+    })
+  }, [misplaced, venueKind, id, activeTab, navigate])
+
   const updateVenue = trpcReact.venue.update.useMutation({
     onSuccess: (data) => {
       void utils.venue.invalidate()
       sheet.close()
-      toast.success('Spielstätte aktualisiert', {
+      toast.success(`${VENUE_KIND_COPY[data.kind].singular} aktualisiert`, {
         description: `${data.name} wurde aktualisiert.`
       })
     },
     onError: (error) => {
-      toast.error('Spielstätte konnte nicht aktualisiert werden', { description: error.message })
+      toast.error('Änderungen konnten nicht gespeichert werden', { description: error.message })
     }
   })
 
@@ -129,7 +152,7 @@ export default function VenueDetailPage() {
   if (id !== null && isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Spielstätte wird geladen…</p>
+        <p className="text-muted-foreground">Wird geladen…</p>
       </div>
     )
   }
@@ -141,9 +164,9 @@ export default function VenueDetailPage() {
   if (!venue) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Spielstätte nicht gefunden.</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/venues' })}>
-          Zurück zu den Spielstätten
+        <p className="text-muted-foreground">Club oder Festival nicht gefunden.</p>
+        <Button variant="outline" onClick={() => navigate({ to: '/clubs' })}>
+          Zurück zu den Clubs
         </Button>
       </div>
     )
@@ -156,10 +179,10 @@ export default function VenueDetailPage() {
           variant="ghost"
           size="sm"
           className="mb-4 -ml-2 gap-1.5 text-muted-foreground"
-          onClick={() => navigate({ to: '/venues' })}
+          onClick={() => navigate({ to: venueListPath(venue.kind) })}
         >
           <ArrowLeft className="h-4 w-4" />
-          Alle Spielstätten
+          Alle {VENUE_KIND_COPY[venue.kind].plural}
         </Button>
 
         <div className="flex items-start justify-between gap-4">
@@ -191,7 +214,7 @@ export default function VenueDetailPage() {
         onValueChange={(tab) =>
           // replace: switching tabs should not pile up history entries
           navigate({
-            to: '/venues/$venueId',
+            to: venueDetailPath(venue.kind),
             params: { venueId: String(venue.id) },
             search: { tab: isVenueTab(tab) && tab !== 'overview' ? tab : undefined },
             replace: true
@@ -224,10 +247,14 @@ export default function VenueDetailPage() {
           <MembersPanel entityType="venue" entityId={venue.id} />
         </TabsContent>
         <TabsContent value="events">
-          <EventsTab venueId={venue.id} />
+          <EventsTab venue={venue} />
         </TabsContent>
         <TabsContent value="documents">
-          <DocumentsPanel ownerType="venue" ownerId={venue.id} title="Dokumente der Spielstätte" />
+          <DocumentsPanel
+            ownerType="venue"
+            ownerId={venue.id}
+            title={`Dokumente ${venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'}`}
+          />
         </TabsContent>
         {mailClientEnabled && (
           <TabsContent value="mails">
@@ -240,8 +267,8 @@ export default function VenueDetailPage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode="edit"
-        title="Spielstätte bearbeiten"
-        description="Spielstätteninformationen aktualisieren."
+        title={`${VENUE_KIND_COPY[venue.kind].singular} bearbeiten`}
+        description="Angaben aktualisieren."
       >
         <VenueForm
           mode="edit"

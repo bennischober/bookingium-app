@@ -59,8 +59,8 @@ test('company page shows contacts, bands, events, invoices and documents', async
   await expect(bands).toContainText('Midnight Symphony')
   await expect(bands).toContainText('Firma der Band')
 
-  await page.getByRole('tab', { name: 'Spielstätten' }).click()
-  await expect(page.getByText('Keine Spielstätten mit dieser Firma.')).toBeVisible()
+  await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
+  await expect(page.getByText('Keine Clubs und Festivals mit dieser Firma.')).toBeVisible()
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events der Firma' })
@@ -170,7 +170,7 @@ test('tabs show how many records they hold, nothing when empty', async () => {
 
   // Seed: both demo bands, no venue; Übersicht never counts
   await expect(page.getByRole('tab', { name: 'Bands' })).toHaveText('Bands2')
-  await expect(page.getByRole('tab', { name: 'Spielstätten' })).toHaveText('Spielstätten')
+  await expect(page.getByRole('tab', { name: 'Clubs / Festivals' })).toHaveText('Clubs / Festivals')
   await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveText('Übersicht')
   await expect(page.getByRole('tab', { name: 'Events' })).toHaveText(/^Events\d+$/)
 })

@@ -28,7 +28,7 @@ export function AppBreadcrumbs() {
   const personMatch = pathname.match(/^\/persons\/(\d+)/)
   const bandMatch = pathname.match(/^\/band\/(\d+)/)
   const companyMatch = pathname.match(/^\/companies\/(\d+)/)
-  const venueMatch = pathname.match(/^\/venues\/(\d+)/)
+  const venueMatch = pathname.match(/^\/(?:clubs|festivals|venues)\/(\d+)/)
   const eventId = eventMatch ? Number(eventMatch[1]) : null
   const bandId = bandMatch ? Number(bandMatch[1]) : null
   const companyId = companyMatch ? Number(companyMatch[1]) : null

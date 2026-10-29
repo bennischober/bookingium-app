@@ -28,6 +28,8 @@ import {
 interface VenueFormProps {
   mode: FormMode
   initialData?: VenueDto | null
+  /** Kind of a new venue: the list it is created from */
+  defaultKind?: VenueKind
   onSubmit: (data: CreateVenueInput | UpdateVenueInput) => void
   onCancel: () => void
   isSubmitting?: boolean
@@ -36,6 +38,7 @@ interface VenueFormProps {
 export function VenueForm({
   mode,
   initialData,
+  defaultKind = 'venue',
   onSubmit,
   onCancel,
   isSubmitting = false
@@ -45,7 +48,7 @@ export function VenueForm({
   const form = useForm({
     defaultValues: {
       name: initialData?.name ?? '',
-      kind: initialData?.kind ?? ('venue' as VenueKind),
+      kind: initialData?.kind ?? defaultKind,
       capacity: initialData?.capacity?.toString() ?? '',
       genres: initialData?.genres ?? '',
       notes: initialData?.notes ?? '',
@@ -124,7 +127,7 @@ export function VenueForm({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Spielstättennamen eingeben"
+              placeholder="Namen eingeben"
               disabled={isSubmitting}
             />
             {field.state.meta.errors.length > 0 && (
@@ -219,7 +222,7 @@ export function VenueForm({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
-              placeholder="Weitere Details zu dieser Spielstätte"
+              placeholder="Weitere Details"
               rows={4}
               disabled={isSubmitting}
             />
@@ -264,11 +267,7 @@ export function VenueForm({
           Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting
-            ? 'Speichert…'
-            : mode === 'create'
-              ? 'Spielstätte anlegen'
-              : 'Änderungen speichern'}
+          {isSubmitting ? 'Speichert…' : mode === 'create' ? 'Anlegen' : 'Änderungen speichern'}
         </Button>
       </div>
     </form>

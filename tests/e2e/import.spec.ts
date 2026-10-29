@@ -67,16 +67,16 @@ test.afterAll(async () => {
 
 test('imports festivals, promoters and contacts from a spreadsheet', async () => {
   const { page } = h
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
+  await page.getByRole('link', { name: 'Festivals' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
   await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
 
-  // Mapping detected from the headers; festivals because of the "Festival" column
+  // Mapping detected from the headers; festivals because the Festivals list was open
   await expect(dialog.getByRole('combobox', { name: 'Importieren als' })).toHaveText('Festival')
   await expect(dialog.getByRole('combobox', { name: 'Spalte B übernehmen als' })).toHaveText(
-    'Spielstätte / Festival'
+    'Club / Festival'
   )
   await expect(dialog.getByRole('combobox', { name: 'Spalte G übernehmen als' })).toHaveText(
     'Ansprechpartner'
@@ -97,13 +97,13 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
 
   // Listed as festivals, with the promoter linked
   const row = page.locator('tr', { hasText: 'Rock am Teich' })
-  await expect(row).toContainText('Festival')
   await expect(row).toContainText('Teich Events GmbH')
   await expect(row).toContainText('2.500')
 
-  await page.getByRole('combobox', { name: 'Art filtern' }).click()
-  await page.getByRole('option', { name: 'Festivals' }).click()
   await expect(page.locator('tbody tr')).toHaveCount(2)
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
+  await expect(page.locator('tr', { hasText: 'Rock am Teich' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Festivals' }).first().click()
 
   // Venue details: festival date in the notes, editable without errors
   await row.getByRole('button', { name: 'Bearbeiten' }).click()
@@ -111,7 +111,7 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
     /Monat: JUNI\nTermin\/Zeitraum: 12\.06\.2026/
   )
   await page.getByRole('button', { name: 'Änderungen speichern' }).click()
-  await expect(page.getByText('Spielstätte aktualisiert')).toBeVisible()
+  await expect(page.getByText('Festival aktualisiert')).toBeVisible()
 
   // Promoter address with the ZIP code's leading zero restored
   await page.getByRole('link', { name: 'Firmen' }).first().click()

@@ -26,7 +26,7 @@ export function ContactListsSwitchCard() {
       <CardHeader>
         <CardTitle>Verteiler (experimentell)</CardTitle>
         <CardDescription>
-          Empfängerlisten für Rundmails und Newsletter, gefiltert nach Spielstätten und
+          Empfängerlisten für Rundmails und Newsletter, gefiltert nach Clubs, Festivals und
           Veranstaltern.
         </CardDescription>
       </CardHeader>

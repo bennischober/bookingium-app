@@ -38,7 +38,7 @@ test('keeps the calendar file up to date', async () => {
   expect(ics()).toContain('LOCATION:Berghain')
 
   // Renaming the venue rewrites the file
-  await page.getByRole('link', { name: 'Spielstätten' }).first().click()
+  await page.getByRole('link', { name: 'Clubs' }).first().click()
   await page
     .locator('tr', { hasText: 'Berghain' })
     .getByRole('button', { name: 'Bearbeiten' })

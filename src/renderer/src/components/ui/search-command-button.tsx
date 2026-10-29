@@ -75,7 +75,8 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
     aliases: ['contacts', 'people', 'kontakte']
   },
   '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
-  '/venues': { description: 'Spielstättenverzeichnis öffnen', aliases: ['locations'] },
+  '/clubs': { description: 'Clubs öffnen', aliases: ['locations', 'venues', 'spielstätten'] },
+  '/festivals': { description: 'Festivals öffnen', aliases: ['locations', 'open air'] },
   '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
   '/contact-lists': {
     description: 'Empfänger für Rundmails und Newsletter',
@@ -504,7 +505,7 @@ const SearchButton = () => {
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Einträge: Firmen / Bands / Spielstätten / Hotels / Rechnungen">
+              <CommandGroup heading="Einträge: Firmen / Bands / Clubs / Festivals / Hotels / Rechnungen">
                 {companiesQuickList.map((company) => (
                   <CommandItem
                     key={`company-${company.id}`}
@@ -555,7 +556,7 @@ const SearchButton = () => {
                   >
                     <MapPin />
                     <span>{venue.label}</span>
-                    <CommandShortcut>Spielstätten</CommandShortcut>
+                    <CommandShortcut>Club / Festival</CommandShortcut>
                   </CommandItem>
                 ))}
                 {hotelsQuickList.map((hotel) => (

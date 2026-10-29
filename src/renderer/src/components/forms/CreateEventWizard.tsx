@@ -215,12 +215,12 @@ function VenueQuickCreateDialog({
 
   const createVenue = trpcReact.venue.create.useMutation({
     onSuccess: (venue) => {
-      toast.success(`Spielstätte "${venue.name}" erstellt`)
+      toast.success(`"${venue.name}" angelegt`)
       onCreated(venue.id, venue.name)
       onClose()
     },
     onError: (e) =>
-      toast.error('Spielstätte konnte nicht erstellt werden', { description: e.message })
+      toast.error('Club / Festival konnte nicht angelegt werden', { description: e.message })
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -237,14 +237,14 @@ function VenueQuickCreateDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Spielstätte schnell anlegen</DialogTitle>
+          <DialogTitle>Club / Festival schnell anlegen</DialogTitle>
           <DialogDescription>
             Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="venue-name">Spielstättenname *</Label>
+            <Label htmlFor="venue-name">Name *</Label>
             <Input
               id="venue-name"
               value={name}
@@ -267,7 +267,7 @@ function VenueQuickCreateDialog({
               Abbrechen
             </Button>
             <Button type="submit" disabled={!name.trim() || createVenue.isPending}>
-              Spielstätte anlegen
+              Anlegen
             </Button>
           </DialogFooter>
         </form>
@@ -561,17 +561,17 @@ export function CreateEventWizard({
 
               <div className="space-y-2">
                 <Label>
-                  Spielstätte <span className="text-muted-foreground text-xs">(optional)</span>
+                  Club / Festival <span className="text-muted-foreground text-xs">(optional)</span>
                 </Label>
                 <EntityCombobox
                   items={venueItems}
                   value={form.venueId}
                   onChange={(id) => set('venueId', id)}
-                  placeholder="Spielstätte auswählen…"
-                  searchPlaceholder="Spielstätten suchen…"
+                  placeholder="Club / Festival auswählen…"
+                  searchPlaceholder="Clubs und Festivals suchen…"
                   isLoading={venues.isLoading}
                   onCreateNew={(q) => setVenueQC({ open: true, prefill: q })}
-                  createNewLabel="Neue Spielstätte anlegen"
+                  createNewLabel="Neuen Club / Festival anlegen"
                 />
               </div>
             </div>

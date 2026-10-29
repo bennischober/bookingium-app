@@ -41,7 +41,7 @@ const copied = () => h.app.evaluate(() => (globalThis as { copied?: string }).co
 test('stays out of the menu until switched on in the settings', async () => {
   const { page } = h
   const menu = page.getByRole('navigation', { name: 'Hauptnavigation' })
-  await expect(menu.getByRole('link', { name: 'Spielstätten' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: 'Clubs' })).toBeVisible()
   await expect(menu.getByRole('link', { name: 'Verteiler' })).toHaveCount(0)
 
   await menu.getByRole('link', { name: 'Einstellungen' }).click()
@@ -70,7 +70,7 @@ test('builds, saves and exports a mailing list', async () => {
   await expect(page.locator('tr', { hasText: TOM })).toContainText('Berghain (Stage Manager)')
 
   // Recipient type: only the venues' own addresses
-  await page.getByRole('button', { name: 'Spielstätte', exact: true }).click()
+  await page.getByRole('button', { name: 'Club/Festival', exact: true }).click()
   await expect(table.getByText(TOM, { exact: true })).toBeHidden()
   await expect(table.locator('tr')).toHaveCount(1)
 
@@ -122,7 +122,7 @@ test('builds, saves and exports a mailing list', async () => {
   await page.getByRole('button', { name: 'CSV exportieren' }).click()
   await expect(page.getByText('3 Zeilen exportiert')).toBeVisible()
   const lines = readFileSync(file, 'utf-8').trimEnd().split('\r\n')
-  expect(lines[0]).toBe('E-Mail,Vorname,Nachname,Firma,Spielstätte,Ort,Land,Art')
+  expect(lines[0]).toBe('E-Mail,Vorname,Nachname,Firma,Club/Festival,Ort,Land,Art')
   expect(lines).toHaveLength(4)
   expect(lines.some((line) => line.startsWith(`${TOM},Tom,Manager,`))).toBe(true)
 

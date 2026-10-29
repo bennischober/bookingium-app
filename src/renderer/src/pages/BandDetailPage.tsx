@@ -85,7 +85,7 @@ function EventsTab({ bandId }: { bandId: number }) {
       label="Events der Band"
       query={events}
       empty="Noch keine Events für diese Band."
-      columns={[{ header: 'Spielstätte', cell: (event) => event.venueName ?? '–' }]}
+      columns={[{ header: 'Club / Festival', cell: (event) => event.venueName ?? '–' }]}
     />
   )
 }

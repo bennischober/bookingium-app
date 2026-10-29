@@ -62,7 +62,8 @@ src/preload/           contextBridge API (window.api: print, documents, logos,
                        import picker, dropped file paths)
 src/renderer/src/      React app
   pages/               List pages, detail pages (/band/:id, /companies/:id,
-                       /venues/:id, /persons/:id, /events/:id), Einstellungen
+                       /clubs/:id, /festivals/:id, /persons/:id, /events/:id),
+                       Einstellungen
                        (tabs Allgemein, Rechnungen, E-Mail, Kalender, Daten),
                        print pages. The active tab lives in the URL (?tab=)
   components/
@@ -435,7 +436,7 @@ Off, the menu and the search leave it out (`hooks/useRouteShown.ts`) and the
 route shows a note; saved lists stay. When #80 is done, the switch goes.
 
 - **Sources:** every venue and festival gives up to three kinds of
-  recipient: its own address (Spielstätte/Festival), its Ansprechpartner
+  recipient: its own address (Club/Festival), its Ansprechpartner
   (venue members) and its Veranstalter (the owning company's own email).
   Local promoters (LoPro) of events are not included yet.
 - **Filters** apply to the venue (`venueMatches`): kind, recipient type,
@@ -455,7 +456,7 @@ route shows a note; saved lists stay. When #80 is done, the switch goes.
   otherwise). Links over 2000 characters get cut off by Windows, so then an
   empty email opens and the addresses go to the clipboard. „Adressen
   kopieren“ copies them; „CSV exportieren“ writes a UTF-8, comma-separated
-  file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma, Spielstätte,
+  file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma, Club/Festival,
   Ort, Land, Art) for Brevo, CleverReach or Mailchimp. All three rebuild
   the list in main, so the screen can't be stale.
 - **Saved lists** (`contact_list`) store the filters as JSON, not the

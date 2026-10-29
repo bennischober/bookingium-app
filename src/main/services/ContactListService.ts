@@ -184,7 +184,16 @@ export function buildContactList(
   }
 }
 
-const CSV_HEADERS = ['E-Mail', 'Vorname', 'Nachname', 'Firma', 'Spielstätte', 'Ort', 'Land', 'Art']
+const CSV_HEADERS = [
+  'E-Mail',
+  'Vorname',
+  'Nachname',
+  'Firma',
+  'Club/Festival',
+  'Ort',
+  'Land',
+  'Art'
+]
 
 /**
  * Comma-separated whatever the regional format, UTF-8 without BOM, one
