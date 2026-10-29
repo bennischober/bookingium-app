@@ -57,6 +57,8 @@ events and invoices), not a general mail client.
   switch is on and an account exists; refreshed by the worker's `op-event` and changing `sync-event`
   (batched like the page's lists, under its own query key), never by a timer
   (`hooks/useMailUnreadCount.ts`, `components/mail/unreadBadge.ts`, `MailCore.getInboxUnread`).
+  With several accounts its tooltip lists each account's share, and the mail page's account picker
+  shows the same per-account count ("· 6 ungelesen"), so the sum is traceable (#88).
 
 **In bookingum:**
 

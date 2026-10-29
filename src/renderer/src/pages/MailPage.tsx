@@ -44,6 +44,8 @@ import { useMailOps } from '@/hooks/useMailOps'
 import { useMessageActions } from '@/hooks/useMessageActions'
 import { useFolderActions } from '@/hooks/useFolderActions'
 import { useMailShortcuts } from '@/hooks/useMailShortcuts'
+import { useInboxUnread } from '@/hooks/useMailUnreadCount'
+import { unreadBadgeLabel } from '@/components/mail/unreadBadge'
 import { PAGE_SIZE } from '@/components/mail/paging'
 import {
   flattenFolders,
@@ -76,10 +78,22 @@ export default function MailPage() {
   )
 }
 
+/** "· 6 ungelesen" after an account in the picker; nothing when all is read */
+function UnreadCount({ unread }: { unread: number | undefined }) {
+  if (!unread) return null
+  return (
+    <span className="ml-1.5 text-xs text-muted-foreground" title="Ungelesen im Posteingang">
+      · {unreadBadgeLabel(unread)} ungelesen
+    </span>
+  )
+}
+
 function MailClient() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const accounts = trpcReact.mail.accounts.list.useQuery()
+  // Each account's INBOX unread in the picker, the menu badge's numbers (#88)
+  const inboxUnread = useInboxUnread().accounts
   const workerStatus = trpcReact.mail.status.useQuery(undefined, {
     refetchInterval: (data) => (data?.starting ? 1000 : 5000)
   })
@@ -404,12 +418,16 @@ function MailClient() {
               {accounts.data?.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.email}
+                  <UnreadCount unread={inboxUnread.find((entry) => entry.id === a.id)?.unread} />
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : (
-          <span className="text-sm text-muted-foreground">{account.email}</span>
+          <span className="text-sm text-muted-foreground">
+            {account.email}
+            <UnreadCount unread={inboxUnread[0]?.unread} />
+          </span>
         )}
         {!canWrite && (
           <span

@@ -9,9 +9,10 @@ import type { Store } from '../src/main/mailclient/core/store'
 import { OP_REFRESH_MS, SYNC_REFRESH_MS } from '../src/renderer/src/components/mail/mailRefresh'
 import {
   UNREAD_BADGE_KEY,
-  inboxUnreadTotal,
+  inboxUnreadByAccount,
   unreadBadgeLabel,
-  unreadBadgePlan
+  unreadBadgePlan,
+  unreadBadgeTitle
 } from '../src/renderer/src/components/mail/unreadBadge'
 
 const cleanups: (() => void | Promise<void>)[] = []
@@ -19,15 +20,47 @@ afterEach(async () => {
   while (cleanups.length) await cleanups.pop()!()
 })
 
+const accounts = [
+  { id: 'a', email: 'office@example.test' },
+  { id: 'b', email: 'booking@example.test' },
+  { id: 'c', email: 'archiv@example.test' }
+]
+
 describe('the badge number', () => {
-  it('adds up the accounts', () => {
-    expect(inboxUnreadTotal({ a: 2, b: 0, c: 5 })).toBe(7)
+  it("is each account's INBOX, in the order of the account list", () => {
+    expect(inboxUnreadByAccount(accounts, { a: 6, b: 1, c: 0 })).toEqual([
+      { id: 'a', email: 'office@example.test', unread: 6 },
+      { id: 'b', email: 'booking@example.test', unread: 1 },
+      { id: 'c', email: 'archiv@example.test', unread: 0 }
+    ])
   })
 
   it('is 0 before the counts arrive and ignores nonsense', () => {
-    expect(inboxUnreadTotal(undefined)).toBe(0)
-    expect(inboxUnreadTotal({})).toBe(0)
-    expect(inboxUnreadTotal({ a: Number.NaN, b: -1, c: 3 })).toBe(3)
+    expect(inboxUnreadByAccount(accounts, undefined).map((a) => a.unread)).toEqual([0, 0, 0])
+    expect(inboxUnreadByAccount(accounts, {}).map((a) => a.unread)).toEqual([0, 0, 0])
+    expect(
+      inboxUnreadByAccount(accounts, { a: Number.NaN, b: -1, c: 3 }).map((a) => a.unread)
+    ).toEqual([0, 0, 3])
+  })
+
+  it('explains itself per account in the tooltip when there are several (#88)', () => {
+    expect(unreadBadgeTitle(inboxUnreadByAccount(accounts, { a: 6, b: 1 }))).toBe(
+      [
+        '7 ungelesene E-Mails in den Posteingängen:',
+        'office@example.test: 6',
+        'booking@example.test: 1',
+        'archiv@example.test: 0'
+      ].join('\n')
+    )
+  })
+
+  it('says just the number for a single account', () => {
+    expect(unreadBadgeTitle(inboxUnreadByAccount(accounts.slice(0, 1), { a: 1 }))).toBe(
+      '1 ungelesene E-Mail im Posteingang'
+    )
+    expect(unreadBadgeTitle(inboxUnreadByAccount(accounts.slice(0, 1), { a: 4 }))).toBe(
+      '4 ungelesene E-Mails im Posteingang'
+    )
   })
 
   it('caps the label so the menu keeps its width', () => {
@@ -140,6 +173,11 @@ describe('the core counts unread mail in each INBOX', () => {
 
     const counts = await core.getInboxUnread()
     expect(counts).toEqual({ writable: 2, readonly: 1, empty: 0 })
-    expect(inboxUnreadTotal(counts)).toBe(3)
+    expect(
+      inboxUnreadByAccount(
+        ids.map((id) => ({ id, email: `${id}@example.test` })),
+        counts
+      ).reduce((sum, a) => sum + a.unread, 0)
+    ).toBe(3)
   })
 })
