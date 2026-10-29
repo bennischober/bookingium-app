@@ -3,8 +3,8 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'path'
-import { writeFile } from 'fs/promises'
-import { ExportService, type ListTable } from '../../services/ExportService'
+import { mkdir, writeFile } from 'fs/promises'
+import { ExportService } from '../../services/ExportService'
 import { ContactListService, contactListCsv } from '../../services/ContactListService'
 import { ContactListFilters } from '../schemas/contactList.schema'
 import { EXPORT_LIST_LABELS, ExportListInput, type ExportResultDto } from '../schemas/export.schema'
@@ -47,38 +47,80 @@ function exportFailed(error: unknown): TRPCError {
   })
 }
 
-/** Save dialog, then writes the tables */
-async function saveWorkbook(tables: ListTable[], fileName: string): Promise<ExportResultDto> {
-  const filePath = await askSavePath(fileName, 'Als Excel-Datei exportieren', {
-    name: 'Excel-Arbeitsmappe',
-    extensions: ['xlsx']
-  })
-  if (!filePath) return { canceled: true, filePath: null, rows: 0 }
-  try {
-    await service.workbook(tables).xlsx.writeFile(filePath)
-  } catch (error) {
-    throw exportFailed(error)
+/** Folder dialog (Documents); null when canceled */
+async function askFolder(title: string): Promise<string | null> {
+  const owner = BrowserWindow.getFocusedWindow()
+  const options: Electron.OpenDialogOptions = {
+    title,
+    defaultPath: app.getPath('documents'),
+    buttonLabel: 'Hier speichern',
+    properties: ['openDirectory', 'createDirectory']
   }
-  exportedFiles.add(filePath)
-  return {
-    canceled: false,
-    filePath,
-    rows: tables.reduce((sum, table) => sum + table.rows.length, 0)
+  const result = owner
+    ? await dialog.showOpenDialog(owner, options)
+    : await dialog.showOpenDialog(options)
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
+}
+
+/** A new folder `name` in `parent`, numbered when the name is taken */
+async function newFolder(parent: string, name: string): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    const path = join(parent, attempt === 1 ? name : `${name} (${attempt})`)
+    try {
+      await mkdir(path)
+      return path
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    }
   }
 }
 
+// CSV in the regional format of the system, as Excel there expects it
+const locale = (): string => app.getSystemLocale() || 'de-DE'
+
 export const exportRouter = t.router({
   /** The list as its grid shows it (search/filter, all pages) */
-  exportList: t.procedure.input(ExportListInput).mutation(async ({ input }) => {
-    const table = await service.table(input)
-    const filtered = input.search || input.kind ? ' (gefiltert)' : ''
-    return saveWorkbook([table], `${EXPORT_LIST_LABELS[input.list]}${filtered} ${today()}.xlsx`)
-  }),
+  exportList: t.procedure
+    .input(ExportListInput)
+    .mutation(async ({ input }): Promise<ExportResultDto> => {
+      const table = await service.table(input)
+      const filtered = input.search || input.kind ? ' (gefiltert)' : ''
+      const fileName = `${EXPORT_LIST_LABELS[input.list]}${filtered} ${today()}.csv`
+      const filePath = await askSavePath(fileName, 'Als CSV-Datei exportieren', {
+        name: 'CSV-Datei',
+        extensions: ['csv']
+      })
+      if (!filePath) return { canceled: true, filePath: null, rows: 0 }
+      try {
+        await writeFile(filePath, service.csv(table, locale()), 'utf-8')
+      } catch (error) {
+        throw exportFailed(error)
+      }
+      exportedFiles.add(filePath)
+      return { canceled: false, filePath, rows: table.rows.length }
+    }),
 
-  /** Every list in one workbook, one sheet each */
-  exportAll: t.procedure.mutation(async () =>
-    saveWorkbook(await service.allTables(), `Bookingium Export ${today()}.xlsx`)
-  ),
+  /** Every list, one CSV file each, in a new folder */
+  exportAll: t.procedure.mutation(async (): Promise<ExportResultDto> => {
+    const parent = await askFolder('Ordner für den Export wählen')
+    if (!parent) return { canceled: true, filePath: null, rows: 0 }
+    const tables = await service.allTables()
+    let folder: string
+    try {
+      folder = await newFolder(parent, `Bookingium Export ${today()}`)
+      for (const table of tables) {
+        await writeFile(join(folder, `${table.name}.csv`), service.csv(table, locale()), 'utf-8')
+      }
+    } catch (error) {
+      throw exportFailed(error)
+    }
+    exportedFiles.add(folder)
+    return {
+      canceled: false,
+      filePath: folder,
+      rows: tables.reduce((sum, table) => sum + table.rows.length, 0)
+    }
+  }),
 
   /** A mailing list (Verteiler) as CSV for newsletter services */
   exportContactList: t.procedure
@@ -101,7 +143,7 @@ export const exportRouter = t.router({
       return { canceled: false, filePath, rows: recipients.length }
     }),
 
-  /** Opens a file exported in this session with its default app */
+  /** Opens a file (or folder) exported in this session with its default app */
   openExport: t.procedure.input(z.string()).mutation(async ({ input }) => {
     if (!exportedFiles.has(input)) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unbekannte Datei' })

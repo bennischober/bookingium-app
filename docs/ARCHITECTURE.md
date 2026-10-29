@@ -13,7 +13,7 @@ end-to-end, and the coding guidelines.
 | Data flow       | tRPC v10 (electron-trpc over IPC) + TanStack Query v4                                               |
 | Database        | SQLite (better-sqlite3) via Drizzle ORM, tsyringe DI                                                |
 | Validation      | zod v4 (DTOs double as API contracts)                                                               |
-| Files           | exceljs (import/export), pdf.js (print preview), pdf-lib (e-invoice in the PDF)                     |
+| Files           | CSV in the regional format (own reader/writer), pdf.js (print preview), pdf-lib (e-invoice in PDF)  |
 | Tests           | vitest (unit, in-memory SQLite), Playwright (e2e incl. printToPDF)                                  |
 | Mail            | imapflow, mailparser, nodemailer, DOMPurify (the experimental mail client)                          |
 | Package manager | pnpm 12 (script allowlisting, see pnpm-workspace.yaml)                                              |
@@ -35,7 +35,9 @@ src/main/              Main process
     schemas/           zod DTOs + inputs (the API contract, shared with the renderer)
     mappers/           DB entity (snake_case) -> DTO (camelCase)
     routers/           tRPC procedures; resolve services via tsyringe
-  import/              Spreadsheet import: read workbook, detect columns,
+  csv/                 CSV read/write: separator per locale, quoting,
+                       encoding detection (pure, unit-tested)
+  import/              CSV import: read the file, detect columns,
                        rows -> plan (pure, unit-tested)
   calendar/            iCalendar builder (pure)
   einvoice/            E-invoice (ZUGFeRD/Factur-X): amounts (cent rounding),

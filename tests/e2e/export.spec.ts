@@ -1,10 +1,10 @@
-// E2E: Excel export of a filtered list and of all lists (save dialog
-// stubbed in main; the written files are read back).
+// E2E: CSV export of a filtered list and of all lists (save and folder
+// dialogs stubbed in main; the written files are read back).
 import { test, expect } from '@playwright/test'
-import ExcelJS from 'exceljs'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { decodeCsv, parseCsv } from '../../src/main/csv/csv'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
@@ -17,6 +17,11 @@ async function saveTo(fileName: string): Promise<string> {
     dialog.showSaveDialog = (async () => ({ canceled: false, filePath: path })) as never
   }, file)
   return file
+}
+
+/** Records of a written CSV (separator detected, as the import does) */
+function readCsv(file: string): string[][] {
+  return parseCsv(decodeCsv(readFileSync(file)), ';')
 }
 
 test.beforeAll(async () => {
@@ -36,34 +41,31 @@ test('exports the filtered list and all lists', async () => {
   await page.getByPlaceholder('Spielstätten filtern…').fill('Berg')
   await expect(page.locator('tbody tr')).toHaveCount(1)
 
-  const listFile = await saveTo('Spielstätten.xlsx')
+  const listFile = await saveTo('Spielstätten.csv')
   await page.getByRole('button', { name: 'Exportieren' }).click()
   await expect(page.getByText('1 Zeile exportiert')).toBeVisible()
 
-  const list = new ExcelJS.Workbook()
-  await list.xlsx.readFile(listFile)
-  const sheet = list.getWorksheet('Spielstätten')!
-  expect(sheet.rowCount).toBe(2)
-  expect(sheet.getRow(1).getCell(1).value).toBe('Spielstätte')
-  expect(sheet.getRow(2).getCell(1).value).toBe('Berghain')
+  // UTF-8 with BOM, so Excel shows the umlauts
+  expect([...readFileSync(listFile).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+  const list = readCsv(listFile)
+  expect(list).toHaveLength(2)
+  expect(list[0][0]).toBe('Spielstätte')
+  expect(list[1][0]).toBe('Berghain')
 
+  // All lists: one file each in a new folder inside the chosen one
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
   await page.getByRole('tab', { name: 'Daten' }).click()
-  const allFile = await saveTo('Alles.xlsx')
+  await h.app.evaluate(({ dialog }, path) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+  }, outDir)
   await page.getByRole('button', { name: 'Alles exportieren…' }).click()
   await expect(page.getByText(/Zeilen exportiert/)).toBeVisible()
 
-  const all = new ExcelJS.Workbook()
-  await all.xlsx.readFile(allFile)
-  expect(all.worksheets.map((ws) => ws.name)).toEqual([
-    'Bands',
-    'Personen',
-    'Firmen',
-    'Spielstätten',
-    'Hotels',
-    'Events',
-    'Rechnungen',
-    'Banken'
-  ])
-  expect(all.getWorksheet('Bands')!.rowCount).toBeGreaterThan(1)
+  const [folder] = readdirSync(outDir).filter((name) => name.startsWith('Bookingium Export'))
+  expect(readdirSync(join(outDir, folder)).sort()).toEqual(
+    ['Bands', 'Banken', 'Events', 'Firmen', 'Hotels', 'Personen', 'Rechnungen', 'Spielstätten']
+      .map((name) => `${name}.csv`)
+      .sort()
+  )
+  expect(readCsv(join(outDir, folder, 'Bands.csv')).length).toBeGreaterThan(1)
 })

@@ -2,31 +2,29 @@
 // headers stay pinned, headers sort (remembered per list), the status line
 // counts the matches.
 import { test, expect } from '@playwright/test'
-import ExcelJS from 'exceljs'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { toCsv } from '../../src/main/csv/csv'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
 let fixtureDir: string
 
 test.beforeAll(async () => {
-  // 150 venues (+ 2 seeded) via the import: more than one chunk of 100
+  // 150 venues (+ 2 seeded) via the import: more than one chunk of 100. The
+  // file is ANSI (Windows-1252), as Excel's plain "CSV (Trennzeichen-getrennt)"
   fixtureDir = mkdtempSync(join(tmpdir(), 'bookingum-list-'))
-  const file = join(fixtureDir, 'Venues.xlsx')
-  const workbook = new ExcelJS.Workbook()
-  workbook
-    .addWorksheet('Clubs')
-    .addRows([
-      ['Venue', 'City', 'cc'],
-      ...Array.from({ length: 150 }, (_, i) => [
-        `Testclub ${String(i + 1).padStart(3, '0')}`,
-        'Köln',
-        (i + 1) * 10
-      ])
+  const file = join(fixtureDir, 'Clubs.csv')
+  const rows = [
+    ['Venue', 'City', 'cc'],
+    ...Array.from({ length: 150 }, (_, i) => [
+      `Testclub ${String(i + 1).padStart(3, '0')}`,
+      'Köln',
+      String((i + 1) * 10)
     ])
-  await workbook.xlsx.writeFile(file)
+  ]
+  writeFileSync(file, Buffer.from(toCsv(rows, ';'), 'latin1'))
 
   h = await launchApp()
   await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
@@ -37,7 +35,7 @@ test.beforeAll(async () => {
   await page.getByRole('link', { name: 'Spielstätten' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'Excel-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await dialog.getByRole('button', { name: '150 Zeilen importieren' }).click()
   await dialog.getByRole('button', { name: 'Schließen' }).click()

@@ -1,4 +1,4 @@
-import type { ImportWorkbook } from '../main/api/schemas/import.schema'
+import type { ImportFile } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
 import type { MailMethod } from '../main/mail/mailProgram'
 
@@ -84,11 +84,11 @@ export interface DocumentAPI {
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => void
-  /** Open dialog for an Excel file; returns its sheets for the import dialog */
-  pickImportWorkbook: () => Promise<{
+  /** Open dialog for a CSV file; returns its rows for the import dialog */
+  pickImportFile: () => Promise<{
     success: boolean
     canceled?: boolean
-    workbook?: ImportWorkbook
+    file?: ImportFile
     error?: string
   }>
   /** An error nothing caught, for the local error log (main scrubs it) */

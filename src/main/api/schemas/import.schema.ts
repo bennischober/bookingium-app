@@ -4,7 +4,7 @@ import { VenueKind } from './venue.schema'
 // ========================================
 // Spreadsheet import
 // ========================================
-// The renderer picks a workbook (main reads it), chooses what the list holds
+// The renderer picks a CSV file (main reads it), chooses what the list holds
 // (import target), adjusts the column mapping, previews the result and
 // commits it. Existing records (same name) only get empty fields filled.
 
@@ -194,7 +194,8 @@ const TargetMappings = z.object({
   persons: z.array(ImportField)
 })
 
-export const ImportSheet = z.object({
+/** The rows of one CSV file; `name` is the file name without extension */
+export const ImportTable = z.object({
   name: z.string(),
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
@@ -207,13 +208,14 @@ export const ImportSheet = z.object({
   // ISO code, '' for none
   suggestedCountry: z.string()
 })
-export type ImportSheet = z.infer<typeof ImportSheet>
+export type ImportTable = z.infer<typeof ImportTable>
 
-export const ImportWorkbook = z.object({
+export const ImportFile = z.object({
   fileName: z.string(),
-  sheets: z.array(ImportSheet)
+  // null: no header row with data rows below it
+  table: ImportTable.nullable()
 })
-export type ImportWorkbook = z.infer<typeof ImportWorkbook>
+export type ImportFile = z.infer<typeof ImportFile>
 
 export const ImportOptions = z.object({
   // Venues only: Spielstätte or Festival

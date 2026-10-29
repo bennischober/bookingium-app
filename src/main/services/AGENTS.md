@@ -12,7 +12,7 @@ rules, orchestration, and the side effects that must follow a mutation.
 | Object CRUD pass-through | `<Object>Service.ts` (thin wrapper over one repository) |
 | Invoice status guards, reminders | `InvoiceService.ts` |
 | E-invoice check, XML, PDF embedding | `EInvoiceService.ts` |
-| Excel export of 8 lists | `ExportService.ts` |
+| CSV export of 8 lists | `ExportService.ts` |
 | Mailing lists (Verteiler) | `ContactListService.ts` |
 | Spreadsheet import, remembered mappings | `ImportService.ts` |
 | Dashboard aggregates, global search | `DashboardService.ts`, `SearchService.ts` |

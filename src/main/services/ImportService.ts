@@ -11,7 +11,7 @@ import {
   type ImportPreview,
   type ImportRequest,
   type ImportResult,
-  type ImportWorkbook
+  type ImportFile
 } from '../api/schemas/import.schema'
 
 // A mapping the user imported with, remembered for lists with the same columns
@@ -57,27 +57,26 @@ export class ImportService {
   }
 
   /** Puts remembered mappings in place of the detected ones */
-  withRememberedMappings(workbook: ImportWorkbook): ImportWorkbook {
-    const stored = this.settingsRepository.getAll()
+  withRememberedMappings(file: ImportFile): ImportFile {
+    const table = file.table
+    if (!table) return file
+    const raw = this.settingsRepository.getAll()[mappingKey(table.headers)]
+    if (!raw) return file
+    let parsed: z.infer<typeof RememberedMapping>
+    try {
+      parsed = RememberedMapping.parse(JSON.parse(raw))
+    } catch {
+      return file
+    }
+    if (parsed.mapping.length !== table.headers.length) return file
     return {
-      ...workbook,
-      sheets: workbook.sheets.map((sheet) => {
-        const raw = stored[mappingKey(sheet.headers)]
-        if (!raw) return sheet
-        let parsed: z.infer<typeof RememberedMapping>
-        try {
-          parsed = RememberedMapping.parse(JSON.parse(raw))
-        } catch {
-          return sheet
-        }
-        if (parsed.mapping.length !== sheet.headers.length) return sheet
-        return {
-          ...sheet,
-          suggestedTarget: parsed.target,
-          suggestedMappings: { ...sheet.suggestedMappings, [parsed.target]: parsed.mapping },
-          mappingRemembered: true
-        }
-      })
+      ...file,
+      table: {
+        ...table,
+        suggestedTarget: parsed.target,
+        suggestedMappings: { ...table.suggestedMappings, [parsed.target]: parsed.mapping },
+        mappingRemembered: true
+      }
     }
   }
 }

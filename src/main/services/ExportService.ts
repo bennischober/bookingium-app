@@ -1,5 +1,4 @@
 import { injectable, inject } from 'tsyringe'
-import ExcelJS from 'exceljs'
 import { BandService } from './BandService'
 import { BankService } from './BankService'
 import { CompanyService } from './CompanyService'
@@ -20,10 +19,11 @@ import { EXPORT_LIST_LABELS, ExportList, type ExportListInput } from '../api/sch
 import { VENUE_KIND_LABELS } from '../api/schemas/venue.schema'
 import type { AddressDto } from '../api/schemas/address.schema'
 import type { ContactDto } from '../api/schemas/contact.schema'
+import { CSV_BOM, csvSeparator, toCsv } from '../csv/csv'
 
 type Cell = string | number | Date | null
 
-/** Column kinds that get an Excel format */
+/** Column kinds written in the regional format */
 type ColumnKind = 'text' | 'number' | 'date' | 'money'
 
 interface Column {
@@ -327,46 +327,37 @@ export class ExportService {
     )
   }
 
-  /** Workbook with one sheet per table (header row bold, frozen, filterable) */
-  workbook(tables: ListTable[]): ExcelJS.Workbook {
-    const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'Bookingium'
-    for (const table of tables) {
-      const sheet = workbook.addWorksheet(table.name, {
-        views: [{ state: 'frozen', ySplit: 1 }]
-      })
-      sheet.columns = table.columns.map((column, index) => {
-        const longest = Math.max(
-          column.header.length,
-          ...table.rows.slice(0, 500).map((row) => {
-            const value = row[index]
-            return value instanceof Date ? 10 : String(value ?? '').length
-          })
-        )
-        return {
-          header: column.header,
-          width: Math.min(Math.max(longest + 2, 8), 60),
-          style:
-            column.kind === 'date'
-              ? { numFmt: 'dd.mm.yyyy' }
-              : column.kind === 'money'
-                ? { numFmt: '#,##0.00' }
-                : {}
-        }
-      })
-      sheet.addRows(table.rows)
-      sheet.getRow(1).font = { bold: true }
-      if (table.rows.length > 0) {
-        sheet.autoFilter = {
-          from: { row: 1, column: 1 },
-          to: { row: 1, column: table.columns.length }
-        }
-      }
+  /**
+   * The table as CSV for Excel in `locale`'s regional format: its separator,
+   * dates as Excel shows them there, numbers with its decimal mark
+   */
+  csv(table: ListTable, locale: string): string {
+    const date = new Intl.DateTimeFormat(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC'
+    })
+    const number = new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 6 })
+    const money = new Intl.NumberFormat(locale, {
+      useGrouping: false,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+    const cell = (value: Cell, kind: ColumnKind | undefined): string => {
+      if (value === null) return ''
+      if (value instanceof Date) return date.format(value)
+      if (typeof value === 'number') return (kind === 'money' ? money : number).format(value)
+      return value
     }
-    return workbook
+    const rows = [
+      table.columns.map((column) => column.header),
+      ...table.rows.map((row) => row.map((value, index) => cell(value, table.columns[index].kind)))
+    ]
+    return CSV_BOM + toCsv(rows, csvSeparator(locale))
   }
 
-  /** All lists, unfiltered, one sheet each */
+  /** All lists, unfiltered */
   async allTables(): Promise<ListTable[]> {
     const tables: ListTable[] = []
     for (const list of ExportList.options) tables.push(await this.table({ list }))

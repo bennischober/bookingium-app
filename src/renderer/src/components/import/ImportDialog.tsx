@@ -34,7 +34,7 @@ import {
   type ImportPreview,
   type ImportRequest,
   type ImportResult,
-  type ImportWorkbook
+  type ImportFile
 } from '../../../../main/api/schemas/import.schema'
 import { VENUE_KIND_LABELS, VenueKind } from '../../../../main/api/schemas/venue.schema'
 
@@ -152,7 +152,7 @@ interface ImportDialogProps {
 }
 
 /**
- * Imports a list from an Excel sheet: pick a file, choose what the list
+ * Imports a list from a CSV file: pick the file, choose what the list
  * holds (venues, bands, companies, persons) and check the column mapping,
  * review every row, import. Existing records (same name) only get their
  * empty fields filled. The mapping is remembered for lists with the same
@@ -162,8 +162,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
   const utils = trpcReact.useUtils()
   const [step, setStep] = useState<Step>('file')
   const [picking, setPicking] = useState(false)
-  const [workbook, setWorkbook] = useState<ImportWorkbook | null>(null)
-  const [sheetIndex, setSheetIndex] = useState(0)
+  const [file, setFile] = useState<ImportFile | null>(null)
   const [target, setTarget] = useState<ImportTarget>(fixedTarget ?? 'venues')
   const [mapping, setMapping] = useState<ImportField[]>([])
   const [kind, setKind] = useState<VenueKind>('venue')
@@ -171,13 +170,13 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
 
-  const sheet = workbook?.sheets[sheetIndex] ?? null
+  const table = file?.table ?? null
   const columns = PREVIEW_COLUMNS[target]
   const primaryHeader = target === 'venues' ? VENUE_KIND_LABELS[kind] : columns.primary
 
   const reset = (): void => {
     setStep('file')
-    setWorkbook(null)
+    setFile(null)
     setResult(null)
     setExcluded(new Set())
   }
@@ -187,10 +186,8 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
     reset()
   }
 
-  const selectSheet = (book: ImportWorkbook, index: number): void => {
-    const next = book.sheets[index]
+  const selectTable = (next: NonNullable<ImportFile['table']>): void => {
     const nextTarget = fixedTarget ?? next.suggestedTarget
-    setSheetIndex(index)
     setTarget(nextTarget)
     setMapping(next.suggestedMappings[nextTarget])
     setKind(next.suggestedKind)
@@ -200,38 +197,38 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
 
   const selectTarget = (next: ImportTarget): void => {
     setTarget(next)
-    if (sheet) setMapping(sheet.suggestedMappings[next])
+    if (table) setMapping(table.suggestedMappings[next])
     setExcluded(new Set())
   }
 
   const pickFile = async (): Promise<void> => {
     setPicking(true)
     try {
-      const response = await window.api.pickImportWorkbook()
+      const response = await window.api.pickImportFile()
       if (!response.success) {
         toast.error('Datei konnte nicht gelesen werden', { description: response.error })
         return
       }
-      if (response.canceled || !response.workbook) return
-      if (response.workbook.sheets.length === 0) {
+      if (response.canceled || !response.file) return
+      if (!response.file.table) {
         toast.error('Keine Daten gefunden', {
-          description: 'Die Datei enthält kein Blatt mit Kopfzeile und Datenzeilen.'
+          description: 'Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.'
         })
         return
       }
-      setWorkbook(response.workbook)
-      selectSheet(response.workbook, 0)
+      setFile(response.file)
+      selectTable(response.file.table)
       setStep('mapping')
     } finally {
       setPicking(false)
     }
   }
 
-  const request: ImportRequest | null = sheet
+  const request: ImportRequest | null = table
     ? {
         target,
-        headers: sheet.headers,
-        rows: sheet.rows,
+        headers: table.headers,
+        rows: table.rows,
         mapping,
         options: { kind, defaultCountry },
         excludedRows: [...excluded]
@@ -273,15 +270,15 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
 
   const samples = useMemo(
     () =>
-      sheet
-        ? sheet.headers.map((_, column) =>
-            sheet.rows
+      table
+        ? table.headers.map((_, column) =>
+            table.rows
               .map((row) => row.cells[column])
               .filter(Boolean)
               .slice(0, 3)
           )
         : [],
-    [sheet]
+    [table]
   )
 
   const toggleRow = (rowNumber: number): void => {
@@ -298,7 +295,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
     previewData?.rows.filter((row) => row.status === 'record' || row.status === 'continuation')
       .length ?? 0
   const usesAddress = IMPORT_TARGET_FIELDS[target].includes('region')
-  const showRemembered = sheet?.mappingRemembered && sheet.suggestedTarget === target
+  const showRemembered = table?.mappingRemembered && table.suggestedTarget === target
 
   return (
     <Dialog
@@ -314,7 +311,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
           <DialogTitle>Daten importieren</DialogTitle>
           <DialogDescription>
             {step === 'file' &&
-              'Eine Excel-Liste mit Spielstätten, Bands, Firmen oder Personen übernehmen.'}
+              'Eine CSV-Liste mit Spielstätten, Bands, Firmen oder Personen übernehmen.'}
             {step === 'mapping' && IMPORT_TARGET_DESCRIPTIONS[target]}
             {step === 'preview' &&
               'Vorhandene Einträge (gleicher Name) werden nur ergänzt, nie überschrieben. Zeilen abwählen, um sie auszulassen.'}
@@ -329,16 +326,17 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
             <p className="max-w-md text-sm text-muted-foreground">
               Eine Zeile pro Eintrag, mit Spaltenüberschriften wie Name, Firma, Ansprechpartner,
               E-Mail, Telefon und Anschrift. Im nächsten Schritt wählen Sie, was die Liste enthält,
-              und prüfen die Zuordnung der Spalten.
+              und prüfen die Zuordnung der Spalten. Aus Excel: Speichern unter, Dateityp „CSV
+              UTF-8“.
             </p>
             <Button onClick={() => void pickFile()} disabled={picking}>
-              {picking ? 'Datei wird gelesen…' : 'Excel-Datei auswählen…'}
+              {picking ? 'Datei wird gelesen…' : 'CSV-Datei auswählen…'}
             </Button>
           </div>
         )}
 
         {/* ---- Step 2: what the list holds + column mapping ---- */}
-        {step === 'mapping' && workbook && sheet && (
+        {step === 'mapping' && file && table && (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
@@ -359,23 +357,14 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="import-sheet">Tabellenblatt</Label>
-                <Select
-                  value={String(sheetIndex)}
-                  onValueChange={(value) => selectSheet(workbook, Number(value))}
-                >
-                  <SelectTrigger id="import-sheet">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workbook.sheets.map((entry, index) => (
-                      <SelectItem key={entry.name} value={String(index)}>
-                        {entry.name} ({entry.rows.length} Zeilen)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="min-w-0 space-y-1.5">
+                <Label>Datei</Label>
+                <p className="truncate py-2 text-sm" title={file.fileName}>
+                  {file.fileName}{' '}
+                  <span className="text-muted-foreground">
+                    ({table.rows.length} {table.rows.length === 1 ? 'Zeile' : 'Zeilen'})
+                  </span>
+                </p>
               </div>
               {target === 'venues' && (
                 <div className="space-y-1.5">
@@ -433,7 +422,7 @@ export function ImportDialog({ open, onOpenChange, target: fixedTarget }: Import
                   </tr>
                 </thead>
                 <tbody>
-                  {sheet.headers.map((header, column) => (
+                  {table.headers.map((header, column) => (
                     <tr
                       key={column}
                       className={cn(

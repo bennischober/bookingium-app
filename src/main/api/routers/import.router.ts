@@ -6,7 +6,7 @@ import { ImportRequest } from '../schemas/import.schema'
 const t = initTRPC.create()
 const service = container.resolve(ImportService)
 
-// The workbook itself is read in main via the import:pickWorkbook IPC
+// The CSV file itself is read in main via the import:pickFile IPC
 // handler; these procedures take its rows plus the user's column mapping
 export const importRouter = t.router({
   preview: t.procedure.input(ImportRequest).query(({ input }) => service.preview(input)),

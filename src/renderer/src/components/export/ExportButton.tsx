@@ -33,8 +33,8 @@ export function ExportButton({
       disabled={exportList.isPending}
       title={
         search || kind
-          ? 'Gefilterte Liste als Excel-Datei speichern'
-          : 'Liste als Excel-Datei speichern'
+          ? 'Gefilterte Liste als CSV-Datei speichern'
+          : 'Liste als CSV-Datei speichern'
       }
     >
       <Download className="h-4 w-4" />

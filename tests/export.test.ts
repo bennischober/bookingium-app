@@ -1,13 +1,13 @@
-// Excel export: a list with the grid's search/filter (all pages), typed
-// cells (dates, numbers), and the all-lists workbook.
+// List export: a list with the grid's search/filter (all pages), typed
+// cells (dates, numbers), and the CSV in the regional format.
 import 'reflect-metadata'
 import { describe, it, expect } from 'vitest'
 import { container } from 'tsyringe'
-import ExcelJS from 'exceljs'
 import { ExportService } from '../src/main/services/ExportService'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { VenueService } from '../src/main/services/VenueService'
 import { PersonRepository } from '../src/main/repositories/PersonRepository'
+import { parseCsv } from '../src/main/csv/csv'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -85,10 +85,40 @@ describe('list export', () => {
   })
 })
 
-describe('all lists', () => {
-  it('builds one sheet per list with a bold, frozen header', async () => {
-    const workbook = service().workbook(await service().allTables())
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+describe('CSV', () => {
+  const table = {
+    name: 'Rechnungen',
+    columns: [
+      { header: 'Nr.', kind: 'number' as const },
+      { header: 'Datum', kind: 'date' as const },
+      { header: 'Empfänger' },
+      { header: 'Brutto', kind: 'money' as const }
+    ],
+    rows: [
+      [12, new Date(Date.UTC(1985, 2, 12)), 'Club; Süd', 1234.5],
+      [13, null, null, 1000000]
+    ]
+  }
+
+  it('writes the German regional format: semicolons, dd.mm.yyyy, decimal comma', () => {
+    const csv = service().csv(table, 'de-DE')
+    expect(csv.startsWith('﻿')).toBe(true)
+    expect(csv.slice(1).split('\r\n')).toEqual([
+      'Nr.;Datum;Empfänger;Brutto',
+      '12;12.03.1985;"Club; Süd";"1234,50"',
+      '13;;;"1000000,00"',
+      ''
+    ])
+  })
+
+  it('writes commas and decimal points for an English regional format', () => {
+    const rows = parseCsv(service().csv(table, 'en-US'), ';')
+    expect(rows[1]).toEqual(['12', '03/12/1985', 'Club; Süd', '1234.50'])
+  })
+
+  it('exports every list', async () => {
+    const tables = await service().allTables()
+    expect(tables.map((entry) => entry.name)).toEqual([
       'Bands',
       'Personen',
       'Firmen',
@@ -98,17 +128,9 @@ describe('all lists', () => {
       'Rechnungen',
       'Banken'
     ])
-    const venues = workbook.getWorksheet('Spielstätten')!
-    expect(venues.getRow(1).font?.bold).toBe(true)
-    expect(venues.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 })
-    expect(venues.rowCount).toBe(16)
-
-    // Round trip through a real file
-    const buffer = await workbook.xlsx.writeBuffer()
-    const read = new ExcelJS.Workbook()
-    await read.xlsx.load(buffer)
-    expect(read.getWorksheet('Personen')!.getRow(2).getCell(3).value).toEqual(
-      new Date(Date.UTC(1985, 2, 12))
-    )
+    for (const entry of tables) {
+      const [headers] = parseCsv(service().csv(entry, 'de-DE'), ',')
+      expect(headers).toEqual(entry.columns.map((column) => column.header))
+    }
   })
 })

@@ -16,7 +16,7 @@ here are also imported by the renderer.
 | `repositories/` | Drizzle queries and transactions over `db` |
 | `db/` | schema, migrations, lazy db handle, demo seed |
 | `mailclient/` | IMAP mail client in a utility process; `core/` is self-contained |
-| `einvoice/ import/ mail/ invoice/ calendar/ payment/` | pure feature modules, no Electron |
+| `einvoice/ import/ csv/ mail/ invoice/ calendar/ payment/` | pure feature modules, no Electron |
 | `utils/` | document/logo storage and path guards |
 
 ## WHERE TO LOOK
@@ -28,7 +28,7 @@ here are also imported by the renderer.
 | New table or migration | `db/schema.ts`, then `pnpm db:generate` |
 | Native dialog/print/mail IPC channel | `index.ts` + `src/preload/index.ts` + `index.d.ts` |
 | Money, VAT, XML, payment QR | `einvoice/`, `invoice/`, `payment/` |
-| Spreadsheet import | `import/` + `services/ImportService.ts` |
+| CSV import | `import/` + `csv/` + `services/ImportService.ts` |
 
 ## CONVENTIONS
 - Import direction is one-way: router -> service -> repository -> `db`. Only

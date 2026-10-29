@@ -3,7 +3,7 @@ import { VenueKind } from './venue.schema'
 import { SortDirection } from './base.schema'
 
 // ========================================
-// Excel export of the lists
+// CSV export of the lists
 // ========================================
 
 export const ExportList = z.enum([
@@ -18,7 +18,7 @@ export const ExportList = z.enum([
 ])
 export type ExportList = z.infer<typeof ExportList>
 
-/** Sheet names and default file names */
+/** Default file names */
 export const EXPORT_LIST_LABELS: Record<ExportList, string> = {
   bands: 'Bands',
   persons: 'Personen',
@@ -44,6 +44,7 @@ export type ExportListInput = z.infer<typeof ExportListInput>
 
 export const ExportResultDto = z.object({
   canceled: z.boolean(),
+  // The written file; for all lists the folder holding one file each
   filePath: z.string().nullable(),
   rows: z.number()
 })
