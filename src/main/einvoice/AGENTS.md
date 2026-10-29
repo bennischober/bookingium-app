@@ -1,7 +1,5 @@
 # src/main/einvoice - ZUGFeRD / Factur-X / XRechnung
 
-**Score:** 9 (distinct domain: EN 16931 rules and the only money rounding)
-
 ## OVERVIEW
 Builds the e-invoice of an invoice: completeness check, CII XML, PDF/A-3
 embedding. Pure except `facturx.ts`/`srgbIcc.ts`, so the invoice form runs the

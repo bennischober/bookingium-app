@@ -1,7 +1,5 @@
 # tests/e2e - KNOWLEDGE BASE
 
-**Score:** 8 (23 specs, 118 import refs) - distinct domain: only Playwright surface.
-
 ## OVERVIEW
 Playwright specs that launch the BUILT Electron app (`out/main/index.js`) against a
 throwaway userData folder and assert on rendered German UI or written files.
@@ -51,10 +49,10 @@ throwaway userData folder and assert on rendered German UI or written files.
   widen that override.
 
 ## HOTSPOTS
-- `mail-client.spec.ts` 2167L - own IMAP/HTTP helpers, highest complexity.
-- `einvoice.spec.ts` 189L feeds `tests/einvoice.verapdf.test.ts`; changing its output
+- `mail-client.spec.ts` - own IMAP/HTTP helpers, highest complexity.
+- `einvoice.spec.ts` feeds `tests/einvoice.verapdf.test.ts`; changing its output
   filenames silently disables that validator test.
-- `launch.ts` is imported by all 23 specs - a signature change ripples repo-wide.
+- `launch.ts` is imported by every spec - a signature change ripples repo-wide.
 
 ## COMMANDS
 ```bash
