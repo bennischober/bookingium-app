@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMapType, Layer } from 'leaflet'
 import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
-import { escapeHtml, markerColor, markerTitle, ringMetres } from './mapDisplay'
+import { escapeHtml, markerColor, markerTitle, ringColor, ringMetres } from './mapDisplay'
 import 'leaflet/dist/leaflet.css'
 
 /**
@@ -64,30 +64,39 @@ export function LeafletMap({
       layerRef.current?.forEach((layer) => map.removeLayer(layer))
       layerRef.current = []
 
-      for (const marker of markers) {
+      // Venues first, events on top: both sit at the same postcode point, and
+      // the event dot must not vanish under the venue dot
+      const venuesFirst = [...markers].sort((a, b) =>
+        a.type === b.type ? 0 : a.type === 'venue' ? -1 : 1
+      )
+      for (const marker of venuesFirst) {
         if (marker.lat === undefined || marker.lng === undefined) continue
         const layers: Layer[] = []
         const color = markerColor(marker)
         const ring = showRings ? ringMetres(marker) : null
-        if (ring !== null) {
+        const ringColour = ringColor(marker)
+        // Rings first (under every dot), in the venue kind's colour
+        if (ring !== null && ringColour !== null) {
           layers.push(
             L.circle([marker.lat, marker.lng], {
               radius: ring,
-              color,
-              weight: 1,
-              opacity: 0.4,
+              color: ringColour,
+              weight: 2,
+              opacity: 0.8,
               fill: true,
-              fillOpacity: 0.06
+              fillOpacity: 0.08
             })
           )
         }
-        // Popups and tooltips render HTML: user data goes in escaped
+        // Popups and tooltips render HTML: user data goes in escaped. Event
+        // dots get a white halo so they read on top of same-point venue dots.
         layers.push(
           L.circleMarker([marker.lat, marker.lng], {
             radius: marker.type === 'event' ? 6 : 7,
-            color,
-            weight: 2,
+            color: marker.type === 'event' ? '#ffffff' : color,
+            weight: marker.type === 'event' ? 2 : 1,
             fill: true,
+            fillColor: color,
             fillOpacity: 0.9
           })
             .bindTooltip(escapeHtml(markerTitle(marker)))

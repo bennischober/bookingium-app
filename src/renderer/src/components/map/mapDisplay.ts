@@ -20,9 +20,19 @@ export const MARKER_COLORS = {
   festival: '#a855f7'
 } as const
 
-/** Colour of a marker, per type and kind */
+/** Colour of a marker dot, per type and kind */
 export function markerColor(marker: Pick<MapMarkerDto, 'type' | 'kind'>): string {
   if (marker.type === 'event') return MARKER_COLORS.event
+  return marker.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue
+}
+
+/**
+ * Colour of an event's radius ring: the venue kind's colour (blue club ring,
+ * purple festival ring), so ring size and colour read as one. Venues draw no
+ * ring.
+ */
+export function ringColor(marker: Pick<MapMarkerDto, 'type' | 'kind'>): string | null {
+  if (marker.type !== 'event') return null
   return marker.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue
 }
 

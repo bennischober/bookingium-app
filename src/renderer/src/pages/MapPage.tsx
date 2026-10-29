@@ -146,8 +146,10 @@ function MapPreview() {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
-        {/* The map: one fixed frame, no scrolling of its own content */}
-        <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg border">
+        {/* The map: one fixed frame, no scrolling of its own content. `isolate`
+            contains Leaflet's internal z-indexes (panes go up to 700) so the
+            portaled dropdowns (body level, z-50) always paint above the map. */}
+        <div className="relative isolate min-w-0 flex-1 overflow-hidden rounded-lg border">
           <LeafletMap markers={located} focusMarkerId={focusVenueId} showRings={showRings} />
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane) */}
           <div className="absolute bottom-2 left-2 z-[1000] space-y-1 rounded-md border bg-popover/95 p-3 text-xs shadow-sm">
@@ -172,6 +174,20 @@ function MapPreview() {
                 style={{ background: MARKER_COLORS.festival }}
               />
               Festival
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <span
+                className="inline-block size-2 rounded-full border-2"
+                style={{ borderColor: MARKER_COLORS.venue }}
+              />
+              Ring Club: 100 km
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block size-2 rounded-full border-2"
+                style={{ borderColor: MARKER_COLORS.festival }}
+              />
+              Ring Festival: 300 km
             </div>
             <label className="flex items-center gap-2 pt-1">
               <input

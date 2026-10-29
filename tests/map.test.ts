@@ -13,11 +13,13 @@ import {
   type MapVenueRow
 } from '../src/main/map/markers'
 import { lookupPostcode } from '../src/main/map/postcodeLookup'
+import { markerColor, ringColor, ringMetres } from '../src/renderer/src/components/map/mapDisplay'
 
 const address = (
   parts: Partial<MapEventRow['address']> = {}
 ): NonNullable<MapEventRow['address']> => ({
-  street: 'Hauptstraße',
+  // An obviously invented street (the PII guard's rule: Muster|Beispiel)
+  street: 'Musterstraße',
   street_number: '1',
   zip_code: '10115',
   city: 'Berlin',
@@ -66,9 +68,9 @@ describe('lookupPostcode', () => {
 
 describe('formatAddressLabel', () => {
   it('joins street and place, leaving empty parts out', () => {
-    expect(formatAddressLabel(address())).toBe('Hauptstraße 1, 10115 Berlin')
+    expect(formatAddressLabel(address())).toBe('Musterstraße 1, 10115 Berlin')
     expect(formatAddressLabel(address({ street: '', street_number: '' }))).toBe('10115 Berlin')
-    expect(formatAddressLabel(address({ zip_code: '', city: '' }))).toBe('Hauptstraße 1')
+    expect(formatAddressLabel(address({ zip_code: '', city: '' }))).toBe('Musterstraße 1')
     expect(
       formatAddressLabel(address({ street: '', street_number: '', zip_code: '', city: '' }))
     ).toBe('')
@@ -108,7 +110,7 @@ describe('buildMapData', () => {
       located: true,
       lat: 52.5323,
       lng: 13.3846,
-      addressLabel: 'Hauptstraße 1, 10115 Berlin'
+      addressLabel: 'Musterstraße 1, 10115 Berlin'
     })
     const venueMarker = data.markers.find((marker) => marker.type === 'venue')!
     expect(venueMarker).toMatchObject({ type: 'venue', id: 10, kind: 'venue', bandIds: [1] })
@@ -196,5 +198,26 @@ describe('locate', () => {
     expect(locate(address())).toEqual({ lat: 52.5323, lng: 13.3846 })
     expect(locate(null)).toBeNull()
     expect(locate(address({ country_code: '' }))).toBeNull()
+  })
+})
+
+describe('ring and marker colours', () => {
+  it('rings take the venue kind colour, only around events', () => {
+    expect(ringColor({ type: 'event', kind: 'venue' })).toBe('#3b82f6')
+    expect(ringColor({ type: 'event', kind: 'festival' })).toBe('#a855f7')
+    expect(ringColor({ type: 'venue', kind: 'venue' })).toBeNull()
+    expect(ringColor({ type: 'venue', kind: 'festival' })).toBeNull()
+  })
+
+  it('dots: events green, venues by kind', () => {
+    expect(markerColor({ type: 'event', kind: 'venue' })).toBe('#22c55e')
+    expect(markerColor({ type: 'venue', kind: 'venue' })).toBe('#3b82f6')
+    expect(markerColor({ type: 'venue', kind: 'festival' })).toBe('#a855f7')
+  })
+
+  it('ring sizes: clubs 100 km, festivals 300 km, venues none', () => {
+    expect(ringMetres({ type: 'event', kind: 'venue' })).toBe(100_000)
+    expect(ringMetres({ type: 'event', kind: 'festival' })).toBe(300_000)
+    expect(ringMetres({ type: 'venue', kind: 'venue' })).toBeNull()
   })
 })
