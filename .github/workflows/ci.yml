@@ -36,6 +36,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only token: the jobs only check out code. Caches and artifacts use their own runtime
+# token, so they need nothing here.
+permissions:
+  contents: read
+
 # A new push to a PR replaces its running check. On main every merge is checked: one group per
 # commit, since a shared group would cancel (or skip) all but the newest.
 concurrency:
