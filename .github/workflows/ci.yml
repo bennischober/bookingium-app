@@ -4,9 +4,15 @@
 # months without anyone noticing. This job runs exactly what the project's own gate list says:
 # tests, lint, both typecheck configs, then the build.
 #
-# Two runners, because this is a Windows-first Electron app: ubuntu-latest is the fast gate, and
+# Two runners, because this is a Windows-first Electron app: ubuntu-latest is the full gate, and
 # windows-latest catches the path and file-locking differences that only appear there (the mail
 # store, the .eml rename retries and the account store all behave differently on Windows).
+# Windows runs the tests only: lint, typecheck and build give the same answer on both systems,
+# and they were half of the Windows job's time.
+#
+# The run on main after a merge is not a repeat of the PR run. It tests what main actually is
+# (another PR may have landed since the PR was tested), and caches are only shared from main:
+# the pnpm store it saves is the one every PR restores, on both systems.
 #
 # What it deliberately does NOT do:
 #   - e2e (Playwright) is not run. The specs launch the built Electron app against a live
@@ -30,9 +36,11 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a PR replaces its running check. On main every merge is checked: one group per
+# commit, since a shared group would cancel (or skip) all but the newest.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gate:
@@ -92,13 +100,17 @@ jobs:
         env:
           CI: 'true'
 
+      # The rest is the same on both systems, so only the fast runner does it
       - name: Lint
+        if: runner.os == 'Linux'
         run: pnpm lint
 
       - name: Typecheck
+        if: runner.os == 'Linux'
         run: pnpm typecheck
 
       - name: Build
+        if: runner.os == 'Linux'
         run: pnpm build
 
   # The same steps as `pnpm validate:einvoice`, one by one so the log shows which one failed.
