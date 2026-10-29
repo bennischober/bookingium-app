@@ -3,6 +3,8 @@ import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useBandTabCounts } from '@/hooks/useTabCounts'
@@ -80,8 +82,7 @@ function EventsTab({ bandId }: { bandId: number }) {
   return (
     <EventsTable
       label="Events der Band"
-      events={events.data}
-      isLoading={events.isLoading}
+      query={events}
       empty="Noch keine Events für diese Band."
       columns={[{ header: 'Spielstätte', cell: (event) => event.venueName ?? '–' }]}
     />
@@ -108,7 +109,9 @@ export default function BandDetailPage() {
   const {
     data: band,
     isLoading,
-    isError
+    isError,
+    error,
+    refetch
   } = trpcReact.band.getById.useQuery(id ?? 0, {
     enabled: id !== null
   })
@@ -133,7 +136,11 @@ export default function BandDetailPage() {
     )
   }
 
-  if (isError || !band) {
+  if (isError && !isNotFound(error)) {
+    return <PageErrorState error={error} onRetry={() => void refetch()} />
+  }
+
+  if (!band) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Band nicht gefunden.</p>

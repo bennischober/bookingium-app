@@ -165,6 +165,8 @@ export default function HotelPage() {
         onSearchChange={setSearch}
         searchPlaceholder="Hotels filtern…"
         isLoading={hotels.isLoading}
+        error={hotels.error}
+        onRetry={() => void hotels.refetch()}
         total={listTotal(hotels.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

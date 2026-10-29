@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileText, FolderOpen, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import {
@@ -54,7 +55,8 @@ export function DocumentsPanel({
     }
   }, [])
 
-  const { data: documents = [], isLoading } = trpcReact.document.listByOwner.useQuery(owner)
+  const documentsQuery = trpcReact.document.listByOwner.useQuery(owner)
+  const documents = documentsQuery.data ?? []
   const invalidate = () => utils.document.invalidate()
 
   const upload = trpcReact.document.upload.useMutation()
@@ -174,15 +176,12 @@ export function DocumentsPanel({
           )}
         </h3>
 
-        {isLoading ? (
-          <p className="py-8 text-center text-muted-foreground">Dokumente werden geladen…</p>
+        {documentsQuery.isLoading ? (
+          <LoadingRow>Dokumente werden geladen…</LoadingRow>
+        ) : documentsQuery.isError ? (
+          <ErrorState error={documentsQuery.error} onRetry={() => void documentsQuery.refetch()} />
         ) : documents.length === 0 ? (
-          <div className="flex items-center justify-center rounded-lg border border-dashed py-8">
-            <div className="text-center text-muted-foreground">
-              <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
-              <p className="text-sm">Noch keine Dokumente</p>
-            </div>
-          </div>
+          <EmptyState>Noch keine Dokumente.</EmptyState>
         ) : (
           <ul className="space-y-2" aria-label={title}>
             {documents.map((doc) => (

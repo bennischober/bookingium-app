@@ -5,6 +5,8 @@ import { useParams, useNavigate, useSearch } from '@tanstack/react-router'
 import { parseRecordId } from '@/lib/recordId'
 import { useEventTabCounts } from '@/hooks/useTabCounts'
 import { TabCount } from '@/components/detail/DetailParts'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +36,9 @@ export function EventHubPage() {
   const {
     data: event,
     isLoading,
-    isError
+    isError,
+    error,
+    refetch
   } = trpcReact.dealMemo.getById.useQuery(Number(eventId), { enabled: !!eventId })
 
   // ── Edit-mode state ──
@@ -63,7 +67,11 @@ export function EventHubPage() {
     )
   }
 
-  if (isError || !event) {
+  if (isError && !isNotFound(error)) {
+    return <PageErrorState error={error} onRetry={() => void refetch()} />
+  }
+
+  if (!event) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <p className="text-muted-foreground">Event nicht gefunden.</p>

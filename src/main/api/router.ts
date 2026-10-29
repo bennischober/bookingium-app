@@ -1,5 +1,6 @@
 import z from 'zod'
 import { initTRPC } from '@trpc/server'
+import { errorFormatter } from './errorFormatter'
 import { EventEmitter } from 'events'
 import { bandRouter } from './routers/band.router'
 import { companyRouter } from './routers/company.router'
@@ -28,7 +29,7 @@ import { mailLinkRouter } from './routers/mail_link.router'
 
 const ee = new EventEmitter()
 
-const t = initTRPC.create()
+const t = initTRPC.create({ errorFormatter })
 
 export const router = t.router({
   greeting: t.procedure.input(z.object({ name: z.string() })).query((req) => {

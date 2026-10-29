@@ -4,6 +4,8 @@ import { useParams, useNavigate, useSearch, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useCompanyTabCounts } from '@/hooks/useTabCounts'
@@ -115,8 +117,7 @@ function BandsTab({ companyId }: { companyId: number }) {
   return (
     <RowTable
       label="Bands der Firma"
-      rows={bands.data}
-      isLoading={bands.isLoading}
+      query={bands}
       loading="Bands werden geladen…"
       empty="Keine Bands gehören zu dieser Firma oder werden von ihr gemanagt."
       columns={[
@@ -145,8 +146,7 @@ function VenuesTab({ companyId }: { companyId: number }) {
   return (
     <RowTable
       label="Spielstätten der Firma"
-      rows={venues.data}
-      isLoading={venues.isLoading}
+      query={venues}
       loading="Spielstätten werden geladen…"
       empty="Keine Spielstätten mit dieser Firma."
       columns={[
@@ -171,8 +171,7 @@ function EventsTab({ companyId }: { companyId: number }) {
   return (
     <EventsTable
       label="Events der Firma"
-      events={events.data}
-      isLoading={events.isLoading}
+      query={events}
       empty="Keine Events mit dieser Firma als LoPro oder Rechnungsfirma."
       columns={[
         {
@@ -207,8 +206,7 @@ function InvoicesTab({ companyId }: { companyId: number }) {
   return (
     <RowTable
       label="Rechnungen der Firma"
-      rows={invoices.data}
-      isLoading={invoices.isLoading}
+      query={invoices}
       loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen von oder an diese Firma."
       columns={[
@@ -269,7 +267,9 @@ export default function CompanyDetailPage() {
   const {
     data: company,
     isLoading,
-    isError
+    isError,
+    error,
+    refetch
   } = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   const updateCompany = trpcReact.company.update.useMutation({
@@ -292,7 +292,11 @@ export default function CompanyDetailPage() {
     )
   }
 
-  if (isError || !company) {
+  if (isError && !isNotFound(error)) {
+    return <PageErrorState error={error} onRetry={() => void refetch()} />
+  }
+
+  if (!company) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Firma nicht gefunden.</p>

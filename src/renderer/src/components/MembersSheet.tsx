@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import {
   Sheet,
@@ -189,10 +190,12 @@ export function MembersPanel({
             notes: m.notes
           }))
 
-  const isLoading =
-    (entityType === 'band' && membersQuery.isLoading) ||
-    (entityType === 'company' && companyMembersQuery.isLoading) ||
-    (entityType === 'venue' && venueMembersQuery.isLoading)
+  const membersOf =
+    entityType === 'band'
+      ? membersQuery
+      : entityType === 'company'
+        ? companyMembersQuery
+        : venueMembersQuery
 
   const openAdd = () => {
     setEditingId(null)
@@ -266,10 +269,12 @@ export function MembersPanel({
           Person hinzufügen
         </Button>
 
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">{nouns.many} werden geladen…</p>
+        {membersOf.isLoading ? (
+          <LoadingRow>{nouns.many} werden geladen…</LoadingRow>
+        ) : membersOf.isError ? (
+          <ErrorState error={membersOf.error} onRetry={() => void membersOf.refetch()} />
         ) : members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch keine {nouns.many}.</p>
+          <EmptyState>Noch keine {nouns.many}.</EmptyState>
         ) : (
           members.map((member) => (
             <div key={member.id} className="flex items-center justify-between p-3 border rounded">

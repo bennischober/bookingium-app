@@ -494,6 +494,8 @@ export default function ContactListPage() {
             total={recipients.length}
             itemLabel={{ singular: 'Adresse', plural: 'Adressen' }}
             isLoading={list.isLoading}
+            error={list.error}
+            onRetry={() => void list.refetch()}
             filtered={!sameFilters(EMPTY_FILTERS, filters)}
             actionButton={
               <div className="flex flex-wrap items-center gap-2">

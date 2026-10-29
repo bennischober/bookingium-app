@@ -165,6 +165,8 @@ export default function InvoicePage() {
         onSearchChange={setSearch}
         searchPlaceholder="Rechnungen filtern…"
         isLoading={invoices.isLoading}
+        error={invoices.error}
+        onRetry={() => void invoices.refetch()}
         total={listTotal(invoices.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

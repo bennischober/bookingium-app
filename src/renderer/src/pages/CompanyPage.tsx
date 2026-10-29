@@ -232,6 +232,8 @@ export function CompanyPage() {
           navigate({ to: '/companies/$companyId', params: { companyId: String(company.id) } })
         }
         isLoading={companies.isLoading}
+        error={companies.error}
+        onRetry={() => void companies.refetch()}
         total={listTotal(companies.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">

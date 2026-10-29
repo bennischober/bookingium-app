@@ -2,6 +2,8 @@ import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
 import { toast } from 'sonner'
+import { PageErrorState } from '@/components/load-states'
+import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { Button } from '@/components/ui/button'
@@ -70,6 +72,10 @@ export default function InvoiceDetailPage() {
         <p className="text-muted-foreground">Rechnung wird geladen…</p>
       </div>
     )
+  }
+
+  if (invoiceQuery.isError && !isNotFound(invoiceQuery.error)) {
+    return <PageErrorState error={invoiceQuery.error} onRetry={() => void invoiceQuery.refetch()} />
   }
 
   if (!invoice) {

@@ -207,6 +207,8 @@ export default function BandPage() {
           navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
         }
         isLoading={bands.isLoading}
+        error={bands.error}
+        onRetry={() => void bands.refetch()}
         total={listTotal(bands.data)}
         actionButton={
           <div className="flex flex-wrap items-center gap-2">
