@@ -15,7 +15,7 @@ import {
 import { getGroupedRoutes, getRouteShortcut, isRouteActive, ROUTES } from '@/lib/routing'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useMailUnreadCount } from '@/hooks/useMailUnreadCount'
-import { unreadBadgeLabel } from '@/components/mail/unreadBadge'
+import { unreadBadgeLabel, unreadBadgeTitle } from '@/components/mail/unreadBadge'
 import { countDue } from '@/lib/followUps'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -102,16 +102,16 @@ export function AppSidebar({
                           <span className="sr-only"> Wiedervorlagen fällig</span>
                         </SidebarMenuBadge>
                       )}
-                      {item.path === ROUTES.mail.path && unreadMail > 0 && (
+                      {item.path === ROUTES.mail.path && unreadMail.total > 0 && (
                         <SidebarMenuBadge
-                          title={`${unreadMail} ${unreadMail === 1 ? 'ungelesene E-Mail' : 'ungelesene E-Mails'} im Posteingang`}
+                          title={unreadBadgeTitle(unreadMail.accounts)}
                           className={cn(
                             'bg-primary/15 text-primary',
                             collapsed &&
                               'top-0 right-0 h-4 min-w-4 bg-primary text-[10px] text-primary-foreground'
                           )}
                         >
-                          {unreadBadgeLabel(unreadMail)}
+                          {unreadBadgeLabel(unreadMail.total)}
                           <span className="sr-only"> ungelesen im Posteingang</span>
                         </SidebarMenuBadge>
                       )}
