@@ -86,7 +86,7 @@ test('company page shows contacts, bands, events, invoices and documents', async
     dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
   }, file)
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente der Firma' })).toContainText(
+  await expect(page.getByRole('table', { name: 'Dokumente der Firma' })).toContainText(
     'Handelsregister.pdf'
   )
   const storage = join(
