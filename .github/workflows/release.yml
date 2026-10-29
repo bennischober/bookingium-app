@@ -1,0 +1,98 @@
+# A release: pushing a tag `v<version>` builds the Windows installer and publishes it as a
+# GitHub Release. README › Releasing has the steps.
+#
+# Order: the tag must name the version in package.json, then the full CI gate runs on the tagged
+# commit (ci.yml, called as is), and only then is the installer built on windows-latest and the
+# release created. A red gate or a version mismatch publishes nothing.
+#
+# What it deliberately does NOT do:
+#   - sign the installer (#48): SmartScreen warns on first start until it is signed.
+#   - publish update metadata for an auto-updater (#49): electron-builder runs with
+#     --publish never, the release carries only the installer.
+#   - build macOS or Linux packages: the app is used on Windows.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# One run per tag; a second push of the same tag waits instead of racing the first
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version} (expected v${version})"
+            exit 1
+          fi
+          echo "Releasing ${version}"
+
+  gate:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  installer:
+    needs: gate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # postinstall rebuilds better-sqlite3 for Electron's ABI, which is what the package ships
+      - run: pnpm install --frozen-lockfile
+
+      - name: Electron binary
+        run: pnpm exec install-electron
+
+      # Typecheck and electron-vite build, then the NSIS installer. --publish never: the
+      # release job below uploads it, electron-builder must not try on its own when it sees a tag.
+      - name: Build the installer
+        run: |
+          pnpm build
+          pnpm exec electron-builder --win --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/Bookingium-Setup-*.exe
+          if-no-files-found: error
+
+  release:
+    needs: installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+
+      # Notes are generated from the PRs merged since the previous tag
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}" Bookingium-Setup-*.exe
+          --repo "${GITHUB_REPOSITORY}"
+          --title "Bookingium ${GITHUB_REF_NAME#v}"
+          --generate-notes
+          --verify-tag

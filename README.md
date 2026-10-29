@@ -132,6 +132,33 @@ Electron by `pnpm install`).
 - Bump `version` in `package.json` for a new release; the installer updates
   an existing installation in place.
 
+## Releasing
+
+A release is a tag. Pushing `v<version>` runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml): it checks
+that the tag matches `version` in `package.json`, runs the full CI gate on
+the tagged commit, builds the Windows installer and publishes it as a GitHub
+Release with notes generated from the PRs merged since the previous tag.
+
+1. Bump `version` in `package.json` in a PR (`1.0.0` → `1.0.1` for fixes,
+   `1.1.0` for features) and merge it.
+2. Tag the merge commit on `main` and push the tag:
+
+   ```bash
+   git checkout main && git pull
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+
+3. When the run is green, the release has `Bookingium-Setup-<version>.exe`.
+   Installing it over an existing installation updates it in place; the data
+   in `%APPDATA%\bookingum-app` is kept.
+
+A red gate or a tag that does not match the version publishes nothing. Delete
+the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again.
+The installer is unsigned (#48) and there is no auto-update (#49): users
+download the new installer from the release.
+
 ## Architecture
 
 Electron main process (SQLite via Drizzle, tRPC over IPC) and a React

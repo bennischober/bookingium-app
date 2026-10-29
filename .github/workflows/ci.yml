@@ -35,6 +35,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs this whole gate on the tagged commit before it builds the installer
+  workflow_call:
 
 # Read-only token: the jobs only check out code. Caches and artifacts use their own runtime
 # token, so they need nothing here.
