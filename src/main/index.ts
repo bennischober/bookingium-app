@@ -49,12 +49,19 @@ if (!isPrimaryInstance) app.exit(0)
 import { router } from './api/router'
 import icon from '../../resources/icon.png?asset'
 import { runMigrations } from './db/migrate'
+import { getSqlite } from './db'
+import {
+  copyBeforeUpdate,
+  pruneBeforeUpdate,
+  readLastVersion,
+  writeLastVersion
+} from './backup/beforeUpdate'
 import { seedDatabase } from './db/seed'
 import { container } from 'tsyringe'
 import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
 import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
-import { BackupService } from './services/BackupService'
+import { BackupService, backupLocations } from './services/BackupService'
 import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
@@ -653,6 +660,49 @@ app.on('second-instance', () => {
   window.focus()
 })
 
+/**
+ * Brings the database to this version's schema. Before pending migrations change it, a copy
+ * goes to backup/before-update/; a database from a newer version is left alone. On failure the
+ * user gets the reason and the app quits instead of opening on a half-migrated database.
+ */
+function migrateDatabase(): boolean {
+  const workDir = backupLocations(app.getPath('userData')).workDir
+  let copy: string | null = null
+  try {
+    runMigrations({
+      beforeApply: (pending) => {
+        copy = copyBeforeUpdate({
+          sqlite: getSqlite(),
+          workDir,
+          fromVersion: readLastVersion(workDir),
+          now: new Date()
+        })
+        console.log(`Database copied before ${pending} migration(s): ${copy}`)
+        try {
+          pruneBeforeUpdate(workDir)
+        } catch (error) {
+          console.error('Removing old copies from before an update failed:', error)
+        }
+      }
+    })
+    writeLastVersion(workDir, app.getVersion())
+    return true
+  } catch (error) {
+    console.error('Migrating the database failed:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    dialog.showErrorBox(
+      'Bookingium kann nicht starten',
+      message.startsWith('Die ')
+        ? message
+        : 'Die Datenbank konnte nicht auf diese Version aktualisiert werden.' +
+            (copy ? `\n\nEine Kopie von vorher liegt hier:\n${copy}` : '') +
+            `\n\n${message}`
+    )
+    app.quit()
+    return false
+  }
+}
+
 app.whenReady().then(async () => {
   if (!isPrimaryInstance) return
   // Set app user model id for windows
@@ -672,7 +722,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error('Applying a staged restore failed:', error)
   }
-  runMigrations()
+  if (!migrateDatabase()) return
   // Files from the old storage/events/<id>/ layout move to storage/documents/
   await container
     .resolve(DocumentService)

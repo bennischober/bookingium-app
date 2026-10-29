@@ -64,17 +64,10 @@ function resolveMigrationsFolder(): string {
  * definition. Runs with foreign keys off (see runMigrations).
  */
 export function upgradeLegacyDatabase(sqlite: Database.Database, migrationsFolder: string): void {
-  const hasHistory = sqlite
-    .prepare("select 1 from sqlite_master where type = 'table' and name = '__drizzle_migrations'")
-    .get()
-  if (!hasHistory) return
-  const { last } = sqlite
-    .prepare('select max(created_at) as last from __drizzle_migrations')
-    .get() as { last: number | string | null }
-  if (last === null) return
+  const lastMillis = lastAppliedMillis(sqlite)
+  if (lastMillis === null) return
 
   const [initial] = readMigrationFiles({ migrationsFolder })
-  const lastMillis = Number(last)
   if (lastMillis >= initial.folderMillis) return // already on the merged history
   if (lastMillis !== LEGACY_FINAL_MIGRATION_MILLIS) {
     throw new Error(
@@ -120,8 +113,42 @@ export function latestMigrationMillis(): number {
   return Math.max(...migrations.map((m) => m.folderMillis))
 }
 
-export function runMigrations(): void {
+/** Created-at of the newest migration the database records; null for a fresh database */
+function lastAppliedMillis(sqlite: Database.Database): number | null {
+  const hasHistory = sqlite
+    .prepare("select 1 from sqlite_master where type = 'table' and name = '__drizzle_migrations'")
+    .get()
+  if (!hasHistory) return null
+  const { last } = sqlite
+    .prepare('select max(created_at) as last from __drizzle_migrations')
+    .get() as { last: number | string | null }
+  return last === null ? null : Number(last)
+}
+
+export const NEWER_DATABASE_MESSAGE =
+  'Die Daten stammen aus einer neueren Version von Bookingium. Bitte diese Version wieder ' +
+  'installieren; mit dieser älteren Version lassen sie sich nicht öffnen.'
+
+export interface RunMigrationsOptions {
+  /**
+   * Called once before pending migrations change an existing database (not for a fresh one),
+   * with the number of migrations about to run. A throw stops the migration.
+   */
+  beforeApply?: (pending: number) => void
+}
+
+export function runMigrations(options: RunMigrationsOptions = {}): void {
   const migrationsFolder = resolveMigrationsFolder()
+  const sqlite = getSqlite()
+
+  // A database from a newer build records migrations this one does not know: running the old
+  // app on the newer schema could corrupt it, so nothing is touched
+  const migrations = readMigrationFiles({ migrationsFolder })
+  const latest = Math.max(...migrations.map((m) => m.folderMillis))
+  const last = lastAppliedMillis(sqlite)
+  if (last !== null && last > latest) throw new Error(NEWER_DATABASE_MESSAGE)
+  const pending = last === null ? 0 : migrations.filter((m) => m.folderMillis > last).length
+  if (pending > 0) options.beforeApply?.(pending)
 
   // drizzle-kit rebuilds tables for some schema changes (CREATE __new_x,
   // copy, DROP x, rename). The migrator runs inside a transaction, where the
@@ -129,7 +156,6 @@ export function runMigrations(): void {
   // enables foreign keys by default - so DROP TABLE would cascade-delete
   // child rows (e.g. all invoice line items). Disable enforcement outside
   // the transaction instead, and verify integrity before re-enabling it.
-  const sqlite = getSqlite()
   sqlite.pragma('foreign_keys = OFF')
   try {
     upgradeLegacyDatabase(sqlite, migrationsFolder)
