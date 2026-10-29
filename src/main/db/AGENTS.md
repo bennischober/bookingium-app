@@ -38,6 +38,7 @@ database handle, and the demo seed.
 ## ANTI-PATTERNS
 - Touching an already-shipped file in `migrations/` or its `meta/*.json`
   snapshot: the whole chain is append-only, so the fix is always the next number.
+  The 1.0.0 history is pinned by `tests/migration_upgrade.test.ts`; never update that list.
 - Accepting generated SQL unreviewed: drizzle-kit drops `ON DELETE` for foreign
   keys added with `ADD COLUMN`; rebuild the table or repair by hand.
 - Relying on `PRAGMA foreign_keys=OFF` inside a migration - it is a no-op inside

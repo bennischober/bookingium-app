@@ -118,6 +118,8 @@ mail/accounts.json                        Mail accounts (passwords via safeStora
 mail/data/<accountId>/                    Mail store (SQLite + FTS5) and .eml files
 backup/state.json                         Automatic backup settings and status
 backup/before-restore/                    The data as it was before each restore
+backup/before-update/                     The database before each update's migrations
+                                          (the newest 3) and last-version.txt
 ```
 
 The error log (`src/main/utils/errorLog.ts`) records unexpected errors only:
@@ -182,6 +184,25 @@ the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
 All migrations up to 2026-10 were merged into `0000_initial` (pre-release).
 Databases from before the merge are taken over by `upgradeLegacyDatabase` in
 `migrate.ts` (recorded as applied, band table repaired once).
+
+**The history is frozen at 1.0.0.** Every installed database has run
+`0000_initial` … `0017_contact_email`; merging, renaming or editing any of them
+would leave real installations unable to update. A schema change after 1.0.0 is
+always a new migration at the end. `tests/migration_upgrade.test.ts` pins the
+tag, timestamp and SQL hash of each 1.0.0 migration and upgrades a 1.0.0
+database with rows in it to the current schema.
+
+At startup (`migrateDatabase` in `index.ts`):
+
+- A database that records a migration this build does not know comes from a
+  newer version. Nothing is touched; the user is told to install that version
+  again, and the app quits.
+- Before pending migrations change an existing database, `VACUUM INTO` copies it
+  to `backup/before-update/<version>_<time>.db`, named after the version that
+  last opened it (`last-version.txt`, "unbekannt" before one recorded it). The
+  newest 3 copies stay. If the copy fails, nothing is migrated.
+- If a migration fails, the app shows the error and where the copy is, and
+  quits instead of opening on a half-migrated database.
 
 - Change `schema.ts`, then `pnpm db:generate` and review the SQL.
 - Never edit an applied migration; add a new one.
