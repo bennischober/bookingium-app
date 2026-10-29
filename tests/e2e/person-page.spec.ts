@@ -63,6 +63,10 @@ test('person page shows memberships, events, invoices and documents', async () =
   await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
   await expect(page.getByRole('link', { name: 'Berghain' })).toBeVisible()
   await expect(page.getByText('Stage Manager')).toBeVisible()
+  // The tab now has the same second section as Bands and Companies: the events
+  // at those venues, so it no longer looks unfinished next to them
+  const venueEvents = page.getByRole('table', { name: 'Events in Berghain' })
+  await expect(venueEvents).toContainText('The Electric Waves - Berlin Tour')
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events der Person' })

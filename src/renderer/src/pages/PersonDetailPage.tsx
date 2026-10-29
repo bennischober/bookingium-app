@@ -5,7 +5,7 @@ import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
-import { PageErrorState } from '@/components/load-states'
+import { PageErrorState, EmptyState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
@@ -186,6 +186,74 @@ function CompaniesTab({ personId }: { personId: number }) {
           }
         />
       </section>
+    </div>
+  )
+}
+
+/**
+ * Venues the person is a contact at, plus the events at those venues - the same
+ * two sections the Bands and Companies tabs have, so the tab does not look
+ * unfinished next to them.
+ */
+function VenuesTab({ personId }: { personId: number }) {
+  const relations = trpcReact.relation.getPersonRelations.useQuery({ personId })
+  const venues = relations.data?.venues ?? []
+
+  return (
+    <div className="space-y-8">
+      <section className="max-w-2xl">
+        <SectionTitle>Spielstätten</SectionTitle>
+        <PersonMembershipsPanel personId={personId} type="venue" />
+      </section>
+      <section>
+        <SectionTitle>Events in diesen Spielstätten</SectionTitle>
+        {venues.length === 0 ? (
+          <EmptyState>Keiner Spielstätte zugeordnet.</EmptyState>
+        ) : (
+          <div className="space-y-6">
+            {venues.map((venue) => (
+              <VenueEvents key={venue.id} venueId={venue.venueId} name={venue.venueName} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+/** One venue's events; the heading links to the venue so the list has a source */
+function VenueEvents({ venueId, name }: { venueId: number; name: string }) {
+  const navigate = useNavigate()
+  const events = trpcReact.dealMemo.listByVenue.useQuery(venueId)
+  return (
+    <div>
+      <h4 className="mb-2 font-medium">
+        <Link
+          to="/venues/$venueId"
+          params={{ venueId: String(venueId) }}
+          className="hover:underline"
+        >
+          {name}
+        </Link>
+      </h4>
+      <RowTable
+        label={`Events in ${name}`}
+        query={events}
+        loading="Events werden geladen…"
+        empty="Noch keine Events in dieser Spielstätte."
+        columns={[
+          {
+            header: 'Datum',
+            cell: (event) => formatShortDate(event.date),
+            className: 'whitespace-nowrap'
+          },
+          { header: 'Event', cell: (event) => event.name, className: 'font-medium' },
+          { header: 'Band', cell: (event) => event.bandName }
+        ]}
+        onRowClick={(event) =>
+          navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
+        }
+      />
     </div>
   )
 }
@@ -465,8 +533,8 @@ export default function PersonDetailPage() {
         <TabsContent value="companies">
           <CompaniesTab personId={person.id} />
         </TabsContent>
-        <TabsContent value="venues" className="max-w-2xl">
-          <PersonMembershipsPanel personId={person.id} type="venue" />
+        <TabsContent value="venues">
+          <VenuesTab personId={person.id} />
         </TabsContent>
         <TabsContent value="events">
           <EventsTab personId={person.id} />
