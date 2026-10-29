@@ -1,12 +1,13 @@
 import { readFile } from 'fs/promises'
 import { basename, extname } from 'path'
 import type { ImportFile, ImportRow, ImportTable } from '../api/schemas/import.schema'
-import { csvSeparator, decodeCsv, parseCsv } from '../csv/csv'
+import { csvSeparator, decodeCsv, parseCsv, repairMojibake } from '../csv/csv'
 import { detectMappings, suggestCountry, suggestKind, suggestTarget } from './detectMapping'
 
 /**
  * The first non-empty record is the header row, every later non-empty one a
  * data row (numbered as Excel numbers the line). Null without data rows.
+ * Double-encoded umlauts are repaired cell by cell.
  */
 export function importTable(
   name: string,
@@ -18,11 +19,12 @@ export function importTable(
   let width = 0
 
   records.forEach((record, index) => {
-    const cells = record.map((cell) => cell.trim())
+    const cells = record.map((cell) => repairMojibake(cell).trim())
     while (cells.length > 0 && cells[cells.length - 1] === '') cells.pop()
     if (cells.length === 0) return
     width = Math.max(width, cells.length)
-    if (headers === null) headers = cells
+    // Outlook quotes its first header twice: "Anrede" arrives with the quotes
+    if (headers === null) headers = cells.map((cell) => cell.replace(/^"([^"]*)"$/, '$1'))
     else rows.push({ rowNumber: index + 1, cells })
   })
 

@@ -33,6 +33,33 @@ export function toCsv(rows: string[][], separator: CsvSeparator): string {
   return rows.map((row) => row.map(csvField).join(separator)).join('\r\n') + '\r\n'
 }
 
+// Windows-1252 bytes 0x80-0x9F; the rest is Latin-1. Node's TextDecoder
+// decodes 'windows-1252' as Latin-1, so "€" and "„" would become control
+// characters.
+const WINDOWS_1252_HIGH =
+  '\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178'
+
+function decodeWindows1252(bytes: Uint8Array): string {
+  let text = ''
+  for (const byte of bytes) {
+    text += byte >= 0x80 && byte < 0xa0 ? WINDOWS_1252_HIGH[byte - 0x80] : String.fromCharCode(byte)
+  }
+  return text
+}
+
+/** The Windows-1252 bytes of a text, null when a character has none */
+function encodeWindows1252(text: string): Uint8Array | null {
+  const bytes: number[] = []
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0
+    const high = WINDOWS_1252_HIGH.indexOf(char)
+    if (high >= 0) bytes.push(0x80 + high)
+    else if (code < 0x100) bytes.push(code)
+    else return null
+  }
+  return Uint8Array.from(bytes)
+}
+
 /** File bytes as text: UTF-8 (with or without BOM), UTF-16 or Windows-1252 */
 export function decodeCsv(bytes: Uint8Array): string {
   if (bytes[0] === 0xff && bytes[1] === 0xfe) {
@@ -44,7 +71,24 @@ export function decodeCsv(bytes: Uint8Array): string {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch {
-    return new TextDecoder('windows-1252').decode(bytes)
+    return decodeWindows1252(bytes)
+  }
+}
+
+/**
+ * Undoes UTF-8 that was read as Windows-1252 and saved again ("StraÃŸe" ->
+ * "Straße"), as Outlook's contact export does to its header row. Text that
+ * isn't valid UTF-8 that way is returned unchanged.
+ */
+export function repairMojibake(value: string): string {
+  // Only a UTF-8 lead byte read as 1252 (Â … ô) can start such a sequence
+  if (!/[\u00c2-\u00f4]/.test(value)) return value
+  const bytes = encodeWindows1252(value)
+  if (!bytes) return value
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return value
   }
 }
 

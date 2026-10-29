@@ -46,7 +46,7 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
   ['zipCode', ['plz', 'zip', 'postleitzahl', 'postcode', 'zipcode']],
   ['city', ['stadt', 'ort']],
   ['taxId', ['ust', 'ustid', 'ustidnr', 'vat', 'vatid', 'steuernummer', 'stnr', 'taxid']],
-  ['homepage', ['url', 'web', 'website', 'homepage', 'internet', 'www']],
+  ['homepage', ['url', 'web', 'website', 'webseite', 'homepage', 'internet', 'www']],
   ['month', ['monat', 'month']],
   [
     'notes',
@@ -87,6 +87,32 @@ const SYNONYM_LOOKUP = new Map<string, ImportField>(
   HEADER_SYNONYMS.flatMap(([field, names]) => names.map((name) => [name, field]))
 )
 
+// Outlook's contact export has an address and phones per kind: "Straße
+// geschäftlich", "Ort privat", "Telefon (privat)", "Weitere Postleitzahl",
+// "Weiteres/e Land/Region". Numbered columns ("Straße geschäftlich 2", the
+// second address line) stay unmapped.
+const QUALIFIED_SUFFIX = /^(.+?)(geschäftlich|privat)$/
+const OTHER_PREFIXES = ['weiteresr', 'weiterese', 'weiterer', 'weiteres', 'weitere']
+const QUALIFIED_SYNONYMS: Record<string, ImportField> = {
+  landregion: 'region',
+  bundeslandkanton: 'region'
+}
+const ADDRESS_FIELDS: ImportField[] = ['street', 'streetNumber', 'zipCode', 'city', 'region']
+
+function qualifiedField(key: string): { field: ImportField; kind: string } | null {
+  const base = (name: string) => QUALIFIED_SYNONYMS[name] ?? SYNONYM_LOOKUP.get(name)
+  const match = QUALIFIED_SUFFIX.exec(key)
+  if (match) {
+    const field = base(match[1])
+    return field ? { field, kind: match[2] } : null
+  }
+  for (const prefix of OTHER_PREFIXES) {
+    const field = key.startsWith(prefix) ? base(key.slice(prefix.length)) : undefined
+    if (field) return { field, kind: 'weitere' }
+  }
+  return null
+}
+
 function headerKey(header: string): string {
   return normalizeKey(header).replace(/\s+/g, '')
 }
@@ -113,7 +139,8 @@ export function isStateColumn(rows: ImportRow[], column: number): boolean {
  * has no place for become notes ("Club: …" in a company list); headerless
  * columns that hold data become notes. Venue lists: "Location" is the
  * venue's place unless a City column exists, and an unnamed text column
- * right before the venue city is the venue name.
+ * right before the venue city is the venue name. Outlook contact exports:
+ * see qualifiedField.
  */
 export function detectMapping(
   headers: string[],
@@ -138,6 +165,29 @@ export function detectMapping(
     target === 'persons' && keys.some((key) => SYNONYM_LOOKUP.get(key) === 'firstName')
       ? { ...TARGET_SYNONYMS.persons, name: 'lastName' as const }
       : TARGET_SYNONYMS[target]
+
+  // Qualified columns first (Outlook's plain "Ort" is a meeting place): the
+  // address of the kind with the most data, then per field the fullest
+  // column ("Telefon (privat)" when the business one is empty)
+  const qualified = keys.flatMap((key, column) => {
+    if (targetSynonyms[key] ?? SYNONYM_LOOKUP.get(key)) return []
+    const entry = qualifiedField(key)
+    if (!entry || !allowed.includes(entry.field)) return []
+    return [{ column, ...entry, filled: columnValues(rows, column).length }]
+  })
+  const addressData = new Map<string, number>()
+  for (const entry of qualified) {
+    if (!ADDRESS_FIELDS.includes(entry.field)) continue
+    addressData.set(entry.kind, (addressData.get(entry.kind) ?? 0) + entry.filled)
+  }
+  const addressKind = [...addressData].reduce<[string, number] | null>(
+    (best, entry) => (best === null || entry[1] > best[1] ? entry : best),
+    null
+  )?.[0]
+  qualified
+    .filter((entry) => !ADDRESS_FIELDS.includes(entry.field) || entry.kind === addressKind)
+    .sort((a, b) => b.filled - a.filled)
+    .forEach((entry) => assign(entry.column, entry.field))
 
   keys.forEach((key, column) => {
     const field = targetSynonyms[key] ?? SYNONYM_LOOKUP.get(key)
