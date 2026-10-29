@@ -29,6 +29,8 @@ export type LinkableHeader = {
   fromEmail: string
   toEmails: string[]
   ccEmails: string[]
+  /** the mail's own date, stored on the link so the tab sorts by it */
+  date?: string | null
 }
 
 /** The records a mail can be linked to by hand ("Zuordnen…"); an event is a deal memo */
@@ -321,7 +323,8 @@ export class MailLinkService {
             fallbackKey: header.fallbackKey,
             entityType: link.owner.entityType,
             entityId: link.owner.entityId,
-            source: link.source
+            source: link.source,
+            mailDate: header.date ?? null
           })
         }
       }
@@ -340,6 +343,8 @@ export class MailLinkService {
     entityType: MailLinkEntityType
     entityId: number
     source: MailLinkSource
+    /** the mail's own date; the tab sorts by it, not by when it was linked */
+    mailDate?: string | null
   }): number {
     const messageId = input.messageId?.replace(/^</, '').replace(/>$/, '').trim() || null
     const fallbackKey = messageId ? null : input.fallbackKey
@@ -367,7 +372,8 @@ export class MailLinkService {
         fallback_key: fallbackKey,
         entity_type: input.entityType,
         entity_id: input.entityId,
-        source: input.source
+        source: input.source,
+        mail_date: input.mailDate ?? null
       })
       .run()
     return 1
@@ -459,6 +465,8 @@ export class MailLinkService {
     messageId: string
     entityType: ManualLinkEntityType
     entityId: number
+    /** the mail's own date, looked up by the caller; null when unknown */
+    mailDate?: string | null
   }): number {
     const table = MANUAL_LINK_TABLES[input.entityType]
     const record = db.select({ id: table.id }).from(table).where(eq(table.id, input.entityId)).get()
@@ -480,7 +488,13 @@ export class MailLinkService {
       )
       .run()
     if (restored.changes > 0) return 1
-    return this.insertLink({ ...input, messageId, fallbackKey: null, source: 'manual' })
+    return this.insertLink({
+      ...input,
+      messageId,
+      fallbackKey: null,
+      source: 'manual',
+      mailDate: input.mailDate ?? null
+    })
   }
 
   /** Removing a link: dismissed links are never added again automatically */
