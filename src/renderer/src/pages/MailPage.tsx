@@ -33,6 +33,7 @@ import {
 } from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
+import { ThreadList } from '@/components/mail/ThreadList'
 import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
@@ -118,6 +119,8 @@ function MailClient() {
   } | null>(null)
   // The mails being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
+  // The list grouped into threads instead of one row per mail
+  const [threads, setThreads] = useState(false)
   // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
   const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
@@ -157,6 +160,17 @@ function MailClient() {
     getNextPageParam: (last, pages) =>
       last.length === PAGE_SIZE ? pages.length * PAGE_SIZE : undefined,
     enabled: ready && folderId !== null
+  })
+
+  // The same folder grouped into threads, newest first. A separate query so the
+  // list keeps its own rows: a thread only decides how they are shown.
+  const threadList = useInfiniteQuery({
+    queryKey: ['mail', accountId, 'threads', folderId],
+    queryFn: ({ pageParam = 0 }) =>
+      mailApi.listThreads(folderId, { offset: pageParam as number, limit: PAGE_SIZE }, accountId),
+    getNextPageParam: (last, pages) =>
+      last.length === PAGE_SIZE ? pages.length * PAGE_SIZE : undefined,
+    enabled: ready && folderId !== null && threads
   })
 
   const {
@@ -620,6 +634,18 @@ function MailClient() {
               >
                 Filter
               </Button>
+              {/* Groups the list into threads; off, the list is one row per mail */}
+              {!searching && (
+                <Button
+                  variant={threads ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setThreads((v) => !v)}
+                  aria-pressed={threads}
+                  title="Mails zu Unterhaltungen gruppieren"
+                >
+                  Unterhaltungen
+                </Button>
+              )}
               {searching && (
                 <Button variant="ghost" size="icon-sm" onClick={clearSearch} title="Suche beenden">
                   <X />
@@ -695,6 +721,8 @@ function MailClient() {
           <div className="min-h-0 flex-1 overflow-auto">
             {listLoading ? (
               <Spinner className="m-4" />
+            ) : threads ? (
+              <ThreadList threads={threadList.data?.pages.flat() ?? []} onOpen={openWindow} />
             ) : (
               <MessageList
                 items={listItems}
