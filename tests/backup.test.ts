@@ -33,6 +33,7 @@ import {
   preparedRestore,
   prepareRestore,
   pruneBackups,
+  pruneBeforeRestore,
   readBackupState,
   stageRestore,
   writeBackup
@@ -264,6 +265,22 @@ describe('writing and pruning backups', () => {
     expect(existsSync(join(target, `${BACKUP_TEMP_PREFIX}fremd`))).toBe(true)
     expect(readFileSync(join(target, 'notizen.txt'), 'utf-8')).toBe('bleibt')
     expect((await listBackups(target)).filter((b) => b.marker?.kind === 'auto')).toHaveLength(4)
+  })
+
+  it('keeps only the newest copies from before a restore (#56)', async () => {
+    const parent = join(root, 'before-restore')
+    mkdirSync(parent)
+    for (let day = 1; day <= 5; day++) fakeBackup(parent, at(day), 'before-restore')
+    // not a before-restore copy, or not ours: stays
+    const manual = fakeBackup(parent, at(1, 10), 'manual')
+    const unmarked = fakeBackup(parent, at(1, 12), null)
+
+    const deleted = await pruneBeforeRestore(parent, 3)
+    expect(deleted.sort()).toEqual([backupFolderName(at(1)), backupFolderName(at(2))].sort())
+    for (const day of [3, 4, 5])
+      expect(existsSync(join(parent, backupFolderName(at(day))))).toBe(true)
+    expect(existsSync(manual)).toBe(true)
+    expect(existsSync(unmarked)).toBe(true)
   })
 })
 
