@@ -162,12 +162,10 @@ export function DocumentsPanel({
         >
           <Upload className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
           <h3 className="mb-1 font-semibold">Noch keine Dokumente</h3>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Dateien hier ablegen oder „Dateien auswählen“ verwenden.
+          {/* The toolbar above holds the one "Dateien auswählen" button */}
+          <p className="text-sm text-muted-foreground">
+            Dateien hier ablegen oder oben „Dateien auswählen“ verwenden.
           </p>
-          <Button onClick={() => void handleSelectFiles()} disabled={isUploading}>
-            {isUploading ? 'Wird hochgeladen…' : 'Dateien auswählen'}
-          </Button>
         </div>
       ) : (
         <DocumentTable

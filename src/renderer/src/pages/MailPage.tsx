@@ -139,6 +139,7 @@ function MailClient() {
   const refreshLists = () => {
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'threads'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
   }
 
@@ -721,8 +722,19 @@ function MailClient() {
           <div className="min-h-0 flex-1 overflow-auto">
             {listLoading ? (
               <Spinner className="m-4" />
-            ) : threads ? (
-              <ThreadList threads={threadList.data?.pages.flat() ?? []} onOpen={openWindow} />
+            ) : threads && !searching ? (
+              // Search results are single mails; the thread switch is hidden meanwhile
+              threadList.isLoading ? (
+                <Spinner className="m-4" />
+              ) : (
+                <ThreadList
+                  threads={threadList.data?.pages.flat() ?? []}
+                  onOpen={openWindow}
+                  hasMore={Boolean(threadList.hasNextPage)}
+                  loadingMore={threadList.isFetchingNextPage}
+                  onLoadMore={() => void threadList.fetchNextPage()}
+                />
+              )
             ) : (
               <MessageList
                 items={listItems}

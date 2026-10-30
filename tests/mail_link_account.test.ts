@@ -125,4 +125,61 @@ describe('mailLink.listByEntity', () => {
     expect((await caller.listByEntity(input)).rows.map((row) => row.id)).toEqual([linkId])
     call.mockRestore()
   })
+
+  it('pages past links without a date and gives them their mail’s date', async () => {
+    const { mailLinkRouter } = await import('../src/main/api/routers/mail_link.router')
+    const { mailClient } = await import('../src/main/mailclient/MailClientService')
+    const sqlite = getTestDb().sqlite
+    const personId = Number(
+      sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Lea','Beispiel')").run()
+        .lastInsertRowid
+    )
+    const insert = sqlite.prepare(
+      "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source, mail_date) VALUES ('acc',?,'person',?,'address',?)"
+    )
+    const link = (messageId: string, date: string | null): number =>
+      Number(insert.run(messageId, personId, date).lastInsertRowid)
+    // Two links from before mail_date existed, between two dated ones
+    const undatedA = link('a@example.test', null)
+    const march = link('march@example.test', '2026-03-01T10:00:00.000Z')
+    const undatedB = link('b@example.test', null)
+    const may = link('may@example.test', '2026-05-01T10:00:00.000Z')
+    // The store knows only the first undated mail
+    const call = vi
+      .spyOn(mailClient, 'call')
+      .mockImplementation(
+        async (_method, args) =>
+          ((args as [string[]])[0].includes('a@example.test')
+            ? [{ id: 1, messageId: 'a@example.test', date: '2026-04-01T10:00:00.000Z' }]
+            : []) as never
+      )
+    const caller = mailLinkRouter.createCaller({})
+
+    const ids: number[] = []
+    let cursor: { mailDate: string | null; id: number } | undefined
+    for (let page = 0; page < 10; page++) {
+      const result = await caller.listByEntity({
+        entityType: 'person',
+        entityId: personId,
+        limit: 1,
+        cursor
+      })
+      ids.push(...result.rows.map((row) => row.id))
+      if (!result.nextCursor) break
+      cursor = result.nextCursor
+    }
+    // Every link is reached, the dated ones first, newest first
+    expect(ids).toEqual([may, march, undatedB, undatedA])
+
+    expect(sqlite.prepare('SELECT mail_date FROM mail_link WHERE id = ?').get(undatedA)).toEqual({
+      mail_date: '2026-04-01T10:00:00.000Z'
+    })
+    expect(sqlite.prepare('SELECT mail_date FROM mail_link WHERE id = ?').get(undatedB)).toEqual({
+      mail_date: null
+    })
+    // The next visit sorts the backfilled link where its mail belongs
+    const again = await caller.listByEntity({ entityType: 'person', entityId: personId, limit: 10 })
+    expect(again.rows.map((row) => row.id)).toEqual([may, undatedA, march, undatedB])
+    call.mockRestore()
+  })
 })

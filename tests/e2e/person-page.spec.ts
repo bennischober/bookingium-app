@@ -61,7 +61,8 @@ test('person page shows memberships, events, invoices and documents', async () =
   ).toBeVisible()
 
   await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
-  await expect(page.getByRole('link', { name: 'Berghain' })).toBeVisible()
+  // The club card's link; the events section below links the club again
+  await expect(page.getByRole('link', { name: 'Berghain' }).first()).toBeVisible()
   await expect(page.getByText('Stage Manager')).toBeVisible()
   // The tab now has the same second section as Bands and Companies: the events
   // at those venues, so it no longer looks unfinished next to them

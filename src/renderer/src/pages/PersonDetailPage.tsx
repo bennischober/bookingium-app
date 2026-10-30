@@ -222,13 +222,13 @@ function VenuesTab({ personId }: { personId: number }) {
   return (
     <div className="space-y-8">
       <section className="max-w-2xl">
-        <SectionTitle>Spielstätten</SectionTitle>
+        <SectionTitle>Clubs und Festivals</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="venue" />
       </section>
       <section>
-        <SectionTitle>Events in diesen Spielstätten</SectionTitle>
+        <SectionTitle>Events in diesen Clubs und Festivals</SectionTitle>
         {venues.length === 0 ? (
-          <EmptyState>Keiner Spielstätte zugeordnet.</EmptyState>
+          <EmptyState>Keinem Club und keinem Festival zugeordnet.</EmptyState>
         ) : (
           <div className="space-y-6">
             {venues.map((venue) => (
@@ -260,7 +260,7 @@ function VenueEvents({ venueId, name }: { venueId: number; name: string }) {
         label={`Events in ${name}`}
         query={events}
         loading="Events werden geladen…"
-        empty="Noch keine Events in dieser Spielstätte."
+        empty={`Noch keine Events in ${name}.`}
         columns={[
           {
             header: 'Datum',

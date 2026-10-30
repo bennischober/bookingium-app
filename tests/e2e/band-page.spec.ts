@@ -69,7 +69,8 @@ test('band page shows members, events, contracts and documents', async () => {
   await nameField.fill('Bühnenplan')
   await nameField.press('Enter')
   await expect(bandDocs).toContainText('Bühnenplan.pdf')
-  await expect(page.getByText('Dokument aktualisiert')).toBeVisible()
+  // The type change above may still show its own toast
+  await expect(page.getByText('Dokument aktualisiert').last()).toBeVisible()
 
   const storage = join(
     await h.app.evaluate(({ app }) => app.getPath('userData')),
@@ -91,9 +92,9 @@ test('band page shows members, events, contracts and documents', async () => {
   await expect(page.getByRole('table', { name: 'Dokumente', exact: true })).toContainText(
     'Vertrag Berlin.pdf'
   )
-  // D1: the band's own documents are shown read-only on the gig as well
+  // D1: the band's own documents are shown read-only on the gig as well, by their new name
   await expect(page.getByRole('region', { name: 'Dokumente der Band' })).toContainText(
-    'Stageplot.pdf'
+    'Bühnenplan.pdf'
   )
   const eventFolder = readdirSync(join(storage, 'events')).find((name) =>
     name.includes('the-electric-waves-berlin-tour')
@@ -123,7 +124,12 @@ test('band page shows members, events, contracts and documents', async () => {
   await bandDocs.getByRole('button', { name: 'Bühnenplan.pdf löschen' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Löschen' }).click()
   await expect(bandDocs).toBeHidden()
-  expect(existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf'))).toBe(false)
+  // The OS trash finishes on its own time, shortly after the row is gone
+  await expect
+    .poll(() => existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf')), {
+      timeout: 15000
+    })
+    .toBe(false)
 })
 
 test('a tab that does not exist is dropped, and leaving an event being edited asks first', async () => {

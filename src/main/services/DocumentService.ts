@@ -139,9 +139,8 @@ export class DocumentService {
   }
 
   /**
-   * Moves a document's file to the OS trash, then deletes its record. The renderer
-   * passes the absolute path to `shell.trashItem`; the service only decides what
-   * goes and whether the row survives.
+   * The document and the absolute path of its file (null when the file is already
+   * gone), for the router to hand to `shell.trashItem` before the record goes.
    */
   async detachFileForTrash(
     id: number

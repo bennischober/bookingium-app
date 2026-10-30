@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
-import { and, eq, inArray, isNotNull, lt, or, desc } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, lt, or, desc, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { schema, MAIL_LINK_ENTITY_TYPES } from '../../db/schema'
 import { MailLinkService, MANUAL_LINK_ENTITY_TYPES } from '../../services/MailLinkService'
@@ -90,6 +90,10 @@ export const mailLinkRouter = t.router({
     const conditions = entityIds.map((e) =>
       and(eq(schema.mail_link.entity_type, e.type), eq(schema.mail_link.entity_id, e.id))
     )
+    // Links from before mail_date existed (and mails the store did not know) have no
+    // date. As '' they sort last and stay comparable, so the cursor reaches them too:
+    // a plain NULL would fail every comparison and end the list at the first one.
+    const mailDate = sql<string>`coalesce(${schema.mail_link.mail_date}, '')`
     const rows = db
       .select()
       .from(schema.mail_link)
@@ -102,9 +106,9 @@ export const mailLinkRouter = t.router({
           // date sort last, so they are only reached once no dated row is left.
           input.cursor
             ? or(
-                lt(schema.mail_link.mail_date, input.cursor.mailDate ?? ''),
+                lt(mailDate, input.cursor.mailDate ?? ''),
                 and(
-                  eq(schema.mail_link.mail_date, input.cursor.mailDate ?? ''),
+                  eq(mailDate, input.cursor.mailDate ?? ''),
                   lt(schema.mail_link.id, input.cursor.id)
                 )
               )
@@ -114,7 +118,7 @@ export const mailLinkRouter = t.router({
       )
       // Newest mail first: a mail linked by hand today from a March thread
       // sorts where the mail belongs, not where the link was made
-      .orderBy(desc(schema.mail_link.mail_date), desc(schema.mail_link.id))
+      .orderBy(desc(mailDate), desc(schema.mail_link.id))
       .limit(input.limit + 1)
       .all()
 
@@ -156,6 +160,17 @@ export const mailLinkRouter = t.router({
     }
     const byId = new Map(items.map((m) => [normalizeId(m.messageId), m]))
 
+    // A link without a date gets it from the store once the mail is found, so older
+    // links move to where their mail belongs instead of staying at the end for good
+    for (const link of page) {
+      const date = link.mail_date === null ? byId.get(normalizeId(link.message_id))?.date : null
+      if (!date) continue
+      db.update(schema.mail_link)
+        .set({ mail_date: date })
+        .where(eq(schema.mail_link.id, link.id))
+        .run()
+    }
+
     // The event names a band's tab shows its mails through, in one query for
     // the page (the band's own links have no event)
     const eventIds = [
@@ -190,11 +205,10 @@ export const mailLinkRouter = t.router({
           // Only a band's tab mixes in an event's links, so only there does a
           // row need to say which event it came from
           sourceEvent:
-            link.entity_type === 'event' && link.entity_id !== input.entityId
-              ? {
-                  id: link.entity_id,
-                  name: events.get(link.entity_id) ?? ''
-                }
+            link.entity_type === 'event' &&
+            link.entity_id !== input.entityId &&
+            events.has(link.entity_id)
+              ? { id: link.entity_id, name: events.get(link.entity_id) ?? '' }
               : null
         }
       }),

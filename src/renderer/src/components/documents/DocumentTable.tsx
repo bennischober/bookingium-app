@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowDown, ArrowUp, ArrowUpDown, FileText, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -76,6 +76,10 @@ export function DocumentTable({
   const [busyId, setBusyId] = useState<number | null>(null)
   // The row being renamed and the text typed so far; null = no row is editing
   const [renaming, setRenaming] = useState<{ id: number; value: string } | null>(null)
+  // Enter and Escape close the field, and closing it blurs it while `renaming` is
+  // still the old state: this keeps that blur from saving a second time, or from
+  // saving what Escape threw away
+  const closed = useRef(false)
 
   const sorted = useMemo(() => sortDocuments(rows, sort, DOCUMENT_TYPE_LABELS), [rows, sort])
 
@@ -108,7 +112,8 @@ export function DocumentTable({
    * "Scan" to "Rechnung" gives "Rechnung.pdf", not a file without a suffix.
    */
   const saveName = (doc: DocumentDto | EventDocumentDto) => {
-    if (!renaming || renaming.id !== doc.id) return
+    if (!renaming || renaming.id !== doc.id || closed.current) return
+    closed.current = true
     const typed = renaming.value.trim()
     setRenaming(null)
     // Unchanged, or cleared back to the file name: nothing to send
@@ -189,6 +194,7 @@ export function DocumentTable({
                       }
                       if (event.key === 'Escape') {
                         event.preventDefault()
+                        closed.current = true
                         setRenaming(null)
                       }
                     }}
@@ -214,7 +220,10 @@ export function DocumentTable({
                         title="Umbenennen"
                         aria-label={`${shownName(doc)} umbenennen`}
                         className="shrink-0"
-                        onClick={() => setRenaming({ id: doc.id, value: shownName(doc) })}
+                        onClick={() => {
+                          closed.current = false
+                          setRenaming({ id: doc.id, value: shownName(doc) })
+                        }}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -239,7 +248,7 @@ export function DocumentTable({
                     }}
                     disabled={busyId === doc.id}
                   >
-                    <SelectTrigger className="w-32" aria-label={`Art von ${doc.fileName}`}>
+                    <SelectTrigger className="w-32" aria-label={`Art von ${shownName(doc)}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -289,13 +298,13 @@ export function DocumentTable({
                       variant="ghost"
                       size="sm"
                       title="Löschen"
-                      aria-label={`${doc.fileName} löschen`}
+                      aria-label={`${shownName(doc)} löschen`}
                       className="hover:text-destructive"
                       disabled={deleteDocument.isPending}
                       onClick={async () => {
                         if (
                           await confirmAction({
-                            title: `„${doc.fileName}“ löschen?`,
+                            title: `„${shownName(doc)}“ löschen?`,
                             description: 'Die Datei wird in den Papierkorb verschoben.',
                             confirmLabel: 'Löschen',
                             destructive: true

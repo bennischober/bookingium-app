@@ -7,7 +7,7 @@ import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
   // .claude holds other checkouts of this repo (session worktrees)
-  { ignores: ['**/node_modules', '**/dist', '**/out', '.claude', '.tools'] },
+  { ignores: ['**/node_modules', '**/dist', '**/out', '.claude', '.tools', '.opencode', '.omo'] },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],

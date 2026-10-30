@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { Paperclip } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatListDate } from './format'
 import { newestMessageId, threadRows } from './threadView'
@@ -14,14 +16,41 @@ import type { ThreadSummary } from '../../../../main/mailclient/core/types'
  */
 export function ThreadList({
   threads,
-  onOpen
+  onOpen,
+  hasMore,
+  loadingMore,
+  onLoadMore
 }: {
   threads: ThreadSummary[]
   /** Opens one mail; the newest of the thread for a collapsed row */
   onOpen: (id: number) => void
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
 }) {
+  // Like the /mail list: the next page loads when the end scrolls into view, and
+  // the button stays for keyboard users and as a fallback
+  const listRef = useRef<HTMLUListElement>(null)
+  const moreRef = useRef<HTMLLIElement>(null)
+  const loadMore = useRef(onLoadMore)
+  useEffect(() => {
+    loadMore.current = onLoadMore
+  })
+  useEffect(() => {
+    const target = moreRef.current
+    if (!target || !hasMore || loadingMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore.current()
+      },
+      { root: listRef.current?.parentElement, rootMargin: '400px 0px' }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, threads.length])
+
   return (
-    <ul className="divide-y" aria-label="Unterhaltungen">
+    <ul ref={listRef} className="divide-y" aria-label="Unterhaltungen">
       {threadRows(threads).map((thread) => (
         <li key={thread.threadId} className="px-3 py-2 text-sm">
           <button
@@ -61,6 +90,13 @@ export function ThreadList({
           </div>
         </li>
       ))}
+      {hasMore && (
+        <li ref={moreRef} className="p-2 text-center">
+          <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? 'Wird geladen…' : 'Weitere laden'}
+          </Button>
+        </li>
+      )}
     </ul>
   )
 }
