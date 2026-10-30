@@ -193,6 +193,12 @@ const READ_ONLY_ACCOUNT = {
 
 const listAccounts = (): Promise<Account[]> => trpc<Account[]>('query', 'mail.accounts.list')
 
+/** #95: an account's section name in the folder pane, as MailPage's accountName gives it */
+const accountName = (account: Account, all: Account[]): string =>
+  all.filter((other) => other.email === account.email).length > 1
+    ? `${account.email} (${account.host}:${account.port})`
+    : account.email
+
 /**
  * The sandbox account, saved on first use. Every test that needs an account calls this
  * instead of reading an id an earlier test may not have saved (card T3).
@@ -293,8 +299,22 @@ const openMailPage = async (accountId?: string) => {
   const accounts = await listAccounts()
   if (accounts.length < 2) return
   const index = accounts.findIndex((a) => a.id === accountId)
-  await h.page.getByRole('combobox', { name: 'Postfach' }).click()
-  await h.page.getByRole('option').nth(index).click()
+  // The reload shows the first account
+  if (index <= 0) return
+  const picker = h.page.getByRole('combobox', { name: 'Postfach' })
+  if (await picker.isVisible()) {
+    await picker.click()
+    await h.page.getByRole('option').nth(index).click()
+    return
+  }
+  // #95: wide windows list every account in the folder pane; a folder of one switches to it
+  await h.page
+    .getByRole('list', { name: accountName(accounts[index], accounts), exact: true })
+    .getByText('Posteingang', { exact: true })
+    .click({ timeout: 30_000 })
+  await expect(
+    h.page.getByRole('region', { name: accountName(accounts[index], accounts), exact: true })
+  ).toContainText('Posteingang')
 }
 
 test('the mail page shows folders, messages and a sandboxed reader', async () => {
@@ -958,8 +978,28 @@ test('the mail page offers no writes for a read-only account', async () => {
   const { page } = h
   const readOnlyId = await ensureReadOnlyAccount()
   const inbox = await waitForInbox(readOnlyId)
+  // #95: a wide window has no account picker; the folder pane lists every account
+  await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
   await openMailPage(readOnlyId)
   await expect(page.getByRole('note').filter({ hasText: 'Nur lesen' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Postfach' })).toBeHidden()
+  const accounts = await listAccounts()
+  const shown = accountName(accounts.find((a) => a.id === readOnlyId)!, accounts)
+  const other = accountName(accounts.find((a) => a.id !== readOnlyId)!, accounts)
+  // The shown account's tree is the one the page works on; the other one waits, folded open
+  await expect(
+    page.getByRole('region', { name: shown, exact: true }).getByRole('list', { name: 'Ordner' })
+  ).toBeVisible()
+  await expect(page.getByRole('list', { name: other, exact: true })).toBeVisible()
+  // Folding a section away keeps its account, and unfolding brings the folders back
+  const otherHeader = page.getByRole('region', { name: other, exact: true }).getByRole('button', {
+    name: other
+  })
+  await otherHeader.click()
+  await expect(otherHeader).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('list', { name: other, exact: true })).toHaveCount(0)
+  await otherHeader.click()
+  await expect(page.getByRole('list', { name: other, exact: true })).toBeVisible()
 
   const [first] = await mail<{ id: number; isRead: boolean }[]>(
     'listMessages',
@@ -1090,7 +1130,11 @@ test('a mail in Trash is deleted permanently and the counts drop', async () => {
 
     // 3. In the UI: open Trash, right-click the mail, delete it permanently
     await openMailPage(sandboxId)
-    await page.getByRole('button', { name: /^Papierkorb/ }).click()
+    // #95: the shown account's tree; the other account has a Papierkorb too
+    await page
+      .getByRole('list', { name: 'Ordner' })
+      .getByRole('button', { name: /^Papierkorb/ })
+      .click()
     const list = page.getByRole('listbox', { name: 'Nachrichten' })
     const row = list.getByRole('option').filter({ hasText: tag })
     await expect(row).toBeVisible({ timeout: 30_000 })

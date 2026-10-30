@@ -15,10 +15,11 @@ describe('I10 Low: renderer fixes', () => {
     // They belong to the account they were hidden in. Carried over, an id that exists in the new
     // account would stay invisible for no reason.
     const src = source(MAIL_PAGE)
-    const start = src.indexOf('onValueChange={(id) => {')
-    // up to the closing of that handler, which is the next "}}" at the same indent
-    const handler = src.slice(start, src.indexOf('}}', start))
+    // #95: the picker and the folder pane's account sections both switch through switchAccount
+    const start = src.indexOf('const switchAccount = ')
+    const handler = src.slice(start, src.indexOf('\n  }\n', start))
     expect(handler).toContain('setHiddenIds([])')
+    expect(src).toContain('onValueChange={(id) => switchAccount(id as string)}')
   })
 
   it('marks the mail edited when an attachment is added', () => {
