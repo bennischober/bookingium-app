@@ -56,11 +56,21 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Stageplot.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  const bandDocs = page.getByRole('list', { name: 'Dokumente der Band' })
+  const bandDocs = page.getByRole('table', { name: 'Dokumente der Band' })
   await expect(bandDocs).toContainText('Stageplot.pdf')
   await bandDocs.getByRole('combobox', { name: 'Art von Stageplot.pdf' }).click()
   await page.getByRole('option', { name: 'Stageplot' }).click()
   await expect(page.getByText('Dokument aktualisiert')).toBeVisible()
+
+  // Renaming shows a new name in the list but leaves the file on disk as it is,
+  // so the folder stays readable and a rename cannot fail on a locked file
+  await bandDocs.getByRole('button', { name: 'Stageplot.pdf umbenennen' }).click()
+  const nameField = bandDocs.getByRole('textbox', { name: 'Name von Stageplot.pdf' })
+  await nameField.fill('Bühnenplan')
+  await nameField.press('Enter')
+  await expect(bandDocs).toContainText('Bühnenplan.pdf')
+  // The type change above may still show its own toast
+  await expect(page.getByText('Dokument aktualisiert').last()).toBeVisible()
 
   const storage = join(
     await h.app.evaluate(({ app }) => app.getPath('userData')),
@@ -79,12 +89,12 @@ test('band page shows members, events, contracts and documents', async () => {
   await page.getByRole('tab', { name: 'Dokumente' }).click()
   await pickFile('Vertrag Berlin.pdf')
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente', exact: true })).toContainText(
+  await expect(page.getByRole('table', { name: 'Dokumente', exact: true })).toContainText(
     'Vertrag Berlin.pdf'
   )
-  // D1: the band's own documents are shown read-only on the gig as well
+  // D1: the band's own documents are shown read-only on the gig as well, by their new name
   await expect(page.getByRole('region', { name: 'Dokumente der Band' })).toContainText(
-    'Stageplot.pdf'
+    'Bühnenplan.pdf'
   )
   const eventFolder = readdirSync(join(storage, 'events')).find((name) =>
     name.includes('the-electric-waves-berlin-tour')
@@ -98,19 +108,28 @@ test('band page shows members, events, contracts and documents', async () => {
   const combined = page.getByRole('region', { name: 'Dokumente aus Events' })
   await expect(combined).toContainText('Vertrag Berlin.pdf')
   await expect(combined).toContainText(EVENT)
-  await expect(combined).not.toContainText('Stageplot.pdf')
-  await expect(page.getByText('Stageplot.pdf')).toHaveCount(1)
+  // The band's own file is the renamed one now; it is listed once, not twice
+  await expect(combined).not.toContainText('Bühnenplan.pdf')
+  await expect(page.getByText('Bühnenplan.pdf')).toHaveCount(1)
 
   // D1: with files present, both filters are usable (the narrowing itself is unit-tested;
   // Radix animates its popup, which makes an e2e click on an option flaky)
   await expect(combined.getByRole('combobox', { name: 'Nach Kategorie filtern' })).toBeEnabled()
   await expect(combined.getByRole('combobox', { name: 'Nach Event filtern' })).toBeEnabled()
 
-  // Deleting removes the file
-  await bandDocs.getByRole('button', { name: 'Stageplot.pdf löschen' }).click()
+  // Deleting moves the file to the OS trash: the row goes and the file leaves the
+  // documents folder. That it stays recoverable is `shell.trashItem` in the router;
+  // the unit tests cover the split (path handed over before the row is removed).
+  // The row is found by its shown name, which the rename above changed.
+  await bandDocs.getByRole('button', { name: 'Bühnenplan.pdf löschen' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Löschen' }).click()
   await expect(bandDocs).toBeHidden()
-  expect(existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf'))).toBe(false)
+  // The OS trash finishes on its own time, shortly after the row is gone
+  await expect
+    .poll(() => existsSync(join(storage, 'bands', bandFolder!, 'Stageplot.pdf')), {
+      timeout: 15000
+    })
+    .toBe(false)
 })
 
 test('a tab that does not exist is dropped, and leaving an event being edited asks first', async () => {

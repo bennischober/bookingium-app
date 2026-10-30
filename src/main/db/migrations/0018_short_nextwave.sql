@@ -1,0 +1,1 @@
+ALTER TABLE `document` ADD `display_name` text;

@@ -1,9 +1,10 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
 import type { DocumentOwnerType, UpdateDocumentInput } from '../api/schemas/document.schema'
+import { normalizeDisplayName } from '../api/schemas/document.schema'
 
 type NewDocument = typeof schema.document.$inferInsert
 
@@ -14,7 +15,7 @@ export class DocumentRepository {
       .select()
       .from(schema.document)
       .where(and(eq(schema.document.owner_type, ownerType), eq(schema.document.owner_id, ownerId)))
-      .orderBy(asc(schema.document.uploaded_at), asc(schema.document.id))
+      .orderBy(desc(schema.document.uploaded_at), desc(schema.document.id))
   }
 
   /** Documents of all events of a band, newest event first */
@@ -35,7 +36,7 @@ export class DocumentRepository {
       )
       // D3: an archived gig's documents are out of the band's working list
       .where(and(eq(schema.deal_memo.band_id, bandId), notArchived()))
-      .orderBy(desc(schema.deal_memo.date), asc(schema.document.uploaded_at))
+      .orderBy(desc(schema.deal_memo.date), desc(schema.document.uploaded_at))
     return rows.map((row) => ({
       ...row.document,
       eventName: row.eventName,
@@ -44,7 +45,7 @@ export class DocumentRepository {
   }
 
   async listAll() {
-    return db.select().from(schema.document).orderBy(asc(schema.document.id))
+    return db.select().from(schema.document).orderBy(desc(schema.document.id))
   }
 
   async getById(id: number) {
@@ -112,6 +113,12 @@ export class DocumentRepository {
 
     if (input.uploadedBy !== undefined) {
       updates.uploaded_by = input.uploadedBy
+    }
+
+    // The file on disk keeps its name; only the shown name changes. An empty or
+    // whitespace-only name clears the override, so the file name shows again.
+    if (input.displayName !== undefined) {
+      updates.display_name = normalizeDisplayName(input.displayName)
     }
 
     const result = await db

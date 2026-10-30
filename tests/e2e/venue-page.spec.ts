@@ -65,7 +65,7 @@ test('venue page shows overview, contacts, events and documents', async () => {
     dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
   }, file)
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente des Clubs' })).toContainText(
+  await expect(page.getByRole('table', { name: 'Dokumente des Clubs' })).toContainText(
     'Bühnenplan.pdf'
   )
   const storage = join(

@@ -20,6 +20,9 @@ export const SHARED_ADDRESS_LIMIT = 20
 /** Mails per linking round; the linker yields between batches */
 export const LINK_BATCH = 500
 
+/** #55: app setting with each mail account's address, by account id */
+export const ACCOUNT_ADDRESSES_KEY = 'mailAccountAddresses'
+
 /** The parts of a mail the linker needs; no subject, no body */
 export type LinkableHeader = {
   messageId: string | null
@@ -29,6 +32,8 @@ export type LinkableHeader = {
   fromEmail: string
   toEmails: string[]
   ccEmails: string[]
+  /** the mail's own date, stored on the link so the tab sorts by it */
+  date?: string | null
 }
 
 /** The records a mail can be linked to by hand ("Zuordnen…"); an event is a deal memo */
@@ -321,7 +326,8 @@ export class MailLinkService {
             fallbackKey: header.fallbackKey,
             entityType: link.owner.entityType,
             entityId: link.owner.entityId,
-            source: link.source
+            source: link.source,
+            mailDate: header.date ?? null
           })
         }
       }
@@ -340,6 +346,8 @@ export class MailLinkService {
     entityType: MailLinkEntityType
     entityId: number
     source: MailLinkSource
+    /** the mail's own date; the tab sorts by it, not by when it was linked */
+    mailDate?: string | null
   }): number {
     const messageId = input.messageId?.replace(/^</, '').replace(/>$/, '').trim() || null
     const fallbackKey = messageId ? null : input.fallbackKey
@@ -367,7 +375,8 @@ export class MailLinkService {
         fallback_key: fallbackKey,
         entity_type: input.entityType,
         entity_id: input.entityId,
-        source: input.source
+        source: input.source,
+        mail_date: input.mailDate ?? null
       })
       .run()
     return 1
@@ -459,6 +468,8 @@ export class MailLinkService {
     messageId: string
     entityType: ManualLinkEntityType
     entityId: number
+    /** the mail's own date, looked up by the caller; null when unknown */
+    mailDate?: string | null
   }): number {
     const table = MANUAL_LINK_TABLES[input.entityType]
     const record = db.select({ id: table.id }).from(table).where(eq(table.id, input.entityId)).get()
@@ -480,7 +491,13 @@ export class MailLinkService {
       )
       .run()
     if (restored.changes > 0) return 1
-    return this.insertLink({ ...input, messageId, fallbackKey: null, source: 'manual' })
+    return this.insertLink({
+      ...input,
+      messageId,
+      fallbackKey: null,
+      source: 'manual',
+      mailDate: input.mailDate ?? null
+    })
   }
 
   /** Removing a link: dismissed links are never added again automatically */
@@ -491,5 +508,86 @@ export class MailLinkService {
   /** Undoes dismissLink: the link shows again and the linker treats it as before */
   restoreLink(id: number): void {
     db.update(schema.mail_link).set({ dismissed: false }).where(eq(schema.mail_link.id, id)).run()
+  }
+
+  /**
+   * #55: the account list lives outside the database (and outside backups), so the
+   * database keeps each account's address. A backup restored on a new computer can
+   * then tell which re-created account its mail links belonged to.
+   */
+  rememberAccounts(accounts: readonly { id: string; email: string }[]): void {
+    if (accounts.length === 0) return
+    const known = this.knownAccounts()
+    for (const account of accounts) known[account.id] = account.email.trim().toLowerCase()
+    this.settings.setMany({ [ACCOUNT_ADDRESSES_KEY]: JSON.stringify(known) })
+  }
+
+  private knownAccounts(): Record<string, string> {
+    try {
+      const parsed = JSON.parse(this.settings.getAll()[ACCOUNT_ADDRESSES_KEY] ?? '{}') as unknown
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  /**
+   * #55: a re-created account takes over the links, sent-mail records and document
+   * sources of the account it replaces. That is the unknown account id with the same
+   * address, or - for a backup from before the addresses were kept - the only unknown
+   * id when this is the only account. Returns how many rows moved.
+   */
+  adoptRestoredLinks(
+    account: { id: string; email: string },
+    accounts: readonly { id: string }[]
+  ): number {
+    const current = new Set(accounts.map((a) => a.id))
+    const orphans = db
+      .all<{ id: string }>(
+        sql`SELECT mail_account_id AS id FROM mail_link
+          UNION SELECT mail_account_id FROM invoice_email WHERE mail_account_id IS NOT NULL
+          UNION SELECT mail_account_id FROM invoice_email_pending
+          UNION SELECT source_mail_account_id FROM document WHERE source_mail_account_id IS NOT NULL`
+      )
+      .map((row) => row.id)
+      .filter((id) => !current.has(id))
+    if (orphans.length === 0) return 0
+
+    const email = account.email.trim().toLowerCase()
+    const known = this.knownAccounts()
+    let from = orphans.find((id) => known[id] === email)
+    if (!from && accounts.length === 1 && orphans.length === 1 && !(orphans[0] in known)) {
+      from = orphans[0]
+    }
+    if (!from) return 0
+    const old = from
+
+    return db.transaction((tx) => {
+      // A link the new account already has stays; the old row is left as it was
+      const moved = [
+        tx.run(
+          sql`UPDATE OR IGNORE mail_link SET mail_account_id = ${account.id} WHERE mail_account_id = ${old}`
+        ),
+        tx
+          .update(schema.invoice_email)
+          .set({ mail_account_id: account.id })
+          .where(eq(schema.invoice_email.mail_account_id, old))
+          .run(),
+        tx
+          .update(schema.invoice_email_pending)
+          .set({ mail_account_id: account.id })
+          .where(eq(schema.invoice_email_pending.mail_account_id, old))
+          .run(),
+        tx
+          .update(schema.document)
+          .set({ source_mail_account_id: account.id })
+          .where(eq(schema.document.source_mail_account_id, old))
+          .run()
+      ].reduce((sum, result) => sum + result.changes, 0)
+      known[account.id] = email
+      delete known[old]
+      this.settings.setMany({ [ACCOUNT_ADDRESSES_KEY]: JSON.stringify(known) })
+      return moved
+    })
   }
 }

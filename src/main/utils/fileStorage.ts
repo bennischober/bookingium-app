@@ -87,6 +87,15 @@ export async function deleteDocumentFile(relativeFilePath: string): Promise<void
 }
 
 /**
+ * The absolute path of a stored document, or null when the file is already gone.
+ * Used to hand the file to the OS trash instead of deleting it outright.
+ */
+export async function findDocumentFile(relativeFilePath: string): Promise<string | null> {
+  const fullPath = await getDocumentFullPath(relativeFilePath)
+  return existsSync(fullPath) ? fullPath : null
+}
+
+/**
  * Gets file information (size, exists, etc).
  */
 export async function getFileInfo(relativeFilePath: string) {

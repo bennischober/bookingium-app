@@ -30,11 +30,13 @@ import { MAIL_API_METHODS, type MailEvent } from '../../mailclient/protocol'
 import { container } from 'tsyringe'
 import { RecipientLookupService } from '../../services/RecipientLookupService'
 import { InvoiceService } from '../../services/InvoiceService'
+import { MailLinkService } from '../../services/MailLinkService'
 import { invoiceComposes, sendInvoiceMail } from '../../mail/invoiceSend'
 import { SendInvoiceMailInput } from '../schemas/invoice.schema'
 import type { DraftInput } from '../../mailclient/core/types'
 
 const recipientLookup = container.resolve(RecipientLookupService)
+const mailLinks = container.resolve(MailLinkService)
 
 const t = initTRPC.create()
 
@@ -331,7 +333,13 @@ export const mailRouter = t.router({
             checkMailAccountSave(input)
             return await mailClient.whileStopped(async () => {
               const test = await testAccount(input)
-              return test.ok ? { test, account: saveMailAccount(input) } : { test }
+              if (!test.ok) return { test }
+              const account = saveMailAccount(input)
+              // #55: a restored backup's links follow the account that replaces theirs
+              const accounts = listMailAccounts()
+              mailLinks.adoptRestoredLinks(account, accounts)
+              mailLinks.rememberAccounts(accounts)
+              return { test, account }
             })
           } catch (error) {
             throw badRequest(error, 'Konto konnte nicht gespeichert werden')
