@@ -183,3 +183,86 @@ describe('mailLink.listByEntity', () => {
     call.mockRestore()
   })
 })
+
+describe('restored mail links (#55)', () => {
+  it('follow the re-created account with the same address', async () => {
+    const { MailLinkService, ACCOUNT_ADDRESSES_KEY } =
+      await import('../src/main/services/MailLinkService')
+    const { container } = await import('tsyringe')
+    const service = container.resolve(MailLinkService)
+    const sqlite = getTestDb().sqlite
+    const personId = Number(
+      sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Ole','Beispiel')").run()
+        .lastInsertRowid
+    )
+    const link = sqlite.prepare(
+      "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source) VALUES (?,?,'person',?,'address')"
+    )
+    // The backup's computer had two accounts; this one has new ids for them
+    service.rememberAccounts([
+      { id: 'alt-büro', email: 'Buero@example.test' },
+      { id: 'alt-privat', email: 'privat@example.test' }
+    ])
+    link.run('alt-büro', '<1@example.test>', personId)
+    link.run('alt-privat', '<2@example.test>', personId)
+    const documentId = Number(
+      sqlite
+        .prepare(
+          "INSERT INTO document (owner_type, owner_id, file_name, file_type, file_path, file_size, source_mail_account_id) VALUES ('person', ?, 'a.pdf', 'pdf', 'a.pdf', 1, 'alt-büro')"
+        )
+        .run(personId).lastInsertRowid
+    )
+
+    const accounts = [{ id: 'neu-büro', email: 'buero@example.test' }]
+    expect(service.adoptRestoredLinks(accounts[0], accounts)).toBe(2)
+    expect(
+      sqlite
+        .prepare('SELECT mail_account_id FROM mail_link WHERE entity_id = ? ORDER BY message_id')
+        .all(personId)
+    ).toEqual([{ mail_account_id: 'neu-büro' }, { mail_account_id: 'alt-privat' }])
+    expect(
+      sqlite.prepare('SELECT source_mail_account_id FROM document WHERE id = ?').get(documentId)
+    ).toEqual({ source_mail_account_id: 'neu-büro' })
+    const known = sqlite
+      .prepare('SELECT value FROM app_setting WHERE key = ?')
+      .get(ACCOUNT_ADDRESSES_KEY) as { value: string }
+    expect(JSON.parse(known.value)).toEqual({
+      'neu-büro': 'buero@example.test',
+      'alt-privat': 'privat@example.test'
+    })
+    // Saving it again moves nothing more
+    expect(service.adoptRestoredLinks(accounts[0], accounts)).toBe(0)
+  })
+
+  it('takes the only unknown account for a backup from before addresses were kept', async () => {
+    const { MailLinkService, ACCOUNT_ADDRESSES_KEY } =
+      await import('../src/main/services/MailLinkService')
+    const { container } = await import('tsyringe')
+    const service = container.resolve(MailLinkService)
+    const sqlite = getTestDb().sqlite
+    sqlite.prepare('DELETE FROM app_setting WHERE key = ?').run(ACCOUNT_ADDRESSES_KEY)
+    sqlite.prepare('DELETE FROM mail_link').run()
+    sqlite.prepare('DELETE FROM document').run()
+    const personId = Number(
+      sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Ida','Beispiel')").run()
+        .lastInsertRowid
+    )
+    sqlite
+      .prepare(
+        "INSERT INTO mail_link (mail_account_id, message_id, entity_type, entity_id, source) VALUES ('alt',?,'person',?,'address')"
+      )
+      .run('<3@example.test>', personId)
+
+    // Two accounts: no way to tell, nothing moves
+    const two = [
+      { id: 'neu', email: 'neu@example.test' },
+      { id: 'zweit', email: 'zweit@example.test' }
+    ]
+    expect(service.adoptRestoredLinks(two[0], two)).toBe(0)
+    const one = [two[0]]
+    expect(service.adoptRestoredLinks(one[0], one)).toBe(1)
+    expect(sqlite.prepare('SELECT mail_account_id FROM mail_link').all()).toEqual([
+      { mail_account_id: 'neu' }
+    ])
+  })
+})
