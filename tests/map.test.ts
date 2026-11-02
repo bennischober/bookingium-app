@@ -3,6 +3,8 @@
 // one; a handful of well-known codes anchor it (Berlin 10115, München 80331,
 // Innsbruck 6020, Zürich 8001).
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import {
   buildMapData,
   eventInDateRange,
@@ -241,5 +243,20 @@ describe('the map route', () => {
   it('still sits in the Planung group of the menu', () => {
     const planung = getGroupedRoutes().find((group) => group.title === 'Planung')
     expect(planung?.items.map((route) => route.path)).toContain('/map')
+  })
+})
+
+describe('radius rings', () => {
+  it('stay under the dots and let the mouse through to them', () => {
+    // A ring painted over a venue dot swallowed its tooltip. The Leaflet code cannot run in the
+    // node test env, so the lines that fix it are pinned here.
+    const src = readFileSync(
+      join(process.cwd(), 'src/renderer/src/components/map/LeafletMap.tsx'),
+      'utf8'
+    )
+    expect(src).toContain("map.createPane(RING_PANE).style.zIndex = '350'")
+    const ring = src.slice(src.indexOf('L.circle('), src.indexOf('L.circleMarker('))
+    expect(ring).toContain('pane: RING_PANE')
+    expect(ring).toContain('interactive: false')
   })
 })

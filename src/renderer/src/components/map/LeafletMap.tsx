@@ -4,6 +4,9 @@ import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
 import { escapeHtml, markerColor, markerTitle, ringColor, ringMetres } from './mapDisplay'
 import 'leaflet/dist/leaflet.css'
 
+/** The Leaflet pane the radius rings are drawn in, below the dots */
+const RING_PANE = 'rings'
+
 /**
  * The Leaflet map itself: OSM tiles, one circle marker per located marker and
  * a radius ring around each event. React owns the data, Leaflet owns its DOM -
@@ -43,6 +46,10 @@ export function LeafletMap({
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> · PLZ-Daten: <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a>, CC BY 4.0'
       }).addTo(map)
+      // Rings get a pane of their own below the dots (overlayPane is z-index 400). In the shared
+      // overlay SVG a ring drawn after a dot painted over it and its fill caught the hover, so a
+      // venue inside an event's ring showed no tooltip.
+      map.createPane(RING_PANE).style.zIndex = '350'
       mapRef.current = map
       // A hidden container (switch/tab) leaves Leaflet with a wrong size
       map.invalidateSize()
@@ -80,10 +87,13 @@ export function LeafletMap({
         const color = markerColor(marker)
         const ring = showRings ? ringMetres(marker) : null
         const ringColour = ringColor(marker)
-        // Rings first (under every dot), in the venue kind's colour
+        // Rings under every dot (their own pane), in the venue kind's colour. They are only a
+        // backdrop: not interactive, so the mouse always reaches the dots inside them.
         if (ring !== null && ringColour !== null) {
           layers.push(
             L.circle([marker.lat, marker.lng], {
+              pane: RING_PANE,
+              interactive: false,
               radius: ring,
               color: ringColour,
               weight: 2,
