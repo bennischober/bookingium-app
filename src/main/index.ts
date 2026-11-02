@@ -1,11 +1,22 @@
 import 'reflect-metadata'
-import { app, shell, BrowserWindow, ipcMain, dialog, clipboard, net, powerMonitor } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  clipboard,
+  net,
+  powerMonitor,
+  session
+} from 'electron'
 import { basename, join, extname } from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createIPCHandler } from 'electron-trpc/main'
 import { copyableLinkUrl } from './mail/linkClipboard'
 import { isAppDocument } from './utils/navigation'
+import { TILE_REQUEST_URLS, tileUserAgent } from './map/tileRequests'
 import { initErrorLog, logError } from './utils/errorLog'
 
 // Data folder (database, documents): %APPDATA%/bookingum-app for the dev
@@ -723,6 +734,15 @@ app.whenReady().then(async () => {
     console.error('Applying a staged restore failed:', error)
   }
   if (!migrateDatabase()) return
+  // Map preview (#102): OSM refuses tiles to the packaged app without an app User-Agent
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: TILE_REQUEST_URLS },
+    (details, callback) => {
+      callback({
+        requestHeaders: { ...details.requestHeaders, 'User-Agent': tileUserAgent(app.getVersion()) }
+      })
+    }
+  )
   // Files from the old storage/events/<id>/ layout move to storage/documents/
   await container
     .resolve(DocumentService)

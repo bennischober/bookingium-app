@@ -43,9 +43,9 @@ export function MapPreviewSwitchCard() {
         <p className="text-xs text-muted-foreground">
           Noch in Erprobung: Die Ringe sind ein Vorschlag (Clubs 100 km, Festivals 300 km) und
           sollen den Gebietsschutz abbilden – das ist noch zu bestätigen. Adressen werden nur
-          offline über die Postleitzahl verortet, nichts verlässt den Rechner. Karte und
-          Satellitenbilder kommen von OpenStreetMap; dabei sieht der Kartenanbieter, welcher
-          Ausschnitt angezeigt wird. Eingeschaltet erscheint „Karte“ im Menü.
+          offline über die Postleitzahl verortet, nichts verlässt den Rechner. Die Kartenbilder
+          kommen von OpenStreetMap; dabei sieht der Kartenanbieter, welcher Ausschnitt angezeigt
+          wird. Eingeschaltet erscheint „Karte“ im Menü.
         </p>
       </CardContent>
     </Card>

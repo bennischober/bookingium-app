@@ -150,9 +150,10 @@ function MapPreview() {
             contains Leaflet's internal z-indexes (panes go up to 700) so the
             portaled dropdowns (body level, z-50) always paint above the map. */}
         <div className="relative isolate min-w-0 flex-1 overflow-hidden rounded-lg border">
-          <LeafletMap markers={located} focusMarkerId={focusVenueId} showRings={showRings} />
-          {/* Legend and ring toggle on top of the tiles (above every Leaflet pane) */}
-          <div className="absolute bottom-2 left-2 z-[1000] space-y-1 rounded-md border bg-popover/95 p-3 text-xs shadow-sm">
+          <LeafletMap markers={located} focusVenueId={focusVenueId} showRings={showRings} />
+          {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
+              Leaflet leaves free: zoom sits top left, attribution bottom right */}
+          <div className="absolute top-2 right-2 z-[1000] space-y-1 rounded-md border bg-popover/95 p-3 text-xs shadow-sm">
             <div className="font-medium">Legende</div>
             <div className="flex items-center gap-2">
               <span
@@ -180,14 +181,14 @@ function MapPreview() {
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.venue }}
               />
-              Ring Club: 100 km
+              Ring Club: {ringLabel(CLUB_RING_METRES)}
             </div>
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.festival }}
               />
-              Ring Festival: 300 km
+              Ring Festival: {ringLabel(FESTIVAL_RING_METRES)}
             </div>
             <label className="flex items-center gap-2 pt-1">
               <input

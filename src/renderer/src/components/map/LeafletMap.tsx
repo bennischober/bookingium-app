@@ -11,12 +11,12 @@ import 'leaflet/dist/leaflet.css'
  */
 export function LeafletMap({
   markers,
-  focusMarkerId,
+  focusVenueId,
   showRings
 }: {
   markers: MapMarkerDto[]
-  /** Centre the map on this marker when it changes (the venue picker) */
-  focusMarkerId?: number | null
+  /** Centre the map on this venue marker when it changes (the venue picker) */
+  focusVenueId?: number | null
   showRings: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -33,10 +33,15 @@ export function LeafletMap({
     void import('leaflet').then((L) => {
       if (cancelled || !containerRef.current) return
       const map = L.map(containerRef.current, { zoomControl: true }).setView([51.0, 10.0], 6)
+      // The links open in the browser (target=_blank reaches the window open
+      // handler); a plain link would try to replace the app and be dropped
+      map.attributionControl.setPrefix(
+        '<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>'
+      )
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · PLZ-Daten: <a href="https://www.geonames.org/">GeoNames</a>, CC BY 4.0'
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> · PLZ-Daten: <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a>, CC BY 4.0'
       }).addTo(map)
       mapRef.current = map
       // A hidden container (switch/tab) leaves Leaflet with a wrong size
@@ -121,11 +126,14 @@ export function LeafletMap({
   // The venue picker: centre on the chosen marker
   useEffect(() => {
     const map = mapRef.current
-    if (!map || focusMarkerId == null) return
-    const marker = markers.find((candidate) => candidate.id === focusMarkerId)
+    if (!map || focusVenueId == null) return
+    // Event and venue ids are separate sequences: an event can share the venue's id
+    const marker = markers.find(
+      (candidate) => candidate.type === 'venue' && candidate.id === focusVenueId
+    )
     if (!marker || marker.lat === undefined || marker.lng === undefined) return
     map.flyTo([marker.lat, marker.lng], 11, { duration: 0.8 })
-  }, [focusMarkerId, markers, mapReady])
+  }, [focusVenueId, markers, mapReady])
 
   // A window resize (sidebar toggle) leaves Leaflet with a stale size
   useEffect(() => {

@@ -14,6 +14,8 @@ import {
 } from '../src/main/map/markers'
 import { lookupPostcode } from '../src/main/map/postcodeLookup'
 import { markerColor, ringColor, ringMetres } from '../src/renderer/src/components/map/mapDisplay'
+import { TILE_REQUEST_URLS, tileUserAgent } from '../src/main/map/tileRequests'
+import { getGroupedRoutes, getRouteShortcut, ROUTES } from '../src/renderer/src/lib/routing'
 
 const address = (
   parts: Partial<MapEventRow['address']> = {}
@@ -219,5 +221,25 @@ describe('ring and marker colours', () => {
     expect(ringMetres({ type: 'event', kind: 'venue' })).toBe(100_000)
     expect(ringMetres({ type: 'event', kind: 'festival' })).toBe(300_000)
     expect(ringMetres({ type: 'venue', kind: 'venue' })).toBeNull()
+  })
+})
+
+describe('tile requests', () => {
+  it('name the app, not a browser: OSM blocks the packaged app otherwise', () => {
+    expect(tileUserAgent('1.1.0')).toMatch(/^Bookingium\/1\.1\.0 \(\+https:\/\/github\.com\//)
+    expect(TILE_REQUEST_URLS).toEqual(['https://tile.openstreetmap.org/*'])
+  })
+})
+
+describe('the map route', () => {
+  it('takes no Alt+number shortcut from the pages before it', () => {
+    expect(getRouteShortcut(ROUTES.map.path)).toBeUndefined()
+    expect(getRouteShortcut(ROUTES.invoices.path)).toBe('4')
+    expect(getRouteShortcut(ROUTES.hotels.path)).toBe('0')
+  })
+
+  it('still sits in the Planung group of the menu', () => {
+    const planung = getGroupedRoutes().find((group) => group.title === 'Planung')
+    expect(planung?.items.map((route) => route.path)).toContain('/map')
   })
 })

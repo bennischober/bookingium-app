@@ -44,7 +44,6 @@ export const ROUTES = {
   dashboard: { path: '/', title: 'Dashboard', group: 'Planung', icon: LayoutDashboard },
   calendar: { path: '/calendar', title: 'Kalender', group: 'Planung', icon: CalendarDays },
   events: { path: '/events', title: 'Events', group: 'Planung', icon: Music2 },
-  map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
   invoices: { path: '/invoices', title: 'Rechnungen', group: 'Planung', icon: FileText },
   bands: { path: '/band', title: 'Bands', group: 'Kontakte', icon: Guitar },
   persons: { path: '/persons', title: 'Personen', group: 'Kontakte', icon: Users },
@@ -54,6 +53,9 @@ export const ROUTES = {
   festivals: { path: '/festivals', title: 'Festivals', group: 'Kontakte', icon: Tent },
   hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
   contactLists: { path: '/contact-lists', title: 'Verteiler', group: 'Kontakte', icon: Mails },
+  // The menu groups it under Planung; listed here, after the first ten, so the experimental
+  // page takes no Alt+number shortcut away from the pages before it (#102)
+  map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }

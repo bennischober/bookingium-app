@@ -32,6 +32,10 @@ implementation can start from step 1 of the plan below.
   and Verteiler); Leaflet (BSD-2); OSM attribution plus a CSP `img-src` entry for the tile
   host; GeoNames postcodes (CC BY 4.0) with an attribution line; **no address leaves the
   machine** (no geocoding API calls — the bundled table is the only lookup).
+- **Tile requests name the app.** OSM's tile servers answer a request with neither a Referer
+  nor an app User-Agent with an "Access blocked" tile. The packaged app loads from `file://`
+  (no Referer), so `src/main/map/tileRequests.ts` sets a `Bookingium/<version>` User-Agent for
+  `tile.openstreetmap.org` only; `pnpm dev` hides the problem (localhost Referer).
 
 ## What the codebase offers today
 
