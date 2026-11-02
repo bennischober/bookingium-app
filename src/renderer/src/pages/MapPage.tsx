@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Map as MapIcon, Navigation } from 'lucide-react'
+import { Map as MapIcon, MapPinOff, Navigation } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
+import { localIsoDate } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -20,7 +22,9 @@ import {
   CLUB_RING_METRES,
   FESTIVAL_RING_METRES,
   MARKER_COLORS,
-  ringLabel
+  markerHref,
+  ringLabel,
+  UNLOCATED_REASON_LABELS
 } from '@/components/map/mapDisplay'
 import type { MapKindFilter } from '../../../main/api/schemas/map.schema'
 
@@ -45,7 +49,8 @@ function MapPreview() {
   const bands = trpcReact.band.getListItems.useQuery()
   const [kinds, setKinds] = useState<MapKindFilter[]>([])
   const [bandId, setBandId] = useState<number | null>(null)
-  const [dateFrom, setDateFrom] = useState('')
+  // From today on: past gigs drew rings for every year at once. Clearing the field shows them.
+  const [dateFrom, setDateFrom] = useState(() => localIsoDate())
   const [dateTo, setDateTo] = useState('')
   const [focusVenueId, setFocusVenueId] = useState<number | null>(null)
   const [showRings, setShowRings] = useState(true)
@@ -68,9 +73,11 @@ function MapPreview() {
   )
   const venues = useMemo(() => located.filter((marker) => marker.type === 'venue'), [located])
   const eventCount = located.filter((marker) => marker.type === 'event').length
+  const unlocated = map.data?.unlocated ?? []
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col p-6">
+    // Scrolls as a whole on a low window, so the map keeps a usable height
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto p-6">
       <div className="mb-4">
         <h1 className="mb-2 text-2xl font-bold">Karte</h1>
         <p className="text-sm text-muted-foreground">
@@ -145,7 +152,7 @@ function MapPreview() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4">
+      <div className="flex min-h-[360px] flex-1 gap-4">
         {/* The map: one fixed frame, no scrolling of its own content. `isolate`
             contains Leaflet's internal z-indexes (panes go up to 700) so the
             portaled dropdowns (body level, z-50) always paint above the map. */}
@@ -199,6 +206,40 @@ function MapPreview() {
               Ringe zeigen
             </label>
           </div>
+          {/* Entries without a location, bottom left (the free corner), at every window width:
+              each says why and links to where it is fixed */}
+          {unlocated.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="absolute bottom-2 left-2 z-[1001] bg-popover/95 shadow-sm"
+                >
+                  <MapPinOff className="h-4 w-4" />
+                  {unlocated.length} nicht auf der Karte
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-3 text-sm">
+                <p className="mb-2 font-medium">Nicht auf der Karte</p>
+                <ul className="space-y-1">
+                  {unlocated.map((entry) => (
+                    <li key={`${entry.type}-${entry.id}`} className="flex justify-between gap-2">
+                      <a
+                        href={markerHref(entry)}
+                        className="truncate underline-offset-2 hover:underline"
+                      >
+                        {entry.name}
+                      </a>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {UNLOCATED_REASON_LABELS[entry.reason]}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
           {/* Loading and empty states overlaying the tiles */}
           {map.isLoading && (
             <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 text-sm text-muted-foreground">
@@ -229,16 +270,6 @@ function MapPreview() {
                 {ringLabel(FESTIVAL_RING_METRES)} um Events in Festivals (Vorschlag, noch zu
                 bestätigen).
               </p>
-              {(map.data?.unlocated.length ?? 0) > 0 && (
-                <div>
-                  <p className="font-medium">Nicht auf der Karte</p>
-                  <p className="text-muted-foreground">
-                    {map.data!.unlocated.length}{' '}
-                    {map.data!.unlocated.length === 1 ? 'Eintrag' : 'Einträge'} ohne bekannte
-                    Postleitzahl.
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
           <Card>

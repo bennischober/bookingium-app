@@ -77,11 +77,18 @@ implementation can start from step 1 of the plan below.
    `{ kinds?, bandId?, dateFrom?, dateTo? }` returning markers
    `{ type: 'event' | 'venue', id, kind, name, date?, bandIds?, located, addressLabel, lat, lng }`.
    `located: false` marks addresses without a known postcode; the page lists them as
-   „nicht auf der Karte“.
+   „nicht auf der Karte“, each with its reason (`no_venue`, `no_address`,
+   `unknown_postcode`) and a link to where it is fixed. The country comes from
+   `country_code`, else the country name (as the e-invoice check reads it), else a
+   five-digit postcode counts as German; four-digit AT/CH codes without a country stay
+   unlocated.
 4. **Map page** `pages/MapPage.tsx` + `components/map/`: Leaflet directly (no react-leaflet
    for the prototype; `@types/leaflet` as a dev dependency), OSM tile layer with attribution,
    `L.circle` rings in metres (club 100 000, festival 300 000 — later two number settings),
-   colour per kind, kind/band/date filters, and a venue picker that `flyTo`s its marker.
+   colour per kind, kind/band/date filters (from today by default), and a venue picker
+   that `flyTo`s its marker. Markers are grouped per point (an event sits on its venue's
+   postcode point): one dot pair, one ring per size, one popup listing everything there
+   with links to the detail pages.
    Leaflet needs a fixed-height container and `invalidateSize()` on resize; its CSS is
    imported by the page.
 5. **Radius settings** (defaults 100/300 km) once the ring reading (radius clause, date

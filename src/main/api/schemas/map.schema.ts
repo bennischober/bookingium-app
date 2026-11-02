@@ -44,7 +44,11 @@ export type MapMarkerDto = z.infer<typeof MapMarkerDto>
 export const MapUnlocatedDto = z.object({
   type: z.enum(['event', 'venue']),
   id: z.number(),
-  name: z.string()
+  /** Venue kind, so the page links a venue to its Clubs or Festivals page */
+  kind: z.enum(['venue', 'festival']),
+  name: z.string(),
+  /** Event without a venue, address without a postcode/city, or a postcode the table lacks */
+  reason: z.enum(['no_venue', 'no_address', 'unknown_postcode'])
 })
 
 export type MapUnlocatedDto = z.infer<typeof MapUnlocatedDto>

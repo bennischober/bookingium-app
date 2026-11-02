@@ -4,6 +4,7 @@
 // Electron. Rows are snake_case (straight from drizzle), markers camelCase -
 // this module is the map's one seam.
 
+import { countryCodeOf } from '../einvoice/codes'
 import { lookupPostcode, type Coordinates } from './postcodeLookup'
 
 /** The marker kinds the page can filter to */
@@ -66,11 +67,23 @@ export type MapVenueRow = {
   address: MapAddressRow | null
 }
 
+/** Why an entry is not on the map - the page says so, so the user knows what to fix */
+export type UnlocatedReason = 'no_venue' | 'no_address' | 'unknown_postcode'
+
+/** A filtered event or venue without a known location */
+export type MapUnlocated = {
+  type: 'event' | 'venue'
+  id: number
+  /** Venue kind, so the page links a venue to its Clubs or Festivals page */
+  kind: 'venue' | 'festival'
+  name: string
+  reason: UnlocatedReason
+}
+
 /** What the map procedure returns: drawn markers plus the not-located list */
 export type MapData = {
   markers: MapMarker[]
-  /** The filtered events and venues without a known location */
-  unlocated: Array<{ type: 'event' | 'venue'; id: number; name: string }>
+  unlocated: MapUnlocated[]
 }
 
 /** "Street 1, 10115 Berlin" from the address parts; empty parts are left out */
@@ -93,10 +106,26 @@ export function kindShown(kinds: MapKindFilter[] | undefined, kind: 'venue' | 'f
   return kinds.includes(kind)
 }
 
+/**
+ * The address's country for the lookup: the stored code, else the country name
+ * ("Deutschland", "Austria"), as the e-invoice check reads it. country_code
+ * defaults to '' and is often left empty, so without the name fallback such an
+ * address silently dropped off the map. With neither, a five-digit postcode
+ * counts as German - the app's home market and the import's default; the
+ * four-digit AT/CH codes stay ambiguous and unlocated.
+ */
+export function countryOf(address: MapAddressRow): string | null {
+  const code = countryCodeOf(address.country_code, address.country)
+  if (code) return code
+  const unnamed = !address.country.trim() && !address.country_code.trim()
+  return unnamed && /^\d{5}$/.test(address.zip_code.trim()) ? 'DE' : null
+}
+
 /** Coordinates for an address row, or null without a usable postcode */
 export function locate(address: MapAddressRow | null): Coordinates | null {
   if (!address) return null
-  return lookupPostcode(address.country_code, address.zip_code)
+  const country = countryOf(address)
+  return country ? lookupPostcode(country, address.zip_code) : null
 }
 
 /**
@@ -147,7 +176,14 @@ export function buildMapData(
       ...(coordinates ? { lat: coordinates.lat, lng: coordinates.lng } : {})
     })
     if (!coordinates) {
-      unlocated.push({ type: 'event', id: event.id, name: event.name })
+      unlocated.push({
+        type: 'event',
+        id: event.id,
+        kind: event.venue_kind === 'festival' ? 'festival' : 'venue',
+        name: event.name,
+        reason:
+          event.venue_id === null ? 'no_venue' : event.address ? 'unknown_postcode' : 'no_address'
+      })
     }
   }
 
@@ -169,7 +205,13 @@ export function buildMapData(
       ...(coordinates ? { lat: coordinates.lat, lng: coordinates.lng } : {})
     })
     if (!coordinates) {
-      unlocated.push({ type: 'venue', id: venueRow.id, name: venueRow.name })
+      unlocated.push({
+        type: 'venue',
+        id: venueRow.id,
+        kind,
+        name: venueRow.name,
+        reason: venueRow.address ? 'unknown_postcode' : 'no_address'
+      })
     }
   }
 

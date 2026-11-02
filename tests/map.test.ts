@@ -15,7 +15,19 @@ import {
   type MapVenueRow
 } from '../src/main/map/markers'
 import { lookupPostcode } from '../src/main/map/postcodeLookup'
-import { markerColor, ringColor, ringMetres } from '../src/renderer/src/components/map/mapDisplay'
+import {
+  groupByPoint,
+  markerColor,
+  markerHref,
+  pointPopupHtml,
+  pointRings,
+  pointTitle,
+  POPUP_EVENT_LIMIT,
+  ringColor,
+  ringMetres,
+  UNLOCATED_REASON_LABELS
+} from '../src/renderer/src/components/map/mapDisplay'
+import type { MapMarkerDto } from '../src/main/api/schemas/map.schema'
 import { TILE_REQUEST_URLS, tileUserAgent } from '../src/main/map/tileRequests'
 import { getGroupedRoutes, getRouteShortcut, ROUTES } from '../src/renderer/src/lib/routing'
 
@@ -177,9 +189,9 @@ describe('buildMapData', () => {
       5, 6, 30
     ])
     expect(data.unlocated).toEqual([
-      { type: 'event', id: 5, name: 'Show' },
-      { type: 'event', id: 6, name: 'Show' },
-      { type: 'venue', id: 30, name: 'Ohne PLZ' }
+      { type: 'event', id: 5, kind: 'venue', name: 'Show', reason: 'no_venue' },
+      { type: 'event', id: 6, kind: 'venue', name: 'Show', reason: 'no_venue' },
+      { type: 'venue', id: 30, kind: 'venue', name: 'Ohne PLZ', reason: 'unknown_postcode' }
     ])
   })
 
@@ -193,7 +205,25 @@ describe('buildMapData', () => {
     const data = buildMapData([event({ venue_id: null, address: null })], [], {})
     expect(data.markers[0].located).toBe(false)
     expect(data.markers[0].addressLabel).toBe('')
-    expect(data.unlocated).toEqual([{ type: 'event', id: 1, name: 'Show' }])
+    expect(data.unlocated).toEqual([
+      { type: 'event', id: 1, kind: 'venue', name: 'Show', reason: 'no_venue' }
+    ])
+  })
+
+  it('says why: a venue without an address, an unknown postcode', () => {
+    const atVenue = { venue_id: 10, venue_kind: 'festival' }
+    const data = buildMapData(
+      [
+        event({ id: 2, ...atVenue, address: null }),
+        event({ id: 3, ...atVenue, address: address({ zip_code: '00000' }) })
+      ],
+      [],
+      {}
+    )
+    expect(data.unlocated.map(({ id, kind, reason }) => [id, kind, reason])).toEqual([
+      [2, 'festival', 'no_address'],
+      [3, 'festival', 'unknown_postcode']
+    ])
   })
 })
 
@@ -201,7 +231,25 @@ describe('locate', () => {
   it('needs both an address and a known postcode', () => {
     expect(locate(address())).toEqual({ lat: 52.5323, lng: 13.3846 })
     expect(locate(null)).toBeNull()
-    expect(locate(address({ country_code: '' }))).toBeNull()
+    // No code, but a country name: the name decides
+    expect(locate(address({ country_code: '' }))).toEqual({ lat: 52.5323, lng: 13.3846 })
+    expect(locate(address({ country_code: '', country: 'Österreich', zip_code: '6020' }))).toEqual({
+      lat: 47.2477,
+      lng: 11.3978
+    })
+    expect(locate(address({ country_code: '', country: 'Switzerland', zip_code: '8001' }))).toEqual(
+      { lat: 47.3721, lng: 8.5417 }
+    )
+    // Neither: five digits read as German, four stay ambiguous (AT or CH)
+    expect(locate(address({ country_code: '', country: '' }))).toEqual({
+      lat: 52.5323,
+      lng: 13.3846
+    })
+    expect(locate(address({ country_code: '', country: '', zip_code: '6020' }))).toBeNull()
+    // A named foreign country never falls back to DE
+    expect(
+      locate(address({ country_code: '', country: 'Frankreich', zip_code: '75001' }))
+    ).toBeNull()
   })
 })
 
@@ -258,5 +306,95 @@ describe('radius rings', () => {
     const ring = src.slice(src.indexOf('L.circle('), src.indexOf('L.circleMarker('))
     expect(ring).toContain('pane: RING_PANE')
     expect(ring).toContain('interactive: false')
+  })
+})
+
+const dot = (marker: Partial<MapMarkerDto> & Pick<MapMarkerDto, 'type' | 'id'>): MapMarkerDto => ({
+  kind: 'venue',
+  name: `${marker.type} ${marker.id}`,
+  bandIds: [],
+  located: true,
+  addressLabel: '',
+  lat: 52.5,
+  lng: 13.4,
+  ...marker
+})
+
+describe('map points', () => {
+  it('group everything at one spot: venues first, events by date', () => {
+    const points = groupByPoint([
+      dot({ type: 'event', id: 2, date: '2027-05-01' }),
+      dot({ type: 'event', id: 1, date: '2027-03-01' }),
+      dot({ type: 'venue', id: 1 }),
+      dot({ type: 'venue', id: 2, lat: 48.1, lng: 11.6 }),
+      dot({ type: 'event', id: 3, located: false, lat: undefined, lng: undefined })
+    ])
+    expect(points).toHaveLength(2)
+    const [berlin, munich] = points
+    expect(berlin.venues.map((venue) => venue.id)).toEqual([1])
+    expect(berlin.events.map((event) => event.id)).toEqual([1, 2])
+    expect(munich.events).toEqual([])
+  })
+
+  it('draw one ring per size, not one per event', () => {
+    const [point] = groupByPoint([
+      dot({ type: 'event', id: 1 }),
+      dot({ type: 'event', id: 2 }),
+      dot({ type: 'event', id: 3, kind: 'festival' }),
+      dot({ type: 'venue', id: 1 })
+    ])
+    expect(pointRings(point).map((ring) => ring.metres)).toEqual([100_000, 300_000])
+    expect(pointRings(groupByPoint([dot({ type: 'venue', id: 1 })])[0])).toEqual([])
+  })
+
+  it('name the venue and count the events in the tooltip', () => {
+    const [point] = groupByPoint([
+      dot({ type: 'venue', id: 1, name: 'Halle' }),
+      dot({ type: 'event', id: 1 }),
+      dot({ type: 'event', id: 2 })
+    ])
+    expect(pointTitle(point)).toBe('Halle · 2 Events')
+    const [lone] = groupByPoint([dot({ type: 'event', id: 1, name: 'Gig', date: '2027-03-01' })])
+    expect(pointTitle(lone)).toBe('Gig · 1.3.2027')
+  })
+
+  it('link every entry in the popup and escape user data', () => {
+    const [point] = groupByPoint([
+      dot({
+        type: 'venue',
+        id: 4,
+        kind: 'festival',
+        name: '<b>Open</b> Air',
+        addressLabel: 'Weg 1'
+      }),
+      dot({ type: 'event', id: 9, name: 'Gig & Co', date: '2027-03-01' })
+    ])
+    const html = pointPopupHtml(point)
+    expect(html).toContain('<a href="#/festivals/4">&lt;b&gt;Open&lt;/b&gt; Air</a>')
+    expect(html).toContain('<a href="#/events/9">Gig &amp; Co · 1.3.2027</a>')
+    expect(html).not.toContain('<b>Open')
+  })
+
+  it('sum up the events beyond the popup limit', () => {
+    const events = Array.from({ length: POPUP_EVENT_LIMIT + 3 }, (_, index) =>
+      dot({ type: 'event', id: index + 1 })
+    )
+    const html = pointPopupHtml(groupByPoint(events)[0])
+    expect(html.match(/#\/events\//g)).toHaveLength(POPUP_EVENT_LIMIT)
+    expect(html).toContain('+ 3 weitere')
+  })
+
+  it('link venues to the list of their kind', () => {
+    expect(markerHref({ type: 'event', kind: 'festival', id: 3 })).toBe('#/events/3')
+    expect(markerHref({ type: 'venue', kind: 'venue', id: 3 })).toBe('#/clubs/3')
+    expect(markerHref({ type: 'venue', kind: 'festival', id: 3 })).toBe('#/festivals/3')
+  })
+
+  it('label every reason an entry is not on the map', () => {
+    expect(Object.keys(UNLOCATED_REASON_LABELS).sort()).toEqual([
+      'no_address',
+      'no_venue',
+      'unknown_postcode'
+    ])
   })
 })
