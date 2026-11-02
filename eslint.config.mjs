@@ -6,9 +6,9 @@ import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
-  // .claude holds other checkouts of this repo (session worktrees), .opencode
-  // the agent harness's own skills - both local tooling, not app code
-  { ignores: ['**/node_modules', '**/dist', '**/out', '.claude', '.opencode', '.tools'] },
+  // .claude holds other checkouts of this repo (session worktrees), .opencode and .omo
+  // the agent harness's own files - all local tooling, not app code
+  { ignores: ['**/node_modules', '**/dist', '**/out', '.claude', '.tools', '.opencode', '.omo'] },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],

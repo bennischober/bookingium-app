@@ -93,21 +93,36 @@ export const documentRouter = t.router({
     }),
 
   /**
-   * Update document metadata (e.g., document type, uploaded_by).
+   * Update document metadata (e.g., document type, uploaded_by, display name).
    */
   update: t.procedure.input(UpdateDocumentInput).mutation(async ({ input }) => {
+    // A name that is only whitespace means "use the file name again", which is
+    // not an error - normalizeDisplayName turns it into null. Anything else is
+    // taken as typed, cleaned of path separators and control characters.
     const document = await documentService.updateDocument(input)
+    if (!document) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
+    }
     return DocumentMapper.toDto(document)
   }),
 
   /**
-   * Delete a document (both the file and the database record).
+   * Delete a document: its file goes to the OS trash (recoverable), then the record is removed.
+   * A file that is already gone is no error - the record still goes.
    */
   delete: t.procedure.input(z.number()).mutation(async ({ input: documentId }) => {
-    const document = await documentService.deleteDocument(documentId)
-    if (!document) {
+    const found = await documentService.detachFileForTrash(documentId)
+    if (!found) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Document not found' })
     }
+    if (found.filePath) {
+      try {
+        await shell.trashItem(found.filePath)
+      } catch (error) {
+        throw badRequest(error, 'Datei konnte nicht in den Papierkorb verschoben werden')
+      }
+    }
+    await documentService.deleteDocumentRecord(documentId)
   }),
 
   /** Opens the owner's document folder in the file manager */

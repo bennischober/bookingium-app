@@ -766,6 +766,8 @@ app.whenReady().then(async () => {
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
+  // #55: the database keeps each account's address, so a backup can find its account again
+  mailLinks.rememberAccounts(listMailAccounts())
   const mailLinkRuns = mailLinkRunner({
     // Every configured account's address and alias is the user's own (host L3)
     link: (accountId) => mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts())),

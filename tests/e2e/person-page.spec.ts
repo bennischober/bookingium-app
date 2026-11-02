@@ -61,8 +61,13 @@ test('person page shows memberships, events, invoices and documents', async () =
   ).toBeVisible()
 
   await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
-  await expect(page.getByRole('link', { name: 'Berghain' })).toBeVisible()
+  // The club card's link; the events section below links the club again
+  await expect(page.getByRole('link', { name: 'Berghain' }).first()).toBeVisible()
   await expect(page.getByText('Stage Manager')).toBeVisible()
+  // The tab now has the same second section as Bands and Companies: the events
+  // at those venues, so it no longer looks unfinished next to them
+  const venueEvents = page.getByRole('table', { name: 'Events in Berghain' })
+  await expect(venueEvents).toContainText('The Electric Waves - Berlin Tour')
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events der Person' })
@@ -90,7 +95,7 @@ test('person page shows memberships, events, invoices and documents', async () =
     dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
   }, file)
   await page.getByRole('button', { name: 'Dateien auswählen' }).click()
-  await expect(page.getByRole('list', { name: 'Dokumente der Person' })).toContainText(
+  await expect(page.getByRole('table', { name: 'Dokumente der Person' })).toContainText(
     'Vertrag.pdf'
   )
   const storage = join(

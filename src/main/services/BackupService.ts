@@ -12,6 +12,7 @@ import {
   isInsideFolder,
   prepareRestore,
   pruneBackups,
+  pruneBeforeRestore,
   readBackupState,
   stageRestore,
   writeBackup,
@@ -186,6 +187,10 @@ export class BackupService {
       appVersion: this.appVersion
     })
     await stageRestore(this.workDir())
+    // The copy just taken is the newest and stays; a failed cleanup never blocks the restore
+    await pruneBeforeRestore(parent).catch((error) =>
+      console.error('Cleaning up backup/before-restore failed:', error)
+    )
     this.update({ beforeRestoreFolder })
     return { beforeRestoreFolder }
   }

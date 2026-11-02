@@ -845,3 +845,85 @@ describe('mailLink.listByEntity (C3)', () => {
     expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
   })
 })
+
+describe('the mail date on a link (#41)', () => {
+  const sqlite = () => getTestDb().sqlite
+
+  function seedPerson(email: string): number {
+    const contactId = Number(
+      sqlite().prepare('INSERT INTO contact (email) VALUES (?)').run(email).lastInsertRowid
+    )
+    return Number(
+      sqlite()
+        .prepare(
+          "INSERT INTO person (first_name, last_name, contact_id) VALUES ('Erika','Musterfrau',?)"
+        )
+        .run(contactId).lastInsertRowid
+    )
+  }
+
+  it('stores the mail date the linker was given', () => {
+    const personId = seedPerson('datum@example.test')
+    const svc = container.resolve(MailLinkService)
+    svc.insertLink({
+      accountId: 'acc',
+      messageId: '<maerz@example.test>',
+      fallbackKey: null,
+      entityType: 'person',
+      entityId: personId,
+      source: 'address',
+      mailDate: '2026-03-02 10:00:00'
+    })
+    const row = sqlite()
+      .prepare('SELECT mail_date FROM mail_link WHERE message_id = ?')
+      .get('maerz@example.test') as { mail_date: string | null }
+    expect(row.mail_date).toBe('2026-03-02 10:00:00')
+  })
+
+  it('leaves the date empty when the linker had none', () => {
+    const personId = seedPerson('ohnedatum@example.test')
+    const svc = container.resolve(MailLinkService)
+    svc.insertLink({
+      accountId: 'acc',
+      messageId: '<ohne@example.test>',
+      fallbackKey: null,
+      entityType: 'person',
+      entityId: personId,
+      source: 'address'
+    })
+    const row = sqlite()
+      .prepare('SELECT mail_date FROM mail_link WHERE message_id = ?')
+      .get('ohne@example.test') as { mail_date: string | null }
+    expect(row.mail_date).toBeNull()
+  })
+
+  it('sorts by the mail date, not by when the link was made', () => {
+    // The March mail is linked last, so ordering by the link id would put it on
+    // top; ordering by the mail date puts yesterday's mail first.
+    const personId = seedPerson('reihenfolge@example.test')
+    const svc = container.resolve(MailLinkService)
+    const link = (messageId: string, mailDate: string | null): void => {
+      svc.insertLink({
+        accountId: 'acc',
+        messageId,
+        fallbackKey: null,
+        entityType: 'person',
+        entityId: personId,
+        source: 'manual',
+        mailDate
+      })
+    }
+    link('<gestern@example.test>', '2026-10-28 09:00:00')
+    link('<maerz@example.test>', '2026-03-02 10:00:00')
+
+    const ordered = sqlite()
+      .prepare(
+        'SELECT message_id FROM mail_link WHERE entity_id = ? ORDER BY mail_date DESC, id DESC'
+      )
+      .all(personId) as { message_id: string }[]
+    expect(ordered.map((row) => row.message_id)).toEqual([
+      'gestern@example.test',
+      'maerz@example.test'
+    ])
+  })
+})

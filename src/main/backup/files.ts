@@ -22,6 +22,8 @@ import {
 } from './policy'
 
 export const DB_FILE = 'bookingum.db'
+/** How many copies from before a restore stay in backup/before-restore/ */
+export const BEFORE_RESTORE_KEEP = 3
 /** The live database and its WAL companions, all replaced together by a restore */
 const DB_FILES = [DB_FILE, `${DB_FILE}-wal`, `${DB_FILE}-shm`]
 const STORAGE = 'storage'
@@ -188,6 +190,22 @@ export async function pruneBackups(
     await rm(join(parent, entry.name), { recursive: true })
     deleted.push(entry.name)
   }
+  return deleted
+}
+
+/**
+ * Deletes all but the newest copies taken before a restore. Only folders named like ours AND
+ * carrying our marker of kind "before-restore" are touched. Returns the deleted folder names.
+ */
+export async function pruneBeforeRestore(
+  parent: string,
+  keep = BEFORE_RESTORE_KEEP
+): Promise<string[]> {
+  const copies = (await listBackups(parent))
+    .filter((backup) => backup.marker?.kind === 'before-restore')
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+  const deleted = copies.slice(keep).map((copy) => copy.name)
+  for (const name of deleted) await rm(join(parent, name), { recursive: true })
   return deleted
 }
 

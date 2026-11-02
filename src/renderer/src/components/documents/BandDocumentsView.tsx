@@ -1,8 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { FileText, FolderOpen } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -14,22 +11,18 @@ import {
   DOCUMENT_TYPE_LABELS,
   type DocumentType
 } from '../../../../main/api/schemas/document.schema'
-import { openDocument, revealDocument } from './documentFiles'
+import { DocumentTable } from './DocumentTable'
 import { ALL, categoriesOf, eventsOf, rowsOf } from './bandDocuments'
-
-function formatEventDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
 
 export function BandDocumentsView({ bandId }: { bandId: number }) {
   // The band's own documents are listed (and edited) by the DocumentsPanel above this view;
   // listing them here as well showed every band file twice under the same heading
-  const { data: fromEvents = [], isLoading } =
-    trpcReact.document.listEventDocumentsForBand.useQuery(bandId)
+  const {
+    data: fromEvents = [],
+    isLoading,
+    error,
+    refetch
+  } = trpcReact.document.listEventDocumentsForBand.useQuery(bandId)
 
   const [category, setCategory] = useState<string>(ALL)
   const [eventId, setEventId] = useState<string>(ALL)
@@ -90,65 +83,20 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
         </div>
       </div>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Dokumente werden geladen…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {total === 0
+      <DocumentTable
+        rows={rows}
+        label="Dokumentliste aus Events"
+        empty={
+          total === 0
             ? 'Noch keine Dokumente in den Events der Band.'
-            : 'Keine Dokumente für diese Auswahl.'}
-        </p>
-      ) : (
-        <ul className="rounded-lg border" aria-label="Dokumentliste aus Events">
-          {rows.map(({ doc, event }) => (
-            <li
-              key={`${event ? `event-${event.id}` : 'band'}-${doc.id}`}
-              className="flex items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0"
-            >
-              <button
-                type="button"
-                onClick={() => void openDocument(doc.filePath)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline"
-              >
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate" title={doc.fileName}>
-                  {doc.fileName}
-                </span>
-              </button>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {DOCUMENT_TYPE_LABELS[doc.documentType as DocumentType] ?? doc.documentType}
-              </span>
-              {/* Where it comes from: the band itself or one of its gigs */}
-              <span
-                className="w-40 shrink-0 truncate text-xs text-muted-foreground"
-                title={event?.name ?? 'Band'}
-              >
-                {event ? (
-                  <Link
-                    to="/events/$eventId"
-                    params={{ eventId: String(event.id) }}
-                    search={{ tab: 'documents' }}
-                    className="hover:underline"
-                  >
-                    {formatEventDate(event.date)} {event.name}
-                  </Link>
-                ) : (
-                  'Band'
-                )}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Im Ordner anzeigen"
-                aria-label="Im Ordner anzeigen"
-                onClick={() => void revealDocument(doc.filePath)}
-              >
-                <FolderOpen className="h-4 w-4" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+            : 'Keine Dokumente für diese Auswahl.'
+        }
+        isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
+        readOnly
+        onChanged={() => void refetch()}
+      />
     </section>
   )
 }

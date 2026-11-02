@@ -135,6 +135,15 @@ triggers in the initial migration delete the rows with the owner, the owner's
 service removes the folder. Settings are key/value rows in `app_setting`,
 typed and defaulted by `AppSettings` (settings.schema.ts).
 
+Documents are listed newest first (`uploaded_at` desc) and shown through one
+`DocumentTable` (Name · Typ · Quelle · Größe · Hochgeladen · actions), with
+`readOnly` for lists that only show files managed elsewhere. Its table formats
+come from `components/documents/documentSort.ts`: sizes use the German decimal
+comma (`1,5 MB`, whole bytes without a fraction) and dates use
+`formatShortDate` (`11.06.2026`) - not a second date style. Deleting a document
+moves its file to the OS trash (`shell.trashItem`, so it stays recoverable) and
+then removes the row; a file that is already gone is no error.
+
 ## Backups
 
 `src/main/backup/` (no Electron: `policy.ts` holds the pure rules, `files.ts`
@@ -256,6 +265,16 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
     from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
     `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page
     edits memberships from the person's side (`PersonMembershipsPanel`).
+
+    A tab's shape follows what the rows are. Records you open use `RowTable`
+    (`components/detail/DetailParts.tsx`); links you edit in place use cards;
+    the overview uses `InfoCard`. A `RowTable` is full width, and only a card
+    list is narrowed (`max-w-2xl`). Give `RowTable` an `itemLabel` so a long tab
+    says how many rows it holds, and a `sortValue` on the columns that should
+    sort - without one the table keeps the order the query delivered. Relationship
+    tabs look alike: the memberships card on top, the linked records below (the
+    Bands, Companies and Spielstätten tabs of the person page).
+
 11. **Seed** (optional demo data) — `src/main/db/seed.ts`; real master data
     only in the gitignored `sample_data/internal-seed.json`.
 12. **Tests** — unit tests in `tests/`, an e2e spec in `tests/e2e/`.

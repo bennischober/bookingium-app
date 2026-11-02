@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Mail, Paperclip, Unlink } from 'lucide-react'
+import { Paperclip, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
+import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { formatListDate } from '@/components/mail/format'
@@ -95,6 +97,9 @@ export function MailHistoryPanel({
     if (row.storeId !== null) return row.subject || '(kein Betreff)'
     return unavailable ? 'Postfach gerade nicht erreichbar' : 'Nicht mehr im Postfach'
   }
+  // A mail that is no longer in the store has no read state of its own; it is
+  // shown as read rather than inventing an unread dot
+  const isRead = (row: MailLinkRow) => row.unread === false
 
   return (
     <div className="space-y-2">
@@ -105,32 +110,50 @@ export function MailHistoryPanel({
       )}
       <ul className="divide-y rounded-md border" aria-label="E-Mails">
         {rows.map((row) => (
-          <li key={row.id} className="flex items-center gap-3 px-3 py-2">
-            <Mail className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <li key={row.id} className="group/row flex items-start gap-3 px-3 py-2 text-sm">
+            {/* The same order as the /mail list: unread dot, sender, icons, date */}
+            <span className="flex size-4 shrink-0 items-center justify-center self-center">
+              {!isRead(row) && (
+                <span className="size-2 rounded-full bg-primary" aria-label="Ungelesen" />
+              )}
+            </span>
             <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className={cn('min-w-0 flex-1 truncate', !isRead(row) && 'font-semibold')}>
+                  {row.fromName || row.fromEmail || '(Unbekannt)'}
+                </span>
+                {row.hasAttachments && (
+                  <Paperclip
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                    aria-label="Anhang"
+                  />
+                )}
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {row.date ? formatListDate(row.date) : ''}
+                </span>
+              </div>
               <button
                 type="button"
-                className="block max-w-full truncate text-left text-sm font-medium hover:underline disabled:no-underline"
+                className={cn(
+                  'block max-w-full truncate text-left hover:underline disabled:no-underline',
+                  !isRead(row) && 'font-medium'
+                )}
                 /* A mail that is no longer in the store cannot be opened */
                 disabled={row.storeId === null}
                 onClick={() => open(row)}
               >
                 {title(row)}
               </button>
-              <p className="truncate text-xs text-muted-foreground">
-                {row.fromName || row.fromEmail || '–'}
-                {row.date ? ` · ${formatListDate(row.date)}` : ''}
-                <span className="ml-2">
-                  {row.source === 'manual' ? 'zugeordnet' : 'automatisch'}
-                </span>
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                {/* Where the mail came from: only a band's tab mixes events in */}
+                {row.sourceEvent && (
+                  <Badge variant="outline" className="max-w-full truncate font-normal">
+                    {row.sourceEvent.name}
+                  </Badge>
+                )}
+                <span>{row.source === 'manual' ? 'zugeordnet' : 'automatisch'}</span>
               </p>
             </div>
-            {row.hasAttachments && (
-              <Paperclip
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-label="Mit Anhang"
-              />
-            )}
             {/* Removes the link only; the mail stays in the mailbox */}
             <Button
               variant="ghost"

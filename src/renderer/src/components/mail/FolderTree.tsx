@@ -101,6 +101,8 @@ function FolderItem({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete - only passed for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #95: the shown account's tree is "Ordner", another account's is named by its address */
+  label?: string
 }) {
   const open = expanded.has(folder.id)
   const label = folderLabel(folder)
@@ -302,7 +304,8 @@ export function FolderTree({
   folderMove,
   focusRef,
   onEmptyTrash,
-  onFolderAction
+  onFolderAction,
+  label = 'Ordner'
 }: {
   folders: FolderNode[]
   selectedId: string | null
@@ -316,6 +319,8 @@ export function FolderTree({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete, offered only for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #95: the shown account's tree is "Ordner", another account's is named by its address */
+  label?: string
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [overId, setOverId] = useState<string | null>(null)
@@ -337,7 +342,7 @@ export function FolderTree({
 
   return (
     <ul
-      aria-label="Ordner"
+      aria-label={label}
       className="space-y-px"
       ref={focusRef}
       tabIndex={-1}

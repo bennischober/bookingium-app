@@ -614,6 +614,10 @@ export const document = sqliteTable(
     owner_type: text('owner_type', { enum: DOCUMENT_OWNER_TYPES }).notNull(),
     owner_id: integer('owner_id').notNull(),
     file_name: text('file_name').notNull(),
+    // User-chosen name shown in the lists; null = the file name on disk. The file
+    // itself is never renamed, so the folder stays as it was and a rename cannot
+    // fail on a locked file.
+    display_name: text('display_name'),
     file_type: text('file_type').notNull(),
     // Relative to the storage folder, e.g. documents/bands/3-pretty-wild/rider.pdf
     file_path: text('file_path').notNull(),
@@ -667,6 +671,10 @@ export const mail_link = sqliteTable(
     entity_type: text('entity_type', { enum: MAIL_LINK_ENTITY_TYPES }).notNull(),
     entity_id: integer('entity_id').notNull(),
     source: text('source', { enum: MAIL_LINK_SOURCES }).notNull(),
+    // The mail's own date, stored when the link is made so the tab can sort by
+    // it - the link's created_at says when the user linked it, not when the mail
+    // was sent (a March mail linked by hand today must not sort above yesterday's)
+    mail_date: text('mail_date'),
     // 1 = the user removed an automatic link; the linker never adds it again
     dismissed: integer('dismissed', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')

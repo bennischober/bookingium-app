@@ -12,6 +12,7 @@ export class DocumentMapper {
       ownerType: document.owner_type,
       ownerId: document.owner_id,
       fileName: document.file_name,
+      displayName: document.display_name,
       fileType: document.file_type,
       filePath: document.file_path,
       documentType: document.document_type,

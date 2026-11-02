@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Lock, Mail, Search, SquarePen, X } from 'lucide-react'
+import { ChevronRight, Lock, Mail, Search, SquarePen, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
@@ -33,6 +33,7 @@ import {
 } from '@/components/mail/composeDraft'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
+import { ThreadList } from '@/components/mail/ThreadList'
 import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
@@ -78,7 +79,7 @@ export default function MailPage() {
   )
 }
 
-/** "· 6 ungelesen" after an account in the picker; nothing when all is read */
+/** "· 6 ungelesen" after an account in the picker or a collapsed section; nothing when all is read */
 function UnreadCount({ unread }: { unread: number | undefined }) {
   if (!unread) return null
   return (
@@ -86,6 +87,18 @@ function UnreadCount({ unread }: { unread: number | undefined }) {
       · {unreadBadgeLabel(unread)} ungelesen
     </span>
   )
+}
+
+/**
+ * #95: an account's name in the folder pane and the picker. Two accounts with one address (on
+ * different servers) are told apart by the server.
+ */
+function accountName(
+  account: { email: string; host: string; port: number },
+  all: readonly { email: string }[]
+): string {
+  const shared = all.filter((other) => other.email === account.email).length > 1
+  return shared ? `${account.email} (${account.host}:${account.port})` : account.email
 }
 
 function MailClient() {
@@ -118,6 +131,8 @@ function MailClient() {
   } | null>(null)
   // The mails being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
+  // The list grouped into threads instead of one row per mail
+  const [threads, setThreads] = useState(false)
   // B3: the move shortcut puts the keyboard on the folder tree (the drop target)
   const folderTreeRef = useRef<HTMLUListElement>(null)
   const [folderWidth, setFolderWidth] = useStoredWidth(
@@ -136,6 +151,7 @@ function MailClient() {
   const refreshLists = () => {
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'messages'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'threads'] })
     void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'search'] })
   }
 
@@ -148,6 +164,25 @@ function MailClient() {
     enabled: ready
   })
   const allFolders = useMemo(() => flattenFolders(folders.data ?? []), [folders.data])
+  // #95: every other account's folders, for its section in the folder pane. The keys are the
+  // ones the account's own page uses, so switching to it shows them at once.
+  const otherAccounts = (accounts.data ?? []).filter((a) => a.id !== accountId)
+  const otherFolders = useQueries({
+    queries: otherAccounts.map((a) => ({
+      queryKey: ['mail', a.id, 'folders'],
+      queryFn: () => mailApi.getFolders(a.id),
+      enabled: ready
+    }))
+  })
+  // The account sections the user folded away
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const toggleSection = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   const folderId = chosenFolderId ?? allFolders.find(isInbox)?.id ?? allFolders[0]?.id ?? null
 
   const messages = useInfiniteQuery({
@@ -157,6 +192,17 @@ function MailClient() {
     getNextPageParam: (last, pages) =>
       last.length === PAGE_SIZE ? pages.length * PAGE_SIZE : undefined,
     enabled: ready && folderId !== null
+  })
+
+  // The same folder grouped into threads, newest first. A separate query so the
+  // list keeps its own rows: a thread only decides how they are shown.
+  const threadList = useInfiniteQuery({
+    queryKey: ['mail', accountId, 'threads', folderId],
+    queryFn: ({ pageParam = 0 }) =>
+      mailApi.listThreads(folderId, { offset: pageParam as number, limit: PAGE_SIZE }, accountId),
+    getNextPageParam: (last, pages) =>
+      last.length === PAGE_SIZE ? pages.length * PAGE_SIZE : undefined,
+    enabled: ready && folderId !== null && threads
   })
 
   const {
@@ -384,6 +430,22 @@ function MailClient() {
   }
 
   const listLoading = searching ? results.isLoading : messages.isLoading || folders.isLoading
+  /**
+   * Shows another account, on the given folder or its INBOX. Selection, search and the
+   * editor belong to the account they were made in, so they are left behind.
+   */
+  const switchAccount = (id: string, folderId: string | null = null) => {
+    setChosenAccountId(id)
+    setChosenFolderId(folderId)
+    setSelection(EMPTY_SELECTION)
+    openedId.current = null
+    setCompose(null)
+    clearSearch()
+    // I10 Low: the hidden rows belong to the account they were hidden in. Carried over, an
+    // id that happens to exist in the new account would stay invisible for no reason.
+    setHiddenIds([])
+  }
+
   const chooseFolder = (id: string) => {
     setChosenFolderId(id)
     setSelection(EMPTY_SELECTION)
@@ -391,33 +453,61 @@ function MailClient() {
     setCompose(null)
     clearSearch()
   }
+  const shownTree = folders.isLoading ? (
+    <Spinner className="m-2" />
+  ) : (
+    <FolderTree
+      focusRef={folderTreeRef}
+      folders={folders.data ?? []}
+      selectedId={searching ? null : folderId}
+      onSelect={chooseFolder}
+      onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
+      onFolderAction={canWrite ? (action, folder) => void folderAction(action, folder) : undefined}
+      drop={
+        dragged
+          ? {
+              canDrop: (target) => dragged.some((m) => m.folderId !== target.id),
+              onDrop: (target) =>
+                void moveAway(
+                  dragged.filter((m) => m.folderId !== target.id).map((m) => m.id),
+                  { kind: 'folder', folder: target }
+                )
+            }
+          : undefined
+      }
+      folderMove={
+        canWrite
+          ? {
+              canMove: (target) =>
+                movingFolder !== null &&
+                (target === null ||
+                  (target.path !== movingFolder.path &&
+                    !target.path.startsWith(`${movingFolder.path}/`))),
+              onMove: (target) => void moveFolderTo(target),
+              onDragStart: (folder) => setMovingFolder(folder),
+              // F6: a cancelled or finished drag disarms the folder again
+              onDragEnd: () => setMovingFolder(null)
+            }
+          : undefined
+      }
+    />
+  )
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
         <h1 className="text-lg font-semibold">E-Mail</h1>
         {(accounts.data?.length ?? 0) > 1 ? (
-          <Select
-            value={account.id}
-            onValueChange={(id) => {
-              setChosenAccountId(id as string)
-              setChosenFolderId(null)
-              setSelection(EMPTY_SELECTION)
-              openedId.current = null
-              setCompose(null)
-              clearSearch()
-              // I10 Low: the hidden rows belong to the account they were hidden in. Carried over, an
-              // id that happens to exist in the new account would stay invisible for no reason.
-              setHiddenIds([])
-            }}
-          >
-            <SelectTrigger className="w-64" aria-label="Postfach">
+          <Select value={account.id} onValueChange={(id) => switchAccount(id as string)}>
+            {/* #95: wide windows show every account in the folder pane; narrow ones have no
+                pane, so they keep the picker */}
+            <SelectTrigger className="w-64 lg:hidden" aria-label="Postfach">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {accounts.data?.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.email}
+                  {accountName(a, accounts.data ?? [])}
                   <UnreadCount unread={inboxUnread.find((entry) => entry.id === a.id)?.unread} />
                 </SelectItem>
               ))}
@@ -520,47 +610,52 @@ function MailClient() {
           style={{ width: folderWidth }}
           aria-label="Ordnerliste"
         >
-          {folders.isLoading ? (
-            <Spinner className="m-2" />
-          ) : (
-            <FolderTree
-              focusRef={folderTreeRef}
-              folders={folders.data ?? []}
-              selectedId={searching ? null : folderId}
-              onSelect={chooseFolder}
-              onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
-              onFolderAction={
-                canWrite ? (action, folder) => void folderAction(action, folder) : undefined
-              }
-              drop={
-                dragged
-                  ? {
-                      canDrop: (target) => dragged.some((m) => m.folderId !== target.id),
-                      onDrop: (target) =>
-                        void moveAway(
-                          dragged.filter((m) => m.folderId !== target.id).map((m) => m.id),
-                          { kind: 'folder', folder: target }
-                        )
-                    }
-                  : undefined
-              }
-              folderMove={
-                canWrite
-                  ? {
-                      canMove: (target) =>
-                        movingFolder !== null &&
-                        (target === null ||
-                          (target.path !== movingFolder.path &&
-                            !target.path.startsWith(`${movingFolder.path}/`))),
-                      onMove: (target) => void moveFolderTo(target),
-                      onDragStart: (folder) => setMovingFolder(folder),
-                      // F6: a cancelled or finished drag disarms the folder again
-                      onDragEnd: () => setMovingFolder(null)
-                    }
-                  : undefined
-              }
-            />
-          )}
+          {otherAccounts.length === 0
+            ? shownTree
+            : // #95: one section per account, one under the other, as mail programs do. Only the
+              // shown account's tree can be dragged onto or edited; a folder of another account
+              // switches to it.
+              accounts.data?.map((a) => {
+                const open = !collapsed.has(a.id)
+                const name = accountName(a, accounts.data ?? [])
+                const other = otherFolders[otherAccounts.findIndex((o) => o.id === a.id)]
+                return (
+                  <section key={a.id} className="mb-2" aria-label={name}>
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => toggleSection(a.id)}
+                      className="flex w-full items-center gap-1 rounded-md px-1 py-1 text-left text-sm font-medium hover:bg-muted"
+                    >
+                      <ChevronRight
+                        className={cn('size-4 shrink-0 transition-transform', open && 'rotate-90')}
+                      />
+                      <span className="truncate" title={name}>
+                        {name}
+                      </span>
+                      {/* Open, the INBOX row shows the same count */}
+                      {!open && (
+                        <UnreadCount
+                          unread={inboxUnread.find((entry) => entry.id === a.id)?.unread}
+                        />
+                      )}
+                    </button>
+                    {open &&
+                      (a.id === accountId ? (
+                        shownTree
+                      ) : other?.isLoading ? (
+                        <Spinner className="m-2" />
+                      ) : (
+                        <FolderTree
+                          label={name}
+                          folders={other?.data ?? []}
+                          selectedId={null}
+                          onSelect={(folderId) => switchAccount(a.id, folderId)}
+                        />
+                      ))}
+                  </section>
+                )
+              })}
         </nav>
         <PaneResizer
           label="Breite der Ordnerliste"
@@ -620,6 +715,18 @@ function MailClient() {
               >
                 Filter
               </Button>
+              {/* Groups the list into threads; off, the list is one row per mail */}
+              {!searching && (
+                <Button
+                  variant={threads ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setThreads((v) => !v)}
+                  aria-pressed={threads}
+                  title="Mails zu Unterhaltungen gruppieren"
+                >
+                  Unterhaltungen
+                </Button>
+              )}
               {searching && (
                 <Button variant="ghost" size="icon-sm" onClick={clearSearch} title="Suche beenden">
                   <X />
@@ -695,6 +802,19 @@ function MailClient() {
           <div className="min-h-0 flex-1 overflow-auto">
             {listLoading ? (
               <Spinner className="m-4" />
+            ) : threads && !searching ? (
+              // Search results are single mails; the thread switch is hidden meanwhile
+              threadList.isLoading ? (
+                <Spinner className="m-4" />
+              ) : (
+                <ThreadList
+                  threads={threadList.data?.pages.flat() ?? []}
+                  onOpen={openWindow}
+                  hasMore={Boolean(threadList.hasNextPage)}
+                  loadingMore={threadList.isFetchingNextPage}
+                  onLoadMore={() => void threadList.fetchNextPage()}
+                />
+              )
             ) : (
               <MessageList
                 items={listItems}

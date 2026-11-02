@@ -187,6 +187,112 @@ describe('moving files from the old layout', () => {
   })
 })
 
+describe('deleting a document', () => {
+  const service = () => container.resolve(DocumentService)
+
+  it('hands the file path to the caller and keeps the record until it is removed', async () => {
+    const bandId = createBand('Trash Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('alt.pdf'),
+      documentType: 'other'
+    })
+
+    // The router moves this path to the OS trash before the row goes; the service
+    // must report it and must not delete anything on its own
+    const found = await service().detachFileForTrash(doc.id)
+    expect(found?.filePath).toBe(join(storage, doc.file_path))
+    expect(existsSync(join(storage, doc.file_path))).toBe(true)
+    expect(await service().getById(doc.id)).not.toBeNull()
+
+    await service().deleteDocumentRecord(doc.id)
+    expect(await service().getById(doc.id)).toBeNull()
+  })
+
+  it('reports no file for a record whose file is already gone', async () => {
+    const bandId = createBand('Missing File Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('weg2.pdf'),
+      documentType: 'other'
+    })
+    rmSync(join(storage, doc.file_path), { force: true })
+
+    // A missing file is not an error: the record still goes, without a path to trash
+    expect(await service().detachFileForTrash(doc.id)).toMatchObject({ filePath: null })
+    await service().deleteDocumentRecord(doc.id)
+    expect(await service().getById(doc.id)).toBeNull()
+  })
+
+  it('reports nothing for an id that does not exist', async () => {
+    expect(await service().detachFileForTrash(999_999)).toBeNull()
+  })
+})
+
+describe('renaming a document', () => {
+  const service = () => container.resolve(DocumentService)
+
+  it('stores the shown name and leaves the file on disk alone', async () => {
+    const bandId = createBand('Rename Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('scan_0042.pdf'),
+      documentType: 'other'
+    })
+    expect(doc.display_name).toBeNull()
+
+    const renamed = await service().updateDocument({
+      id: doc.id,
+      displayName: 'Rechnung März.pdf'
+    })
+    expect(renamed).toMatchObject({
+      display_name: 'Rechnung März.pdf',
+      // The file keeps the name it had, so the folder stays readable and a
+      // rename cannot fail on a locked file
+      file_name: 'scan_0042.pdf',
+      file_path: doc.file_path
+    })
+    expect(existsSync(join(storage, doc.file_path))).toBe(true)
+  })
+
+  it('clears the name back to the file name for an empty one', async () => {
+    const bandId = createBand('Clear Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('rider_neu.pdf'),
+      documentType: 'rider'
+    })
+    await service().updateDocument({ id: doc.id, displayName: 'Rider' })
+    expect((await service().getById(doc.id))!.display_name).toBe('Rider')
+
+    // Whitespace is the same as empty: the file name shows again
+    const cleared = await service().updateDocument({ id: doc.id, displayName: '   ' })
+    expect(cleared!.display_name).toBeNull()
+  })
+
+  it('keeps a name that is not being changed, and the type change still works', async () => {
+    const bandId = createBand('Keep Band')
+    const doc = await service().upload({
+      ownerType: 'band',
+      ownerId: bandId,
+      sourcePath: sourceFile('presse.pdf'),
+      documentType: 'press'
+    })
+    await service().updateDocument({ id: doc.id, displayName: 'Presse Februar.pdf' })
+
+    // A type change alone must not wipe the name (the defaults trap in AGENTS.md)
+    const typed = await service().updateDocument({ id: doc.id, documentType: 'photo' })
+    expect(typed).toMatchObject({
+      document_type: 'photo',
+      display_name: 'Presse Februar.pdf'
+    })
+  })
+})
+
 describe('C5: an attachment becomes a document', () => {
   const service = () => container.resolve(DocumentService)
 
@@ -203,9 +309,7 @@ describe('C5: an attachment becomes a document', () => {
       mailAccountId: 'acc-1'
     })
 
-    expect(posix(saved.file_path)).toBe(
-      `documents/bands/${bandId}-antwort-band/Angebot.pdf`
-    )
+    expect(posix(saved.file_path)).toBe(`documents/bands/${bandId}-antwort-band/Angebot.pdf`)
     expect(saved).toMatchObject({
       owner_type: 'band',
       document_type: 'contract',

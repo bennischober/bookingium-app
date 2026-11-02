@@ -121,9 +121,19 @@ function BandsTab({ companyId }: { companyId: number }) {
       query={bands}
       loading="Bands werden geladen…"
       empty="Keine Bands gehören zu dieser Firma oder werden von ihr gemanagt."
+      itemLabel={{ singular: 'Band', plural: 'Bands' }}
       columns={[
-        { header: 'Band', cell: (band) => band.name, className: 'font-medium' },
-        { header: 'Genre', cell: (band) => band.genre || '–' },
+        {
+          header: 'Band',
+          cell: (band) => band.name,
+          className: 'font-medium',
+          sortValue: (band) => band.name
+        },
+        {
+          header: 'Genre',
+          cell: (band) => band.genre || '–',
+          sortValue: (band) => band.genre || ''
+        },
         {
           header: 'Rolle',
           cell: (band) =>
@@ -150,10 +160,24 @@ function VenuesTab({ companyId }: { companyId: number }) {
       query={venues}
       loading="Clubs und Festivals werden geladen…"
       empty="Keine Clubs und Festivals mit dieser Firma."
+      itemLabel={{ singular: 'Club oder Festival', plural: 'Clubs und Festivals' }}
       columns={[
-        { header: 'Name', cell: (venue) => venue.name, className: 'font-medium' },
-        { header: 'Art', cell: (venue) => VENUE_KIND_LABELS[venue.kind] },
-        { header: 'Stadt', cell: (venue) => venue.address?.city || '–' },
+        {
+          header: 'Name',
+          cell: (venue) => venue.name,
+          className: 'font-medium',
+          sortValue: (venue) => venue.name
+        },
+        {
+          header: 'Art',
+          cell: (venue) => VENUE_KIND_LABELS[venue.kind],
+          sortValue: (venue) => VENUE_KIND_LABELS[venue.kind]
+        },
+        {
+          header: 'Stadt',
+          cell: (venue) => venue.address?.city || '–',
+          sortValue: (venue) => venue.address?.city || ''
+        },
         {
           header: 'Kapazität',
           cell: (venue) => venue.capacity?.toLocaleString('de-DE') ?? '–'
@@ -210,16 +234,19 @@ function InvoicesTab({ companyId }: { companyId: number }) {
       query={invoices}
       loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen von oder an diese Firma."
+      itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
       columns={[
         {
           header: 'Nr.',
           cell: (invoice) => invoiceNumberLabel(invoice.invoiceNumber),
-          className: 'whitespace-nowrap font-medium'
+          className: 'whitespace-nowrap font-medium',
+          sortValue: (invoice) => invoice.invoiceNumber ?? ''
         },
         {
           header: 'Datum',
           cell: (invoice) => formatShortDate(invoice.issueDate),
-          className: 'whitespace-nowrap'
+          className: 'whitespace-nowrap',
+          sortValue: (invoice) => invoice.issueDate
         },
         // Same columns as the invoice list: who issued it, who receives it
         { header: 'Rechnungssteller', cell: (invoice) => invoice.companyName },
