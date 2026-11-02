@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMapType, Layer } from 'leaflet'
-import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
+import type { MapCandidateDto, MapMarkerDto } from '../../../../main/api/schemas/map.schema'
 import {
   escapeHtml,
   groupByPoint,
@@ -8,7 +8,9 @@ import {
   markerColor,
   pointPopupHtml,
   pointRings,
-  pointTitle
+  pointTitle,
+  ringWindowLabel,
+  venueAvailability
 } from './mapDisplay'
 import 'leaflet/dist/leaflet.css'
 
@@ -16,16 +18,19 @@ import 'leaflet/dist/leaflet.css'
 const RING_PANE = 'rings'
 
 /**
- * The Leaflet map itself: OSM tiles, one dot pair per map point (venue, events)
- * and radius rings around the events. React owns the data, Leaflet owns its DOM -
- * the component only keeps the layers in sync with the markers.
+ * The Leaflet map itself: OSM tiles, one dot pair per map point (venue, events),
+ * radius clause rings around the events and the what-if booking. React owns the
+ * data, Leaflet owns its DOM - the component only keeps the layers in sync.
  */
 export function LeafletMap({
   markers,
+  candidate,
   focusVenueId,
   showRings
 }: {
   markers: MapMarkerDto[]
+  /** The what-if booking: a dashed ring and its own dot */
+  candidate?: MapCandidateDto | null
   /** Centre the map on this venue marker when it changes (the venue picker) */
   focusVenueId?: number | null
   showRings: boolean
@@ -98,6 +103,8 @@ export function LeafletMap({
                 interactive: false,
                 radius: ring.metres,
                 color: ring.color,
+                // Open offers: a risk, not a block
+                dashArray: ring.dashed ? '8 6' : undefined,
                 weight: 2,
                 opacity: 0.8,
                 fill: true,
@@ -113,11 +120,13 @@ export function LeafletMap({
         const venue = point.venues[0]
         if (venue) {
           const color = markerColor(venue)
+          // At risk (an open offer covers it): an amber outline around the kind colour
+          const risk = venueAvailability(venue) === 'risk'
           layers.push(
             L.circleMarker([point.lat, point.lng], {
               radius: point.events.length > 0 ? 9 : 7,
-              color,
-              weight: 1,
+              color: risk ? MARKER_COLORS.risk : color,
+              weight: risk ? 3 : 1,
               fill: true,
               fillColor: color,
               fillOpacity: 0.9
@@ -143,12 +152,58 @@ export function LeafletMap({
         layers.forEach((layer) => layer.addTo(map))
         layerRef.current?.push(...layers)
       }
+
+      // The what-if booking on top: its ring dashed in its own colour, always shown (it is
+      // what the user asked about), and a dot with a halo
+      if (candidate?.lat !== undefined && candidate.lng !== undefined) {
+        const tooltip = escapeHtml(`Anfrage: ${candidate.name}`)
+        const layers: Layer[] = [
+          L.circle([candidate.lat, candidate.lng], {
+            pane: RING_PANE,
+            interactive: false,
+            radius: candidate.ring.km * 1000,
+            color: MARKER_COLORS.candidate,
+            dashArray: '10 8',
+            weight: 3,
+            opacity: 0.9,
+            fill: true,
+            fillOpacity: 0.06
+          }),
+          L.circleMarker([candidate.lat, candidate.lng], {
+            radius: 8,
+            color: '#ffffff',
+            weight: 3,
+            fill: true,
+            fillColor: MARKER_COLORS.candidate,
+            fillOpacity: 1
+          })
+            .bindTooltip(tooltip)
+            .bindPopup(
+              `<strong>Anfrage: ${escapeHtml(candidate.name)}</strong><br>Gebietsschutz: ${escapeHtml(
+                ringWindowLabel(candidate.ring)
+              )}`
+            )
+        ]
+        layers.forEach((layer) => layer.addTo(map))
+        layerRef.current?.push(...layers)
+      }
     })
 
     return () => {
       cancelled = true
     }
-  }, [markers, showRings, mapReady])
+  }, [markers, candidate, showRings, mapReady])
+
+  // A new what-if booking: fit its ring into view
+  const candidateKey = candidate ? `${candidate.venueId}:${candidate.ring.km}` : null
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !candidate || candidate.lat === undefined || candidate.lng === undefined) return
+    void import('leaflet').then((L) => {
+      const bounds = L.latLng(candidate.lat!, candidate.lng!).toBounds(candidate.ring.km * 2000)
+      map.flyToBounds(bounds, { duration: 0.8, padding: [20, 20] })
+    })
+  }, [candidateKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The venue picker: centre on the chosen marker
   useEffect(() => {

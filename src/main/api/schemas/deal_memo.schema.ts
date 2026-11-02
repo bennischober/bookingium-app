@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
+import { RadiusOverrideDto, RadiusOverrideInput } from './radius.schema'
+import { VenueKind } from './venue.schema'
 
 export const DealMemoStatus = z.enum(['pending', 'confirmed', 'cancelled'])
 export type DealMemoStatus = z.infer<typeof DealMemoStatus>
@@ -46,7 +48,9 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   // Contract "vertreten durch" override; null = band management / default
   representingCompanyId: z.number().nullable(),
   hotelId: z.number().nullable()
-}).extend(TimestampFields.shape)
+})
+  .extend(RadiusOverrideDto.shape)
+  .extend(TimestampFields.shape)
 
 export type DealMemoDto = z.infer<typeof DealMemoDto>
 
@@ -66,8 +70,11 @@ export const DealMemoDetailDto = DealMemoDto.extend({
     .object({
       id: z.number(),
       name: z.string(),
-      capacity: z.number().nullable()
+      capacity: z.number().nullable(),
+      // The event's radius clause falls back to these, then to the kind's default
+      kind: VenueKind
     })
+    .extend(RadiusOverrideDto.shape)
     .nullable(),
   hotel: z
     .object({
@@ -129,5 +136,6 @@ export const UpdateDealMemoInput = CreateDealMemoInput.partial()
     guaranteeVatRate: z.number().nullable().optional(),
     contractNotes: z.string().optional()
   })
+  .extend(RadiusOverrideInput.shape)
 
 export type UpdateDealMemoInput = z.infer<typeof UpdateDealMemoInput>

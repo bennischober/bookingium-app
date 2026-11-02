@@ -4,6 +4,7 @@ import { AddressDto, AddressInput } from './address.schema'
 import { ContactDto, ContactInput } from './contact.schema'
 import { CompanyListItemDto } from './company.schema'
 import { PaginationInput } from './base.schema'
+import { RadiusOverrideDto, RadiusOverrideInput } from './radius.schema'
 
 export const VenueKind = z.enum(['venue', 'festival'])
 export type VenueKind = z.infer<typeof VenueKind>
@@ -48,6 +49,7 @@ export const VenueDto = z
     companyId: z.number().nullable(),
     contactId: z.number().nullable()
   })
+  .extend(RadiusOverrideDto.shape)
   .extend(TimestampFields.shape)
 
 export type VenueDto = z.infer<typeof VenueDto>
@@ -59,35 +61,39 @@ export const VenueListItemDto = z.object({
 
 export type VenueListItemDto = z.infer<typeof VenueListItemDto>
 
-export const CreateVenueInput = z.object({
-  name: z.string().min(1, 'Name is required'),
-  kind: VenueKind.default('venue'),
-  capacity: z.number().nullable().optional(),
-  genres: GenresInput.default(''),
-  notes: z.string().default(''),
-  address: AddressInput.optional(),
-  contact: ContactInput.optional(),
-  companyId: z.number().nullable().optional(),
-  addressId: z.number().nullable().optional(),
-  contactId: z.number().nullable().optional()
-})
+export const CreateVenueInput = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    kind: VenueKind.default('venue'),
+    capacity: z.number().nullable().optional(),
+    genres: GenresInput.default(''),
+    notes: z.string().default(''),
+    address: AddressInput.optional(),
+    contact: ContactInput.optional(),
+    companyId: z.number().nullable().optional(),
+    addressId: z.number().nullable().optional(),
+    contactId: z.number().nullable().optional()
+  })
+  .extend(RadiusOverrideInput.shape)
 
 export type CreateVenueInput = z.infer<typeof CreateVenueInput>
 
-export const UpdateVenueInput = z.object({
-  id: z.number(),
-  name: z.string().min(1, 'Name is required'),
-  kind: VenueKind.default('venue'),
-  capacity: z.number().nullable().optional(),
-  // Optional: callers that don't send it keep the stored tags
-  genres: GenresInput.optional(),
-  notes: z.string().default(''),
-  address: AddressInput.optional(),
-  contact: ContactInput.optional(),
-  companyId: z.number().nullable().optional(),
-  addressId: z.number().nullable().optional(),
-  contactId: z.number().nullable().optional()
-})
+export const UpdateVenueInput = z
+  .object({
+    id: z.number(),
+    name: z.string().min(1, 'Name is required'),
+    kind: VenueKind.default('venue'),
+    capacity: z.number().nullable().optional(),
+    // Optional: callers that don't send it keep the stored tags
+    genres: GenresInput.optional(),
+    notes: z.string().default(''),
+    address: AddressInput.optional(),
+    contact: ContactInput.optional(),
+    companyId: z.number().nullable().optional(),
+    addressId: z.number().nullable().optional(),
+    contactId: z.number().nullable().optional()
+  })
+  .extend(RadiusOverrideInput.shape)
 
 export type UpdateVenueInput = z.infer<typeof UpdateVenueInput>
 

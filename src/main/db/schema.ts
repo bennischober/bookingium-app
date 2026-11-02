@@ -223,6 +223,11 @@ export const venue = sqliteTable(
     // Comma-separated genre tags ("Metal, Rock"); used by the mailing lists
     genres: text('genres').default('').notNull(),
     notes: text('notes').default('').notNull(),
+    // Radius clause (Gebietsschutz) this venue usually demands, #102: km around it and weeks
+    // before/after the show. Null = the global default for the kind (Einstellungen).
+    radius_km: integer('radius_km'),
+    radius_weeks_before: integer('radius_weeks_before'),
+    radius_weeks_after: integer('radius_weeks_after'),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
     // owner, but not required
     company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
@@ -296,6 +301,10 @@ export const deal_memo = sqliteTable(
     guarantee_amount: real('guarantee_amount'),
     guarantee_vat_rate: real('guarantee_vat_rate'),
     contract_notes: text('contract_notes').default(''),
+    // Radius clause of this contract, #102; null = the venue's, then the global default
+    radius_km: integer('radius_km'),
+    radius_weeks_before: integer('radius_weeks_before'),
+    radius_weeks_after: integer('radius_weeks_after'),
     lopro_person_id: integer('lopro_person_id').references(() => person.id, {
       onDelete: 'set null'
     }),

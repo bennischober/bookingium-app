@@ -2,21 +2,25 @@
 // SearchService: queries db directly on purpose (no repository), one IPC
 // round-trip, marker building in the pure module (src/main/map/markers.ts).
 
-import { injectable } from 'tsyringe'
+import { inject, injectable } from 'tsyringe'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from '../repositories/archiveFilter'
 import { buildMapData } from '../map/markers'
+import { SettingsService } from './SettingsService'
 import type { MapData, MapDataFilter, MapEventRow, MapVenueRow } from '../map/markers'
 
 @injectable()
 export class MapService {
+  constructor(@inject(SettingsService) private settingsService: SettingsService) {}
+
   /**
    * Events (deal memos) and venues for the map, filters applied. Archived
    * events are out (D3); a cancelled gig never happens, so it draws no ring
    * (the marker builder leaves it out). Events carry their venue's address,
-   * venues their own.
+   * venues their own; both carry their radius clause overrides, and the
+   * settings give the defaults per kind.
    */
   async getData(filter: MapDataFilter): Promise<MapData> {
     // One event row per event; its venue's kind and address ride along.
@@ -31,6 +35,12 @@ export class MapService {
         band_id: schema.deal_memo.band_id,
         venue_id: schema.deal_memo.venue_id,
         venue_kind: schema.venue.kind,
+        radius_km: schema.deal_memo.radius_km,
+        radius_weeks_before: schema.deal_memo.radius_weeks_before,
+        radius_weeks_after: schema.deal_memo.radius_weeks_after,
+        venue_radius_km: schema.venue.radius_km,
+        venue_radius_weeks_before: schema.venue.radius_weeks_before,
+        venue_radius_weeks_after: schema.venue.radius_weeks_after,
         street: schema.address.street,
         street_number: schema.address.street_number,
         zip_code: schema.address.zip_code,
@@ -48,6 +58,9 @@ export class MapService {
         id: schema.venue.id,
         name: schema.venue.name,
         kind: schema.venue.kind,
+        radius_km: schema.venue.radius_km,
+        radius_weeks_before: schema.venue.radius_weeks_before,
+        radius_weeks_after: schema.venue.radius_weeks_after,
         street: schema.address.street,
         street_number: schema.address.street_number,
         zip_code: schema.address.zip_code,
@@ -85,16 +98,35 @@ export class MapService {
       band_id: row.band_id,
       venue_id: row.venue_id,
       venue_kind: row.venue_kind,
-      address: asAddress(row)
+      address: asAddress(row),
+      radius: {
+        radius_km: row.radius_km,
+        radius_weeks_before: row.radius_weeks_before,
+        radius_weeks_after: row.radius_weeks_after
+      },
+      venue_radius: {
+        radius_km: row.venue_radius_km,
+        radius_weeks_before: row.venue_radius_weeks_before,
+        radius_weeks_after: row.venue_radius_weeks_after
+      }
     }))
 
     const venues: MapVenueRow[] = venueRows.map((row) => ({
       id: row.id,
       name: row.name,
       kind: row.kind,
-      address: asAddress(row)
+      address: asAddress(row),
+      radius: {
+        radius_km: row.radius_km,
+        radius_weeks_before: row.radius_weeks_before,
+        radius_weeks_after: row.radius_weeks_after
+      }
     }))
 
-    return buildMapData(events, venues, filter)
+    const settings = this.settingsService.get()
+    return buildMapData(events, venues, filter, {
+      club: settings.radiusClub,
+      festival: settings.radiusFestival
+    })
   }
 }

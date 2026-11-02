@@ -178,6 +178,9 @@ export class VenueRepository {
           capacity: input.capacity ?? null,
           genres: normalizeGenres(input.genres ?? ''),
           notes: input.notes,
+          radius_km: input.radiusKm ?? null,
+          radius_weeks_before: input.radiusWeeksBefore ?? null,
+          radius_weeks_after: input.radiusWeeksAfter ?? null,
           address_id: addressId,
           company_id: input.companyId ?? null,
           contact_id: contactId
@@ -289,6 +292,16 @@ export class VenueRepository {
           capacity: input.capacity ?? null,
           genres: input.genres === undefined ? undefined : normalizeGenres(input.genres),
           notes: input.notes,
+          // Callers that don't send the clause keep the stored one; null clears it
+          radius_km: input.radiusKm !== undefined ? input.radiusKm : existingVenue.radius_km,
+          radius_weeks_before:
+            input.radiusWeeksBefore !== undefined
+              ? input.radiusWeeksBefore
+              : existingVenue.radius_weeks_before,
+          radius_weeks_after:
+            input.radiusWeeksAfter !== undefined
+              ? input.radiusWeeksAfter
+              : existingVenue.radius_weeks_after,
           address_id: addressId ?? null,
           company_id: input.companyId !== undefined ? input.companyId : existingVenue.company_id,
           contact_id: contactId ?? null,

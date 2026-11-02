@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Map as MapIcon, MapPinOff, Navigation } from 'lucide-react'
+import { Map as MapIcon, MapPinOff, Navigation, X } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { localIsoDate } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
@@ -19,14 +19,15 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { LeafletMap } from '@/components/map/LeafletMap'
 import {
-  CLUB_RING_METRES,
-  FESTIVAL_RING_METRES,
+  CONFLICT_KIND_LABELS,
   MARKER_COLORS,
   markerHref,
-  ringLabel,
-  UNLOCATED_REASON_LABELS
+  ringWindowLabel,
+  UNLOCATED_REASON_LABELS,
+  venueAvailability
 } from '@/components/map/mapDisplay'
-import type { MapKindFilter } from '../../../main/api/schemas/map.schema'
+import { formatClause, type RadiusDefaults } from '@/components/map/radiusDisplay'
+import type { MapCandidateDto, MapKindFilter } from '../../../main/api/schemas/map.schema'
 
 const SHOW_ALL = 'alle'
 
@@ -35,7 +36,13 @@ export default function MapPage() {
   const navigate = useNavigate()
   const settings = trpcReact.settings.get.useQuery()
   if (!settings.data) return null
-  if (settings.data.mapPreview) return <MapPreview />
+  if (settings.data.mapPreview) {
+    return (
+      <MapPreview
+        defaults={{ club: settings.data.radiusClub, festival: settings.data.radiusFestival }}
+      />
+    )
+  }
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <h1 className="text-2xl font-bold">Karte</h1>
@@ -45,8 +52,9 @@ export default function MapPage() {
   )
 }
 
-function MapPreview() {
+function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   const bands = trpcReact.band.getListItems.useQuery()
+  const allVenues = trpcReact.venue.getListItems.useQuery()
   const [kinds, setKinds] = useState<MapKindFilter[]>([])
   const [bandId, setBandId] = useState<number | null>(null)
   // From today on: past gigs drew rings for every year at once. Clearing the field shows them.
@@ -54,15 +62,22 @@ function MapPreview() {
   const [dateTo, setDateTo] = useState('')
   const [focusVenueId, setFocusVenueId] = useState<number | null>(null)
   const [showRings, setShowRings] = useState(true)
+  // What if: a venue and a date to check before booking it
+  const [candidateVenueId, setCandidateVenueId] = useState<number | null>(null)
+  const [candidateDate, setCandidateDate] = useState('')
 
   const filter = useMemo(
     () => ({
       kinds: kinds.length > 0 ? kinds : undefined,
       bandId: bandId ?? undefined,
       dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined
+      dateTo: dateTo || undefined,
+      candidate:
+        candidateVenueId !== null && candidateDate
+          ? { venueId: candidateVenueId, date: candidateDate }
+          : undefined
     }),
-    [kinds, bandId, dateFrom, dateTo]
+    [kinds, bandId, dateFrom, dateTo, candidateVenueId, candidateDate]
   )
 
   const map = trpcReact.map.getData.useQuery(filter, { keepPreviousData: true })
@@ -74,6 +89,16 @@ function MapPreview() {
   const venues = useMemo(() => located.filter((marker) => marker.type === 'venue'), [located])
   const eventCount = located.filter((marker) => marker.type === 'event').length
   const unlocated = map.data?.unlocated ?? []
+  const candidate = map.data?.candidate ?? null
+  // With a band chosen: how many venues are free, at risk or blocked
+  const availability = useMemo(() => {
+    const counts = { free: 0, risk: 0, blocked: 0 }
+    for (const venue of venues) {
+      const state = venueAvailability(venue)
+      if (state) counts[state]++
+    }
+    return counts
+  }, [venues])
 
   return (
     // Scrolls as a whole on a low window, so the map keeps a usable height
@@ -81,8 +106,8 @@ function MapPreview() {
       <div className="mb-4">
         <h1 className="mb-2 text-2xl font-bold">Karte</h1>
         <p className="text-sm text-muted-foreground">
-          Events, Clubs und Festivals mit Radius-Ringen (Gebietsschutz, Vorschlag) – zur Tourplanung
-          und zum Prüfen der Ringe auf einen Blick.
+          Events, Clubs und Festivals mit ihrem Gebietsschutz: Mit einer Band gewählt zeigt die
+          Karte, wo sie noch frei ist. „Anfrage prüfen“ zeigt, was eine Buchung blockieren würde.
         </p>
       </div>
 
@@ -152,12 +177,56 @@ function MapPreview() {
         </div>
       </div>
 
-      <div className="flex min-h-[360px] flex-1 gap-4">
+      {/* What if: the candidate booking */}
+      <div className="mb-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+        <div className="space-y-1">
+          <Label htmlFor="map-candidate-venue">Anfrage prüfen: Club / Festival</Label>
+          <SearchableSelect
+            id="map-candidate-venue"
+            value={candidateVenueId}
+            onChange={setCandidateVenueId}
+            options={(allVenues.data ?? []).map((venue) => ({
+              value: venue.id,
+              label: venue.name
+            }))}
+            noneLabel="Keine Anfrage"
+            searchPlaceholder="Club / Festival suchen…"
+            emptyText="Keine Clubs oder Festivals angelegt."
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="map-candidate-date">Datum der Anfrage</Label>
+          <Input
+            id="map-candidate-date"
+            type="date"
+            value={candidateDate}
+            onChange={(event) => setCandidateDate(event.target.value)}
+          />
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setCandidateVenueId(null)
+            setCandidateDate('')
+          }}
+          disabled={candidateVenueId === null && !candidateDate}
+        >
+          <X className="h-4 w-4" />
+          Zurücksetzen
+        </Button>
+      </div>
+
+      <div className="flex min-h-[360px] flex-1 flex-col gap-4 lg:flex-row">
         {/* The map: one fixed frame, no scrolling of its own content. `isolate`
             contains Leaflet's internal z-indexes (panes go up to 700) so the
             portaled dropdowns (body level, z-50) always paint above the map. */}
         <div className="relative isolate min-w-0 flex-1 overflow-hidden rounded-lg border">
-          <LeafletMap markers={located} focusVenueId={focusVenueId} showRings={showRings} />
+          <LeafletMap
+            markers={located}
+            candidate={candidate}
+            focusVenueId={focusVenueId}
+            showRings={showRings}
+          />
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
               Leaflet leaves free: zoom sits top left, attribution bottom right */}
           <div className="absolute top-2 right-2 z-[1000] space-y-1 rounded-md border bg-popover/95 p-3 text-xs shadow-sm">
@@ -183,20 +252,51 @@ function MapPreview() {
               />
               Festival
             </div>
+            {bandId !== null && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block size-2 rounded-full"
+                    style={{ background: MARKER_COLORS.blocked }}
+                  />
+                  Blockiert
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block size-2 rounded-full border-2"
+                    style={{ borderColor: MARKER_COLORS.risk }}
+                  />
+                  Risiko (ausstehend)
+                </div>
+              </>
+            )}
             <div className="flex items-center gap-2 pt-1">
               <span
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.venue }}
               />
-              Ring Club: {ringLabel(CLUB_RING_METRES)}
+              Gebietsschutz (Club)
             </div>
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.festival }}
               />
-              Ring Festival: {ringLabel(FESTIVAL_RING_METRES)}
+              Gebietsschutz (Festival)
             </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-3 border-t-2 border-dashed border-muted-foreground" />
+              ausstehend
+            </div>
+            {candidate && (
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block size-2 rounded-full"
+                  style={{ background: MARKER_COLORS.candidate }}
+                />
+                Anfrage
+              </div>
+            )}
             <label className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
@@ -254,8 +354,20 @@ function MapPreview() {
           )}
         </div>
 
-        {/* Status beside the map on wide windows */}
-        <div className="hidden w-72 shrink-0 flex-col gap-4 lg:flex">
+        {/* Status beside the map on wide windows, below it on narrow ones */}
+        <div className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
+          {candidate ? (
+            <CandidateCard candidate={candidate} bandChosen={bandId !== null} />
+          ) : (
+            candidateVenueId !== null &&
+            !candidateDate && (
+              <Card>
+                <CardContent className="pt-6 text-sm text-muted-foreground">
+                  Ein Datum für die Anfrage wählen.
+                </CardContent>
+              </Card>
+            )
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Auf der Karte</CardTitle>
@@ -265,10 +377,21 @@ function MapPreview() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p>
-                Ringe: {ringLabel(CLUB_RING_METRES)} um Events in Clubs,{' '}
-                {ringLabel(FESTIVAL_RING_METRES)} um Events in Festivals (Vorschlag, noch zu
-                bestätigen).
+              {bandId !== null ? (
+                <p>
+                  Für die Band: {availability.free} frei · {availability.risk} mit Risiko ·{' '}
+                  {availability.blocked} blockiert
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Eine Band wählen, um zu sehen, wo sie frei ist und was blockiert.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Standard: Clubs {formatClause(defaults.club)}; Festivals{' '}
+                {formatClause(defaults.festival)}. Clubs, Festivals und Events können eigene Werte
+                haben (Einstellungen › Allgemein). Ein Event erscheint, solange sein Gebietsschutz
+                in den Zeitraum fällt.
               </p>
             </CardContent>
           </Card>
@@ -291,5 +414,82 @@ function MapPreview() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** The what-if booking: its clause, the venues it would block, the band's events it collides with */
+function CandidateCard({
+  candidate,
+  bandChosen
+}: {
+  candidate: MapCandidateDto
+  bandChosen: boolean
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Anfrage: {candidate.name}</CardTitle>
+        <CardDescription>Gebietsschutz {ringWindowLabel(candidate.ring)}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        {!candidate.located && (
+          <p className="text-muted-foreground">
+            Ohne bekannte PLZ nicht auf der Karte; Entfernungen lassen sich nicht prüfen.
+          </p>
+        )}
+        <div>
+          <p className="mb-1 font-medium">
+            Konflikte mit Events der Band
+            {bandChosen && ` (${candidate.conflicts.length})`}
+          </p>
+          {!bandChosen ? (
+            <p className="text-muted-foreground">Eine Band wählen, um ihre Events zu prüfen.</p>
+          ) : candidate.conflicts.length === 0 ? (
+            <p className="text-muted-foreground">Keine – die Band ist frei.</p>
+          ) : (
+            <ul className="space-y-1">
+              {candidate.conflicts.map((conflict) => (
+                <li key={conflict.eventId}>
+                  <a
+                    href={`#/events/${conflict.eventId}`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {conflict.name} ·{' '}
+                    {new Date(`${conflict.date}T00:00:00`).toLocaleDateString('de-DE')}
+                  </a>
+                  {conflict.status === 'pending' && ' (ausstehend)'}
+                  <span className="block text-xs text-muted-foreground">
+                    {conflict.distanceKm !== null && `${conflict.distanceKm} km · `}
+                    {CONFLICT_KIND_LABELS[conflict.kind]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <p className="mb-1 font-medium">Würde blockieren ({candidate.blocks.length})</p>
+          {candidate.blocks.length === 0 ? (
+            <p className="text-muted-foreground">Keine anderen Clubs oder Festivals im Radius.</p>
+          ) : (
+            <ul className="max-h-60 space-y-1 overflow-y-auto">
+              {candidate.blocks.map((block) => (
+                <li key={block.id} className="flex justify-between gap-2">
+                  <a
+                    href={markerHref({ type: 'venue', kind: block.kind, id: block.id })}
+                    className="truncate underline-offset-2 hover:underline"
+                  >
+                    {block.name}
+                  </a>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {block.distanceKm} km
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
