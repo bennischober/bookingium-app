@@ -64,7 +64,7 @@ implementation can start from step 1 of the plan below.
 1. **Setting** `mapPreview: boolean` default false (`AppSettings` + `UpdateAppSettingsInput`);
    `MapPreviewSwitchCard` next to `ContactListsSwitchCard`; `useRouteShown` entry for
    `/map`; `ROUTES.map = { path: '/map', title: 'Karte', group: 'Planung', icon: Map }`.
-2. **Postcode data** `src/main/map/postcodes.ts` (generated JSON module): built once from
+2. **Postcode data** `src/main/map/postcodes.json` (generated, committed data): built once from
    the GeoNames postal dumps (`download.geonames.org/export/dump/{DE,AT,CH}.zip`, format
    `country, postal, place, admin1, admin2, admin3, lat, lng, accuracy`), filtered to
    DE/AT/CH. The generator script lives in `scripts/` so more countries are one command away

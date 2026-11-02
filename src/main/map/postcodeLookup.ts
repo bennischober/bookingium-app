@@ -1,8 +1,13 @@
 // The experimental map preview (#102) locates addresses offline: by postcode,
 // from the bundled GeoNames table (see scripts/generate-postcodes.mjs). Nothing
 // is sent anywhere - the lookup is the only geocoding the app does.
+// Source: https://download.geonames.org/export/zip/ (DE, AT, CH), CC BY 4.0; the
+// map's attribution line names GeoNames ("PLZ-Daten: GeoNames, CC BY 4.0").
 
-import { POSTCODES } from './postcodes'
+import postcodes from './postcodes.json'
+
+/** `[lat, lng]` per postcode, keyed by `${countryCode}${postalCode}` (ISO 3166-1 alpha-2 + digits) */
+const POSTCODES: Record<string, number[] | undefined> = postcodes
 
 /** Coordinates resolved from a postcode, in degrees (WGS84) */
 export type Coordinates = { lat: number; lng: number }
