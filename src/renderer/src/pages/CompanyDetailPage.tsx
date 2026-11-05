@@ -10,11 +10,8 @@ import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useCompanyTabCounts } from '@/hooks/useTabCounts'
-import { useOpenInvoice } from '@/hooks/useOpenInvoice'
-import { formatShortDate } from '@/lib/utils'
-import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
+import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
@@ -226,49 +223,12 @@ function EventsTab({ companyId }: { companyId: number }) {
 
 /** Invoices the company issued or received; a click opens the print view */
 function InvoicesTab({ companyId }: { companyId: number }) {
-  const openInvoice = useOpenInvoice()
   const invoices = trpcReact.invoice.listByCompany.useQuery(companyId)
   return (
-    <RowTable
+    <RecordInvoicesTable
       label="Rechnungen der Firma"
       query={invoices}
-      loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen von oder an diese Firma."
-      itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
-      columns={[
-        {
-          header: 'Nr.',
-          cell: (invoice) => invoiceNumberLabel(invoice.invoiceNumber),
-          className: 'whitespace-nowrap font-medium',
-          sortValue: (invoice) => invoice.invoiceNumber ?? ''
-        },
-        {
-          header: 'Datum',
-          cell: (invoice) => formatShortDate(invoice.issueDate),
-          className: 'whitespace-nowrap',
-          sortValue: (invoice) => invoice.issueDate
-        },
-        // Same columns as the invoice list: who issued it, who receives it
-        { header: 'Rechnungssteller', cell: (invoice) => invoice.companyName },
-        { header: 'Rechnungsempfänger', cell: (invoice) => invoice.recipientName },
-        { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
-        {
-          header: 'Status',
-          cell: (invoice) => (
-            <InvoiceStatusBadge
-              status={invoice.status}
-              kind={invoice.kind}
-              cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
-            />
-          )
-        },
-        {
-          header: 'Betrag',
-          cell: (invoice) => formatMoney(invoice.totalAmount, invoice.currency),
-          className: 'whitespace-nowrap text-right'
-        }
-      ]}
-      onRowClick={openInvoice}
     />
   )
 }

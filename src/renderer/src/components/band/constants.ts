@@ -4,6 +4,7 @@ export const BAND_TABS = [
   'members',
   'events',
   'contracts',
+  'invoices',
   'documents',
   'mails'
 ] as const

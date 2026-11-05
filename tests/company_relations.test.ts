@@ -1,5 +1,6 @@
-// Lists behind the company and venue pages: which bands, venues, events and
-// invoices belong to a company (in either role), and the events at a venue.
+// Lists behind the company, venue and band pages: which bands, venues, events
+// and invoices belong to a company (in either role), the events at a venue, and
+// the invoices of a band.
 import 'reflect-metadata'
 import { describe, it, expect, beforeAll } from 'vitest'
 import { container } from 'tsyringe'
@@ -16,7 +17,7 @@ const lineItems = [
   { description: 'Gage', quantity: 1, unitPriceNet: 100, taxRate: 0, taxCode: 'other' as const }
 ]
 
-describe('company and venue page lists', () => {
+describe('company, venue and band page lists', () => {
   const companies = container.resolve(CompanyService)
   const bands = container.resolve(BandService)
   const venues = container.resolve(VenueService)
@@ -134,5 +135,49 @@ describe('company and venue page lists', () => {
     expect(list.some((invoice) => invoice.id === unrelated.id)).toBe(false)
     expect(list[0].company?.name).toBe('Andere AG')
     expect(list[0].recipientSnapshot?.source_company_id).toBe(agency)
+  })
+
+  it('lists invoices for the events of the band or addressed to it', async () => {
+    const ownEvent = await events.createDealMemo({
+      name: 'Zebra live',
+      date: '2026-07-01',
+      bandId: ownBand,
+      venueId: otherVenue
+    })
+    const otherEvent = await events.createDealMemo({
+      name: 'Fremd live',
+      date: '2026-07-02',
+      bandId: otherBand,
+      venueId: otherVenue
+    })
+    const forEvent = await invoices.createInvoice({
+      companyId: agency,
+      dealMemoId: ownEvent.id,
+      recipientKind: 'company',
+      recipientCompanyId: other,
+      issueDate: '2026-07-10',
+      lineItems
+    })
+    const toBand = await invoices.createInvoice({
+      companyId: other,
+      recipientKind: 'band',
+      recipientBandId: ownBand,
+      issueDate: '2026-07-20',
+      lineItems
+    })
+    const otherBands = await invoices.createInvoice({
+      companyId: agency,
+      dealMemoId: otherEvent.id,
+      recipientKind: 'company',
+      recipientCompanyId: other,
+      issueDate: '2026-07-15',
+      lineItems
+    })
+
+    const list = await invoices.listInvoicesByBand(ownBand)
+    expect(list.map((invoice) => invoice.id)).toEqual([toBand.id, forEvent.id])
+    expect(list.some((invoice) => invoice.id === otherBands.id)).toBe(false)
+    expect(list[1].dealMemo?.name).toBe('Zebra live')
+    expect(list[0].recipientSnapshot?.source_band_id).toBe(ownBand)
   })
 })

@@ -1,4 +1,4 @@
-// E2E: the band page (tabs, members, events, contracts) and documents for
+// E2E: the band page (tabs, members, events, contracts, invoices) and documents for
 // bands and events in readable folders (storage/documents/<type>/<id>-<name>/).
 import { test, expect } from '@playwright/test'
 import { existsSync, mkdtempSync, rmSync, writeFileSync, readdirSync } from 'fs'
@@ -33,7 +33,7 @@ test.afterAll(async () => {
   rmSync(fixtureDir, { recursive: true, force: true })
 })
 
-test('band page shows members, events, contracts and documents', async () => {
+test('band page shows members, events, contracts, invoices and documents', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await page.locator('tr', { hasText: BAND }).first().click()
@@ -51,6 +51,10 @@ test('band page shows members, events, contracts and documents', async () => {
 
   await page.getByRole('tab', { name: 'Managementverträge' }).click()
   await expect(page.getByRole('button', { name: '+ Vertrag anlegen' })).toBeVisible()
+
+  // Invoices of the band's events (the seed bills the Berlin show)
+  await page.getByRole('tab', { name: 'Rechnungen' }).click()
+  await expect(page.getByRole('table', { name: 'Rechnungen der Band' })).toContainText(EVENT)
 
   // Band document: copied into documents/bands/<id>-the-electric-waves/
   await page.getByRole('tab', { name: 'Dokumente' }).click()

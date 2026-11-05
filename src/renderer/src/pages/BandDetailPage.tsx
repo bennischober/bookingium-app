@@ -20,6 +20,7 @@ import { ManagementContractPanel } from '@/components/band/ManagementContractShe
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
+import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { Empty, EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
 import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 
@@ -78,6 +79,18 @@ function OverviewTab({ band }: { band: BandDto }) {
 }
 
 /** The band's events, newest first; a click opens the event */
+/** Invoices for the band's events or addressed to the band; a click opens the print view */
+function InvoicesTab({ bandId }: { bandId: number }) {
+  const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
+  return (
+    <RecordInvoicesTable
+      label="Rechnungen der Band"
+      query={invoices}
+      empty="Keine Rechnungen zu Events der Band oder an die Band."
+    />
+  )
+}
+
 function EventsTab({ bandId }: { bandId: number }) {
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId)
   return (
@@ -212,6 +225,10 @@ export default function BandDetailPage() {
             Managementverträge
             <TabCount count={counts.contracts} />
           </TabsTrigger>
+          <TabsTrigger value="invoices">
+            Rechnungen
+            <TabCount count={counts.invoices} />
+          </TabsTrigger>
           <TabsTrigger value="documents">
             Dokumente
             <TabCount count={counts.documents} />
@@ -230,6 +247,9 @@ export default function BandDetailPage() {
         </TabsContent>
         <TabsContent value="contracts" className="max-w-3xl">
           <ManagementContractPanel bandId={band.id} />
+        </TabsContent>
+        <TabsContent value="invoices">
+          <InvoicesTab bandId={band.id} />
         </TabsContent>
         <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="band" ownerId={band.id} title="Dokumente der Band" />
