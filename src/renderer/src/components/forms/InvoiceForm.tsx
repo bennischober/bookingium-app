@@ -1,7 +1,7 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useMemo, useState } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { INVOICE_STATUS_LABELS, formatMoney, parseNumber } from '@/lib/invoiceLabels'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ import {
   unitLabelOf
 } from '../../../../main/einvoice/codes'
 import { prepareEInvoice } from '../../../../main/einvoice/prepare'
+import { INVOICE_CURRENCIES } from '../../../../main/invoice/money'
 
 export type InvoiceLineDraft = {
   description: string
@@ -226,6 +227,9 @@ export function InvoiceForm({
     mode === 'edit' ? (invoice?.status ?? 'draft') : 'draft'
   )
   const [currency, setCurrency] = useState(mode === 'edit' ? (invoice?.currency ?? 'EUR') : 'EUR')
+  // A stored code outside the list stays selectable, so editing never changes it unasked
+  const offered: readonly string[] = INVOICE_CURRENCIES
+  const currencies = offered.includes(currency) ? offered : [...offered, currency]
   const [paymentTerms, setPaymentTerms] = useState(
     mode === 'edit' ? (invoice?.paymentTerms ?? '') : ''
   )
@@ -480,7 +484,18 @@ export function InvoiceForm({
 
             <div className="space-y-2">
               <Label>Währung</Label>
-              <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

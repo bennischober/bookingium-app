@@ -89,12 +89,8 @@ function localDateTime(utc: string, options: Intl.DateTimeFormatOptions): string
   return Number.isNaN(date.getTime()) ? utc : date.toLocaleString('de-DE', options)
 }
 
-export function formatMoney(value: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: currency || 'EUR'
-  }).format(value)
-}
+// Never throws, also for a currency code that is not one
+export { formatMoney } from '../../../main/invoice/money'
 
 // Cent rounding shared with the stored totals and the e-invoice
 export { roundMoney } from '../../../main/einvoice/amounts'

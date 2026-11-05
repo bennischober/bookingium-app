@@ -13,6 +13,7 @@ import {
   vatGroups,
   type Lang
 } from '../../../../main/invoice/taxSummary'
+import { formatMoney as formatAmount } from '../../../../main/invoice/money'
 import { PaymentQr } from './PaymentQr'
 
 // ========================================
@@ -35,10 +36,7 @@ export type InvoiceTemplate = (typeof INVOICE_TEMPLATES)[number]['value']
 const NUMBER_LOCALE: Record<Lang, string> = { de: 'de-DE', en: 'en-GB' }
 
 function formatMoney(value: number, currency: string, lang: Lang = 'de'): string {
-  return new Intl.NumberFormat(NUMBER_LOCALE[lang], {
-    style: 'currency',
-    currency: currency || 'EUR'
-  }).format(value)
+  return formatAmount(value, currency, NUMBER_LOCALE[lang])
 }
 
 // Formats date-only ISO strings (YYYY-MM-DD) without timezone pitfalls

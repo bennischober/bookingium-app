@@ -1,5 +1,13 @@
 import { z } from 'zod'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
+import { CURRENCY_CODE_PATTERN } from '../../invoice/money'
+
+/** ISO 4217 code ("EUR"); a typed "eur " is taken as EUR */
+export const CurrencyCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(CURRENCY_CODE_PATTERN, 'Währung als ISO-Code (z. B. EUR)')
 
 export const InvoiceStatus = z.enum(['draft', 'issued', 'paid', 'overdue', 'cancelled'])
 export type InvoiceStatus = z.infer<typeof InvoiceStatus>
@@ -302,7 +310,7 @@ export const CreateInvoiceInput = z.object({
   issueDate: z.string().optional(),
   dueDate: z.string().nullable().optional(),
   status: InvoiceStatus.optional().default('draft'),
-  currency: z.string().optional().default('EUR'),
+  currency: CurrencyCode.optional().default('EUR'),
   lineItems: z.array(InvoiceLineItemInput).optional().default([]),
   totalAmount: z.number().optional().default(0),
   paymentTerms: z.string().optional().default(''),
@@ -335,7 +343,7 @@ export const UpdateInvoiceInput = z.object({
   issueDate: z.string().optional(),
   dueDate: z.string().nullable().optional(),
   status: InvoiceStatus.optional(),
-  currency: z.string().optional(),
+  currency: CurrencyCode.optional(),
   lineItems: z.array(InvoiceLineItemInput).optional(),
   totalAmount: z.number().optional(),
   paymentTerms: z.string().optional(),
