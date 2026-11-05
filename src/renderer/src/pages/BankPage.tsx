@@ -20,7 +20,7 @@ import type {
 } from '../../../main/api/schemas/bank.schema'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { Pencil, Trash2 } from 'lucide-react'
 import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'

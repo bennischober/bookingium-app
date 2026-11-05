@@ -7,7 +7,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
 

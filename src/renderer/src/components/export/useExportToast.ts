@@ -1,4 +1,4 @@
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 
 /** Toast after an export, with "Öffnen" for the written file */

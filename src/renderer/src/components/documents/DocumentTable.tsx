@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowDown, ArrowUp, ArrowUpDown, FileText, FolderOpen, Pencil, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'

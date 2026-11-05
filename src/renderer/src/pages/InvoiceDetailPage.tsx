@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'

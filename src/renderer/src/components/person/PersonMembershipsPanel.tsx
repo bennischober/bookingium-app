@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

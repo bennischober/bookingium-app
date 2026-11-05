@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { useExportToast } from './useExportToast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'

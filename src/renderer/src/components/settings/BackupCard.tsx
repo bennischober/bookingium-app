@@ -1,5 +1,5 @@
 import { FolderOpen, History, RefreshCw } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { Button } from '@/components/ui/button'

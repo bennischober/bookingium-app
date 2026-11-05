@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { Eye, Pencil, Printer, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { invoiceNumberLabel } from '@/lib/invoiceLabels'

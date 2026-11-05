@@ -1,4 +1,4 @@
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'

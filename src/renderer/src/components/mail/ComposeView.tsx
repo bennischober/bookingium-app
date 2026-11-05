@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bold, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'

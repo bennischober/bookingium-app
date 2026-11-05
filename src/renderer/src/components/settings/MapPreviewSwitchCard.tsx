@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { useMapPreview } from '@/hooks/useMapPreview'
 import { Button } from '@/components/ui/button'

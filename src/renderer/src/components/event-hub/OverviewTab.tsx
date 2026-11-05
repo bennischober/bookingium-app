@@ -13,7 +13,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Music2, MapPin, User, Building2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'

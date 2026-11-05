@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Check, Pencil } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { dueLabel, dueState, localIsoDate } from '@/lib/followUps'

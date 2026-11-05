@@ -2,7 +2,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2, Users } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import {

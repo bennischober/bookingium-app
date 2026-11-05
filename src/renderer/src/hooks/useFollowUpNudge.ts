@@ -1,4 +1,4 @@
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { openFollowUpDialog, type FollowUpDialogRequest } from '@/lib/followUpDialog'
 

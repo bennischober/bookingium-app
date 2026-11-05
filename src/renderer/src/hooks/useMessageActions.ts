@@ -1,6 +1,6 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from 'react'
 import { type UseInfiniteQueryResult, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { confirmAction } from '@/lib/confirm'
 import { hide, unhide, visible } from '@/components/mail/optimistic'

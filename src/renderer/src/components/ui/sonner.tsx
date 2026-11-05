@@ -15,10 +15,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // Clickable over modal sheets and dialogs too (they turn off pointer
       // events on the page behind them; see keepOpenOnToast)
       style={{ pointerEvents: 'auto' }}
+      // Every toast can be closed; how long one stays is set in lib/toast.ts
+      closeButton
       toastOptions={{
+        closeButtonAriaLabel: 'Schließen',
         classNames: {
+          // The × sits top right (sonner's default is top left)
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
+            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg [--toast-close-button-start:auto] [--toast-close-button-end:0] [--toast-close-button-transform:translate(35%,-35%)]',
           description: 'group-[.toast]:text-muted-foreground',
           actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
           cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { confirmAction } from '@/lib/confirm'
 import { askFolderName } from '@/lib/folderName'
