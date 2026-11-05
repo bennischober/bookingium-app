@@ -37,8 +37,6 @@ const DEFAULTS = {
   mailProgram: 'auto',
   // the built-in mail client is experimental and off until the user turns it on
   mailClient: false,
-  // Verteiler are experimental too until they cover more than venues and Veranstalter (#80)
-  contactLists: false,
   // The map preview (#102) is experimental and off until the user turns it on
   mapPreview: false,
   radiusClub: DEFAULT_CLUB_RADIUS,

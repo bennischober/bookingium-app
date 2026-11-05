@@ -1,4 +1,4 @@
-import { CompanyDto, CompanyListItemDto } from '../schemas/company.schema'
+import { CompanyDto, CompanyKind, CompanyListItemDto } from '../schemas/company.schema'
 import { company, address as addressTable, bank as bankTable } from '../../db/schema'
 import { AddressMapper } from './address.mapper'
 import { ContactMapper, type ContactEntity } from './contact.mapper'
@@ -19,6 +19,9 @@ export class CompanyMapper {
     return {
       id: entity.id,
       name: entity.name,
+      // Unknown values (a newer version's kind) read as a plain company
+      kind: CompanyKind.catch('company').parse(entity.kind),
+      genres: entity.genres,
       notes: entity.notes ?? '',
       vatNumber: entity.vat_number,
       ustNumber: entity.ust_number,

@@ -111,6 +111,10 @@ export const company = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
+    // 'company' or 'media' (radio stations and the like, a Verteiler source, #80)
+    kind: text('kind').default('company').notNull(),
+    // Genre tags like venue.genres ("Metal, Rock"); used for media in the Verteiler
+    genres: text('genres').default('').notNull(),
     notes: text('notes'),
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
     vat_number: text('vat_number').default('').notNull(),

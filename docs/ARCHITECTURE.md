@@ -448,24 +448,25 @@ mails. Bookingium sends nothing itself: German law (§ 7 UWG) only allows
 advertising emails with consent or an existing business relationship, and
 bulk sending belongs in a newsletter service that handles unsubscribes.
 
-The page is experimental and off by default (setting `contactLists`,
-Einstellungen › Allgemein › "Verteiler (experimentell)") until it covers
-recipients beyond venues and Veranstalter, such as radio stations (#80).
-Off, the menu and the search leave it out (`hooks/useRouteShown.ts`) and the
-route shows a note; saved lists stay. When #80 is done, the switch goes.
-
-- **Sources:** every venue and festival gives up to three kinds of
-  recipient: its own address (Club/Festival), its Ansprechpartner
-  (venue members) and its Veranstalter (the owning company's own email).
-  Local promoters (LoPro) of events are not included yet.
-- **Filters** apply to the venue (`venueMatches`): kind, recipient type,
-  country, state, PLZ prefixes, capacity (a bound excludes venues without
-  capacity), genre and bookings. A venue's genres are its own tags
-  (`venue.genres`, stored as "Rock, Punk" via `normalizeGenres`) plus the
+- **Sources** (`ContactListRepository.loadSources`): every venue and
+  festival, and every company of the kind Radio/Medien (`company.kind`
+  `'media'`, #80). Recipient types: the source's own address
+  (Hauptadresse), its Ansprechpartner (venue members, or the media
+  company's members), a venue's Veranstalter (the owning company's own
+  email) and the LoPros of the venue's events (#51): the event's LoPro
+  company and LoPro person, from every non-archived event there, cancelled
+  ones included. Media have no Veranstalter, LoPros, capacity or bookings.
+- **Filters** apply to the source (`sourceMatches`): kind (Clubs,
+  Festivals, Radio/Medien), recipient type, country, state, PLZ prefixes,
+  capacity (a bound excludes sources without capacity, media among them),
+  genre and bookings (any choice but "alle" leaves media out). Genres are
+  the source's own tags (`venue.genres` or `company.genres`, stored as
+  "Rock, Punk" via `normalizeGenres` in `api/schemas/genres.ts`) plus the
   genres of bands with a non-cancelled event there; "gebucht" means such an
   event (of one band, when chosen). Empty filters mean no restriction.
 - **One row per address** (case-insensitive): a person's name wins over a
-  venue name, the row lists all matched venues and the largest capacity.
+  source name, the row lists all matched sources (with their kind: venue
+  and company ids are separate sequences) and the largest capacity.
 - **Keine Werbung:** `contact.no_advertising`, a switch in the person,
   company and venue forms and the ⊘ action on the page. Any contact with
   the address marked keeps it off every list; the page shows those as
@@ -475,8 +476,8 @@ route shows a note; saved lists stay. When #80 is done, the switch goes.
   otherwise). Links over 2000 characters get cut off by Windows, so then an
   empty email opens and the addresses go to the clipboard. „Adressen
   kopieren“ copies them; „CSV exportieren“ writes a UTF-8, comma-separated
-  file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma, Club/Festival,
-  Ort, Land, Art) for Brevo, CleverReach or Mailchimp. All three rebuild
+  file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma,
+  Club/Festival/Medium, Ort, Land, Art) for Brevo, CleverReach or Mailchimp. All three rebuild
   the list in main, so the screen can't be stale.
 - **Saved lists** (`contact_list`) store the filters as JSON, not the
   addresses: a saved list always shows the current contacts. Unreadable

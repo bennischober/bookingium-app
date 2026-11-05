@@ -5,6 +5,7 @@ import { ContactDto, ContactInput } from './contact.schema'
 import { CompanyListItemDto } from './company.schema'
 import { PaginationInput } from './base.schema'
 import { RadiusOverrideDto, RadiusOverrideInput } from './radius.schema'
+import { normalizeGenres } from './genres'
 
 export const VenueKind = z.enum(['venue', 'festival'])
 export type VenueKind = z.infer<typeof VenueKind>
@@ -13,24 +14,6 @@ export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
   venue: 'Club',
   festival: 'Festival'
 }
-
-// Genre tags are free text, comma-separated; stored trimmed and deduplicated
-// (case-insensitive) as "Metal, Rock"
-export function splitGenres(value: string): string[] {
-  const seen = new Set<string>()
-  const tags: string[] = []
-  for (const raw of value.split(/[,;]/)) {
-    const tag = raw.trim()
-    if (tag && !seen.has(tag.toLowerCase())) {
-      seen.add(tag.toLowerCase())
-      tags.push(tag)
-    }
-  }
-  return tags
-}
-
-/** " Rock;metal " -> "Rock, metal" (how genres are stored) */
-export const normalizeGenres = (value: string): string => splitGenres(value).join(', ')
 
 const GenresInput = z.string().transform(normalizeGenres)
 

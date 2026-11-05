@@ -34,6 +34,7 @@ import type {
   CreateCompanyInput,
   UpdateCompanyInput
 } from '../../../main/api/schemas/company.schema'
+import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
 import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 
 /** Overview: address, contact, tax and register data, bank, invoicing */
@@ -47,6 +48,16 @@ function OverviewTab({ company }: { company: CompanyDto }) {
   )
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {company.kind === 'media' && (
+        <InfoCard label="Verteiler">
+          <Fields
+            fields={[
+              ['Art', COMPANY_KIND_LABELS[company.kind]],
+              ['Genres', company.genres]
+            ]}
+          />
+        </InfoCard>
+      )}
       <InfoCard label="Adresse">
         <AddressLines address={company.address} />
       </InfoCard>

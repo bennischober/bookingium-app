@@ -117,9 +117,6 @@ export const AppSettings = z.object({
   // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
   // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
   mailClient: z.boolean().default(false),
-  // "Verteiler (experimentell)": off until the user turns it on; the lists are still built around
-  // venues and Veranstalter (#80). Off, the renderer hides the page, its data stays.
-  contactLists: z.boolean().default(false),
   // "Karte (experimentell)": the map preview (#102), off until the user turns it on. Off, the
   // renderer hides the page; the lookup runs offline by postcode (bundled GeoNames table).
   mapPreview: z.boolean().default(false),
@@ -152,7 +149,6 @@ export const UpdateAppSettingsInput = z
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
     mailClient: shape.mailClient.unwrap(),
-    contactLists: shape.contactLists.unwrap(),
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),

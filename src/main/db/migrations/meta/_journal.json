@@ -148,6 +148,13 @@
       "when": 1793645528891,
       "tag": "0020_parallel_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793902414991,
+      "tag": "0021_sturdy_stick",
+      "breakpoints": true
     }
   ]
 }

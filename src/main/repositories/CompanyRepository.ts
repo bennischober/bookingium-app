@@ -177,6 +177,8 @@ export class CompanyRepository {
         .insert(company)
         .values({
           name: input.name,
+          kind: input.kind ?? 'company',
+          genres: input.genres ?? '',
           notes: input.notes || '',
           vat_number: input.vatNumber || '',
           ust_number: input.ustNumber || '',
@@ -308,6 +310,8 @@ export class CompanyRepository {
       tx.update(company)
         .set({
           name: input.name ?? existingCompany.name,
+          kind: input.kind ?? existingCompany.kind,
+          genres: input.genres ?? existingCompany.genres,
           notes: input.notes ?? existingCompany.notes,
           vat_number: input.vatNumber ?? existingCompany.vat_number,
           ust_number: input.ustNumber ?? existingCompany.ust_number,

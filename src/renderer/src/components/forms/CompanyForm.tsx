@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { AddressFormFields } from './AddressFormFields'
@@ -12,7 +19,12 @@ import { trpcReact } from '@/lib/trpc'
 import { InfoLabel } from '@/components/InfoLabel'
 
 import type { z } from 'zod'
-import type { CompanyDto, CreateCompanyInput } from '../../../../main/api/schemas/company.schema'
+import {
+  COMPANY_KIND_LABELS,
+  CompanyKind,
+  type CompanyDto,
+  type CreateCompanyInput
+} from '../../../../main/api/schemas/company.schema'
 
 interface CompanyFormProps {
   company?: CompanyDto
@@ -117,6 +129,8 @@ export function CompanyForm({
   const form = useForm({
     defaultValues: {
       name: company?.name || '',
+      kind: company?.kind ?? ('company' as CompanyKind),
+      genres: company?.genres ?? '',
       notes: company?.notes || '',
       vatNumber: company?.vatNumber || '',
       ustNumber: company?.ustNumber || '',
@@ -190,6 +204,57 @@ export function CompanyForm({
             </div>
           )}
         </form.Field>
+
+        <form.Field name="kind">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="kind">Art</Label>
+              <Select
+                value={field.state.value}
+                onValueChange={(value) => field.handleChange(value as CompanyKind)}
+              >
+                <SelectTrigger id="kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CompanyKind.options.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {COMPANY_KIND_LABELS[kind]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Radio/Medien stehen mit ihren Ansprechpartnern in den Verteilern.
+              </p>
+            </div>
+          )}
+        </form.Field>
+
+        {/* Genres only matter for the Verteiler, so only media companies get them */}
+        <form.Subscribe selector={(state) => state.values.kind}>
+          {(kind) =>
+            kind === 'media' && (
+              <form.Field name="genres">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="genres">Genres</Label>
+                    <Input
+                      id="genres"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="z. B. Metal, Rock"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mit Komma trennen; wird für die Verteiler genutzt.
+                    </p>
+                  </div>
+                )}
+              </form.Field>
+            )
+          }
+        </form.Subscribe>
 
         <div className="grid grid-cols-2 gap-4">
           <form.Field name="vatNumber">

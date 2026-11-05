@@ -12,11 +12,14 @@ let outDir: string
 
 // Seed: Berghain (1500, Rock bookings) and The Whisky a Go Go (500,
 // Electronic/Indie booking), both run by Live Music Berlin GmbH, Tom Manager
-// works at both
+// works at both and is the LoPro of their events, with Live Music Berlin
+// (Berghain) and Soundwave Records (Whisky) as LoPro companies
 const BERGHAIN = 'venue-2@email.example.test'
 const WHISKY = 'venue-email@email.example.test'
 const PROMOTER = 'info@livemusic-berlin.example.test'
+const SOUNDWAVE = 'contact@soundwaverecords.example.test'
 const TOM = 'tom.manager@soundwave.example.test'
+const STATION = 'redaktion@radio-testwelle.example.test'
 
 test.beforeAll(async () => {
   outDir = mkdtempSync(join(tmpdir(), 'bookingum-contact-list-'))
@@ -38,15 +41,10 @@ test.afterAll(async () => {
 
 const copied = () => h.app.evaluate(() => (globalThis as { copied?: string }).copied ?? '')
 
-test('stays out of the menu until switched on in the settings', async () => {
-  const { page } = h
-  const menu = page.getByRole('navigation', { name: 'Hauptnavigation' })
-  await expect(menu.getByRole('link', { name: 'Clubs' })).toBeVisible()
-  await expect(menu.getByRole('link', { name: 'Verteiler' })).toHaveCount(0)
+const menu = () => h.page.getByRole('navigation', { name: 'Hauptnavigation' })
 
-  await menu.getByRole('link', { name: 'Einstellungen' }).click()
-  await page.getByRole('switch', { name: 'Verteiler einschalten' }).click()
-  await expect(menu.getByRole('link', { name: 'Verteiler' })).toBeVisible()
+test('is in the menu without a switch', async () => {
+  await expect(menu().getByRole('link', { name: 'Verteiler' })).toBeVisible()
 })
 
 test('builds, saves and exports a mailing list', async () => {
@@ -58,10 +56,12 @@ test('builds, saves and exports a mailing list', async () => {
   if ((await filterButton.getAttribute('aria-pressed')) !== 'true') await filterButton.click()
 
   const table = page.locator('tbody')
-  for (const email of [BERGHAIN, WHISKY, PROMOTER, TOM]) {
+  for (const email of [BERGHAIN, WHISKY, PROMOTER, SOUNDWAVE, TOM]) {
     await expect(table.getByText(email, { exact: true })).toBeVisible()
   }
   await expect(page.locator('tr', { hasText: TOM })).toContainText('Ansprechpartner')
+  await expect(page.locator('tr', { hasText: TOM })).toContainText('LoPro')
+  await expect(page.locator('tr', { hasText: SOUNDWAVE })).toContainText('LoPro')
 
   // Size: only Berghain is that large
   await page.getByLabel('Kapazität ab').fill('1000')
@@ -70,7 +70,7 @@ test('builds, saves and exports a mailing list', async () => {
   await expect(page.locator('tr', { hasText: TOM })).toContainText('Berghain (Stage Manager)')
 
   // Recipient type: only the venues' own addresses
-  await page.getByRole('button', { name: 'Club/Festival', exact: true }).click()
+  await page.getByRole('button', { name: 'Hauptadresse', exact: true }).click()
   await expect(table.getByText(TOM, { exact: true })).toBeHidden()
   await expect(table.locator('tr')).toHaveCount(1)
 
@@ -120,16 +120,47 @@ test('builds, saves and exports a mailing list', async () => {
     dialog.showSaveDialog = (async () => ({ canceled: false, filePath: path })) as never
   }, file)
   await page.getByRole('button', { name: 'CSV exportieren' }).click()
-  await expect(page.getByText('3 Zeilen exportiert')).toBeVisible()
+  await expect(page.getByText('4 Zeilen exportiert')).toBeVisible()
   const lines = readFileSync(file, 'utf-8').trimEnd().split('\r\n')
-  expect(lines[0]).toBe('E-Mail,Vorname,Nachname,Firma,Club/Festival,Ort,Land,Art')
-  expect(lines).toHaveLength(4)
+  expect(lines[0]).toBe('E-Mail,Vorname,Nachname,Firma,Club/Festival/Medium,Ort,Land,Art')
+  expect(lines).toHaveLength(5)
   expect(lines.some((line) => line.startsWith(`${TOM},Tom,Manager,`))).toBe(true)
 
   // BCC email (no mail program in tests) and copying
   await page.getByRole('button', { name: 'E-Mail schreiben' }).click()
-  await expect(page.getByText('E-Mail mit 3 Adressen in BCC geöffnet')).toBeVisible()
+  await expect(page.getByText('E-Mail mit 4 Adressen in BCC geöffnet')).toBeVisible()
   await page.getByRole('button', { name: 'Adressen kopieren' }).click()
-  await expect(page.getByText('3 Adressen kopiert')).toBeVisible()
-  expect((await copied()).split(/[,;] /).sort()).toEqual([PROMOTER, TOM, WHISKY].sort())
+  await expect(page.getByText('4 Adressen kopiert')).toBeVisible()
+  expect((await copied()).split(/[,;] /).sort()).toEqual([PROMOTER, SOUNDWAVE, TOM, WHISKY].sort())
+})
+
+test('lists a radio station entered as a company', async () => {
+  const { page } = h
+  await menu().getByRole('link', { name: 'Firmen' }).click()
+  await page.getByRole('button', { name: '+ Neue Firma anlegen' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Firma anlegen' })
+  await sheet.getByLabel('Firmenname *').fill('Radio Testwelle')
+  await sheet.getByRole('combobox', { name: 'Art', exact: true }).click()
+  await page.getByRole('option', { name: 'Radio/Medien' }).click()
+  await sheet.getByLabel('Genres').fill('indie, Indie')
+  await sheet.getByLabel('E-Mail', { exact: true }).fill(STATION)
+  await sheet.getByRole('button', { name: 'Firma speichern' }).click()
+  await expect(sheet).toBeHidden()
+
+  await menu().getByRole('link', { name: 'Verteiler' }).click()
+  const savedSelect = page.getByRole('combobox', { name: 'Gespeicherter Verteiler' })
+  await savedSelect.click()
+  await page.getByRole('option', { name: 'Neuer Verteiler' }).click()
+  const filterButton = page.getByRole('button', { name: 'Filter' })
+  if ((await filterButton.getAttribute('aria-pressed')) !== 'true') await filterButton.click()
+  const table = page.locator('tbody')
+  await page.getByRole('button', { name: 'Radio/Medien', exact: true }).click()
+  await expect(table.locator('tr')).toHaveCount(1)
+  await expect(page.locator('tr', { hasText: STATION })).toContainText('Radio Testwelle')
+  // Its genre is a filter option and finds it
+  await page.getByRole('button', { name: 'Radio/Medien', exact: true }).click()
+  await page.getByLabel('Genre').click()
+  await page.getByRole('option', { name: 'indie', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(table.getByText(STATION, { exact: true })).toBeVisible()
 })

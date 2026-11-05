@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -29,10 +28,11 @@ import {
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { useExportToast } from '@/components/export/useExportToast'
 import { confirmAction } from '@/lib/confirm'
-import { VenueKind } from '../../../main/api/schemas/venue.schema'
 import {
   BookedFilter,
   ContactListFilters,
+  LIST_KIND_LABELS,
+  ListKind,
   RECIPIENT_TYPE_LABELS,
   RecipientType,
   type ContactListRecipientDto
@@ -76,22 +76,7 @@ function activeFilterCount(filters: ContactListFilters): number {
 
 const addresses = (count: number) => `${count} ${count === 1 ? 'Adresse' : 'Adressen'}`
 
-/** The Verteiler, or a note while "Verteiler (experimentell)" is off (the menu then has no entry) */
 export default function ContactListPage() {
-  const navigate = useNavigate()
-  const settings = trpcReact.settings.get.useQuery()
-  if (!settings.data) return null
-  if (settings.data.contactLists) return <ContactLists />
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <h1 className="text-2xl font-bold">Verteiler</h1>
-      <p className="text-sm text-muted-foreground">Die Verteiler sind ausgeschaltet.</p>
-      <Button onClick={() => void navigate({ to: '/settings' })}>Zu den Einstellungen</Button>
-    </div>
-  )
-}
-
-function ContactLists() {
   const [filters, setFilters] = useState<ContactListFilters>(EMPTY_FILTERS)
   const [savedId, setSavedId] = useState<number | null>(null)
   const [nameDialog, setNameDialog] = useState<{ id?: number; name: string } | null>(null)
@@ -104,7 +89,10 @@ function ContactLists() {
 
   const utils = trpcReact.useUtils()
   const exportToast = useExportToast()
-  const options = trpcReact.contactList.filterOptions.useQuery()
+  // Genres and states change on other pages: fresh each time the page opens
+  const options = trpcReact.contactList.filterOptions.useQuery(undefined, {
+    refetchOnMount: 'always'
+  })
   const savedLists = trpcReact.contactList.listSaved.useQuery()
   const list = trpcReact.contactList.build.useQuery(filters, { keepPreviousData: true })
 
@@ -228,11 +216,11 @@ function ContactLists() {
       cell: ({ row }) => row.original.types.map((type) => RECIPIENT_TYPE_LABELS[type]).join(', ')
     },
     {
-      id: 'venues',
-      header: 'Clubs / Festivals',
+      id: 'sources',
+      header: 'Clubs, Festivals, Medien',
       cell: ({ row }) => {
-        const names = row.original.venues.map((venue) =>
-          venue.role ? `${venue.name} (${venue.role})` : venue.name
+        const names = row.original.sources.map((source) =>
+          source.role ? `${source.name} (${source.role})` : source.name
         )
         const text = names.join(', ')
         return <span title={text}>{text.length > 60 ? `${text.slice(0, 60)}...` : text}</span>
@@ -274,7 +262,8 @@ function ContactLists() {
         <div>
           <h1 className="text-2xl font-bold mb-2">Verteiler</h1>
           <p className="text-sm text-muted-foreground">
-            Empfänger für Rundmails nach Art, Region, Genre, Größe und Buchungen zusammenstellen.
+            Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe
+            und Buchungen zusammenstellen.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -345,16 +334,19 @@ function ContactLists() {
                 type="multiple"
                 variant="outline"
                 size="sm"
-                className="justify-start"
+                className="flex-wrap justify-start"
                 value={filters.kinds}
-                onValueChange={(value) => update({ kinds: value as VenueKind[] })}
+                onValueChange={(value) => update({ kinds: value as ListKind[] })}
               >
-                {VenueKind.options.map((kind) => (
+                {ListKind.options.map((kind) => (
                   <ToggleGroupItem key={kind} value={kind}>
-                    {kind === 'venue' ? 'Clubs' : 'Festivals'}
+                    {LIST_KIND_LABELS[kind]}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+              <p className="text-xs text-muted-foreground">
+                Radio/Medien sind Firmen mit der Art „Radio/Medien“.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -373,7 +365,10 @@ function ContactLists() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-              <p className="text-xs text-muted-foreground">Keine Auswahl: alle.</p>
+              <p className="text-xs text-muted-foreground">
+                Keine Auswahl: alle. Hauptadresse ist die E-Mail des Clubs, Festivals oder Senders;
+                LoPros sind die der Events dort.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -434,6 +429,7 @@ function ContactLists() {
                   onChange={(event) => update({ capacityMax: parseCapacity(event.target.value) })}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
             </div>
 
             <div className="space-y-2">
@@ -447,10 +443,10 @@ function ContactLists() {
                   label: genre
                 }))}
                 placeholder="Alle Genres"
-                emptyText="Keine Genres. Bei Clubs, Festivals und Bands eintragen."
+                emptyText="Keine Genres. Bei Clubs, Festivals, Radio/Medien und Bands eintragen."
               />
               <p className="text-xs text-muted-foreground">
-                Genres des Clubs / Festivals und der Bands, die dort gespielt haben.
+                Genres des Clubs, Festivals oder Senders und der Bands, die dort gespielt haben.
               </p>
             </div>
 
@@ -481,6 +477,9 @@ function ContactLists() {
                   noneLabel="Alle Bands"
                   searchPlaceholder="Band suchen…"
                 />
+              )}
+              {filters.booked !== 'all' && (
+                <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
               )}
             </div>
 
