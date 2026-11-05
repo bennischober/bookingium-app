@@ -7,6 +7,7 @@
 
 import { countryCodeOf } from '../einvoice/codes'
 import { DEFAULT_CLUB_RADIUS, DEFAULT_FESTIVAL_RADIUS } from '../api/schemas/radius.schema'
+import type { MapKindFilter } from '../api/schemas/map.schema'
 import { lookupPostcode, type Coordinates } from './postcodeLookup'
 import {
   clauseWindow,
@@ -14,14 +15,12 @@ import {
   distanceKm,
   effectiveClause,
   inWindow,
+  isIsoDate,
   windowOverlaps,
   type RadiusDefaults,
   type RadiusRow,
   type RadiusWindow
 } from './radius'
-
-/** The marker kinds the page can filter to */
-export type MapKindFilter = 'venue' | 'festival'
 
 /** The map page's filters, as the procedure receives them */
 export type MapDataFilter = {
@@ -103,7 +102,7 @@ export type MapVenueRow = {
 }
 
 /** Why an entry is not on the map - the page says so, so the user knows what to fix */
-export type UnlocatedReason = 'no_venue' | 'no_address' | 'unknown_postcode'
+export type UnlocatedReason = 'no_venue' | 'no_address' | 'unknown_postcode' | 'invalid_date'
 
 /** A filtered event or venue without a known location */
 export type MapUnlocated = {
@@ -221,6 +220,13 @@ type PlacedEvent = {
   coordinates: Coordinates | null
 }
 
+/** A venue with its kind and location, looked up once per query */
+type PlacedVenue = {
+  row: MapVenueRow
+  kind: 'venue' | 'festival'
+  coordinates: Coordinates | null
+}
+
 function placeEvent(event: MapEventRow, defaults: RadiusDefaults): PlacedEvent {
   const kind = venueKind(event.venue_kind)
   const clause = effectiveClause(event.radius, event.venue_radius, defaultClause(defaults, kind))
@@ -257,17 +263,26 @@ export function buildMapData(
   defaults: RadiusDefaults = FALLBACK_DEFAULTS
 ): MapData {
   // A cancelled gig never happens, so it draws no ring and blocks nothing; archived events are
-  // already out (the service filters them, D3)
-  const activeEvents = events
-    .filter((event) => event.status !== 'cancelled')
+  // already out (the service filters them, D3). An event whose date is not YYYY-MM-DD has no
+  // window: it is listed as „nicht auf der Karte“ instead of failing the whole query.
+  const live = events.filter((event) => event.status !== 'cancelled')
+  const activeEvents = live
+    .filter((event) => isIsoDate(event.date))
     .map((event) => placeEvent(event, defaults))
+  const placedVenues: PlacedVenue[] = venues.map((row) => ({
+    row,
+    kind: venueKind(row.kind),
+    coordinates: locate(row.address)
+  }))
 
-  const shownEvents = activeEvents.filter(
+  // The band's events in the date range, whatever their kind: a festival's ring blocks the
+  // clubs inside it even while the map shows only clubs
+  const bandEventsInRange = activeEvents.filter(
     (event) =>
-      kindShown(filter.kinds, event.kind) &&
       (filter.bandId === undefined || event.row.band_id === filter.bandId) &&
       windowOverlaps(event.ring, filter.dateFrom, filter.dateTo)
   )
+  const shownEvents = bandEventsInRange.filter((event) => kindShown(filter.kinds, event.kind))
 
   const bandsByVenue = new Map<number, number[]>()
   for (const { row } of shownEvents) {
@@ -304,20 +319,29 @@ export function buildMapData(
       })
     }
   }
-
-  // Rings that can block: the shown events of the chosen band with a location
-  const blockingEvents =
-    filter.bandId === undefined ? [] : shownEvents.filter((event) => event.coordinates !== null)
-
-  for (const venueRow of venues) {
-    const kind = venueKind(venueRow.kind)
+  for (const row of live) {
+    if (isIsoDate(row.date)) continue
+    const kind = venueKind(row.venue_kind)
     if (!kindShown(filter.kinds, kind)) continue
-    const coordinates = locate(venueRow.address)
+    if (filter.bandId !== undefined && row.band_id !== filter.bandId) continue
+    unlocated.push({ type: 'event', id: row.id, kind, name: row.name, reason: 'invalid_date' })
+  }
+
+  // Rings that can block: the chosen band's events in the range with a location, any kind
+  const blockingEvents =
+    filter.bandId === undefined
+      ? []
+      : bandEventsInRange.flatMap((event) =>
+          event.coordinates ? [{ ...event, coordinates: event.coordinates }] : []
+        )
+
+  for (const { row: venueRow, kind, coordinates } of placedVenues) {
+    if (!kindShown(filter.kinds, kind)) continue
     const blockedBy: MapBlock[] = []
     const riskBy: MapBlock[] = []
     if (coordinates) {
       for (const event of blockingEvents) {
-        if (distanceKm(coordinates, event.coordinates!) > event.ring.km) continue
+        if (distanceKm(coordinates, event.coordinates) > event.ring.km) continue
         const block = { eventId: event.row.id, name: event.row.name, date: event.row.date }
         if (event.status === 'confirmed') blockedBy.push(block)
         else riskBy.push(block)
@@ -349,7 +373,7 @@ export function buildMapData(
     markers,
     unlocated,
     candidate: filter.candidate
-      ? buildCandidate(filter.candidate, activeEvents, venues, filter, defaults)
+      ? buildCandidate(filter.candidate, activeEvents, placedVenues, filter, defaults)
       : null
   }
 }
@@ -360,38 +384,35 @@ export function buildMapData(
  * collides with the band's events in both directions - an event inside the
  * candidate's ring and window, or the candidate inside an event's. The band's
  * events count whatever the kind and date filters say: a clause does not care
- * what the map shows. Null for an unknown venue.
+ * what the map shows. Null for an unknown venue or a date that is not YYYY-MM-DD.
  */
 function buildCandidate(
   candidate: NonNullable<MapDataFilter['candidate']>,
   events: PlacedEvent[],
-  venues: MapVenueRow[],
+  venues: PlacedVenue[],
   filter: MapDataFilter,
   defaults: RadiusDefaults
 ): MapCandidate | null {
-  const venueRow = venues.find((row) => row.id === candidate.venueId)
-  if (!venueRow) return null
-  const kind = venueKind(venueRow.kind)
+  const venue = venues.find(({ row }) => row.id === candidate.venueId)
+  if (!venue || !isIsoDate(candidate.date)) return null
+  const { row: venueRow, kind, coordinates } = venue
   const ring = clauseWindow(
     candidate.date,
     effectiveClause(null, venueRow.radius, defaultClause(defaults, kind))
   )
-  const coordinates = locate(venueRow.address)
 
   const blocks: MapCandidateBlock[] = []
   if (coordinates) {
     for (const other of venues) {
-      if (other.id === venueRow.id) continue
-      const otherKind = venueKind(other.kind)
-      if (!kindShown(filter.kinds, otherKind)) continue
-      const otherCoordinates = locate(other.address)
-      if (!otherCoordinates) continue
-      const distance = distanceKm(coordinates, otherCoordinates)
+      if (other.row.id === venueRow.id) continue
+      if (!kindShown(filter.kinds, other.kind)) continue
+      if (!other.coordinates) continue
+      const distance = distanceKm(coordinates, other.coordinates)
       if (distance > ring.km) continue
       blocks.push({
-        id: other.id,
-        name: other.name,
-        kind: otherKind,
+        id: other.row.id,
+        name: other.row.name,
+        kind: other.kind,
         distanceKm: Math.round(distance)
       })
     }

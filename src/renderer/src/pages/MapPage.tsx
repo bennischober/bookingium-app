@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useMapPreview } from '@/hooks/useMapPreview'
 import { useNavigate } from '@tanstack/react-router'
 import { Map as MapIcon, MapPinOff, Navigation, X } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -20,6 +21,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { LeafletMap } from '@/components/map/LeafletMap'
 import {
   CONFLICT_KIND_LABELS,
+  germanDate,
   MARKER_COLORS,
   markerHref,
   ringWindowLabel,
@@ -34,15 +36,9 @@ const SHOW_ALL = 'alle'
 /** The map, or a note while "Karte (experimentell)" is off (the menu then has no entry) */
 export default function MapPage() {
   const navigate = useNavigate()
-  const settings = trpcReact.settings.get.useQuery()
-  if (!settings.data) return null
-  if (settings.data.mapPreview) {
-    return (
-      <MapPreview
-        defaults={{ club: settings.data.radiusClub, festival: settings.data.radiusFestival }}
-      />
-    )
-  }
+  const { enabled, defaults } = useMapPreview()
+  if (!defaults) return null
+  if (enabled) return <MapPreview defaults={defaults} />
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <h1 className="text-2xl font-bold">Karte</h1>
@@ -389,9 +385,9 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               )}
               <p className="text-xs text-muted-foreground">
                 Standard: Clubs {formatClause(defaults.club)}; Festivals{' '}
-                {formatClause(defaults.festival)}. Clubs, Festivals und Events können eigene Werte
-                haben (Einstellungen › Allgemein). Ein Event erscheint, solange sein Gebietsschutz
-                in den Zeitraum fällt.
+                {formatClause(defaults.festival)} (Einstellungen › Allgemein). Eigene Werte für
+                einen Club oder ein Festival stehen in seinem Formular, für ein Event in dessen
+                Übersicht. Ein Event erscheint, solange sein Gebietsschutz in den Zeitraum fällt.
               </p>
             </CardContent>
           </Card>
@@ -454,8 +450,7 @@ function CandidateCard({
                     href={`#/events/${conflict.eventId}`}
                     className="underline-offset-2 hover:underline"
                   >
-                    {conflict.name} ·{' '}
-                    {new Date(`${conflict.date}T00:00:00`).toLocaleDateString('de-DE')}
+                    {conflict.name} · {germanDate(conflict.date)}
                   </a>
                   {conflict.status === 'pending' && ' (ausstehend)'}
                   <span className="block text-xs text-muted-foreground">

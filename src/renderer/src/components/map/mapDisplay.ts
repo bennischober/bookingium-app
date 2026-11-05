@@ -61,7 +61,7 @@ export function ringColor(marker: Pick<MapMarkerDto, 'type' | 'kind'>): string |
 /** One-line label for a marker: name, then the date for events */
 export function markerTitle(marker: MapMarkerDto): string {
   if (marker.type === 'event') {
-    const date = marker.date ? new Date(`${marker.date}T00:00:00`).toLocaleDateString('de-DE') : ''
+    const date = marker.date ? germanDate(marker.date) : ''
     return date ? `${marker.name} · ${date}` : marker.name
   }
   return marker.name
@@ -72,8 +72,8 @@ export function ringLabel(metres: number): string {
   return `${(metres / 1000).toLocaleString('de-DE')} km`
 }
 
-/** ISO date in German notation */
-function germanDate(date: string): string {
+/** ISO date in German notation ("1.3.2027"), local midnight so no day shift */
+export function germanDate(date: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString('de-DE')
 }
 
@@ -104,7 +104,8 @@ export function escapeHtml(text: string): string {
 export const UNLOCATED_REASON_LABELS: Record<MapUnlocatedDto['reason'], string> = {
   no_venue: 'kein Club/Festival',
   no_address: 'keine Adresse',
-  unknown_postcode: 'PLZ unbekannt'
+  unknown_postcode: 'PLZ unbekannt',
+  invalid_date: 'Datum ungültig'
 }
 
 /** Hash link to a marker's detail page; venues live under the list of their kind */

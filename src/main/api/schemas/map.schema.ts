@@ -8,14 +8,17 @@ import { z } from 'zod'
 // could not locate. No coordinates are stored anywhere - they are looked up
 // offline from the bundled postcode table at request time.
 
+/** YYYY-MM-DD, as a date input gives it; the bounds compare as strings, so the format matters */
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum als JJJJ-MM-TT')
+
 /** Kind, band and date-range filters of the map page; unset = no filter */
 export const MapDataInput = z.object({
   kinds: z.array(z.enum(['venue', 'festival'])).optional(),
   bandId: z.number().optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
-  /** What-if: booking this venue on this date (ISO) - what would it block, what collides? */
-  candidate: z.object({ venueId: z.number(), date: z.string().min(1) }).optional()
+  dateFrom: IsoDate.optional(),
+  dateTo: IsoDate.optional(),
+  /** What-if: booking this venue on this date - what would it block, what collides? */
+  candidate: z.object({ venueId: z.number(), date: IsoDate }).optional()
 })
 
 export type MapDataInput = z.infer<typeof MapDataInput>
@@ -66,7 +69,7 @@ export const MapUnlocatedDto = z.object({
   kind: z.enum(['venue', 'festival']),
   name: z.string(),
   /** Event without a venue, address without a postcode/city, or a postcode the table lacks */
-  reason: z.enum(['no_venue', 'no_address', 'unknown_postcode'])
+  reason: z.enum(['no_venue', 'no_address', 'unknown_postcode', 'invalid_date'])
 })
 
 export type MapUnlocatedDto = z.infer<typeof MapUnlocatedDto>

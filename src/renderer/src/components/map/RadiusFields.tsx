@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { RadiusClause } from '../../../../main/api/schemas/radius.schema'
+import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../../../../main/map/radius'
 import { formatClause, type RadiusDraft } from './radiusDisplay'
 
 interface RadiusFieldsProps {
@@ -17,9 +18,9 @@ interface RadiusFieldsProps {
 }
 
 const FIELDS = [
-  { key: 'km', label: 'Radius (km)', min: 1, max: 2000 },
-  { key: 'weeksBefore', label: 'Wochen vorher', min: 0, max: 104 },
-  { key: 'weeksAfter', label: 'Wochen nachher', min: 0, max: 104 }
+  { key: 'km', label: 'Radius (km)', min: 1, max: RADIUS_KM_MAX },
+  { key: 'weeksBefore', label: 'Wochen vorher', min: 0, max: RADIUS_WEEKS_MAX },
+  { key: 'weeksAfter', label: 'Wochen nachher', min: 0, max: RADIUS_WEEKS_MAX }
 ] as const
 
 /** The three inputs of a radius clause (Gebietsschutz), side by side */

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../../map/radius'
 
 // ========================================
 // Radius clause (Gebietsschutz), #102
@@ -8,10 +9,10 @@ import { z } from 'zod'
 // global default for the venue kind (Einstellungen). Each field falls back on
 // its own, so an event can override only the km and keep the venue's weeks.
 
-/** km around the venue; 2000 km covers any European clause */
-export const RadiusKm = z.number().int().min(1).max(2000)
-/** Weeks before or after the show; two years is beyond any real clause */
-export const RadiusWeeks = z.number().int().min(0).max(104)
+/** km around the venue (limits in map/radius.ts, shared with the renderer's fields) */
+export const RadiusKm = z.number().int().min(1).max(RADIUS_KM_MAX)
+/** Weeks before or after the show */
+export const RadiusWeeks = z.number().int().min(0).max(RADIUS_WEEKS_MAX)
 
 /** A complete clause, as the global defaults store it */
 export const RadiusClause = z.object({

@@ -3,24 +3,18 @@
 // Unit-tested directly; the components stay thin.
 
 import type { RadiusClause, RadiusOverrideDto } from '../../../../main/api/schemas/radius.schema'
-import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../../../../main/map/radius'
 
-/** The global defaults per venue kind (Einstellungen) */
-export type RadiusDefaults = { club: RadiusClause; festival: RadiusClause }
+// The defaults and their resolution per kind are the main process's (pure module)
+export { defaultClause, type RadiusDefaults } from '../../../../main/map/radius'
 
 /** The three inputs as typed; '' = inherit (override) or invalid (default) */
 export type RadiusDraft = { km: string; weeksBefore: string; weeksAfter: string }
 
-/** Same limits as the main-process schema (radius.schema.ts) */
-const KM_MAX = 2000
-const WEEKS_MAX = 104
-
-/** The default for a venue kind ('venue' = club) */
-export function defaultClause(defaults: RadiusDefaults, kind: VenueKind): RadiusClause {
-  return kind === 'festival' ? defaults.festival : defaults.club
-}
-
-/** An override over a fallback, per field (null inherits) */
+/**
+ * An override over a fallback, per field (null inherits): `effectiveClause` of
+ * map/radius.ts for one layer, on the camelCase DTO the renderer holds
+ */
 export function inheritClause(
   override: RadiusOverrideDto | null | undefined,
   fallback: RadiusClause
@@ -87,9 +81,9 @@ export type ParsedOverride =
 
 /** The drafts as an override input; empty fields inherit */
 export function parseOverrideDraft(draft: RadiusDraft): ParsedOverride {
-  const km = parseField(draft.km, 1, KM_MAX)
-  const before = parseField(draft.weeksBefore, 0, WEEKS_MAX)
-  const after = parseField(draft.weeksAfter, 0, WEEKS_MAX)
+  const km = parseField(draft.km, 1, RADIUS_KM_MAX)
+  const before = parseField(draft.weeksBefore, 0, RADIUS_WEEKS_MAX)
+  const after = parseField(draft.weeksAfter, 0, RADIUS_WEEKS_MAX)
   if (typeof km === 'string') return { ok: false, error: `Radius: ${km}` }
   if (typeof before === 'string') return { ok: false, error: `Wochen vorher: ${before}` }
   if (typeof after === 'string') return { ok: false, error: `Wochen nachher: ${after}` }

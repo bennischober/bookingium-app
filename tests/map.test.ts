@@ -18,6 +18,7 @@ import {
   clauseWindow,
   distanceKm,
   effectiveClause,
+  isIsoDate,
   shiftIsoDate,
   windowOverlaps
 } from '../src/main/map/radius'
@@ -349,6 +350,15 @@ describe('room for the band', () => {
     const data = buildMapData([event()], [potsdam], { bandId: 1, dateFrom: '2026-06-01' })
     expect(venueById(data, 11).blockedBy).toEqual([])
   })
+
+  it('blocks clubs by a festival ring while the map shows only clubs', () => {
+    const festival = event({ id: 2, name: 'Fest', venue_kind: 'festival' })
+    const data = buildMapData([festival], [potsdam], { bandId: 1, kinds: ['venue'] })
+    expect(data.markers.some((marker) => marker.type === 'event')).toBe(false)
+    expect(venueById(data, 11).blockedBy).toEqual([
+      { eventId: 2, name: 'Fest', date: '2026-05-01' }
+    ])
+  })
 })
 
 describe('what-if booking', () => {
@@ -456,6 +466,29 @@ describe('what-if booking', () => {
     })
     const unknown = buildMapData([], [], { candidate: { venueId: 99, date: '2026-07-01' } })
     expect(unknown.candidate).toBeNull()
+    const badDate = buildMapData([], [venue()], { candidate: { venueId: 10, date: '1.7.2026' } })
+    expect(badDate.candidate).toBeNull()
+  })
+})
+
+describe('event dates that are not YYYY-MM-DD', () => {
+  it('are told apart from real dates', () => {
+    expect(isIsoDate('2026-05-01')).toBe(true)
+    expect(isIsoDate('2026-5-1')).toBe(false)
+    expect(isIsoDate('01.05.2026')).toBe(false)
+    expect(isIsoDate('2027-02-30')).toBe(false)
+    expect(isIsoDate('')).toBe(false)
+  })
+
+  it('list the event instead of failing the whole map', () => {
+    const broken = event({ id: 2, name: 'Alt', date: '01.05.2026' })
+    const data = buildMapData([event(), broken], [venue()], { bandId: 1 })
+    expect(data.markers.filter((marker) => marker.type === 'event').map((m) => m.id)).toEqual([1])
+    expect(data.unlocated).toEqual([
+      { type: 'event', id: 2, kind: 'venue', name: 'Alt', reason: 'invalid_date' }
+    ])
+    // Other bands' broken rows stay out of a band's list
+    expect(buildMapData([broken], [], { bandId: 2 }).unlocated).toEqual([])
   })
 })
 
@@ -696,6 +729,7 @@ describe('map points', () => {
 
   it('label every reason an entry is not on the map', () => {
     expect(Object.keys(UNLOCATED_REASON_LABELS).sort()).toEqual([
+      'invalid_date',
       'no_address',
       'no_venue',
       'unknown_postcode'

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { trpcReact } from '@/lib/trpc'
+import { useMapPreview } from '@/hooks/useMapPreview'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -31,9 +32,7 @@ export function MapPreviewSwitchCard() {
       toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
   })
 
-  const defaults = settings.data
-    ? { club: settings.data.radiusClub, festival: settings.data.radiusFestival }
-    : null
+  const { defaults } = useMapPreview()
 
   return (
     <Card>

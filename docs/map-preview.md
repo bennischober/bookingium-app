@@ -124,6 +124,9 @@ default for the venue kind in Einstellungen › Allgemein (clubs 100 km ± 4 wee
 **Display:** confirmed rings solid, open offers dashed (a solid ring of the same size wins),
 blocked venues grey, venues at risk with an amber outline. The date filter keeps an event
 while its clause window overlaps the range, not only its show date.
+The kind filter only changes what the map shows: a festival's ring still blocks the clubs
+inside it while only clubs are shown. An event whose date is not `YYYY-MM-DD` gets no
+window and is listed as „nicht auf der Karte“ (Datum ungültig).
 
 ## Decided
 

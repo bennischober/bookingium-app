@@ -64,6 +64,8 @@ export function OverviewTab({
   const [weeksBefore, setWeeksBefore] = useSyncedState(event.radiusWeeksBefore?.toString() ?? '')
   const [weeksAfter, setWeeksAfter] = useSyncedState(event.radiusWeeksAfter?.toString() ?? '')
   const radiusDraft = { km: radiusKm, weeksBefore, weeksAfter }
+  // Checked on every keystroke, so the field says what is wrong before a save is tried
+  const radiusParsed = parseOverrideDraft(radiusDraft)
   const radiusDirty =
     radiusKm !== (event.radiusKm?.toString() ?? '') ||
     weeksBefore !== (event.radiusWeeksBefore?.toString() ?? '') ||
@@ -137,9 +139,11 @@ export function OverviewTab({
   })
 
   const handleSave = () => {
-    const radius = parseOverrideDraft(radiusDraft)
-    if (!radius.ok) {
-      toast.error('Gebietsschutz ungültig', { description: radius.error })
+    // One save for the whole tab: an invalid clause holds back the other fields too, and says so
+    if (radiusDirty && !radiusParsed.ok) {
+      toast.error('Übersicht nicht gespeichert', {
+        description: `Gebietsschutz ungültig – ${radiusParsed.error}`
+      })
       return
     }
     updateMutation.mutate({
@@ -148,7 +152,7 @@ export function OverviewTab({
       date,
       status,
       notes,
-      ...(radiusDirty ? radius.value : {})
+      ...(radiusDirty && radiusParsed.ok ? radiusParsed.value : {})
     })
   }
 
@@ -308,6 +312,7 @@ export function OverviewTab({
                       setWeeksAfter(draft.weeksAfter)
                     }}
                     inherited={inheritedRadius}
+                    error={radiusParsed.ok ? undefined : radiusParsed.error}
                     inheritedFrom={
                       hasOverride(event.venue)
                         ? 'den Club bzw. das Festival'

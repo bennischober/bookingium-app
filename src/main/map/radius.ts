@@ -12,6 +12,11 @@ export type RadiusRow = {
   radius_weeks_after: number | null
 }
 
+/** km around the venue; 2000 km covers any European clause */
+export const RADIUS_KM_MAX = 2000
+/** Weeks before or after the show; two years is beyond any real clause */
+export const RADIUS_WEEKS_MAX = 104
+
 /** The global defaults per venue kind (Einstellungen) */
 export type RadiusDefaults = { club: RadiusClause; festival: RadiusClause }
 
@@ -40,7 +45,14 @@ export function defaultClause(defaults: RadiusDefaults, kind: 'venue' | 'festiva
   return kind === 'festival' ? defaults.festival : defaults.club
 }
 
-/** ISO date shifted by whole days (UTC, so no daylight-saving drift) */
+/** Whether a string is a real calendar date as YYYY-MM-DD (2027-02-30 is not) */
+export function isIsoDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false
+  const parsed = new Date(`${date}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+}
+
+/** ISO date shifted by whole days (UTC, so no daylight-saving drift); check isIsoDate first */
 export function shiftIsoDate(date: string, days: number): string {
   const shifted = new Date(`${date}T00:00:00Z`)
   shifted.setUTCDate(shifted.getUTCDate() + days)
