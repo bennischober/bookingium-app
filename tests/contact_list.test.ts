@@ -1,6 +1,7 @@
-// Mailing lists (Verteiler): recipients of venues and festivals, the five
-// filters (kind/recipient type, country/region, genre, capacity, bookings),
-// one row per address, "Keine Werbung", saved lists and the CSV.
+// Mailing lists (Verteiler): recipients of venues, festivals and media, the
+// five filters (kind/recipient type, country/region, genre, capacity,
+// bookings), LoPros of events, one row per address, "Keine Werbung", saved
+// lists and the CSV.
 import 'reflect-metadata'
 import { describe, it, expect, beforeAll } from 'vitest'
 import { container } from 'tsyringe'
@@ -9,8 +10,10 @@ import { schema } from '../src/main/db/schema'
 import { ContactListService, contactListCsv } from '../src/main/services/ContactListService'
 import { VenueService } from '../src/main/services/VenueService'
 import { PersonService } from '../src/main/services/PersonService'
+import { CompanyService } from '../src/main/services/CompanyService'
 import { ContactListFilters } from '../src/main/api/schemas/contactList.schema'
 import { CreateVenueInput } from '../src/main/api/schemas/venue.schema'
+import { CreateCompanyInput, UpdateCompanyInput } from '../src/main/api/schemas/company.schema'
 import { bccMailtoUrl, MAX_MAILTO_LENGTH } from '../src/main/mail/mailProgram'
 
 import { setupTestDb } from './helpers/setup'
@@ -29,6 +32,8 @@ const emails = (input: Partial<ContactListFilters> = {}): string[] =>
 
 let metalBandId: number
 let popBandId: number
+let clubId: number
+let hallId: number
 
 async function venue(
   input: Partial<CreateVenueInput> & { email?: string; zip?: string; state?: string; code?: string }
@@ -54,14 +59,22 @@ async function venue(
   return created.id
 }
 
-async function member(venueId: number, firstName: string, lastName: string, email: string) {
-  const person = await container
+async function person(firstName: string, lastName: string, email: string): Promise<number> {
+  const created = await container
     .resolve(PersonService)
     .createPerson({ firstName, lastName, contact: { email } } as Parameters<
       PersonService['createPerson']
     >[0])
+  return created.id
+}
+
+async function member(venueId: number, firstName: string, lastName: string, email: string) {
   db.insert(schema.venue_member)
-    .values({ venue_id: venueId, person_id: person.id, role: 'Booking' })
+    .values({
+      venue_id: venueId,
+      person_id: await person(firstName, lastName, email),
+      role: 'Booking'
+    })
     .run()
 }
 
@@ -96,7 +109,7 @@ beforeAll(async () => {
     .get()
 
   // Stuttgart club, 400, Rock, booked by the metal band
-  const club = await venue({
+  const club = (clubId = await venue({
     name: 'Club Zentral',
     capacity: 400,
     genres: 'Rock, punk',
@@ -104,19 +117,19 @@ beforeAll(async () => {
     zip: '70173',
     state: 'Baden-Württemberg',
     companyId: promoterCompany.id
-  })
+  }))
   await member(club, 'Lea', 'Berg', 'lea@club-zentral.example.test')
   booking(club, metalBandId)
 
   // Munich hall, 2000, no tags, a cancelled pop show only
-  const hall = await venue({
+  const hall = (hallId = await venue({
     name: 'Halle Süd',
     capacity: 2000,
     email: 'booking@halle-sued.example.test',
     zip: '80331',
     state: 'Bayern',
     companyId: promoterCompany.id
-  })
+  }))
   booking(hall, popBandId, 'cancelled')
 
   // Austrian festival, unknown capacity, pop booked; its booker also
@@ -148,8 +161,9 @@ describe('mailing lists', () => {
     ])
     const lea = result.recipients.find((row) => row.email === 'lea@club-zentral.example.test')
     expect(lea).toMatchObject({ name: 'Lea Berg', firstName: 'Lea', types: ['member'] })
-    expect(lea?.venues.map((entry) => entry.name)).toEqual(['Club Zentral', 'Wiesen Open Air'])
-    expect(lea?.venues[0].role).toBe('Booking')
+    expect(lea?.sources.map((entry) => entry.name)).toEqual(['Club Zentral', 'Wiesen Open Air'])
+    expect(lea?.sources[0]).toMatchObject({ kind: 'venue', role: 'Booking' })
+    expect(lea?.sources[1].kind).toBe('festival')
     const promoter = result.recipients.find(
       (row) => row.email === 'office@kulturbetrieb.example.test'
     )
@@ -305,7 +319,7 @@ describe('mailing list output', () => {
       .resolve(ContactListService)
       .build(filters({ recipientTypes: ['member', 'promoter'] }))
     expect(contactListCsv(recipients).split('\r\n')).toEqual([
-      'E-Mail,Vorname,Nachname,Firma,Club/Festival,Ort,Land,Art',
+      'E-Mail,Vorname,Nachname,Firma,Club/Festival/Medium,Ort,Land,Art',
       'office@kulturbetrieb.example.test,,,Kulturbetrieb GmbH,"Club Zentral; Halle Süd",Stadt,Deutschland,Veranstalter',
       'lea@club-zentral.example.test,Lea,Berg,,"Club Zentral; Wiesen Open Air",Stadt,Deutschland,Ansprechpartner',
       ''
@@ -322,5 +336,165 @@ describe('mailing list output', () => {
     const many = Array.from({ length: 200 }, (_, i) => `kontakt${i}@spielstaette.de`)
     expect(bccMailtoUrl(many, 'mailto')).toBeNull()
     expect(bccMailtoUrl(many.slice(0, 10), 'mailto')!.length).toBeLessThan(MAX_MAILTO_LENGTH)
+  })
+})
+
+// Added after the suites above ran, so their address lists stay as they are
+describe('media and LoPros', () => {
+  let stationId: number
+
+  beforeAll(async () => {
+    const companies = container.resolve(CompanyService)
+    // A radio station: own address, genres, one editor (parsed as the router does)
+    stationId = (
+      await companies.createCompany(
+        CreateCompanyInput.parse({
+          name: 'Radio Welle',
+          kind: 'media',
+          genres: 'Alternative, rock, ROCK',
+          isDefaultForInvoicing: false,
+          address: {
+            street: '',
+            streetNumber: '',
+            addressSuffix: '',
+            zipCode: '60311',
+            city: 'Frankfurt',
+            state: 'Hessen',
+            country: 'Deutschland',
+            countryCode: 'DE'
+          },
+          contact: { email: 'redaktion@radio-welle.example.test' }
+        })
+      )
+    ).id
+    db.insert(schema.company_member)
+      .values({
+        company_id: stationId,
+        person_id: await person('Mia', 'Mond', 'mia@radio-welle.example.test'),
+        role: 'Musikredaktion'
+      })
+      .run()
+
+    // LoPro company and person of a (cancelled) pop show at the club
+    const loProContact = db
+      .insert(schema.contact)
+      .values({ email: 'kontakt@lopro.example.test' })
+      .returning()
+      .get()
+    const loProCompany = db
+      .insert(schema.company)
+      .values({ name: 'Lokal Promotion GmbH', contact_id: loProContact.id })
+      .returning()
+      .get()
+    db.insert(schema.deal_memo)
+      .values({
+        name: 'LoPro-Show',
+        date: '2026-06-01',
+        band_id: popBandId,
+        venue_id: clubId,
+        status: 'cancelled',
+        lopro_company_id: loProCompany.id,
+        lopro_person_id: await person('Paul', 'Lokal', 'paul@lopro.example.test')
+      })
+      .run()
+    // An archived show's LoPro is left out
+    db.insert(schema.deal_memo)
+      .values({
+        name: 'Archiv-Show',
+        date: '2025-06-01',
+        band_id: popBandId,
+        venue_id: hallId,
+        lopro_person_id: await person('Alt', 'Archiv', 'alt@lopro.example.test'),
+        archived_at: '2026-01-01 00:00:00'
+      })
+      .run()
+  })
+
+  it('lists a station with its own address and its people', () => {
+    expect(emails({ kinds: ['media'] })).toEqual([
+      'mia@radio-welle.example.test',
+      'redaktion@radio-welle.example.test'
+    ])
+    const { recipients } = container.resolve(ContactListService).build(filters())
+    const station = recipients.find((row) => row.email === 'redaktion@radio-welle.example.test')
+    expect(station).toMatchObject({
+      name: 'Radio Welle',
+      company: 'Radio Welle',
+      types: ['venue'],
+      sources: [{ id: stationId, kind: 'media', name: 'Radio Welle', role: '' }],
+      city: 'Frankfurt',
+      capacity: null
+    })
+    const mia = recipients.find((row) => row.email === 'mia@radio-welle.example.test')
+    expect(mia).toMatchObject({ firstName: 'Mia', company: 'Radio Welle', types: ['member'] })
+    expect(mia?.sources[0].role).toBe('Musikredaktion')
+  })
+
+  it('filters media by region and genre, but not by capacity or bookings', () => {
+    expect(emails({ states: ['hessen'], recipientTypes: ['venue'] })).toEqual([
+      'redaktion@radio-welle.example.test'
+    ])
+    expect(emails({ genres: ['Rock'], recipientTypes: ['venue'] })).toEqual([
+      'info@club-zentral.example.test',
+      'redaktion@radio-welle.example.test'
+    ])
+    expect(emails({ genres: ['alternative'] })).toEqual([
+      'mia@radio-welle.example.test',
+      'redaktion@radio-welle.example.test'
+    ])
+    // A capacity bound or a bookings filter is about venues: stations drop out
+    expect(emails({ capacityMin: 0, recipientTypes: ['venue'] })).not.toContain(
+      'redaktion@radio-welle.example.test'
+    )
+    expect(emails({ booked: 'never', recipientTypes: ['venue'] })).toEqual([
+      'booking@halle-sued.example.test'
+    ])
+    expect(emails({ kinds: ['venue', 'festival'] })).not.toContain(
+      'redaktion@radio-welle.example.test'
+    )
+  })
+
+  it('lists LoPro companies and persons of events at the venue, archived ones left out', () => {
+    expect(emails({ recipientTypes: ['lopro'] })).toEqual([
+      'kontakt@lopro.example.test',
+      'paul@lopro.example.test'
+    ])
+    const { recipients } = container
+      .resolve(ContactListService)
+      .build(filters({ recipientTypes: ['lopro'] }))
+    expect(recipients.find((row) => row.email === 'paul@lopro.example.test')).toMatchObject({
+      name: 'Paul Lokal',
+      firstName: 'Paul',
+      company: 'Lokal Promotion GmbH',
+      types: ['lopro'],
+      sources: [{ id: clubId, kind: 'venue', name: 'Club Zentral', role: 'LoPro' }]
+    })
+    // The venue filters apply: no LoPro worked with the festival
+    expect(emails({ kinds: ['festival'], recipientTypes: ['lopro'] })).toEqual([])
+    // The cancelled show is no booking of the pop band at the club
+    expect(emails({ booked: 'booked', bandId: popBandId, recipientTypes: ['venue'] })).toEqual([
+      'hallo@wiesen.example.test'
+    ])
+  })
+
+  it('offers the stations’ states and genres as filter options', () => {
+    const options = container.resolve(ContactListService).filterOptions()
+    expect(options.states).toContain('Hessen')
+    expect(options.genres).toEqual(['Alternative', 'Indie', 'Metal', 'Pop', 'punk', 'Rock'])
+  })
+
+  it('keeps the kind and genres of a company that an update leaves out', async () => {
+    const companies = container.resolve(CompanyService)
+    const station = await companies.getCompanyById(stationId)
+    expect(station).toMatchObject({ kind: 'media', genres: 'Alternative, rock' })
+    await companies.updateCompany(UpdateCompanyInput.parse({ id: stationId, notes: 'Sendet' }))
+    expect(await companies.getCompanyById(stationId)).toMatchObject({
+      kind: 'media',
+      genres: 'Alternative, rock'
+    })
+    await companies.updateCompany(
+      UpdateCompanyInput.parse({ id: stationId, genres: ' Indie ,indie' })
+    )
+    expect((await companies.getCompanyById(stationId))?.genres).toBe('Indie')
   })
 })

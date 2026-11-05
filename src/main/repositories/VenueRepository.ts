@@ -4,7 +4,7 @@ import { saveContactEmails, withContactEmails } from './contactEmails'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import { normalizeGenres } from '../api/schemas/venue.schema'
+import { normalizeGenres } from '../api/schemas/genres'
 import type {
   CreateVenueInput,
   UpdateVenueInput,

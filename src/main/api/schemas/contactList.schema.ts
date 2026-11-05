@@ -1,17 +1,29 @@
 import { z } from 'zod'
-import { VenueKind } from './venue.schema'
 
-// Mailing lists (Verteiler): recipients are drawn from venues and festivals,
-// filtered by the venue they belong to. See ContactListService.
+// Mailing lists (Verteiler): recipients are drawn from venues, festivals and
+// media (radio stations and the like), filtered by the source they belong to.
+// See ContactListService.
 
-// Whose address it is, seen from the venue
-export const RecipientType = z.enum(['venue', 'member', 'promoter'])
+// What a recipient is reached through: venue.kind values plus media companies
+export const ListKind = z.enum(['venue', 'festival', 'media'])
+export type ListKind = z.infer<typeof ListKind>
+
+export const LIST_KIND_LABELS: Record<ListKind, string> = {
+  venue: 'Clubs',
+  festival: 'Festivals',
+  media: 'Radio/Medien'
+}
+
+// Whose address it is, seen from the source. 'venue' is the source's own
+// address (the club's, festival's or station's); the id stays for saved lists.
+export const RecipientType = z.enum(['venue', 'member', 'promoter', 'lopro'])
 export type RecipientType = z.infer<typeof RecipientType>
 
 export const RECIPIENT_TYPE_LABELS: Record<RecipientType, string> = {
-  venue: 'Club/Festival',
+  venue: 'Hauptadresse',
   member: 'Ansprechpartner',
-  promoter: 'Veranstalter'
+  promoter: 'Veranstalter',
+  lopro: 'LoPro'
 }
 
 export const BookedFilter = z.enum(['all', 'booked', 'never'])
@@ -19,7 +31,7 @@ export type BookedFilter = z.infer<typeof BookedFilter>
 
 // Empty arrays and null bounds mean "no restriction"
 export const ContactListFilters = z.object({
-  kinds: z.array(VenueKind).default([]),
+  kinds: z.array(ListKind).default([]),
   recipientTypes: z.array(RecipientType).default([]),
   countryCodes: z.array(z.string()).default([]),
   states: z.array(z.string()).default([]),
@@ -28,32 +40,36 @@ export const ContactListFilters = z.object({
   capacityMin: z.number().int().nonnegative().nullable().default(null),
   capacityMax: z.number().int().nonnegative().nullable().default(null),
   genres: z.array(z.string()).default([]),
-  // Booked = a non-cancelled event at the venue (of bandId when set)
+  // Capacity bounds and booked/never apply to venues and festivals; set, they
+  // leave media out. Booked = a non-cancelled event at the venue (of bandId when set)
   booked: BookedFilter.default('all'),
   bandId: z.number().nullable().default(null)
 })
 export type ContactListFilters = z.infer<typeof ContactListFilters>
 
-export const RecipientVenueDto = z.object({
+export const RecipientSourceDto = z.object({
+  // Venue id, or company id for media
   id: z.number(),
+  kind: ListKind,
   name: z.string(),
-  // Ansprechpartner role at this venue ("Booking"); '' otherwise
+  // Ansprechpartner role ("Booking") or 'LoPro'; '' otherwise
   role: z.string()
 })
+export type RecipientSourceDto = z.infer<typeof RecipientSourceDto>
 
 // One row per email address (case-insensitive)
 export const ContactListRecipientDto = z.object({
   email: z.string(),
-  // Person name, company name or venue name
+  // Person name, company name or source name
   name: z.string(),
   firstName: z.string(),
   lastName: z.string(),
   company: z.string(),
   types: z.array(RecipientType),
-  venues: z.array(RecipientVenueDto),
+  sources: z.array(RecipientSourceDto),
   city: z.string(),
   country: z.string(),
-  // Largest capacity of the matched venues
+  // Largest capacity of the matched venues (null for media)
   capacity: z.number().nullable()
 })
 export type ContactListRecipientDto = z.infer<typeof ContactListRecipientDto>

@@ -44,12 +44,11 @@ the decisions taken since (radius clause, countries) are in their own section be
 - `venue.kind` is `'venue' | 'festival'` (clubs are venues); venues link `address_id`.
 - `deal_memo`: `date` (ISO `YYYY-MM-DD`), `status`, `venue_id`, `band_id`, `archived_at`
   (D3: archived events are out of every working view — exclude them here too).
-- **The experimental-switch pattern to copy** is the Verteiler one: `contactLists: boolean`
+- **The experimental-switch pattern** (the Verteiler had it until #80): a boolean
   default false in `AppSettings` (`api/schemas/settings.schema.ts`, and keep the
   `UpdateAppSettingsInput` `.unwrap()` list in sync) → a `*SwitchCard` in Einstellungen ›
-  Allgemein (`ContactListsSwitchCard.tsx`) → `useRouteShown()` hides the menu entry and the
-  search hit while off → the route stays reachable and the page shows an off-note
-  (`ContactListPage.tsx` top section).
+  Allgemein → `useRouteShown()` hides the menu entry and the search hit while off → the
+  route stays reachable and the page shows an off-note. `mapPreview` follows it.
 - Read-only aggregate services query `db` directly on purpose (`DashboardService`,
   `SearchService`); a `MapService` fits that shape — no repository needed for the prototype.
 - CSP lives in `src/renderer/index.html` (`img-src 'self' data:` today): add
@@ -61,7 +60,7 @@ the decisions taken since (radius clause, countries) are in their own section be
 ## Implementation plan
 
 1. **Setting** `mapPreview: boolean` default false (`AppSettings` + `UpdateAppSettingsInput`);
-   `MapPreviewSwitchCard` next to `ContactListsSwitchCard`; `useRouteShown` entry for
+   `MapPreviewSwitchCard` in Einstellungen › Allgemein; `useRouteShown` entry for
    `/map`; `ROUTES.map = { path: '/map', title: 'Karte', group: 'Planung', icon: Map }`.
 2. **Postcode data** `src/main/map/postcodes.json` (generated, committed data): built once from
    the GeoNames postal dumps (`download.geonames.org/export/dump/{DE,AT,CH}.zip`, format

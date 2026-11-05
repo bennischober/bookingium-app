@@ -171,7 +171,11 @@ describe('D3: an archived event leaves every working view', () => {
     })
 
     const docsOfBand = () => container.resolve(DocumentService).listEventDocumentsForBand(band.id)
-    const contactList = () => container.resolve(ContactListRepository).loadVenueSources()
+    const contactList = () =>
+      container
+        .resolve(ContactListRepository)
+        .loadSources()
+        .filter((s) => s.kind !== 'media')
 
     expect((await docsOfBand()).some((d) => d.owner_id === event.id)).toBe(true)
     const before = (await contactList()).find((v) => v.id === venue.id)

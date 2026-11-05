@@ -3,12 +3,25 @@ import { TimestampFields, createPaginatedResponse } from './base.schema'
 import { AddressDto, AddressInput } from './address.schema'
 import { ContactDto, ContactInput } from './contact.schema'
 import { BankDto } from './bank.schema'
+import { normalizeGenres } from './genres'
+
+// Radio stations and other media are companies of their own kind: the
+// Verteiler lists them as a source next to clubs and festivals (#80)
+export const CompanyKind = z.enum(['company', 'media'])
+export type CompanyKind = z.infer<typeof CompanyKind>
+
+export const COMPANY_KIND_LABELS: Record<CompanyKind, string> = {
+  company: 'Firma',
+  media: 'Radio/Medien'
+}
 
 // Output DTO - what the frontend receives (with embedded relations)
 export const CompanyDto = z
   .object({
     id: z.number(),
     name: z.string(),
+    kind: CompanyKind,
+    genres: z.string(),
     notes: z.string(),
     vatNumber: z.string(),
     ustNumber: z.string(),
@@ -39,6 +52,8 @@ export const PaginatedCompanyResponse = createPaginatedResponse(CompanyDto)
 // Input DTO - for creating/updating (with embedded relations)
 export const CreateCompanyInput = z.object({
   name: z.string().min(1, 'Name is required'),
+  kind: CompanyKind.optional().default('company'),
+  genres: z.string().transform(normalizeGenres).optional().default(''),
   notes: z.string().optional().default(''),
   vatNumber: z.string().optional().default(''),
   ustNumber: z.string().optional().default(''),
@@ -58,6 +73,8 @@ export const CreateCompanyInput = z.object({
 export const UpdateCompanyInput = z.object({
   id: z.number(),
   name: z.string().min(1, 'Name is required').optional(),
+  kind: CompanyKind.optional(),
+  genres: z.string().transform(normalizeGenres).optional(),
   notes: z.string().optional(),
   vatNumber: z.string().optional(),
   ustNumber: z.string().optional(),

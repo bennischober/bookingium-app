@@ -1,12 +1,36 @@
 import { injectable } from 'tsyringe'
-import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
 
-export interface VenueSource {
+export interface SourcePerson {
+  firstName: string
+  lastName: string
+  role: string
+  email: string
+}
+
+export interface SourceLoPro {
+  // Company name, or the person's full name
+  name: string
+  firstName: string
+  lastName: string
+  // LoPro company of the event (for a person: the company they came with)
+  company: string
+  email: string
+}
+
+/**
+ * Where Verteiler addresses come from: a venue or festival, or a media company
+ * (company.kind 'media', #80). Media have no capacity, Veranstalter, LoPros or
+ * bookings.
+ */
+export interface ListSource {
+  // Venue id, or company id for media (kind tells which)
   id: number
   name: string
+  // 'venue' | 'festival' | 'media'
   kind: string
   capacity: number | null
   genres: string
@@ -16,16 +40,26 @@ export interface VenueSource {
   country: string
   countryCode: string
   email: string
+  // The venue's own company (Veranstalter)
   promoter: { name: string; email: string } | null
-  members: { firstName: string; lastName: string; role: string; email: string }[]
+  // Ansprechpartner: venue members, or the media company's members
+  members: SourcePerson[]
+  // LoPro companies and persons of events at the venue (#51)
+  lopros: SourceLoPro[]
   // Non-cancelled events at this venue
   bookings: { bandId: number; bandGenre: string }[]
 }
 
+function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+  const list = map.get(key) ?? []
+  list.push(value)
+  map.set(key, list)
+}
+
 @injectable()
 export class ContactListRepository {
-  /** Every venue with the addresses that can receive mail for it */
-  loadVenueSources(): VenueSource[] {
+  /** Every venue, festival and media company with the addresses that can receive mail for it */
+  loadSources(): ListSource[] {
     const venues = db
       .select()
       .from(schema.venue)
@@ -34,16 +68,21 @@ export class ContactListRepository {
       .orderBy(schema.venue.name)
       .all()
 
+    const companyRows = db
+      .select()
+      .from(schema.company)
+      .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+      .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+      .orderBy(schema.company.name)
+      .all()
     const companies = new Map(
-      db
-        .select({ id: schema.company.id, name: schema.company.name, email: schema.contact.email })
-        .from(schema.company)
-        .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
-        .all()
-        .map((row) => [row.id, { name: row.name, email: row.email ?? '' }])
+      companyRows.map(({ company, contact }) => [
+        company.id,
+        { name: company.name, email: contact?.email ?? '' }
+      ])
     )
 
-    const members = new Map<number, VenueSource['members']>()
+    const venueMembers = new Map<number, SourcePerson[]>()
     for (const row of db
       .select({
         venueId: schema.venue_member.venue_id,
@@ -57,41 +96,90 @@ export class ContactListRepository {
       .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
       .orderBy(schema.person.last_name, schema.person.first_name)
       .all()) {
-      const list = members.get(row.venueId) ?? []
-      list.push({
+      pushTo(venueMembers, row.venueId, {
         firstName: row.firstName,
         lastName: row.lastName,
         role: row.role ?? '',
         email: row.email ?? ''
       })
-      members.set(row.venueId, list)
     }
 
-    const bookings = new Map<number, VenueSource['bookings']>()
+    const mediaMembers = new Map<number, SourcePerson[]>()
+    for (const row of db
+      .select({
+        companyId: schema.company_member.company_id,
+        role: schema.company_member.role,
+        firstName: schema.person.first_name,
+        lastName: schema.person.last_name,
+        email: schema.contact.email
+      })
+      .from(schema.company_member)
+      .innerJoin(schema.company, eq(schema.company_member.company_id, schema.company.id))
+      .innerJoin(schema.person, eq(schema.company_member.person_id, schema.person.id))
+      .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
+      .where(eq(schema.company.kind, 'media'))
+      .orderBy(schema.person.last_name, schema.person.first_name)
+      .all()) {
+      pushTo(mediaMembers, row.companyId, {
+        firstName: row.firstName,
+        lastName: row.lastName,
+        role: row.role ?? '',
+        email: row.email ?? ''
+      })
+    }
+
+    const bookings = new Map<number, ListSource['bookings']>()
+    const lopros = new Map<number, SourceLoPro[]>()
     for (const row of db
       .select({
         venueId: schema.deal_memo.venue_id,
         bandId: schema.deal_memo.band_id,
-        bandGenre: schema.band.genre
+        bandGenre: schema.band.genre,
+        status: schema.deal_memo.status,
+        loProCompanyId: schema.deal_memo.lopro_company_id,
+        loProPersonId: schema.deal_memo.lopro_person_id,
+        loProFirstName: schema.person.first_name,
+        loProLastName: schema.person.last_name,
+        loProEmail: schema.contact.email
       })
       .from(schema.deal_memo)
       .innerJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
-      .where(
-        and(
-          // D3: an archived gig is not a booking to reach out about
-          notArchived(),
-          isNotNull(schema.deal_memo.venue_id),
-          ne(schema.deal_memo.status, 'cancelled')
-        )
-      )
+      .leftJoin(schema.person, eq(schema.deal_memo.lopro_person_id, schema.person.id))
+      .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
+      // D3: an archived gig is not a booking to reach out about
+      .where(and(notArchived(), isNotNull(schema.deal_memo.venue_id)))
+      .orderBy(desc(schema.deal_memo.date))
       .all()) {
       if (row.venueId === null) continue
-      const list = bookings.get(row.venueId) ?? []
-      list.push({ bandId: row.bandId, bandGenre: row.bandGenre })
-      bookings.set(row.venueId, list)
+      // A cancelled show is no booking, but its LoPro still works with the venue
+      if (row.status !== 'cancelled') {
+        pushTo(bookings, row.venueId, { bandId: row.bandId, bandGenre: row.bandGenre })
+      }
+      const loProCompany =
+        row.loProCompanyId !== null ? (companies.get(row.loProCompanyId) ?? null) : null
+      if (loProCompany) {
+        pushTo(lopros, row.venueId, {
+          name: loProCompany.name,
+          firstName: '',
+          lastName: '',
+          company: loProCompany.name,
+          email: loProCompany.email
+        })
+      }
+      if (row.loProPersonId !== null && row.loProFirstName !== null) {
+        const firstName = row.loProFirstName
+        const lastName = row.loProLastName ?? ''
+        pushTo(lopros, row.venueId, {
+          name: `${firstName} ${lastName}`.trim(),
+          firstName,
+          lastName,
+          company: loProCompany?.name ?? '',
+          email: row.loProEmail ?? ''
+        })
+      }
     }
 
-    return venues.map(({ venue, address, contact }) => ({
+    const venueSources: ListSource[] = venues.map(({ venue, address, contact }) => ({
       id: venue.id,
       name: venue.name,
       kind: venue.kind,
@@ -104,9 +192,32 @@ export class ContactListRepository {
       countryCode: address?.country_code ?? '',
       email: contact?.email ?? '',
       promoter: venue.company_id !== null ? (companies.get(venue.company_id) ?? null) : null,
-      members: members.get(venue.id) ?? [],
+      members: venueMembers.get(venue.id) ?? [],
+      lopros: lopros.get(venue.id) ?? [],
       bookings: bookings.get(venue.id) ?? []
     }))
+
+    const mediaSources: ListSource[] = companyRows
+      .filter(({ company }) => company.kind === 'media')
+      .map(({ company, address, contact }) => ({
+        id: company.id,
+        name: company.name,
+        kind: 'media',
+        capacity: null,
+        genres: company.genres,
+        city: address?.city ?? '',
+        state: address?.state ?? '',
+        zipCode: address?.zip_code ?? '',
+        country: address?.country ?? '',
+        countryCode: address?.country_code ?? '',
+        email: contact?.email ?? '',
+        promoter: null,
+        members: mediaMembers.get(company.id) ?? [],
+        lopros: [],
+        bookings: []
+      }))
+
+    return [...venueSources, ...mediaSources]
   }
 
   /** Lower-case emails of every contact marked "Keine Werbung" */
