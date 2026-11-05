@@ -17,6 +17,13 @@ import { ContactFormFields } from './ContactFormFields'
 import { contactHasValues } from './contactEmailFields'
 import { trpcReact } from '@/lib/trpc'
 import type { FormMode } from '@/hooks/useFormSheet'
+import { useMapPreview } from '@/hooks/useMapPreview'
+import { RadiusFields } from '@/components/map/RadiusFields'
+import {
+  defaultClause,
+  draftFromOverride,
+  parseOverrideDraft
+} from '@/components/map/radiusDisplay'
 import {
   VENUE_KIND_LABELS,
   VenueKind,
@@ -44,6 +51,8 @@ export function VenueForm({
   isSubmitting = false
 }: VenueFormProps) {
   const companies = trpcReact.company.getListItems.useQuery()
+  // Radius clause fields only with the map on; off, an edit keeps the stored values
+  const mapPreview = useMapPreview()
 
   const form = useForm({
     defaultValues: {
@@ -53,6 +62,7 @@ export function VenueForm({
       genres: initialData?.genres ?? '',
       notes: initialData?.notes ?? '',
       companyId: initialData?.company?.id ?? null,
+      radius: draftFromOverride(initialData),
       address: {
         street: initialData?.address?.street ?? '',
         streetNumber: initialData?.address?.streetNumber ?? '',
@@ -77,6 +87,8 @@ export function VenueForm({
       const capacity = Number.isNaN(parsedCapacity) ? null : parsedCapacity
       const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
       const hasContact = contactHasValues(value.contact)
+      const radius = parseOverrideDraft(value.radius)
+      if (mapPreview.enabled && !radius.ok) return
       const basePayload = {
         name: value.name.trim(),
         kind: value.kind,
@@ -85,7 +97,8 @@ export function VenueForm({
         notes: value.notes.trim(),
         companyId: value.companyId,
         ...(hasAddress ? { address: value.address } : {}),
-        ...(hasContact ? { contact: value.contact } : {})
+        ...(hasContact ? { contact: value.contact } : {}),
+        ...(mapPreview.enabled && radius.ok ? radius.value : {})
       }
 
       if (mode === 'edit' && initialData) {
@@ -255,6 +268,37 @@ export function VenueForm({
           </div>
         )}
       </form.Field>
+
+      {mapPreview.enabled && mapPreview.defaults && (
+        <form.Subscribe selector={(state) => state.values.kind}>
+          {(kind) => (
+            <form.Field
+              name="radius"
+              validators={{
+                onChange: ({ value }) => {
+                  const parsed = parseOverrideDraft(value)
+                  return parsed.ok ? undefined : parsed.error
+                }
+              }}
+            >
+              {(field) => (
+                <div className="space-y-2">
+                  <Label>Gebietsschutz</Label>
+                  <RadiusFields
+                    id="venue-radius"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    inherited={defaultClause(mapPreview.defaults!, kind)}
+                    inheritedFrom={`den Standard für ${kind === 'festival' ? 'Festivals' : 'Clubs'}`}
+                    error={field.state.meta.errors[0]?.toString()}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              )}
+            </form.Field>
+          )}
+        </form.Subscribe>
+      )}
 
       <Separator />
       <AddressFormFields form={form} />

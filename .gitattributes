@@ -7,6 +7,10 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# Generated data (scripts/generate-postcodes.mjs): collapsed in GitHub diffs and left out of
+# the language stats; no line diff locally either
+src/main/map/postcodes.json linguist-generated=true -diff
+
 # Binaries must never be normalized
 *.png binary
 *.jpg binary

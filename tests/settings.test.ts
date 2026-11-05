@@ -21,6 +21,7 @@ import {
   DEFAULT_REMINDER_EMAIL,
   UpdateAppSettingsInput
 } from '../src/main/api/schemas/settings.schema'
+import { DEFAULT_CLUB_RADIUS, DEFAULT_FESTIVAL_RADIUS } from '../src/main/api/schemas/radius.schema'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -38,6 +39,10 @@ const DEFAULTS = {
   mailClient: false,
   // Verteiler are experimental too until they cover more than venues and Veranstalter (#80)
   contactLists: false,
+  // The map preview (#102) is experimental and off until the user turns it on
+  mapPreview: false,
+  radiusClub: DEFAULT_CLUB_RADIUS,
+  radiusFestival: DEFAULT_FESTIVAL_RADIUS,
   invoiceMailAccountId: '',
   invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
   invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,
@@ -78,6 +83,13 @@ describe('settings', () => {
       paymentQr: false
     })
     expect(Object.keys(UpdateAppSettingsInput.shape)).toEqual(Object.keys(AppSettings.shape))
+    // The radius defaults are stored per kind, a whole clause at a time
+    const club = { km: 50, weeksBefore: 2, weeksAfter: 3 }
+    expect(service.update({ radiusClub: club })).toMatchObject({
+      radiusClub: club,
+      radiusFestival: DEFAULT_FESTIVAL_RADIUS
+    })
+    expect(UpdateAppSettingsInput.safeParse({ radiusClub: { ...club, km: 0 } }).success).toBe(false)
   })
 
   it('ignore unreadable stored values', () => {

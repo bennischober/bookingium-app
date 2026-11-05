@@ -1,5 +1,12 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useMapPreview } from '@/hooks/useMapPreview'
+import {
+  defaultClause,
+  formatClause,
+  hasOverride,
+  inheritClause
+} from '@/components/map/radiusDisplay'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useEffect } from 'react'
 import { useParams, useNavigate, useRouterState, Link } from '@tanstack/react-router'
@@ -42,6 +49,7 @@ import {
 /** Overview: kind, capacity, genres, address, contact, promoter company, notes */
 function OverviewTab({ venue }: { venue: VenueDto }) {
   const { contact } = venue
+  const mapPreview = useMapPreview()
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <InfoCard label="Art / Kapazität">
@@ -49,6 +57,16 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
         {venue.capacity ? ` · ${venue.capacity.toLocaleString('de-DE')} Personen` : ''}
         {venue.genres && <p className="text-muted-foreground">Genres: {venue.genres}</p>}
       </InfoCard>
+      {mapPreview.enabled && mapPreview.defaults && (
+        <InfoCard label="Gebietsschutz">
+          {formatClause(inheritClause(venue, defaultClause(mapPreview.defaults, venue.kind)))}
+          <p className="text-muted-foreground">
+            {hasOverride(venue)
+              ? 'Eigene Angabe; leere Felder vom Standard'
+              : `Standard für ${venue.kind === 'festival' ? 'Festivals' : 'Clubs'}`}
+          </p>
+        </InfoCard>
+      )}
       <InfoCard label="Firma (Veranstalter)">
         {venue.company ? (
           <Link

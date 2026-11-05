@@ -24,6 +24,7 @@ import VenueDetailPage from '@/pages/VenueDetailPage'
 import VenuePage from '@/pages/VenuePage'
 import HotelPage from '@/pages/HotelPage'
 import ContactListPage from '@/pages/ContactListPage'
+import MapPage from '@/pages/MapPage'
 import MailPage from '@/pages/MailPage'
 import MailWindowPage from '@/pages/MailWindowPage'
 import PersonDetailPage from '@/pages/PersonDetailPage'
@@ -141,6 +142,12 @@ const contactListRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.contactLists.path,
   component: ContactListPage
+})
+
+const mapRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.map.path,
+  component: MapPage
 })
 
 const mailRoute = createRoute({
@@ -284,6 +291,7 @@ const routeTree = rootRoute.addChildren([
     venueListRoute,
     hotelRoute,
     contactListRoute,
+    mapRoute,
     mailRoute,
     eventRoute,
     invoiceRoute,

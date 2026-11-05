@@ -6,7 +6,8 @@ import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
-  // .claude holds other checkouts of this repo (session worktrees)
+  // .claude holds other checkouts of this repo (session worktrees), .opencode and .omo
+  // the agent harness's own files - all local tooling, not app code
   { ignores: ['**/node_modules', '**/dist', '**/out', '.claude', '.tools', '.opencode', '.omo'] },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,

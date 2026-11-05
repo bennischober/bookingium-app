@@ -34,6 +34,7 @@ import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
 import { ContactListsSwitchCard } from '@/components/settings/ContactListsSwitchCard'
+import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
@@ -379,6 +380,7 @@ export default function SettingsPage() {
           <GeneralCard />
           <AppearanceCard />
           <ContactListsSwitchCard />
+          <MapPreviewSwitchCard />
         </TabsContent>
         <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />

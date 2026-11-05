@@ -11,6 +11,7 @@ export function useRouteShown(): (path: string | undefined) => boolean {
   return (path) => {
     if (path === ROUTES.mail.path) return settings?.mailClient === true
     if (path === ROUTES.contactLists.path) return settings?.contactLists === true
+    if (path === ROUTES.map.path) return settings?.mapPreview === true
     return true
   }
 }

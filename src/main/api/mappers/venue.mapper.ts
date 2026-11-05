@@ -33,6 +33,9 @@ export class VenueMapper {
       addressId: entity.address_id ?? null,
       companyId: entity.company_id ?? null,
       contactId: entity.contact_id ?? null,
+      radiusKm: entity.radius_km,
+      radiusWeeksBefore: entity.radius_weeks_before,
+      radiusWeeksAfter: entity.radius_weeks_after,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

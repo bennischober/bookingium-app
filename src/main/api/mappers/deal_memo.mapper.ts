@@ -59,6 +59,9 @@ export class DealMemoMapper {
       invoiceCompanyId: entity.invoice_company_id,
       representingCompanyId: entity.representing_company_id,
       hotelId: entity.hotel_id,
+      radiusKm: entity.radius_km,
+      radiusWeeksBefore: entity.radius_weeks_before,
+      radiusWeeksAfter: entity.radius_weeks_after,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }
@@ -76,7 +79,15 @@ export class DealMemoMapper {
           }
         : null,
       venue: entity.venue
-        ? { id: entity.venue.id, name: entity.venue.name, capacity: entity.venue.capacity }
+        ? {
+            id: entity.venue.id,
+            name: entity.venue.name,
+            capacity: entity.venue.capacity,
+            kind: entity.venue.kind === 'festival' ? 'festival' : 'venue',
+            radiusKm: entity.venue.radius_km,
+            radiusWeeksBefore: entity.venue.radius_weeks_before,
+            radiusWeeksAfter: entity.venue.radius_weeks_after
+          }
         : null,
       hotel: entity.hotel ? { id: entity.hotel.id, name: entity.hotel.name } : null,
       loProPerson: entity.loProPerson

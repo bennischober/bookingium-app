@@ -192,6 +192,9 @@ export class DealMemoRepository {
     if ('guaranteeAmount' in input) values.guarantee_amount = input.guaranteeAmount ?? null
     if ('guaranteeVatRate' in input) values.guarantee_vat_rate = input.guaranteeVatRate ?? null
     if ('contractNotes' in input) values.contract_notes = input.contractNotes ?? ''
+    if ('radiusKm' in input) values.radius_km = input.radiusKm ?? null
+    if ('radiusWeeksBefore' in input) values.radius_weeks_before = input.radiusWeeksBefore ?? null
+    if ('radiusWeeksAfter' in input) values.radius_weeks_after = input.radiusWeeksAfter ?? null
 
     const result = await db
       .update(schema.deal_memo)

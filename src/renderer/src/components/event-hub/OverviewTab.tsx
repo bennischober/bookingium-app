@@ -17,6 +17,15 @@ import { toast } from 'sonner'
 import { type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
+import { useMapPreview } from '@/hooks/useMapPreview'
+import { RadiusFields } from '@/components/map/RadiusFields'
+import {
+  defaultClause,
+  formatClause,
+  hasOverride,
+  inheritClause,
+  parseOverrideDraft
+} from '@/components/map/radiusDisplay'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatDate } from './constants'
@@ -50,8 +59,29 @@ export function OverviewTab({
   const [date, setDate] = useSyncedState(event.date)
   const [status, setStatus] = useSyncedState(event.status)
   const [notes, setNotes] = useSyncedState(event.notes)
+  // Radius clause override: text drafts, '' = inherit from the venue or the default
+  const [radiusKm, setRadiusKm] = useSyncedState(event.radiusKm?.toString() ?? '')
+  const [weeksBefore, setWeeksBefore] = useSyncedState(event.radiusWeeksBefore?.toString() ?? '')
+  const [weeksAfter, setWeeksAfter] = useSyncedState(event.radiusWeeksAfter?.toString() ?? '')
+  const radiusDraft = { km: radiusKm, weeksBefore, weeksAfter }
+  // Checked on every keystroke, so the field says what is wrong before a save is tried
+  const radiusParsed = parseOverrideDraft(radiusDraft)
+  const radiusDirty =
+    radiusKm !== (event.radiusKm?.toString() ?? '') ||
+    weeksBefore !== (event.radiusWeeksBefore?.toString() ?? '') ||
+    weeksAfter !== (event.radiusWeeksAfter?.toString() ?? '')
   const isDirty =
-    name !== event.name || date !== event.date || status !== event.status || notes !== event.notes
+    name !== event.name ||
+    date !== event.date ||
+    status !== event.status ||
+    notes !== event.notes ||
+    radiusDirty
+
+  // What the event inherits: its venue's clause, else the default for the venue kind
+  const mapPreview = useMapPreview()
+  const inheritedRadius = mapPreview.defaults
+    ? inheritClause(event.venue, defaultClause(mapPreview.defaults, event.venue?.kind ?? 'venue'))
+    : null
 
   // Reset to server values when cancel is triggered
   useEffect(() => {
@@ -60,6 +90,9 @@ export function OverviewTab({
       setDate(event.date)
       setStatus(event.status)
       setNotes(event.notes)
+      setRadiusKm(event.radiusKm?.toString() ?? '')
+      setWeeksBefore(event.radiusWeeksBefore?.toString() ?? '')
+      setWeeksAfter(event.radiusWeeksAfter?.toString() ?? '')
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -106,7 +139,21 @@ export function OverviewTab({
   })
 
   const handleSave = () => {
-    updateMutation.mutate({ id: event.id, name, date, status, notes })
+    // One save for the whole tab: an invalid clause holds back the other fields too, and says so
+    if (radiusDirty && !radiusParsed.ok) {
+      toast.error('Übersicht nicht gespeichert', {
+        description: `Gebietsschutz ungültig – ${radiusParsed.error}`
+      })
+      return
+    }
+    updateMutation.mutate({
+      id: event.id,
+      name,
+      date,
+      status,
+      notes,
+      ...(radiusDirty && radiusParsed.ok ? radiusParsed.value : {})
+    })
   }
 
   // Save when the page-level "Save All" fires
@@ -252,6 +299,28 @@ export function OverviewTab({
                   </SelectContent>
                 </Select>
               </div>
+
+              {mapPreview.enabled && inheritedRadius && (
+                <div className="space-y-2">
+                  <Label>Gebietsschutz</Label>
+                  <RadiusFields
+                    id="event-radius"
+                    value={radiusDraft}
+                    onChange={(draft) => {
+                      setRadiusKm(draft.km)
+                      setWeeksBefore(draft.weeksBefore)
+                      setWeeksAfter(draft.weeksAfter)
+                    }}
+                    inherited={inheritedRadius}
+                    error={radiusParsed.ok ? undefined : radiusParsed.error}
+                    inheritedFrom={
+                      hasOverride(event.venue)
+                        ? 'den Club bzw. das Festival'
+                        : `den Standard für ${event.venue?.kind === 'festival' ? 'Festivals' : 'Clubs'}`
+                    }
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -273,6 +342,18 @@ export function OverviewTab({
                 label="Status"
                 value={status ? (STATUS_LABELS[status] ?? status) : null}
               />
+              {mapPreview.enabled && inheritedRadius && (
+                <ReadOnlyField
+                  label="Gebietsschutz"
+                  value={`${formatClause(inheritClause(event, inheritedRadius))} (${
+                    hasOverride(event)
+                      ? 'für dieses Event angepasst'
+                      : hasOverride(event.venue)
+                        ? 'vom Club/Festival'
+                        : 'Standard'
+                  })`}
+                />
+              )}
             </div>
 
             <div className="space-y-4">
