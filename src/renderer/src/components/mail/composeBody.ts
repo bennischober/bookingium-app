@@ -61,9 +61,14 @@ export function composeBody(html: string): { bodyHtml: string | null; bodyText: 
   return { bodyHtml: kept === '' ? null : wrapForMail(kept), bodyText }
 }
 
-/** Text of one block, with the allowed tags removed and entities decoded */
+/**
+ * Text of one block: what lies between its tags, entities decoded. This is plain text (the
+ * text/plain part, search, snippets), never HTML, so it is not a sanitizer: a "<script>" the
+ * user typed is text and stays it. Every way back into HTML escapes it (toEditorHtml, and the
+ * HTML part is built from the editor's markup by sanitizeComposeHtml, not from this text).
+ */
 function textOf(block: string): string {
-  return decodeEntities(block.replace(/<[^>]*>/g, ''))
+  return decodeEntities(block.split(/<[^>]*>/).join(''))
     .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+/g, ' ')
 }

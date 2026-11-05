@@ -82,6 +82,17 @@ describe('composeBody (F3)', () => {
     expect(bodyHtml).toBe('<div dir="auto"><p>&amp;gt; ä–a b</p></div>')
   })
 
+  it('keeps typed markup as text in both parts, never as a tag', () => {
+    // The plain text holds what was typed; the HTML part and the editor get it escaped
+    const typed = '<p>&lt;script&gt;x&lt;/script&gt; &lt;scr<b>ipt</b></p>'
+    const { bodyHtml, bodyText } = composeBody(typed)
+    expect(bodyText).toBe('<script>x</script> <script')
+    expect(bodyHtml).toBe(
+      '<div dir="auto"><p>&lt;script&gt;x&lt;/script&gt; &lt;scr<b>ipt</b></p></div>'
+    )
+    expect(toEditorHtml(bodyText)).toBe('<p>&lt;script&gt;x&lt;/script&gt; &lt;script</p>')
+  })
+
   it('links a URL in angle brackets without the bracket', () => {
     const { bodyHtml } = composeBody('<p>siehe &lt;https://example.test/a&gt;</p>')
     expect(bodyHtml).toBe(
