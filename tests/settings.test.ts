@@ -37,6 +37,9 @@ const DEFAULTS = {
   mailProgram: 'auto',
   // the built-in mail client is experimental and off until the user turns it on
   mailClient: false,
+  // #65: notifications on, closing still quits
+  mailNotifications: true,
+  mailCloseToTray: false,
   // The map preview (#102) is experimental and off until the user turns it on
   mapPreview: false,
   radiusClub: DEFAULT_CLUB_RADIUS,

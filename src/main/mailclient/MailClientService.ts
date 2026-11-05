@@ -70,6 +70,8 @@ export class MailClientService {
     await this.stop()
     this.crashes = []
     this.lastError = null
+    // also when no worker ran (switched off, given up after crashes): the tray follows it (#65)
+    this.events.emit('status', this.status())
     this.startIfConfigured()
   }
 
