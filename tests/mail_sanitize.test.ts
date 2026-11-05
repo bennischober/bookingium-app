@@ -276,6 +276,8 @@ describe('sanitize: the document the reading pane renders', () => {
     expect(html).toContain('font-family: system-ui')
     expect(html).toContain('font-size: 14px')
     expect(html).toContain('margin: 0')
+    // In line with the reader's header, as a plain-text mail is
+    expect(html).toContain('padding: 12px 16px')
   })
 
   it('lets the mail override the base style, because it comes after it', () => {
@@ -328,7 +330,9 @@ describe('sanitize: style blocks cannot carry markup (MR-07)', () => {
       // the link went through the classifier: blocked, its URL reported for display
       const a = doc.querySelector('a')
       expect(a?.getAttribute('href')).toBe('#')
-      expect(links).toEqual([expect.objectContaining({ url: 'ms-settings:privacy', openable: false })])
+      expect(links).toEqual([
+        expect.objectContaining({ url: 'ms-settings:privacy', openable: false })
+      ])
       expect(mailStyles(html)).toEqual(expect.arrayContaining(['a{}', 'b{}']))
     })
   }
@@ -346,7 +350,7 @@ describe('sanitize: style blocks cannot carry markup (MR-07)', () => {
     // inside <svg> a style is foreign content: the entities decode, so its text is a closing tag
     const { html } = sanitizeEmailHtml(
       '<svg><style>&lt;/style&gt;&lt;form&gt;&lt;/form&gt;</style></svg>' +
-        "<style>p { color: red }</style><p>Text</p>"
+        '<style>p { color: red }</style><p>Text</p>'
     )
     for (const css of mailStyles(html)) expect(css).not.toContain('<')
     expect(live(html).querySelector('form')).toBeNull()

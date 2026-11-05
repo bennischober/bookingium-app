@@ -68,6 +68,27 @@ describe('composeBody (F3)', () => {
     expect(bodyText).toBe('a < b')
   })
 
+  it('escapes the HTML part once, not twice', () => {
+    // The editor's HTML holds its text escaped already: a quoted reply line arrived as a
+    // literal "&gt;" and "Tom & Jerry" as "Tom &amp; Jerry"
+    const { bodyHtml } = composeBody('<p>&gt; Lass uns</p><p>Tom &amp; Jerry &lt;3</p>')
+    expect(bodyHtml).toBe('<div dir="auto"><p>&gt; Lass uns</p><p>Tom &amp; Jerry &lt;3</p></div>')
+  })
+
+  it('keeps an escaped entity as the text it was', () => {
+    // A typed "&gt;" is "&amp;gt;" in the editor and must stay those four characters
+    const { bodyHtml, bodyText } = composeBody('<p>&amp;gt; &#228;&#x2013;a&nbsp;b</p>')
+    expect(bodyText).toBe('&gt; ä–a b')
+    expect(bodyHtml).toBe('<div dir="auto"><p>&amp;gt; ä–a b</p></div>')
+  })
+
+  it('links a URL in angle brackets without the bracket', () => {
+    const { bodyHtml } = composeBody('<p>siehe &lt;https://example.test/a&gt;</p>')
+    expect(bodyHtml).toBe(
+      '<div dir="auto"><p>siehe &lt;<a href="https://example.test/a">https://example.test/a</a>&gt;</p></div>'
+    )
+  })
+
   it('offers exactly the four commands', () => {
     expect([...COMPOSE_FORMATS]).toEqual(['bold', 'italic', 'underline', 'insertUnorderedList'])
   })

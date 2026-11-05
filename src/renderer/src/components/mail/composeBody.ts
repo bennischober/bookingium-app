@@ -63,15 +63,33 @@ export function composeBody(html: string): { bodyHtml: string | null; bodyText: 
 
 /** Text of one block, with the allowed tags removed and entities decoded */
 function textOf(block: string): string {
-  return block
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
+  return decodeEntities(block.replace(/<[^>]*>/g, ''))
+    .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+/g, ' ')
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0'
+}
+
+/**
+ * The editor's HTML holds its text escaped ("&gt;", "&amp;"). Decoded in one pass, so an
+ * escaped entity ("&amp;gt;") stays the text it was, before escapeHtml escapes it once.
+ */
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (entity, name: string) => {
+    if (name[0] === '#') {
+      const hex = name[1].toLowerCase() === 'x'
+      const code = hex ? parseInt(name.slice(2), 16) : Number(name.slice(1))
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity
+    }
+    return NAMED_ENTITIES[name.toLowerCase()] ?? entity
+  })
 }
 
 /**
@@ -86,7 +104,9 @@ function sanitizeComposeHtml(html: string): string {
   let inAnchor = false
   let match: RegExpExecArray | null
   while ((match = tag.exec(html)) !== null) {
-    const between = html.slice(last, match.index)
+    // The text between tags is the editor's escaped text: decoded first, or escapeHtml below
+    // escaped it a second time and a typed ">" arrived as "&gt;"
+    const between = decodeEntities(html.slice(last, match.index))
     kept.push(inAnchor ? escapeHtml(between) : linkifyText(between))
     const closing = match[1] === '/'
     const name = match[2].toUpperCase()
@@ -110,7 +130,7 @@ function sanitizeComposeHtml(html: string): string {
     }
     last = tag.lastIndex
   }
-  const tail = html.slice(last)
+  const tail = decodeEntities(html.slice(last))
   kept.push(inAnchor ? escapeHtml(tail) : linkifyText(tail))
   return kept.join('').trim()
 }
