@@ -259,9 +259,13 @@ function showMainWindow(hash?: string): BrowserWindow | null {
   return window
 }
 
-/** The main window on the mail page (tray menu, a click on a new-mail notification) */
-function showMailPage(): void {
-  showMainWindow('/mail')?.webContents.send('app:openMailPage')
+/**
+ * The main window on the mail page (tray menu). A click on a new-mail notification passes its
+ * account: the page then shows that account's INBOX with the newest unread mail open.
+ */
+function showMailPage(accountId?: string): void {
+  const hash = accountId ? `/mail?newMail=${encodeURIComponent(accountId)}` : '/mail'
+  showMainWindow(hash)?.webContents.send('app:openMailPage', accountId)
 }
 
 /**
@@ -290,8 +294,9 @@ function setUpMailTray(): void {
       // In the background: Windows announces it. In the main window: a popup in the app, which
       // leaves it out on the mail page. In a mail window the user is reading mail already.
       const focused = BrowserWindow.getFocusedWindow()
-      if (!focused) tray.notifyNewMail(notice)
-      else if (focused === mainWindow) focused.webContents.send('app:newMail', notice)
+      if (!focused) tray.notifyNewMail(notice, accountId)
+      else if (focused === mainWindow)
+        focused.webContents.send('app:newMail', { ...notice, accountId })
     },
     log: (error) => console.warn('[mail] reading the INBOX unread count failed:', error)
   })

@@ -63,9 +63,11 @@ events and invoices), not a general mail client.
   icon in the Windows notification area (Infobereich) shows the INBOX unread counts in its tooltip and
   a red dot while mail is unread; its menu opens the app, the mail page, or quits. New mail raises a
   desktop notification with the count and the account only ("2 neue E-Mails", "Im Posteingang von …"),
-  never a subject or sender; a click opens the mail page. While the main window has focus the app
-  shows the same text as a popup of its own instead (one at a time, „Anzeigen“ opens the mail page),
-  none on the mail page itself or while a mail window has focus. Main
+  never a subject or sender; a click opens that account's INBOX with its newest unread mail
+  (`/mail?newMail=<account>`, taken once and removed; an open editor is left alone). While the main
+  window has focus the app shows the same text as a popup of its own instead (mail icon, one at a
+  time, „Anzeigen“ does what the click does), none on the mail page itself or while a mail window
+  has focus. Main
   decides from counts alone (`mailclient/inboxWatch.ts`): an INBOX `folder-done` that stored mail
   AND raised that INBOX's unread count; the first count per worker start (or the account's first
   download) is a silent baseline, an `op-event` re-reads it, and a UIDVALIDITY rebuild announces

@@ -7,6 +7,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
@@ -16,8 +17,15 @@ export default function RootLayout() {
   const [collapsed, toggleSidebar] = useSidebarCollapsed(pathname)
   const navigate = useNavigate()
   const router = useRouter()
-  // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification
-  useEffect(() => window.api.onOpenMailPage(() => void navigate({ to: '/mail' })), [navigate])
+  // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification (with its
+  // account: the mail page then opens that account's newest unread mail)
+  useEffect(
+    () =>
+      window.api.onOpenMailPage(
+        (accountId) => void navigate({ to: '/mail', search: { newMail: accountId } })
+      ),
+    [navigate]
+  )
   // #65: new mail while the app has focus. Not on the mail page, which lists it anyway; one
   // popup at a time (a newer one replaces it), gone after a few seconds
   useEffect(
@@ -26,9 +34,13 @@ export default function RootLayout() {
         if (router.state.location.pathname.startsWith('/mail')) return
         toast.info(notice.title, {
           id: 'new-mail',
+          icon: <Mail className="size-4" />,
           description: notice.body,
           duration: 6000,
-          action: { label: 'Anzeigen', onClick: () => void navigate({ to: '/mail' }) }
+          action: {
+            label: 'Anzeigen',
+            onClick: () => void navigate({ to: '/mail', search: { newMail: notice.accountId } })
+          }
         })
       }),
     [navigate, router]

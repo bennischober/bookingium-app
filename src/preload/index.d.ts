@@ -94,9 +94,14 @@ export interface DocumentAPI {
   /** An error nothing caught, for the local error log (main scrubs it) */
   reportError: (report: { message: string; stack?: string }) => void
   /** New mail while the main window has focus: the popup's text (count and account only) */
-  onNewMail: (callback: (notice: { title: string; body: string }) => void) => () => void
-  /** The tray or a new-mail notification asks for the mail page; returns the unsubscribe */
-  onOpenMailPage: (callback: () => void) => () => void
+  onNewMail: (
+    callback: (notice: { title: string; body: string; accountId: string }) => void
+  ) => () => void
+  /**
+   * The tray or a new-mail notification asks for the mail page, a notification with its
+   * account; returns the unsubscribe
+   */
+  onOpenMailPage: (callback: (accountId?: string) => void) => () => void
 }
 
 declare global {

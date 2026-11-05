@@ -11,8 +11,8 @@ export interface MailTrayDeps {
   accounts: () => { id: string; email: string }[]
   /** Brings the main window up (shows it if it is hidden in the tray) */
   showApp: () => void
-  /** Brings the main window up on the mail page */
-  showMail: () => void
+  /** Brings the main window up on the mail page; with an account, on its newest unread mail */
+  showMail: (accountId?: string) => void
   quit: () => void
 }
 
@@ -70,13 +70,13 @@ export class MailTray {
     this.render()
   }
 
-  /** Desktop notification for new mail (newMailNotice); a click opens the mail page */
-  notifyNewMail(notice: MailNotice): void {
+  /** Desktop notification for new mail (newMailNotice); a click opens the account's new mail */
+  notifyNewMail(notice: MailNotice, accountId: string): void {
     if (!Notification.isSupported()) return
     const notification = new Notification({ ...notice, icon: this.plain })
     notification.on('click', () => {
       this.shown.delete(notification)
-      this.deps.showMail()
+      this.deps.showMail(accountId)
     })
     // Windows emits 'close' when a toast moves to the notification centre, where it can still be
     // clicked: the latest few stay held instead
