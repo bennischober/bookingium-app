@@ -5,13 +5,17 @@ import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
 import { SidebarToggle } from '@/components/layout/sidebar-toggle'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { Outlet, useRouterState } from '@tanstack/react-router'
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
 
 export default function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const [collapsed, toggleSidebar] = useSidebarCollapsed(pathname)
+  const navigate = useNavigate()
+  // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification
+  useEffect(() => window.api.onOpenMailPage(() => void navigate({ to: '/mail' })), [navigate])
 
   return (
     // Fixed frame (window height): only the content area scrolls, so list

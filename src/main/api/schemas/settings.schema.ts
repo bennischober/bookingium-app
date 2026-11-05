@@ -117,6 +117,11 @@ export const AppSettings = z.object({
   // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
   // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
   mailClient: z.boolean().default(false),
+  // #65: a desktop notification when new mail arrives in an INBOX (count and account only)
+  mailNotifications: z.boolean().default(true),
+  // #65: closing the window keeps the app in the tray (Infobereich), so mail is still fetched
+  // and announced; off, closing quits as before. Only while the mail client has an account.
+  mailCloseToTray: z.boolean().default(false),
   // "Karte (experimentell)": the map preview (#102), off until the user turns it on. Off, the
   // renderer hides the page; the lookup runs offline by postcode (bundled GeoNames table).
   mapPreview: z.boolean().default(false),
@@ -149,6 +154,8 @@ export const UpdateAppSettingsInput = z
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
     mailClient: shape.mailClient.unwrap(),
+    mailNotifications: shape.mailNotifications.unwrap(),
+    mailCloseToTray: shape.mailCloseToTray.unwrap(),
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),

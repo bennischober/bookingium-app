@@ -96,18 +96,30 @@ import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/Ma
 import { contactAddressEvents } from './repositories/contactEmails'
 import { listMailAccounts } from './mailclient/accounts'
 import { watchSystemWake } from './mailclient/systemWake'
-import type { OpSummary } from './mailclient/core/types'
+import type { FolderNode, OpSummary } from './mailclient/core/types'
+import { inboxUnreadOf, inboxWatch } from './mailclient/inboxWatch'
+import { MailTray } from './mailclient/mailTray'
+import { STILL_RUNNING_NOTICE } from './mailclient/trayText'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
 let mainWindow: BrowserWindow | null = null
 // Mails opened in their own window, by `${accountId}:${messageId}`
 const mailWindows = new Map<string, BrowserWindow>()
+// #65: the tray icon while the mail client has an account (set up once the app is ready)
+let mailTray: MailTray | null = null
+// The app is quitting (or Windows is ending the session): a close is a close, never a hide
+let quitting = false
+let toldStillRunning = false
 
-/** A renderer window showing the route `hash` (e.g. '/mail/window?…'), or the app's start page */
+/**
+ * A renderer window showing the route `hash` (e.g. '/mail/window?…'), or the app's start page.
+ * `hideOnClose`: asked on each close; true hides the window instead (#65, the tray).
+ */
 function createAppWindow(
   options: Electron.BrowserWindowConstructorOptions,
-  hash?: string
+  hash?: string,
+  hideOnClose?: () => boolean
 ): BrowserWindow {
   const window = new BrowserWindow({
     show: false,
@@ -139,8 +151,18 @@ function createAppWindow(
   // is the only one that goes through - so a close can never beat the draft save.
   let closing = false
   let allowedToClose = false
-  window.on('close', () => {
+  window.on('close', (event) => {
+    // Hidden, the page stays loaded: nothing unloads, so no draft needs saving
+    if (!quitting && hideOnClose?.()) {
+      event.preventDefault()
+      window.hide()
+      return
+    }
     closing = true
+  })
+  // Windows ends the session: let the windows close, the app goes with them
+  window.on('query-session-end', () => {
+    quitting = true
   })
   window.webContents.on('will-prevent-unload', (event) => {
     // preventDefault() means "ignore the renderer's hold, let the unload happen".
@@ -190,20 +212,94 @@ function createAppWindow(
   return window
 }
 
-function createWindow(): void {
-  mainWindow = createAppWindow({
-    width: 900,
-    height: 670,
-    // Narrowest size the layout supports (sidebar + content, breadcrumbs,
-    // scrolling tables); below that the window can't be shrunk
-    minWidth: 800,
-    minHeight: 600
-  })
+function createWindow(hash?: string): void {
+  mainWindow = createAppWindow(
+    {
+      width: 900,
+      height: 670,
+      // Narrowest size the layout supports (sidebar + content, breadcrumbs,
+      // scrolling tables); below that the window can't be shrunk
+      minWidth: 800,
+      minHeight: 600
+    },
+    hash,
+    keepInTray
+  )
   // The mail windows belong to it; each saves an unsaved reply before it closes
   mainWindow.on('closed', () => {
     mainWindow = null
     for (const window of mailWindows.values()) window.close()
   })
+}
+
+/**
+ * #65: closing the main window keeps the app in the tray while "Beim Schließen im Infobereich
+ * weiterlaufen" is on and the tray icon is there to bring it back. The first time per session a
+ * notice says so.
+ */
+function keepInTray(): boolean {
+  if (!mailTray?.visible || !container.resolve(SettingsService).get().mailCloseToTray) return false
+  if (!toldStillRunning) {
+    toldStillRunning = true
+    mailTray.notify(STILL_RUNNING_NOTICE)
+  }
+  return true
+}
+
+/** Brings the main window up: shown again from the tray, restored, focused; or opened anew */
+function showMainWindow(hash?: string): BrowserWindow | null {
+  const window = mainWindow
+  if (!window) {
+    createWindow(hash)
+    return null
+  }
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
+  return window
+}
+
+/** The main window on the mail page (tray menu, a click on a new-mail notification) */
+function showMailPage(): void {
+  showMainWindow('/mail')?.webContents.send('app:openMailPage')
+}
+
+/**
+ * #65: the tray icon is there while the mail client is on and has an account; the watcher reads
+ * each INBOX's unread count after every sync and every own write and announces new mail
+ */
+function setUpMailTray(): void {
+  const settings = container.resolve(SettingsService)
+  const tray = new MailTray({
+    icon,
+    accounts: listMailAccounts,
+    showApp: () => void showMainWindow(),
+    showMail: showMailPage,
+    appFocused: () => BrowserWindow.getFocusedWindow() !== null,
+    quit: () => app.quit()
+  })
+  mailTray = tray
+  const watch = inboxWatch({
+    accountIds: () => listMailAccounts().map((account) => account.id),
+    inboxUnread: async (accountId) =>
+      inboxUnreadOf((await mailClient.call('getFolders', [accountId])) as FolderNode[]),
+    onCounts: (unread) => tray.setCounts(unread),
+    onNewMail: (accountId, count) => {
+      if (settings.get().mailNotifications) tray.notifyNewMail(accountId, count)
+    },
+    log: (error) => console.warn('[mail] reading the INBOX unread count failed:', error)
+  })
+  // Started, stopped, restarted after an account change or the switch: show or hide the icon
+  const sync = (): void => {
+    tray.setVisible(settings.get().mailClient && listMailAccounts().length > 0)
+    if (!tray.visible && mainWindow && !mainWindow.isVisible()) mainWindow.show()
+  }
+  mailClient.events.on('status', (status: { running: boolean }) => {
+    sync()
+    if (status.running) watch.onRunning()
+  })
+  mailClient.events.on('event', watch.onEvent)
+  sync()
 }
 
 /**
@@ -665,10 +761,8 @@ ipcMain.handle('import:pickFile', async (event) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('second-instance', () => {
-  const window = mainWindow
-  if (!window) return
-  if (window.isMinimized()) window.restore()
-  window.focus()
+  // also when it waits hidden in the tray
+  if (mainWindow) showMainWindow()
 })
 
 /**
@@ -717,7 +811,9 @@ function migrateDatabase(): boolean {
 app.whenReady().then(async () => {
   if (!isPrimaryInstance) return
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // The appId of electron-builder.yml: Windows shows it on notifications and groups the taskbar
+  // by it (the toolkit passes the executable's path in dev)
+  electronApp.setAppUserModelId('com.bookingium.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -783,6 +879,8 @@ app.whenReady().then(async () => {
     onResume: (listener) => powerMonitor.on('resume', listener),
     isOnline: () => net.isOnline()
   })
+  // #65: tray icon and new-mail notifications, from each account's INBOX unread count
+  setUpMailTray()
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
@@ -805,7 +903,7 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (!mainWindow) createWindow()
+    showMainWindow()
   })
 })
 
@@ -822,6 +920,7 @@ app.on('window-all-closed', () => {
 // before the app exits; the service kills the worker after a timeout
 let mailStopped = false
 app.on('before-quit', (event) => {
+  quitting = true
   if (mailStopped) return
   event.preventDefault()
   container.resolve(BackupService).stop()

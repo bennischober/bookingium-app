@@ -93,6 +93,8 @@ export interface DocumentAPI {
   }>
   /** An error nothing caught, for the local error log (main scrubs it) */
   reportError: (report: { message: string; stack?: string }) => void
+  /** The tray or a new-mail notification asks for the mail page; returns the unsubscribe */
+  onOpenMailPage: (callback: () => void) => () => void
 }
 
 declare global {

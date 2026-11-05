@@ -59,6 +59,19 @@ events and invoices), not a general mail client.
   (`hooks/useMailUnreadCount.ts`, `components/mail/unreadBadge.ts`, `MailCore.getInboxUnread`).
   With several accounts its tooltip lists each account's share, and the mail page's account picker
   shows the same per-account count ("· 6 ungelesen"), so the sum is traceable (#88).
+- **Tray icon and new-mail notification** (#65): while the switch is on and an account exists, an
+  icon in the Windows notification area (Infobereich) shows the INBOX unread counts in its tooltip and
+  a red dot while mail is unread; its menu opens the app, the mail page, or quits. New mail raises a
+  desktop notification with the count and the account only ("2 neue E-Mails", "Im Posteingang von …"),
+  never a subject or sender, and not while the app has focus; a click opens the mail page. Main
+  decides from counts alone (`mailclient/inboxWatch.ts`): an INBOX `folder-done` that stored mail
+  AND raised that INBOX's unread count; the first count per worker start (or the account's first
+  download) is a silent baseline, an `op-event` re-reads it, and a UIDVALIDITY rebuild announces
+  nothing. Two switches under Einstellungen › E-Mail: „Benachrichtigung bei neuen E-Mails“ (on by
+  default) and „Beim Schließen im Infobereich weiterlaufen“ (off by default; on, closing the main
+  window hides it and sync goes on, quitting is via the tray menu; once per session a notice says
+  so). The app's AppUserModelID is `com.bookingium.app`, the electron-builder `appId`, which Windows
+  needs for the notifications to show the app's name.
 
 **In bookingum:**
 
@@ -138,6 +151,8 @@ src/main/
   mailclient/
     MailClientService.ts          the host: worker lifecycle, crash limit, credentials, connection test
     systemWake.ts                 wake from sleep (power monitor, late clock tick, network wait)
+    inboxWatch.ts                 INBOX unread counts in main: tray counts, new-mail detection (#65)
+    mailTray.ts, trayText.ts      the tray icon, its tooltip and dot, the new-mail notification
     worker.ts                     utility-process entry: createMailCore, the allowlist, events to main
     protocol.ts                   main <-> worker messages; MAIL_API_METHODS (the IPC allowlist)
     accounts.ts                   accounts.json, safeStorage, "Nur lesen", writeRefusal for the renderer
