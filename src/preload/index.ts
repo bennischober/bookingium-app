@@ -55,6 +55,16 @@ const api = {
   reportError: (report: { message: string; stack?: string }) =>
     ipcRenderer.send('error-log:report', report),
 
+  /** #65: new mail while the main window has focus (count and account only); returns the unsubscribe */
+  onNewMail: (callback: (notice: { title: string; body: string }) => void) => {
+    const listener = (_event: unknown, notice: { title: string; body: string }): void =>
+      callback(notice)
+    ipcRenderer.on('app:newMail', listener)
+    return () => {
+      ipcRenderer.removeListener('app:newMail', listener)
+    }
+  },
+
   /** #65: the tray or a new-mail notification asks for the mail page; returns the unsubscribe */
   onOpenMailPage: (callback: () => void) => {
     const listener = (): void => callback()

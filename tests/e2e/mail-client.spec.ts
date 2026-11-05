@@ -498,8 +498,9 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
     )
   const tag = `${TRAY_TAG}${Date.now()}`
   try {
-    // The switches show while the mail client is on
+    // The switches show while the mail client is on (reloaded: the settings were changed over IPC)
     await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
+    await page.reload()
     await expect(page.getByLabel('Benachrichtigung bei neuen E-Mails')).toBeChecked()
     const closeToTray = page.getByLabel('Beim Schließen im Infobereich weiterlaufen')
     await expect(closeToTray).not.toBeChecked()
@@ -509,6 +510,23 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
     await expect
       .poll(notices, { timeout: 120_000 })
       .toContainEqual(expect.stringMatching(/^(Neue E-Mail|\d+ neue E-Mails)$/))
+
+    // With the main window in front the app shows a popup itself, and Windows stays quiet
+    await h.app.evaluate(({ BrowserWindow }) => {
+      const main = BrowserWindow.getAllWindows().find(
+        (w) => !w.webContents.getURL().includes('/mail/window')
+      )!
+      BrowserWindow.getFocusedWindow = () => main
+    })
+    const announced = (await notices()).length
+    await appendTestMail(SANDBOX.host, SANDBOX.port, `${tag}-app`)
+    await mail('triggerSync', true, sandboxId)
+    const popup = page.getByText(/^(Neue E-Mail|\d+ neue E-Mails)$/)
+    await expect(popup).toBeVisible({ timeout: 120_000 })
+    expect(await notices()).toHaveLength(announced)
+    await page.getByRole('button', { name: 'Anzeigen', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible()
+    await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
 
     // Closing hides the window instead of quitting, and says so once
     await closeToTray.click()
@@ -530,12 +548,32 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
   } finally {
     await h.app.evaluate(({ BrowserWindow }) => {
       ;(globalThis as { restoreTray?: () => void }).restoreTray?.()
-      BrowserWindow.getAllWindows()
-        .find((w) => !w.webContents.getURL().includes('/mail/window'))
-        ?.show()
+      // As the tray brings it back (showMainWindow): shown and focused, or later drags miss it
+      const main = BrowserWindow.getAllWindows().find(
+        (w) => !w.webContents.getURL().includes('/mail/window')
+      )
+      main?.show()
+      main?.focus()
     })
     await trpc('mutation', 'settings.update', { mailCloseToTray: false })
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, TRAY_TAG)
+    // Synced away here too: a stale row on top of the INBOX would be the next test's first mail
+    await mail('triggerSync', true, sandboxId)
+    await expect
+      .poll(
+        async () => {
+          const inbox = await waitForInbox(sandboxId)
+          const items = await mail<{ subject: string }[]>(
+            'listMessages',
+            inbox.id,
+            { offset: 0, limit: 50 },
+            sandboxId
+          )
+          return items.some((m) => m.subject?.startsWith(TRAY_TAG))
+        },
+        { timeout: 60_000 }
+      )
+      .toBe(false)
   }
   expect(await mainWindow('visible')).toBe(true)
 })

@@ -99,7 +99,7 @@ import { watchSystemWake } from './mailclient/systemWake'
 import type { FolderNode, OpSummary } from './mailclient/core/types'
 import { inboxUnreadOf, inboxWatch } from './mailclient/inboxWatch'
 import { MailTray } from './mailclient/mailTray'
-import { STILL_RUNNING_NOTICE } from './mailclient/trayText'
+import { STILL_RUNNING_NOTICE, newMailNotice } from './mailclient/trayText'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
@@ -275,7 +275,6 @@ function setUpMailTray(): void {
     accounts: listMailAccounts,
     showApp: () => void showMainWindow(),
     showMail: showMailPage,
-    appFocused: () => BrowserWindow.getFocusedWindow() !== null,
     quit: () => app.quit()
   })
   mailTray = tray
@@ -285,7 +284,14 @@ function setUpMailTray(): void {
       inboxUnreadOf((await mailClient.call('getFolders', [accountId])) as FolderNode[]),
     onCounts: (unread) => tray.setCounts(unread),
     onNewMail: (accountId, count) => {
-      if (settings.get().mailNotifications) tray.notifyNewMail(accountId, count)
+      if (!settings.get().mailNotifications) return
+      const email = listMailAccounts().find((account) => account.id === accountId)?.email ?? ''
+      const notice = newMailNotice(count, email)
+      // In the background: Windows announces it. In the main window: a popup in the app, which
+      // leaves it out on the mail page. In a mail window the user is reading mail already.
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) tray.notifyNewMail(notice)
+      else if (focused === mainWindow) focused.webContents.send('app:newMail', notice)
     },
     log: (error) => console.warn('[mail] reading the INBOX unread count failed:', error)
   })

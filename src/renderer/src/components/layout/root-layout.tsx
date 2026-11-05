@@ -5,8 +5,9 @@ import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
 import { SidebarToggle } from '@/components/layout/sidebar-toggle'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
 
@@ -14,8 +15,24 @@ export default function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const [collapsed, toggleSidebar] = useSidebarCollapsed(pathname)
   const navigate = useNavigate()
+  const router = useRouter()
   // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification
   useEffect(() => window.api.onOpenMailPage(() => void navigate({ to: '/mail' })), [navigate])
+  // #65: new mail while the app has focus. Not on the mail page, which lists it anyway; one
+  // popup at a time (a newer one replaces it), gone after a few seconds
+  useEffect(
+    () =>
+      window.api.onNewMail((notice) => {
+        if (router.state.location.pathname.startsWith('/mail')) return
+        toast.info(notice.title, {
+          id: 'new-mail',
+          description: notice.body,
+          duration: 6000,
+          action: { label: 'Anzeigen', onClick: () => void navigate({ to: '/mail' }) }
+        })
+      }),
+    [navigate, router]
+  )
 
   return (
     // Fixed frame (window height): only the content area scrolls, so list

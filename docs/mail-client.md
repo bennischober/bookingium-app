@@ -63,7 +63,9 @@ events and invoices), not a general mail client.
   icon in the Windows notification area (Infobereich) shows the INBOX unread counts in its tooltip and
   a red dot while mail is unread; its menu opens the app, the mail page, or quits. New mail raises a
   desktop notification with the count and the account only ("2 neue E-Mails", "Im Posteingang von …"),
-  never a subject or sender, and not while the app has focus; a click opens the mail page. Main
+  never a subject or sender; a click opens the mail page. While the main window has focus the app
+  shows the same text as a popup of its own instead (one at a time, „Anzeigen“ opens the mail page),
+  none on the mail page itself or while a mail window has focus. Main
   decides from counts alone (`mailclient/inboxWatch.ts`): an INBOX `folder-done` that stored mail
   AND raised that INBOX's unread count; the first count per worker start (or the account's first
   download) is a silent baseline, an `op-event` re-reads it, and a UIDVALIDITY rebuild announces
@@ -71,7 +73,8 @@ events and invoices), not a general mail client.
   default) and „Beim Schließen im Infobereich weiterlaufen“ (off by default; on, closing the main
   window hides it and sync goes on, quitting is via the tray menu; once per session a notice says
   so). The app's AppUserModelID is `com.bookingium.app`, the electron-builder `appId`, which Windows
-  needs for the notifications to show the app's name.
+  needs for the notifications to show the app's name and icon: the installer's Start Menu shortcut
+  registers it, so a dev run (`pnpm dev`) still shows "Electron" in the notification header.
 
 **In bookingum:**
 

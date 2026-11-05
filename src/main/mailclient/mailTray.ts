@@ -1,8 +1,9 @@
 // #65: the tray icon (Infobereich) and the desktop notification for new mail. The icon is there
 // while the mail client is on and has an account; its tooltip has the INBOX unread counts and a
-// red dot marks unread mail. index.ts decides when it shows and what a click opens.
+// red dot marks unread mail. index.ts decides when it shows, what a click opens, and whether new
+// mail is announced here (app in the background) or in the app.
 import { Menu, Notification, Tray, nativeImage, type NativeImage } from 'electron'
-import { newMailNotice, trayTooltip, withUnreadDot, type TrayAccount } from './trayText'
+import { trayTooltip, withUnreadDot, type MailNotice, type TrayAccount } from './trayText'
 
 export interface MailTrayDeps {
   icon: string
@@ -12,8 +13,6 @@ export interface MailTrayDeps {
   showApp: () => void
   /** Brings the main window up on the mail page */
   showMail: () => void
-  /** Whether the user is looking at the app now: no notification then, the badge shows it */
-  appFocused: () => boolean
   quit: () => void
 }
 
@@ -71,11 +70,10 @@ export class MailTray {
     this.render()
   }
 
-  /** Desktop notification for new mail; a click opens the mail page */
-  notifyNewMail(accountId: string, count: number): void {
-    if (this.deps.appFocused() || !Notification.isSupported()) return
-    const email = this.deps.accounts().find((account) => account.id === accountId)?.email ?? ''
-    const notification = new Notification({ ...newMailNotice(count, email), icon: this.plain })
+  /** Desktop notification for new mail (newMailNotice); a click opens the mail page */
+  notifyNewMail(notice: MailNotice): void {
+    if (!Notification.isSupported()) return
+    const notification = new Notification({ ...notice, icon: this.plain })
     notification.on('click', () => {
       this.shown.delete(notification)
       this.deps.showMail()
@@ -88,7 +86,7 @@ export class MailTray {
   }
 
   /** A plain notice (no click action) */
-  notify(notice: { title: string; body: string }): void {
+  notify(notice: MailNotice): void {
     if (!Notification.isSupported()) return
     new Notification({ ...notice, icon: this.plain }).show()
   }

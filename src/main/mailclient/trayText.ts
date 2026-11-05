@@ -7,6 +7,12 @@ export interface TrayAccount {
   unread: number
 }
 
+/** A notification's text: the desktop notification and the in-app popup say the same */
+export interface MailNotice {
+  title: string
+  body: string
+}
+
 /** Windows cuts a tray tooltip at 127 characters */
 export const TRAY_TOOLTIP_MAX = 127
 
@@ -24,7 +30,7 @@ export function trayTooltip(accounts: TrayAccount[]): string {
 }
 
 /** The desktop notification for `count` new mails in one account */
-export function newMailNotice(count: number, email: string): { title: string; body: string } {
+export function newMailNotice(count: number, email: string): MailNotice {
   return {
     title: count === 1 ? 'Neue E-Mail' : `${count} neue E-Mails`,
     body: email ? `Im Posteingang von ${email}` : 'Im Posteingang'
@@ -32,7 +38,7 @@ export function newMailNotice(count: number, email: string): { title: string; bo
 }
 
 /** Shown once per session when closing the window keeps the app in the tray */
-export const STILL_RUNNING_NOTICE = {
+export const STILL_RUNNING_NOTICE: MailNotice = {
   title: 'Bookingium läuft weiter',
   body: 'E-Mails werden weiter abgerufen. Beenden über das Symbol im Infobereich.'
 }
