@@ -1312,6 +1312,19 @@ export class InvoiceRepository {
     )
   }
 
+  /**
+   * Invoices of a band: those for its events (deal_memo.band_id) and those
+   * addressed to it (recipient snapshot taken from that band), newest first
+   */
+  async listByBand(bandId: number) {
+    return this.listWhere(
+      or(
+        eq(schema.deal_memo.band_id, bandId),
+        eq(schema.invoice_party_snapshot.source_band_id, bandId)
+      )
+    )
+  }
+
   /** Invoices addressed to a person (recipient snapshot taken from that person), newest first */
   async listByRecipientPerson(personId: number) {
     return this.listWhere(eq(schema.invoice_party_snapshot.source_person_id, personId))

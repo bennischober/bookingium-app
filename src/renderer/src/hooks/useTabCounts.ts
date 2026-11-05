@@ -63,12 +63,14 @@ export function useBandTabCounts(id: number | null) {
   const members = trpcReact.relation.getBandMembers.useQuery({ bandId }, on)
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId, on)
   const contracts = trpcReact.managementContract.listByBand.useQuery(bandId, on)
+  const invoices = trpcReact.invoice.listByBand.useQuery(bandId, on)
   const own = trpcReact.document.listByOwner.useQuery({ ownerType: 'band', ownerId: bandId }, on)
   const fromEvents = trpcReact.document.listEventDocumentsForBand.useQuery(bandId, on)
   return {
     members: lengthOf(members.data),
     events: lengthOf(events.data),
     contracts: lengthOf(contracts.data),
+    invoices: lengthOf(invoices.data),
     // The tab lists the band's own documents and those of its events
     documents: sumOf(own.data, fromEvents.data)
   } satisfies Counts<string>

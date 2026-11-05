@@ -46,6 +46,10 @@ export class InvoiceService {
     return await this.invoiceRepository.listByCompany(companyId)
   }
 
+  async listInvoicesByBand(bandId: number) {
+    return await this.invoiceRepository.listByBand(bandId)
+  }
+
   async listInvoicesByRecipientPerson(personId: number) {
     return await this.invoiceRepository.listByRecipientPerson(personId)
   }
