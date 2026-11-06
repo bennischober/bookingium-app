@@ -12,7 +12,12 @@ export class FollowUpMapper {
       dueDate: followUp.due_date,
       note: followUp.note,
       doneAt: followUp.done_at,
-      record: this.record(row)
+      record: this.record(row),
+      mail:
+        followUp.mail_account_id && followUp.mail_message_id
+          ? { accountId: followUp.mail_account_id, messageId: followUp.mail_message_id }
+          : null,
+      repliedAt: followUp.replied_at
     }
   }
 

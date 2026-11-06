@@ -4,7 +4,7 @@ import { Check, Pencil } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
-import { dueLabel, dueState, localIsoDate } from '@/lib/followUps'
+import { awaitsReply, dueLabel, dueState, localIsoDate } from '@/lib/followUps'
 import { RowActionButton } from '@/components/row-action-button'
 import { FollowUpDialog } from './FollowUpDialog'
 import type { FollowUpDto } from '../../../../main/api/schemas/followUp.schema'
@@ -120,6 +120,17 @@ export function FollowUpList({
                 <span className={cn(DUE_STYLES[dueState(followUp.dueDate, today)])}>
                   {dueLabel(followUp.dueDate, today)}
                 </span>
+                {awaitsReply(followUp, today) && (
+                  <>
+                    {' · '}
+                    <span
+                      className="font-medium text-red-700 dark:text-red-400"
+                      title="Auf die gesendete E-Mail kam bis heute keine Antwort"
+                    >
+                      Keine Antwort
+                    </span>
+                  </>
+                )}
                 {showRecord && (
                   <>
                     {' · '}

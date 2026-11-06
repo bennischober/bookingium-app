@@ -105,6 +105,8 @@ import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
 import { contactAddressEvents } from './repositories/contactEmails'
 import { listMailAccounts } from './mailclient/accounts'
+import type { MailEvent } from './mailclient/protocol'
+import type { FollowUpRecord } from './api/schemas/followUp.schema'
 import { watchSystemWake } from './mailclient/systemWake'
 import type { FolderNode, OpSummary } from './mailclient/core/types'
 import { inboxUnreadOf, inboxWatch } from './mailclient/inboxWatch'
@@ -378,6 +380,8 @@ ipcMain.handle(
 function openComposeWindow(input: {
   draft: ComposeDraft
   compose: DocumentCompose
+  /** #121: where a "Wiedervorlage ohne Antwort" of this mail is filed */
+  record: FollowUpRecord
 }): Promise<ComposeResult> {
   const token = invoiceComposes.register(input.compose)
   const search = new URLSearchParams({
@@ -387,7 +391,8 @@ function openComposeWindow(input: {
     // base64 of the UTF-8 JSON: the JSON has characters that would break the URL fragment
     draft: Buffer.from(JSON.stringify(input.draft), 'utf8').toString('base64'),
     // the name only, for the attachment chip - the window never learns the path
-    attachment: input.compose.fileName
+    attachment: input.compose.fileName,
+    record: `${input.record.type}:${input.record.id}`
   })
   return new Promise<ComposeResult>((resolve) => {
     const window = createAppWindow(
@@ -727,7 +732,8 @@ ipcMain.handle(
             accountId: sender.account.id,
             pdfPath: result.pdfPath,
             fileName: basename(result.pdfPath)
-          }
+          },
+          record: { type: 'invoice', id: invoiceId }
         })
         if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
         return { success: true, ...result, to: draft.to, eInvoice }
@@ -764,14 +770,18 @@ ipcMain.handle(
     try {
       const language: Lang = lang === 'en' ? 'en' : 'de'
       let data: ContractEmailData | null = null
+      // #121: a concert contract's follow-up is on its event, a management contract's on the band
+      let record: FollowUpRecord | null = null
       if (contract === 'management') {
         const print = await container.resolve(ManagementContractService).getPrintData(id)
         data = print ? managementContractEmailData(print) : null
+        record = print ? { type: 'band', id: print.band.id } : null
       } else if (contract === 'concert') {
         const print = await container.resolve(ContractService).getContractData(id)
         data = print ? concertContractEmailData(print) : null
+        record = { type: 'event', id }
       }
-      if (!data) return { success: false, error: 'Vertrag nicht gefunden' }
+      if (!data || !record) return { success: false, error: 'Vertrag nicht gefunden' }
       const settings = container.resolve(SettingsService).get()
       const draft = contractEmail(data, language, settings[EMAIL_TEMPLATES.contract[language].key])
       const sender = bookingumSender(settings)
@@ -793,7 +803,8 @@ ipcMain.handle(
             accountId: sender.account.id,
             pdfPath: result.pdfPath,
             fileName: basename(result.pdfPath)
-          }
+          },
+          record
         })
         if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
       }
@@ -998,7 +1009,18 @@ app.whenReady().then(async () => {
   mailLinks.rememberAccounts(listMailAccounts())
   const mailLinkRuns = mailLinkRunner({
     // Every configured account's address and alias is the user's own (host L3)
-    link: (accountId) => mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts())),
+    link: async (accountId) => {
+      const result = await mailLinks.linkAccount(accountId, ownMailAddresses(listMailAccounts()))
+      // #121: follow-ups closed by a reply; the open windows show them done
+      if (result.answered > 0) {
+        mailClient.events.emit('event', {
+          type: 'follow-ups-answered',
+          accountId,
+          count: result.answered
+        } satisfies MailEvent)
+      }
+      return result
+    },
     log: (error) => console.error('Linking mail failed:', error)
   })
   mailClient.events.on('event', mailLinkRuns.onEvent)

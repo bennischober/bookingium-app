@@ -727,7 +727,9 @@ export const contact_list = sqliteTable('contact_list', {
 
 // Follow-ups (Wiedervorlagen): a date and a note, optionally on one record
 // (at most one of the *_id columns is set; none = a general follow-up).
-// Open while done_at is null.
+// Open while done_at is null. #121: one made when sending a mail names that
+// mail (account + Message-ID without brackets); a reply closes it once and
+// sets replied_at, which a later rescan never touches again.
 export const follow_up = sqliteTable(
   'follow_up',
   {
@@ -741,6 +743,9 @@ export const follow_up = sqliteTable(
     company_id: integer('company_id').references(() => company.id, { onDelete: 'cascade' }),
     person_id: integer('person_id').references(() => person.id, { onDelete: 'cascade' }),
     invoice_id: integer('invoice_id').references(() => invoice.id, { onDelete: 'cascade' }),
+    mail_account_id: text('mail_account_id'),
+    mail_message_id: text('mail_message_id'),
+    replied_at: text('replied_at'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -750,6 +755,7 @@ export const follow_up = sqliteTable(
   },
   (table) => [
     index('follow_up_open_idx').on(table.done_at, table.due_date),
+    index('follow_up_mail_idx').on(table.mail_account_id, table.mail_message_id),
     index('follow_up_event_idx').on(table.event_id),
     index('follow_up_band_idx').on(table.band_id),
     index('follow_up_venue_idx').on(table.venue_id),

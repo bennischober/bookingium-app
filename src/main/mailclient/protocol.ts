@@ -85,6 +85,8 @@ export type MailEvent =
   | { type: 'sync-event'; accountId: string; event: unknown }
   | { type: 'op-event'; accountId: string; opId: string; kind: string; outcome: string }
   | { type: 'image-progress'; accountId: string; messageId: number; done: number; total: number }
+  // #121: main's linker closed follow-ups because replies came; the renderer refreshes them
+  | { type: 'follow-ups-answered'; accountId: string; count: number }
 
 export type FromWorker =
   | { type: 'ready' }

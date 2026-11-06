@@ -44,12 +44,32 @@ export function dueLabel(dueDate: string, today: string = localIsoDate()): strin
   return `${weekday}, ${germanDate(dueDate)}`
 }
 
+/** A SQLite UTC time ("2026-11-06 09:30:00") as its local calendar day, or null */
+function localDayOf(utc: string): string | null {
+  const date = new Date(utc.replace(' ', 'T') + (utc.endsWith('Z') ? '' : 'Z'))
+  return Number.isNaN(date.getTime()) ? null : localIsoDate(date)
+}
+
 /** done_at (SQLite UTC, "2026-11-06 09:30:00") -> "Erledigt am 06.11.2026", in local time */
 export function doneLabel(doneAt: string): string {
-  const date = new Date(doneAt.replace(' ', 'T') + (doneAt.endsWith('Z') ? '' : 'Z'))
-  if (Number.isNaN(date.getTime())) return 'Erledigt'
-  return `Erledigt am ${germanDate(localIsoDate(date))}`
+  const day = localDayOf(doneAt)
+  return day ? `Erledigt am ${germanDate(day)}` : 'Erledigt'
 }
+
+/** #121: replied_at (SQLite UTC) -> "Antwort erhalten am 06.11.2026", in local time */
+export function repliedLabel(repliedAt: string): string {
+  const day = localDayOf(repliedAt)
+  return day ? `Antwort erhalten am ${germanDate(day)}` : 'Antwort erhalten'
+}
+
+/**
+ * #121: an open follow-up waiting for a reply to a sent mail, due today or earlier, and
+ * still no reply - "Keine Antwort" in the list
+ */
+export const awaitsReply = (
+  followUp: { dueDate: string; mail: unknown; repliedAt: string | null },
+  today: string = localIsoDate()
+): boolean => followUp.mail !== null && followUp.repliedAt === null && followUp.dueDate <= today
 
 /** Open follow-ups due today or earlier (the sidebar badge) */
 export const countDue = (followUps: { dueDate: string }[], today: string = localIsoDate()) =>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
-import { doneLabel, germanDate } from '@/lib/followUps'
+import { doneLabel, germanDate, repliedLabel } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -69,7 +69,11 @@ function History() {
                 {followUp.note}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {followUp.doneAt ? doneLabel(followUp.doneAt) : 'Erledigt'}
+                {followUp.repliedAt && followUp.doneAt === followUp.repliedAt
+                  ? repliedLabel(followUp.repliedAt)
+                  : followUp.doneAt
+                    ? doneLabel(followUp.doneAt)
+                    : 'Erledigt'}
                 {` · fällig ${germanDate(followUp.dueDate)} · `}
                 {followUp.record ? <RecordLink record={followUp.record} /> : 'Allgemein'}
               </p>

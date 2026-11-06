@@ -52,6 +52,13 @@ export class FollowUpService {
     return this.get(id)
   }
 
+  /** #121: replies to these sent mails arrived; closes the follow-ups waiting for them */
+  closeByReplies(accountId: string, messageIds: readonly string[]): number {
+    const closed = this.followUpRepository.closeByReplies(accountId, messageIds)
+    if (closed > 0) scheduleCalendarUpdate()
+    return closed
+  }
+
   delete(id: number): void {
     this.followUpRepository.delete(id)
     scheduleCalendarUpdate()

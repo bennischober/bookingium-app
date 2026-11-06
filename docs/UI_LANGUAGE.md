@@ -95,6 +95,10 @@ English.
 | General (not on a record)        | Allgemein                                   |
 | Set a follow-up (toast action)   | Wiedervorlage setzen                        |
 | Quick picks                      | Morgen, In 3 Tagen, In 1 Woche, In 2 Wochen |
+| Follow-up on send (compose)      | Wiedervorlage ohne Antwort                  |
+| Filed / not filed (send toast)   | Wiedervorlage angelegt / nicht angelegt     |
+| Due, no reply came               | Keine Antwort                               |
+| Closed by a reply (history)      | Antwort erhalten am …                       |
 
 ### Events and documents
 

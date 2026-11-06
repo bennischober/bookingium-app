@@ -1,3 +1,6 @@
+import { parseRecordParam } from './composeFollowUp'
+import type { FollowUpRecord } from '../../../../main/api/schemas/followUp.schema'
+
 /**
  * C1: the window opened as bookingum's own editor for an invoice mail. Main puts the
  * prepared draft into the query as base64 of its UTF-8 JSON, plus an opaque token and
@@ -10,6 +13,8 @@ export type ComposeRequest = {
   to: string
   subject: string
   body: string
+  /** #121: the invoice or contract's record, for a follow-up of the mail */
+  record: FollowUpRecord | null
 }
 
 /**
@@ -35,7 +40,8 @@ export function parseComposeRequest(search: Record<string, unknown>): ComposeReq
       attachmentName: search.attachment == null ? '' : String(search.attachment),
       to: draft.to ?? '',
       subject: draft.subject ?? '',
-      body: draft.body ?? ''
+      body: draft.body ?? '',
+      record: parseRecordParam(search.record)
     }
   } catch {
     return null
