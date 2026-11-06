@@ -62,6 +62,8 @@ export function formatFullDate(iso: string | null): string {
 }
 
 export function formatSize(bytes: number): string {
+  if (bytes >= 1e9)
+    return `${(bytes / 1e9).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`
   if (bytes >= 1e6)
     return `${(bytes / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB`
   if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`

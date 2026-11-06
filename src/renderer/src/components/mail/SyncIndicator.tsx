@@ -4,6 +4,7 @@ import { retryIn } from '@/lib/mailConnection'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { runningOpLabel } from '@/components/mail/opLabel'
+import { syncProgressText } from '@/components/mail/syncProgress'
 import type { SyncStatus } from '../../../../main/mailclient/core/types'
 
 /** The current time, updated every second while `active` (for countdowns) */
@@ -101,12 +102,7 @@ export function SyncIndicator({
     )
   }
   const initial = status.phase === 'initial' || status.phase === 'paused'
-  const progress =
-    initial && status.messagesDone !== undefined
-      ? `${status.messagesDone.toLocaleString('de-DE')}${
-          status.messagesTotal ? ` / ${status.messagesTotal.toLocaleString('de-DE')}` : ''
-        } E-Mails`
-      : `${status.foldersSynced} / ${status.foldersTotal} Ordner`
+  const progress = syncProgressText(status)
 
   return (
     <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
@@ -117,6 +113,19 @@ export function SyncIndicator({
           <Spinner className="size-3" />
           <span>{label}</span>
         </>
+      ) : status.paused && status.spaceWarning ? (
+        // #63: held before the first download; the banner says why and how much
+        <span
+          className="flex items-center gap-1 text-amber-700 dark:text-amber-400"
+          title={status.spaceWarning}
+          data-testid="mail-space-warning"
+        >
+          <HardDrive className="size-3.5" />
+          <span>Wenig Speicherplatz · {progress}</span>
+          <Button variant="ghost" size="icon-xs" onClick={onResume} title="Trotzdem fortsetzen">
+            <Play />
+          </Button>
+        </span>
       ) : status.paused ? (
         <>
           <span>Download pausiert · {progress}</span>

@@ -367,6 +367,9 @@ Known limits of what is built:
 - The invoice PDF that main attaches on send is not counted against the editor's 20 MB attachment limit.
 - A UIDVALIDITY swap needs room for both copies of the folder; it checks first and stops with the
   disk-full message (`core/disk_full.ts`).
+- The first download (#63) knows the mailbox's size only from `STATUS=SIZE` or `QUOTA`; a server with
+  neither gets no space check and no size in the bar, only the count and the time left. A paused first
+  download stays paused across a restart. See "The first download of a large mailbox" in `core/README.md`.
 - After a write the write connection stays open for `WRITE_IDLE_MS` (30 s, `core/write_connection.ts`), and
   IDLE on that account waits as long. Not tuned against IONOS yet.
 

@@ -125,6 +125,12 @@ export type SyncStatus = {
   messagesDone?: number;            // messages stored so far (initial download)
   messagesTotal?: number | null;    // server-reported total, when known
   bytesDone?: number;               // downloaded bytes so far
+  /** #63: the mailbox's size on the server (STATUS SIZE, else QUOTA), when the server says */
+  bytesTotal?: number | null;
+  /** #63: seconds the first download still needs at its current rate; null until it can tell */
+  secondsLeft?: number | null;
+  /** #63: the first download waits paused because the drive looks too small; cleared by resumeSync() */
+  spaceWarning?: string | null;
   phase?: 'idle' | 'initial' | 'incremental' | 'paused' | 'error' | 'disk-full';
   paused?: boolean;                 // initial download can be paused/resumed
   accountId?: string;               // which account this status describes

@@ -543,6 +543,22 @@ export class Store {
     return read()!;
   }
 
+  /** #63: a setting of this store that outlives a restart (the paused download); null when unset. */
+  getFlag(key: string): string | null {
+    return (this.db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null;
+  }
+
+  /** #63: sets or (null) removes a flag read by `getFlag`. */
+  setFlag(key: string, value: string | null): void {
+    if (value === null) this.db.prepare('DELETE FROM kv WHERE key = ?').run(key);
+    else this.db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, value);
+  }
+
+  /** #63: what the stored messages take on the server (RFC822.SIZE; a skeleton keeps its message's size). */
+  storedServerBytes(): number {
+    return (this.db.prepare('SELECT COALESCE(SUM(size_bytes), 0) n FROM messages').get() as { n: number }).n;
+  }
+
   /** Full row including the body; lists read the slim messages columns instead. */
   getMessage(id: number): MessageRow | undefined {
     return this.db.prepare(`${Store.FULL_ROW} WHERE m.id = ?`).get(id) as MessageRow | undefined;

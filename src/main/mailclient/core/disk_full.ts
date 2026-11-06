@@ -53,6 +53,30 @@ export function swapSpaceMessage(folder: string, missingBytes: number): string {
     + `geladen werden, dafür fehlen etwa ${mb} MB. Platz freigeben und erneut versuchen.`;
 }
 
+/**
+ * #63: room the first download needs: what the server holds and is not stored yet, with the swap's
+ * share and reserve on top. An upper bound, since a message above `lazyAboveBytes` is stored as
+ * its skeleton only.
+ */
+export function downloadSpaceNeeded(serverBytes: number, storedBytes: number): number {
+  return swapSpaceNeeded(serverBytes, storedBytes);
+}
+
+/** "3,2 GB" / "450 MB", rounded up, so a warning never names less than is needed */
+function sizeText(bytes: number): string {
+  if (bytes >= 1_000_000_000) return `${(Math.ceil(bytes / 100_000_000) / 10).toFixed(1).replace('.', ',')} GB`;
+  return `${Math.max(1, Math.ceil(bytes / 1_000_000))} MB`;
+}
+
+/**
+ * #63: the first download does not fit. Not a stop like a full disk: the download waits paused, and
+ * continuing anyway is the user's call (a full disk then still stops it cleanly).
+ */
+export function downloadSpaceMessage(neededBytes: number, freeBytes: number): string {
+  return `Wenig Speicherplatz: der erste Download braucht bis zu ${sizeText(neededBytes)}, frei sind `
+    + `${sizeText(Math.max(0, freeBytes))}. Platz freigeben oder trotzdem fortsetzen.`;
+}
+
 /** I18: free bytes on the drive that holds `dir`; null when the system cannot tell. */
 export function freeBytesOf(dir: string): number | null {
   try {

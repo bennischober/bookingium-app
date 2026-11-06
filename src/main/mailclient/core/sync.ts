@@ -18,7 +18,8 @@ import fs from 'fs';
 import { STAGING_PREFIX, Store } from './store.js';
 import type { ConnectionState, ImapSecurity } from './types.js';
 import { allowsPlainLogin } from './imap_options.js';
-import { diskFullMessage, freeBytesOf, isDiskFullError } from './disk_full.js';
+import { diskFullMessage, downloadSpaceMessage, downloadSpaceNeeded, freeBytesOf, isDiskFullError } from './disk_full.js';
+import { secondsLeft } from './download_estimate.js';
 import { isPathOrChild } from './folders.js';
 import { ConnectionBudget } from './connection_budget.js';
 import { FolderLocks, hasInFlightOps } from './folder_locks.js';
@@ -123,6 +124,9 @@ export type SyncEvent =
   | { type: 'folder-done'; path: string; newCount: number; flagChanges: number; expunged: number; moved: number; specialUse?: string | null }
   | { type: 'error'; path: string | null; message: string };
 
+/** #63: the store's flag for a paused first download */
+const PAUSED_FLAG = 'sync_paused';
+
 export type SyncProgress = {
   running: boolean;
   lastSyncAt: string | null;
@@ -138,6 +142,12 @@ export type SyncProgress = {
   messagesDone: number;
   messagesTotal: number | null;
   bytesDone: number;
+  /** #63: the mailbox's size on the server (STATUS SIZE, else QUOTA); null when it does not say */
+  bytesTotal: number | null;
+  /** #63: what the first download still needs at its rate since it last (re)started */
+  secondsLeft: number | null;
+  /** #63: set while the first download waits paused for lack of room; cleared by resume() */
+  spaceWarning: string | null;
   phase: 'idle' | 'initial' | 'incremental' | 'paused' | 'error' | 'disk-full';
   paused: boolean;
   accountId: string;
@@ -158,6 +168,7 @@ export class SyncEngine {
     running: false, lastSyncAt: null, idleConnected: false,
     foldersSynced: 0, foldersTotal: 0, newMessages: 0, flagChanges: 0, expunged: 0, errors: [],
     currentFolder: null, messagesDone: 0, messagesTotal: null, bytesDone: 0,
+    bytesTotal: null, secondsLeft: null, spaceWarning: null,
     phase: 'idle', paused: false, accountId: 'unknown',
     connection: 'connecting', retryAt: null, connectionError: null, diskFull: null,
   };
@@ -175,6 +186,12 @@ export class SyncEngine {
   // what the running pass is: 'initial' while some folder was never downloaded
   private passPhase: 'initial' | 'incremental' = 'incremental';
   private pauseResolvers: (() => void)[] = [];
+  // #63: a pause saved before the restart, not applied yet; it belongs to the first download only
+  private restoredPause = false;
+  // #63: the user continued past the space warning; it is not asked again until a restart
+  private spaceAcknowledged = false;
+  // #63: where the download's rate is measured from (pass start or the last resume)
+  private rateStart: { at: number; done: number } | null = null;
   // I15a (MR-19): sync, IDLE and the write engine draw from one budget per account
   private readonly budget: ConnectionBudget;
   // R1: the IMAP connections, backoff, circuit breaker and capabilities (sync_connection.ts)
@@ -222,6 +239,10 @@ export class SyncEngine {
     credentials?: () => Promise<unknown>;
   }) {
     this.progress.accountId = account.id;
+    // #63: a paused first download stays paused across a restart (a metered line, a full drive).
+    // Applied once the pass knows the download is not done: every server contact waits while
+    // paused, so holding it here would keep the pass from ever finding out.
+    this.restoredPause = store.getFlag(PAUSED_FLAG) === '1';
     this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
     this.freeBytes = options?.freeBytes ?? freeBytesOf;
     this.log = options?.log ?? {};
@@ -345,7 +366,11 @@ export class SyncEngine {
   getStatus(): SyncProgress {
     const retryAt = this.progress.connection === 'offline' && this.nextPollAt !== null
       ? new Date(this.nextPollAt).toISOString() : null;
-    return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt };
+    const downloading = this.syncing && !this.paused && this.passPhase === 'initial';
+    const left = downloading && this.rateStart
+      ? secondsLeft(this.rateStart, { at: Date.now(), done: this.progress.messagesDone }, this.progress.messagesTotal)
+      : null;
+    return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt, secondsLeft: left };
   }
 
   isSyncing(): boolean { return this.syncing; }
@@ -382,6 +407,23 @@ export class SyncEngine {
     });
   }
 
+  /**
+   * #63: the mailbox's size on the server: the folders' STATUS SIZE when every one gave it, else the
+   * account's QUOTA usage (all folders, a little more than the listed ones), else null.
+   */
+  private async serverBytes(client: ImapFlow, folders: string[], sizeByPath: Map<string, number>): Promise<number | null> {
+    if (folders.length && folders.every(p => sizeByPath.has(p))) {
+      return [...sizeByPath.values()].reduce((a, b) => a + b, 0);
+    }
+    try {
+      const quota = await client.getQuota('INBOX');
+      const usage = quota ? quota.storage?.usage : undefined;
+      return typeof usage === 'number' && usage > 0 ? usage : null;
+    } catch {
+      return null;
+    }
+  }
+
   get isDiskFull(): boolean { return this.diskFull; }
 
   /**
@@ -405,8 +447,13 @@ export class SyncEngine {
     return Object.assign(new Error(diskFullMessage()), { code: 'ENOSPC' });
   }
 
-  /** Task 3: pause the initial download (drains within ~one batch, then idles). */
+  /** Task 3: pause the initial download (drains within ~one batch, then idles). #63: kept across a restart. */
   pause(): void {
+    this.hold();
+    this.saveFlag(PAUSED_FLAG, '1');
+  }
+
+  private hold(): void {
     if (!this.paused) {
       this.paused = true;
       this.progress.paused = true;
@@ -414,8 +461,41 @@ export class SyncEngine {
     }
   }
 
+  /** A flag that only helps: a write that fails (a full disk) must not fail the action. */
+  private saveFlag(key: string, value: string | null): void {
+    try {
+      this.store.setFlag(key, value);
+    } catch (e) {
+      this.log?.warn?.(`could not save ${key}: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * #63: before the first download, the room it needs against what the drive has left. Too little
+   * holds the download paused with the reason; continuing (resume) is the user's call, and a disk
+   * that does fill up then stops it as before. Unknown sizes (no STATUS SIZE, no QUOTA) or free
+   * space do not hold it.
+   */
+  private checkDownloadSpace(): void {
+    if (this.spaceAcknowledged || this.paused || !this.progress.bytesTotal) return;
+    const needed = downloadSpaceNeeded(this.progress.bytesTotal, this.store.storedServerBytes());
+    const free = this.freeBytes(this.store.filePath(''));
+    if (free === null || free >= needed) return;
+    this.progress.spaceWarning = downloadSpaceMessage(needed, free);
+    this.log?.warn?.(`first download held: needs ~${needed} bytes, ${free} free`);
+    this.hold();
+  }
+
   /** Task 3: resume a paused download. Also clears a disk-full stop: the user freed space. */
   resume(): void {
+    if (this.progress.spaceWarning) {
+      this.progress.spaceWarning = null;
+      this.spaceAcknowledged = true;
+    }
+    this.restoredPause = false;
+    this.saveFlag(PAUSED_FLAG, null);
+    // the rate is measured again from here; the paused time is not download time
+    this.rateStart = this.syncing ? { at: Date.now(), done: this.progress.messagesDone } : null;
     if (this.diskFull) {
       this.diskFull = false;
       this.progress.diskFull = null;
@@ -655,16 +735,20 @@ export class SyncEngine {
       // total messages (one STATUS round per folder, also used for prioritization)
       const client0 = await this.connect();
       const statusByPath = new Map<string, number>();
+      const sizeByPath = new Map<string, number>();
       for (const p of folders) {
         await this.gate();
         try {
-          const st = await client0.status(p, { messages: true });
+          // #63: SIZE where the server has it (STATUS=SIZE, IMAP4rev2); imapflow leaves it out otherwise
+          const st = await client0.status(p, { messages: true, size: true });
           if (st && st.messages !== undefined) statusByPath.set(p, st.messages);
+          if (st && typeof st.size === 'number') sizeByPath.set(p, st.size);
           if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
         } catch { /* STATUS on a weird folder — ignore, sync pass will handle */ }
       }
       this.progress.messagesTotal = [...statusByPath.values()].reduce((a, b) => a + b, 0)
         || (this.store.db.prepare('SELECT COUNT(*) c FROM messages').get() as { c: number }).c;
+      this.progress.bytesTotal = await this.serverBytes(client0, folders, sizeByPath);
 
       // prioritization: INBOX first, then folders by "recentness" unknown → by size desc
       const localCounts = new Map<string, number>(
@@ -674,8 +758,16 @@ export class SyncEngine {
       // A pass is a download only while some folder was never synced; after a restart the
       // count starts at what is already stored, so it does not look like starting over
       this.passPhase = folders.some(p => !this.store.getFolderByPath(p)?.uid_validity) ? 'initial' : 'incremental';
+      // #63: a pause kept from before the restart is the first download's; with that done it goes
+      if (this.restoredPause) {
+        this.restoredPause = false;
+        if (this.passPhase === 'initial') this.hold();
+        else this.saveFlag(PAUSED_FLAG, null);
+      }
       if (!this.paused) this.progress.phase = this.passPhase;
       this.progress.messagesDone = folders.reduce((n, p) => n + (localCounts.get(p) ?? 0), 0);
+      if (this.passPhase === 'initial') this.checkDownloadSpace();
+      this.rateStart = { at: Date.now(), done: this.progress.messagesDone };
       const ordered = [...folders].sort((a, b) => {
         if (a === 'INBOX') return -1;
         if (b === 'INBOX') return 1;
