@@ -551,12 +551,16 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
   } finally {
     await h.app.evaluate(({ BrowserWindow }) => {
       ;(globalThis as { restoreTray?: () => void }).restoreTray?.()
-      // As the tray brings it back (showMainWindow): shown and focused, or later drags miss it
+      // As the tray brings it back (showMainWindow): shown, and focused unless the run is in
+      // the background (#127)
       const main = BrowserWindow.getAllWindows().find(
         (w) => !w.webContents.getURL().includes('/mail/window')
       )
-      main?.show()
-      main?.focus()
+      if (process.env.BOOKINGIUM_E2E_BACKGROUND === '1') main?.showInactive()
+      else {
+        main?.show()
+        main?.focus()
+      }
     })
     await trpc('mutation', 'settings.update', { mailCloseToTray: false })
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, TRAY_TAG)

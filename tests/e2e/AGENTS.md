@@ -37,6 +37,9 @@ throwaway userData folder and assert on rendered German UI or written files.
   `BOOKINGIUM_E2E_USER_DATA` is set it is used as-is and must NEVER be deleted.
 - Keep `BOOKINGIUM_NO_LAUNCH=1` in `launch.ts`: it makes "send by e-mail" write files only
   instead of opening a real mail program.
+- Keep the windows in the background (`BOOKINGIUM_E2E_BACKGROUND=1`, set by `launch.ts`): they
+  appear without taking the focus. Input goes over CDP, so no spec may rely on the OS focus;
+  `BOOKINGIUM_E2E_FOREGROUND=1` brings the old behaviour back to watch a run (#127).
 - Never assert on PNG pixels (no pixel diffing exists) and never commit `__screenshots__`.
 - Mail specs must use the suite's own sandbox user (`bookingum-e2e@example.test`) and clean
   up only their own subject prefix - Mailpit is shared. Never use `testuser@example.test`,

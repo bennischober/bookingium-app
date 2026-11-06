@@ -50,7 +50,9 @@ export async function launchApp(options: { userData?: string } = {}): Promise<Ap
       NODE_ENV: 'production',
       BOOKINGIUM_USER_DATA: userData.dir,
       // Per E-Mail senden: write the files only, never open a mail program
-      BOOKINGIUM_NO_LAUNCH: '1'
+      BOOKINGIUM_NO_LAUNCH: '1',
+      // #127: windows open without taking the focus; BOOKINGIUM_E2E_FOREGROUND=1 to watch a run
+      BOOKINGIUM_E2E_BACKGROUND: process.env.BOOKINGIUM_E2E_FOREGROUND === '1' ? '' : '1'
     }
   })
 
