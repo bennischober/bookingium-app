@@ -113,6 +113,23 @@ let quitting = false
 let toldStillRunning = false
 
 /**
+ * #127: e2e runs open their windows without taking the focus from the user's other programs.
+ * Playwright drives the page over CDP, so its input does not need the OS focus.
+ */
+const inBackground = process.env.BOOKINGIUM_E2E_BACKGROUND === '1'
+
+/** Shows a window; in the background (e2e) without activating it */
+function present(window: BrowserWindow): void {
+  if (inBackground) window.showInactive()
+  else window.show()
+}
+
+/** Gives a window the focus, except in the background (e2e) */
+function bringToFront(window: BrowserWindow): void {
+  if (!inBackground) window.focus()
+}
+
+/**
  * A renderer window showing the route `hash` (e.g. '/mail/window?…'), or the app's start page.
  * `hideOnClose`: asked on each close; true hides the window instead (#65, the tray).
  */
@@ -139,7 +156,7 @@ function createAppWindow(
   else ipcHandler = createIPCHandler({ router, windows: [window] })
 
   window.on('ready-to-show', () => {
-    window.show()
+    present(window)
   })
 
   // F5/F15: the renderer's beforeunload holds the unload while it saves a draft, and
@@ -254,8 +271,8 @@ function showMainWindow(hash?: string): BrowserWindow | null {
     return null
   }
   if (window.isMinimized()) window.restore()
-  window.show()
-  window.focus()
+  present(window)
+  bringToFront(window)
   return window
 }
 
@@ -303,7 +320,7 @@ function setUpMailTray(): void {
   // Started, stopped, restarted after an account change or the switch: show or hide the icon
   const sync = (): void => {
     tray.setVisible(settings.get().mailClient && listMailAccounts().length > 0)
-    if (!tray.visible && mainWindow && !mainWindow.isVisible()) mainWindow.show()
+    if (!tray.visible && mainWindow && !mainWindow.isVisible()) present(mainWindow)
   }
   mailClient.events.on('status', (status: { running: boolean }) => {
     sync()
@@ -325,7 +342,7 @@ ipcMain.handle(
     const open = mailWindows.get(key)
     if (open && !open.isDestroyed()) {
       if (open.isMinimized()) open.restore()
-      open.focus()
+      bringToFront(open)
       return
     }
     const search = new URLSearchParams({ account: accountId, message: String(messageId) })
