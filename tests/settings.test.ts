@@ -32,6 +32,7 @@ let root: string
 const DEFAULTS = {
   defaultCountry: 'DE',
   calendarFeedPath: '',
+  calendarFeedFollowUps: false,
   eInvoiceEmbed: true,
   paymentQr: true,
   mailProgram: 'auto',

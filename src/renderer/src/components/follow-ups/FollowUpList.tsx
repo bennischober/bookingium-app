@@ -39,7 +39,7 @@ function useSetDone() {
 }
 
 /** The record a follow-up is on, as a link to its page */
-function RecordLink({ record }: { record: NonNullable<FollowUpDto['record']> }) {
+export function RecordLink({ record }: { record: NonNullable<FollowUpDto['record']> }) {
   const className = 'hover:text-foreground hover:underline'
   const id = String(record.id)
   switch (record.type) {

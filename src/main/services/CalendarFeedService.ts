@@ -5,15 +5,17 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from '../repositories/archiveFilter'
 import { SettingsService } from './SettingsService'
-import { buildCalendar, type CalendarEvent } from '../calendar/ics'
+import { FollowUpRepository } from '../repositories/FollowUpRepository'
+import { FollowUpMapper } from '../api/mappers/followUp.mapper'
+import { buildCalendar, type CalendarEvent, type CalendarFollowUp } from '../calendar/ics'
 import type { CalendarFeedStatusDto } from '../api/schemas/settings.schema'
 
 const UPDATE_DELAY_MS = 1500
 
 /**
  * Keeps the calendar file chosen in Einstellungen (calendarFeedPath) up to
- * date: rewritten shortly after events, bands, venues or hotels change, and
- * on start. Calendar apps subscribed to the file (or its shared link) pick
+ * date: rewritten shortly after events, bands, venues, hotels or (when
+ * included) follow-ups change, and on start. Calendar apps subscribed to the file (or its shared link) pick
  * the changes up on their next refresh.
  */
 // One instance: it owns the pending write and the last status
@@ -23,8 +25,13 @@ export class CalendarFeedService {
   private lastWrittenAt: string | null = null
   private lastError: string | null = null
   private lastCount = 0
+  private lastFollowUpCount = 0
 
-  constructor(@inject(SettingsService) private settings: SettingsService) {}
+  // The repository, not FollowUpService: that one schedules updates here
+  constructor(
+    @inject(SettingsService) private settings: SettingsService,
+    @inject(FollowUpRepository) private followUpRepository: FollowUpRepository
+  ) {}
 
   async events(): Promise<CalendarEvent[]> {
     const rows = await db
@@ -68,19 +75,36 @@ export class CalendarFeedService {
     })
   }
 
+  /** Open follow-ups, when the setting includes them; none otherwise */
+  followUps(): CalendarFollowUp[] {
+    if (!this.settings.get().calendarFeedFollowUps) return []
+    return this.followUpRepository.listOpen().map((row) => ({
+      id: row.followUp.id,
+      dueDate: row.followUp.due_date,
+      note: row.followUp.note,
+      recordName: FollowUpMapper.toDto(row).record?.name ?? null,
+      updatedAt: row.followUp.updated_at
+    }))
+  }
+
   /** The calendar as text (also for a one-off export) */
-  async calendar(): Promise<{ ics: string; count: number }> {
+  async calendar(): Promise<{ ics: string; count: number; followUps: number }> {
     const events = await this.events()
-    return { ics: buildCalendar(events), count: events.length }
+    const followUps = this.followUps()
+    return {
+      ics: buildCalendar(events, new Date(), followUps),
+      count: events.length,
+      followUps: followUps.length
+    }
   }
 
   /** Writes the calendar to `path` (temp file + rename: never half-written) */
-  async writeTo(path: string): Promise<number> {
-    const { ics, count } = await this.calendar()
+  async writeTo(path: string): Promise<{ events: number; followUps: number }> {
+    const { ics, count, followUps } = await this.calendar()
     const temp = `${path}.tmp`
     await writeFile(temp, ics, 'utf-8')
     await rename(temp, path)
-    return count
+    return { events: count, followUps }
   }
 
   /** Rewrites the feed file now, if one is set */
@@ -88,7 +112,9 @@ export class CalendarFeedService {
     const path = this.settings.get().calendarFeedPath
     if (path) {
       try {
-        this.lastCount = await this.writeTo(path)
+        const written = await this.writeTo(path)
+        this.lastCount = written.events
+        this.lastFollowUpCount = written.followUps
         this.lastWrittenAt = new Date().toISOString()
         this.lastError = null
       } catch (error) {
@@ -110,10 +136,13 @@ export class CalendarFeedService {
   }
 
   status(): CalendarFeedStatusDto {
+    const settings = this.settings.get()
     return {
-      path: this.settings.get().calendarFeedPath,
+      path: settings.calendarFeedPath,
       lastWrittenAt: this.lastWrittenAt,
       events: this.lastCount,
+      includeFollowUps: settings.calendarFeedFollowUps,
+      followUps: this.lastFollowUpCount,
       error: this.lastError
     }
   }

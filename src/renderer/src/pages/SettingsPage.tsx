@@ -16,6 +16,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { isSettingsTab, SETTINGS_TAB_LABELS, SETTINGS_TABS } from '@/components/settings/constants'
 import {
@@ -143,11 +144,25 @@ function CalendarCard() {
       if (!next.error) toast.success('Kalender-Datei aktualisiert')
     }
   })
+  const setFollowUps = trpcReact.calendar.setFeedFollowUps.useMutation({
+    onSuccess: (next) => {
+      onStatus(next)
+      void utils.settings.get.invalidate()
+      if (!next.error) toast.success('Einstellung gespeichert')
+    },
+    onError: (error) =>
+      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+  })
   const disable = trpcReact.calendar.disableFeed.useMutation({ onSuccess: onStatus })
   const reveal = trpcReact.calendar.revealFeedFile.useMutation()
   const exportOnce = trpcReact.calendar.exportOnce.useMutation({
     onSuccess: (result) => {
-      if (!result.canceled) toast.success(`${result.events} Events exportiert`)
+      if (result.canceled) return
+      toast.success(
+        result.followUps > 0
+          ? `${result.events} Events und ${result.followUps} Wiedervorlagen exportiert`
+          : `${result.events} Events exportiert`
+      )
     },
     onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
   })
@@ -171,7 +186,7 @@ function CalendarCard() {
             </p>
             <p className="text-muted-foreground">
               {feed.lastWrittenAt
-                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events`
+                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events${feed.includeFollowUps ? ` · ${feed.followUps} Wiedervorlagen` : ''}`
                 : 'Wird beim nächsten Ändern eines Events geschrieben.'}
             </p>
             {feed.error && <p className="text-destructive">{feed.error}</p>}
@@ -205,6 +220,24 @@ function CalendarCard() {
           >
             <Download className="h-4 w-4" /> Einmalig exportieren…
           </Button>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="settings-calendar-follow-ups"
+              checked={feed?.includeFollowUps ?? false}
+              onCheckedChange={(checked) => setFollowUps.mutate(checked)}
+              disabled={status.isLoading || setFollowUps.isPending}
+            />
+            <Label htmlFor="settings-calendar-follow-ups">
+              Offene Wiedervorlagen mit aufnehmen
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Als ganztägige Einträge am Fälligkeitstag, mit der Notiz als Text. Erledigte fallen
+            heraus. Wer die Datei abonniert, sieht dann auch die Notizen.
+          </p>
         </div>
 
         <p className="text-xs text-muted-foreground">

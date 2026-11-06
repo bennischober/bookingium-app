@@ -494,15 +494,24 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   `owner_type`/`owner_id`): a follow-up goes with its record. At most one
   is set; none means general.
 - **Done** sets `done_at` instead of deleting, so the toast's "Rückgängig"
-  brings it back. Only open ones are listed; "Löschen" in the edit dialog
-  removes one for good.
+  brings it back. Lists show open ones; "Erledigte" on the Dashboard card
+  opens the history (`listDone`, last ticked off first, 50 at a time, each
+  with "Wieder öffnen"). "Löschen" in the edit dialog removes one for good.
 - **Where it shows** (`components/follow-ups`): a "Wiedervorlage" button
   and the record's open follow-ups above the tabs on each detail page; the
   Dashboard card (overdue, today, the next 14 days, the rest behind "weitere
   später anzeigen"; "+ Wiedervorlage" for a general one); and the count of
   those due today or earlier on the Dashboard menu item. An invoice's sit
   on its page, a draft's in its sheet; the Dashboard links to the page,
-  which hands a draft to the sheet.
+  which hands a draft to the sheet. The calendar page shows open ones on
+  their due day (an amber dot in the month, a list under the day and in the
+  agenda) and "+ Wiedervorlage" creates one on the selected day.
+- **Calendar file** (#52): with "Offene Wiedervorlagen mit aufnehmen"
+  (`calendarFeedFollowUps`, off by default, since the file is often shared
+  by link) the .ics gets each open one as an all-day, non-blocking entry
+  (`UID:follow-up-<id>@bookingium`, "Wiedervorlage: <first line>"). Every
+  `FollowUpService` change schedules a rewrite, so a ticked-off one drops
+  out of subscribed calendars.
 - **Offered, not made:** saving something unfinished (an invoice draft, an
   event still "Ausstehend") shows "Wiedervorlage setzen" in the success
   toast (`useFollowUpNudge`), unless the record already has an open

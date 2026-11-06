@@ -61,7 +61,7 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
   services, not in routers. Mapper fallbacks are German.
 
 ### services/
-- After a mutation on a calendar-visible object (band, venue, deal memo, hotel)
+- After a mutation on a calendar-visible object (band, venue, deal memo, hotel, follow-up)
   call `scheduleCalendarUpdate()`.
 - After deleting a document owner (band, company, venue, person, deal memo) call
   `removeOwnerFolder(type, id)`: DB rows go via triggers, folders do not.

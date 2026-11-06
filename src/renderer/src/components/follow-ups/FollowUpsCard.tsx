@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { History, Plus } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { addDays, localIsoDate } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FollowUpDialog } from './FollowUpDialog'
 import { FollowUpList } from './FollowUpList'
+import { FollowUpHistoryDialog } from './FollowUpHistoryDialog'
 
 // Further out than this, follow-ups wait behind "weitere anzeigen"
 const HORIZON_DAYS = 14
@@ -14,6 +15,7 @@ const HORIZON_DAYS = 14
 export function FollowUpsCard() {
   const [creating, setCreating] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const query = trpcReact.followUp.listOpen.useQuery()
   const followUps = query.data ?? []
 
@@ -26,10 +28,16 @@ export function FollowUpsCard() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Wiedervorlagen</CardTitle>
-        <Button variant="outline" className="gap-1.5" onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" />
-          Wiedervorlage
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" className="gap-1.5" onClick={() => setHistoryOpen(true)}>
+            <History className="h-4 w-4" />
+            Erledigte
+          </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" />
+            Wiedervorlage
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
@@ -63,6 +71,7 @@ export function FollowUpsCard() {
         )}
       </CardContent>
       <FollowUpDialog open={creating} onOpenChange={setCreating} />
+      <FollowUpHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
     </Card>
   )
 }
