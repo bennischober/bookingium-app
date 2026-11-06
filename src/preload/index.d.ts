@@ -1,6 +1,5 @@
 import type { ImportFile } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
-import type { MailMethod } from '../main/mail/mailProgram'
 
 export interface DocumentAPI {
   /** Local path of a file dropped from the file manager ('' if it has none) */
@@ -57,9 +56,9 @@ export interface DocumentAPI {
     error?: string
   }>
   /**
-   * "Per E-Mail senden": writes the PDF and an email draft and opens it in
-   * the mail program; `method` says how (see mail/mailProgram.ts). `kind`
-   * reminder/dunning sends a Zahlungserinnerung/Mahnung instead.
+   * "Per E-Mail senden": writes the PDF and opens bookingum's compose window with the
+   * filled template on the "Senden von" account (#136); resolves once that window is
+   * closed. `kind` reminder/dunning sends a Zahlungserinnerung/Mahnung instead.
    */
   sendInvoiceEmail: (
     invoiceId: number,
@@ -68,13 +67,12 @@ export interface DocumentAPI {
     kind?: 'invoice' | 'reminder' | 'dunning'
   ) => Promise<{
     success: boolean
-    method?: MailMethod
-    /** The attached PDF, kept in the app's E-Mail folder */
-    pdfPath?: string
-    /** Recipient address, '' when the recipient has none */
-    to?: string
+    /** The mail was sent from the compose window (false: closed without sending) */
+    sent?: boolean
     eInvoice?: EInvoiceCheckDto
     error?: string
+    /** The error is fixed in Einstellungen › E-Mail (no account, or none that can send) */
+    setup?: boolean
   }>
   /**
    * #120: email a concert contract (by its deal memo id) or a management contract (by its
@@ -87,14 +85,10 @@ export interface DocumentAPI {
     lang: 'de' | 'en'
   ) => Promise<{
     success: boolean
-    method?: MailMethod
-    pdfPath?: string
-    /** Recipient address, '' when the contract's other party has none */
-    to?: string
+    sent?: boolean
     error?: string
+    setup?: boolean
   }>
-  /** Shows a file of sendInvoiceEmail or sendContractEmail in Explorer */
-  showEmailFile: (filePath: string) => Promise<void>
   /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
   copyMailLink: (url: string) => Promise<{ success: boolean; error?: string }>
   /** Opens a mail of the built-in mail client in its own window (or focuses that window) */

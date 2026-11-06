@@ -728,18 +728,28 @@ export const contact_list = sqliteTable('contact_list', {
 // #123: the user's own mail templates (Vorlagen) for the mail client: a name, a subject and a
 // plain-text body with {Platzhalter} (MAIL_TEMPLATE_PLACEHOLDERS in mail/mailTemplate.ts), filled
 // from an event when one is chosen while composing.
-export const mail_template = sqliteTable('mail_template', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  subject: text('subject').default('').notNull(),
-  body: text('body').default('').notNull(),
-  created_at: text('created_at')
-    .default(sql`(datetime('now'))`)
-    .notNull(),
-  updated_at: text('updated_at')
-    .default(sql`(datetime('now'))`)
-    .notNull()
-})
+// #136: with `kind` and `lang` a row is one of the eight fixed texts for invoices, reminders,
+// dunning letters and contracts (DEFAULT_DOCUMENT_EMAILS), edited by the user; without a row the
+// default applies, and "Zurücksetzen" deletes it. Own templates have neither (NULLs never clash
+// in the unique index).
+export const mail_template = sqliteTable(
+  'mail_template',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    subject: text('subject').default('').notNull(),
+    body: text('body').default('').notNull(),
+    kind: text('kind'), // 'invoice' | 'reminder' | 'dunning' | 'contract'
+    lang: text('lang'), // 'de' | 'en'
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('mail_template_kind_lang_idx').on(table.kind, table.lang)]
+)
 
 // Follow-ups (Wiedervorlagen): a date and a note, optionally on one record
 // (at most one of the *_id columns is set; none = a general follow-up).

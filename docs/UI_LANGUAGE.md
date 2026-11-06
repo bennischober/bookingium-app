@@ -162,10 +162,14 @@ English.
 
 ### Mail templates
 
-| English                               | German                                                                               |
-| ------------------------------------- | ------------------------------------------------------------------------------------ |
-| Mail templates (settings card)        | E-Mail-Vorlagen                                                                      |
-| New / edit / add template             | Neue Vorlage / Vorlage bearbeiten / Vorlage hinzufügen…                              |
-| Insert template (compose toolbar)     | Vorlage einfügen; button „Einfügen“                                                  |
-| Event for the placeholders / no event | Event für die Platzhalter / Ohne Event                                               |
-| Placeholders                          | {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro}, {Empfänger} |
+| English                                | German                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| Mail templates (settings card)         | E-Mail-Vorlagen                                                                      |
+| Fixed texts / own templates (sections) | Für Rechnungen und Verträge / Eigene Vorlagen                                        |
+| Reset a fixed text                     | Zurücksetzen; „Standardtext wiederherstellen?“                                       |
+| Sending account (settings card)        | Per E-Mail senden; „Senden von“                                                      |
+| No sending account (toast action)      | Zum Senden zuerst ein E-Mail-Konto hinzufügen. / Einstellungen öffnen                |
+| New / edit / add template              | Neue Vorlage / Vorlage bearbeiten / Vorlage hinzufügen…                              |
+| Insert template (compose toolbar)      | Vorlage einfügen; button „Einfügen“                                                  |
+| Event for the placeholders / no event  | Event für die Platzhalter / Ohne Event                                               |
+| Placeholders                           | {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro}, {Empfänger} |

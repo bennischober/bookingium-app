@@ -36,8 +36,6 @@ function reachable(port: number): Promise<boolean> {
 
 let h: AppHandle
 let userData: string
-/** "E-Mail (experimentell)" as a fresh data folder has it, before the suite turns it on */
-let mailClientDefault: boolean | undefined
 
 /** A tRPC call the way the renderer's ipcLink makes it */
 function trpc<T>(type: 'query' | 'mutation', path: string, input?: unknown): Promise<T> {
@@ -126,8 +124,6 @@ test.beforeAll(async () => {
   }
   h = await launchApp()
   userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
-  mailClientDefault = (await trpc<{ mailClient: boolean }>('query', 'settings.get')).mailClient
-  await turnMailClientOn()
   // Keep the real clipboard untouched; remember what a mail link would copy
   await h.app.evaluate(({ clipboard }) => {
     const store = globalThis as { copiedMailLink?: string }
@@ -150,11 +146,6 @@ type Account = {
   user: string
 }
 type Saved = { test: { ok: boolean; stage?: string }; account?: Account }
-
-/** The mail client is experimental and off in a fresh data folder; a relaunch keeps the setting */
-async function turnMailClientOn(): Promise<void> {
-  await trpc('mutation', 'settings.update', { mailClient: true })
-}
 
 /** Saves through the connection test; fails the test when the server refuses the settings */
 async function saveAccount(input: Record<string, unknown>): Promise<Account> {
@@ -216,22 +207,13 @@ async function ensureReadOnlyAccount(): Promise<string> {
   return existing?.id ?? (await saveAccount(READ_ONLY_ACCOUNT)).id
 }
 
-test('off by default, the mail client shows nowhere and refuses its calls', async () => {
-  expect(mailClientDefault).toBe(false)
+test('#136: the mail client is always part of the app, not a switch', async () => {
   const menuEntry = h.page.getByRole('link', { name: 'E-Mail', exact: true })
-  try {
-    await trpc('mutation', 'settings.update', { mailClient: false })
-    await h.page.reload()
-    await expect(h.page.getByRole('link', { name: 'Einstellungen' }).first()).toBeVisible()
-    await expect(menuEntry).toHaveCount(0)
-    await expect(trpc('mutation', 'mail.call', { method: 'getFolders', args: [] })).rejects.toThrow(
-      'ausgeschaltet'
-    )
-  } finally {
-    await turnMailClientOn()
-  }
   await h.page.reload()
   await expect(menuEntry).toBeVisible()
+  const settings = await trpc<Record<string, unknown>>('query', 'settings.get')
+  expect('mailClient' in settings).toBe(false)
+  expect('mailProgram' in settings).toBe(false)
 })
 
 test('a sandbox account is saved with an encrypted password', async () => {
@@ -1727,8 +1709,7 @@ test('a folder is created, renamed and deleted from the tree', async () => {
   }
 })
 
-// C1: "bookingum" as the mail program sends an invoice mail from bookingum's own
-// editor. The invoice counts as emailed only after that send, and Mailpit sees one
+// C1: an invoice mail is sent from bookingum's own editor (#136: the only way). The invoice counts as emailed only after that send, and Mailpit sees one
 // mail with one PDF attachment (count and size only).
 const C1_TAG = 'e2e-c1-invoice-'
 
@@ -1742,19 +1723,8 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
   const base = () => page.url().split('#')[0]
 
   try {
-    // 1. Choose bookingum as the mail program and prove the setting took
+    // 1. Choose the sending account in Einstellungen › E-Mail
     await page.goto(`${base()}#/settings?tab=email`)
-    await page.locator('#settings-mail-program').click()
-    await page.getByRole('option', { name: /bookingum \(eigenes E-Mail-Konto\)/ }).click()
-    await expect(page.locator('#settings-mail-program')).toContainText(/bookingum/, {
-      timeout: 15_000
-    })
-    await expect
-      .poll(
-        async () => (await trpc<{ mailProgram: string }>('query', 'settings.get')).mailProgram,
-        { timeout: 15_000 }
-      )
-      .toBe('bookingum')
     // I7 (MR-12): the sending account is chosen, never guessed
     await page.locator('#settings-invoice-mail-account').click()
     await page.getByRole('option', { name: SANDBOX_ACCOUNT.email }).first().click()
@@ -1786,6 +1756,10 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     await expect(editor).toBeVisible({ timeout: 30_000 })
     // I7 (MR-21): the window knows the PDF by name only and shows that it goes along
     await expect(editor.getByRole('list', { name: 'Anhänge' }).getByRole('listitem')).toHaveCount(1)
+    // The fixed invoice text from E-Mail-Vorlagen, filled from the invoice
+    await expect(editor.getByRole('textbox', { name: 'Betreff' })).toHaveValue(
+      /^(Rechnung|Invoice) 1040\b/
+    )
     await editor.getByRole('textbox', { name: 'Betreff' }).fill(subject)
 
     // The editor closes itself once the mail is out - that is the completion signal
@@ -1844,10 +1818,8 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
     await expect(mails).toContainText('contact@soundwaverecords.example.test')
     await expect(page.getByText('Antwort erhalten')).toHaveCount(0)
   } finally {
-    // back to files: later tests must not send anything
-    await page.goto(`${base()}#/settings?tab=email`)
-    await page.locator('#settings-mail-program').click()
-    await page.getByRole('option', { name: /Nur Dateien speichern/ }).click()
+    // #136: nothing goes out without "Senden" in the compose window; unchoose the account
+    await trpc('mutation', 'settings.update', { invoiceMailAccountId: '' })
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, C1_TAG)
   }
 })
@@ -2704,7 +2676,6 @@ test('the app starts and rebuilds when the local mail store is corrupt', async (
     // First launch: a real sandbox account, so the app writes a real store itself
     h = await launchApp({ userData: shared })
     await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
-    await turnMailClientOn()
     const sandboxId = await ensureSandboxAccount()
     await waitForInbox(sandboxId)
     await openMailPage(sandboxId)
@@ -2760,7 +2731,6 @@ test('a full disk shows as its own state, not as offline', async () => {
     //    fail on an empty list instead of on the behaviour it is about.)
     h = await launchApp({ userData: shared })
     await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
-    await turnMailClientOn()
     const sandboxId = await ensureSandboxAccount()
     await waitForInbox(sandboxId)
     await openMailPage(sandboxId)

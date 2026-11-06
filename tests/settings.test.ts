@@ -14,14 +14,7 @@ import { BackupService } from '../src/main/services/BackupService'
 import { BACKUP_MARKER, backupFolderName } from '../src/main/backup/policy'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
-import {
-  AppSettings,
-  DEFAULT_CONTRACT_EMAIL,
-  DEFAULT_DUNNING_EMAIL,
-  DEFAULT_INVOICE_EMAIL,
-  DEFAULT_REMINDER_EMAIL,
-  UpdateAppSettingsInput
-} from '../src/main/api/schemas/settings.schema'
+import { AppSettings, UpdateAppSettingsInput } from '../src/main/api/schemas/settings.schema'
 import { DEFAULT_CLUB_RADIUS, DEFAULT_FESTIVAL_RADIUS } from '../src/main/api/schemas/radius.schema'
 
 import { setupTestDb } from './helpers/setup'
@@ -36,9 +29,6 @@ const DEFAULTS = {
   calendarFeedFollowUps: false,
   eInvoiceEmbed: true,
   paymentQr: true,
-  mailProgram: 'auto',
-  // the built-in mail client is experimental and off until the user turns it on
-  mailClient: false,
   // #133: no new-mail notifications, closing still quits (#65)
   mailNotifications: false,
   mailInAppNotifications: false,
@@ -47,15 +37,7 @@ const DEFAULTS = {
   mapPreview: false,
   radiusClub: DEFAULT_CLUB_RADIUS,
   radiusFestival: DEFAULT_FESTIVAL_RADIUS,
-  invoiceMailAccountId: '',
-  invoiceEmailDe: DEFAULT_INVOICE_EMAIL.de,
-  invoiceEmailEn: DEFAULT_INVOICE_EMAIL.en,
-  reminderEmailDe: DEFAULT_REMINDER_EMAIL.de,
-  reminderEmailEn: DEFAULT_REMINDER_EMAIL.en,
-  dunningEmailDe: DEFAULT_DUNNING_EMAIL.de,
-  dunningEmailEn: DEFAULT_DUNNING_EMAIL.en,
-  contractEmailDe: DEFAULT_CONTRACT_EMAIL.de,
-  contractEmailEn: DEFAULT_CONTRACT_EMAIL.en
+  invoiceMailAccountId: ''
 }
 
 beforeAll(() => {

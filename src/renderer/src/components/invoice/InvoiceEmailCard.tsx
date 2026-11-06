@@ -1,12 +1,7 @@
-import { useState } from 'react'
-import { RotateCcw } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -14,127 +9,13 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  EMAIL_TEMPLATES,
-  type EmailTemplate,
-  type EmailTemplateKind,
-  type MailProgramSetting
-} from '../../../../main/api/schemas/settings.schema'
-import { INVOICE_EMAIL_PLACEHOLDERS } from '../../../../main/mail/invoiceEmail'
-import { CONTRACT_EMAIL_PLACEHOLDERS } from '../../../../main/mail/contractEmail'
 import { readingActions } from '@/components/mail/readingActions'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 
-const MAIL_PROGRAMS: Array<{ value: MailProgramSetting; label: string }> = [
-  { value: 'auto', label: 'Automatisch' },
-  { value: 'outlook', label: 'Outlook (klassisch)' },
-  { value: 'thunderbird', label: 'Thunderbird' },
-  { value: 'mailto', label: 'Anderes Mailprogramm' },
-  { value: 'files', label: 'Nur Dateien speichern' },
-  // C1: only offered with the mail client on ("E-Mail (experimentell)")
-  { value: 'bookingum', label: 'bookingum (eigenes E-Mail-Konto)' }
-]
-
-const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
-  auto: 'Nach dem Mailprogramm, das Windows für E-Mail-Links nutzt, sonst ein installiertes Outlook (klassisch) oder Thunderbird.',
-  outlook: 'Öffnet die E-Mail mit PDF als Entwurf.',
-  thunderbird: 'Öffnet eine neue E-Mail mit PDF im Anhang.',
-  mailto:
-    'Öffnet eine neue E-Mail ohne Anhang (z. B. das neue Outlook) und zeigt das PDF zum Hineinziehen.',
-  files: 'Speichert E-Mail (.eml) und PDF und öffnet ihren Ordner.',
-  bookingum:
-    'Öffnet die E-Mail im bookingum-Editor; das PDF wird beim Senden angehängt. Nach dem Senden gilt die Rechnung als versendet.'
-}
-
-type Lang = 'de' | 'en'
-
-const TEMPLATE_KINDS: Array<{ value: EmailTemplateKind; label: string }> = [
-  { value: 'invoice', label: 'Rechnung' },
-  { value: 'reminder', label: 'Zahlungserinnerung' },
-  { value: 'dunning', label: 'Mahnung' },
-  // #120: concert and management contracts
-  { value: 'contract', label: 'Vertrag' }
-]
-
-function Placeholders({ names }: { names: readonly string[] }) {
-  return names.map((name, index) => (
-    <span key={name}>
-      {index > 0 && ', '}
-      <code className="rounded bg-muted px-1">{`{${name}}`}</code>
-    </span>
-  ))
-}
-
-/** Subject and text of one template language, saved with its own button */
-function TemplateFields({
-  lang,
-  standard,
-  saved,
-  onSave,
-  disabled
-}: {
-  lang: Lang
-  standard: EmailTemplate
-  saved: EmailTemplate
-  onSave: (template: EmailTemplate) => void
-  disabled: boolean
-}) {
-  // Edits start from the stored template and follow it when it changes
-  // (state adjustment during render; by value, so saving another setting
-  // keeps unsaved edits)
-  const [draft, setDraft] = useState(saved)
-  const [lastSaved, setLastSaved] = useState(saved)
-  if (saved.subject !== lastSaved.subject || saved.body !== lastSaved.body) {
-    setLastSaved(saved)
-    setDraft(saved)
-  }
-  const changed = draft.subject !== saved.subject || draft.body !== saved.body
-  const isDefault = draft.subject === standard.subject && draft.body === standard.body
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        <Label htmlFor={`settings-email-subject-${lang}`}>
-          Betreff ({lang === 'de' ? 'Deutsch' : 'Englisch'})
-        </Label>
-        <Input
-          id={`settings-email-subject-${lang}`}
-          value={draft.subject}
-          onChange={(event) => setDraft({ ...draft, subject: event.target.value })}
-          disabled={disabled}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`settings-email-body-${lang}`}>
-          Text ({lang === 'de' ? 'Deutsch' : 'Englisch'})
-        </Label>
-        <Textarea
-          id={`settings-email-body-${lang}`}
-          value={draft.body}
-          onChange={(event) => setDraft({ ...draft, body: event.target.value })}
-          rows={7}
-          disabled={disabled}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={() => onSave(draft)} disabled={disabled || !changed}>
-          Speichern
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setDraft(standard)}
-          disabled={disabled || isDefault}
-        >
-          <RotateCcw className="h-4 w-4" /> Standardtext
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-/** "Per E-Mail senden": mail program and email templates (Einstellungen › E-Mail) */
+/**
+ * "Per E-Mail senden" (Einstellungen › E-Mail): the account invoices, reminders, dunning
+ * letters and contracts are sent from. #136: always bookingum's own compose window, the
+ * mail program setting is gone; the texts are in the E-Mail-Vorlagen card.
+ */
 export function InvoiceEmailCard() {
   const utils = trpcReact.useUtils()
   const settings = trpcReact.settings.get.useQuery()
@@ -148,16 +29,8 @@ export function InvoiceEmailCard() {
       toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
   })
 
-  const mailProgram = settings.data?.mailProgram ?? 'auto'
-  const mailClientEnabled = useMailClientEnabled()
-  // a value saved before the switch existed stays visible, so the select never shows blank
-  const mailPrograms = MAIL_PROGRAMS.filter(
-    (program) => program.value !== 'bookingum' || mailClientEnabled || mailProgram === 'bookingum'
-  )
   // I7 (MR-12): the account is chosen here, never guessed - only accounts that may send
-  const mailAccounts = trpcReact.mail.accounts.list.useQuery(undefined, {
-    enabled: mailProgram === 'bookingum'
-  })
+  const mailAccounts = trpcReact.mail.accounts.list.useQuery()
   const sendingAccounts = (mailAccounts.data ?? []).filter(
     (account) => readingActions(account).canWrite
   )
@@ -167,117 +40,42 @@ export function InvoiceEmailCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>E-Mail</CardTitle>
+        <CardTitle>Per E-Mail senden</CardTitle>
         <CardDescription>
-          „Per E-Mail senden“ auf der Rechnung erstellt die E-Mail mit dem PDF – Sie prüfen und
-          senden sie im Mailprogramm. Ebenso Zahlungserinnerungen und Mahnungen zu überfälligen
-          Rechnungen.
+          „Per E-Mail senden“ auf Rechnungen, Zahlungserinnerungen, Mahnungen und Verträgen öffnet
+          die E-Mail mit dem PDF im Anhang. Sie prüfen und senden sie in Bookingium; eine gesendete
+          Rechnung gilt danach als versendet.
         </CardDescription>
       </CardHeader>
-      <CardContent className="@container space-y-6">
+      <CardContent>
         <div className="max-w-sm space-y-2">
-          <Label htmlFor="settings-mail-program">Mailprogramm</Label>
+          <Label htmlFor="settings-invoice-mail-account">Senden von</Label>
           <Select
-            value={mailProgram}
-            onValueChange={(value) =>
-              updateSettings.mutate({ mailProgram: value as MailProgramSetting })
+            value={
+              sendingAccounts.some((account) => account.id === invoiceMailAccountId)
+                ? invoiceMailAccountId
+                : ''
             }
-            disabled={disabled}
+            onValueChange={(value) => updateSettings.mutate({ invoiceMailAccountId: value })}
+            disabled={disabled || sendingAccounts.length === 0}
           >
-            <SelectTrigger id="settings-mail-program">
-              <SelectValue />
+            <SelectTrigger id="settings-invoice-mail-account">
+              <SelectValue placeholder="Konto wählen" />
             </SelectTrigger>
             <SelectContent>
-              {mailPrograms.map((program) => (
-                <SelectItem key={program.value} value={program.value}>
-                  {program.label}
+              {sendingAccounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.email}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">{MAIL_PROGRAM_HINTS[mailProgram]}</p>
+          {mailAccounts.isSuccess && sendingAccounts.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Noch kein E-Mail-Konto, das senden kann – unten unter „E-Mail-Konten“ hinzufügen.
+            </p>
+          )}
         </div>
-
-        {mailProgram === 'bookingum' && (
-          <div className="max-w-sm space-y-2">
-            <Label htmlFor="settings-invoice-mail-account">Senden von</Label>
-            <Select
-              value={
-                sendingAccounts.some((account) => account.id === invoiceMailAccountId)
-                  ? invoiceMailAccountId
-                  : ''
-              }
-              onValueChange={(value) => updateSettings.mutate({ invoiceMailAccountId: value })}
-              disabled={disabled || sendingAccounts.length === 0}
-            >
-              <SelectTrigger id="settings-invoice-mail-account">
-                <SelectValue placeholder="Konto wählen" />
-              </SelectTrigger>
-              <SelectContent>
-                {sendingAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {mailAccounts.isSuccess && sendingAccounts.length === 0 && (
-              <p className="text-xs text-destructive">
-                Kein E-Mail-Konto mit Senderecht eingerichtet.
-              </p>
-            )}
-          </div>
-        )}
-
-        <Tabs defaultValue="invoice">
-          <TabsList aria-label="Vorlage für">
-            {TEMPLATE_KINDS.map((kind) => (
-              <TabsTrigger key={kind.value} value={kind.value}>
-                {kind.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {TEMPLATE_KINDS.map((kind) => (
-            <TabsContent key={kind.value} value={kind.value} className="pt-3">
-              {/* Side by side when the card is wide enough */}
-              <div className="grid grid-cols-1 gap-6 @3xl:grid-cols-2">
-                {(['de', 'en'] as const).map((lang) => {
-                  const { key, fallback } = EMAIL_TEMPLATES[kind.value][lang]
-                  return (
-                    <TemplateFields
-                      key={lang}
-                      lang={lang}
-                      standard={fallback}
-                      saved={settings.data?.[key] ?? fallback}
-                      onSave={(template) => updateSettings.mutate({ [key]: template })}
-                      disabled={disabled}
-                    />
-                  )
-                })}
-              </div>
-              <p className="pt-3 text-xs text-muted-foreground">
-                {kind.value === 'contract' ? (
-                  <>
-                    Für Konzert- und Managementverträge; die Sprache wird beim Senden gewählt
-                    (vorgeschlagen nach dem Land des Vertragspartners). Platzhalter:{' '}
-                    <Placeholders names={CONTRACT_EMAIL_PLACEHOLDERS} />.{' '}
-                    <code className="rounded bg-muted px-1">{'{Datum}'}</code> ist das Konzertdatum
-                    bzw. der Vertragsbeginn. Die E-Mail geht an den Veranstalter bzw. die Firma der
-                    Band.
-                  </>
-                ) : (
-                  <>
-                    Die englischen Vorlagen gelten für Rechnungen mit der Vorlage „Agentur
-                    (Englisch)“. Platzhalter: <Placeholders names={INVOICE_EMAIL_PLACEHOLDERS} />.{' '}
-                    <code className="rounded bg-muted px-1">{'{Frist}'}</code> ist das Datum in 7
-                    Tagen, die Zahlungsfrist in Erinnerung und Mahnung. Die E-Mail geht an die
-                    Kontakt-E-Mail des Empfängers, sonst an seine allgemeine E-Mail-Adresse.
-                  </>
-                )}
-              </p>
-            </TabsContent>
-          ))}
-        </Tabs>
       </CardContent>
     </Card>
   )

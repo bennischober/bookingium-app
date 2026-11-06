@@ -47,10 +47,10 @@ src/main/              Main process
                        service date (pure, used by the invoice templates)
   payment/             EPC payment QR code text (pure, used by the invoice
                        templates)
-  mail/                "Per E-Mail senden": email text from the template,
-                       .eml writer, mail program choice (pure); openEmail.ts
-                       writes the files and opens the mail program
-  mailclient/          The IMAP mail client (experimental, off by default):
+  mail/                "Per E-Mail senden": email text from the template
+                       (pure), the compose window, emailPdf.ts (the PDF
+                       under <userData>/E-Mail)
+  mailclient/          The IMAP mail client:
                        MailClientService (host), worker.ts (utility process),
                        core/ (sync, store, write engine); docs/mail-client.md
   utils/               fileStorage (storage root, logos), documentStorage
@@ -154,7 +154,7 @@ the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
   ` (2)` within the same minute) with `bookingum.db`, `storage/`,
   `LIESMICH.txt` and the marker `bookingium-sicherung.json`
   (`{app, format, kind: auto | manual | before-restore, createdAt, appVersion,
-  encrypted?}`).
+encrypted?}`).
 - **Never live data in a synced folder.** The database is snapshotted with
   SQLite's backup API into the local `backup/` folder first, then copied. The
   folder is written as `.bookingium-unfertig-<id>` and renamed when complete
@@ -342,28 +342,21 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   IBAN (mod 97) get one — no drafts, cancelled invoices or
   Stornorechnungen. The e2e test scans the code from the saved PDF.
 - **Invoice email** („Per E-Mail senden“ on the print page, not for
-  drafts): main prints the PDF (with e-invoice), fills the template from the
-  settings (`invoiceEmailDe`/`invoiceEmailEn`, by the print template's
-  language; {Platzhalter} in `mail/invoiceEmail.ts`) and writes PDF and
-  .eml (`X-Unsent: 1`) to `<userData>/E-Mail` (kept 30 days). The
-  setting `mailProgram` (default `auto`: by the program Windows opens
-  mailto: with; without one, an installed classic Outlook or Thunderbird
-  from Windows' „App Paths“) picks the way: classic Outlook opens the .eml as a draft
-  (`OUTLOOK.EXE /eml`), Thunderbird composes with the PDF attached
-  (`-compose`), any other program (new Outlook) gets a mailto: link and
-  Explorer shows the PDF to drag in, no program: the folder opens. Each
-  email is a row in `invoice_email` (time, prefilled address), listed in
-  the invoice's Verlauf; the latest is also on the invoice
-  (`emailed_at`/`emailed_to`) for the list's envelope. These ways send
-  nothing themselves. The one that does is `mailProgram` „bookingum“,
-  offered only with the mail client on: the compose window opens on the
-  account chosen under „Senden von“, sends over SMTP, and the invoice
-  counts as sent only after a real send (`docs/mail-client.md`). e2e runs
-  set `BOOKINGIUM_NO_LAUNCH=1` (files only).
+  drafts): main prints the PDF (with e-invoice), fills the fixed text of
+  Einstellungen › E-Mail › E-Mail-Vorlagen („Für Rechnungen und Verträge“, by
+  the print template's language; {Platzhalter} in `mail/invoiceEmail.ts`),
+  keeps the PDF in `<userData>/E-Mail` (kept 30 days) and opens bookingum's
+  compose window on the account chosen under „Senden von“. #136: this is the
+  only way, the mail program setting and the .eml/mailto: paths are gone.
+  Without a writable account it says so and offers „Einstellungen öffnen“.
+  The invoice counts as sent only after a real send over SMTP
+  (`docs/mail-client.md`): then it is a row in `invoice_email` (time,
+  address), listed in the invoice's Verlauf, and the latest is also on the
+  invoice (`emailed_at`/`emailed_to`) for the list's envelope.
 - **Contract email** (#120, „Per E-Mail senden“ on the print page of a
   concert or management contract, channel `contract:email`): the same way
-  as an invoice's, with the template „Vertrag“ (`contractEmailDe`/`En`,
-  {Platzhalter} in `mail/contractEmail.ts`). A concert contract goes to the
+  as an invoice's, with the fixed text „Vertrag“ ({Platzhalter} in
+  `mail/contractEmail.ts`). A concert contract goes to the
   promoter, a management contract to the band's company; the language is
   chosen next to the button, suggested by the recipient's country (German
   for DE/AT/CH/LI and for an empty or unknown one). Nothing is recorded on
@@ -385,10 +378,12 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   Zahlungserinnerung, after any reminder a Mahnung. The Dashboard card
   „Überfällige Rechnungen“ (`invoice.listOverdue`, longest overdue first,
   hidden when empty) and the invoice page offer it; both open the print
-  page with `?email=reminder|dunning`, whose button creates the email like
-  the invoice email, from its own template (`reminderEmailDe/En`,
-  `dunningEmailDe/En`; `EMAIL_TEMPLATES` maps kind and language to the
-  setting; {Frist} is today + 7 days). The `invoice_email` row carries its
+  page with `?email=reminder|dunning`, whose button opens the email like
+  the invoice email, from its own fixed text ({Frist} is today + 7 days).
+  The fixed texts (#136) are `mail_template` rows with `kind` and `lang`,
+  one per edited text; without a row `DEFAULT_DOCUMENT_EMAILS` applies
+  (`MailTemplateService.documentTemplate`). Migration 0024 copied the texts
+  edited in older versions out of `app_setting`. The `invoice_email` row carries its
   `kind` (invoice/reminder/dunning) for the Verlauf; a reminder marks a
   gestellt invoice überfällig and leaves `emailed_at`/`emailed_to` alone.
   Fees and default interest (Mahngebühren, Verzugszinsen) are not part of it.
@@ -495,11 +490,9 @@ bulk sending belongs in a newsletter service that handles unsubscribes.
   company and venue forms and the ⊘ action on the page. Any contact with
   the address marked keeps it off every list; the page shows those as
   excluded and can take them back in.
-- **Out of the app:** „E-Mail schreiben“ opens a new email with the list
-  in BCC (`openBccEmail`; `;` between addresses for classic Outlook, `,`
-  otherwise). Links over 2000 characters get cut off by Windows, so then an
-  empty email opens and the addresses go to the clipboard. „Adressen
-  kopieren“ copies them; „CSV exportieren“ writes a UTF-8, comma-separated
+- **Out of the app:** „E-Mail schreiben“ opens bookingum's compose with the
+  list in BCC (#136, `components/mail/pendingCompose.ts`, on a writable
+  account; without one it says so). „Adressen kopieren“ copies them; „CSV exportieren“ writes a UTF-8, comma-separated
   file (`contactListCsv`: E-Mail, Vorname, Nachname, Firma,
   Club/Festival/Medium, Ort, Land, Art) for Brevo, CleverReach or Mailchimp. All three rebuild
   the list in main, so the screen can't be stale.
@@ -563,13 +556,13 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.
 
-## Mail client (experimental)
+## Mail client
 
-An IMAP mail client in `src/main/mailclient/`, off by default (setting
-`mailClient`, Einstellungen › E-Mail › „E-Mail (experimentell)“). Off, main
-never starts its worker and refuses `mail.call`; the renderer checks
-`useMailClientEnabled()` and shows no menu entry, mail search, E-Mails tabs or
-invoice mails card. On, a utility process runs the core (its own SQLite store
-per account, apart from the app DB); links to app records live in `mail_link`
-in the app DB. Everything else — architecture, sync, the write path, rules
+An IMAP mail client in `src/main/mailclient/`, always part of the app since
+#136 (the switch „E-Mail (experimentell)“ is gone). Main starts its worker
+only once an account exists; the renderer shows the menu entry always and
+the E-Mails tabs, mail search and invoice mails card once there is an
+account (`useHasMailAccount`). A utility process runs the core (its own
+SQLite store per account, apart from the app DB); links to app records live
+in `mail_link` in the app DB. Everything else — architecture, sync, the write path, rules
 for working on it and what is still open — is in `docs/mail-client.md`.

@@ -7,22 +7,9 @@ import { DEFAULT_CLUB_RADIUS, DEFAULT_FESTIVAL_RADIUS, RadiusClause } from './ra
 // Stored as key/value rows (app_setting); missing keys take these defaults.
 // The default own company is not a setting here: it is the company flagged
 // is_default_for_invoicing (used for invoices and contracts).
-
-// auto        -> by the program Windows opens email links with
-// outlook     -> classic Outlook: opens the email as a draft (.eml)
-// thunderbird -> Thunderbird: opens a new email with the PDF attached
-// mailto      -> any other program: email without attachment, PDF shown in Explorer
-// files       -> only saves email and PDF and opens their folder
-export const MailProgramSetting = z.enum([
-  'auto',
-  'outlook',
-  'thunderbird',
-  'mailto',
-  'files',
-  // C1: bookingum's own editor, the only one that knows when a mail was sent
-  'bookingum'
-])
-export type MailProgramSetting = z.infer<typeof MailProgramSetting>
+//
+// #136: the keys mailProgram and mailClient of older versions may still be stored; zod
+// drops them on read. bookingum's own mail client is the only way mail is sent.
 
 export const EmailTemplate = z.object({ subject: z.string(), body: z.string() })
 export type EmailTemplate = z.infer<typeof EmailTemplate>
@@ -106,27 +93,16 @@ export const DEFAULT_CONTRACT_EMAIL: Record<'de' | 'en', EmailTemplate> = {
   }
 }
 
-// Each email template: settings key and default, by what the email is
-// (invoice, Zahlungserinnerung, Mahnung, contract) and its language
-export const EMAIL_TEMPLATES = {
-  invoice: {
-    de: { key: 'invoiceEmailDe', fallback: DEFAULT_INVOICE_EMAIL.de },
-    en: { key: 'invoiceEmailEn', fallback: DEFAULT_INVOICE_EMAIL.en }
-  },
-  reminder: {
-    de: { key: 'reminderEmailDe', fallback: DEFAULT_REMINDER_EMAIL.de },
-    en: { key: 'reminderEmailEn', fallback: DEFAULT_REMINDER_EMAIL.en }
-  },
-  dunning: {
-    de: { key: 'dunningEmailDe', fallback: DEFAULT_DUNNING_EMAIL.de },
-    en: { key: 'dunningEmailEn', fallback: DEFAULT_DUNNING_EMAIL.en }
-  },
-  contract: {
-    de: { key: 'contractEmailDe', fallback: DEFAULT_CONTRACT_EMAIL.de },
-    en: { key: 'contractEmailEn', fallback: DEFAULT_CONTRACT_EMAIL.en }
-  }
+// The default of each fixed email text, by what the email is (invoice, Zahlungserinnerung,
+// Mahnung, contract) and its language. #136: an edited text is a mail_template row with that
+// kind and lang (MailTemplateService.documentTemplate); without one, this applies.
+export const DEFAULT_DOCUMENT_EMAILS = {
+  invoice: DEFAULT_INVOICE_EMAIL,
+  reminder: DEFAULT_REMINDER_EMAIL,
+  dunning: DEFAULT_DUNNING_EMAIL,
+  contract: DEFAULT_CONTRACT_EMAIL
 } as const
-export type EmailTemplateKind = keyof typeof EMAIL_TEMPLATES
+export type EmailTemplateKind = keyof typeof DEFAULT_DOCUMENT_EMAILS
 
 export const AppSettings = z.object({
   // ISO code used by imports for rows without a country, '' for none
@@ -140,11 +116,6 @@ export const AppSettings = z.object({
   eInvoiceEmbed: z.boolean().default(true),
   // Payable invoices carry the EPC payment QR code ("GiroCode")
   paymentQr: z.boolean().default(true),
-  // How "Per E-Mail senden" opens the email (auto: by the system's mail program)
-  mailProgram: MailProgramSetting.default('auto'),
-  // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
-  // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
-  mailClient: z.boolean().default(false),
   // #65: a Windows notification when new mail arrives in an INBOX while the app is in the
   // background (count and account only). #133: off by default, the unread counts are enough
   mailNotifications: z.boolean().default(false),
@@ -162,18 +133,7 @@ export const AppSettings = z.object({
   radiusFestival: RadiusClause.default(DEFAULT_FESTIVAL_RADIUS),
   // I7: the mail account bookingum's own editor sends invoices (and contracts) from, '' for none chosen.
   // Never guessed: without a choice, sending from bookingum is refused.
-  invoiceMailAccountId: z.string().default(''),
-  // Subject and text of invoice emails, per template language; {Platzhalter}
-  invoiceEmailDe: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.de),
-  invoiceEmailEn: EmailTemplate.default(DEFAULT_INVOICE_EMAIL.en),
-  // The same for Zahlungserinnerungen and Mahnungen
-  reminderEmailDe: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.de),
-  reminderEmailEn: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.en),
-  dunningEmailDe: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.de),
-  dunningEmailEn: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.en),
-  // #120: concert and management contracts
-  contractEmailDe: EmailTemplate.default(DEFAULT_CONTRACT_EMAIL.de),
-  contractEmailEn: EmailTemplate.default(DEFAULT_CONTRACT_EMAIL.en)
+  invoiceMailAccountId: z.string().default('')
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
@@ -187,23 +147,13 @@ export const UpdateAppSettingsInput = z
     calendarFeedFollowUps: shape.calendarFeedFollowUps.unwrap(),
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
-    mailProgram: shape.mailProgram.unwrap(),
-    mailClient: shape.mailClient.unwrap(),
     mailNotifications: shape.mailNotifications.unwrap(),
     mailInAppNotifications: shape.mailInAppNotifications.unwrap(),
     mailCloseToTray: shape.mailCloseToTray.unwrap(),
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),
-    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
-    invoiceEmailDe: shape.invoiceEmailDe.unwrap(),
-    invoiceEmailEn: shape.invoiceEmailEn.unwrap(),
-    reminderEmailDe: shape.reminderEmailDe.unwrap(),
-    reminderEmailEn: shape.reminderEmailEn.unwrap(),
-    dunningEmailDe: shape.dunningEmailDe.unwrap(),
-    dunningEmailEn: shape.dunningEmailEn.unwrap(),
-    contractEmailDe: shape.contractEmailDe.unwrap(),
-    contractEmailEn: shape.contractEmailEn.unwrap()
+    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap()
   })
   .partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>

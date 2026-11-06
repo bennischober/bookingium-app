@@ -9,17 +9,14 @@ import {
   unreadBadgePlan,
   type AccountUnread
 } from '@/components/mail/unreadBadge'
-import { useMailClientEnabled } from './useMailClientEnabled'
 
 /**
- * Each account's INBOX unread under the badge's query key; empty while the mail client is off or
- * has no account. Kept fresh by `useMailUnreadCount` (the menu is always mounted).
+ * Each account's INBOX unread under the badge's query key; empty while there is no account. Kept fresh by `useMailUnreadCount` (the menu is always mounted).
  */
 export function useInboxUnread(): { enabled: boolean; accounts: AccountUnread[] } {
-  const mailEnabled = useMailClientEnabled()
-  const accounts = trpcReact.mail.accounts.list.useQuery(undefined, { enabled: mailEnabled })
+  const accounts = trpcReact.mail.accounts.list.useQuery()
   // Without an account the worker does not start, and a call would only fail
-  const enabled = mailEnabled && (accounts.data?.length ?? 0) > 0
+  const enabled = (accounts.data?.length ?? 0) > 0
   const accountIds = (accounts.data ?? []).map((a) => a.id)
 
   const counts = useQuery({

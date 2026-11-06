@@ -1,5 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useMapPreview } from '@/hooks/useMapPreview'
 import {
   defaultClause,
@@ -125,7 +125,7 @@ export default function VenueDetailPage() {
   const id = parseRecordId(venueId)
   const counts = useVenueTabCounts(id)
   const navigate = useNavigate()
-  const mailClientEnabled = useMailClientEnabled()
+  const hasMailAccount = useHasMailAccount()
   const activeTab = useDetailTab(isVenueTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<VenueDto>()
@@ -255,7 +255,7 @@ export default function VenueDetailPage() {
             Dokumente
             <TabCount count={counts.documents} />
           </TabsTrigger>
-          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
+          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -274,7 +274,7 @@ export default function VenueDetailPage() {
             title={`Dokumente ${venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'}`}
           />
         </TabsContent>
-        {mailClientEnabled && (
+        {hasMailAccount && (
           <TabsContent value="mails">
             <MailHistoryPanel entityType="venue" entityId={venue.id} />
           </TabsContent>

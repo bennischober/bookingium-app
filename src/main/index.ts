@@ -73,13 +73,14 @@ import { container } from 'tsyringe'
 import { getDocumentFullPath, copyLogoToStorage, deleteLogoFile } from './utils/fileStorage'
 import { DocumentService } from './services/DocumentService'
 import { SettingsService } from './services/SettingsService'
+import { MailTemplateService } from './services/MailTemplateService'
 import { BackupService, backupLocations } from './services/BackupService'
 import { ImportService } from './services/ImportService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
 import { InvoiceService } from './services/InvoiceService'
 import type { EInvoiceCheckDto, InvoiceEmailKind } from './api/schemas/invoice.schema'
-import { EMAIL_TEMPLATES, type AppSettings } from './api/schemas/settings.schema'
+import type { AppSettings, EmailTemplate, EmailTemplateKind } from './api/schemas/settings.schema'
 import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
 import {
@@ -91,9 +92,9 @@ import {
 } from './mail/contractEmail'
 import { ContractService } from './services/ContractService'
 import { ManagementContractService } from './services/ManagementContractService'
-import { openEmail, showEmailFile } from './mail/openEmail'
+import { saveEmailPdf } from './mail/emailPdf'
 import { readImportFile } from './import/readImportFile'
-import { MAIL_CLIENT_OFF, mailClient } from './mailclient/MailClientService'
+import { mailClient } from './mailclient/MailClientService'
 import type { ComposeDraft, ComposeResult } from './mail/composeWindow'
 import {
   confirmInvoiceSendFromOp,
@@ -104,7 +105,7 @@ import {
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
 import { contactAddressEvents } from './repositories/contactEmails'
-import { listMailAccounts } from './mailclient/accounts'
+import { listMailAccounts, type MailAccountDto } from './mailclient/accounts'
 import type { MailEvent } from './mailclient/protocol'
 import type { FollowUpRecord } from './api/schemas/followUp.schema'
 import { watchSystemWake } from './mailclient/systemWake'
@@ -333,9 +334,9 @@ function setUpMailTray(): void {
     },
     log: (error) => console.warn('[mail] reading the INBOX unread count failed:', error)
   })
-  // Started, stopped, restarted after an account change or the switch: show or hide the icon
+  // Started, stopped, restarted after an account change: show or hide the icon
   const sync = (): void => {
-    tray.setVisible(settings.get().mailClient && listMailAccounts().length > 0)
+    tray.setVisible(listMailAccounts().length > 0)
     if (!tray.visible && mainWindow && !mainWindow.isVisible()) present(mainWindow)
   }
   mailClient.events.on('status', (status: { running: boolean }) => {
@@ -680,20 +681,33 @@ ipcMain.handle(
 )
 
 /**
- * I7 (MR-12): with the mail program bookingum, the account chosen in the settings; checked
- * before anything is written or opened. null for every other mail program.
+ * I7 (MR-12): the account invoices and contracts go out from, chosen in the settings; checked
+ * before anything is written or opened. #136: bookingum's own editor is the only way they
+ * are sent, so without an account there is nothing to open. `setup`: the renderer offers
+ * Einstellungen › E-Mail.
  */
-function bookingumSender(settings: AppSettings): ReturnType<typeof invoiceSendAccount> | null {
-  if (settings.mailProgram !== 'bookingum') return null
-  if (!settings.mailClient) return { error: MAIL_CLIENT_OFF }
-  return invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts())
+/** #136: the fixed text of Einstellungen › E-Mail › E-Mail-Vorlagen, edited or default */
+function mailTemplateText(kind: EmailTemplateKind, lang: 'de' | 'en'): EmailTemplate {
+  return container.resolve(MailTemplateService).documentTemplate(kind, lang)
+}
+
+function documentSender(
+  settings: AppSettings
+): { account: MailAccountDto } | { error: string; setup: true } {
+  const accounts = listMailAccounts()
+  if (accounts.length === 0) {
+    return { error: 'Zum Senden zuerst ein E-Mail-Konto hinzufügen.', setup: true }
+  }
+  const sender = invoiceSendAccount(settings.invoiceMailAccountId, accounts)
+  return 'error' in sender ? { ...sender, setup: true } : sender
 }
 
 /**
- * IPC Handler: "Per E-Mail senden" — writes the invoice PDF (with e-invoice)
- * and an .eml draft, opens it in the mail program (see mail/openEmail.ts)
- * and remembers the email on the invoice. `kind` reminder or dunning sends
- * a Zahlungserinnerung or Mahnung about an open invoice instead.
+ * IPC Handler: "Per E-Mail senden" — writes the invoice PDF (with e-invoice) and opens
+ * bookingum's compose window with the mail from the template, the PDF attached. The
+ * invoice is marked as emailed by the send itself (mail.sendInvoice), or later, when an
+ * unclear send is confirmed - not here, where only the window's end is known. `kind`
+ * reminder or dunning sends a Zahlungserinnerung or Mahnung about an open invoice instead.
  */
 ipcMain.handle(
   'invoice:email',
@@ -717,33 +731,24 @@ ipcMain.handle(
       )
       if (kind !== 'invoice') invoiceService.assertRemindable(data.invoice)
       const settings = container.resolve(SettingsService).get()
-      const draft = invoiceEmail(data, lang, settings[EMAIL_TEMPLATES[kind][lang].key])
-      const sender = bookingumSender(settings)
-      if (sender && 'error' in sender) return { success: false, error: sender.error }
+      const sender = documentSender(settings)
+      if ('error' in sender) return { success: false, ...sender }
+      const draft = invoiceEmail(data, lang, mailTemplateText(kind, lang))
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
-      const result = await openEmail({ draft, pdf, fileName: name, setting: settings.mailProgram })
-      // C1: only the own editor knows whether the mail was really sent. Every external
-      // program keeps marking the invoice when its window opens, as before.
-      if (result.method === 'bookingum' && sender) {
-        // The invoice is marked by the send itself (mail.sendInvoice), or later, when an
-        // unclear send is confirmed - not here, where only the window's end is known
-        const composed = await openComposeWindow({
-          draft: { to: draft.to, subject: draft.subject, body: draft.body },
-          compose: {
-            invoiceId,
-            kind,
-            accountId: sender.account.id,
-            pdfPath: result.pdfPath,
-            fileName: basename(result.pdfPath)
-          },
-          record: { type: 'invoice', id: invoiceId }
-        })
-        if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
-        return { success: true, ...result, to: draft.to, eInvoice }
-      }
-      invoiceService.markInvoiceEmailed(invoiceId, draft.to, kind)
-      return { success: true, ...result, to: draft.to, eInvoice }
+      const pdfPath = await saveEmailPdf({ pdf, fileName: name })
+      const composed = await openComposeWindow({
+        draft,
+        compose: {
+          invoiceId,
+          kind,
+          accountId: sender.account.id,
+          pdfPath,
+          fileName: basename(pdfPath)
+        },
+        record: { type: 'invoice', id: invoiceId }
+      })
+      return { success: true, sent: composed.sent, eInvoice }
     } catch (error) {
       console.error('Error creating invoice email:', error)
       return {
@@ -756,7 +761,7 @@ ipcMain.handle(
 
 /**
  * #120 IPC Handler: "Per E-Mail senden" of a contract print page — the window's PDF and
- * an email from the "Vertrag" template, opened in the mail program like an invoice's.
+ * an email from the "Vertrag" template, opened in the compose window like an invoice's.
  * The recipient comes from the stored contract, not the renderer. Nothing is recorded
  * on the contract: it has no email history.
  */
@@ -786,33 +791,23 @@ ipcMain.handle(
         record = { type: 'event', id }
       }
       if (!data || !record) return { success: false, error: 'Vertrag nicht gefunden' }
-      const settings = container.resolve(SettingsService).get()
-      const draft = contractEmail(data, language, settings[EMAIL_TEMPLATES.contract[language].key])
-      const sender = bookingumSender(settings)
-      if (sender && 'error' in sender) return { success: false, error: sender.error }
+      const sender = documentSender(container.resolve(SettingsService).get())
+      if ('error' in sender) return { success: false, ...sender }
+      const draft = contractEmail(data, language, mailTemplateText('contract', language))
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf } = await documentPdf(event.sender, name)
-      const result = await openEmail({
+      const pdfPath = await saveEmailPdf({ pdf, fileName: name, fallbackName: 'Vertrag' })
+      const composed = await openComposeWindow({
         draft,
-        pdf,
-        fileName: name,
-        fallbackName: 'Vertrag',
-        setting: settings.mailProgram
+        compose: {
+          contract: data.document,
+          accountId: sender.account.id,
+          pdfPath,
+          fileName: basename(pdfPath)
+        },
+        record
       })
-      if (result.method === 'bookingum' && sender) {
-        const composed = await openComposeWindow({
-          draft: { to: draft.to, subject: draft.subject, body: draft.body },
-          compose: {
-            contract: data.document,
-            accountId: sender.account.id,
-            pdfPath: result.pdfPath,
-            fileName: basename(result.pdfPath)
-          },
-          record
-        })
-        if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
-      }
-      return { success: true, ...result, to: draft.to }
+      return { success: true, sent: composed.sent }
     } catch (error) {
       console.error('Error creating contract email:', error)
       return {
@@ -832,10 +827,6 @@ ipcMain.on('error-log:report', (event, report: unknown) => {
   const { message, stack } = (report ?? {}) as { message?: unknown; stack?: unknown }
   if (typeof message !== 'string') return
   logError('renderer', { message, stack: typeof stack === 'string' ? stack : undefined })
-})
-
-ipcMain.handle('mail:showFile', (_event, { filePath }: { filePath: string }) => {
-  showEmailFile(filePath)
 })
 
 ipcMain.handle('print:openPdf', async (_event, { filePath }: { filePath: string }) => {
@@ -994,9 +985,8 @@ app.whenReady().then(async () => {
       event
     ).catch((error) => console.error('Confirming an invoice mail failed:', error))
   })
-  // Mail client (utility process): background sync for configured accounts, only while
-  // the "E-Mail (experimentell)" setting is on
-  mailClient.setEnabledCheck(() => container.resolve(SettingsService).get().mailClient)
+  // Mail client (utility process): background sync for configured accounts. #136: always
+  // part of the app; without an account the worker never starts.
   mailClient.startIfConfigured()
   // After sleep the worker's sockets may be dead without either side knowing: it reconnects and
   // catches up once per wake

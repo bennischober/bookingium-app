@@ -6,7 +6,7 @@
 // Pure (no Node or Electron APIs) so it can be unit tested.
 import type { InvoicePrintDto } from '../api/schemas/invoice.schema'
 import type { EmailTemplate } from '../api/schemas/settings.schema'
-import type { EmailDraft } from './eml'
+import type { ComposeDraft } from './composeWindow'
 import { formatMoney as formatAmount } from '../invoice/money'
 
 export type Lang = 'de' | 'en'
@@ -97,7 +97,7 @@ export function invoiceEmail(
   lang: Lang,
   template: EmailTemplate,
   now: Date = new Date()
-): EmailDraft {
+): ComposeDraft {
   const values = invoiceEmailValues(data, lang, now)
   return {
     to: recipientEmailOf(data),

@@ -6,6 +6,7 @@
 // needs the password typed again.
 //
 // MR-34: `invoice:email` joined the renderer's file name into the folder, so "../x" wrote outside it.
+// #136: the PDF for the compose window is the one file left (mail/emailPdf.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
@@ -81,22 +82,14 @@ describe('MR-33: the stored password stays with its mailbox', () => {
   })
 })
 
-describe('MR-34: the invoice mail files stay in their folder', () => {
-  const draft = { to: 'kunde@example.test', subject: 'Rechnung', body: 'Hallo' }
-
+describe('MR-34: the invoice mail PDF stays in its folder', () => {
   it('flattens a hostile file name', async () => {
-    process.env.BOOKINGIUM_NO_LAUNCH = '1'
-    const { openEmail } = await import('../src/main/mail/openEmail')
+    const { saveEmailPdf } = await import('../src/main/mail/emailPdf')
+    const folder = path.join(userData, 'E-Mail')
     for (const fileName of ['../../ausserhalb', '..\\..\\ausserhalb', '/abs/ausserhalb', '']) {
-      const result = (await openEmail({
-        draft,
-        pdf: new Uint8Array([37, 80, 68, 70]),
-        fileName,
-        setting: 'files'
-      })) as { pdfPath: string; folder: string }
-      expect(path.dirname(result.pdfPath), fileName).toBe(result.folder)
-      expect(fs.existsSync(result.pdfPath)).toBe(true)
-      expect(fs.existsSync(result.pdfPath.replace(/\.pdf$/, '.eml'))).toBe(true)
+      const pdfPath = await saveEmailPdf({ pdf: new Uint8Array([37, 80, 68, 70]), fileName })
+      expect(path.dirname(pdfPath), fileName).toBe(folder)
+      expect(fs.existsSync(pdfPath)).toBe(true)
     }
     expect(fs.readdirSync(userData)).toEqual(['E-Mail'])
   })
