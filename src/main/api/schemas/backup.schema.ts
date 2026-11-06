@@ -27,6 +27,11 @@ export const BackupStatusDto = z.object({
   lastError: z.string().nullable(),
   lastRestore: RestoreOutcomeDto.nullable(),
   beforeRestoreFolder: z.string().nullable(),
+  // #54: backups are encrypted with a password, since (ISO); the key never leaves the main process
+  encrypted: z.boolean(),
+  encryptedSince: z.string().nullable(),
+  // false when the system cannot keep the key (no safeStorage)
+  encryptionAvailable: z.boolean(),
   retention: z.object({ daily: z.number(), weekly: z.number() })
 })
 export type BackupStatusDto = z.infer<typeof BackupStatusDto>
@@ -36,6 +41,8 @@ export const PreparedRestoreDto = z.object({
   // when the chosen backup was taken (ISO), null when unknown
   backupCreatedAt: z.string().nullable(),
   folder: z.string().nullable(),
-  hasStorage: z.boolean()
+  hasStorage: z.boolean(),
+  // #54: an encrypted backup: nothing is copied until unlockRestore gets its password
+  needsPassword: z.boolean()
 })
 export type PreparedRestoreDto = z.infer<typeof PreparedRestoreDto>

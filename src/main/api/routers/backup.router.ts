@@ -3,6 +3,8 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { BackupService } from '../../services/BackupService'
+import { MIN_BACKUP_PASSWORD_LENGTH } from '../../backup/policy'
+import type { RestoreManifest } from '../../backup/files'
 import type { BackupStatusDto, PreparedRestoreDto } from '../schemas/backup.schema'
 
 const t = initTRPC.create()
@@ -26,6 +28,14 @@ async function pickFolder(title: string, defaultPath: string): Promise<string | 
     : await dialog.showOpenDialog(options)
   return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
 }
+
+const prepared = (manifest: RestoreManifest): PreparedRestoreDto => ({
+  canceled: false,
+  folder: manifest.source,
+  backupCreatedAt: manifest.backupCreatedAt,
+  hasStorage: manifest.hasStorage,
+  needsPassword: false
+})
 
 /** Einstellungen › Daten › "Automatische Sicherung" and "Sicherung wiederherstellen…" */
 export const backupRouter = t.router({
@@ -65,6 +75,19 @@ export const backupRouter = t.router({
     return service.status()
   }),
 
+  /** #54: encrypts every backup from now on; a new password does not touch older backups */
+  setPassword: t.procedure
+    .input(z.string().min(MIN_BACKUP_PASSWORD_LENGTH).max(1024))
+    .mutation(async ({ input }): Promise<BackupStatusDto> => {
+      try {
+        return await service.setPassword(input)
+      } catch (error) {
+        throw badRequest(error, 'Passwort konnte nicht gesetzt werden')
+      }
+    }),
+
+  removePassword: t.procedure.mutation((): BackupStatusDto => service.disableEncryption()),
+
   openFolder: t.procedure.mutation(async () => {
     const { folder } = service.status()
     if (!folder) throw badRequest(null, 'Kein Ordner gewählt')
@@ -78,19 +101,40 @@ export const backupRouter = t.router({
       'Sicherung zum Wiederherstellen wählen',
       service.status().folder || app.getPath('documents')
     )
-    if (!folder) return { canceled: true, folder: null, backupCreatedAt: null, hasStorage: false }
-    try {
-      const prepared = await service.prepareRestore(folder)
+    if (!folder)
       return {
-        canceled: false,
-        folder: prepared.source,
-        backupCreatedAt: prepared.backupCreatedAt,
-        hasStorage: prepared.hasStorage
+        canceled: true,
+        folder: null,
+        backupCreatedAt: null,
+        hasStorage: false,
+        needsPassword: false
       }
+    try {
+      const encrypted = await service.pickEncryptedRestore(folder)
+      if (encrypted)
+        return {
+          canceled: false,
+          folder: encrypted.folder,
+          backupCreatedAt: encrypted.backupCreatedAt,
+          hasStorage: false,
+          needsPassword: true
+        }
+      return prepared(await service.prepareRestore(folder))
     } catch (error) {
       throw badRequest(error, 'Sicherung kann nicht wiederhergestellt werden')
     }
   }),
+
+  /** #54: the encrypted backup pickRestore chose, with its password; then as a plain one */
+  unlockRestore: t.procedure
+    .input(z.string().max(1024))
+    .mutation(async ({ input }): Promise<PreparedRestoreDto> => {
+      try {
+        return prepared(await service.unlockRestore(input))
+      } catch (error) {
+        throw badRequest(error, 'Sicherung kann nicht wiederhergestellt werden')
+      }
+    }),
 
   cancelRestore: t.procedure.mutation(() => service.cancelRestore()),
 

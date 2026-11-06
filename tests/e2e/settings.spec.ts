@@ -70,6 +70,67 @@ test('settings page saves defaults and creates a backup', async () => {
   await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText('Soundwave Records')
 })
 
+test('backups with a password: set, backed up encrypted, restore asks for it (#54)', async () => {
+  const { page } = h
+  const target = mkdtempSync(join(tmpdir(), 'bookingum-backup-enc-'))
+  try {
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+    await page.getByRole('tab', { name: 'Daten' }).click()
+    await page.getByLabel('Mit Passwort verschlüsseln').click()
+
+    const setDialog = page.getByRole('dialog', { name: 'Sicherungen verschlüsseln' })
+    await expect(
+      setDialog.getByText('Ein vergessenes Passwort kann niemand zurücksetzen.')
+    ).toBeVisible()
+    await setDialog.getByLabel('Passwort', { exact: true }).fill('e2e-passwort-1')
+    await setDialog.getByLabel('Passwort wiederholen').fill('e2e-passwort-2')
+    await setDialog.getByLabel('Ich habe das Passwort sicher notiert.').check()
+    await setDialog.getByRole('button', { name: 'Verschlüsseln' }).click()
+    await expect(setDialog.getByText('Die beiden Passwörter sind nicht gleich.')).toBeVisible()
+    await setDialog.getByLabel('Passwort wiederholen').fill('e2e-passwort-1')
+    await setDialog.getByRole('button', { name: 'Verschlüsseln' }).click()
+    await expect(page.getByText('Sicherungen werden verschlüsselt')).toBeVisible()
+    await expect(page.getByLabel('Mit Passwort verschlüsseln')).toBeChecked()
+
+    await h.app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+    }, target)
+    await page.getByRole('button', { name: 'Sicherung erstellen…' }).click()
+    await expect(page.getByText('Sicherung erstellt')).toBeVisible()
+    const [folder] = readdirSync(target)
+    expect(readdirSync(join(target, folder)).sort()).toEqual(
+      ['LIESMICH.txt', 'bookingium-sicherung.json', 'daten.bookingium'].sort()
+    )
+
+    // restore: a wrong password stays in the dialog, the right one leads to the confirmation
+    await h.app.evaluate(
+      ({ dialog }, path) => {
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+      },
+      join(target, folder)
+    )
+    await page.getByRole('button', { name: 'Sicherung wiederherstellen…' }).click()
+    const unlock = page.getByRole('dialog', { name: 'Verschlüsselte Sicherung' })
+    await unlock.getByLabel('Passwort der Sicherung').fill('falsches-passwort')
+    await unlock.getByRole('button', { name: 'Weiter' }).click()
+    await expect(unlock.getByText('Falsches Passwort oder beschädigte Sicherung.')).toBeVisible()
+    await unlock.getByLabel('Passwort der Sicherung').fill('e2e-passwort-1')
+    await unlock.getByRole('button', { name: 'Weiter' }).click()
+    const confirm = page.getByRole('dialog', { name: 'Sicherung wiederherstellen?' })
+    await expect(confirm.getByText(/ersetzt alle aktuellen Daten und Dokumente/)).toBeVisible()
+    await confirm.getByRole('button', { name: 'Abbrechen' }).click()
+    await expect(confirm).toBeHidden()
+
+    // switched off again: the next backup is plain
+    await page.getByLabel('Mit Passwort verschlüsseln').click()
+    await page.getByRole('button', { name: 'Ausschalten' }).click()
+    await expect(page.getByText('Sicherungen werden nicht mehr verschlüsselt')).toBeVisible()
+    await expect(page.getByLabel('Mit Passwort verschlüsseln')).not.toBeChecked()
+  } finally {
+    rmSync(target, { recursive: true, force: true })
+  }
+})
+
 test('the search palette opens a settings tab', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Dashboard' }).first().click()

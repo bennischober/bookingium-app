@@ -9,6 +9,15 @@ import { copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'f
 import { randomUUID } from 'crypto'
 import { basename, dirname, join, relative, resolve, isAbsolute } from 'path'
 import {
+  ENCRYPTED_FILE,
+  backupEntries,
+  extractEncryptedArchive,
+  unlockEncryptedArchive,
+  writeEncryptedArchive,
+  type BackupKey,
+  type KdfSettings
+} from './encryption'
+import {
   BACKUP_MARKER,
   BACKUP_RETENTION,
   BACKUP_TEMP_PREFIX,
@@ -61,6 +70,26 @@ Nicht enthalten
   eingegeben wurden.
 `
 
+const ENCRYPTED_NOTE = `Bookingium – verschlüsselte Sicherung
+
+Inhalt
+  daten.bookingium   die Datenbank und alle Dokumente, mit Passwort
+                     verschlüsselt (AES-256)
+
+Wiederherstellen
+  In Bookingium unter Einstellungen › Daten › „Sicherung wiederherstellen…“
+  diesen Ordner wählen und das Passwort der Sicherung eingeben. Bookingium
+  sichert vorher den aktuellen Stand und startet dann neu.
+
+Ohne das Passwort lässt sich diese Sicherung nicht öffnen. Niemand kann es
+zurücksetzen, auch nicht der Hersteller von Bookingium.
+
+Nicht enthalten
+  E-Mails und E-Mail-Konten: Die E-Mails lädt Bookingium wieder vom Server,
+  gespeicherte Passwörter funktionieren nur auf dem Rechner, auf dem sie
+  eingegeben wurden.
+`
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 /** Whether `path` is `folder` or lies inside it */
@@ -83,6 +112,16 @@ async function renameWithRetry(from: string, to: string): Promise<void> {
   }
 }
 
+/** The marker of the backup in `folder`, or null when it has none of ours */
+export async function readBackupMarker(folder: string): Promise<BackupMarker | null> {
+  return readMarker(folder)
+}
+
+/** #54: whether the backup in `folder` needs its password to be restored */
+export function isEncryptedBackup(folder: string): boolean {
+  return existsSync(join(folder, ENCRYPTED_FILE))
+}
+
 async function readMarker(folder: string): Promise<BackupMarker | null> {
   try {
     return parseBackupMarker(await readFile(join(folder, BACKUP_MARKER), 'utf-8'))
@@ -102,6 +141,11 @@ export type WriteBackupOptions = {
   kind: BackupKind
   now?: Date
   appVersion?: string
+  /**
+   * #54: encrypts the database and documents into one file with this key. Never then a plain
+   * copy in `parent`; the plain snapshot stays in `workDir` and is removed afterwards.
+   */
+  encryption?: BackupKey
 }
 
 /**
@@ -131,12 +175,19 @@ export async function writeBackup(options: WriteBackupOptions): Promise<string> 
       format: 1,
       kind: options.kind,
       createdAt: now.toISOString(),
-      appVersion: options.appVersion ?? ''
+      appVersion: options.appVersion ?? '',
+      ...(options.encryption ? { encrypted: true } : {})
     }
     await writeFile(join(temp, BACKUP_MARKER), JSON.stringify(marker, null, 2), 'utf-8')
-    await copyFile(snapshot, join(temp, DB_FILE))
-    if (existsSync(storageDir)) await cp(storageDir, join(temp, STORAGE), { recursive: true })
-    await writeFile(join(temp, 'LIESMICH.txt'), RESTORE_NOTE, 'utf-8')
+    if (options.encryption) {
+      const entries = await backupEntries(snapshot, existsSync(storageDir) ? storageDir : null)
+      await writeEncryptedArchive(join(temp, ENCRYPTED_FILE), entries, options.encryption)
+      await writeFile(join(temp, 'LIESMICH.txt'), ENCRYPTED_NOTE, 'utf-8')
+    } else {
+      await copyFile(snapshot, join(temp, DB_FILE))
+      if (existsSync(storageDir)) await cp(storageDir, join(temp, STORAGE), { recursive: true })
+      await writeFile(join(temp, 'LIESMICH.txt'), RESTORE_NOTE, 'utf-8')
+    }
     // A manual backup in the same minute gets "(2)"
     const base = backupFolderName(now)
     for (let n = 1; n < 100; n++) {
@@ -263,25 +314,43 @@ export type RestoreManifest = {
  * Copies a backup into the local work folder and checks it, without replacing anything yet.
  * The copy is what a confirmed restore applies, so the chosen folder is only read once and a
  * synced folder changing meanwhile cannot matter. `appMigrationMillis`: see checkBackupDatabase.
+ * An encrypted backup (#54) needs its `password`; it is decrypted into the work folder, never
+ * next to the backup.
  */
 export async function prepareRestore(
   source: string,
   workDir: string,
-  appMigrationMillis: number
+  appMigrationMillis: number,
+  password?: string
 ): Promise<RestoreManifest> {
   const name = basename(source)
   if (name.startsWith(BACKUP_TEMP_PREFIX))
     throw new Error('Diese Sicherung wurde nicht fertig geschrieben.')
-  if (!existsSync(join(source, DB_FILE)))
+  const encrypted = isEncryptedBackup(source)
+  if (encrypted && password === undefined)
+    throw new Error('Diese Sicherung ist verschlüsselt. Bitte das Passwort eingeben.')
+  if (!encrypted && !existsSync(join(source, DB_FILE)))
     throw new Error('Der Ordner enthält keine Bookingium-Sicherung (bookingum.db fehlt).')
+  // a wrong password is told before anything is copied
+  const key = encrypted
+    ? await unlockEncryptedArchive(join(source, ENCRYPTED_FILE), password ?? '')
+    : null
   const incoming = join(workDir, RESTORE_INCOMING)
   await rm(incoming, { recursive: true, force: true })
   await mkdir(incoming, { recursive: true })
   try {
-    await copyFile(join(source, DB_FILE), join(incoming, DB_FILE))
-    checkBackupDatabase(join(incoming, DB_FILE), appMigrationMillis)
-    const hasStorage = existsSync(join(source, STORAGE))
-    if (hasStorage) await cp(join(source, STORAGE), join(incoming, STORAGE), { recursive: true })
+    let hasStorage: boolean
+    if (key) {
+      await extractEncryptedArchive(join(source, ENCRYPTED_FILE), key, incoming, workDir)
+      if (!existsSync(join(incoming, DB_FILE))) throw new Error('Die Sicherung ist beschädigt.')
+      checkBackupDatabase(join(incoming, DB_FILE), appMigrationMillis)
+      hasStorage = existsSync(join(incoming, STORAGE))
+    } else {
+      await copyFile(join(source, DB_FILE), join(incoming, DB_FILE))
+      checkBackupDatabase(join(incoming, DB_FILE), appMigrationMillis)
+      hasStorage = existsSync(join(source, STORAGE))
+      if (hasStorage) await cp(join(source, STORAGE), join(incoming, STORAGE), { recursive: true })
+    }
     const marker = await readMarker(source)
     const manifest: RestoreManifest = {
       source,
@@ -426,6 +495,11 @@ export type BackupState = {
   lastRestore: RestoreOutcome | null
   /** Where the backup taken before the last restore went */
   beforeRestoreFolder: string | null
+  /**
+   * #54: backups are encrypted with a password. The key derived from it, sealed by the system
+   * (safeStorage), so the daily backup runs without asking; null for plain backups.
+   */
+  encryption: { sealedKey: string; kdf: KdfSettings; since: string } | null
 }
 
 export const EMPTY_BACKUP_STATE: BackupState = {
@@ -436,7 +510,8 @@ export const EMPTY_BACKUP_STATE: BackupState = {
   lastFolder: null,
   lastError: null,
   lastRestore: null,
-  beforeRestoreFolder: null
+  beforeRestoreFolder: null,
+  encryption: null
 }
 
 export function readBackupState(workDir: string): BackupState {

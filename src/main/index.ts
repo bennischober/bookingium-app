@@ -8,6 +8,7 @@ import {
   clipboard,
   net,
   powerMonitor,
+  safeStorage,
   session
 } from 'electron'
 import { basename, join, extname } from 'path'
@@ -883,7 +884,12 @@ app.whenReady().then(async () => {
 
   createWindow()
   // Automatic backups: checked after startup, then hourly; each run copies in the background
-  container.resolve(BackupService).start(app.getVersion())
+  // #54: the key of password-encrypted backups is sealed by the system between runs
+  container.resolve(BackupService).start(app.getVersion(), {
+    available: () => safeStorage.isEncryptionAvailable(),
+    seal: (plain) => safeStorage.encryptString(plain).toString('base64'),
+    open: (sealed) => safeStorage.decryptString(Buffer.from(sealed, 'base64'))
+  })
   // I7 (H3): an invoice mail whose send was unclear is marked once the core confirms it -
   // by the startup probe too, so this listens before the client starts
   const invoiceLedger = container.resolve(InvoiceService)
