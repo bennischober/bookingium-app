@@ -360,6 +360,14 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   account chosen under „Senden von“, sends over SMTP, and the invoice
   counts as sent only after a real send (`docs/mail-client.md`). e2e runs
   set `BOOKINGIUM_NO_LAUNCH=1` (files only).
+- **Contract email** (#120, „Per E-Mail senden“ on the print page of a
+  concert or management contract, channel `contract:email`): the same way
+  as an invoice's, with the template „Vertrag“ (`contractEmailDe`/`En`,
+  {Platzhalter} in `mail/contractEmail.ts`). A concert contract goes to the
+  promoter, a management contract to the band's company; the language is
+  chosen next to the button, suggested by the recipient's country (German
+  for DE/AT/CH/LI and for an empty or unknown one). Nothing is recorded on
+  the contract: contracts have no email history.
 - **Invoice page** (`/invoices/$invoiceId`, `InvoiceDetailPage`): one per
   issued invoice, with its data, the e-invoice check, the status changes it
   still allows (Stornieren included) and a „Verlauf“ (`lib/invoiceHistory.ts`):

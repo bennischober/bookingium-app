@@ -128,6 +128,7 @@ English.
 | Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“            |
 | XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                             |
 | Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.        |
+| Send contract by email (language of the email)     | Per E-Mail senden; Sprache der E-Mail: Deutsch / Englisch         |
 | Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / … |
 | Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}         |
 | Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                                |

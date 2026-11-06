@@ -123,11 +123,14 @@ export async function openEmail({
   draft,
   pdf,
   fileName,
+  fallbackName = 'Rechnung',
   setting
 }: {
   draft: EmailDraft
   pdf: Uint8Array
   fileName: string
+  /** The files' name when `fileName` has nothing usable left */
+  fallbackName?: string
   setting: MailProgramSetting
 }): Promise<OpenEmailResult> {
   const folder = emailFolder()
@@ -135,7 +138,7 @@ export async function openEmail({
   await removeOldFiles(folder)
 
   // I11 (MR-34): the name comes from the renderer, so it is flattened and kept inside the folder
-  const base = safeAttachmentName(fileName, 'Rechnung')
+  const base = safeAttachmentName(fileName, fallbackName)
   const pdfPath = safePathIn(folder, `${base}.pdf`)
   const emlPath = safePathIn(folder, `${base}.eml`)
   await writeFile(pdfPath, pdf)

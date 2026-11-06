@@ -16,6 +16,7 @@ import { CompanyService } from '../src/main/services/CompanyService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
 import {
   AppSettings,
+  DEFAULT_CONTRACT_EMAIL,
   DEFAULT_DUNNING_EMAIL,
   DEFAULT_INVOICE_EMAIL,
   DEFAULT_REMINDER_EMAIL,
@@ -51,7 +52,9 @@ const DEFAULTS = {
   reminderEmailDe: DEFAULT_REMINDER_EMAIL.de,
   reminderEmailEn: DEFAULT_REMINDER_EMAIL.en,
   dunningEmailDe: DEFAULT_DUNNING_EMAIL.de,
-  dunningEmailEn: DEFAULT_DUNNING_EMAIL.en
+  dunningEmailEn: DEFAULT_DUNNING_EMAIL.en,
+  contractEmailDe: DEFAULT_CONTRACT_EMAIL.de,
+  contractEmailEn: DEFAULT_CONTRACT_EMAIL.en
 }
 
 beforeAll(() => {

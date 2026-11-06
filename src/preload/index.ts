@@ -37,6 +37,13 @@ const api = {
     kind: 'invoice' | 'reminder' | 'dunning' = 'invoice'
   ) => ipcRenderer.invoke('invoice:email', { invoiceId, fileName, lang, kind }),
 
+  sendContractEmail: (
+    contract: 'concert' | 'management',
+    id: number,
+    fileName: string,
+    lang: 'de' | 'en'
+  ) => ipcRenderer.invoke('contract:email', { contract, id, fileName, lang }),
+
   showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
 
   /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */

@@ -87,6 +87,8 @@ events and invoices), not a general mail client.
   the editor opens on the account chosen in Einstellungen › E-Mail › "Senden von", the PDF is attached on
   send, and the invoice counts as sent only after a real send. The invoice page lists the mails it was
   sent with and every reply ("Antwort erhalten"); the status never changes on its own.
+- **Contracts** (#120): "Per E-Mail senden" on a contract's print page takes the same compose path and
+  account; the PDF is attached on send. Nothing is recorded, so an unclear send only shows as not sent.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).
@@ -152,7 +154,7 @@ account whose login was rejected is left alone.
 ```
 src/main/
   index.ts                        startup (enabled check, startIfConfigured), pop-out mail windows,
-                                  invoice:email, mail:copyLink
+                                  invoice:email, contract:email, mail:copyLink
   mailclient/
     MailClientService.ts          the host: worker lifecycle, crash limit, credentials, connection test
     systemWake.ts                 wake from sleep (power monitor, late clock tick, network wait)
