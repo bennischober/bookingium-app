@@ -10,6 +10,7 @@ import { schema } from '../src/main/db/schema'
 import { ImportService } from '../src/main/services/ImportService'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { detectMapping, suggestCompanyKind, suggestTarget } from '../src/main/import/detectMapping'
+import { emailDomain, isFreemailDomain } from '../src/main/import/normalize'
 import type {
   ImportOptions,
   ImportRequest,
@@ -114,8 +115,8 @@ describe('media lists', () => {
             'mara@riffradio.example.test',
             'redaktion@riffradio.example.test',
             'news@riffradio.example.test',
-            '030 123',
-            '030 456'
+            '030 1234567',
+            '030 2345678'
           ]
         ],
         { companyKind: 'media', genres: 'Metal; Rock' }
@@ -125,9 +126,12 @@ describe('media lists', () => {
 
     const company = companyNamed('Riffwelle Test')!
     expect(company).toMatchObject({ kind: 'media', genres: 'Metal, Rock' })
-    expect(company.notes).toContain('Telefon 2: 030 456')
+    expect(company.notes).toContain('Telefon 2: 030 2345678')
     const contact = contactOf(company.contact_id)
-    expect(contact).toMatchObject({ email: 'redaktion@riffradio.example.test', phone: '030 123' })
+    expect(contact).toMatchObject({
+      email: 'redaktion@riffradio.example.test',
+      phone: '030 1234567'
+    })
     expect(otherEmails(company.contact_id)).toEqual(['news@riffradio.example.test'])
 
     const person = db
@@ -146,9 +150,6 @@ describe('media lists', () => {
         ['', '', 'info@heavyzine.example.test', '', '', '', ''],
         // Same domain as the row above: a further address of that outlet
         ['', '', 'chef@heavyzine.example.test', '', '', '', ''],
-        // Freemail: the address itself is the name, or the person's name
-        ['', '', 'no-such-reader.example@gmail.com', '', '', '', ''],
-        ['', 'Rita Rezensent', 'no-such-critic.example@web.de', '', '', '', ''],
         ['', '', 'tips@loudmag.example.test', '', '', '', ''],
         // Not right below its outlet: still the same company
         ['', '', 'ads@heavyzine.example.test', '', '', '', '']
@@ -161,8 +162,6 @@ describe('media lists', () => {
       'record',
       'continuation',
       'record',
-      'record',
-      'record',
       'record'
     ])
     expect(preview.rows[0].warnings).toEqual([
@@ -171,14 +170,12 @@ describe('media lists', () => {
     expect(preview.rows.map((row) => row.company?.label)).toEqual([
       'heavyzine.example.test',
       'heavyzine.example.test',
-      'no-such-reader.example@gmail.com',
-      'Rita Rezensent',
       'loudmag.example.test',
       'heavyzine.example.test'
     ])
 
     const result = service().commit(req)
-    expect(result.companies.created).toBe(4)
+    expect(result.companies.created).toBe(2)
     const zine = companyNamed('heavyzine.example.test')!
     expect(zine).toMatchObject({ kind: 'media', genres: 'Metal' })
     expect(contactOf(zine.contact_id).email).toBe('info@heavyzine.example.test')
@@ -186,9 +183,15 @@ describe('media lists', () => {
       'chef@heavyzine.example.test',
       'ads@heavyzine.example.test'
     ])
-    expect(contactOf(companyNamed('no-such-reader.example@gmail.com')!.contact_id).email).toBe(
-      'no-such-reader.example@gmail.com'
-    )
+  })
+
+  // Freemail rows are named after the person or the address (outletName). Tracked files may
+  // hold addresses at reserved test domains only (no_pii), so the domain check is tested alone.
+  it('know freemail domains', () => {
+    expect(emailDomain('Info@HeavyZine.example.test')).toBe('heavyzine.example.test')
+    expect(isFreemailDomain('gmail.com')).toBe(true)
+    expect(isFreemailDomain('web.de')).toBe(true)
+    expect(isFreemailDomain('heavyzine.example.test')).toBe(false)
   })
 
   it('leave rows without a name alone in a list of plain companies', () => {
