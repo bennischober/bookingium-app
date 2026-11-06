@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
+  CalendarPlus,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -29,6 +30,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/compon
 import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
 import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
+import { EventFromMail } from '@/components/mail/EventFromMail'
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
@@ -121,7 +123,8 @@ export function MessageView({
   onArchive,
   onMarkUnread,
   onCompose,
-  onWriteTo
+  onWriteTo,
+  onOpenEvent
 }: {
   accountId: string
   messageId: number
@@ -136,6 +139,8 @@ export function MessageView({
   onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
   /** F2: opens a NEW mail to one header address (writable accounts only) */
   onWriteTo?: (address: { name: string; email: string }) => void
+  /** #122: opens an event made from this mail; the separate mail window has no app pages */
+  onOpenEvent?: (eventId: number) => void
 }) {
   const detail = useQuery({
     queryKey: messageKey(accountId, messageId),
@@ -153,6 +158,8 @@ export function MessageView({
   // they work on read-only accounts too
   const [linking, setLinking] = useState(false)
   const [creatingContact, setCreatingContact] = useState(false)
+  // #122: "Event anlegen" from a booking request, which also only changes the app's data
+  const [creatingEvent, setCreatingEvent] = useState(false)
   // S1: the whole message is being downloaded (stored without its large parts until now)
   const [downloading, setDownloading] = useState(false)
   const queryClient = useQueryClient()
@@ -393,6 +400,20 @@ export function MessageView({
             <Button
               variant="ghost"
               size="icon-sm"
+              onClick={() => setCreatingEvent(true)}
+              disabled={!message.messageId}
+              title={
+                message.messageId
+                  ? 'Event aus dieser Mail anlegen'
+                  : 'Event anlegen geht nicht: die Mail hat keine Message-ID'
+              }
+              aria-label="Event aus dieser Mail anlegen"
+            >
+              <CalendarPlus />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setCreatingContact(true)}
               disabled={!message.fromEmail}
               title="Absender als Kontakt anlegen"
@@ -615,6 +636,14 @@ export function MessageView({
           open
           onOpenChange={setCreatingContact}
           sender={{ name: message.fromName, email: message.fromEmail }}
+        />
+      )}
+      {creatingEvent && message.messageId && (
+        <EventFromMail
+          accountId={accountId}
+          message={message}
+          onClose={() => setCreatingEvent(false)}
+          onOpenEvent={onOpenEvent}
         />
       )}
     </article>

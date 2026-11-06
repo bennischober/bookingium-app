@@ -92,6 +92,12 @@ events and invoices), not a general mail client.
 - **Follow-ups** (#121): "Wiedervorlage" in the compose toolbar files one after the send, on the invoice or
   contract the window was opened for. A reply from someone else closes it when the linker sees it; replies
   filed into folders other than INBOX and Sent are not seen. Due with no reply, it shows "Keine Antwort".
+- **Events from mail** (#122): "Event aus dieser Mail anlegen" in the reader opens the event wizard
+  prefilled from the mail (`EventFromMail`, pure part in `eventPrefill.ts`): the subject without reply
+  prefixes as the name, the first date from today on in the subject, then the body, and the person,
+  company or venue the sender's address belongs to (`mailLink.senderOwners`, only when exactly one of a
+  type). An unknown sender is offered as a new LoPro person. The new event gets a manual link to the mail.
+  Like "Zuordnen…", it needs a Message-ID and also works on read-only accounts.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).

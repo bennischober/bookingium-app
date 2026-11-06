@@ -1550,6 +1550,91 @@ test("a mail from a person's address appears in their E-Mails tab", async () => 
   }
 })
 
+// #122: an event is made from a booking request. The wizard opens prefilled from the
+// mail - the subject without "AW:", the date it names, the sender's person - and the
+// mail is linked to the new event.
+const EVENT_TAG = 'e2e-event-'
+
+test('an event is created from a mail, prefilled from it and linked to it', async () => {
+  test.setTimeout(180_000)
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const tag = `${EVENT_TAG}${Date.now()}`
+  // A date next year is always still to come
+  const year = new Date().getFullYear() + 1
+  const name = `Anfrage ${tag} 14.03.${year}`
+
+  try {
+    // From the address the seeded person owns, so the sender is known
+    await appendTestMail(SANDBOX.host, SANDBOX.port, `AW: ${name}`, undefined, LINKED_ADDRESS)
+    await mail('triggerSync', true, sandboxId)
+    const found = await waitFor(
+      () => mail<{ items: { id: number }[] }>('search', { query: tag, limit: 5 }, sandboxId),
+      (r) => r.items.length > 0,
+      120_000
+    )
+    const target = found.items[0]
+    expect(target, 'the mail this test appended did not arrive').toBeTruthy()
+    const detail = await mail<{ messageId: string | null }>('getMessage', target.id, sandboxId)
+    expect(detail.messageId).toBeTruthy()
+
+    // The separate mail window: it has no app pages, so this also covers the wizard there
+    await openMailPage(sandboxId)
+    const [popup] = await Promise.all([
+      h.app.waitForEvent('window'),
+      h.page.evaluate(([account, message]) => window.api.openMailWindow(account, message), [
+        sandboxId,
+        target.id
+      ] as const)
+    ])
+    try {
+      const reader = popup.getByRole('article', { name: 'E-Mail' })
+      await expect(reader).toBeVisible({ timeout: 30_000 })
+      await reader.getByRole('button', { name: 'Event aus dieser Mail anlegen' }).click()
+
+      const wizard = popup.getByRole('dialog', { name: 'Neues Event anlegen' })
+      await expect(wizard).toBeVisible({ timeout: 30_000 })
+      await expect(wizard.getByLabel('Eventname')).toHaveValue(name)
+      await expect(wizard.getByLabel('Datum')).toHaveValue(`${year}-03-14`)
+
+      // The band is the one thing the mail cannot say
+      await wizard.getByRole('combobox').filter({ hasText: 'Band auswählen…' }).click()
+      await popup.getByRole('option').first().click()
+      await wizard.getByRole('button', { name: 'Weiter' }).click()
+
+      // Step 2: the sender is the LoPro person, so no "create the sender" offer
+      await expect(
+        wizard
+          .getByRole('combobox')
+          .filter({ hasText: `${LINKED_PERSON.firstName} ${LINKED_PERSON.lastName}` })
+      ).toBeVisible()
+      await expect(wizard.getByRole('button', { name: 'Absender als Person anlegen' })).toHaveCount(
+        0
+      )
+      await wizard.getByRole('button', { name: 'Weiter' }).click()
+      await wizard.getByRole('button', { name: 'Event anlegen' }).click()
+
+      await expect(
+        popup.locator('[data-sonner-toast]').filter({ hasText: 'Mail dem Event zugeordnet' })
+      ).toBeVisible({ timeout: 30_000 })
+      // The window has no event page to open
+      await expect(popup.getByRole('button', { name: 'Event öffnen' })).toHaveCount(0)
+
+      // The link exists, to an event
+      const links = await trpc<{ entityType: string; entityId: number }[]>(
+        'query',
+        'mailLink.linksForMessage',
+        { accountId: sandboxId, messageId: detail.messageId }
+      )
+      expect(links.filter((l) => l.entityType === 'event')).toHaveLength(1)
+    } finally {
+      await popup.close()
+    }
+  } finally {
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, EVENT_TAG)
+  }
+})
+
 // B1: a folder is created, renamed and deleted in the UI, and the sandbox is left
 // as it was found.
 const FOLDER_PREFIX = 'E2E-Ordner-'

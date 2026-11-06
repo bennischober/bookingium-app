@@ -152,10 +152,14 @@ function databaseAt(count: number, file?: string): Database.Database {
     'CREATE TABLE __drizzle_migrations (id integer PRIMARY KEY AUTOINCREMENT, hash text NOT NULL, created_at numeric)'
   )
   const record = sqlite.prepare('insert into __drizzle_migrations (hash, created_at) values (?, ?)')
-  for (const migration of migrations.slice(0, count)) {
-    for (const statement of migration.sql) sqlite.exec(statement)
-    record.run(migration.hash, migration.folderMillis)
-  }
+  // One transaction, as drizzle runs them: statement by statement, a file database commits
+  // (and syncs) hundreds of times, which on a Windows CI runner outlasted the test timeout
+  sqlite.transaction(() => {
+    for (const migration of migrations.slice(0, count)) {
+      for (const statement of migration.sql) sqlite.exec(statement)
+      record.run(migration.hash, migration.folderMillis)
+    }
+  })()
   return sqlite
 }
 

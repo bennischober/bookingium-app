@@ -266,6 +266,15 @@ export const mailLinkRouter = t.router({
     }),
 
   /**
+   * #122: the persons, companies and venues an address belongs to, the way the
+   * automatic links match it - for prefilling an event from a mail's sender. A shared
+   * address (more than SHARED_ADDRESS_LIMIT records) belongs to none.
+   */
+  senderOwners: t.procedure
+    .input(z.object({ email: z.string().max(320) }))
+    .query(({ input }) => service.addressOwners(input.email)),
+
+  /**
    * C5: the records one mail is linked to, for pre-selecting where its attachment
    * should be saved. Only undismissed links with a nameable owner come back.
    */

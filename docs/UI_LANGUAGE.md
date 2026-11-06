@@ -111,6 +111,9 @@ English.
 | Document types                                | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Abrechnung, Sonstiges |
 | Show settlement (from the Veranstalter)       | Abrechnung                                                                          |
 | Show in folder / Open folder                  | Im Ordner anzeigen / Ordner öffnen                                                  |
+| Event from a mail (reader toolbar)            | Event aus dieser Mail anlegen                                                       |
+| Unknown sender as LoPro person (wizard)       | Absender als Person anlegen                                                         |
+| Mail linked to the new event (toast)          | Mail dem Event zugeordnet; action „Event öffnen“                                    |
 
 ### Invoices
 
