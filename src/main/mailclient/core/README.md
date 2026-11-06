@@ -152,6 +152,29 @@ Two traps this cost, both worth knowing before touching the path:
 `BOOKINGIUM_FAULT_WRITE=<code>` makes the worker fail every local write with that code, so an e2e can exercise
 the real path. It is a QA seam, off unless set.
 
+## The first download of a large mailbox
+
+#63. A first download is planned before it starts, so a large mailbox neither fills the drive halfway nor
+leaves the user guessing.
+
+- **Size.** The STATUS sweep of `syncAll` asks for `SIZE` too (imapflow sends it only with `STATUS=SIZE` or
+  IMAP4rev2). With every folder's size, `SyncStatus.bytesTotal` is their sum; otherwise the account's
+  `QUOTA` usage (`getQuota('INBOX')`, no command without the capability); otherwise null. IONOS: not
+  measured yet.
+- **Space check.** In an `initial` pass, `downloadSpaceNeeded` (what the server holds less what is stored,
+  by `size_bytes`, with the swap's 1.2 share and 50 MB reserve) against `freeBytes(dataDir)`. Too little
+  holds the pass paused (it waits at its next `gate()`) with `SyncStatus.spaceWarning`; `resume()` clears
+  it and the run does not ask again. The need is an upper bound: messages above `lazyAboveBytes` are stored
+  as skeletons. A disk that does fill up still stops on the disk-full path below. Unknown sizes do not hold.
+- **Time left.** `SyncStatus.secondsLeft` from `download_estimate.ts`: the message rate since the pass or the
+  last resume, after 30 s and 20 messages; null otherwise, and while paused.
+- **Pause across a restart.** `pause()` sets the store's `kv` flag `sync_paused`; `resume()` removes it. A new
+  engine applies it once the pass knows the download is not done (holding at construction would block the
+  pass at its first `gate()` before it could find out); an `incremental` pass drops it, so new mail never
+  waits behind it. The space hold is not saved: after a restart it is checked again.
+
+Tests: `tests/mail_large_mailbox.test.ts` (fake server with `STATUS=SIZE` / `QUOTA`).
+
 ## A large message is stored without its large parts
 
 S1. With `AccountConfig.lazyAboveBytes` set (every account builder sets `LAZY_ABOVE_BYTES`, 5 MB; real

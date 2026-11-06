@@ -648,6 +648,26 @@ function MailClient() {
         </div>
       )}
 
+      {syncStatus.data?.spaceWarning && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-300"
+          data-testid="mail-space-banner"
+        >
+          <p className="min-w-0 flex-1">
+            {syncStatus.data.spaceWarning} E-Mails über 5 MB lädt Bookingium erst beim Öffnen, meist
+            wird es also weniger.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
+          >
+            Trotzdem fortsetzen
+          </Button>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1">
         <nav
           className="hidden shrink-0 overflow-auto p-2 lg:block"
