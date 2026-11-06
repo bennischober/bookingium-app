@@ -5,6 +5,7 @@ import {
   type ImportRow,
   type ImportTarget
 } from '../api/schemas/import.schema'
+import type { CompanyKind } from '../api/schemas/company.schema'
 import type { VenueKind } from '../api/schemas/venue.schema'
 import { findCountry, isGermanStateCode, normalizeKey } from './normalize'
 
@@ -18,6 +19,7 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
   ['region', ['land', 'bundesland', 'country', 'state', 'staat', 'region']],
   ['capacity', ['cc', 'cap', 'kapazität', 'kapazitaet', 'capacity', 'zuschauer', 'besucher']],
   ['bandName', ['band', 'bands', 'bandname', 'künstler', 'kuenstler', 'artist', 'act']],
+  ['genre', ['genre', 'genres', 'stil', 'style', 'musikrichtung']],
   ['founded', ['gründung', 'gruendung', 'gegründet', 'gegruendet', 'gründungsjahr', 'founded']],
   ['members', ['mitglieder', 'members', 'besetzung', 'lineup', 'musiker']],
   ['responsiblePerson', ['tl', 'technischerleiter', 'technischeleitung']],
@@ -32,7 +34,20 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
       'firmenname',
       'company',
       'organizer',
-      'organiser'
+      'organiser',
+      // Media and radio lists (Radio/Medien)
+      'medienpartner',
+      'medium',
+      'medien',
+      'media',
+      'radiosender',
+      'sender',
+      'radio',
+      'station',
+      'magazin',
+      'zeitung',
+      'zeitschrift',
+      'redaktion'
     ]
   ],
   ['contactPerson', ['ap', 'ansprechpartner', 'kontakt', 'contact', 'kontaktperson']],
@@ -42,7 +57,7 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
   ['role', ['rolle', 'funktion', 'position', 'role']],
   ['birthday', ['geburtstag', 'geburtsdatum', 'birthday', 'dateofbirth']],
   ['email', ['email', 'mail', 'emailadresse']],
-  ['phone', ['telefon', 'tel', 'phone', 'telephone', 'festnetz']],
+  ['phone', ['telefon', 'tel', 'phone', 'telephone', 'festnetz', 'haupttelefon']],
   ['mobile', ['mobil', 'mobile', 'handy', 'mobiltelefon']],
   ['street', ['str', 'straße', 'strasse', 'street']],
   ['streetNumber', ['nr', 'hausnr', 'hausnummer', 'hnr', 'no', 'number']],
@@ -67,15 +82,18 @@ const HEADER_SYNONYMS: Array<[ImportField, string[]]> = [
       'anmerkung',
       'anmerkungen',
       'bemerkung',
-      'info'
+      'info',
+      // Outlook's contact export
+      'weiterevornamen',
+      'suffix'
     ]
   ]
 ]
 
 // Headers that mean something else depending on what the list holds
 const TARGET_SYNONYMS: Record<ImportTarget, Record<string, ImportField>> = {
-  venues: { name: 'venueName', genre: 'notes' },
-  bands: { name: 'bandName', genre: 'genre', stil: 'genre', style: 'genre' },
+  venues: { name: 'venueName' },
+  bands: { name: 'bandName' },
   companies: { name: 'companyName' },
   persons: {
     name: 'personName',
@@ -113,6 +131,18 @@ function qualifiedField(key: string): { field: ImportField; kind: string } | nul
     const field = key.startsWith(prefix) ? base(key.slice(prefix.length)) : undefined
     if (field) return { field, kind: 'weitere' }
   }
+  return null
+}
+
+// Numbered columns ("E-Mail 2", "Telefon 2", "Tel. 3"): further email
+// addresses are emails too; further phone numbers go to the notes
+function numberedField(key: string, synonyms: Record<string, ImportField>): ImportField | null {
+  const match = /^(.+?)\d+$/.exec(key)
+  if (!match) return null
+  const field =
+    synonyms[match[1]] ?? SYNONYM_LOOKUP.get(match[1]) ?? qualifiedField(match[1])?.field
+  if (field === 'email') return 'email'
+  if (field === 'phone' || field === 'mobile') return 'notes'
   return null
 }
 
@@ -198,6 +228,12 @@ export function detectMapping(
     assign(column, allowed.includes(field) ? field : 'notes')
   })
 
+  keys.forEach((key, column) => {
+    if (mapping[column] !== 'ignore') return
+    const field = numberedField(key, targetSynonyms)
+    if (field) assign(column, allowed.includes(field) ? field : 'notes')
+  })
+
   if (target === 'venues') {
     // "Location": the venue's place when there is no City column, else a note
     keys.forEach((key, column) => {
@@ -263,6 +299,30 @@ export function suggestTarget(sheetName: string, headers: string[]): ImportTarge
 export function suggestKind(sheetName: string, headers: string[]): VenueKind {
   const text = normalizeKey([sheetName, ...headers].join(' '))
   return /\bfestivals?\b/.test(text) ? 'festival' : 'venue'
+}
+
+// Media and radio lists ("Medienverteiler", "Radio Kontakte", a
+// "Medienpartner" column): their companies are Radio/Medien
+const MEDIA_SHEET = /medien|media|radio|presse|magazin|redaktion/i
+const MEDIA_HEADERS = new Set([
+  'medienpartner',
+  'medium',
+  'medien',
+  'media',
+  'radiosender',
+  'sender',
+  'radio',
+  'magazin',
+  'zeitung',
+  'zeitschrift',
+  'redaktion'
+])
+
+export function suggestCompanyKind(sheetName: string, headers: string[]): CompanyKind {
+  return MEDIA_SHEET.test(sheetName) ||
+    headers.some((header) => MEDIA_HEADERS.has(headerKey(header)))
+    ? 'media'
+    : 'company'
 }
 
 /** The default country (Einstellungen) for domestic lists; none for "international" sheets */

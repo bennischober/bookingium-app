@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, max, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -9,6 +9,7 @@ import type {
   ExistingRecords,
   ImportPlan
 } from '../import/buildImportPlan'
+import { contactAddressEvents, normalizeEmail } from './contactEmails'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -82,6 +83,15 @@ export class ImportRepository {
    * contact persons, band members) are added where missing.
    */
   apply(plan: ImportPlan): ImportResult {
+    const result = this.write(plan)
+    // The mail linker looks for mail of the imported addresses (after the commit)
+    if (Object.values(result).some((outcome) => outcome.created + outcome.updated > 0)) {
+      contactAddressEvents.emit('saved')
+    }
+    return result
+  }
+
+  private write(plan: ImportPlan): ImportResult {
     return db.transaction((tx) => {
       const outcome = () => ({ created: 0, updated: 0 })
       const result: ImportResult = {
@@ -145,6 +155,8 @@ export class ImportRepository {
             .insert(schema.company)
             .values({
               name: draft.name,
+              kind: draft.kind,
+              genres: draft.genres,
               notes: notes || null,
               vat_number: draft.vatNumber,
               tax_number: draft.taxNumber,
@@ -169,6 +181,7 @@ export class ImportRepository {
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
         const changes = emptyOnly(row, {
           notes,
+          genres: draft.genres,
           vat_number: draft.vatNumber,
           tax_number: draft.taxNumber,
           address_id: address.id,
@@ -240,6 +253,7 @@ export class ImportRepository {
               name: draft.name,
               kind: draft.kind,
               capacity: draft.capacity,
+              genres: draft.genres,
               notes,
               company_id: companyId,
               address_id: this.insertAddress(tx, draft.address),
@@ -262,6 +276,7 @@ export class ImportRepository {
         const changes = emptyOnly(row, {
           notes,
           capacity: draft.capacity,
+          genres: draft.genres,
           company_id: companyId,
           address_id: address.id,
           contact_id: contact.id
@@ -291,7 +306,49 @@ export class ImportRepository {
   private insertContact(tx: Tx, draft: ContactDraft): number | null {
     const values = contactValues(draft)
     if (!hasValues(values)) return null
-    return tx.insert(schema.contact).values(values).returning({ id: schema.contact.id }).get().id
+    const id = tx
+      .insert(schema.contact)
+      .values(values)
+      .returning({ id: schema.contact.id })
+      .get().id
+    this.addOtherEmails(tx, id, draft.email, draft.emails)
+    return id
+  }
+
+  /**
+   * Adds further addresses a contact does not have yet (after the ones it
+   * has); returns how many were added
+   */
+  private addOtherEmails(tx: Tx, contactId: number, primary: string, emails: string[]): number {
+    const known = new Set([
+      normalizeEmail(primary),
+      ...tx
+        .select({ email: schema.contact_email.email })
+        .from(schema.contact_email)
+        .where(eq(schema.contact_email.contact_id, contactId))
+        .all()
+        .map((row) => row.email)
+    ])
+    const added: string[] = []
+    for (const address of emails) {
+      const email = normalizeEmail(address)
+      if (!email || known.has(email)) continue
+      known.add(email)
+      added.push(email)
+    }
+    if (added.length === 0) return 0
+    const last = tx
+      .select({ position: max(schema.contact_email.position) })
+      .from(schema.contact_email)
+      .where(eq(schema.contact_email.contact_id, contactId))
+      .get()?.position
+    const start = last === null || last === undefined ? 0 : last + 1
+    tx.insert(schema.contact_email)
+      .values(
+        added.map((email, index) => ({ contact_id: contactId, email, position: start + index }))
+      )
+      .run()
+    return added.length
   }
 
   /** Fills the empty fields of an existing address, or creates one */
@@ -325,9 +382,13 @@ export class ImportRepository {
     const row = tx.select().from(schema.contact).where(eq(schema.contact.id, contactId)).get()
     if (!row) return { id: contactId, changed: false }
     const changes = emptyOnly(row, contactValues(draft))
-    if (!hasValues(changes)) return { id: contactId, changed: false }
-    tx.update(schema.contact).set(changes).where(eq(schema.contact.id, contactId)).run()
-    return { id: contactId, changed: true }
+    if (hasValues(changes)) {
+      tx.update(schema.contact).set(changes).where(eq(schema.contact.id, contactId)).run()
+    }
+    // A primary address other than the stored one becomes a further address
+    const primary = row.email || draft.email
+    const added = this.addOtherEmails(tx, contactId, primary, [draft.email, ...draft.emails])
+    return { id: contactId, changed: hasValues(changes) || added > 0 }
   }
 
   /** Adds missing company members; returns how many were added */

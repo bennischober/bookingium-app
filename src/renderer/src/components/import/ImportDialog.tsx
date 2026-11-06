@@ -5,6 +5,7 @@ import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -37,6 +38,7 @@ import {
   type ImportFile
 } from '../../../../main/api/schemas/import.schema'
 import { VENUE_KIND_LABELS, VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { COMPANY_KIND_LABELS, CompanyKind } from '../../../../main/api/schemas/company.schema'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
 type Entity = keyof ImportPreview['summary']
@@ -75,7 +77,12 @@ const PREVIEW_COLUMNS: Record<
 }
 
 /** Record types a target creates, in summary order */
-function summaryEntities(target: ImportTarget, kind: VenueKind): Array<[Entity, string]> {
+function summaryEntities(
+  target: ImportTarget,
+  kind: VenueKind,
+  companyKind: CompanyKind
+): Array<[Entity, string]> {
+  const companies = companyKind === 'media' ? COMPANY_KIND_LABELS.media : 'Firmen'
   switch (target) {
     case 'venues':
       return [
@@ -90,13 +97,13 @@ function summaryEntities(target: ImportTarget, kind: VenueKind): Array<[Entity, 
       ]
     case 'companies':
       return [
-        ['companies', 'Firmen'],
+        ['companies', companies],
         ['persons', 'Ansprechpartner']
       ]
     case 'persons':
       return [
         ['persons', 'Personen'],
-        ['companies', 'Firmen']
+        ['companies', companies]
       ]
   }
 }
@@ -173,6 +180,8 @@ export function ImportDialog({
   const [target, setTarget] = useState<ImportTarget>(fixedTarget ?? 'venues')
   const [mapping, setMapping] = useState<ImportField[]>([])
   const [kind, setKind] = useState<VenueKind>(fixedKind ?? 'venue')
+  const [companyKind, setCompanyKind] = useState<CompanyKind>('company')
+  const [genres, setGenres] = useState('')
   const [defaultCountry, setDefaultCountry] = useState('')
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -198,6 +207,8 @@ export function ImportDialog({
     setTarget(nextTarget)
     setMapping(next.suggestedMappings[nextTarget])
     setKind(fixedKind ?? next.suggestedKind)
+    setCompanyKind(next.suggestedCompanyKind)
+    setGenres('')
     setDefaultCountry(next.suggestedCountry)
     setExcluded(new Set())
   }
@@ -237,7 +248,7 @@ export function ImportDialog({
         headers: table.headers,
         rows: table.rows,
         mapping,
-        options: { kind, defaultCountry },
+        options: { kind, companyKind, genres, defaultCountry },
         excludedRows: [...excluded]
       }
     : null
@@ -302,6 +313,10 @@ export function ImportDialog({
     previewData?.rows.filter((row) => row.status === 'record' || row.status === 'continuation')
       .length ?? 0
   const usesAddress = IMPORT_TARGET_FIELDS[target].includes('region')
+  // Genre tags of the Verteiler sources the import creates or completes
+  const usesGenres =
+    target === 'venues' ||
+    ((target === 'companies' || target === 'persons') && companyKind === 'media')
   const showRemembered = table?.mappingRemembered && table.suggestedTarget === target
 
   return (
@@ -388,6 +403,39 @@ export function ImportDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+              {(target === 'companies' || target === 'persons') && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-company-kind">
+                    {target === 'companies' ? 'Firmen sind' : 'Firmen der Personen sind'}
+                  </Label>
+                  <Select
+                    value={companyKind}
+                    onValueChange={(value) => setCompanyKind(value as CompanyKind)}
+                  >
+                    <SelectTrigger id="import-company-kind">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CompanyKind.options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {COMPANY_KIND_LABELS[option]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {usesGenres && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="import-genres">Genres für alle</Label>
+                  <Input
+                    id="import-genres"
+                    value={genres}
+                    onChange={(event) => setGenres(event.target.value)}
+                    placeholder="z. B. Metal, Rock"
+                  />
                 </div>
               )}
               {usesAddress && (
@@ -481,7 +529,7 @@ export function ImportDialog({
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {previewData && (
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                {summaryEntities(target, kind).map(([entity, label]) => (
+                {summaryEntities(target, kind, companyKind).map(([entity, label]) => (
                   <div key={entity} className="rounded-lg border px-3 py-2">
                     <div className="text-muted-foreground">{label}</div>
                     <div className="font-medium">
@@ -596,7 +644,7 @@ export function ImportDialog({
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <CheckCircle2 className="h-12 w-12 text-primary" />
             <div className="space-y-1 text-sm">
-              {summaryEntities(target, kind).map(([entity, label]) => (
+              {summaryEntities(target, kind, companyKind).map(([entity, label]) => (
                 <p key={entity}>
                   <strong>{result[entity].created}</strong>{' '}
                   {result[entity].created === 1 ? (SINGULAR[label] ?? label) : label} angelegt,{' '}

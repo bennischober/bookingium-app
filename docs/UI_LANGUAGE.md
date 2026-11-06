@@ -68,7 +68,7 @@ English.
 | Street / No. / ZIP / City / State / Country | Straße / Hausnummer / PLZ / Ort / Bundesland / Land |
 | Email / Phone / Mobile / Website            | E-Mail / Telefon / Mobil / Website                  |
 | Founded / Capacity                          | Gründung / Kapazität                                |
-| Genres (venue tags, comma-separated)        | Genres                                              |
+| Genres (venue/company tags, comma list)     | Genres                                              |
 
 ### Mailing lists
 

@@ -2,7 +2,13 @@ import { readFile } from 'fs/promises'
 import { basename, extname } from 'path'
 import type { ImportFile, ImportRow, ImportTable } from '../api/schemas/import.schema'
 import { csvSeparator, decodeCsv, parseCsv, repairMojibake } from '../csv/csv'
-import { detectMappings, suggestCountry, suggestKind, suggestTarget } from './detectMapping'
+import {
+  detectMappings,
+  suggestCompanyKind,
+  suggestCountry,
+  suggestKind,
+  suggestTarget
+} from './detectMapping'
 
 /**
  * The first non-empty record is the header row, every later non-empty one a
@@ -43,6 +49,7 @@ export function importTable(
     suggestedMappings: detectMappings(paddedHeaders, paddedRows),
     mappingRemembered: false,
     suggestedKind: suggestKind(name, paddedHeaders),
+    suggestedCompanyKind: suggestCompanyKind(name, paddedHeaders),
     suggestedCountry: suggestCountry(name, defaultCountry)
   }
 }

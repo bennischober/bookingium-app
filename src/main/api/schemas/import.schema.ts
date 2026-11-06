@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CompanyKind } from './company.schema'
 import { VenueKind } from './venue.schema'
 
 // ========================================
@@ -117,6 +118,7 @@ export const IMPORT_TARGET_FIELDS: Record<ImportTarget, readonly ImportField[]> 
     'venueName',
     'venueCity',
     'capacity',
+    'genre',
     'companyName',
     'contactPerson',
     ...CONTACT_FIELDS,
@@ -141,6 +143,7 @@ export const IMPORT_TARGET_FIELDS: Record<ImportTarget, readonly ImportField[]> 
   companies: [
     'ignore',
     'companyName',
+    'genre',
     'contactPerson',
     ...CONTACT_FIELDS,
     ...ADDRESS_FIELDS,
@@ -168,6 +171,9 @@ export const MULTI_COLUMN_FIELDS: readonly ImportField[] = [
   'ignore',
   'contactPerson',
   'members',
+  // "E-Mail", "E-Mail 2" …: the first address is the primary one, the others
+  // become the record's further addresses
+  'email',
   'notes'
 ]
 
@@ -205,6 +211,8 @@ export const ImportTable = z.object({
   // The suggested target's mapping is one the user saved for these columns
   mappingRemembered: z.boolean(),
   suggestedKind: VenueKind,
+  // Companies the list creates: plain companies or Radio/Medien
+  suggestedCompanyKind: CompanyKind,
   // ISO code, '' for none
   suggestedCountry: z.string()
 })
@@ -220,6 +228,11 @@ export type ImportFile = z.infer<typeof ImportFile>
 export const ImportOptions = z.object({
   // Venues only: Club or Festival
   kind: VenueKind,
+  // Company and person lists: what the companies they create are
+  companyKind: CompanyKind,
+  // Genre tags for every club/festival (venue lists) or media company the
+  // import creates or completes, besides a Genre column ("Rock, Metal")
+  genres: z.string(),
   // ISO code used when a row names no country, '' for none
   defaultCountry: z.string()
 })
