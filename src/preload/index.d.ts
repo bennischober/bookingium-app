@@ -76,7 +76,24 @@ export interface DocumentAPI {
     eInvoice?: EInvoiceCheckDto
     error?: string
   }>
-  /** Shows a file of sendInvoiceEmail in Explorer */
+  /**
+   * #120: email a concert contract (by its deal memo id) or a management contract (by its
+   * id) as the PDF of this window, from the "Vertrag" template
+   */
+  sendContractEmail: (
+    contract: 'concert' | 'management',
+    id: number,
+    fileName: string,
+    lang: 'de' | 'en'
+  ) => Promise<{
+    success: boolean
+    method?: MailMethod
+    pdfPath?: string
+    /** Recipient address, '' when the contract's other party has none */
+    to?: string
+    error?: string
+  }>
+  /** Shows a file of sendInvoiceEmail or sendContractEmail in Explorer */
   showEmailFile: (filePath: string) => Promise<void>
   /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
   copyMailLink: (url: string) => Promise<{ success: boolean; error?: string }>

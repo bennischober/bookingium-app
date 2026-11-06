@@ -1,7 +1,8 @@
 // E2E: "Per E-Mail senden" on an issued invoice (seeded #1040) writes the
 // PDF and an .eml draft into <userData>/E-Mail, uses the template from the
-// settings and marks the invoice. BOOKINGIUM_NO_LAUNCH (launch.ts) keeps
-// mail programs and Explorer closed, so the files are all there is.
+// settings and marks the invoice; a concert contract goes out the same way
+// (#120). BOOKINGIUM_NO_LAUNCH (launch.ts) keeps mail programs and Explorer
+// closed, so the files are all there is.
 import { test, expect } from '@playwright/test'
 import { existsSync, readFileSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
@@ -130,4 +131,32 @@ test('shows the emails and status changes in the Verlauf of the invoice page', a
   await page.waitForURL(/invoices\/\d+\/print/)
   await page.getByRole('button', { name: 'Zurück' }).click()
   await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
+})
+
+test('creates the email of a concert contract in the chosen language (#120)', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Events' }).first().click()
+  await page.locator('table tbody tr').first().click()
+  await page.getByRole('button', { name: 'Vertrag', exact: true }).click()
+  await page.waitForURL(/contract\/print/)
+  await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+
+  await page.getByRole('combobox', { name: 'Sprache der E-Mail' }).click()
+  await page.getByRole('option', { name: 'Englisch' }).click()
+  rmSync(emailFolder, { recursive: true, force: true })
+  // The invoices' toasts above may still be up: the newest is in front
+  const latest = page.locator('[data-sonner-toast][data-front="true"]')
+  await expect(page.getByRole('listbox')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
+  await expect(latest).toContainText('E-Mail gespeichert', { timeout: 30_000 })
+
+  const files = readdirSync(emailFolder).sort()
+  const eml = files.find((name) => name.endsWith('.eml'))!
+  const pdf = files.find((name) => name.endsWith('.pdf'))!
+  expect(eml).toMatch(/^Konzertvertrag_.*\.eml$/)
+  expect(pdf).toBe(eml.replace(/\.eml$/, '.pdf'))
+  expect(readFileSync(join(emailFolder, pdf)).subarray(0, 5).toString()).toBe('%PDF-')
+  const text = readFileSync(join(emailFolder, eml), 'utf-8')
+  expect(subjectOf(text)).toMatch(/^Concert Contract – /)
+  expect(text).toContain('Content-Type: application/pdf')
 })

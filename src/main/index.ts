@@ -79,9 +79,18 @@ import { CalendarFeedService } from './services/CalendarFeedService'
 import { EInvoiceService } from './services/EInvoiceService'
 import { InvoiceService } from './services/InvoiceService'
 import type { EInvoiceCheckDto, InvoiceEmailKind } from './api/schemas/invoice.schema'
-import { EMAIL_TEMPLATES } from './api/schemas/settings.schema'
+import { EMAIL_TEMPLATES, type AppSettings } from './api/schemas/settings.schema'
 import { InvoiceMapper } from './api/mappers/invoice.mapper'
 import { invoiceEmail, type Lang } from './mail/invoiceEmail'
+import {
+  concertContractEmailData,
+  contractEmail,
+  managementContractEmailData,
+  type ContractDocument,
+  type ContractEmailData
+} from './mail/contractEmail'
+import { ContractService } from './services/ContractService'
+import { ManagementContractService } from './services/ManagementContractService'
 import { openEmail, showEmailFile } from './mail/openEmail'
 import { readImportFile } from './import/readImportFile'
 import { MAIL_CLIENT_OFF, mailClient } from './mailclient/MailClientService'
@@ -90,7 +99,7 @@ import {
   confirmInvoiceSendFromOp,
   invoiceComposes,
   invoiceSendAccount,
-  type InvoiceCompose
+  type DocumentCompose
 } from './mail/invoiceSend'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
@@ -363,11 +372,12 @@ ipcMain.handle(
  *
  * I7 (MR-21): the window gets an opaque token, never the PDF's path. It sends through
  * mail.sendInvoice, where main attaches the PDF registered under that token; the token
- * is gone when the window closes. Not an IPC channel: only invoice:email opens it.
+ * is gone when the window closes. Not an IPC channel: only invoice:email and
+ * contract:email (#120) open it.
  */
 function openComposeWindow(input: {
   draft: ComposeDraft
-  compose: InvoiceCompose
+  compose: DocumentCompose
 }): Promise<ComposeResult> {
   const token = invoiceComposes.register(input.compose)
   const search = new URLSearchParams({
@@ -661,6 +671,16 @@ ipcMain.handle(
 )
 
 /**
+ * I7 (MR-12): with the mail program bookingum, the account chosen in the settings; checked
+ * before anything is written or opened. null for every other mail program.
+ */
+function bookingumSender(settings: AppSettings): ReturnType<typeof invoiceSendAccount> | null {
+  if (settings.mailProgram !== 'bookingum') return null
+  if (!settings.mailClient) return { error: MAIL_CLIENT_OFF }
+  return invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts())
+}
+
+/**
  * IPC Handler: "Per E-Mail senden" — writes the invoice PDF (with e-invoice)
  * and an .eml draft, opens it in the mail program (see mail/openEmail.ts)
  * and remembers the email on the invoice. `kind` reminder or dunning sends
@@ -689,15 +709,7 @@ ipcMain.handle(
       if (kind !== 'invoice') invoiceService.assertRemindable(data.invoice)
       const settings = container.resolve(SettingsService).get()
       const draft = invoiceEmail(data, lang, settings[EMAIL_TEMPLATES[kind][lang].key])
-      // I7 (MR-12): bookingum sends from the account chosen in the settings, checked
-      // before anything is written or opened
-      if (settings.mailProgram === 'bookingum' && !settings.mailClient) {
-        return { success: false, error: MAIL_CLIENT_OFF }
-      }
-      const sender =
-        settings.mailProgram === 'bookingum'
-          ? invoiceSendAccount(settings.invoiceMailAccountId, listMailAccounts())
-          : null
+      const sender = bookingumSender(settings)
       if (sender && 'error' in sender) return { success: false, error: sender.error }
       const name = fileName.replace(/\.pdf$/i, '')
       const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
@@ -724,6 +736,70 @@ ipcMain.handle(
       return { success: true, ...result, to: draft.to, eInvoice }
     } catch (error) {
       console.error('Error creating invoice email:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+)
+
+/**
+ * #120 IPC Handler: "Per E-Mail senden" of a contract print page — the window's PDF and
+ * an email from the "Vertrag" template, opened in the mail program like an invoice's.
+ * The recipient comes from the stored contract, not the renderer. Nothing is recorded
+ * on the contract: it has no email history.
+ */
+ipcMain.handle(
+  'contract:email',
+  async (
+    event,
+    {
+      contract,
+      id,
+      fileName,
+      lang
+    }: { contract: ContractDocument; id: number; fileName: string; lang: Lang }
+  ) => {
+    try {
+      const language: Lang = lang === 'en' ? 'en' : 'de'
+      let data: ContractEmailData | null = null
+      if (contract === 'management') {
+        const print = await container.resolve(ManagementContractService).getPrintData(id)
+        data = print ? managementContractEmailData(print) : null
+      } else if (contract === 'concert') {
+        const print = await container.resolve(ContractService).getContractData(id)
+        data = print ? concertContractEmailData(print) : null
+      }
+      if (!data) return { success: false, error: 'Vertrag nicht gefunden' }
+      const settings = container.resolve(SettingsService).get()
+      const draft = contractEmail(data, language, settings[EMAIL_TEMPLATES.contract[language].key])
+      const sender = bookingumSender(settings)
+      if (sender && 'error' in sender) return { success: false, error: sender.error }
+      const name = fileName.replace(/\.pdf$/i, '')
+      const { pdf } = await documentPdf(event.sender, name)
+      const result = await openEmail({
+        draft,
+        pdf,
+        fileName: name,
+        fallbackName: 'Vertrag',
+        setting: settings.mailProgram
+      })
+      if (result.method === 'bookingum' && sender) {
+        const composed = await openComposeWindow({
+          draft: { to: draft.to, subject: draft.subject, body: draft.body },
+          compose: {
+            contract: data.document,
+            accountId: sender.account.id,
+            pdfPath: result.pdfPath,
+            fileName: basename(result.pdfPath)
+          }
+        })
+        if (!composed.sent) return { success: false, error: 'Nicht gesendet' }
+      }
+      return { success: true, ...result, to: draft.to }
+    } catch (error) {
+      console.error('Error creating contract email:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

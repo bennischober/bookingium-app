@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { PrintActions } from '@/components/print/PrintActions'
 import { buildFileName } from '@/lib/fileName'
 import { ContractDocument } from '@/components/contract/ContractDocument'
+import { ContractEmailButton } from '@/components/contract/ContractEmailButton'
 import { useStoredImageUrl } from '@/hooks/useStoredImageUrl'
 
 export default function ContractPrintPage() {
@@ -72,6 +73,12 @@ export default function ContractPrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-2">
+          <ContractEmailButton
+            contract="concert"
+            id={id}
+            fileName={fileName}
+            recipientCountry={data.promoter?.country}
+          />
           <PrintActions fileName={fileName} />
         </div>
       </div>

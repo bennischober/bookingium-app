@@ -29,7 +29,7 @@ export const REMINDER_DEADLINE_DAYS = 7
 export type InvoiceEmailPlaceholder = (typeof INVOICE_EMAIL_PLACEHOLDERS)[number]
 
 /** "YYYY-MM-DD" -> "DD.MM.YYYY" (both languages, like the invoice) */
-function formatDate(iso: string | null | undefined): string {
+export function formatDate(iso: string | null | undefined): string {
   if (!iso) return ''
   const [year, month, day] = iso.split('-')
   return year && month && day ? `${day}.${month}.${year}` : iso
@@ -85,7 +85,7 @@ export function fillPlaceholders(text: string, values: Record<string, string>): 
 }
 
 /** Drops the separators an empty value leaves behind ("Rechnung 12 – " -> "Rechnung 12") */
-function tidySubject(subject: string): string {
+export function tidySubject(subject: string): string {
   return subject
     .replace(/\s+/g, ' ')
     .replace(/( [–-])+( [–-])/g, '$2')

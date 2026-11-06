@@ -86,8 +86,28 @@ export const DEFAULT_DUNNING_EMAIL: Record<'de' | 'en', EmailTemplate> = {
   }
 }
 
+// #120: concert and management contracts ({Dokument} names which one)
+export const DEFAULT_CONTRACT_EMAIL: Record<'de' | 'en', EmailTemplate> = {
+  de: {
+    subject: '{Dokument} – {Band} – {Datum}',
+    body:
+      'Guten Tag,\n\n' +
+      'anbei erhalten Sie den {Dokument} für {Band}. ' +
+      'Bitte prüfen und unterschreiben Sie ihn und senden Sie uns ein unterschriebenes Exemplar zurück.\n\n' +
+      'Mit freundlichen Grüßen\n{Absender}'
+  },
+  en: {
+    subject: '{Dokument} – {Band} – {Datum}',
+    body:
+      'Hello,\n\n' +
+      'please find attached the {Dokument} for {Band}. ' +
+      'Please review and sign it and return a signed copy to us.\n\n' +
+      'Kind regards\n{Absender}'
+  }
+}
+
 // Each email template: settings key and default, by what the email is
-// (invoice, Zahlungserinnerung, Mahnung) and its language
+// (invoice, Zahlungserinnerung, Mahnung, contract) and its language
 export const EMAIL_TEMPLATES = {
   invoice: {
     de: { key: 'invoiceEmailDe', fallback: DEFAULT_INVOICE_EMAIL.de },
@@ -100,8 +120,13 @@ export const EMAIL_TEMPLATES = {
   dunning: {
     de: { key: 'dunningEmailDe', fallback: DEFAULT_DUNNING_EMAIL.de },
     en: { key: 'dunningEmailEn', fallback: DEFAULT_DUNNING_EMAIL.en }
+  },
+  contract: {
+    de: { key: 'contractEmailDe', fallback: DEFAULT_CONTRACT_EMAIL.de },
+    en: { key: 'contractEmailEn', fallback: DEFAULT_CONTRACT_EMAIL.en }
   }
 } as const
+export type EmailTemplateKind = keyof typeof EMAIL_TEMPLATES
 
 export const AppSettings = z.object({
   // ISO code used by imports for rows without a country, '' for none
@@ -132,7 +157,7 @@ export const AppSettings = z.object({
   // event nor its venue sets one
   radiusClub: RadiusClause.default(DEFAULT_CLUB_RADIUS),
   radiusFestival: RadiusClause.default(DEFAULT_FESTIVAL_RADIUS),
-  // I7: the mail account bookingum's own editor sends invoices from, '' for none chosen.
+  // I7: the mail account bookingum's own editor sends invoices (and contracts) from, '' for none chosen.
   // Never guessed: without a choice, sending from bookingum is refused.
   invoiceMailAccountId: z.string().default(''),
   // Subject and text of invoice emails, per template language; {Platzhalter}
@@ -142,7 +167,10 @@ export const AppSettings = z.object({
   reminderEmailDe: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.de),
   reminderEmailEn: EmailTemplate.default(DEFAULT_REMINDER_EMAIL.en),
   dunningEmailDe: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.de),
-  dunningEmailEn: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.en)
+  dunningEmailEn: EmailTemplate.default(DEFAULT_DUNNING_EMAIL.en),
+  // #120: concert and management contracts
+  contractEmailDe: EmailTemplate.default(DEFAULT_CONTRACT_EMAIL.de),
+  contractEmailEn: EmailTemplate.default(DEFAULT_CONTRACT_EMAIL.en)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
@@ -169,7 +197,9 @@ export const UpdateAppSettingsInput = z
     reminderEmailDe: shape.reminderEmailDe.unwrap(),
     reminderEmailEn: shape.reminderEmailEn.unwrap(),
     dunningEmailDe: shape.dunningEmailDe.unwrap(),
-    dunningEmailEn: shape.dunningEmailEn.unwrap()
+    dunningEmailEn: shape.dunningEmailEn.unwrap(),
+    contractEmailDe: shape.contractEmailDe.unwrap(),
+    contractEmailEn: shape.contractEmailEn.unwrap()
   })
   .partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>

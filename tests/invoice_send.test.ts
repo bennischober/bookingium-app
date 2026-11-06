@@ -187,8 +187,8 @@ describe('sendInvoiceMail', () => {
 
   it('refuses a token it never issued, and one of another account', async () => {
     const { run, sendSpy } = setup(async () => ({ messageId: 'x@y' }))
-    await expect(run({ token: 'made-up' })).rejects.toThrow(/keiner geöffneten Rechnung/)
-    await expect(run({ accountId: 'other' })).rejects.toThrow(/keiner geöffneten Rechnung/)
+    await expect(run({ token: 'made-up' })).rejects.toThrow(/keinem geöffneten Dokument/)
+    await expect(run({ accountId: 'other' })).rejects.toThrow(/keinem geöffneten Dokument/)
     expect(sendSpy).not.toHaveBeenCalled()
   })
 

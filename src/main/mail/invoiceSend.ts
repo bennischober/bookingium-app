@@ -4,6 +4,9 @@
 // window is for under an opaque token; the window sends through main with that token, and
 // main reads the PDF it registered and attaches it. The invoice counts as emailed once the
 // send is confirmed - by the send itself, or later, when an unclear send turns up in Sent.
+//
+// #120: contract:email opens the same window for a contract PDF. Its send takes the same
+// path (token, PDF read by main) but records nothing: contracts have no email history.
 import { randomUUID } from 'crypto'
 import { writeRefusal, type WriteAccount } from '../mailclient/core/write_guard'
 import type { DraftInput, OpSummary } from '../mailclient/core/types'
@@ -19,6 +22,20 @@ export type InvoiceCompose = {
   pdfPath: string
   /** The attachment's name, which is all the window learns about the file */
   fileName: string
+}
+
+/** #120: a compose window for a concert or management contract */
+export type ContractCompose = {
+  contract: 'concert' | 'management'
+  accountId: string
+  pdfPath: string
+  fileName: string
+}
+
+export type DocumentCompose = InvoiceCompose | ContractCompose
+
+function isInvoiceCompose(compose: DocumentCompose): compose is InvoiceCompose {
+  return 'invoiceId' in compose
 }
 
 function toWriteAccount(account: MailAccountDto): WriteAccount {
@@ -71,16 +88,16 @@ function bareMessageId(messageId: string): string {
 export function createInvoiceComposeRegistry(newToken: () => string = randomUUID) {
   const entries = new Map<
     string,
-    InvoiceCompose & { sendKeys: Set<string>; messageId: string | null }
+    DocumentCompose & { sendKeys: Set<string>; messageId: string | null }
   >()
   return {
-    register(compose: InvoiceCompose): string {
+    register(compose: DocumentCompose): string {
       const token = newToken()
       entries.set(token, { ...compose, sendKeys: new Set(), messageId: null })
       return token
     },
     /** The window's compose, only for the account it was opened with */
-    get(token: string, accountId: string): InvoiceCompose | undefined {
+    get(token: string, accountId: string): DocumentCompose | undefined {
       const entry = entries.get(token)
       return entry && entry.accountId === accountId ? entry : undefined
     },
@@ -129,7 +146,8 @@ const UNCLEAR = /Versand unklar/
  * I7: sends the invoice mail of a compose window. Main attaches the PDF it registered;
  * a PDF that cannot be read stops the send (MR-14) instead of mailing an invoice without
  * its invoice. The send is recorded as pending first, so an unclear one can still be
- * confirmed after the window closed or the app restarted.
+ * confirmed after the window closed or the app restarted. A contract's mail (#120) is
+ * attached the same way and only reported to its window: nothing is recorded for it.
  */
 export async function sendInvoiceMail(
   deps: {
@@ -145,17 +163,19 @@ export async function sendInvoiceMail(
   input: { token: string; accountId: string; draftUid: number | null; mail: DraftInput }
 ): Promise<{ messageId: string }> {
   const compose = deps.registry.get(input.token, input.accountId)
-  if (!compose) throw new Error('Diese E-Mail gehört zu keiner geöffneten Rechnung mehr')
+  if (!compose) throw new Error('Diese E-Mail gehört zu keinem geöffneten Dokument mehr')
   const sendKey = input.mail.sendKey
   if (!sendKey) throw new Error('Senden ohne Sendeschlüssel ist nicht möglich')
+  const invoice = isInvoiceCompose(compose) ? compose : null
+  const document = invoice ? 'Rechnungs-PDF' : 'Vertrags-PDF'
   let pdf: Uint8Array
   try {
     pdf = await deps.readPdf(compose.pdfPath)
   } catch {
-    throw new Error('Rechnungs-PDF fehlt. Bitte „Per E-Mail senden“ erneut aufrufen.')
+    throw new Error(`${document} fehlt. Bitte „Per E-Mail senden“ erneut aufrufen.`)
   }
   if (pdf.byteLength === 0) {
-    throw new Error('Rechnungs-PDF ist leer. Bitte „Per E-Mail senden“ erneut aufrufen.')
+    throw new Error(`${document} ist leer. Bitte „Per E-Mail senden“ erneut aufrufen.`)
   }
   const mail: DraftInput = {
     ...input.mail,
@@ -168,13 +188,15 @@ export async function sendInvoiceMail(
       }
     ]
   }
-  deps.ledger.queueInvoiceEmail({
-    invoiceId: compose.invoiceId,
-    kind: compose.kind,
-    to: mail.to.map((a) => a.email).join(', '),
-    mailAccountId: input.accountId,
-    sendKey
-  })
+  if (invoice) {
+    deps.ledger.queueInvoiceEmail({
+      invoiceId: invoice.invoiceId,
+      kind: invoice.kind,
+      to: mail.to.map((a) => a.email).join(', '),
+      mailAccountId: input.accountId,
+      sendKey
+    })
+  }
   deps.registry.noteSend(input.token, sendKey)
   let sent: { messageId: string }
   try {
@@ -183,7 +205,7 @@ export async function sendInvoiceMail(
     // Refused before the server took it: this key will never be confirmed. An unclear
     // send stays pending - the startup probe or "Prüfen" may still find it in Sent.
     const message = error instanceof Error ? error.message : String(error)
-    if (!UNCLEAR.test(message)) deps.ledger.dropQueuedInvoiceEmail(sendKey)
+    if (invoice && !UNCLEAR.test(message)) deps.ledger.dropQueuedInvoiceEmail(sendKey)
     throw error
   }
   confirmInvoiceSend(deps, input.accountId, sent.messageId)

@@ -18,10 +18,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   EMAIL_TEMPLATES,
   type EmailTemplate,
+  type EmailTemplateKind,
   type MailProgramSetting
 } from '../../../../main/api/schemas/settings.schema'
-import type { InvoiceEmailKind } from '../../../../main/api/schemas/invoice.schema'
 import { INVOICE_EMAIL_PLACEHOLDERS } from '../../../../main/mail/invoiceEmail'
+import { CONTRACT_EMAIL_PLACEHOLDERS } from '../../../../main/mail/contractEmail'
 import { readingActions } from '@/components/mail/readingActions'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 
@@ -48,11 +49,22 @@ const MAIL_PROGRAM_HINTS: Record<MailProgramSetting, string> = {
 
 type Lang = 'de' | 'en'
 
-const TEMPLATE_KINDS: Array<{ value: InvoiceEmailKind; label: string }> = [
+const TEMPLATE_KINDS: Array<{ value: EmailTemplateKind; label: string }> = [
   { value: 'invoice', label: 'Rechnung' },
   { value: 'reminder', label: 'Zahlungserinnerung' },
-  { value: 'dunning', label: 'Mahnung' }
+  { value: 'dunning', label: 'Mahnung' },
+  // #120: concert and management contracts
+  { value: 'contract', label: 'Vertrag' }
 ]
+
+function Placeholders({ names }: { names: readonly string[] }) {
+  return names.map((name, index) => (
+    <span key={name}>
+      {index > 0 && ', '}
+      <code className="rounded bg-muted px-1">{`{${name}}`}</code>
+    </span>
+  ))
+}
 
 /** Subject and text of one template language, saved with its own button */
 function TemplateFields({
@@ -243,22 +255,29 @@ export function InvoiceEmailCard() {
                   )
                 })}
               </div>
+              <p className="pt-3 text-xs text-muted-foreground">
+                {kind.value === 'contract' ? (
+                  <>
+                    Für Konzert- und Managementverträge; die Sprache wird beim Senden gewählt
+                    (vorgeschlagen nach dem Land des Vertragspartners). Platzhalter:{' '}
+                    <Placeholders names={CONTRACT_EMAIL_PLACEHOLDERS} />.{' '}
+                    <code className="rounded bg-muted px-1">{'{Datum}'}</code> ist das Konzertdatum
+                    bzw. der Vertragsbeginn. Die E-Mail geht an den Veranstalter bzw. die Firma der
+                    Band.
+                  </>
+                ) : (
+                  <>
+                    Die englischen Vorlagen gelten für Rechnungen mit der Vorlage „Agentur
+                    (Englisch)“. Platzhalter: <Placeholders names={INVOICE_EMAIL_PLACEHOLDERS} />.{' '}
+                    <code className="rounded bg-muted px-1">{'{Frist}'}</code> ist das Datum in 7
+                    Tagen, die Zahlungsfrist in Erinnerung und Mahnung. Die E-Mail geht an die
+                    Kontakt-E-Mail des Empfängers, sonst an seine allgemeine E-Mail-Adresse.
+                  </>
+                )}
+              </p>
             </TabsContent>
           ))}
         </Tabs>
-        <p className="text-xs text-muted-foreground">
-          Die englischen Vorlagen gelten für Rechnungen mit der Vorlage „Agentur (Englisch)“.
-          Platzhalter:{' '}
-          {INVOICE_EMAIL_PLACEHOLDERS.map((name, index) => (
-            <span key={name}>
-              {index > 0 && ', '}
-              <code className="rounded bg-muted px-1">{`{${name}}`}</code>
-            </span>
-          ))}
-          . <code className="rounded bg-muted px-1">{'{Frist}'}</code> ist das Datum in 7 Tagen, die
-          Zahlungsfrist in Erinnerung und Mahnung. Die E-Mail geht an die Kontakt-E-Mail des
-          Empfängers, sonst an seine allgemeine E-Mail-Adresse.
-        </p>
       </CardContent>
     </Card>
   )
