@@ -31,7 +31,7 @@ describe('parseComposeRequest', () => {
         draft: encode(draft),
         attachment: 'Rechnung-7.pdf'
       })
-    ).toEqual({ token: 'tok-1', attachmentName: 'Rechnung-7.pdf', ...draft })
+    ).toEqual({ token: 'tok-1', attachmentName: 'Rechnung-7.pdf', ...draft, record: null })
   })
 
   it('carries no file path: the window only ever learns the attachment name (MR-21)', () => {
@@ -45,6 +45,7 @@ describe('parseComposeRequest', () => {
     expect(Object.keys(request ?? {}).sort()).toEqual([
       'attachmentName',
       'body',
+      'record',
       'subject',
       'to',
       'token'

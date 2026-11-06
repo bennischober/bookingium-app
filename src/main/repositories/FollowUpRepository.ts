@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type {
@@ -89,9 +89,12 @@ export class FollowUpRepository {
 
   create(input: CreateFollowUpInput): number {
     const record = input.record ? { [RECORD_KEYS[input.record.type]]: input.record.id } : {}
+    const mail = input.mail
+      ? { mail_account_id: input.mail.accountId, mail_message_id: input.mail.messageId }
+      : {}
     return db
       .insert(schema.follow_up)
-      .values({ due_date: input.dueDate, note: input.note, ...record })
+      .values({ due_date: input.dueDate, note: input.note, ...record, ...mail })
       .returning({ id: schema.follow_up.id })
       .get().id
   }
@@ -115,6 +118,35 @@ export class FollowUpRepository {
       })
       .where(eq(schema.follow_up.id, id))
       .run()
+  }
+
+  /**
+   * #121: a reply to one of `messageIds` (without brackets) arrived in this account. Each
+   * follow-up waiting for one is closed - once: replied_at marks it, so a follow-up the
+   * user brought back stays open when the linker sees the same reply again. Returns how
+   * many were closed.
+   */
+  closeByReplies(accountId: string, messageIds: readonly string[]): number {
+    if (messageIds.length === 0) return 0
+    let closed = 0
+    for (let i = 0; i < messageIds.length; i += 500) {
+      closed += db
+        .update(schema.follow_up)
+        .set({
+          replied_at: sql`datetime('now')`,
+          done_at: sql`coalesce(${schema.follow_up.done_at}, datetime('now'))`,
+          updated_at: sql`datetime('now')`
+        })
+        .where(
+          and(
+            eq(schema.follow_up.mail_account_id, accountId),
+            inArray(schema.follow_up.mail_message_id, messageIds.slice(i, i + 500)),
+            isNull(schema.follow_up.replied_at)
+          )
+        )
+        .run().changes
+    }
+    return closed
   }
 
   delete(id: number): void {

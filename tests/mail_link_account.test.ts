@@ -213,8 +213,15 @@ describe('restored mail links (#55)', () => {
         .run(personId).lastInsertRowid
     )
 
+    // #121: a follow-up waiting for a reply in that account
+    sqlite
+      .prepare(
+        "INSERT INTO follow_up (due_date, note, mail_account_id, mail_message_id) VALUES ('2026-11-13', 'Antwort?', 'alt-büro', 'sent@example.test')"
+      )
+      .run()
+
     const accounts = [{ id: 'neu-büro', email: 'buero@example.test' }]
-    expect(service.adoptRestoredLinks(accounts[0], accounts)).toBe(2)
+    expect(service.adoptRestoredLinks(accounts[0], accounts)).toBe(3)
     expect(
       sqlite
         .prepare('SELECT mail_account_id FROM mail_link WHERE entity_id = ? ORDER BY message_id')
@@ -223,6 +230,9 @@ describe('restored mail links (#55)', () => {
     expect(
       sqlite.prepare('SELECT source_mail_account_id FROM document WHERE id = ?').get(documentId)
     ).toEqual({ source_mail_account_id: 'neu-büro' })
+    expect(sqlite.prepare('SELECT mail_account_id FROM follow_up').all()).toEqual([
+      { mail_account_id: 'neu-büro' }
+    ])
     const known = sqlite
       .prepare('SELECT value FROM app_setting WHERE key = ?')
       .get(ACCOUNT_ADDRESSES_KEY) as { value: string }
@@ -243,6 +253,7 @@ describe('restored mail links (#55)', () => {
     sqlite.prepare('DELETE FROM app_setting WHERE key = ?').run(ACCOUNT_ADDRESSES_KEY)
     sqlite.prepare('DELETE FROM mail_link').run()
     sqlite.prepare('DELETE FROM document').run()
+    sqlite.prepare('DELETE FROM follow_up').run()
     const personId = Number(
       sqlite.prepare("INSERT INTO person (first_name, last_name) VALUES ('Ida','Beispiel')").run()
         .lastInsertRowid

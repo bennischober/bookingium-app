@@ -14,20 +14,35 @@ export type FollowUpRecord = z.infer<typeof FollowUpRecord>
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum ist erforderlich')
 const Note = z.string().trim().min(1, 'Notiz ist erforderlich')
 
+/** #121: the sent mail a follow-up waits for an answer to */
+export const FollowUpMail = z.object({
+  accountId: z.string().min(1),
+  // stored without the angle brackets
+  messageId: z
+    .string()
+    .transform((id) => id.trim().replace(/^</, '').replace(/>$/, '').trim())
+    .pipe(z.string().min(1))
+})
+export type FollowUpMail = z.infer<typeof FollowUpMail>
+
 export const FollowUpDto = z.object({
   id: z.number(),
   dueDate: z.string(),
   note: z.string(),
   doneAt: z.string().nullable(),
   // null: a general follow-up; an event's name with its date, e.g. "München (11.06.2026)"
-  record: FollowUpRecord.extend({ name: z.string() }).nullable()
+  record: FollowUpRecord.extend({ name: z.string() }).nullable(),
+  // #121: the sent mail it waits for an answer to, and when one came (SQLite UTC)
+  mail: z.object({ accountId: z.string(), messageId: z.string() }).nullable(),
+  repliedAt: z.string().nullable()
 })
 export type FollowUpDto = z.infer<typeof FollowUpDto>
 
 export const CreateFollowUpInput = z.object({
   dueDate: IsoDate,
   note: Note,
-  record: FollowUpRecord.optional()
+  record: FollowUpRecord.optional(),
+  mail: FollowUpMail.optional()
 })
 export type CreateFollowUpInput = z.infer<typeof CreateFollowUpInput>
 

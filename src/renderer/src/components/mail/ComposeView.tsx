@@ -9,6 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { FOLLOW_UP_CHOICES, followUpForSend, type FollowUpChoice } from './composeFollowUp'
+import type { FollowUpRecord } from '../../../../main/api/schemas/followUp.schema'
+import {
   type Address,
   type ComposeState,
   addressProblem,
@@ -250,7 +259,8 @@ export function ComposeView({
   initial,
   onClose,
   onStored,
-  invoice
+  invoice,
+  record
 }: {
   accountId: string
   initial: ComposeState
@@ -263,11 +273,15 @@ export function ComposeView({
    * attaches the invoice PDF, which the window knows only by name.
    */
   invoice?: { token: string; attachmentName: string }
+  /** #121: the record a follow-up of this mail is filed on (the invoice or contract mailed) */
+  record?: FollowUpRecord | null
 }) {
   const [mail, setMail] = useState(initial)
   const [showCopies, setShowCopies] = useState(initial.cc.length > 0 || initial.bcc.length > 0)
   const [busy, setBusy] = useState<'send' | 'save' | 'discard' | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  // #121: "Wiedervorlage ohne Antwort" - a follow-up the send leaves, closed by a reply
+  const [followUpChoice, setFollowUpChoice] = useState<FollowUpChoice>('none')
   const fileInput = useRef<HTMLInputElement>(null)
   const body = useRef<HTMLDivElement>(null)
   // F3: what the editor starts with. A plain text becomes paragraphs, so the
@@ -481,17 +495,15 @@ export function ComposeView({
       await queue.current
       const mail = { ...toDraftInput(current), sendKey: sendKey.current }
       // I7: an invoice mail goes through main, which attaches the PDF and marks the invoice
-      if (invoice) {
-        await trpcVanilla.mail.sendInvoice.mutate({
-          token: invoice.token,
-          accountId,
-          draftUid: draftUid.current,
-          mail
-        })
-      } else {
-        await mailApi.sendMail(mail, draftUid.current, accountId)
-      }
-      finishSent()
+      const sent = invoice
+        ? await trpcVanilla.mail.sendInvoice.mutate({
+            token: invoice.token,
+            accountId,
+            draftUid: draftUid.current,
+            mail
+          })
+        : await mailApi.sendMail(mail, draftUid.current, accountId)
+      await finishSent(sent.messageId)
     } catch (error) {
       if (isUnclearSend(error)) {
         // I2 (MR-03): the server may have the mail. "fehlgeschlagen" would invite a second
@@ -509,9 +521,29 @@ export function ComposeView({
     }
   }
 
-  const finishSent = () => {
+  /**
+   * The mail is out. #121: a chosen follow-up is filed before the window closes, with
+   * the Message-ID the reply will name; failing to file it never undoes the send.
+   */
+  const finishSent = async (messageId: string | null | undefined) => {
     closed.current = true
-    toast.success('Gesendet')
+    const followUp = followUpForSend({
+      choice: followUpChoice,
+      subject: mailRef.current.subject,
+      accountId,
+      messageId: messageId ?? '',
+      record
+    })
+    let filed = false
+    if (followUp) {
+      try {
+        await trpcVanilla.followUp.create.mutate(followUp)
+        filed = true
+      } catch (error) {
+        toast.error('Wiedervorlage nicht angelegt', { description: errorText(error) })
+      }
+    }
+    toast.success('Gesendet', filed ? { description: 'Wiedervorlage angelegt' } : undefined)
     onStored()
     onClose()
   }
@@ -527,7 +559,7 @@ export function ComposeView({
       const op = findSessionSend(await mailApi.listOps(accountId), sendKey.current)
       const check = unclearCheck(op)
       if (op && check === 'sent') {
-        finishSent()
+        await finishSent(op.messageId)
         return
       }
       if (!op || check !== 'probe') {
@@ -538,7 +570,7 @@ export function ComposeView({
       }
       const result = await mailApi.resolveOp(op.id, accountId)
       if (result.outcome === 'done' || result.outcome === 'noop') {
-        finishSent()
+        await finishSent(op.messageId)
       } else {
         toast.warning('Nicht im Ordner Gesendet gefunden', {
           description: 'Die E-Mail kann trotzdem zugestellt worden sein.'
@@ -728,6 +760,27 @@ export function ComposeView({
             e.target.value = ''
           }}
         />
+        <Select
+          value={followUpChoice}
+          onValueChange={(value) => setFollowUpChoice(value as FollowUpChoice)}
+          disabled={busy !== null || locked}
+        >
+          <SelectTrigger
+            className="ml-1 h-8 w-auto gap-1 text-xs"
+            aria-label="Wiedervorlage ohne Antwort"
+            title="Wiedervorlage ohne Antwort: erledigt sich, wenn eine Antwort kommt"
+          >
+            <span className="text-muted-foreground">Wiedervorlage:</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FOLLOW_UP_CHOICES.map((choice) => (
+              <SelectItem key={choice.value} value={choice.value}>
+                {choice.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {savedAt && (
           <span className="ml-2 text-xs text-muted-foreground">
             Gespeichert{' '}

@@ -10,6 +10,7 @@ import {
   mailAddresses,
   mailLinkRunner,
   mailLinkTrigger,
+  answeredMessageIds,
   ownMailAddresses,
   resolveLinks,
   threadParents,
@@ -19,13 +20,21 @@ import {
 } from '../src/main/services/MailLinkService'
 import { SettingsRepository } from '../src/main/repositories/SettingsRepository'
 import { MailLinkService } from '../src/main/services/MailLinkService'
+import { FollowUpService } from '../src/main/services/FollowUpService'
 
 setupTestDb()
 
 // One in-memory DB for the whole file: each test starts from empty tables
 beforeEach(() => {
   const sqlite = getTestDb().sqlite
-  for (const table of ['mail_link', 'person', 'contact_email', 'contact', 'app_setting']) {
+  for (const table of [
+    'mail_link',
+    'follow_up',
+    'person',
+    'contact_email',
+    'contact',
+    'app_setting'
+  ]) {
     sqlite.prepare(`DELETE FROM ${table}`).run()
   }
 })
@@ -464,7 +473,11 @@ describe('mail_link repository (C2)', () => {
     }))
     try {
       const svc = service()
-      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({ linked: 2, scanned: 2 })
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 2,
+        scanned: 2,
+        answered: 0
+      })
       expect(stub.cursors).toEqual([9999, 0, 2])
       expect(svc.cursorFor('acc')).toEqual({ generation: 'neu', id: 2 })
       expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
@@ -483,7 +496,11 @@ describe('mail_link repository (C2)', () => {
     }))
     try {
       const svc = service()
-      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({ linked: 2, scanned: 2 })
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
+        linked: 2,
+        scanned: 2,
+        answered: 0
+      })
       expect(stub.cursors).toEqual([5, 7])
       expect(svc.cursorFor('acc')).toEqual({ generation: 'g1', id: 7 })
     } finally {
@@ -667,12 +684,14 @@ describe('mail_link repository (C2)', () => {
       // The first run stores the addresses it linked with; no digest yet is no change
       expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
         linked: 1,
-        scanned: 3
+        scanned: 3,
+        answered: 0
       })
       // Nothing changed: the run goes on from the cursor
       expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
         linked: 0,
-        scanned: 0
+        scanned: 0,
+        answered: 0
       })
       expect(stub.cursors).toEqual([0, 3, 3])
 
@@ -681,7 +700,8 @@ describe('mail_link repository (C2)', () => {
       // The new address's older mail is found; the first mail is not linked twice
       expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
         linked: 1,
-        scanned: 3
+        scanned: 3,
+        answered: 0
       })
       expect(stub.cursors).toEqual([0, 3])
       expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(2)
@@ -725,7 +745,8 @@ describe('mail_link repository (C2)', () => {
       addAddress(contactId, 'privat@example.test')
       expect(await svc.linkAccount('acc', ['ich@example.test'])).toEqual({
         linked: 1,
-        scanned: 2
+        scanned: 2,
+        answered: 0
       })
       // Only the new address's mail shows; the dismissed one stays gone
       expect(svc.messagesFor('person', personId, 'acc')).toEqual([
@@ -749,6 +770,54 @@ describe('mail_link repository (C2)', () => {
       getTestDb().sqlite.prepare('DELETE FROM contact_email').run()
       await svc.linkAccount('acc', ['ich@example.test'])
       expect(svc.messagesFor('person', personId, 'acc')).toHaveLength(1)
+    } finally {
+      stub.restore()
+    }
+  })
+
+  const followUpRow = (id: number) =>
+    getTestDb()
+      .sqlite.prepare('SELECT done_at, replied_at FROM follow_up WHERE id = ?')
+      .get(id) as {
+      done_at: string | null
+      replied_at: string | null
+    }
+
+  it('closes the follow-up waiting for a reply when one comes, once (#121)', async () => {
+    seedPerson('erika@example.test')
+    const followUps = container.resolve(FollowUpService)
+    const waiting = followUps.create({
+      dueDate: '2026-11-13',
+      note: 'Antwort auf „Angebot“',
+      mail: { accountId: 'acc', messageId: 'sent-1@example.test' }
+    })
+    const elsewhere = followUps.create({
+      dueDate: '2026-11-13',
+      note: 'Anderes Konto',
+      mail: { accountId: 'other', messageId: 'sent-1@example.test' }
+    })
+    const stub = await stubHeaders((cursor) => ({
+      generation: 'g1',
+      headers: [
+        // the user's own reminder in the thread is no answer
+        stored(1, { fromEmail: 'ich@example.test', inReplyTo: '<sent-1@example.test>' }),
+        stored(2, { inReplyTo: '<sent-1@example.test>', references: ['<sent-1@example.test>'] })
+      ].filter((h) => h.id > cursor)
+    }))
+    try {
+      const svc = service()
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toMatchObject({ answered: 1 })
+      const closed = followUpRow(waiting.id)
+      expect(closed.done_at).not.toBeNull()
+      expect(closed.replied_at).not.toBeNull()
+      // the same Message-ID in another account is another mail
+      expect(followUpRow(elsewhere.id).done_at).toBeNull()
+
+      // Brought back by the user: a rescan that sees the same reply leaves it open
+      followUps.setDone(waiting.id, false)
+      getTestDb().sqlite.prepare('DELETE FROM app_setting').run()
+      expect(await svc.linkAccount('acc', ['ich@example.test'])).toMatchObject({ answered: 0 })
+      expect(followUpRow(waiting.id).done_at).toBeNull()
     } finally {
       stub.restore()
     }
@@ -925,5 +994,22 @@ describe('the mail date on a link (#41)', () => {
       'gestern@example.test',
       'maerz@example.test'
     ])
+  })
+})
+
+describe('answeredMessageIds (#121)', () => {
+  it('names the mails others answered, each once, without brackets', () => {
+    expect(
+      answeredMessageIds(
+        [
+          header({ inReplyTo: '<a@example.test>', references: ['<root@example.test>'] }),
+          header({ inReplyTo: '<a@example.test>' }),
+          header({ fromEmail: 'ICH@example.test', inReplyTo: '<own@example.test>' }),
+          header({ fromEmail: '', inReplyTo: '<nobody@example.test>' }),
+          header()
+        ],
+        ['ich@example.test']
+      )
+    ).toEqual(['a@example.test', 'root@example.test'])
   })
 })

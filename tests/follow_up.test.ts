@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { FollowUpService } from '../src/main/services/FollowUpService'
-import { CreateFollowUpInput } from '../src/main/api/schemas/followUp.schema'
+import { CreateFollowUpInput, FollowUpMail } from '../src/main/api/schemas/followUp.schema'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -175,6 +175,64 @@ describe('FollowUpService', () => {
 
     db.delete(schema.invoice).where(eq(schema.invoice.id, draftId)).run()
     expect(service().listOpenByRecord('invoice', draftId)).toEqual([])
+  })
+
+  const followUpRow = (id: number) =>
+    db.select().from(schema.follow_up).where(eq(schema.follow_up.id, id)).get()!
+
+  it('waits for a reply to a sent mail and is closed by it once (#121)', () => {
+    const bandId = createBand('Antwortband')
+    // as the router hands it over: parsed, the Message-ID without its brackets
+    const waiting = service().create(
+      CreateFollowUpInput.parse({
+        dueDate: '2026-11-13',
+        note: 'Antwort auf „Angebot“',
+        record: { type: 'band', id: bandId },
+        mail: { accountId: 'acc', messageId: '<sent-1@example.test>' }
+      })
+    )
+    expect(waiting).toMatchObject({
+      mail: { accountId: 'acc', messageId: 'sent-1@example.test' },
+      repliedAt: null
+    })
+    const plain = service().create({ dueDate: '2026-11-13', note: 'Ohne Mail' })
+    expect(plain).toMatchObject({ mail: null, repliedAt: null })
+
+    expect(service().closeByReplies('acc', [])).toBe(0)
+    expect(service().closeByReplies('other', ['sent-1@example.test'])).toBe(0)
+    expect(service().closeByReplies('acc', ['x@example.test', 'sent-1@example.test'])).toBe(1)
+    const closed = followUpRow(waiting.id)
+    expect(closed.replied_at).not.toBeNull()
+    expect(closed.done_at).toBe(closed.replied_at)
+
+    // Reopened by the user, it stays open when the same reply is seen again
+    service().setDone(waiting.id, false)
+    expect(service().closeByReplies('acc', ['sent-1@example.test'])).toBe(0)
+    expect(followUpRow(waiting.id).done_at).toBeNull()
+    expect(followUpRow(plain.id).done_at).toBeNull()
+  })
+
+  it('keeps the done date of one ticked off before the reply came (#121)', () => {
+    const done = service().create({
+      dueDate: '2026-11-13',
+      note: 'Schon erledigt',
+      mail: { accountId: 'acc', messageId: 'early@example.test' }
+    })
+    db.update(schema.follow_up)
+      .set({ done_at: '2026-11-01 08:00:00' })
+      .where(eq(schema.follow_up.id, done.id))
+      .run()
+    expect(service().closeByReplies('acc', ['early@example.test'])).toBe(1)
+    expect(followUpRow(done.id).done_at).toBe('2026-11-01 08:00:00')
+  })
+
+  it('stores the Message-ID without brackets and needs one (#121)', () => {
+    expect(FollowUpMail.parse({ accountId: 'a', messageId: ' <m@example.test> ' })).toEqual({
+      accountId: 'a',
+      messageId: 'm@example.test'
+    })
+    expect(FollowUpMail.safeParse({ accountId: 'a', messageId: '<>' }).success).toBe(false)
+    expect(FollowUpMail.safeParse({ accountId: '', messageId: 'm@x.test' }).success).toBe(false)
   })
 
   it('needs a date and a note', () => {

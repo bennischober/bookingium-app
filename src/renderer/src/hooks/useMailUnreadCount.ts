@@ -38,10 +38,12 @@ export function useInboxUnread(): { enabled: boolean; accounts: AccountUnread[] 
 /**
  * Unread mails in the INBOX of every account, for the menu badge and its per-account tooltip; 0
  * while the mail client is off or has no account. Refreshed by the mail client's events, batched
- * like the mail page's lists.
+ * like the mail page's lists. #121: the same always-mounted subscription refreshes the
+ * follow-ups when replies closed some.
  */
 export function useMailUnreadCount(): { total: number; accounts: AccountUnread[] } {
   const queryClient = useQueryClient()
+  const utils = trpcReact.useUtils()
   const { enabled, accounts } = useInboxUnread()
 
   const [refresher] = useState(() =>
@@ -51,6 +53,7 @@ export function useMailUnreadCount(): { total: number; accounts: AccountUnread[]
   trpcReact.mail.events.useSubscription(undefined, {
     enabled,
     onData: (event) => {
+      if (event.type === 'follow-ups-answered') void utils.followUp.invalidate()
       const plan = unreadBadgePlan(event)
       if (plan) refresher.add(plan)
     }

@@ -38,6 +38,7 @@ export default function MailWindowPage() {
     token?: string
     draft?: string
     attachment?: string
+    record?: string
   }
   const accountId = search.account ?? ''
   const messageId = Number(search.message)
@@ -51,9 +52,10 @@ export default function MailWindowPage() {
         mode: search.mode,
         token: search.token,
         draft: search.draft,
-        attachment: search.attachment
+        attachment: search.attachment,
+        record: search.record
       }),
-    [search.mode, search.token, search.draft, search.attachment]
+    [search.mode, search.token, search.draft, search.attachment, search.record]
   )
   const queryClient = useQueryClient()
 
@@ -189,6 +191,7 @@ export default function MailWindowPage() {
           onClose={() => window.close()}
           onStored={() => undefined}
           invoice={{ token: composeRequest.token, attachmentName: composeRequest.attachmentName }}
+          record={composeRequest.record}
         />
       ) : compose ? (
         <ComposeView

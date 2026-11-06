@@ -6,6 +6,7 @@ import { schema, type MailLinkEntityType, type MailLinkSource } from '../db/sche
 import { mailClient } from '../mailclient/MailClientService'
 import type { HeaderPage } from '../mailclient/core/types'
 import { SettingsRepository } from '../repositories/SettingsRepository'
+import { FollowUpService } from './FollowUpService'
 
 /**
  * C2: which mails belong to which record.
@@ -91,6 +92,24 @@ export function mailAddresses(
 export function threadParents(header: Pick<LinkableHeader, 'inReplyTo' | 'references'>): string[] {
   const strip = (id: string): string => id.replace(/^</, '').replace(/>$/, '').trim()
   return [header.inReplyTo, ...header.references].map((id) => (id ? strip(id) : '')).filter(Boolean)
+}
+
+/**
+ * #121: the Message-IDs these mails answer, counting only mail from someone else: a
+ * reminder the user sends in the same thread is no answer.
+ */
+export function answeredMessageIds(
+  headers: readonly Pick<LinkableHeader, 'fromEmail' | 'inReplyTo' | 'references'>[],
+  ownAddresses: readonly string[]
+): string[] {
+  const own = new Set(ownAddresses.map((a) => a.trim().toLowerCase()))
+  const out = new Set<string>()
+  for (const header of headers) {
+    const from = (header.fromEmail ?? '').trim().toLowerCase()
+    if (!from || own.has(from)) continue
+    for (const parent of threadParents(header)) out.add(parent)
+  }
+  return [...out]
 }
 
 /**
@@ -186,7 +205,10 @@ export function mailLinkTrigger(
 
 @injectable()
 export class MailLinkService {
-  constructor(@inject(SettingsRepository) private settings: SettingsRepository) {}
+  constructor(
+    @inject(SettingsRepository) private settings: SettingsRepository,
+    @inject(FollowUpService) private followUps: FollowUpService
+  ) {}
 
   private cursorKey(accountId: string): string {
     return `mailLinkCursor:${accountId}`
@@ -396,7 +418,7 @@ export class MailLinkService {
   async linkAccount(
     accountId: string,
     ownAddresses: readonly string[]
-  ): Promise<{ linked: number; scanned: number }> {
+  ): Promise<{ linked: number; scanned: number; answered: number }> {
     let { generation, id: cursor } = this.cursorFor(accountId)
     const addresses = this.addressFingerprint()
     const linkedWith = this.settings.getAll()[this.addressesKey(accountId)]
@@ -410,6 +432,7 @@ export class MailLinkService {
     }
     let linked = 0
     let scanned = 0
+    let answered = 0
     for (;;) {
       const page = (await mailClient.call('listHeadersSince', [
         cursor,
@@ -427,13 +450,18 @@ export class MailLinkService {
       }
       if (page.headers.length === 0) break
       linked += this.linkBatch(accountId, ownAddresses, page.headers)
+      // #121: a reply closes the follow-up that waited for it
+      answered += this.followUps.closeByReplies(
+        accountId,
+        answeredMessageIds(page.headers, ownAddresses)
+      )
       scanned += page.headers.length
       cursor = page.headers[page.headers.length - 1].id
       this.saveCursor(accountId, { generation, id: cursor })
       // Yield: the sync must never wait for the linker
       await new Promise((resolve) => setTimeout(resolve, 0))
     }
-    return { linked, scanned }
+    return { linked, scanned, answered }
   }
 
   /** The mails linked to one record, for the history panel of C3 */
@@ -532,10 +560,11 @@ export class MailLinkService {
   }
 
   /**
-   * #55: a re-created account takes over the links, sent-mail records and document
-   * sources of the account it replaces. That is the unknown account id with the same
-   * address, or - for a backup from before the addresses were kept - the only unknown
-   * id when this is the only account. Returns how many rows moved.
+   * #55: a re-created account takes over the links, sent-mail records, document sources
+   * and the follow-ups waiting for a reply (#121) of the account it replaces. That is the
+   * unknown account id with the same address, or - for a backup from before the addresses
+   * were kept - the only unknown id when this is the only account. Returns how many rows
+   * moved.
    */
   adoptRestoredLinks(
     account: { id: string; email: string },
@@ -547,7 +576,8 @@ export class MailLinkService {
         sql`SELECT mail_account_id AS id FROM mail_link
           UNION SELECT mail_account_id FROM invoice_email WHERE mail_account_id IS NOT NULL
           UNION SELECT mail_account_id FROM invoice_email_pending
-          UNION SELECT source_mail_account_id FROM document WHERE source_mail_account_id IS NOT NULL`
+          UNION SELECT source_mail_account_id FROM document WHERE source_mail_account_id IS NOT NULL
+          UNION SELECT mail_account_id FROM follow_up WHERE mail_account_id IS NOT NULL`
       )
       .map((row) => row.id)
       .filter((id) => !current.has(id))
@@ -582,6 +612,11 @@ export class MailLinkService {
           .update(schema.document)
           .set({ source_mail_account_id: account.id })
           .where(eq(schema.document.source_mail_account_id, old))
+          .run(),
+        tx
+          .update(schema.follow_up)
+          .set({ mail_account_id: account.id })
+          .where(eq(schema.follow_up.mail_account_id, old))
           .run()
       ].reduce((sum, result) => sum + result.changes, 0)
       known[account.id] = email

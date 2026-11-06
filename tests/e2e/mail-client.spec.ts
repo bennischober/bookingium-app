@@ -2057,7 +2057,7 @@ test('a formatted mail is sent with an HTML part and its plain text', async () =
 
     const accounts = await listAccounts()
     const me = accounts.find((a) => a.id === sandboxId)!
-    const toField = editor.getByLabel('An')
+    const toField = editor.getByLabel('An', { exact: true })
     await toField.fill(me.email)
     await toField.press('Enter')
     await editor.getByLabel('Betreff').fill(subject)

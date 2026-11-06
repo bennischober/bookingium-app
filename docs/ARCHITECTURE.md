@@ -544,6 +544,22 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   follow-up. The click opens the dialog with a note prefilled, through
   `openFollowUpDialog()` and the `FollowUpDialogHost` at the app root, so it
   works after the sheet or wizard that saved has closed.
+- **Waiting for a reply** (#121, mail client only): the compose window's
+  "Wiedervorlage" choice (Keine, In 3 Tagen, In 1 Woche, In 2 Wochen;
+  `composeFollowUp.ts`) files one after a successful send, with the sending
+  account and the sent mail's Message-ID (`mail_account_id`,
+  `mail_message_id`, stored without brackets) and the invoice, band (management
+  contract) or deal memo (concert contract) the compose window was opened for
+  (`record=type:id` in its query). The send is never undone when filing fails.
+  The mail linker closes it when a mail from someone else's address names that
+  Message-ID in In-Reply-To or References (`answeredMessageIds`,
+  `FollowUpService.closeByReplies`): `replied_at` is set once, `done_at` only if
+  it was still open, so one reopened by the user stays open on a rescan. The
+  `follow-ups-answered` mail event refreshes the renderer through the
+  sidebar's always-mounted subscription. An open one due today or earlier
+  without a reply shows "Keine Antwort"; the history says "Antwort erhalten am
+  …" when the reply closed it. A re-created account adopts them with its
+  links (#55).
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.
 
