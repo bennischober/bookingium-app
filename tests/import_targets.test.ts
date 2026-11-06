@@ -24,7 +24,7 @@ function request(target: ImportTarget, headers: string[], cells: string[][]): Im
     headers,
     rows,
     mapping: detectMapping(headers, rows, target),
-    options: { kind: 'venue', defaultCountry: 'DE' },
+    options: { kind: 'venue', companyKind: 'company', genres: '', defaultCountry: 'DE' },
     excludedRows: []
   }
 }
@@ -61,10 +61,11 @@ describe('what a list holds', () => {
   it('maps the same header per target', () => {
     const headers = ['Name', 'Genre', 'Vorname']
     const mappings = detectMappings(headers, [])
-    expect(mappings.venues).toEqual(['venueName', 'notes', 'notes'])
+    expect(mappings.venues).toEqual(['venueName', 'genre', 'notes'])
+    expect(mappings.companies).toEqual(['companyName', 'genre', 'notes'])
     expect(mappings.bands).toEqual(['bandName', 'genre', 'notes'])
-    // With a Vorname column, "Name" is the surname; Genre means nothing here
-    expect(mappings.persons).toEqual(['lastName', 'ignore', 'firstName'])
+    // With a Vorname column, "Name" is the surname; a person has no genre, so it is a note
+    expect(mappings.persons).toEqual(['lastName', 'notes', 'firstName'])
   })
 })
 

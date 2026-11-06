@@ -7,11 +7,15 @@ import type {
   ImportRequest,
   ImportRow
 } from '../api/schemas/import.schema'
+import type { CompanyKind } from '../api/schemas/company.schema'
+import { normalizeGenres } from '../api/schemas/genres'
 import type { VenueKind } from '../api/schemas/venue.schema'
 import { isStateColumn } from './detectMapping'
 import {
   cleanText,
   countryByCode,
+  emailDomain,
+  isFreemailDomain,
   looksLikeDomain,
   normalizeKey,
   normalizeUrl,
@@ -42,7 +46,10 @@ export interface AddressDraft {
 }
 
 export interface ContactDraft {
+  // Primary address
   email: string
+  // Further addresses (contact_email), never the primary one
+  emails: string[]
   phone: string
   mobilePhone: string
   homepage: string
@@ -62,6 +69,8 @@ export interface VenueDraft extends DraftBase {
   normName: string
   kind: VenueKind
   capacity: number | null
+  // "Rock, Metal" (normalizeGenres)
+  genres: string
   address: AddressDraft
   companyKey: string | null
   // person key → role
@@ -70,6 +79,9 @@ export interface VenueDraft extends DraftBase {
 
 export interface CompanyDraft extends DraftBase {
   name: string
+  // Only for companies the import creates
+  kind: CompanyKind
+  genres: string
   vatNumber: string
   taxNumber: string
   address: AddressDraft
@@ -122,7 +134,33 @@ const emptyAddress = (): AddressDraft => ({
   countryCode: ''
 })
 
-const emptyContact = (): ContactDraft => ({ email: '', phone: '', mobilePhone: '', homepage: '' })
+const emptyContact = (): ContactDraft => ({
+  email: '',
+  emails: [],
+  phone: '',
+  mobilePhone: '',
+  homepage: ''
+})
+
+/** Adds addresses to a contact: the first becomes its primary one, the rest further ones */
+function addEmails(contact: ContactDraft, emails: string[]): void {
+  for (const email of emails) {
+    const key = email.trim().toLowerCase()
+    if (!key) continue
+    if (!contact.email) contact.email = email
+    else if (
+      contact.email.toLowerCase() !== key &&
+      !contact.emails.some((other) => other.toLowerCase() === key)
+    ) {
+      contact.emails.push(email)
+    }
+  }
+}
+
+/** Merges genre tags into a draft ("Rock" + "Metal, rock" → "Rock, Metal") */
+function addGenres(target: { genres: string }, ...values: string[]): void {
+  target.genres = normalizeGenres([target.genres, ...values].join(','))
+}
 
 /** Sets each empty field of `target` from `values` (first value wins) */
 function fill<T extends object>(target: T, values: Partial<T>): void {
@@ -204,7 +242,11 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
     action: draft.existingId !== null ? 'existing' : draft.firstRow < rowNumber ? 'repeat' : 'new'
   })
 
-  const companyFor = (name: string, rowNumber: number): CompanyDraft => {
+  const companyFor = (
+    name: string,
+    rowNumber: number,
+    kind: CompanyKind = 'company'
+  ): CompanyDraft => {
     const normName = normalizeKey(name)
     const existingId = companiesByName.get(normName) ?? null
     const key = existingId !== null ? `id:${existingId}` : `new:${normName}`
@@ -215,6 +257,8 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
         existingId,
         firstRow: rowNumber,
         name,
+        kind,
+        genres: '',
         vatNumber: '',
         taxNumber: '',
         notes: [],
@@ -262,6 +306,7 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
         normName,
         kind: options.kind,
         capacity: null,
+        genres: '',
         notes: [],
         address: emptyAddress(),
         contact: emptyContact(),
@@ -392,8 +437,22 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
     persons: [...persons.values()]
   })
 
+  // Companies of company and person lists are of the chosen kind; a venue
+  // list's promoters are plain companies
+  const companyKind: CompanyKind =
+    request.target === 'companies' || request.target === 'persons' ? options.companyKind : 'company'
+  const mediaList = companyKind === 'media'
+
+  /** Genre tags of the dialog for the list's clubs/festivals and media */
+  const listGenres = (draft: { genres: string }): void => {
+    if (options.genres) addGenres(draft, options.genres)
+  }
+
   return {
     request,
+    companyKind,
+    mediaList,
+    listGenres,
     excluded: new Set(request.excludedRows),
     columnOf,
     companiesByName,
@@ -428,6 +487,20 @@ function notImported(
   }
 }
 
+/**
+ * Name of a media outlet a row only gives an address for: the address's
+ * domain ("redaktion@example.test" → "example.test"); at a freemail
+ * provider the person's name, else the address itself
+ */
+function outletName(email: string, person: ParsedPerson | undefined): string {
+  const domain = emailDomain(email)
+  if (!isFreemailDomain(domain)) return domain
+  return person ? personLabel(person) : email.trim().toLowerCase()
+}
+
+const nameFromEmailWarning = (name: string): string =>
+  `Kein Name angegeben – nach der E-Mail-Adresse „${name}“ benannt`
+
 // ----------------------------------------
 // Venue and company lists
 // ----------------------------------------
@@ -438,6 +511,8 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
   const previewRows: ImportPreviewRow[] = []
   let previous: { venue: VenueDraft | null; company: CompanyDraft | null } | null = null
   let previousExcluded = false
+  // Email domains (not freemail) seen per company key, for media lists
+  const domains = new Map<string, Set<string>>()
   let month = ''
 
   for (const row of ctx.request.rows) {
@@ -448,13 +523,26 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
     if (!read.hasData) continue
 
     const venueName = cleanText(read.value('venueName'))
-    const companyName = cleanText(read.value('companyName'))
+    let companyName = cleanText(read.value('companyName'))
     const parsedPersons = read.values('contactPerson').flatMap((raw) => parsePersons(raw))
     const emailText = read.values('email').join(' ')
     const emails = parseEmails(emailText)
     const phone = cleanText(read.value('phone'))
     const mobile = cleanText(read.value('mobile'))
     const warnings: string[] = []
+
+    // Media lists: a row without an outlet is the outlet of its address,
+    // unless the address is at the domain of the outlet above
+    if (
+      ctx.mediaList &&
+      !venueName &&
+      !companyName &&
+      emails.length > 0 &&
+      !(previous?.company && domains.get(previous.company.key)?.has(emailDomain(emails[0])))
+    ) {
+      companyName = outletName(emails[0], parsedPersons[0])
+      warnings.push(nameFromEmailWarning(companyName))
+    }
 
     const isContinuation = !venueName && !companyName
     const names = {
@@ -490,7 +578,7 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
       company = previous.company
     } else {
       const venueCity = cleanText(read.value('venueCity')) || (companyName ? '' : address.city)
-      company = companyName ? ctx.companyFor(companyName, row.rowNumber) : null
+      company = companyName ? ctx.companyFor(companyName, row.rowNumber, ctx.companyKind) : null
       venue = venueName ? ctx.venueFor(venueName, venueCity, row.rowNumber) : null
       if (venue) {
         fill(venue.address, {
@@ -539,6 +627,17 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
       else notes.push(`USt-IdNr./Steuernummer: ${taxText}`)
     }
 
+    // Genre tags: the club/festival's; in company lists the company's
+    const genreText = cleanText(read.value('genre'))
+    const tagged: VenueDraft | CompanyDraft | null =
+      venue ?? (ctx.request.target === 'companies' ? company : null)
+    if (tagged && !isContinuation) {
+      if (genreText) addGenres(tagged, genreText)
+      if (venue || ctx.mediaList) ctx.listGenres(tagged)
+    } else if (genreText) {
+      notes.push(`Genre: ${genreText}`)
+    }
+
     // ---- Contact data ----
     const homepage =
       normalizeUrl(read.value('homepage')) ||
@@ -561,10 +660,19 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
     const generalEmail = emails.find((email) => !personEmails.includes(email)) ?? emails[0] ?? ''
     fill(organisation.contact, { email: generalEmail, phone })
     if (parsedPersons.length !== 1) fill(organisation.contact, { mobilePhone: mobile })
-    const unused = emails.filter(
-      (email) => email !== organisation.contact.email && !personEmails.includes(email)
+    // Addresses no one else takes are the organisation's further ones
+    addEmails(
+      organisation.contact,
+      emails.filter((email) => !personEmails.includes(email))
     )
-    if (unused.length > 0) notes.push(`Weitere E-Mail: ${unused.join(', ')}`)
+    if (company) {
+      const seen = domains.get(company.key) ?? new Set<string>()
+      for (const email of emails) {
+        const domain = emailDomain(email)
+        if (!isFreemailDomain(domain)) seen.add(domain)
+      }
+      domains.set(company.key, seen)
+    }
 
     // ---- Persons ----
     const scopeKey = company?.key ?? venue?.key ?? ''
@@ -573,10 +681,8 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
     )
     const personRefs = parsedPersons.map((parsed, index) => {
       const person = personDrafts[index]
-      fill(person.contact, {
-        email: personEmails[index],
-        ...(parsedPersons.length === 1 ? { phone, mobilePhone: mobile } : {})
-      })
+      if (personEmails[index]) addEmails(person.contact, [personEmails[index]])
+      if (parsedPersons.length === 1) fill(person.contact, { phone, mobilePhone: mobile })
       const role = parsed.role || DEFAULT_ROLE
       if (company && !company.members.has(person.key)) company.members.set(person.key, role)
       if (venue && !venue.members.has(person.key)) venue.members.set(person.key, role)
@@ -707,8 +813,8 @@ function buildBandRows(ctx: PlanContext): ImportPreviewRow[] {
     const phone = cleanText(read.value('phone'))
     const mobile = cleanText(read.value('mobile'))
     if (contactPerson) {
-      fill(contactPerson.contact, { email: emails[0] ?? '', phone, mobilePhone: mobile })
-      if (emails.length > 1) notes.push(`Weitere E-Mail: ${emails.slice(1).join(', ')}`)
+      addEmails(contactPerson.contact, emails)
+      fill(contactPerson.contact, { phone, mobilePhone: mobile })
     } else {
       if (emails.length > 0) notes.push(`E-Mail: ${emails.join(', ')}`)
       if (phone) notes.push(`Telefon: ${phone}`)
@@ -766,60 +872,72 @@ function buildPersonRows(ctx: PlanContext): ImportPreviewRow[] {
             }
           ]
         : parsePersons(read.value('personName'))
-    const companyName = cleanText(read.value('companyName'))
+    let companyName = cleanText(read.value('companyName'))
+    const emailText = read.values('email').join(' ')
+    const emails = parseEmails(emailText)
+    const warnings: string[] = []
+
+    // Media lists: a bare address is the outlet of its domain
+    if (ctx.mediaList && parsed.length === 0 && !companyName && emails.length > 0) {
+      companyName = outletName(emails[0], undefined)
+      warnings.push(nameFromEmailWarning(companyName))
+    }
     const names = { primary: parsed[0] ? personLabel(parsed[0]) : '', company: companyName }
 
     if (ctx.excluded.has(row.rowNumber)) {
       previewRows.push(notImported(row.rowNumber, 'excluded', names))
       continue
     }
-    if (parsed.length === 0) {
+    if (parsed.length === 0 && !companyName) {
       previewRows.push(
         notImported(row.rowNumber, 'skipped', names, ['Kein Name – wird übersprungen'])
       )
       continue
     }
 
-    const warnings: string[] = []
     if (parsed.length > 1) {
       warnings.push(`Mehrere Namen – nur „${personLabel(parsed[0])}“ wird übernommen`)
     }
-    const company = companyName ? ctx.companyFor(companyName, row.rowNumber) : null
-    const person = ctx.personFor(parsed[0], company?.key ?? `row:${row.rowNumber}`, row.rowNumber)
+    const company = companyName ? ctx.companyFor(companyName, row.rowNumber, ctx.companyKind) : null
+    if (company && ctx.mediaList) ctx.listGenres(company)
+    // A row with a company but no person holds the company's own data
+    const person = parsed[0]
+      ? ctx.personFor(parsed[0], company?.key ?? `row:${row.rowNumber}`, row.rowNumber)
+      : null
+    const holder: PersonDraft | CompanyDraft = (person ?? company)!
 
     const { address, hasStreetAddress } = ctx.addressOf(read)
-    if (hasStreetAddress) fill(person.address, address)
+    if (hasStreetAddress) fill(holder.address, address)
 
     const notes = read.notes()
     const birthdayText = cleanText(read.value('birthday'))
     if (birthdayText) {
-      const birthday = parseBirthday(birthdayText)
-      if (birthday) fill(person, { birthday })
+      const birthday = person ? parseBirthday(birthdayText) : ''
+      if (person && birthday) fill(person, { birthday })
       else notes.push(`Geburtstag: ${birthdayText}`)
     }
 
-    const emailText = read.values('email').join(' ')
-    const emails = parseEmails(emailText)
     if (emailText && emails.length === 0) {
       warnings.push(`Keine gültige E-Mail-Adresse: „${cleanText(emailText)}“`)
     }
-    fill(person.contact, {
-      email: emails[0] ?? '',
+    addEmails(holder.contact, emails)
+    fill(holder.contact, {
       phone: cleanText(read.value('phone')),
       mobilePhone: cleanText(read.value('mobile')),
       homepage: normalizeUrl(read.value('homepage'))
     })
-    if (emails.length > 1) notes.push(`Weitere E-Mail: ${emails.slice(1).join(', ')}`)
-    addNotes(person, notes)
+    const role = cleanText(read.value('role'))
+    if (!person && role) notes.push(`Rolle: ${role}`)
+    addNotes(holder, notes)
 
-    if (company && !company.members.has(person.key)) {
-      company.members.set(person.key, cleanText(read.value('role')) || parsed[0].role)
+    if (person && company && !company.members.has(person.key)) {
+      company.members.set(person.key, role || parsed[0].role)
     }
 
     previewRows.push({
       rowNumber: row.rowNumber,
       status: 'record',
-      primary: ctx.refOf(person, personLabel(person), row.rowNumber),
+      primary: person ? ctx.refOf(person, personLabel(person), row.rowNumber) : null,
       company: company ? ctx.refOf(company, company.name, row.rowNumber) : null,
       persons: [],
       warnings

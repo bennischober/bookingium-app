@@ -459,6 +459,31 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   purpose: there is no JS veraPDF, and a JS rebuild of KoSIT would drift
   from the official rules.
 
+## Import
+
+`main/import/` is pure: `readImportFile` reads the sheet and suggests the
+target, the venue kind and the company kind; `detectMapping` maps headers by
+synonyms; `buildImportPlan` turns rows into drafts and the preview;
+`ImportRepository.apply` writes the plan in one transaction. Records that
+already exist (matched by name) only get their empty fields filled.
+
+- **Columns.** A known field the target cannot hold becomes a note.
+  Numbered columns (`E-Mail 2`, `Telefon 2`, `Tel 3`) are further columns of
+  their field: the first address is the contact's email, the others go to
+  `contact_email`; a second phone has no field and becomes a note.
+- **Rows.** In venue and company lists a row without a name continues the
+  record above. In a person list a row with a company but no person carries
+  the company's own data.
+- **Radio/Medien.** For companies and persons the dialog asks what the
+  companies are (Firma or Radio/Medien, suggested from the sheet name and
+  columns like Medienpartner or Radiosender) and takes genres for the whole
+  list. In such a list a row with only an address is the outlet of its
+  domain, so it reaches the Verteiler; the next rows at that domain are its
+  further addresses. A freemail address names the outlet after the person,
+  or after the address itself.
+- **Genres.** A Genre column fills `venue.genres` or `company.genres`;
+  "Genres für alle" is added to every club, festival or media company.
+
 ## Mailing lists (Verteiler)
 
 The Verteiler page (`ContactListPage`, `contactList` router,

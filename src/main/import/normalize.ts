@@ -127,6 +127,54 @@ export function parseEmails(raw: string): string[] {
   return [...new Set(text.match(EMAIL_PATTERN) ?? [])]
 }
 
+// Mail providers anyone can sign up with: their domain names no outlet
+const FREEMAIL_DOMAINS = new Set([
+  'aol.com',
+  'arcor.de',
+  'email.de',
+  'freenet.de',
+  'gmail.com',
+  'gmx.at',
+  'gmx.ch',
+  'gmx.com',
+  'gmx.de',
+  'gmx.net',
+  'googlemail.com',
+  'hotmail.com',
+  'hotmail.de',
+  'icloud.com',
+  'kabelmail.de',
+  'live.com',
+  'live.de',
+  'mac.com',
+  'mail.de',
+  'mailbox.org',
+  'me.com',
+  'online.de',
+  'outlook.com',
+  'outlook.de',
+  'posteo.de',
+  'proton.me',
+  'protonmail.com',
+  't-online.de',
+  'vodafone.de',
+  'web.de',
+  'yahoo.com',
+  'yahoo.de'
+])
+
+/** The lower-cased domain of an address ("Info@Example.TEST" → "example.test") */
+export function emailDomain(email: string): string {
+  return email
+    .slice(email.lastIndexOf('@') + 1)
+    .trim()
+    .toLowerCase()
+}
+
+export function isFreemailDomain(domain: string): boolean {
+  return FREEMAIL_DOMAINS.has(domain.toLowerCase())
+}
+
 /**
  * A usable homepage URL, or '' — "www.x.de" gets https://, the first of
  * several addresses wins, emails are not URLs.

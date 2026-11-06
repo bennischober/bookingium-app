@@ -126,7 +126,7 @@ function request(cells: string[][], excludedRows: number[] = []): ImportRequest 
     headers: HEADERS,
     rows: toRows(cells),
     mapping: MAPPING,
-    options: { kind: 'venue', defaultCountry: 'DE' },
+    options: { kind: 'venue', companyKind: 'company', genres: '', defaultCountry: 'DE' },
     excludedRows
   }
 }
