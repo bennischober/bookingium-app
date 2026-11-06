@@ -5,6 +5,7 @@ import { FollowUpService } from '../../services/FollowUpService'
 import {
   CreateFollowUpInput,
   FollowUpRecord,
+  ListDoneFollowUpsInput,
   SetFollowUpDoneInput,
   UpdateFollowUpInput
 } from '../schemas/followUp.schema'
@@ -18,6 +19,10 @@ export const followUpRouter = t.router({
   listOpenByRecord: t.procedure
     .input(FollowUpRecord)
     .query(({ input }) => service.listOpenByRecord(input.type, input.id)),
+
+  listDone: t.procedure
+    .input(ListDoneFollowUpsInput)
+    .query(({ input }) => service.listDone(input.limit)),
 
   create: t.procedure.input(CreateFollowUpInput).mutation(({ input }) => service.create(input)),
 

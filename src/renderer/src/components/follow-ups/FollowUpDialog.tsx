@@ -26,10 +26,19 @@ type Props = {
   record?: FollowUpRecord & { name: string }
   /** Prefilled note when creating */
   initialNote?: string
+  /** Prefilled due date (2026-10-21) when creating; a week from today without it */
+  initialDueDate?: string
 }
 
 /** Create or edit a follow-up (Wiedervorlage): a due date and a note */
-export function FollowUpDialog({ open, onOpenChange, followUp, record, initialNote }: Props) {
+export function FollowUpDialog({
+  open,
+  onOpenChange,
+  followUp,
+  record,
+  initialNote,
+  initialDueDate
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -38,6 +47,7 @@ export function FollowUpDialog({ open, onOpenChange, followUp, record, initialNo
           followUp={followUp}
           record={record}
           initialNote={initialNote}
+          initialDueDate={initialDueDate}
           onDone={() => onOpenChange(false)}
         />
       </DialogContent>
@@ -49,10 +59,13 @@ function FollowUpForm({
   followUp,
   record,
   initialNote,
+  initialDueDate,
   onDone
-}: Pick<Props, 'followUp' | 'record' | 'initialNote'> & { onDone: () => void }) {
+}: Pick<Props, 'followUp' | 'record' | 'initialNote' | 'initialDueDate'> & {
+  onDone: () => void
+}) {
   const today = localIsoDate()
-  const [dueDate, setDueDate] = useState(followUp?.dueDate ?? addDays(today, 7))
+  const [dueDate, setDueDate] = useState(followUp?.dueDate ?? initialDueDate ?? addDays(today, 7))
   const [note, setNote] = useState(followUp?.note ?? initialNote ?? '')
 
   const utils = trpcReact.useUtils()

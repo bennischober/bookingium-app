@@ -4,7 +4,9 @@
 // Outlook, Google, Apple and Thunderbird read these. Events with a show
 // time are timed (local "floating" time, as the times are entered); others
 // are all-day. The UID is stable per event, so a re-import or subscription
-// updates entries instead of duplicating them.
+// updates entries instead of duplicating them. Open follow-ups
+// (Wiedervorlagen), when included, are all-day entries on their due date;
+// one ticked off drops out, and so out of the subscribed calendars.
 
 export interface CalendarEvent {
   id: number
@@ -22,6 +24,17 @@ export interface CalendarEvent {
   hotelName: string | null
   deal: string
   notes: string
+  updatedAt: string | null
+}
+
+/** An open follow-up (Wiedervorlage) in the calendar */
+export interface CalendarFollowUp {
+  id: number
+  // YYYY-MM-DD
+  dueDate: string
+  note: string
+  // The record it is on ("München (11.06.2026)"), null for a general one
+  recordName: string | null
   updatedAt: string | null
 }
 
@@ -97,6 +110,21 @@ function formatUtc(date: Date): string {
   return `${formatDateTime(date)}Z`
 }
 
+/** DTSTART/DTEND of an all-day entry on 2026-06-11 */
+function allDayLines(isoDate: string): string[] {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const start = new Date(Date.UTC(year, month - 1, day))
+  const end = new Date(Date.UTC(year, month - 1, day + 1))
+  return [`DTSTART;VALUE=DATE:${formatDate(start)}`, `DTEND;VALUE=DATE:${formatDate(end)}`]
+}
+
+/** LAST-MODIFIED from an SQLite "2026-05-01 10:00:00" (UTC) or an ISO timestamp */
+function lastModifiedLines(updatedAt: string | null): string[] {
+  if (!updatedAt) return []
+  const updated = new Date(updatedAt.replace(' ', 'T') + (updatedAt.endsWith('Z') ? '' : 'Z'))
+  return Number.isNaN(updated.getTime()) ? [] : [`LAST-MODIFIED:${formatUtc(updated)}`]
+}
+
 function eventLines(event: CalendarEvent, now: Date): string[] {
   const [year, month, day] = event.date.split('-').map(Number)
   const lines = ['BEGIN:VEVENT', `UID:event-${event.id}@bookingium`, `DTSTAMP:${formatUtc(now)}`]
@@ -110,9 +138,7 @@ function eventLines(event: CalendarEvent, now: Date): string[] {
     const end = new Date(start.getTime() + minutes * 60_000)
     lines.push(`DTSTART:${formatDateTime(start)}`, `DTEND:${formatDateTime(end)}`)
   } else {
-    const start = new Date(Date.UTC(year, month - 1, day))
-    const end = new Date(Date.UTC(year, month - 1, day + 1))
-    lines.push(`DTSTART;VALUE=DATE:${formatDate(start)}`, `DTEND;VALUE=DATE:${formatDate(end)}`)
+    lines.push(...allDayLines(event.date))
   }
 
   lines.push(`SUMMARY:${escapeText(event.name)}`)
@@ -133,18 +159,39 @@ function eventLines(event: CalendarEvent, now: Date): string[] {
   lines.push(`DESCRIPTION:${escapeText(description)}`)
 
   if (STATUS[event.status]) lines.push(`STATUS:${STATUS[event.status]}`)
-  if (event.updatedAt) {
-    const updated = new Date(
-      event.updatedAt.replace(' ', 'T') + (event.updatedAt.endsWith('Z') ? '' : 'Z')
-    )
-    if (!Number.isNaN(updated.getTime())) lines.push(`LAST-MODIFIED:${formatUtc(updated)}`)
-  }
-  lines.push('END:VEVENT')
+  lines.push(...lastModifiedLines(event.updatedAt), 'END:VEVENT')
   return lines
 }
 
+function followUpLines(followUp: CalendarFollowUp, now: Date): string[] {
+  // The note's first line is the title; the whole note is the description
+  const title = followUp.note.split(/\r?\n/)[0].trim()
+  const description = [followUp.recordName && `Zu: ${followUp.recordName}`, followUp.note]
+    .filter(Boolean)
+    .join('\n\n')
+  return [
+    'BEGIN:VEVENT',
+    `UID:follow-up-${followUp.id}@bookingium`,
+    `DTSTAMP:${formatUtc(now)}`,
+    ...allDayLines(followUp.dueDate),
+    `SUMMARY:${escapeText(`Wiedervorlage: ${title}`)}`,
+    `DESCRIPTION:${escapeText(description)}`,
+    'CATEGORIES:Wiedervorlage',
+    // A reminder, not an appointment: it doesn't block the day
+    'TRANSP:TRANSPARENT',
+    ...lastModifiedLines(followUp.updatedAt),
+    'END:VEVENT'
+  ]
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/
+
 /** A whole calendar file (CRLF line endings, folded lines) */
-export function buildCalendar(events: CalendarEvent[], now = new Date()): string {
+export function buildCalendar(
+  events: CalendarEvent[],
+  now = new Date(),
+  followUps: CalendarFollowUp[] = []
+): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -153,8 +200,11 @@ export function buildCalendar(events: CalendarEvent[], now = new Date()): string
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Bookingium',
     ...events
-      .filter((event) => /^\d{4}-\d{2}-\d{2}/.test(event.date))
+      .filter((event) => ISO_DATE.test(event.date))
       .flatMap((event) => eventLines(event, now)),
+    ...followUps
+      .filter((followUp) => ISO_DATE.test(followUp.dueDate))
+      .flatMap((followUp) => followUpLines(followUp, now)),
     'END:VCALENDAR'
   ]
   return lines.map(foldLine).join('\r\n') + '\r\n'

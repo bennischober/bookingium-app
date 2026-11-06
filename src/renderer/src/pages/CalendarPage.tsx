@@ -19,8 +19,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
+import { FollowUpDialog } from '@/components/follow-ups/FollowUpDialog'
+import { FollowUpList } from '@/components/follow-ups/FollowUpList'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
+import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -40,12 +43,23 @@ export default function CalendarPage() {
   const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(new Date()))
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [followUpOpen, setFollowUpOpen] = useState(false)
 
   const events = trpcReact.dealMemo.getAllPaginated.useQuery({
     page: 1,
     pageSize: 100,
     search: undefined
   })
+
+  // #52: open follow-ups (Wiedervorlagen) on their due day, next to the events
+  const followUps = trpcReact.followUp.listOpen.useQuery()
+  const followUpsByDay = useMemo(() => {
+    const byDay = new Map<string, FollowUpDto[]>()
+    for (const followUp of followUps.data ?? []) {
+      byDay.set(followUp.dueDate, [...(byDay.get(followUp.dueDate) ?? []), followUp])
+    }
+    return byDay
+  }, [followUps.data])
 
   const eventsWithParsedDate = useMemo(() => {
     return (events.data?.items ?? [])
@@ -82,6 +96,24 @@ export default function CalendarPage() {
     )
   }, [eventsWithParsedDate, selectedDayEvents, selectedDate, viewMode, activeMonthDate])
 
+  // The days of the chosen range, as yyyy-MM-dd
+  const range = useMemo(() => {
+    if (viewMode === 'day') {
+      const day = format(selectedDate, 'yyyy-MM-dd')
+      return { start: day, end: day }
+    }
+    if (viewMode === 'week') {
+      return {
+        start: format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        end: format(endOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      }
+    }
+    return {
+      start: format(startOfMonth(activeMonthDate), 'yyyy-MM-dd'),
+      end: format(endOfMonth(activeMonthDate), 'yyyy-MM-dd')
+    }
+  }, [viewMode, selectedDate, activeMonthDate])
+
   const groupedAgenda = useMemo(() => {
     const groups = new Map<string, typeof filteredEvents>()
 
@@ -90,21 +122,29 @@ export default function CalendarPage() {
       const existing = groups.get(key) ?? []
       groups.set(key, [...existing, event])
     })
+    // Days with only follow-ups get a group too
+    for (const dayKey of followUpsByDay.keys()) {
+      if (dayKey >= range.start && dayKey <= range.end && !groups.has(dayKey)) {
+        groups.set(dayKey, [])
+      }
+    }
 
     return Array.from(groups.entries())
       .sort((a, b) => compareAsc(parseISO(a[0]), parseISO(b[0])))
       .map(([dayKey, dayEvents]) => ({
         dayKey,
         dayLabel: format(parseISO(dayKey), 'EEEE, dd. MMMM yyyy', { locale: de }),
-        items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate))
+        items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate)),
+        followUps: followUpsByDay.get(dayKey) ?? []
       }))
-  }, [filteredEvents])
+  }, [filteredEvents, followUpsByDay, range])
 
   const highlightedDates = useMemo(() => {
     return new Set(eventsWithParsedDate.map((event) => format(event.parsedDate, 'yyyy-MM-dd')))
   }, [eventsWithParsedDate])
 
   const selectedKey = format(selectedDate, 'yyyy-MM-dd')
+  const selectedDayFollowUps = followUpsByDay.get(selectedKey) ?? []
   const openEvent = (id: number) =>
     navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
 
@@ -113,8 +153,8 @@ export default function CalendarPage() {
       <div>
         <h1 className="text-2xl font-bold mb-2">Kalender</h1>
         <p className="text-sm text-muted-foreground">
-          Tag anklicken, um seine Events zu sehen oder dort ein neues Event anzulegen (Doppelklick
-          legt direkt an).
+          Tag anklicken, um seine Events und Wiedervorlagen zu sehen oder dort ein neues Event
+          anzulegen (Doppelklick legt direkt an).
         </p>
       </div>
 
@@ -145,11 +185,15 @@ export default function CalendarPage() {
               }}
               className="w-full"
               modifiers={{
-                hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd'))
+                hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd')),
+                hasFollowUp: (date) => followUpsByDay.has(format(date, 'yyyy-MM-dd'))
               }}
               modifiersClassNames={{
                 hasEvent:
-                  'font-semibold underline decoration-primary decoration-2 underline-offset-4'
+                  'font-semibold underline decoration-primary decoration-2 underline-offset-4',
+                // A small amber dot in the corner: a follow-up is due that day
+                hasFollowUp:
+                  'relative after:pointer-events-none after:absolute after:right-1.5 after:top-1.5 after:size-1.5 after:rounded-full after:bg-amber-500'
               }}
             />
 
@@ -161,9 +205,14 @@ export default function CalendarPage() {
                 </p>
                 {/* "+" as text like the other create buttons: the thin Plus icon
                     sat visibly higher than the text in this font */}
-                <Button size="sm" onClick={() => setWizardOpen(true)}>
-                  + Event anlegen
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
+                    + Wiedervorlage
+                  </Button>
+                  <Button size="sm" onClick={() => setWizardOpen(true)}>
+                    + Event anlegen
+                  </Button>
+                </div>
               </div>
               {selectedDayEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Keine Events an diesem Tag.</p>
@@ -183,6 +232,14 @@ export default function CalendarPage() {
                     </button>
                   ))}
                 </div>
+              )}
+              {selectedDayFollowUps.length > 0 && (
+                <section aria-label="Wiedervorlagen an diesem Tag" className="space-y-2 pt-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Wiedervorlagen
+                  </h3>
+                  <FollowUpList followUps={selectedDayFollowUps} showRecord />
+                </section>
               )}
             </div>
           </CardContent>
@@ -215,7 +272,7 @@ export default function CalendarPage() {
               <p className="text-sm text-muted-foreground">Events werden geladen…</p>
             ) : groupedAgenda.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine Events für diese Auswahl geplant.
+                Keine Events oder Wiedervorlagen für diese Auswahl.
               </p>
             ) : (
               <div className="space-y-5">
@@ -260,6 +317,11 @@ export default function CalendarPage() {
                             </div>
                           </button>
                         ))}
+                        {group.followUps.length > 0 && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                            <FollowUpList followUps={group.followUps} showRecord />
+                          </div>
+                        )}
                       </div>
                     </section>
                   )
@@ -278,6 +340,11 @@ export default function CalendarPage() {
           setWizardOpen(false)
           openEvent(memo.id)
         }}
+      />
+      <FollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        initialDueDate={selectedKey}
       />
     </div>
   )

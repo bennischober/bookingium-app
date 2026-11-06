@@ -1,5 +1,6 @@
 import { inject, injectable } from 'tsyringe'
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
+import { scheduleFollowUpCalendarUpdate } from './CalendarFeedService'
 import {
   canChangeInvoiceStatus,
   canRemind,
@@ -76,7 +77,10 @@ export class InvoiceService {
     if (input.status) {
       this.assertStatusChange(existing.status as InvoiceStatus, input.status, 'invoice')
     }
-    return await this.invoiceRepository.update(input)
+    const updated = await this.invoiceRepository.update(input)
+    // Recipient or (on issuing) number: the follow-ups' "Zu: ..." line
+    scheduleFollowUpCalendarUpdate()
+    return updated
   }
 
   /**
@@ -86,7 +90,9 @@ export class InvoiceService {
   async setInvoiceStatus(id: number, status: InvoiceStatus) {
     const existing = await this.requireInvoice(id)
     this.assertStatusChange(existing.status as InvoiceStatus, status, existing.kind as InvoiceKind)
-    return await this.invoiceRepository.setStatus(id, status)
+    const updated = await this.invoiceRepository.setStatus(id, status)
+    scheduleFollowUpCalendarUpdate()
+    return updated
   }
 
   /** Only drafts can be deleted; issued invoices are cancelled instead */
@@ -96,6 +102,7 @@ export class InvoiceService {
       throw new Error('Nur Entwürfe können gelöscht werden – gestellte Rechnungen bitte stornieren')
     }
     await this.invoiceRepository.delete(id)
+    scheduleFollowUpCalendarUpdate()
   }
 
   async getCompanyInvoiceSettings(companyId: number) {

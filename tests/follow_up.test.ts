@@ -88,6 +88,41 @@ describe('FollowUpService', () => {
     expect(service().listOpenByRecord('band', bandId)).toEqual([])
   })
 
+  it('keeps a history of done ones, the last ticked off first, in pages', () => {
+    const ids = ['Erste', 'Zweite', 'Dritte'].map(
+      (note) => service().create({ dueDate: '2026-11-02', note }).id
+    )
+    // Done one after another (done_at has seconds only: set them apart by hand)
+    ids.forEach((id, index) => {
+      service().setDone(id, true)
+      db.update(schema.follow_up)
+        .set({ done_at: `2026-11-0${index + 3} 10:00:00` })
+        .where(eq(schema.follow_up.id, id))
+        .run()
+    })
+    service().create({ dueDate: '2026-11-09', note: 'Noch offen' })
+
+    const firstPage = service().listDone(2)
+    expect(firstPage.items.map((followUp) => followUp.note)).toEqual(['Dritte', 'Zweite'])
+    expect(firstPage.hasMore).toBe(true)
+    const all = service().listDone(50)
+    expect(all.items.map((followUp) => followUp.note).slice(0, 3)).toEqual([
+      'Dritte',
+      'Zweite',
+      'Erste'
+    ])
+    expect(all.items.every((followUp) => followUp.doneAt !== null)).toBe(true)
+    expect(all.hasMore).toBe(false)
+
+    // Opened again, it leaves the history
+    service().setDone(ids[2], false)
+    expect(
+      service()
+        .listDone(2)
+        .items.map((followUp) => followUp.note)
+    ).toEqual(['Zweite', 'Erste'])
+  })
+
   it('goes with its record', () => {
     const bandId = createBand('Gone Band')
     service().create({ dueDate: '2026-10-22', note: 'Weg', record: { type: 'band', id: bandId } })

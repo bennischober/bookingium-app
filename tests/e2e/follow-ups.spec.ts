@@ -1,6 +1,7 @@
 // E2E: follow-ups (Wiedervorlagen) – created on a band, shown on its page,
 // on the Dashboard and as the sidebar count; done with undo, edited, deleted;
-// a general one from the Dashboard; and one offered on saving an invoice draft.
+// a general one from the Dashboard; one offered on saving an invoice draft; and
+// one from the calendar, opened again from the history of done ones.
 import { test, expect } from '@playwright/test'
 import { launchApp, type AppHandle } from './helpers/launch'
 
@@ -151,4 +152,35 @@ test('saving an invoice draft offers a follow-up, shown in the sheet', async () 
   // The toast's undo works over the open sheet, which stays open
   await page.getByRole('button', { name: 'Rückgängig' }).click()
   await expect(strip).toContainText('Entwurf vervollständigen')
+})
+
+test('a follow-up from the calendar, done there and opened again from the history', async () => {
+  const { page } = h
+  // The draft's sheet from the last test is still open
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Kalender' }).first().click()
+  // Today is selected: the new follow-up is due on it
+  await page.getByRole('button', { name: '+ Wiedervorlage' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Neue Wiedervorlage' })
+  await expect(dialog.getByLabel('Fällig am')).toHaveValue(today())
+  await dialog.getByLabel('Notiz').fill('Setlist anfragen')
+  await dialog.getByRole('button', { name: 'Speichern' }).click()
+  await expect(page.getByText('Wiedervorlage angelegt')).toBeVisible()
+
+  const day = page.getByRole('region', { name: 'Wiedervorlagen an diesem Tag' })
+  await expect(day).toContainText('Setlist anfragen')
+  await day.getByRole('button', { name: 'Erledigt: Setlist anfragen' }).click()
+  await expect(day.getByText('Setlist anfragen')).toHaveCount(0)
+
+  // In the Dashboard's history, opened again from there
+  await page.getByRole('link', { name: 'Bookingium' }).click()
+  await page.getByRole('button', { name: 'Erledigte' }).click()
+  const history = page.getByRole('dialog', { name: 'Erledigte Wiedervorlagen' })
+  await expect(history).toContainText('Setlist anfragen')
+  await history.getByRole('button', { name: 'Wieder öffnen: Setlist anfragen' }).click()
+  await expect(page.getByText('Wiedervorlage wieder offen')).toBeVisible()
+  await expect(history).not.toContainText('Setlist anfragen')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Erledigt: Setlist anfragen' })).toBeVisible()
 })

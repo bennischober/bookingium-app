@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server'
+import { z } from 'zod'
 import { container } from 'tsyringe'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'path'
@@ -48,6 +49,12 @@ export const calendarRouter = t.router({
 
   updateFeed: t.procedure.mutation(() => feed.update()),
 
+  /** #52: open follow-ups in the file or not; rewrites it at once */
+  setFeedFollowUps: t.procedure.input(z.boolean()).mutation(({ input }) => {
+    settings.update({ calendarFeedFollowUps: input })
+    return feed.update()
+  }),
+
   revealFeedFile: t.procedure.mutation(() => {
     const path = settings.get().calendarFeedPath
     if (path) shell.showItemInFolder(path)
@@ -56,11 +63,11 @@ export const calendarRouter = t.router({
   /** One-off .ics of all events (e.g. to import into Outlook once) */
   exportOnce: t.procedure.mutation(async () => {
     const path = await askForIcsPath('Kalender exportieren', 'Bookingium Events.ics')
-    if (!path) return { canceled: true, path: null, events: 0 }
+    if (!path) return { canceled: true, path: null, events: 0, followUps: 0 }
     try {
-      const events = await feed.writeTo(path)
+      const { events, followUps } = await feed.writeTo(path)
       shell.showItemInFolder(path)
-      return { canceled: false, path, events }
+      return { canceled: false, path, events, followUps }
     } catch (error) {
       throw badRequest(error, 'Export fehlgeschlagen')
     }

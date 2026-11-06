@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe'
 import { removeOwnerFolder } from '../utils/documentStorage'
 import { PersonRepository } from '../repositories/PersonRepository'
+import { scheduleFollowUpCalendarUpdate } from './CalendarFeedService'
 import type { CreatePersonInput, UpdatePersonInput } from '../api/schemas/person.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
 
@@ -25,11 +26,14 @@ export class PersonService {
   }
 
   async updatePerson(input: UpdatePersonInput) {
-    return await this.personRepository.update(input)
+    const updated = await this.personRepository.update(input)
+    scheduleFollowUpCalendarUpdate()
+    return updated
   }
 
   async deletePerson(id: number) {
     await this.personRepository.delete(id)
+    scheduleFollowUpCalendarUpdate()
     // Rows go with the owner (trigger); the files are removed here
     await removeOwnerFolder('person', id).catch((error) => console.error(error))
   }

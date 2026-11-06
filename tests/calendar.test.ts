@@ -1,5 +1,5 @@
 // Calendar file: iCalendar details (escaping, folding, timed vs. all-day
-// events) and the feed file that is rewritten after changes.
+// events, follow-ups) and the feed file that is rewritten after changes.
 import 'reflect-metadata'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { container } from 'tsyringe'
@@ -18,6 +18,8 @@ import {
 import { CalendarFeedService } from '../src/main/services/CalendarFeedService'
 import { SettingsService } from '../src/main/services/SettingsService'
 import { DealMemoService } from '../src/main/services/DealMemoService'
+import { FollowUpService } from '../src/main/services/FollowUpService'
+import { CompanyService } from '../src/main/services/CompanyService'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -90,6 +92,31 @@ describe('iCalendar', () => {
     expect(unfolded).toContain('STATUS:CANCELLED')
     expect(unfolded).toContain('LAST-MODIFIED:20260501T100000Z')
   })
+
+  it('writes follow-ups as all-day reminders with their own ids', () => {
+    const ics = buildCalendar([], new Date(Date.UTC(2026, 10, 6, 8, 0)), [
+      {
+        id: 3,
+        dueDate: '2026-11-12',
+        note: 'Vertrag zurück?\nSonst anrufen, Montag',
+        recordName: 'München (11.06.2026)',
+        updatedAt: '2026-11-05 09:00:00'
+      },
+      { id: 4, dueDate: 'kein Datum', note: 'Ohne Datum', recordName: null, updatedAt: null }
+    ])
+    const unfolded = ics.replace(/\r\n /g, '')
+    expect(unfolded).toContain('UID:follow-up-3@bookingium')
+    expect(unfolded).toContain('DTSTART;VALUE=DATE:20261112\r\nDTEND;VALUE=DATE:20261113')
+    // First line of the note as the title, all of it (and the record) as the text
+    expect(unfolded).toContain('SUMMARY:Wiedervorlage: Vertrag zurück?\r\n')
+    expect(unfolded).toContain(
+      'DESCRIPTION:Zu: München (11.06.2026)\\n\\nVertrag zurück?\\nSonst anrufen\\, Montag'
+    )
+    expect(unfolded).toContain('TRANSP:TRANSPARENT')
+    expect(unfolded).toContain('LAST-MODIFIED:20261105T090000Z')
+    expect(unfolded).not.toContain('follow-up-4@')
+    expect(unfolded).not.toContain('UID:event-')
+  })
 })
 
 describe('calendar file', () => {
@@ -130,5 +157,56 @@ describe('calendar file', () => {
     >[0])
     await new Promise((resolve) => setTimeout(resolve, 2000))
     expect(readFileSync(path, 'utf-8')).toContain('SUMMARY:Hindelang Open Air 2026')
+  })
+
+  it('takes open follow-ups only when switched on, and drops done ones', async () => {
+    const path = join(dir, 'Wiedervorlagen.ics')
+    const settings = container.resolve(SettingsService)
+    settings.update({ calendarFeedPath: path, calendarFeedFollowUps: false })
+    const feed = container.resolve(CalendarFeedService)
+    const followUps = container.resolve(FollowUpService)
+    const created = followUps.create({ dueDate: '2026-11-20', note: 'Rider schicken' })
+
+    expect(await feed.update()).toMatchObject({ includeFollowUps: false, followUps: 0 })
+    expect(readFileSync(path, 'utf-8')).not.toContain('Wiedervorlage:')
+
+    settings.update({ calendarFeedFollowUps: true })
+    expect(await feed.update()).toMatchObject({ includeFollowUps: true, followUps: 1 })
+    expect(readFileSync(path, 'utf-8')).toContain('SUMMARY:Wiedervorlage: Rider schicken')
+
+    // Ticking it off rewrites the file shortly after, without it
+    followUps.setDone(created.id, true)
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    expect(readFileSync(path, 'utf-8')).not.toContain('Wiedervorlage:')
+    expect(feed.status()).toMatchObject({ followUps: 0 })
+
+    settings.update({ calendarFeedFollowUps: false })
+  })
+
+  it('follows a rename or delete of the record a follow-up is on', async () => {
+    const path = join(dir, 'Firma.ics')
+    const settings = container.resolve(SettingsService)
+    settings.update({ calendarFeedPath: path, calendarFeedFollowUps: true })
+    const feed = container.resolve(CalendarFeedService)
+    const companies = container.resolve(CompanyService)
+    const companyId = db.insert(schema.company).values({ name: 'Alte Firma' }).returning().get().id
+    container.resolve(FollowUpService).create({
+      dueDate: '2026-11-21',
+      note: 'Angebot nachfassen',
+      record: { type: 'company', id: companyId }
+    })
+    await feed.update()
+    expect(readFileSync(path, 'utf-8')).toContain('Zu: Alte Firma')
+
+    await companies.updateCompany({ id: companyId, name: 'Neue Firma' })
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    expect(readFileSync(path, 'utf-8')).toContain('Zu: Neue Firma')
+
+    // Deleting the company takes the follow-up with it, out of the file too
+    await companies.deleteCompany(companyId)
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    expect(readFileSync(path, 'utf-8')).not.toContain('Angebot nachfassen')
+
+    settings.update({ calendarFeedFollowUps: false })
   })
 })

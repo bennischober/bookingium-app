@@ -44,6 +44,13 @@ export function dueLabel(dueDate: string, today: string = localIsoDate()): strin
   return `${weekday}, ${germanDate(dueDate)}`
 }
 
+/** done_at (SQLite UTC, "2026-11-06 09:30:00") -> "Erledigt am 06.11.2026", in local time */
+export function doneLabel(doneAt: string): string {
+  const date = new Date(doneAt.replace(' ', 'T') + (doneAt.endsWith('Z') ? '' : 'Z'))
+  if (Number.isNaN(date.getTime())) return 'Erledigt'
+  return `Erledigt am ${germanDate(localIsoDate(date))}`
+}
+
 /** Open follow-ups due today or earlier (the sidebar badge) */
 export const countDue = (followUps: { dueDate: string }[], today: string = localIsoDate()) =>
   followUps.filter((followUp) => followUp.dueDate <= today).length

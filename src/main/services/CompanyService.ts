@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe'
 import { removeOwnerFolder } from '../utils/documentStorage'
 import { CompanyRepository } from '../repositories/CompanyRepository'
+import { scheduleFollowUpCalendarUpdate } from './CalendarFeedService'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
 
@@ -32,11 +33,14 @@ export class CompanyService {
   }
 
   async updateCompany(data: UpdateCompanyInput) {
-    return await this.companyRepository.update(data)
+    const updated = await this.companyRepository.update(data)
+    scheduleFollowUpCalendarUpdate()
+    return updated
   }
 
   async deleteCompany(id: number) {
     const deleted = await this.companyRepository.delete(id)
+    scheduleFollowUpCalendarUpdate()
     await removeOwnerFolder('company', id).catch((error) => console.error(error))
     return deleted
   }

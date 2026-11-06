@@ -108,6 +108,9 @@ export const AppSettings = z.object({
   defaultCountry: z.string().default('DE'),
   // .ics file kept up to date with all events, '' for off
   calendarFeedPath: z.string().default(''),
+  // #52: open follow-ups (Wiedervorlagen) in that file too. Off by default: the file is
+  // often shared by link, and follow-up notes are the user's own.
+  calendarFeedFollowUps: z.boolean().default(false),
   // Invoice PDFs carry the e-invoice XML (ZUGFeRD/Factur-X) when complete
   eInvoiceEmbed: z.boolean().default(true),
   // Payable invoices carry the EPC payment QR code ("GiroCode")
@@ -150,6 +153,7 @@ export const UpdateAppSettingsInput = z
   .object({
     defaultCountry: shape.defaultCountry.unwrap(),
     calendarFeedPath: shape.calendarFeedPath.unwrap(),
+    calendarFeedFollowUps: shape.calendarFeedFollowUps.unwrap(),
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
     mailProgram: shape.mailProgram.unwrap(),
@@ -176,6 +180,9 @@ export const CalendarFeedStatusDto = z.object({
   // ISO timestamp of the last write in this session
   lastWrittenAt: z.string().nullable(),
   events: z.number(),
+  // Whether open follow-ups go into the file, and how many did on the last write
+  includeFollowUps: z.boolean(),
+  followUps: z.number(),
   error: z.string().nullable()
 })
 export type CalendarFeedStatusDto = z.infer<typeof CalendarFeedStatusDto>

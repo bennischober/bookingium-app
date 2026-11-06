@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, eq, isNull, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type {
@@ -26,13 +26,15 @@ const RECORD_KEYS = {
   invoice: 'invoice_id'
 } as const satisfies Record<FollowUpRecordType, keyof typeof schema.follow_up.$inferInsert>
 
+const DUE_FIRST = [asc(schema.follow_up.due_date), asc(schema.follow_up.id)]
+
 /** A follow-up with the names of the record it is on */
 export type FollowUpRow = ReturnType<FollowUpRepository['listOpen']>[number]
 
 @injectable()
 export class FollowUpRepository {
-  private select(where: SQL | undefined) {
-    return db
+  private select(where: SQL | undefined, order: SQL[] = DUE_FIRST, limit?: number) {
+    const query = db
       .select({
         followUp: schema.follow_up,
         eventName: schema.deal_memo.name,
@@ -57,13 +59,23 @@ export class FollowUpRepository {
         eq(schema.invoice.recipient_snapshot_id, schema.invoice_party_snapshot.id)
       )
       .where(where)
-      .orderBy(asc(schema.follow_up.due_date), asc(schema.follow_up.id))
-      .all()
+      .orderBy(...order)
+      .$dynamic()
+    return (limit === undefined ? query : query.limit(limit)).all()
   }
 
   /** Every open follow-up, earliest first */
   listOpen() {
     return this.select(isNull(schema.follow_up.done_at))
+  }
+
+  /** Done follow-ups, the last ticked off first; one more than `limit` tells there are more */
+  listDone(limit: number) {
+    return this.select(
+      isNotNull(schema.follow_up.done_at),
+      [desc(schema.follow_up.done_at), desc(schema.follow_up.id)],
+      limit + 1
+    )
   }
 
   /** Open follow-ups on one record */

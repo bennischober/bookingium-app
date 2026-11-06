@@ -91,6 +91,7 @@ English.
 | Due on / note                    | Fällig am / Notiz                           |
 | Overdue since / today / tomorrow | Überfällig seit / Heute / Morgen            |
 | Done (tick off) / undo           | Erledigt / Rückgängig                       |
+| Done history / reopen            | Erledigte Wiedervorlagen / Wieder öffnen    |
 | General (not on a record)        | Allgemein                                   |
 | Set a follow-up (toast action)   | Wiedervorlage setzen                        |
 | Quick picks                      | Morgen, In 3 Tagen, In 1 Woche, In 2 Wochen |

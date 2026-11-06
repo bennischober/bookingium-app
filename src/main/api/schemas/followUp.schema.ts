@@ -38,6 +38,19 @@ export const UpdateFollowUpInput = z.object({
 })
 export type UpdateFollowUpInput = z.infer<typeof UpdateFollowUpInput>
 
+/** #52: the history of done follow-ups, in pages that grow */
+export const ListDoneFollowUpsInput = z.object({
+  limit: z.number().int().min(1).max(1000).default(50)
+})
+export type ListDoneFollowUpsInput = z.infer<typeof ListDoneFollowUpsInput>
+
+export const FollowUpHistoryDto = z.object({
+  items: z.array(FollowUpDto),
+  // More done ones beyond `limit`
+  hasMore: z.boolean()
+})
+export type FollowUpHistoryDto = z.infer<typeof FollowUpHistoryDto>
+
 export const SetFollowUpDoneInput = z.object({
   id: z.number().int(),
   done: z.boolean()
