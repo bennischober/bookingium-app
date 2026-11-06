@@ -104,6 +104,7 @@ import {
 } from './mail/invoiceSend'
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from './services/MailLinkService'
+import { MailRuleService, ruleFolder } from './services/MailRuleService'
 import { contactAddressEvents } from './repositories/contactEmails'
 import { listMailAccounts, type MailAccountDto } from './mailclient/accounts'
 import type { MailEvent } from './mailclient/protocol'
@@ -1018,6 +1019,27 @@ app.whenReady().then(async () => {
     log: (error) => console.error('Linking mail failed:', error)
   })
   mailClient.events.on('event', mailLinkRuns.onEvent)
+  // #124: the user's rules for incoming mail, after each INBOX sync. Marking and moving are
+  // server writes, so a "Nur lesen" account only gets the links.
+  const mailRules = container.resolve(MailRuleService)
+  const mailRuleRuns = mailLinkRunner({
+    folder: ruleFolder,
+    link: async (accountId) => {
+      const account = listMailAccounts().find((a) => a.id === accountId)
+      const canWrite = account !== undefined && !account.readOnly && !account.writeRefusal
+      const count = await mailRules.applyRules(accountId, canWrite)
+      if (count > 0) {
+        mailClient.events.emit('event', {
+          type: 'mail-rules-applied',
+          accountId,
+          count
+        } satisfies MailEvent)
+      }
+      return count
+    },
+    log: (error) => console.error('Applying mail rules failed:', error)
+  })
+  mailClient.events.on('event', mailRuleRuns.onEvent)
   // A contact that gained an address gets its older mail too: the run sees the changed
   // addresses and starts again from the first mail
   contactAddressEvents.on('saved', () => {

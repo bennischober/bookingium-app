@@ -7,7 +7,8 @@ import { sanitizeEmailHtml } from './sanitize.js';
 import { fetchRemoteImagesAsDataUris } from './remote_images.js';
 import { parseStoredMessage } from './parse.js';
 import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
-import type { MessageHeader, HeaderPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
+import { matchingRules, recipientsOf } from './mail_rules.js';
+import type { MessageHeader, HeaderPage, RuleMatcher, RuleMatchPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
 import type { AccountEntry, MailCoreEvent, MailCoreOptions } from './index.js';
 import type { MessageRow } from './store.js';
 
@@ -219,6 +220,55 @@ export class MessageViews {
       date: r.date,
     }));
     return { generation, headers };
+  }
+
+  /**
+   * #124: the INBOX mails with a row id above `cursor` that match one of `rules`, oldest first.
+   * Rows of other folders are read only to move the cursor past them. Like listHeadersSince, the
+   * subject and the addresses stay in the worker: only ids, dates and flags are returned.
+   */
+  async matchInboxSince(cursor: number, limit: number, rules: RuleMatcher[], accountId?: string): Promise<RuleMatchPage> {
+    const store = this.entry(accountId).store;
+    const generation = store.generation();
+    const rows = store.db.prepare(
+      `SELECT m.id, m.message_id, m.from_email, m.from_name, m.to_json, m.cc_json, m.subject,
+              m.date, m.internal_date, m.size_bytes, m.flags_json, f.imap_path
+       FROM messages m JOIN folders f ON f.id = m.folder_id
+       WHERE m.id > ? ORDER BY m.id LIMIT ?`)
+      .all(cursor, Math.max(1, Math.min(limit, 500))) as Array<{
+        id: number; message_id: string | null; from_email: string | null; from_name: string | null;
+        to_json: string | null; cc_json: string | null; subject: string | null; date: string | null;
+        internal_date: string | null; size_bytes: number | null; flags_json: string | null; imap_path: string;
+      }>;
+    const matches: RuleMatchPage['matches'] = [];
+    for (const r of rows) {
+      if (r.imap_path.toUpperCase() !== 'INBOX' || rules.length === 0) continue;
+      const ruleIds = matchingRules(rules, {
+        fromEmail: r.from_email ?? '',
+        fromName: r.from_name ?? '',
+        recipients: [...recipientsOf(r.to_json), ...recipientsOf(r.cc_json)],
+        subject: r.subject ?? '',
+      });
+      if (ruleIds.length === 0) continue;
+      const flags = this.safeJson<{ seen?: boolean; flagged?: boolean }>(r.flags_json ?? '{}', {});
+      matches.push({
+        id: r.id,
+        messageId: r.message_id ? normalizeMessageId(r.message_id) || null : null,
+        fallbackKey: messageFallbackKey({
+          date: r.date ?? r.internal_date,
+          fromEmail: r.from_email ?? '',
+          sizeBytes: r.size_bytes,
+          subject: r.subject,
+        }),
+        receivedAt: r.internal_date ?? r.date,
+        date: r.date,
+        seen: flags.seen === true,
+        flagged: flags.flagged === true,
+        ruleIds,
+      });
+    }
+    const lastId = rows.length > 0 ? rows[rows.length - 1].id : cursor;
+    return { generation, lastId, scanned: rows.length, matches };
   }
 
   async findByMessageIds(ids: string[], accountId?: string): Promise<MessageListItem[]> {

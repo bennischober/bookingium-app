@@ -238,6 +238,8 @@ export interface Api {
   // --- C2: mail -> record linking ---
   /** Addresses and ids only, never subjects or bodies (C2). Ordered by row id; names the store (MR-28). */
   listHeadersSince?(cursor: number, limit: number, accountId?: string): Promise<HeaderPage>;
+  /** #124: the INBOX mails after `cursor` that match one of the rules; ids and flags only, never subjects */
+  matchInboxSince?(cursor: number, limit: number, rules: RuleMatcher[], accountId?: string): Promise<RuleMatchPage>;
   // --- B1: folder create / rename / delete (writable accounts only) ---
   createFolder?(parentPath: string | null, name: string, accountId?: string): Promise<OpSummary>;
   renameFolder?(path: string, newName: string, accountId?: string): Promise<OpSummary>;
@@ -267,6 +269,29 @@ export type MessageHeader = {
   ccEmails: string[];
   date: string | null;
 };
+
+/** #124: one mail rule's conditions as main hands them in. Each list holds alternatives (one is
+ * enough); every non-empty list must match. Compared case-insensitively as "contains". */
+export type RuleMatcher = { id: number; from: string[]; to: string[]; subject: string[] };
+
+/** #124: one INBOX mail that matched; the subject never leaves the worker */
+export type RuleMatch = {
+  id: number;
+  messageId: string | null;
+  /** sha1(date|from_email|size_bytes|subject), as on MessageHeader */
+  fallbackKey: string;
+  /** when the server received it (INTERNALDATE), else the Date header */
+  receivedAt: string | null;
+  date: string | null;
+  seen: boolean;
+  flagged: boolean;
+  /** the matching rules, in the order they were given */
+  ruleIds: number[];
+};
+
+/** #124: one scanned page. `lastId` is the highest row id read (any folder), the next cursor;
+ * `scanned` is 0 once nothing is left. Names the store like HeaderPage (MR-28). */
+export type RuleMatchPage = { generation: string; lastId: number; scanned: number; matches: RuleMatch[] };
 
 /** Task 4: journaled write operation, UI-safe summary (no mail content). */export type OpSummary = {
   id: string;

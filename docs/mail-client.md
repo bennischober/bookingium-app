@@ -107,6 +107,15 @@ events and invoices), not a general mail client.
   {Empfänger}). The event the replied-to mail is linked to is preselected. A placeholder without a value
   stays as typed so the gap shows; the template's subject only fills an empty subject. No {Absender}:
   accounts have no display name. The invoice and contract mail texts stay where they are.
+- **Mail rules** (#124): Einstellungen › E-Mail › "E-Mail-Regeln" (`MailRulesCard`, table `mail_rule`).
+  A rule names parts of the sender, To/Cc and subject (comma for alternatives; every named condition must
+  hold) and what happens to a matching INBOX mail: mark read, flag, move to a folder on the server, link to
+  a record (source `rule`). They run after each INBOX sync (`MailRuleService.applyRules`, started from
+  `index.ts` through `mailLinkRunner`); the worker matches (`matchInboxSince`), so the subject and the
+  addresses never cross IPC for it. Rules act only on mail received since they were created or switched
+  on (less 10 minutes for the server's clock), each mail once per rule (`mail_rule_hit`), the first rule
+  with a folder moves it. On a "Nur lesen" account rules only link; marking and moving are skipped and
+  the rule says so. Rules follow their account like links (`adoptRestoredLinks`).
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).
@@ -187,6 +196,7 @@ src/main/
   api/routers/mail.router.ts      mail.call, mail.events, accounts, connection test, send
   api/routers/mail_link.router.ts mail links and the E-Mails tab
   api/routers/mail_template.router.ts   the user's mail templates and an event's placeholder values
+  api/routers/mail_rule.router.ts       mail rules; services/MailRuleService.ts carries them out
 src/renderer/src/
   lib/mailApi.ts                  Proxy: mailApi.method(...args, accountId) -> mail.call
   hooks/useMailClientEnabled.ts   the experimental switch
@@ -194,7 +204,8 @@ src/renderer/src/
   hooks/useMail*.ts, useMessageActions.ts, useFolderActions.ts   the mail page's logic
   pages/MailPage.tsx, MailWindowPage.tsx
   components/mail/                panes, compose, dialogs; pure logic in *.ts with a vitest each
-  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx, MailTemplatesCard.tsx
+  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx, MailTemplatesCard.tsx,
+                                  MailRulesCard.tsx
 tests/mail_*.test.ts              vitest (sandbox-backed suites fail locally without the sandbox)
 tests/e2e/mail-client.spec.ts     Playwright against the loopback sandbox
 ```

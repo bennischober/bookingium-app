@@ -51,6 +51,11 @@ export function useMailUnreadCount(): { total: number; accounts: AccountUnread[]
     enabled,
     onData: (event) => {
       if (event.type === 'follow-ups-answered') void utils.followUp.invalidate()
+      // #124: the rules filed or linked mail; their counts and the E-Mails tabs change
+      if (event.type === 'mail-rules-applied') {
+        void utils.mailRule.list.invalidate()
+        void utils.mailLink.invalidate()
+      }
       const plan = unreadBadgePlan(event)
       if (plan) refresher.add(plan)
     }

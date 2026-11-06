@@ -42,6 +42,7 @@ export const MAIL_API_METHODS = [
   'undoOp',
   'expungeFromTrash',
   'listHeadersSince',
+  'matchInboxSince',
   'findByMessageIds',
   'findReplies',
   'createFolder',
@@ -87,6 +88,8 @@ export type MailEvent =
   | { type: 'image-progress'; accountId: string; messageId: number; done: number; total: number }
   // #121: main's linker closed follow-ups because replies came; the renderer refreshes them
   | { type: 'follow-ups-answered'; accountId: string; count: number }
+  // #124: the mail rules handled mails; the settings card shows the new counts
+  | { type: 'mail-rules-applied'; accountId: string; count: number }
 
 export type FromWorker =
   | { type: 'ready' }
