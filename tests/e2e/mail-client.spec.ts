@@ -501,7 +501,25 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
     // The switches show while the mail client is on (reloaded: the settings were changed over IPC)
     await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
     await page.reload()
-    await expect(page.getByLabel('Benachrichtigung bei neuen E-Mails')).toBeChecked()
+    // #133: both announcements are off until the user turns them on
+    for (const label of [
+      'Windows-Benachrichtigung bei neuen E-Mails',
+      'Hinweis in Bookingium bei neuen E-Mails'
+    ]) {
+      const toggle = page.getByLabel(label)
+      await expect(toggle).not.toBeChecked()
+      await toggle.click()
+      await expect(toggle).toBeChecked()
+    }
+    await expect
+      .poll(async () => {
+        const saved = await trpc<{ mailNotifications: boolean; mailInAppNotifications: boolean }>(
+          'query',
+          'settings.get'
+        )
+        return saved.mailNotifications && saved.mailInAppNotifications
+      })
+      .toBe(true)
     const closeToTray = page.getByLabel('Beim Schließen im Infobereich weiterlaufen')
     await expect(closeToTray).not.toBeChecked()
 
@@ -562,7 +580,11 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
         main?.focus()
       }
     })
-    await trpc('mutation', 'settings.update', { mailCloseToTray: false })
+    await trpc('mutation', 'settings.update', {
+      mailCloseToTray: false,
+      mailNotifications: false,
+      mailInAppNotifications: false
+    })
     await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, TRAY_TAG)
     // Synced away here too: a stale row on top of the INBOX would be the next test's first mail
     await mail('triggerSync', true, sandboxId)

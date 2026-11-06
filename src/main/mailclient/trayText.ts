@@ -37,6 +37,23 @@ export function newMailNotice(count: number, email: string): MailNotice {
   }
 }
 
+/** Which window has the focus when new mail arrives: none (the app is in the background) */
+export type NewMailFocus = 'none' | 'main' | 'other'
+
+/**
+ * #133: where new mail is announced, if at all. In the background Windows announces it, with the
+ * main window in front the app's own popup, and in a mail window nothing: the user is reading mail
+ * already. Each has its own switch, both off by default; the unread counts show either way.
+ */
+export function newMailChannel(
+  focus: NewMailFocus,
+  settings: { desktop: boolean; inApp: boolean }
+): 'desktop' | 'app' | null {
+  if (focus === 'none') return settings.desktop ? 'desktop' : null
+  if (focus === 'main') return settings.inApp ? 'app' : null
+  return null
+}
+
 /** Shown once per session when closing the window keeps the app in the tray */
 export const STILL_RUNNING_NOTICE: MailNotice = {
   title: 'Bookingium läuft weiter',

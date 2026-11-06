@@ -145,8 +145,11 @@ export const AppSettings = z.object({
   // "E-Mail (experimentell)": the built-in mail client, off until the user turns it on.
   // Off, its worker never starts and the renderer shows none of its pages, tabs or options.
   mailClient: z.boolean().default(false),
-  // #65: a desktop notification when new mail arrives in an INBOX (count and account only)
-  mailNotifications: z.boolean().default(true),
+  // #65: a Windows notification when new mail arrives in an INBOX while the app is in the
+  // background (count and account only). #133: off by default, the unread counts are enough
+  mailNotifications: z.boolean().default(false),
+  // #133: the same as a popup in the app while its main window is in front, off by default
+  mailInAppNotifications: z.boolean().default(false),
   // #65: closing the window keeps the app in the tray (Infobereich), so mail is still fetched
   // and announced; off, closing quits as before. Only while the mail client has an account.
   mailCloseToTray: z.boolean().default(false),
@@ -187,6 +190,7 @@ export const UpdateAppSettingsInput = z
     mailProgram: shape.mailProgram.unwrap(),
     mailClient: shape.mailClient.unwrap(),
     mailNotifications: shape.mailNotifications.unwrap(),
+    mailInAppNotifications: shape.mailInAppNotifications.unwrap(),
     mailCloseToTray: shape.mailCloseToTray.unwrap(),
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
