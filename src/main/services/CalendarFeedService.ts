@@ -135,6 +135,11 @@ export class CalendarFeedService {
     }, UPDATE_DELAY_MS)
   }
 
+  /** Only when follow-ups are in the file: their record is named in it */
+  scheduleFollowUpUpdate(): void {
+    if (this.settings.get().calendarFeedFollowUps) this.scheduleUpdate()
+  }
+
   status(): CalendarFeedStatusDto {
     const settings = this.settings.get()
     return {
@@ -152,6 +157,19 @@ export class CalendarFeedService {
 export function scheduleCalendarUpdate(): void {
   try {
     container.resolve(CalendarFeedService).scheduleUpdate()
+  } catch (error) {
+    console.error('Calendar feed update could not be scheduled:', error)
+  }
+}
+
+/**
+ * For records follow-ups can be on that are not in the calendar themselves
+ * (person, company, invoice): a rename changes the "Zu: ..." line, a delete
+ * takes their follow-ups with it (ON DELETE CASCADE)
+ */
+export function scheduleFollowUpCalendarUpdate(): void {
+  try {
+    container.resolve(CalendarFeedService).scheduleFollowUpUpdate()
   } catch (error) {
     console.error('Calendar feed update could not be scheduled:', error)
   }

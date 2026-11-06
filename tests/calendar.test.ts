@@ -19,6 +19,7 @@ import { CalendarFeedService } from '../src/main/services/CalendarFeedService'
 import { SettingsService } from '../src/main/services/SettingsService'
 import { DealMemoService } from '../src/main/services/DealMemoService'
 import { FollowUpService } from '../src/main/services/FollowUpService'
+import { CompanyService } from '../src/main/services/CompanyService'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -178,6 +179,33 @@ describe('calendar file', () => {
     await new Promise((resolve) => setTimeout(resolve, 2000))
     expect(readFileSync(path, 'utf-8')).not.toContain('Wiedervorlage:')
     expect(feed.status()).toMatchObject({ followUps: 0 })
+
+    settings.update({ calendarFeedFollowUps: false })
+  })
+
+  it('follows a rename or delete of the record a follow-up is on', async () => {
+    const path = join(dir, 'Firma.ics')
+    const settings = container.resolve(SettingsService)
+    settings.update({ calendarFeedPath: path, calendarFeedFollowUps: true })
+    const feed = container.resolve(CalendarFeedService)
+    const companies = container.resolve(CompanyService)
+    const companyId = db.insert(schema.company).values({ name: 'Alte Firma' }).returning().get().id
+    container.resolve(FollowUpService).create({
+      dueDate: '2026-11-21',
+      note: 'Angebot nachfassen',
+      record: { type: 'company', id: companyId }
+    })
+    await feed.update()
+    expect(readFileSync(path, 'utf-8')).toContain('Zu: Alte Firma')
+
+    await companies.updateCompany({ id: companyId, name: 'Neue Firma' })
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    expect(readFileSync(path, 'utf-8')).toContain('Zu: Neue Firma')
+
+    // Deleting the company takes the follow-up with it, out of the file too
+    await companies.deleteCompany(companyId)
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    expect(readFileSync(path, 'utf-8')).not.toContain('Angebot nachfassen')
 
     settings.update({ calendarFeedFollowUps: false })
   })

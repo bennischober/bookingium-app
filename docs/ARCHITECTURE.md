@@ -511,7 +511,9 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   by link) the .ics gets each open one as an all-day, non-blocking entry
   (`UID:follow-up-<id>@bookingium`, "Wiedervorlage: <first line>"). Every
   `FollowUpService` change schedules a rewrite, so a ticked-off one drops
-  out of subscribed calendars.
+  out of subscribed calendars. Person, company and invoice changes call
+  `scheduleFollowUpCalendarUpdate()` (only with the switch on): a rename
+  changes the "Zu: ..." line, a delete cascades their follow-ups away.
 - **Offered, not made:** saving something unfinished (an invoice draft, an
   event still "Ausstehend") shows "Wiedervorlage setzen" in the success
   toast (`useFollowUpNudge`), unless the record already has an open

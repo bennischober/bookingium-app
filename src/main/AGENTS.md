@@ -62,7 +62,8 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 
 ### services/
 - After a mutation on a calendar-visible object (band, venue, deal memo, hotel, follow-up)
-  call `scheduleCalendarUpdate()`.
+  call `scheduleCalendarUpdate()`; after renaming or deleting a person, company or invoice
+  (follow-ups name them) call `scheduleFollowUpCalendarUpdate()`.
 - After deleting a document owner (band, company, venue, person, deal memo) call
   `removeOwnerFolder(type, id)`: DB rows go via triggers, folders do not.
 - Read-only aggregates (`DashboardService`, `SearchService`,
