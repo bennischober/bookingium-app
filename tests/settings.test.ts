@@ -39,8 +39,9 @@ const DEFAULTS = {
   mailProgram: 'auto',
   // the built-in mail client is experimental and off until the user turns it on
   mailClient: false,
-  // #65: notifications on, closing still quits
-  mailNotifications: true,
+  // #133: no new-mail notifications, closing still quits (#65)
+  mailNotifications: false,
+  mailInAppNotifications: false,
   mailCloseToTray: false,
   // The map preview (#102) is experimental and off until the user turns it on
   mapPreview: false,

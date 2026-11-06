@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch'
 
 /**
  * "E-Mail (experimentell)" (Einstellungen › E-Mail): the built-in mail client, off by default.
- * While it is on, two more switches (#65): the new-mail notification and closing to the tray.
+ * While it is on, more switches: the new-mail notification from Windows and the popup in the app
+ * (#133, both off by default), and closing to the tray (#65).
  * Main starts or stops its worker with the setting; the renderer hides the mail page, the E-Mails
  * tabs, the mail search and the own editor while it is off.
  */
@@ -65,7 +66,20 @@ export function MailClientSwitchCard() {
                 disabled={updateSettings.isPending}
               />
               <Label htmlFor="settings-mail-notifications">
-                Benachrichtigung bei neuen E-Mails
+                Windows-Benachrichtigung bei neuen E-Mails
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="settings-mail-in-app-notifications"
+                checked={settings.data.mailInAppNotifications}
+                onCheckedChange={(checked) =>
+                  updateSettings.mutate({ mailInAppNotifications: checked })
+                }
+                disabled={updateSettings.isPending}
+              />
+              <Label htmlFor="settings-mail-in-app-notifications">
+                Hinweis in Bookingium bei neuen E-Mails
               </Label>
             </div>
             <div className="flex items-center gap-3">
@@ -80,8 +94,10 @@ export function MailClientSwitchCard() {
               </Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Die Benachrichtigung nennt nur die Anzahl und das Konto, keinen Betreff und keinen
-              Absender. Läuft Bookingium im Infobereich weiter, werden E-Mails auch bei
+              Die Zahl ungelesener E-Mails steht immer im Menü und am Symbol im Infobereich. Windows
+              meldet neue E-Mails, wenn Bookingium im Hintergrund ist, der Hinweis erscheint, wenn
+              das Fenster vorne ist; beide nennen nur die Anzahl und das Konto, keinen Betreff und
+              keinen Absender. Läuft Bookingium im Infobereich weiter, werden E-Mails auch bei
               geschlossenem Fenster abgerufen; beendet wird es dann über das Symbol im Infobereich.
             </p>
           </div>

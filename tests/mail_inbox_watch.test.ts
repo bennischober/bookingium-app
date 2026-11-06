@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { inboxUnreadOf, inboxWatch, type InboxWatchDeps } from '../src/main/mailclient/inboxWatch'
 import {
   TRAY_TOOLTIP_MAX,
+  newMailChannel,
   newMailNotice,
   trayTooltip,
   withUnreadDot
@@ -229,6 +230,22 @@ describe('tray texts', () => {
       body: 'Im Posteingang von a@example.test'
     })
     expect(newMailNotice(3, '')).toEqual({ title: '3 neue E-Mails', body: 'Im Posteingang' })
+  })
+
+  // #133
+  it('announces new mail only where its switch is on', () => {
+    const off = { desktop: false, inApp: false }
+    const on = { desktop: true, inApp: true }
+    // Both off, the default: nowhere
+    expect(newMailChannel('none', off)).toBeNull()
+    expect(newMailChannel('main', off)).toBeNull()
+    // In the background Windows, with the main window in front the app, each on its own switch
+    expect(newMailChannel('none', on)).toBe('desktop')
+    expect(newMailChannel('main', on)).toBe('app')
+    expect(newMailChannel('none', { desktop: false, inApp: true })).toBeNull()
+    expect(newMailChannel('main', { desktop: true, inApp: false })).toBeNull()
+    // In a mail window the user is reading mail already
+    expect(newMailChannel('other', on)).toBeNull()
   })
 
   it('paints the dot in the lower right corner of a copy', () => {

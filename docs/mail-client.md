@@ -71,8 +71,11 @@ events and invoices), not a general mail client.
   decides from counts alone (`mailclient/inboxWatch.ts`): an INBOX `folder-done` that stored mail
   AND raised that INBOX's unread count; the first count per worker start (or the account's first
   download) is a silent baseline, an `op-event` re-reads it, and a UIDVALIDITY rebuild announces
-  nothing. Two switches under Einstellungen › E-Mail: „Benachrichtigung bei neuen E-Mails“ (on by
-  default) and „Beim Schließen im Infobereich weiterlaufen“ (off by default; on, closing the main
+  nothing. Switches under Einstellungen › E-Mail: „Windows-Benachrichtigung bei neuen E-Mails“
+  (setting `mailNotifications`) and „Hinweis in Bookingium bei neuen E-Mails“
+  (`mailInAppNotifications`), both off by default since #133 (users found them annoying; the
+  unread counts stay), where to announce decided by `newMailChannel` in `trayText.ts`; and „Beim
+  Schließen im Infobereich weiterlaufen“ (off by default; on, closing the main
   window hides it and sync goes on, quitting is via the tray menu; once per session a notice says
   so). The app's AppUserModelID is `com.bookingium.app`, the electron-builder `appId`, which Windows
   needs for the notifications to show the app's name and icon: the installer's Start Menu shortcut
