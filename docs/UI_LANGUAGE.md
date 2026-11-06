@@ -159,3 +159,13 @@ English.
 | `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                   |
 | `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                     |
 | `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig  |
+
+### Mail templates
+
+| English                               | German                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| Mail templates (settings card)        | E-Mail-Vorlagen                                                                      |
+| New / edit / add template             | Neue Vorlage / Vorlage bearbeiten / Vorlage hinzufügen…                              |
+| Insert template (compose toolbar)     | Vorlage einfügen; button „Einfügen“                                                  |
+| Event for the placeholders / no event | Event für die Platzhalter / Ohne Event                                               |
+| Placeholders                          | {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro}, {Empfänger} |

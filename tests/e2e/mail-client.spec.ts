@@ -2206,6 +2206,87 @@ test('a formatted mail is sent with an HTML part and its plain text', async () =
   }
 })
 
+// #123: a template made in the settings is inserted at the caret while composing, filled from an
+// event; the subject goes into the empty subject field. Nothing is sent or saved.
+const TEMPLATE_TAG = 'e2e-template-'
+
+test('a mail template is inserted at the caret, filled from an event', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const events = await trpc<{ items: { id: number; name: string; date: string }[] }>(
+    'query',
+    'dealMemo.getAllPaginated',
+    { page: 1, pageSize: 1 }
+  )
+  const event = events.items[0]
+  test.skip(!event, 'no event in the data')
+  const name = `${TEMPLATE_TAG}${Date.now()}`
+  const [year, month, day] = event.date.split('-')
+
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
+    await page.getByRole('button', { name: 'Vorlage hinzufügen…' }).click()
+    const form = page.getByRole('dialog', { name: 'Neue Vorlage' })
+    await form.getByLabel('Name').fill(name)
+    await form.getByLabel('Betreff').fill('Zusage {Event}')
+    await form.getByLabel('Text').fill('Hallo,\n\nam {Datum} passt es.')
+    await form.getByRole('button', { name: 'Speichern' }).click()
+    await expect(form).toHaveCount(0)
+    await expect(page.getByRole('list', { name: 'E-Mail-Vorlagen' })).toContainText(name)
+
+    await openMailPage(sandboxId)
+    await page.getByRole('button', { name: 'Neue E-Mail' }).click()
+    const editor = page.getByRole('form', { name: 'E-Mail verfassen' })
+    await expect(editor).toBeVisible({ timeout: 30_000 })
+    const body = editor.getByRole('textbox', { name: 'Text' })
+    await body.click()
+    await body.pressSequentially('Vorweg')
+
+    await editor.getByRole('button', { name: 'Vorlage einfügen' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Vorlage einfügen' })
+    await dialog.getByRole('combobox', { name: 'Vorlage' }).click()
+    await page.getByRole('option', { name }).click()
+    await dialog.getByLabel('Event für die Platzhalter').fill(event.name)
+    await dialog.getByRole('list', { name: 'Treffer' }).getByRole('button').first().click()
+    await expect(dialog).toContainText('Ausgewählt:')
+    await dialog.getByRole('button', { name: 'Einfügen' }).click()
+    await expect(dialog).toHaveCount(0)
+
+    await expect(editor.getByLabel('Betreff')).toHaveValue(
+      `Zusage ${event.name.trim().replace(/\s+/g, ' ')}`
+    )
+    // After the text that was there, where the caret stood
+    await expect(body).toContainText(`am ${day}.${month}.${year} passt es.`)
+    const text = await body.innerText()
+    expect(text.indexOf('Vorweg')).toBeLessThan(text.indexOf('Hallo,'))
+
+    // Nothing is kept: discarding the unsaved mail asks, and no draft is written
+    await editor.getByRole('button', { name: 'Verwerfen' }).click()
+    await page
+      .getByRole('dialog')
+      .filter({ hasText: 'verwerfen?' })
+      .getByRole('button', { name: 'Verwerfen' })
+      .click()
+    await expect(editor).toHaveCount(0)
+
+    // Deleting asks first
+    await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
+    await page.getByRole('button', { name: `${name} löschen` }).click()
+    await page
+      .getByRole('dialog')
+      .filter({ hasText: 'löschen?' })
+      .getByRole('button', { name: 'Löschen' })
+      .click()
+    await expect(page.getByRole('button', { name: `${name} löschen` })).toHaveCount(0)
+  } finally {
+    const left = await trpc<{ id: number; name: string }[]>('query', 'mailTemplate.list')
+    for (const template of left.filter((t) => t.name.startsWith(TEMPLATE_TAG)))
+      await trpc('mutation', 'mailTemplate.delete', template.id)
+  }
+})
+
 // F6/F7: the two drag bugs the user hit. F6 is the important one: after moving a
 // folder, dragging a MAIL moved that folder again instead of the mail.
 const DRAG_PREFIX = 'E2E-DragBug-'

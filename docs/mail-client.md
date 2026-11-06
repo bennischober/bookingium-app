@@ -101,6 +101,13 @@ events and invoices), not a general mail client.
   company or venue the sender's address belongs to (`mailLink.senderOwners`, only when exactly one of a
   type). An unknown sender is offered as a new LoPro person. The new event gets a manual link to the mail.
   Like "Zuordnen…", it needs a Message-ID and also works on read-only accounts.
+- **Mail templates** (#123): the user's own texts, kept in the `mail_template` table and edited under
+  Einstellungen › E-Mail (`MailTemplatesCard`). "Vorlage einfügen" in the compose toolbar
+  (`InsertTemplateDialog`) inserts one at the caret, its placeholders filled from an event
+  (`mailTemplate.ts`, pure: {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro},
+  {Empfänger}). The event the replied-to mail is linked to is preselected. A placeholder without a value
+  stays as typed so the gap shows; the template's subject only fills an empty subject. No {Absender}:
+  accounts have no display name. The invoice and contract mail texts stay where they are.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).
@@ -180,6 +187,7 @@ src/main/
   mail/                           invoice mail text, mail program choice, compose window, link clipboard
   api/routers/mail.router.ts      mail.call, mail.events, accounts, connection test, send
   api/routers/mail_link.router.ts mail links and the E-Mails tab
+  api/routers/mail_template.router.ts   the user's mail templates and an event's placeholder values
 src/renderer/src/
   lib/mailApi.ts                  Proxy: mailApi.method(...args, accountId) -> mail.call
   hooks/useMailClientEnabled.ts   the experimental switch
@@ -187,7 +195,7 @@ src/renderer/src/
   hooks/useMail*.ts, useMessageActions.ts, useFolderActions.ts   the mail page's logic
   pages/MailPage.tsx, MailWindowPage.tsx
   components/mail/                panes, compose, dialogs; pure logic in *.ts with a vitest each
-  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx
+  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx, MailTemplatesCard.tsx
 tests/mail_*.test.ts              vitest (sandbox-backed suites fail locally without the sandbox)
 tests/e2e/mail-client.spec.ts     Playwright against the loopback sandbox
 ```

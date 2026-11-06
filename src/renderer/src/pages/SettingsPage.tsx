@@ -34,6 +34,7 @@ import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
+import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
@@ -422,6 +423,7 @@ export default function SettingsPage() {
           <InvoiceEmailCard />
           <MailClientSwitchCard />
           {mailClientEnabled && <MailAccountsCard />}
+          {mailClientEnabled && <MailTemplatesCard />}
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

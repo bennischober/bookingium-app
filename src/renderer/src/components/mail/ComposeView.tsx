@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bold, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
+import { Bold, FileText, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
@@ -29,6 +29,7 @@ import {
 import { formatSize } from './format'
 import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
 import { composeBody, toEditorHtml, type ComposeFormat } from './composeBody'
+import { InsertTemplateDialog } from './InsertTemplateDialog'
 import {
   type SendPhase,
   createSendGate,
@@ -284,6 +285,9 @@ export function ComposeView({
   const [followUpChoice, setFollowUpChoice] = useState<FollowUpChoice>('none')
   const fileInput = useRef<HTMLInputElement>(null)
   const body = useRef<HTMLDivElement>(null)
+  // #123: the template dialog, and where the caret was when it opened (the dialog takes the focus)
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const templateCaret = useRef<Range | null>(null)
   // F3: what the editor starts with. A plain text becomes paragraphs, so the
   // quote of a reply and the line breaks of a draft survive the first render.
   const initialBodyHtml = useRef(toEditorHtml(initial.bodyText, initial.bodyHtml)).current
@@ -432,6 +436,37 @@ export function ComposeView({
   const onBodyInput = () => {
     const html = body.current?.innerHTML ?? ''
     update(composeBody(html))
+  }
+
+  const openTemplates = () => {
+    const selection = window.getSelection()
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+    templateCaret.current =
+      range && body.current?.contains(range.commonAncestorContainer) ? range.cloneRange() : null
+    setTemplateOpen(true)
+  }
+
+  /**
+   * #123: the template's text goes where the caret was, else at the top (above a quote and the
+   * signature); its subject only into an empty subject, a reply's "Re:" stays
+   */
+  const insertTemplate = ({ subject, body: text }: { subject: string; body: string }) => {
+    const editor = body.current
+    if (!editor) return
+    editor.focus()
+    let range = templateCaret.current
+    if (!range || !editor.contains(range.commonAncestorContainer)) {
+      range = document.createRange()
+      range.setStart(editor.firstElementChild ?? editor, 0)
+      range.collapse(true)
+    }
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    // insertHTML keeps the browser's undo; the text is escaped into paragraphs
+    document.execCommand('insertHTML', false, toEditorHtml(text))
+    const filled = composeBody(editor.innerHTML)
+    update(mail.subject.trim() ? filled : { ...filled, subject })
   }
 
   const saveNow = async () => {
@@ -959,6 +994,18 @@ export function ComposeView({
               <Icon />
             </Button>
           ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            disabled={locked}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={openTemplates}
+          >
+            <FileText />
+            Vorlage einfügen
+          </Button>
         </div>
       </fieldset>
       <div
@@ -972,6 +1019,14 @@ export function ComposeView({
         onInput={onBodyInput}
         // The editor shows what the mail will look like, not the tags
         suppressContentEditableWarning
+      />
+      <InsertTemplateDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        accountId={accountId}
+        inReplyTo={mail.inReplyTo}
+        recipient={mail.to[0]?.name ?? ''}
+        onInsert={insertTemplate}
       />
     </form>
   )
