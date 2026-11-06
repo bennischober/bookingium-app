@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'

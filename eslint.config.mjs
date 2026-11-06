@@ -65,6 +65,17 @@ export default defineConfig(
       '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
+  {
+    // Toasts go through lib/toast.ts, which sets how long each kind stays
+    files: ['src/renderer/src/**/*.{ts,tsx}'],
+    ignores: ['src/renderer/src/lib/toast.ts', 'src/renderer/src/components/ui/sonner.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'sonner', message: "Import toast from '@/lib/toast'." }] }
+      ]
+    }
+  },
   eslintConfigPrettier,
   {
     // The mail core keeps the prototype's style (semicolons, long lines) so hand-ports stay

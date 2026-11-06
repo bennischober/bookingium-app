@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { addDays, DUE_PRESETS, localIsoDate } from '@/lib/followUps'

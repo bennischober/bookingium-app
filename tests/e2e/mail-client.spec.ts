@@ -524,8 +524,11 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
     const popup = page.getByText(/^(Neue E-Mail|\d+ neue E-Mails)$/)
     await expect(popup).toBeVisible({ timeout: 120_000 })
     expect(await notices()).toHaveLength(announced)
+    // "Anzeigen" opens the account's INBOX on the new mail, the newest unread one
     await page.getByRole('button', { name: 'Anzeigen', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: `${tag}-app`, exact: true })).toBeVisible()
+    await expect(page).not.toHaveURL(/newMail/)
     await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
 
     // Closing hides the window instead of quitting, and says so once

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { FormSheet } from '@/components/form-sheet'
 import { InvoiceForm } from '@/components/forms/InvoiceForm'

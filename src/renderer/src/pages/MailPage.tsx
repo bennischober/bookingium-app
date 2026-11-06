@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ChevronRight, Lock, Mail, Search, SquarePen, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
 import { cn } from '@/lib/utils'
@@ -38,7 +38,7 @@ import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
 import { MessageView } from '@/components/mail/MessageView'
 import { PaneResizer } from '@/components/mail/PaneResizer'
 import { SelectionActions } from '@/components/mail/SelectionActions'
-import { EMPTY_SELECTION, type Selection } from '@/components/mail/selection'
+import { EMPTY_SELECTION, type Selection, single } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
 import { useMailSearch } from '@/hooks/useMailSearch'
 import { useMailOps } from '@/hooks/useMailOps'
@@ -395,6 +395,64 @@ function MailClient() {
     )
   }
 
+  // #65: the account whose newest unread mail opens once its INBOX list is fresh
+  const [openNewest, setOpenNewest] = useState<string | null>(null)
+
+  /**
+   * Shows another account, on the given folder or its INBOX. Selection, search and the
+   * editor belong to the account they were made in, so they are left behind.
+   */
+  const switchAccount = (id: string, folderId: string | null = null) => {
+    setChosenAccountId(id)
+    setChosenFolderId(folderId)
+    setSelection(EMPTY_SELECTION)
+    openedId.current = null
+    setCompose(null)
+    clearSearch()
+    // I10 Low: the hidden rows belong to the account they were hidden in. Carried over, an
+    // id that happens to exist in the new account would stay invisible for no reason.
+    setHiddenIds([])
+    // A new mail waiting to open is given up when the user moves on (a new-mail click sets it again)
+    setOpenNewest(null)
+  }
+
+  // #65: a click on a new-mail popup or notification (?newMail=<account>) shows that account's
+  // INBOX with its newest unread mail open. The search param is taken once and removed, so a
+  // reload or Back does not open it again. An open editor is left alone: it may hold unsaved text.
+  const { newMail } = useSearch({ strict: false }) as { newMail?: string }
+  const showNewMail = useEffectEvent((id: string) => {
+    void navigate({ to: '/mail', search: {}, replace: true })
+    if (compose || !accounts.data?.some((a) => a.id === id)) return
+    switchAccount(id)
+    // The cached list may be older than the mail; it opens from a fresh one
+    void queryClient.invalidateQueries({ queryKey: ['mail', id, 'folders'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', id, 'messages'] })
+    setOpenNewest(id)
+  })
+  useEffect(() => {
+    if (newMail && accounts.data) showNewMail(newMail)
+  }, [newMail, accounts.data])
+  const openNewestUnread = useEffectEvent(() => {
+    setOpenNewest(null)
+    // The mail that came last is the one stored last: by id, not by the list's date order, in
+    // which an older unread mail (or one with an odd Date header) can stand above it
+    const newest = listItems.reduce<MessageListItem | null>(
+      (last, m) => (!m.isRead && (!last || m.id > last.id) ? m : last),
+      null
+    )
+    if (newest) changeSelection(single(newest.id))
+  })
+  const newestReady =
+    openNewest !== null &&
+    openNewest === accountId &&
+    chosenFolderId === null &&
+    folderId !== null &&
+    messages.isSuccess &&
+    !messages.isFetching
+  useEffect(() => {
+    if (newestReady) openNewestUnread()
+  }, [newestReady])
+
   useMailShortcuts({
     searchRef,
     folderTreeRef,
@@ -430,24 +488,10 @@ function MailClient() {
   }
 
   const listLoading = searching ? results.isLoading : messages.isLoading || folders.isLoading
-  /**
-   * Shows another account, on the given folder or its INBOX. Selection, search and the
-   * editor belong to the account they were made in, so they are left behind.
-   */
-  const switchAccount = (id: string, folderId: string | null = null) => {
-    setChosenAccountId(id)
-    setChosenFolderId(folderId)
-    setSelection(EMPTY_SELECTION)
-    openedId.current = null
-    setCompose(null)
-    clearSearch()
-    // I10 Low: the hidden rows belong to the account they were hidden in. Carried over, an
-    // id that happens to exist in the new account would stay invisible for no reason.
-    setHiddenIds([])
-  }
 
   const chooseFolder = (id: string) => {
     setChosenFolderId(id)
+    setOpenNewest(null)
     setSelection(EMPTY_SELECTION)
     openedId.current = null
     setCompose(null)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useRouter, useCanGoBack, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, FileCode } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { PrintActions } from '@/components/print/PrintActions'

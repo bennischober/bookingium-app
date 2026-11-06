@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { FileText, Plus, Printer, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { Button } from '@/components/ui/button'

@@ -1,4 +1,4 @@
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 // Shared helpers of the document lists (own documents and related ones)
 

@@ -19,7 +19,7 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
 import { cn } from '@/lib/utils'

@@ -153,6 +153,10 @@ const mapRoute = createRoute({
 const mailRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.mail.path,
+  // #65: a click on a new-mail popup or notification names its account, see MailPage
+  validateSearch: (search: Record<string, unknown>): { newMail?: string } => ({
+    newMail: typeof search.newMail === 'string' && search.newMail ? search.newMail : undefined
+  }),
   component: MailPage
 })
 

@@ -7,6 +7,7 @@
 import type { InvoicePrintDto } from '../api/schemas/invoice.schema'
 import type { EmailTemplate } from '../api/schemas/settings.schema'
 import type { EmailDraft } from './eml'
+import { formatMoney as formatAmount } from '../invoice/money'
 
 export type Lang = 'de' | 'en'
 
@@ -42,10 +43,7 @@ function localDatePlus(date: Date, days: number): string {
 }
 
 function formatMoney(value: number, currency: string, lang: Lang): string {
-  return new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
-    style: 'currency',
-    currency: currency || 'EUR'
-  }).format(value)
+  return formatAmount(value, currency, lang === 'en' ? 'en-GB' : 'de-DE')
 }
 
 /** The recipient's address: the invoice contact's, else the general one */

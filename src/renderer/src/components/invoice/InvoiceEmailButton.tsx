@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Mail } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { useInvalidateInvoices } from '@/hooks/useInvalidateInvoices'
 import { Button } from '@/components/ui/button'
 import type { MailMethod } from '../../../../main/mail/mailProgram'

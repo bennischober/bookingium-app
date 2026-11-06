@@ -22,7 +22,7 @@ import type {
   UpdateCompanyInput
 } from '../../../main/api/schemas/company.schema'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { Pencil, Trash2, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
 import { confirmAction } from '@/lib/confirm'

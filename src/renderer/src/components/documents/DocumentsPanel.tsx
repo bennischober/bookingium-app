@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Upload } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'

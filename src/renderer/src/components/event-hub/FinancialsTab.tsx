@@ -13,7 +13,7 @@ import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Euro, FileText, FileSignature } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
 

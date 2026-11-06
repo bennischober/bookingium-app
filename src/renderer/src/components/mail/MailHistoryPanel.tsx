@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Paperclip, Unlink } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import { cn } from '@/lib/utils'

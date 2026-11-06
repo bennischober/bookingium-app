@@ -39,11 +39,13 @@ export const MAIL_SANDBOX = 'allow-popups allow-popups-to-escape-sandbox';
  *
  * Without it the iframe rendered in the browser's default serif at the default size,
  * while the editor is the app's sans-serif - so a mail sent to yourself looked nothing
- * like what was typed. Four properties only: margin, font, size, line-height. Anything
- * more would start overriding the mail's own CSS, which follows this block in the head.
+ * like what was typed. Five properties only: margin, padding, font, size, line-height.
+ * Anything more would start overriding the mail's own CSS, which follows this block in the
+ * head. The padding is the reader header's (px-4 py-3), so a mail's text lines up with its
+ * subject as a plain-text mail does; without it the text sat on the iframe's left edge.
  */
 export const MAIL_BASE_STYLE =
-  'body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; }';
+  'body { margin: 0; padding: 12px 16px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; }';
 
 export interface SanitizeLink {
   index: number;
