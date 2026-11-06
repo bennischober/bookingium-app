@@ -235,8 +235,9 @@ export function BackupCard() {
                   removePassword.isPending
                 }
               />
-              <Label htmlFor="settings-backup-encrypted">
-                <Lock className="h-4 w-4" /> Mit Passwort verschlüsseln
+              <Label htmlFor="settings-backup-encrypted" className="flex items-center gap-1.5">
+                <Lock className="h-4 w-4" />
+                Mit Passwort verschlüsseln
               </Label>
             </div>
             {data?.encrypted && (
