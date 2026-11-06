@@ -6,11 +6,14 @@ import { getSqlite, isDbOpen } from '../db'
 import { latestMigrationMillis } from '../db/migrate'
 import { getStorageBasePath } from '../utils/fileStorage'
 import { BACKUP_RETENTION, isBackupDue } from '../backup/policy'
+import { DEFAULT_KDF, deriveBackupKey, type BackupKey, type KdfParams } from '../backup/encryption'
 import {
   applyStagedRestore,
   cancelRestore,
+  isEncryptedBackup,
   isInsideFolder,
   prepareRestore,
+  readBackupMarker,
   pruneBackups,
   pruneBeforeRestore,
   readBackupState,
@@ -40,6 +43,23 @@ export function backupLocations(userData: string): DataLocations {
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 /**
+ * #54: keeps the backup key on this computer between backups. In the app it is Electron's
+ * safeStorage (the Windows account's protection); services do not import Electron, so index.ts
+ * passes it in. Tests pass a fake.
+ */
+export type KeyStore = {
+  available(): boolean
+  seal(plain: string): string
+  open(sealed: string): string
+}
+
+const KEY_UNREADABLE =
+  'Die Sicherungen sind mit Passwort verschlüsselt, der Schlüssel lässt sich auf diesem Rechner aber nicht lesen. Bitte in den Einstellungen das Passwort neu setzen.'
+
+/** The folder of an encrypted backup the user picked, and what its marker says */
+export type EncryptedRestorePick = { folder: string; backupCreatedAt: string | null }
+
+/**
  * Automatic backups into a folder the user chose (typically synced by OneDrive or Dropbox), the
  * manual "Sicherung erstellen…", and restoring a backup.
  *
@@ -53,6 +73,9 @@ export class BackupService {
   private running: Promise<BackupState> | null = null
   private timers: NodeJS.Timeout[] = []
   private appVersion = ''
+  private keyStore: KeyStore | null = null
+  /** #54: an encrypted backup picked for a restore, waiting for its password */
+  private pendingEncrypted: string | null = null
 
   private storageDir(): string {
     return getStorageBasePath()
@@ -70,11 +93,63 @@ export class BackupService {
   private snapshotDb = (file: string) => getSqlite().backup(file)
 
   status(): BackupStatusDto {
+    // the sealed key stays in the main process
+    const { encryption, ...state } = readBackupState(this.workDir())
     return {
-      ...readBackupState(this.workDir()),
+      ...state,
+      encrypted: encryption !== null,
+      encryptedSince: encryption?.since ?? null,
+      encryptionAvailable: this.keyStore?.available() ?? false,
       running: this.running !== null,
       retention: BACKUP_RETENTION
     }
+  }
+
+  setKeyStore(keyStore: KeyStore | null): void {
+    this.keyStore = keyStore
+  }
+
+  /**
+   * #54: encrypts every backup from now on with `password` (or a new one). Only the key derived
+   * from it is kept, sealed by the system; backups written before keep their password.
+   */
+  async setPassword(
+    password: string,
+    now = new Date(),
+    params: KdfParams = DEFAULT_KDF
+  ): Promise<BackupStatusDto> {
+    const keyStore = this.keyStore
+    if (!keyStore?.available())
+      throw new Error('Verschlüsselte Sicherungen sind auf diesem Rechner nicht möglich.')
+    const { key, kdf } = await deriveBackupKey(password, params)
+    const sealedKey = keyStore.seal(key.toString('base64'))
+    this.update({ encryption: { sealedKey, kdf, since: now.toISOString() } })
+    return this.status()
+  }
+
+  /** #54: plain backups again; encrypted ones already written stay encrypted */
+  disableEncryption(): BackupStatusDto {
+    this.update({ encryption: null })
+    return this.status()
+  }
+
+  /**
+   * The key for the next backup, undefined for plain ones. A key that cannot be read fails the
+   * backup: falling back to a plain copy would put the data unencrypted where the user did not
+   * want it.
+   */
+  private backupKey(): BackupKey | undefined {
+    const { encryption } = readBackupState(this.workDir())
+    if (!encryption) return undefined
+    if (!this.keyStore?.available()) throw new Error(KEY_UNREADABLE)
+    let key: Buffer
+    try {
+      key = Buffer.from(this.keyStore.open(encryption.sealedKey), 'base64')
+    } catch {
+      throw new Error(KEY_UNREADABLE)
+    }
+    if (key.length !== 32) throw new Error(KEY_UNREADABLE)
+    return { key, kdf: encryption.kdf }
   }
 
   private update(change: Partial<BackupState>): void {
@@ -129,7 +204,8 @@ export class BackupService {
         workDir: this.workDir(),
         kind: 'auto',
         now,
-        appVersion: this.appVersion
+        appVersion: this.appVersion,
+        encryption: this.backupKey()
       })
       this.update({
         lastAttemptAt: now.toISOString(),
@@ -148,7 +224,7 @@ export class BackupService {
   }
 
   /** "Sicherung erstellen…": a backup into any folder, never deleted by the retention */
-  createManualBackup(parent: string, now = new Date()): Promise<string> {
+  async createManualBackup(parent: string, now = new Date()): Promise<string> {
     return writeBackup({
       parent,
       snapshotDb: this.snapshotDb,
@@ -156,16 +232,35 @@ export class BackupService {
       workDir: this.workDir(),
       kind: 'manual',
       now,
-      appVersion: this.appVersion
+      appVersion: this.appVersion,
+      encryption: this.backupKey()
     })
   }
 
+  /**
+   * #54: an encrypted backup needs its password first: returns the pick, and the restore goes on
+   * with unlockRestore. Null for a plain backup, which prepareRestore takes directly.
+   */
+  async pickEncryptedRestore(source: string): Promise<EncryptedRestorePick | null> {
+    this.pendingEncrypted = null
+    if (!isEncryptedBackup(source)) return null
+    this.pendingEncrypted = source
+    return { folder: source, backupCreatedAt: (await readBackupMarker(source))?.createdAt ?? null }
+  }
+
+  /** #54: the picked encrypted backup with its password; a wrong one can be retried */
+  async unlockRestore(password: string): Promise<RestoreManifest> {
+    if (!this.pendingEncrypted) throw new Error('Keine verschlüsselte Sicherung gewählt.')
+    return prepareRestore(this.pendingEncrypted, this.workDir(), latestMigrationMillis(), password)
+  }
+
   /** Copies and checks a backup; nothing is replaced until confirmRestore */
-  prepareRestore(source: string): Promise<RestoreManifest> {
-    return prepareRestore(source, this.workDir(), latestMigrationMillis())
+  prepareRestore(source: string, password?: string): Promise<RestoreManifest> {
+    return prepareRestore(source, this.workDir(), latestMigrationMillis(), password)
   }
 
   cancelRestore(): Promise<void> {
+    this.pendingEncrypted = null
     return cancelRestore(this.workDir())
   }
 
@@ -187,6 +282,7 @@ export class BackupService {
       appVersion: this.appVersion
     })
     await stageRestore(this.workDir())
+    this.pendingEncrypted = null
     // The copy just taken is the newest and stays; a failed cleanup never blocks the restore
     await pruneBeforeRestore(parent).catch((error) =>
       console.error('Cleaning up backup/before-restore failed:', error)
@@ -208,8 +304,9 @@ export class BackupService {
   }
 
   /** Starts the startup check and the hourly one */
-  start(appVersion: string): void {
+  start(appVersion: string, keyStore: KeyStore | null = this.keyStore): void {
     this.appVersion = appVersion
+    this.keyStore = keyStore
     const check = () => {
       void this.runIfDue()
     }

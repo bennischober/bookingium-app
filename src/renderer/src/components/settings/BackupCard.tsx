@@ -1,4 +1,5 @@
-import { FolderOpen, History, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { FolderOpen, History, Lock, RefreshCw } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -6,7 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import type { BackupStatusDto } from '../../../../main/api/schemas/backup.schema'
+import { RestorePasswordDialog, SetBackupPasswordDialog } from './BackupPasswordDialogs'
+import type {
+  BackupStatusDto,
+  PreparedRestoreDto
+} from '../../../../main/api/schemas/backup.schema'
 
 /** "28.10.2026, 14:30" */
 const formatDateTime = (iso: string): string =>
@@ -107,13 +112,31 @@ export function BackupCard() {
   const pickRestore = trpcReact.backup.pickRestore.useMutation({
     onError: onError('Sicherung kann nicht wiederhergestellt werden')
   })
+  const removePassword = trpcReact.backup.removePassword.useMutation({
+    onSuccess: (next) => {
+      setStatus(next)
+      toast.success('Sicherungen werden nicht mehr verschlüsselt')
+    },
+    onError: onError('Einstellung konnte nicht gespeichert werden')
+  })
+  // #54: the password dialog, and the restore waiting for a backup's password
+  const [passwordDialog, setPasswordDialog] = useState(false)
+  const [unlocking, setUnlocking] = useState<string | null>(null)
+
+  const takenText = (prepared: PreparedRestoreDto) =>
+    prepared.backupCreatedAt
+      ? `vom ${formatDateTime(prepared.backupCreatedAt)}`
+      : `aus „${prepared.folder}“`
 
   const restore = async () => {
     const prepared = await pickRestore.mutateAsync().catch(() => null)
     if (!prepared || prepared.canceled) return
-    const taken = prepared.backupCreatedAt
-      ? `vom ${formatDateTime(prepared.backupCreatedAt)}`
-      : `aus „${prepared.folder}“`
+    if (prepared.needsPassword) setUnlocking(takenText(prepared))
+    else await confirmPrepared(prepared)
+  }
+
+  const confirmPrepared = async (prepared: PreparedRestoreDto) => {
+    const taken = takenText(prepared)
     const ok = await confirmAction({
       title: 'Sicherung wiederherstellen?',
       description:
@@ -125,6 +148,21 @@ export function BackupCard() {
     })
     if (ok) confirmRestore.mutate()
     else cancelRestore.mutate()
+  }
+
+  const encryptionSwitch = async (checked: boolean) => {
+    if (checked) {
+      setPasswordDialog(true)
+      return
+    }
+    const ok = await confirmAction({
+      title: 'Verschlüsselung ausschalten?',
+      description:
+        'Neue Sicherungen werden dann unverschlüsselt in den Sicherungsordner geschrieben. Bereits verschlüsselte Sicherungen bleiben verschlüsselt und brauchen weiter ihr Passwort.',
+      confirmLabel: 'Ausschalten',
+      destructive: true
+    })
+    if (ok) removePassword.mutate()
   }
 
   const data = status.data
@@ -184,6 +222,40 @@ export function BackupCard() {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="settings-backup-encrypted"
+                checked={data?.encrypted ?? false}
+                onCheckedChange={(checked) => void encryptionSwitch(checked)}
+                disabled={
+                  !data ||
+                  (!data.encrypted && !data.encryptionAvailable) ||
+                  removePassword.isPending
+                }
+              />
+              <Label htmlFor="settings-backup-encrypted">
+                <Lock className="h-4 w-4" /> Mit Passwort verschlüsseln
+              </Label>
+            </div>
+            {data?.encrypted && (
+              <Button variant="ghost" onClick={() => setPasswordDialog(true)}>
+                Passwort ändern…
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {data?.encrypted
+              ? `Sicherungen werden${
+                  data.encryptedSince ? ` seit ${formatDateTime(data.encryptedSince)}` : ''
+                } mit Passwort verschlüsselt (AES-256). Ohne das Passwort lassen sie sich nicht wiederherstellen.`
+              : data && !data.encryptionAvailable
+                ? 'Auf diesem Rechner nicht verfügbar: Windows kann den Schlüssel hier nicht geschützt aufbewahren.'
+                : 'Schützt die Sicherungen, etwa in einem Cloud-Ordner, vor fremdem Zugriff. Ein vergessenes Passwort kann niemand zurücksetzen.'}
+          </p>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 space-y-1">
             {data && <LastBackup status={data} />}
@@ -212,6 +284,30 @@ export function BackupCard() {
             {pickRestore.isPending ? 'Wird geprüft…' : 'Sicherung wiederherstellen…'}
           </Button>
         </div>
+        {passwordDialog && (
+          <SetBackupPasswordDialog
+            change={data?.encrypted ?? false}
+            onClose={() => setPasswordDialog(false)}
+            onSaved={(next) => {
+              setStatus(next)
+              setPasswordDialog(false)
+              toast.success('Sicherungen werden verschlüsselt')
+            }}
+          />
+        )}
+        {unlocking !== null && (
+          <RestorePasswordDialog
+            taken={unlocking}
+            onCancel={() => {
+              setUnlocking(null)
+              cancelRestore.mutate()
+            }}
+            onUnlocked={(prepared) => {
+              setUnlocking(null)
+              void confirmPrepared(prepared)
+            }}
+          />
+        )}
       </CardContent>
     </Card>
   )

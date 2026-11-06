@@ -153,7 +153,8 @@ the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
 - **A backup folder** is `Bookingium-Sicherung YYYY-MM-DD HH-MM` (local time,
   ` (2)` within the same minute) with `bookingum.db`, `storage/`,
   `LIESMICH.txt` and the marker `bookingium-sicherung.json`
-  (`{app, format, kind: auto | manual | before-restore, createdAt, appVersion}`).
+  (`{app, format, kind: auto | manual | before-restore, createdAt, appVersion,
+  encrypted?}`).
 - **Never live data in a synced folder.** The database is snapshotted with
   SQLite's backup API into the local `backup/` folder first, then copied. The
   folder is written as `.bookingium-unfertig-<id>` and renamed when complete
@@ -181,6 +182,21 @@ the manual "Sicherung erstellen…" and the card "Automatische Sicherung".
   `-shm`) and `storage/` aside, moves the staged ones in, and puts everything
   back if a step fails (the staged copy then becomes `restore-failed-<time>`).
   Migrations then bring an older backup up to the current schema.
+- **Encryption (#54, off by default):** "Mit Passwort verschlüsseln" derives a
+  key with scrypt (N 2^17, r 8, p 1, a fresh salt per password) and keeps it,
+  sealed by `safeStorage` (DPAPI), in `backup/state.json`; the password itself
+  is never stored and the status never carries the key. Automatic and manual
+  backups then hold `daten.bookingium` instead of `bookingum.db` and
+  `storage/` (`encryption.ts`): magic `BKSICH01`, a length-prefixed JSON header
+  (scrypt parameters, salt, IV, a key check) that is the AES-256-GCM additional
+  data, the encrypted archive of the database and every storage file, and the
+  tag. The marker says `encrypted: true`. If the sealed key cannot be opened
+  the backup fails with a message instead of falling back to plain; the
+  before-restore backup stays plain (it is local). A restore asks for the
+  password, checks it against the header before copying anything, decrypts to
+  a temp file and verifies the tag before unpacking, and refuses paths that
+  leave `restore-incoming/`. A changed password applies to new backups only;
+  a forgotten one cannot be recovered.
 - **Mail is not included.** `mail_link`, `invoice_email` and
   `invoice_email_pending` are app tables, so they are in every backup. The
   per-account stores (`mail/data/<accountId>/`) hold the IMAP cache (it comes

@@ -10,6 +10,8 @@ export const BACKUP_PREFIX = 'Bookingium-Sicherung '
  * synced copy of a half-written one is never taken for a complete one.
  */
 export const BACKUP_TEMP_PREFIX = '.bookingium-unfertig-'
+/** #54: the shortest password for encrypted backups (the renderer checks it too) */
+export const MIN_BACKUP_PASSWORD_LENGTH = 8
 /** Inside every backup: who wrote it and why; automatic ones are the only ones ever deleted */
 export const BACKUP_MARKER = 'bookingium-sicherung.json'
 
@@ -22,6 +24,8 @@ export type BackupMarker = {
   /** ISO timestamp */
   createdAt: string
   appVersion: string
+  /** #54: the database and documents are in one password-encrypted file */
+  encrypted?: boolean
 }
 
 /**
