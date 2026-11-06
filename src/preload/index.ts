@@ -44,8 +44,6 @@ const api = {
     lang: 'de' | 'en'
   ) => ipcRenderer.invoke('contract:email', { contract, id, fileName, lang }),
 
-  showEmailFile: (filePath: string) => ipcRenderer.invoke('mail:showFile', { filePath }),
-
   /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
   copyMailLink: (url: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('mail:copyLink', { url }),

@@ -1,5 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useState } from 'react'
 import { useParams, useNavigate, useBlocker } from '@tanstack/react-router'
@@ -27,7 +27,7 @@ export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
   const counts = useEventTabCounts(parseRecordId(eventId))
   const navigate = useNavigate()
-  const mailClientEnabled = useMailClientEnabled()
+  const hasMailAccount = useHasMailAccount()
   const activeTab = useDetailTab(isEventTab, 'overview')
 
   const {
@@ -204,7 +204,7 @@ export function EventHubPage() {
             Dokumente
             <TabCount count={counts.documents} />
           </TabsTrigger>
-          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
+          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -242,7 +242,7 @@ export function EventHubPage() {
           <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />
         </TabsContent>
 
-        {mailClientEnabled && (
+        {hasMailAccount && (
           <TabsContent value="mails">
             <MailHistoryPanel entityType="event" entityId={event.id} />
           </TabsContent>

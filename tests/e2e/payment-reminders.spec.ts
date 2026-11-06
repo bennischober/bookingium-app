@@ -1,43 +1,23 @@
 // E2E: payment reminders. An invoice marked überfällig (seeded #1040) shows
-// on the Dashboard with its next step; the Zahlungserinnerung is created on
-// the print page from its own template, and after it a Mahnung is offered.
-// BOOKINGIUM_NO_LAUNCH (launch.ts) keeps mail programs closed, so the .eml
-// in <userData>/E-Mail is all there is.
+// on the Dashboard with its next step and leads to the print page of the
+// Zahlungserinnerung. #136: it is sent only from bookingum's compose window, so
+// without a mail account it says so and nothing is recorded; once paid, it is
+// off the Dashboard.
 import { test, expect } from '@playwright/test'
-import { existsSync, readFileSync, readdirSync } from 'fs'
-import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
-let emailFolder: string
-
-/** Subject of the .eml in the email folder, with its =?UTF-8?B?…?= words decoded */
-function emailSubject(): string {
-  const name = existsSync(emailFolder)
-    ? readdirSync(emailFolder).find((file) => file.endsWith('.eml'))
-    : undefined
-  if (!name) return ''
-  const eml = readFileSync(join(emailFolder, name), 'utf-8')
-  const line = /^Subject: (.*(?:\r\n .*)*)/m.exec(eml)?.[1] ?? ''
-  return line
-    .replace(/\?=\r\n =\?/g, '?==?')
-    .replace(/=\?UTF-8\?B\?([^?]*)\?=/g, (_match, data: string) =>
-      Buffer.from(data, 'base64').toString('utf-8')
-    )
-}
 
 test.beforeAll(async () => {
   h = await launchApp()
   await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
-  const userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
-  emailFolder = join(userData, 'E-Mail')
 })
 
 test.afterAll(async () => {
   await h.close()
 })
 
-test('sends a Zahlungserinnerung for an overdue invoice, then offers a Mahnung', async () => {
+test('offers a Zahlungserinnerung for an overdue invoice', async () => {
   const { page } = h
   // Nothing overdue yet: no card
   await expect(page.getByText('Unbezahlte Rechnungen')).toBeVisible()
@@ -67,26 +47,23 @@ test('sends a Zahlungserinnerung for an overdue invoice, then offers a Mahnung',
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
   await expect(page.getByRole('button', { name: 'Per E-Mail senden', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Zahlungserinnerung per E-Mail senden' }).click()
-  await expect(page.locator('[data-sonner-toast]', { hasText: 'E-Mail gespeichert' })).toBeVisible({
+  const toast = page.locator('[data-sonner-toast][data-front="true"]')
+  await expect(toast).toContainText('Zum Senden zuerst ein E-Mail-Konto hinzufügen.', {
     timeout: 30_000
   })
-  expect(emailSubject()).toMatch(
-    /^(Zahlungserinnerung|Payment reminder): (Rechnung|Invoice) 1040\b/
-  )
 
-  // Next comes the Mahnung, on the Dashboard and the invoice page
+  // Not sent: no Mahnung offered yet, nothing in the Verlauf
   await page.getByRole('button', { name: 'Zurück' }).click()
-  await expect(row).toContainText(/Zahlungserinnerung am \d\d\.\d\d\.\d{4}/)
-  await expect(row.getByRole('button', { name: 'Mahnung senden…' })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Zahlungserinnerung senden…' })).toBeVisible()
   await row.getByRole('button', { name: 'Rechnung öffnen' }).click()
   await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
   const history = page.getByRole('list', { name: 'Verlauf' }).getByRole('listitem')
-  await expect(history.last()).toContainText('Zahlungserinnerung erstellt')
-  await expect(page.getByRole('button', { name: 'Mahnung senden…' })).toBeVisible()
+  await expect(history.filter({ hasText: 'Zahlungserinnerung erstellt' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Mahnung senden…' })).toHaveCount(0)
 
   // Paid: off the Dashboard
   await page.getByRole('button', { name: 'Als bezahlt markieren' }).click()
-  await expect(page.getByRole('button', { name: 'Mahnung senden…' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Zahlungserinnerung senden…' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Dashboard' }).first().click()
   await expect(page.getByText('Unbezahlte Rechnungen')).toBeVisible()
   await expect(page.getByText('Überfällige Rechnungen')).toHaveCount(0)

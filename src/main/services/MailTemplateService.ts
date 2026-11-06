@@ -1,6 +1,17 @@
 import { injectable, inject } from 'tsyringe'
 import { MailTemplateRepository } from '../repositories/MailTemplateRepository'
-import type { MailTemplateDto, SaveMailTemplateInput } from '../api/schemas/mailTemplate.schema'
+import type {
+  DocumentTemplateDto,
+  DocumentTemplateRef,
+  MailTemplateDto,
+  SaveDocumentTemplateInput,
+  SaveMailTemplateInput
+} from '../api/schemas/mailTemplate.schema'
+import {
+  DEFAULT_DOCUMENT_EMAILS,
+  type EmailTemplate,
+  type EmailTemplateKind
+} from '../api/schemas/settings.schema'
 import type { MailTemplateEvent } from '../mail/mailTemplate'
 
 type Row = NonNullable<ReturnType<MailTemplateRepository['insert']>>
@@ -32,6 +43,34 @@ export class MailTemplateService {
 
   delete(id: number): void {
     this.repository.delete(id)
+  }
+
+  /** #136: the eight fixed texts, edited or default, in a fixed order */
+  documents(): DocumentTemplateDto[] {
+    const edited = new Map(
+      this.repository.documents().map((row) => [`${row.kind}:${row.lang}`, row])
+    )
+    return (Object.keys(DEFAULT_DOCUMENT_EMAILS) as EmailTemplateKind[]).flatMap((kind) =>
+      (['de', 'en'] as const).map((lang) => {
+        const row = edited.get(`${kind}:${lang}`)
+        const text = row ?? DEFAULT_DOCUMENT_EMAILS[kind][lang]
+        return { kind, lang, subject: text.subject, body: text.body, edited: row !== undefined }
+      })
+    )
+  }
+
+  /** The text "Per E-Mail senden" fills: the edited one, else the default */
+  documentTemplate(kind: EmailTemplateKind, lang: 'de' | 'en'): EmailTemplate {
+    const row = this.repository.document(kind, lang)
+    return row ? { subject: row.subject, body: row.body } : DEFAULT_DOCUMENT_EMAILS[kind][lang]
+  }
+
+  saveDocument(input: SaveDocumentTemplateInput): void {
+    this.repository.saveDocument(input.kind, input.lang, input.subject, input.body)
+  }
+
+  resetDocument(input: DocumentTemplateRef): void {
+    this.repository.resetDocument(input.kind, input.lang)
   }
 
   /** What the placeholders need from an event; null if it is gone */

@@ -14,7 +14,6 @@ import { CompanyService } from '../src/main/services/CompanyService'
 import { ContactListFilters } from '../src/main/api/schemas/contactList.schema'
 import { CreateVenueInput } from '../src/main/api/schemas/venue.schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../src/main/api/schemas/company.schema'
-import { bccMailtoUrl, MAX_MAILTO_LENGTH } from '../src/main/mail/mailProgram'
 
 import { setupTestDb } from './helpers/setup'
 
@@ -324,18 +323,6 @@ describe('mailing list output', () => {
       'lea@club-zentral.example.test,Lea,Berg,,"Club Zentral; Wiesen Open Air",Stadt,Deutschland,Ansprechpartner',
       ''
     ])
-  })
-
-  it('puts the addresses in BCC, separated for the mail program', () => {
-    expect(bccMailtoUrl(['a@x.example.test', 'b+1@y.example.test'], 'outlook')).toBe(
-      'mailto:?bcc=a@x.example.test;b%2B1@y.example.test'
-    )
-    expect(bccMailtoUrl(['a@x.example.test', 'b@y.example.test'], 'mailto')).toBe(
-      'mailto:?bcc=a@x.example.test,b@y.example.test'
-    )
-    const many = Array.from({ length: 200 }, (_, i) => `kontakt${i}@spielstaette.de`)
-    expect(bccMailtoUrl(many, 'mailto')).toBeNull()
-    expect(bccMailtoUrl(many.slice(0, 10), 'mailto')!.length).toBeLessThan(MAX_MAILTO_LENGTH)
   })
 })
 

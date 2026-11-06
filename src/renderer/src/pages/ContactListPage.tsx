@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2 } from 'lucide-react'
 import { toast } from '@/lib/toast'
@@ -28,6 +29,8 @@ import {
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { useExportToast } from '@/components/export/useExportToast'
 import { confirmAction } from '@/lib/confirm'
+import { requestBccCompose } from '@/components/mail/pendingCompose'
+import { readingActions } from '@/components/mail/readingActions'
 import {
   BookedFilter,
   ContactListFilters,
@@ -88,6 +91,7 @@ export default function ContactListPage() {
   const activeFilters = activeFilterCount(filters)
 
   const utils = trpcReact.useUtils()
+  const navigate = useNavigate()
   const exportToast = useExportToast()
   // Genres and states change on other pages: fresh each time the page opens
   const options = trpcReact.contactList.filterOptions.useQuery(undefined, {
@@ -146,16 +150,26 @@ export default function ContactListPage() {
       }
     )
 
+  // #136: a new mail in bookingum's own editor, the list in BCC (components/mail/pendingCompose.ts)
   const writeEmail = trpcReact.contactList.writeEmail.useMutation({
-    onSuccess: ({ count, withRecipients }) => {
-      if (count === 0) toast.info('Der Verteiler hat keine Adressen.')
-      else if (withRecipients) toast.success(`E-Mail mit ${addresses(count)} in BCC geöffnet`)
-      else {
-        toast.success(`${addresses(count)} kopiert`, {
-          description: 'Zu viele für einen Link: bitte in der neuen E-Mail ins BCC-Feld einfügen.',
-          duration: 10000
-        })
+    onSuccess: async ({ emails }) => {
+      if (emails.length === 0) {
+        toast.info('Der Verteiler hat keine Adressen.')
+        return
       }
+      const accounts = await utils.mail.accounts.list.fetch()
+      if (!accounts.some((account) => readingActions(account).canWrite)) {
+        toast.error('Zum Senden zuerst ein E-Mail-Konto hinzufügen.', {
+          action: {
+            label: 'Einstellungen öffnen',
+            onClick: () => void navigate({ to: '/settings', search: { tab: 'email' } })
+          }
+        })
+        return
+      }
+      requestBccCompose(emails)
+      await navigate({ to: '/mail' })
+      toast.success(`E-Mail mit ${addresses(emails.length)} in BCC geöffnet`)
     },
     onError: (error) =>
       toast.error('E-Mail konnte nicht geöffnet werden', { description: error.message })

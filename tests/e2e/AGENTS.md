@@ -35,8 +35,6 @@ throwaway userData folder and assert on rendered German UI or written files.
 ## ANTI-PATTERNS
 - Never point a spec at a real profile: default is a fresh `mkdtemp` userData. If
   `BOOKINGIUM_E2E_USER_DATA` is set it is used as-is and must NEVER be deleted.
-- Keep `BOOKINGIUM_NO_LAUNCH=1` in `launch.ts`: it makes "send by e-mail" write files only
-  instead of opening a real mail program.
 - Keep the windows in the background (`BOOKINGIUM_E2E_BACKGROUND=1`, set by `launch.ts`): they
   appear without taking the focus. Input goes over CDP, so no spec may rely on the OS focus;
   `BOOKINGIUM_E2E_FOREGROUND=1` brings the old behaviour back to watch a run (#127).

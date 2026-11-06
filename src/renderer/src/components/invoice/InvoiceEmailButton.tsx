@@ -3,7 +3,8 @@ import { Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { useInvalidateInvoices } from '@/hooks/useInvalidateInvoices'
 import { Button } from '@/components/ui/button'
-import type { MailMethod } from '../../../../main/mail/mailProgram'
+import { useNavigate } from '@tanstack/react-router'
+import { showSendSetupError } from '@/components/mail/sendSetupToast'
 import type { ReminderKind } from '../../../../main/api/schemas/invoice.schema'
 
 const LABELS: Record<ReminderKind, string> = {
@@ -11,28 +12,12 @@ const LABELS: Record<ReminderKind, string> = {
   dunning: 'Mahnung per E-Mail senden'
 }
 
-const TITLES: Record<MailMethod, string> = {
-  outlook: 'E-Mail in Outlook geöffnet',
-  thunderbird: 'E-Mail in Thunderbird geöffnet',
-  mailto: 'E-Mail geöffnet – PDF bitte anhängen',
-  files: 'E-Mail gespeichert',
-  // C1: bookingum's own editor, the only one that knows the mail was sent
-  bookingum: 'E-Mail zum Prüfen und Senden geöffnet'
-}
-
-const HINTS: Record<MailMethod, string> = {
-  outlook: 'Prüfen und senden.',
-  thunderbird: 'Prüfen und senden.',
-  mailto: 'Das PDF liegt im geöffneten Ordner – in die E-Mail ziehen.',
-  files: 'Kein Mailprogramm gefunden. Die E-Mail (.eml) und das PDF liegen im geöffneten Ordner.',
-  bookingum: 'Prüfen und in bookingum senden – die Rechnung gilt danach als versendet.'
-}
-
 /**
- * "Per E-Mail senden" of the invoice print page: the main process writes the
- * PDF (with e-invoice) and an email draft from the template in the settings
- * and opens it in the mail program. With `kind` the email is a
- * Zahlungserinnerung or Mahnung, with the invoice attached again.
+ * "Per E-Mail senden" of the invoice print page: the main process writes the PDF (with
+ * e-invoice), fills the template of Einstellungen › E-Mail and opens bookingum's compose
+ * window on the "Senden von" account (#136, the only way since the mail program is gone).
+ * Sent there, the invoice counts as sent. With `kind` the email is a Zahlungserinnerung or
+ * Mahnung, with the invoice attached again.
  */
 export function InvoiceEmailButton({
   invoiceId,
@@ -47,29 +32,30 @@ export function InvoiceEmailButton({
 }) {
   const [sending, setSending] = useState(false)
   const invalidateInvoices = useInvalidateInvoices()
+  const navigate = useNavigate()
 
   const send = async () => {
     setSending(true)
     try {
       const result = await window.api.sendInvoiceEmail(invoiceId, fileName, lang, kind)
-      if (!result.success || !result.method || !result.pdfPath) {
-        toast.error('E-Mail konnte nicht erstellt werden', { description: result.error })
+      if (!result.success) {
+        showSendSetupError(
+          result.error,
+          () => void navigate({ to: '/settings', search: { tab: 'email' } }),
+          result.setup
+        )
+        return
+      }
+      if (!result.sent) {
+        toast.info('E-Mail nicht gesendet')
         return
       }
       invalidateInvoices()
-      const pdfPath = result.pdfPath
-      const action = {
-        label: 'Ordner öffnen',
-        onClick: () => void window.api.showEmailFile(pdfPath)
-      }
-      const incomplete = result.eInvoice?.state === 'incomplete'
-      const notes = [
-        result.to ? `An ${result.to}.` : 'Beim Empfänger ist keine E-Mail-Adresse hinterlegt.',
-        HINTS[result.method],
-        incomplete ? `PDF ohne E-Rechnung – es fehlt: ${result.eInvoice?.missing.join('; ')}` : ''
-      ]
-      const show = !result.to || incomplete ? toast.warning : toast.success
-      show(TITLES[result.method], { description: notes.filter(Boolean).join(' '), action })
+      if (result.eInvoice?.state === 'incomplete') {
+        toast.warning('E-Mail gesendet', {
+          description: `PDF ohne E-Rechnung – es fehlt: ${result.eInvoice.missing.join('; ')}`
+        })
+      } else toast.success('E-Mail gesendet')
     } finally {
       setSending(false)
     }

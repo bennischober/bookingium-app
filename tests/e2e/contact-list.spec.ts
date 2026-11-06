@@ -1,6 +1,6 @@
 // E2E: the Verteiler page — filters, "Keine Werbung", saved lists, CSV
 // export, BCC email and copying (save dialog and clipboard stubbed in main;
-// BOOKINGIUM_NO_LAUNCH keeps the mail program closed).
+// without a mail account "E-Mail schreiben" says what is missing, #136).
 import { test, expect } from '@playwright/test'
 import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
@@ -126,9 +126,9 @@ test('builds, saves and exports a mailing list', async () => {
   expect(lines).toHaveLength(5)
   expect(lines.some((line) => line.startsWith(`${TOM},Tom,Manager,`))).toBe(true)
 
-  // BCC email (no mail program in tests) and copying
+  // BCC email: only from bookingum's compose window, and a fresh data folder has no account
   await page.getByRole('button', { name: 'E-Mail schreiben' }).click()
-  await expect(page.getByText('E-Mail mit 4 Adressen in BCC geöffnet')).toBeVisible()
+  await expect(page.getByText('Zum Senden zuerst ein E-Mail-Konto hinzufügen.')).toBeVisible()
   await page.getByRole('button', { name: 'Adressen kopieren' }).click()
   await expect(page.getByText('4 Adressen kopiert')).toBeVisible()
   expect((await copied()).split(/[,;] /).sort()).toEqual([PROMOTER, SOUNDWAVE, TOM, WHISKY].sort())

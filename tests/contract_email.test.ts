@@ -9,7 +9,10 @@ import {
   managementContractEmailData
 } from '../src/main/mail/contractEmail'
 import { createInvoiceComposeRegistry, sendInvoiceMail } from '../src/main/mail/invoiceSend'
-import { DEFAULT_CONTRACT_EMAIL, EMAIL_TEMPLATES } from '../src/main/api/schemas/settings.schema'
+import {
+  DEFAULT_CONTRACT_EMAIL,
+  DEFAULT_DOCUMENT_EMAILS
+} from '../src/main/api/schemas/settings.schema'
 import type { ContractData, ContractParty } from '../src/main/api/schemas/contract.schema'
 import type { ManagementContractPrintData } from '../src/main/api/schemas/management_contract.schema'
 import type { DraftInput } from '../src/main/mailclient/core/types'
@@ -113,12 +116,9 @@ describe('the contract email (#120)', () => {
     expect(draft.body).toBe('Veranstalter GmbH|Erika Muster|Die Beispielband|{Rechnungsnummer}')
   })
 
-  it('has a template per language in the settings', () => {
-    expect(EMAIL_TEMPLATES.contract.de).toEqual({
-      key: 'contractEmailDe',
-      fallback: DEFAULT_CONTRACT_EMAIL.de
-    })
-    expect(EMAIL_TEMPLATES.contract.en.key).toBe('contractEmailEn')
+  it('has a default per language among the fixed templates', () => {
+    expect(DEFAULT_DOCUMENT_EMAILS.contract).toBe(DEFAULT_CONTRACT_EMAIL)
+    expect(Object.keys(DEFAULT_DOCUMENT_EMAILS.contract)).toEqual(['de', 'en'])
   })
 })
 

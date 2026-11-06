@@ -12,13 +12,12 @@ cleanup; their lasting content is in this file. They are in git history at commi
 
 ## Status
 
-- **Experimental, off by default.** Einstellungen › E-Mail › "E-Mail (experimentell)" (`mailClient`
-  setting, default `false`). Off, the worker never starts, every `mail.call` is refused with
-  `MAIL_CLIENT_OFF`, and the renderer shows none of it: no "E-Mail" menu entry or search group, no
-  account card, no "E-Mails" tab on detail pages, no invoice mails card, and the mail program
-  "bookingum" is not offered (a value saved earlier stays visible). Turning it off moves the invoice
-  mail program from "bookingum" back to "Automatisch". Turning it off deletes nothing: accounts and
-  downloaded mail stay on disk.
+- **Always part of the app** since #136 (the switch "E-Mail (experimentell)" and the setting
+  `mailClient` are gone; a value stored by an older version is ignored). The worker starts only once
+  an account exists. The "E-Mail" menu entry is always there; without an account there is
+  no mail search group, "E-Mails" tab on detail pages or invoice mails card. It is also the only way
+  to send invoices, reminders, dunning letters, contracts and mailing lists: the mail program
+  setting, the .eml drafts and the mailto: links are gone.
 - **One account kind** since 2026-10-28: every account is writable unless set to "Nur lesen". The
   earlier sandbox/production-read-only kinds and the canary flag are gone; `accounts.ts`
   (`normalizeStoredAccount`) reads old `accounts.json` files into the new shape.

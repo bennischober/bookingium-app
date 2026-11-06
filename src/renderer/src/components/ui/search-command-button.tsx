@@ -31,7 +31,6 @@ import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
 import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { useRouteShown } from '@/hooks/useRouteShown'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
@@ -244,12 +243,11 @@ const SearchButton = () => {
   // The palette is mounted in the root layout from app start, long before an account
   // may be saved: asking only while it is open keeps the answer current instead of
   // caching an empty list from the first render.
-  const mailEnabled = useMailClientEnabled()
   const accounts = trpcReact.mail.accounts.list.useQuery(undefined, {
-    enabled: open && mailEnabled,
+    enabled: open,
     staleTime: 0
   })
-  const mailAccountId = mailEnabled ? (accounts.data?.[0]?.id ?? null) : null
+  const mailAccountId = accounts.data?.[0]?.id ?? null
   // pages behind a switched-off experimental switch, and recent jumps to them, go
   const routeShown = useRouteShown()
   const shownRoutes = ROUTE_COMMANDS.filter((route) => routeShown(route.path))

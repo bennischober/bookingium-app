@@ -37,7 +37,6 @@ import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { BackupCard } from '@/components/settings/BackupCard'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -377,7 +376,6 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
   const activeTab = isSettingsTab(search.tab) ? search.tab : 'general'
-  const mailClientEnabled = useMailClientEnabled()
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
@@ -422,8 +420,8 @@ export default function SettingsPage() {
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
           <MailClientSwitchCard />
-          {mailClientEnabled && <MailAccountsCard />}
-          {mailClientEnabled && <MailTemplatesCard />}
+          <MailAccountsCard />
+          <MailTemplatesCard />
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

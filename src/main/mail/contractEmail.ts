@@ -6,7 +6,7 @@
 import type { ContractData, ContractParty } from '../api/schemas/contract.schema'
 import type { ManagementContractPrintData } from '../api/schemas/management_contract.schema'
 import type { EmailTemplate } from '../api/schemas/settings.schema'
-import type { EmailDraft } from './eml'
+import type { ComposeDraft } from './composeWindow'
 import { fillPlaceholders, formatDate, tidySubject, type Lang } from './invoiceEmail'
 import { findCountry } from '../import/normalize'
 
@@ -98,7 +98,7 @@ export function contractEmail(
   data: ContractEmailData,
   lang: Lang,
   template: EmailTemplate
-): EmailDraft {
+): ComposeDraft {
   const values = contractEmailValues(data, lang)
   return {
     to: (data.recipient?.email ?? '').trim(),

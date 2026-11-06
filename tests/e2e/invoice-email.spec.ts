@@ -1,15 +1,11 @@
-// E2E: "Per E-Mail senden" on an issued invoice (seeded #1040) writes the
-// PDF and an .eml draft into <userData>/E-Mail, uses the template from the
-// settings and marks the invoice; a concert contract goes out the same way
-// (#120). BOOKINGIUM_NO_LAUNCH (launch.ts) keeps mail programs and Explorer
-// closed, so the files are all there is.
+// E2E: "Per E-Mail senden" without a mail account (#136). Invoices and contracts are only
+// sent from bookingum's own compose window, so a fresh data folder says what is missing and
+// leads to Einstellungen › E-Mail; the fixed texts there can be edited and reset. Sending
+// itself, with an account, is in mail-client.spec.ts (C1, needs the mail sandbox).
 import { test, expect } from '@playwright/test'
-import { existsSync, readFileSync, readdirSync, rmSync } from 'fs'
-import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
-let emailFolder: string
 
 async function openPrintPage(invoiceLabel: string) {
   const { page } = h
@@ -23,117 +19,66 @@ async function openPrintPage(invoiceLabel: string) {
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
 }
 
-/** Subject of an .eml, with its =?UTF-8?B?…?= words decoded */
-function subjectOf(eml: string): string {
-  const line = /^Subject: (.*(?:\r\n .*)*)/m.exec(eml)?.[1] ?? ''
-  return line
-    .replace(/\?=\r\n =\?/g, '?==?')
-    .replace(/=\?UTF-8\?B\?([^?]*)\?=/g, (_match, data: string) =>
-      Buffer.from(data, 'base64').toString('utf-8')
-    )
-}
+/** The newest toast, in front of any still up from an earlier step */
+const latestToast = () => h.page.locator('[data-sonner-toast][data-front="true"]')
 
 test.beforeAll(async () => {
   h = await launchApp()
   await h.page.waitForSelector('text=Dashboard', { timeout: 15_000 })
-  const userData = await h.app.evaluate(({ app }) => app.getPath('userData'))
-  emailFolder = join(userData, 'E-Mail')
 })
 
 test.afterAll(async () => {
   await h.close()
 })
 
-test('creates the email with the PDF and marks the invoice', async () => {
+test('without a mail account, an invoice says so and leads to the settings', async () => {
   const { page } = h
   await openPrintPage('#1040')
   await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
-  const toast = page.locator('[data-sonner-toast]', { hasText: 'E-Mail gespeichert' })
-  await expect(toast).toBeVisible({ timeout: 30_000 })
-  await expect(toast.getByRole('button', { name: 'Ordner öffnen' })).toBeVisible()
+  const toast = latestToast()
+  await expect(toast).toContainText('E-Mail konnte nicht erstellt werden', { timeout: 30_000 })
+  await expect(toast).toContainText('Zum Senden zuerst ein E-Mail-Konto hinzufügen.')
+  await toast.getByRole('button', { name: 'Einstellungen öffnen' }).click()
+  await page.waitForURL(/settings\?tab=email/)
+  await expect(page.locator('#settings-invoice-mail-account')).toBeDisabled()
 
-  const files = readdirSync(emailFolder).sort()
-  const eml = files.find((name) => name.endsWith('.eml'))!
-  const pdf = files.find((name) => name.endsWith('.pdf'))!
-  expect(eml).toMatch(/^Rechnung_1040_.*\.eml$/)
-  expect(pdf).toBe(eml.replace(/\.eml$/, '.pdf'))
-  expect(readFileSync(join(emailFolder, pdf)).subarray(0, 5).toString()).toBe('%PDF-')
-
-  const text = readFileSync(join(emailFolder, eml), 'utf-8')
-  expect(text.startsWith('X-Unsent: 1\r\n')).toBe(true)
-  expect(subjectOf(text)).toMatch(/^(Rechnung|Invoice) 1040\b/)
-  expect(text).toContain('Content-Type: application/pdf')
-
-  // Marked in the invoice list
-  await page.getByRole('button', { name: 'Zurück' }).click()
+  // Nothing went out, so the invoice is not marked
   await page.getByRole('link', { name: 'Rechnungen' }).first().click()
   const row = page
     .locator('tr')
     .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
-  await expect(
-    row.getByRole('img', { name: /^E-Mail erstellt am \d\d\.\d\d\.\d{4}/ })
-  ).toBeVisible()
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('img', { name: /^E-Mail erstellt am/ })).toHaveCount(0)
 })
 
-test('uses the subject from the settings', async () => {
+test('the fixed texts are edited and reset in the E-Mail-Vorlagen card', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Einstellungen' }).first().click()
   await page.getByRole('tab', { name: 'E-Mail' }).click()
-  for (const lang of ['de', 'en']) {
-    const subject = page.locator(`#settings-email-subject-${lang}`)
-    await subject.fill(`Abrechnung {Rechnungsnummer} von {Absender} ({Fällig})`)
-    await subject
-      .locator('xpath=ancestor::div[contains(@class,"space-y-3")][1]')
-      .getByRole('button', { name: 'Speichern' })
-      .click()
-    await expect(
-      page.locator('[data-sonner-toast]', { hasText: 'Einstellung gespeichert' }).first()
-    ).toBeVisible()
-  }
+  await expect(page.getByRole('heading', { name: 'Für Rechnungen und Verträge' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Eigene Vorlagen' })).toBeVisible()
 
-  await openPrintPage('#1040')
-  rmSync(emailFolder, { recursive: true, force: true })
-  await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
-  const subject = () => {
-    const eml = existsSync(emailFolder)
-      ? readdirSync(emailFolder).find((name) => name.endsWith('.eml'))
-      : undefined
-    return eml ? subjectOf(readFileSync(join(emailFolder, eml), 'utf-8')) : ''
-  }
-  await expect
-    .poll(subject, { timeout: 30_000 })
-    .toMatch(/^Abrechnung 1040 von .+ \(\d\d\.\d\d\.\d{4}\)$/)
+  const subject = page.locator('#settings-email-subject-de')
+  const fields = subject.locator('xpath=ancestor::div[contains(@class,"space-y-3")][1]')
+  const standard = await subject.inputValue()
+  await subject.fill('Abrechnung {Rechnungsnummer} von {Absender}')
+  await fields.getByRole('button', { name: 'Speichern' }).click()
+  await expect(latestToast()).toContainText('Vorlage gespeichert')
+  await expect(fields.getByRole('button', { name: 'Zurücksetzen' })).toBeEnabled()
+
+  // Stored: still there after a reload
+  await page.reload()
+  await page.getByRole('tab', { name: 'E-Mail' }).click()
+  await expect(subject).toHaveValue('Abrechnung {Rechnungsnummer} von {Absender}')
+
+  await fields.getByRole('button', { name: 'Zurücksetzen' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Zurücksetzen' }).click()
+  await expect(latestToast()).toContainText('Standardtext wiederhergestellt')
+  await expect(subject).toHaveValue(standard)
+  await expect(fields.getByRole('button', { name: 'Zurücksetzen' })).toBeDisabled()
 })
 
-test('shows the emails and status changes in the Verlauf of the invoice page', async () => {
-  const { page } = h
-  await page.getByRole('button', { name: 'Zurück' }).click()
-  await page.getByRole('link', { name: 'Rechnungen' }).first().click()
-  await page
-    .locator('tr')
-    .filter({ has: page.getByRole('cell', { name: '#1040', exact: true }) })
-    .getByRole('button', { name: 'Anzeigen' })
-    .click()
-  await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
-  const history = page.getByRole('list', { name: 'Verlauf' }).getByRole('listitem')
-  await expect(history.first()).toContainText('Angelegt')
-  // One per "Per E-Mail senden" of the tests above
-  const emails = history.filter({ hasText: 'E-Mail erstellt' })
-  await expect(emails).toHaveCount(2)
-  await expect(emails.first()).toContainText(/\d\d\.\d\d\.\d{4}, \d\d:\d\d/)
-
-  await page.getByRole('button', { name: 'Als bezahlt markieren' }).click()
-  await expect(history.last()).toContainText('Als bezahlt markiert')
-  await expect(page.getByText('bezahlt', { exact: true }).first()).toBeVisible()
-
-  // The email itself is created on the print page, with its template
-  await page.getByRole('button', { name: 'Per E-Mail senden…' }).click()
-  await page.waitForURL(/invoices\/\d+\/print/)
-  await page.getByRole('button', { name: 'Zurück' }).click()
-  await expect(page.getByRole('heading', { name: 'Rechnung #1040' })).toBeVisible()
-})
-
-test('creates the email of a concert contract in the chosen language (#120)', async () => {
+test('without a mail account, a concert contract says so as well (#120)', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Events' }).first().click()
   await page.locator('table tbody tr').first().click()
@@ -141,22 +86,8 @@ test('creates the email of a concert contract in the chosen language (#120)', as
   await page.waitForURL(/contract\/print/)
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
 
-  await page.getByRole('combobox', { name: 'Sprache der E-Mail' }).click()
-  await page.getByRole('option', { name: 'Englisch' }).click()
-  rmSync(emailFolder, { recursive: true, force: true })
-  // The invoices' toasts above may still be up: the newest is in front
-  const latest = page.locator('[data-sonner-toast][data-front="true"]')
-  await expect(page.getByRole('listbox')).toHaveCount(0)
   await page.getByRole('button', { name: 'Per E-Mail senden' }).click()
-  await expect(latest).toContainText('E-Mail gespeichert', { timeout: 30_000 })
-
-  const files = readdirSync(emailFolder).sort()
-  const eml = files.find((name) => name.endsWith('.eml'))!
-  const pdf = files.find((name) => name.endsWith('.pdf'))!
-  expect(eml).toMatch(/^Konzertvertrag_.*\.eml$/)
-  expect(pdf).toBe(eml.replace(/\.eml$/, '.pdf'))
-  expect(readFileSync(join(emailFolder, pdf)).subarray(0, 5).toString()).toBe('%PDF-')
-  const text = readFileSync(join(emailFolder, eml), 'utf-8')
-  expect(subjectOf(text)).toMatch(/^Concert Contract – /)
-  expect(text).toContain('Content-Type: application/pdf')
+  const toast = latestToast()
+  await expect(toast).toContainText('E-Mail konnte nicht erstellt werden', { timeout: 30_000 })
+  await expect(toast.getByRole('button', { name: 'Einstellungen öffnen' })).toBeVisible()
 })

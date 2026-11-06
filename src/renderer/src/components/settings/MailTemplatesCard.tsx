@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { MailTemplateDto } from '../../../../main/api/schemas/mailTemplate.schema'
 import { MAIL_TEMPLATE_PLACEHOLDERS } from '../../../../main/mail/mailTemplate'
+import { DocumentTemplates } from './DocumentTemplates'
 
 const EMPTY = { name: '', subject: '', body: '' }
 
@@ -123,7 +124,11 @@ function MailTemplateDialog({
   )
 }
 
-/** #123: the user's own templates for the mail client, inserted while composing */
+/**
+ * "E-Mail-Vorlagen" (Einstellungen › E-Mail), #136 one card for both kinds: the fixed texts of
+ * "Per E-Mail senden" (DocumentTemplates) and, #123, the user's own templates, inserted while
+ * composing.
+ */
 export function MailTemplatesCard() {
   const utils = trpcReact.useUtils()
   const templates = trpcReact.mailTemplate.list.useQuery()
@@ -161,49 +166,72 @@ export function MailTemplatesCard() {
       <CardHeader>
         <CardTitle>E-Mail-Vorlagen</CardTitle>
         <CardDescription>
-          Eigene Texte für häufige E-Mails, etwa Bestätigungen oder Absagen. Beim Schreiben fügt
-          „Vorlage einfügen“ sie ein, mit den Daten eines Events in den Platzhaltern.
+          Texte für E-Mails aus Bookingium: feste für Rechnungen und Verträge, dazu eigene für
+          häufige E-Mails.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch keine Vorlage angelegt.</p>
-        ) : (
-          <ul className="divide-y rounded-md border" aria-label="E-Mail-Vorlagen">
-            {list.map((template) => (
-              <li key={template.id} className="flex items-center gap-3 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{template.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {template.subject || 'Ohne Betreff'}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => openDialog(template)}
-                  title="Bearbeiten"
-                  aria-label={`${template.name} bearbeiten`}
-                >
-                  <Pencil />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => void confirmRemove(template)}
-                  title="Löschen"
-                  aria-label={`${template.name} löschen`}
-                >
-                  <Trash2 />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+      <CardContent className="space-y-8">
+        <section className="space-y-3" aria-labelledby="settings-document-templates">
+          <div>
+            <h3 id="settings-document-templates" className="font-medium">
+              Für Rechnungen und Verträge
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              „Per E-Mail senden“ füllt diese Texte mit den Daten der Rechnung bzw. des Vertrags.
+            </p>
+          </div>
+          <DocumentTemplates />
+        </section>
 
-        <Button variant="outline" onClick={() => openDialog(null)}>
-          <Plus className="h-4 w-4" /> Vorlage hinzufügen…
-        </Button>
+        <section className="space-y-3" aria-labelledby="settings-own-templates">
+          <div>
+            <h3 id="settings-own-templates" className="font-medium">
+              Eigene Vorlagen
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Etwa Bestätigungen oder Absagen. Beim Schreiben fügt „Vorlage einfügen“ sie ein, mit
+              den Daten eines Events in den Platzhaltern.
+            </p>
+          </div>
+          {list.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Noch keine Vorlage angelegt.</p>
+          ) : (
+            <ul className="divide-y rounded-md border" aria-label="E-Mail-Vorlagen">
+              {list.map((template) => (
+                <li key={template.id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{template.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {template.subject || 'Ohne Betreff'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => openDialog(template)}
+                    title="Bearbeiten"
+                    aria-label={`${template.name} bearbeiten`}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => void confirmRemove(template)}
+                    title="Löschen"
+                    aria-label={`${template.name} löschen`}
+                  >
+                    <Trash2 />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Button variant="outline" onClick={() => openDialog(null)}>
+            <Plus className="h-4 w-4" /> Vorlage hinzufügen…
+          </Button>
+        </section>
       </CardContent>
 
       <MailTemplateDialog template={editing} open={dialogOpen} onOpenChange={setDialogOpen} />

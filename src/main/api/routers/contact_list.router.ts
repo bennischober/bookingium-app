@@ -3,8 +3,6 @@ import { initTRPC } from '@trpc/server'
 import { clipboard } from 'electron'
 import { container } from 'tsyringe'
 import { ContactListService } from '../../services/ContactListService'
-import { SettingsService } from '../../services/SettingsService'
-import { mailAddressSeparator, openBccEmail } from '../../mail/openEmail'
 import {
   ContactListFilters,
   SaveContactListInput,
@@ -13,7 +11,6 @@ import {
 
 const t = initTRPC.create()
 const service = container.resolve(ContactListService)
-const settingsService = container.resolve(SettingsService)
 
 // Mailing and copying recompute the list here, so "Keine Werbung"
 // addresses can't slip in from a stale screen
@@ -35,19 +32,15 @@ export const contactListRouter = t.router({
     .input(SetNoAdvertisingInput)
     .mutation(({ input }) => service.setNoAdvertising(input.email, input.noAdvertising)),
 
-  /** New email with the list in BCC; too many for a link: addresses copied */
-  writeEmail: t.procedure.input(ContactListFilters).mutation(async ({ input }) => {
-    const emails = emailsOf(input)
-    if (emails.length === 0) return { count: 0, withRecipients: false }
-    const withRecipients = await openBccEmail(emails, settingsService.get().mailProgram)
-    return { count: emails.length, withRecipients }
-  }),
+  /** #136: the addresses for a new mail with the list in BCC, opened by the renderer */
+  writeEmail: t.procedure
+    .input(ContactListFilters)
+    .mutation(({ input }) => ({ emails: emailsOf(input) })),
 
-  /** The addresses, separated the way the mail program expects */
-  copyAddresses: t.procedure.input(ContactListFilters).mutation(async ({ input }) => {
+  /** The addresses for pasting: ';' is split by every mail program, Outlook's included */
+  copyAddresses: t.procedure.input(ContactListFilters).mutation(({ input }) => {
     const emails = emailsOf(input)
-    const separator = await mailAddressSeparator(settingsService.get().mailProgram)
-    clipboard.writeText(emails.join(`${separator} `))
+    clipboard.writeText(emails.join('; '))
     return { count: emails.length }
   })
 })

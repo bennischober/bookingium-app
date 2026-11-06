@@ -31,6 +31,7 @@ import {
   withSignature,
   composeTo
 } from '@/components/mail/composeDraft'
+import { hasPendingCompose, takePendingCompose } from '@/components/mail/pendingCompose'
 import { FolderTree } from '@/components/mail/FolderTree'
 import { MessageList } from '@/components/mail/MessageList'
 import { ThreadList } from '@/components/mail/ThreadList'
@@ -62,21 +63,9 @@ import type { MessageDetail, MessageListItem } from '../../../main/mailclient/co
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
 
-/** The mail client, or a note while "E-Mail (experimentell)" is off (the menu then has no entry) */
+/** The mail client; #136: always part of the app, no longer behind a switch */
 export default function MailPage() {
-  const navigate = useNavigate()
-  const settings = trpcReact.settings.get.useQuery()
-  if (!settings.data) return null
-  if (settings.data.mailClient) return <MailClient />
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <h1 className="text-2xl font-bold">E-Mail</h1>
-      <p className="text-sm text-muted-foreground">Der E-Mail-Client ist ausgeschaltet.</p>
-      <Button onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}>
-        Zu den Einstellungen
-      </Button>
-    </div>
-  )
+  return <MailClient />
 }
 
 /** "· 6 ungelesen" after an account in the picker or a collapsed section; nothing when all is read */
@@ -432,6 +421,30 @@ function MailClient() {
   useEffect(() => {
     if (newMail && accounts.data) showNewMail(newMail)
   }, [newMail, accounts.data])
+
+  // #136: a new mail another page asked for (pendingCompose.ts), such as the mailing list's
+  // BCC mail. It opens on the shown account when that one can send, else on the first that can.
+  const openPendingCompose = useEffectEvent(() => {
+    const state = takePendingCompose()
+    if (!state) return
+    const target = canWrite ? account : accounts.data?.find((a) => readingActions(a).canWrite)
+    if (!target) {
+      toast.error('Kein E-Mail-Konto, das senden kann', {
+        description: 'Konten unter Einstellungen › E-Mail.'
+      })
+      return
+    }
+    if (target.id !== accountId) switchAccount(target.id)
+    openedId.current = null
+    // The target's signature: after a switch, startCompose would still see the old account
+    setCompose((current) => ({
+      key: (current?.key ?? 0) + 1,
+      state: withSignature(state, target.signature)
+    }))
+  })
+  useEffect(() => {
+    if (accounts.data && hasPendingCompose()) openPendingCompose()
+  }, [accounts.data])
   const openNewestUnread = useEffectEvent(() => {
     setOpenNewest(null)
     // The mail that came last is the one stored last: by id, not by the list's date order, in

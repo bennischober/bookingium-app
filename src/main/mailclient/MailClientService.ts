@@ -13,10 +13,6 @@ import { logError } from '../utils/errorLog'
 const CRASH_WINDOW_MS = 60_000
 const MAX_CRASHES = 3
 
-/** What a call gets while the "E-Mail (experimentell)" setting is off */
-export const MAIL_CLIENT_OFF =
-  'Der E-Mail-Client ist ausgeschaltet (Einstellungen → E-Mail → E-Mail (experimentell)).'
-
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
 
 export class MailClientService {
@@ -32,13 +28,6 @@ export class MailClientService {
   private lastError: string | null = null
   /** whileStopped() calls in progress */
   private held = 0
-  /** The "E-Mail (experimentell)" setting; index.ts wires it to the app settings */
-  private enabled: () => boolean = () => true
-
-  setEnabledCheck(check: () => boolean): void {
-    this.enabled = check
-  }
-
   /** starting: the worker opens its stores, which takes minutes while a migration rewrites a large one */
   status(): { running: boolean; starting: boolean; error: string | null } {
     return {
@@ -59,9 +48,9 @@ export class MailClientService {
     })
   }
 
-  /** Starts the worker if it is switched on and accounts exist; errors are kept for status() */
+  /** Starts the worker if accounts exist; errors are kept for status() */
   startIfConfigured(): void {
-    if (!this.enabled() || listMailAccounts().length === 0) return
+    if (listMailAccounts().length === 0) return
     this.ensureStarted().catch(() => {})
   }
 
@@ -70,7 +59,7 @@ export class MailClientService {
     await this.stop()
     this.crashes = []
     this.lastError = null
-    // also when no worker ran (switched off, given up after crashes): the tray follows it (#65)
+    // also when no worker ran (no account, given up after crashes): the tray follows it (#65)
     this.events.emit('status', this.status())
     this.startIfConfigured()
   }
@@ -144,7 +133,6 @@ export class MailClientService {
   }
 
   private ensureStarted(): Promise<void> {
-    if (!this.enabled()) return Promise.reject(new Error(MAIL_CLIENT_OFF))
     if (this.held > 0)
       return Promise.reject(new Error('Mail-Client pausiert für den Verbindungstest'))
     if (this.worker && !this.starting) return Promise.resolve()

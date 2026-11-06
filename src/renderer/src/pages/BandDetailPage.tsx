@@ -1,5 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
@@ -112,7 +112,7 @@ export default function BandDetailPage() {
   const id = parseRecordId(bandId)
   const counts = useBandTabCounts(id)
   const navigate = useNavigate()
-  const mailClientEnabled = useMailClientEnabled()
+  const hasMailAccount = useHasMailAccount()
   const activeTab = useDetailTab(isBandTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<BandDto>()
@@ -233,7 +233,7 @@ export default function BandDetailPage() {
             Dokumente
             <TabCount count={counts.documents} />
           </TabsTrigger>
-          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
+          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -257,7 +257,7 @@ export default function BandDetailPage() {
               filtered by category and event */}
           <BandDocumentsView bandId={band.id} />
         </TabsContent>
-        {mailClientEnabled && (
+        {hasMailAccount && (
           <TabsContent value="mails">
             <MailHistoryPanel entityType="band" entityId={band.id} />
           </TabsContent>

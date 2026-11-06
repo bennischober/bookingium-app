@@ -41,8 +41,7 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
   parts of `mail/` are pure: no Electron, and the renderer imports them by
   relative path (there is no `@main` alias).
 - Named exports only, no default exports.
-- Environment: `BOOKINGIUM_USER_DATA` (data folder), `BOOKINGIUM_NO_LAUNCH=1`
-  (no mail program), `BOOKINGIUM_E2E_BACKGROUND=1` (windows shown without the focus). Tests also read `KOSIT_*` / `VERAPDF`.
+- Environment: `BOOKINGIUM_USER_DATA` (data folder), `BOOKINGIUM_E2E_BACKGROUND=1` (windows shown without the focus). Tests also read `KOSIT_*` / `VERAPDF`.
 
 ### api/
 - Every router file calls its own `initTRPC.create()`; no shared `trpc.ts`, no

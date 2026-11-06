@@ -1,5 +1,5 @@
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useMailClientEnabled } from '@/hooks/useMailClientEnabled'
+import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
@@ -417,7 +417,7 @@ export default function PersonDetailPage() {
   const id = parseRecordId(personId)
   const counts = usePersonTabCounts(id)
   const navigate = useNavigate()
-  const mailClientEnabled = useMailClientEnabled()
+  const hasMailAccount = useHasMailAccount()
   const activeTab = useDetailTab(isPersonTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<PersonDto>()
@@ -550,7 +550,7 @@ export default function PersonDetailPage() {
             Dokumente
             <TabCount count={counts.documents} />
           </TabsTrigger>
-          {mailClientEnabled && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
+          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -577,7 +577,7 @@ export default function PersonDetailPage() {
         <TabsContent value="documents">
           <DocumentsPanel ownerType="person" ownerId={person.id} title="Dokumente der Person" />
         </TabsContent>
-        {mailClientEnabled && (
+        {hasMailAccount && (
           <TabsContent value="mails">
             <MailHistoryPanel entityType="person" entityId={person.id} />
           </TabsContent>

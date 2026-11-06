@@ -5,11 +5,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
 /**
- * "E-Mail (experimentell)" (Einstellungen › E-Mail): the built-in mail client, off by default.
- * While it is on, more switches: the new-mail notification from Windows and the popup in the app
- * (#133, both off by default), and closing to the tray (#65).
- * Main starts or stops its worker with the setting; the renderer hides the mail page, the E-Mails
- * tabs, the mail search and the own editor while it is off.
+ * "E-Mail" (Einstellungen › E-Mail): how the built-in mail client behaves. #136: the client is
+ * always part of the app (no switch any more, its worker starts once an account exists); left
+ * are the new-mail notification from Windows and the popup in the app (#133, both off by
+ * default), and closing to the tray (#65).
  */
 export function MailClientSwitchCard() {
   const utils = trpcReact.useUtils()
@@ -18,46 +17,24 @@ export function MailClientSwitchCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      void utils.mail.invalidate()
       toast.success('Einstellung gespeichert')
     },
     onError: (error) =>
       toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
   })
 
-  const toggle = (checked: boolean) =>
-    updateSettings.mutate({
-      mailClient: checked,
-      // the own editor needs the mail client; without it invoices go to the system's program
-      ...(!checked && settings.data?.mailProgram === 'bookingum' ? { mailProgram: 'auto' } : {})
-    })
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>E-Mail (experimentell)</CardTitle>
+        <CardTitle>E-Mail</CardTitle>
         <CardDescription>
-          Ein eigenes Postfach in Bookingium: E-Mails lesen, durchsuchen, Personen, Events und
-          Rechnungen zuordnen und senden.
+          Das Postfach in Bookingium: E-Mails lesen, durchsuchen, Personen, Events und Rechnungen
+          zuordnen und senden.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="flex items-center gap-3">
-          <Switch
-            id="settings-mail-client"
-            checked={settings.data?.mailClient ?? false}
-            onCheckedChange={toggle}
-            disabled={settings.isLoading || updateSettings.isPending}
-          />
-          <Label htmlFor="settings-mail-client">E-Mail-Client einschalten</Label>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Noch in Erprobung. Eingeschaltet erscheinen „E-Mail“ im Menü, die Konten unten und der
-          Reiter „E-Mails“ bei Bands, Personen, Firmen, Clubs, Festivals und Events. Ausgeschaltet
-          wird nichts gelöscht: Konten und heruntergeladene E-Mails bleiben gespeichert.
-        </p>
-        {settings.data?.mailClient && (
-          <div className="space-y-2 border-t pt-3">
+        {settings.data && (
+          <div className="space-y-2">
             <div className="flex items-center gap-3">
               <Switch
                 id="settings-mail-notifications"
