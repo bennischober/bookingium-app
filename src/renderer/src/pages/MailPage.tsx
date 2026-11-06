@@ -975,6 +975,9 @@ function MailClient() {
                   ? (address) => startCompose(composeTo(address, account?.signature))
                   : undefined
               }
+              onOpenEvent={(eventId) =>
+                void navigate({ to: '/events/$eventId', params: { eventId: String(eventId) } })
+              }
             />
           ) : selection.ids.length > 1 && selectedItems.length > 0 ? (
             <SelectionActions

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { UserPlus } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,22 @@ interface CreateEventWizardProps {
   onSuccess: (memo: DealMemoListItemDto) => void
   /** yyyy-MM-dd prefilled as the event date when the wizard opens */
   initialDate?: string
+  /** #122: what the wizard opens with, read from a mail */
+  prefill?: Partial<
+    Pick<WizardFormData, 'name' | 'date' | 'venueId' | 'loProPersonId' | 'loProCompanyId'>
+  >
+  /** #122: a sender nobody stored, offered as the LoPro person in step 2 */
+  newPersonPrefill?: PersonPrefill
+  /** Replaces the dialog's description */
+  description?: string
+}
+
+type PersonPrefill = { firstName: string; lastName: string; email: string }
+
+/** The combobox's search text as a new person's name: first word, then the rest */
+const personFromSearch = (query: string): PersonPrefill => {
+  const parts = query.trim().split(/\s+/)
+  return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' '), email: '' }
 }
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
@@ -280,21 +297,16 @@ function VenueQuickCreateDialog({
 
 interface PersonQuickCreateProps {
   isOpen: boolean
-  prefillName: string
+  prefill: PersonPrefill
   onClose: () => void
   onCreated: (id: number, label: string) => void
 }
 
-function PersonQuickCreateDialog({
-  isOpen,
-  prefillName,
-  onClose,
-  onCreated
-}: PersonQuickCreateProps) {
-  const parts = prefillName.trim().split(' ')
-  const [firstName, setFirstName] = useState(parts[0] ?? '')
-  const [lastName, setLastName] = useState(parts.slice(1).join(' '))
-  const [email, setEmail] = useState('')
+/** Mounted per opening (see the wizard), so each one starts from its prefill */
+function PersonQuickCreateDialog({ isOpen, prefill, onClose, onCreated }: PersonQuickCreateProps) {
+  const [firstName, setFirstName] = useState(prefill.firstName)
+  const [lastName, setLastName] = useState(prefill.lastName)
+  const [email, setEmail] = useState(prefill.email)
 
   const createPerson = trpcReact.person.create.useMutation({
     onSuccess: (person) => {
@@ -393,23 +405,35 @@ export function CreateEventWizard({
   isOpen,
   onClose,
   onSuccess,
-  initialDate
+  initialDate,
+  prefill,
+  newPersonPrefill,
+  description
 }: CreateEventWizardProps) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<WizardFormData>(EMPTY_FORM)
 
-  // Prefill the date each time the wizard opens (state adjustment during
-  // render, per "You Might Not Need an Effect")
-  const [wasOpen, setWasOpen] = useState(isOpen)
+  // Prefill each time the wizard opens (state adjustment during render, per "You Might
+  // Not Need an Effect"). Starting from "closed" also covers a wizard mounted open.
+  const [wasOpen, setWasOpen] = useState(false)
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen)
-    if (isOpen && initialDate) setForm((prev) => ({ ...prev, date: initialDate }))
+    if (isOpen && (initialDate || prefill)) {
+      setForm((prev) => ({
+        ...prev,
+        ...(initialDate ? { date: initialDate } : {}),
+        ...prefill
+      }))
+    }
   }
 
   // Quick-create state
   const [bandQC, setBandQC] = useState({ open: false, prefill: '' })
   const [venueQC, setVenueQC] = useState({ open: false, prefill: '' })
-  const [personQC, setPersonQC] = useState({ open: false, prefill: '' })
+  const [personQC, setPersonQC] = useState<{ open: boolean; prefill: PersonPrefill }>({
+    open: false,
+    prefill: personFromSearch('')
+  })
 
   // Combobox item labels (tracked after JiT create for display)
   const [bandLabel, setBandLabel] = useState<string | null>(null)
@@ -506,8 +530,8 @@ export function CreateEventWizard({
           <DialogHeader>
             <DialogTitle>Neues Event anlegen</DialogTitle>
             <DialogDescription>
-              Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt
-              werden.
+              {description ??
+                'Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt werden.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -594,9 +618,21 @@ export function CreateEventWizard({
                   placeholder="Person auswählen…"
                   searchPlaceholder="Personen suchen…"
                   isLoading={persons.isLoading}
-                  onCreateNew={(q) => setPersonQC({ open: true, prefill: q })}
+                  onCreateNew={(q) => setPersonQC({ open: true, prefill: personFromSearch(q) })}
                   createNewLabel="Neue Person anlegen"
                 />
+                {newPersonPrefill && form.loProPersonId === null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setPersonQC({ open: true, prefill: newPersonPrefill })}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Absender als Person anlegen
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -755,16 +791,18 @@ export function CreateEventWizard({
         }}
       />
 
-      <PersonQuickCreateDialog
-        isOpen={personQC.open}
-        prefillName={personQC.prefill}
-        onClose={() => setPersonQC({ open: false, prefill: '' })}
-        onCreated={(id, label) => {
-          set('loProPersonId', id)
-          setPersonLabel(label)
-          utils.person.getListItems.invalidate()
-        }}
-      />
+      {personQC.open && (
+        <PersonQuickCreateDialog
+          isOpen
+          prefill={personQC.prefill}
+          onClose={() => setPersonQC({ open: false, prefill: personFromSearch('') })}
+          onCreated={(id, label) => {
+            set('loProPersonId', id)
+            setPersonLabel(label)
+            utils.person.getListItems.invalidate()
+          }}
+        />
+      )}
     </>
   )
 }
