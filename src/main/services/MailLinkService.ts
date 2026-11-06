@@ -163,11 +163,13 @@ export function linkableFolder(folder: { path?: string; specialUse?: string | nu
  * arrives during a run must not be dropped (the mails a folder event announced may have
  * been synced after the run's cursor passed them, a contact may have gained an address
  * after the run read them), so the run is repeated once instead. A failed run is logged
- * (MR-28), never swallowed.
+ * (MR-28), never swallowed. `folder` says which synced folders start a run (#124: the
+ * mail rules look at the INBOX only).
  */
 export function mailLinkRunner(deps: {
   link: (accountId: string) => Promise<unknown>
   log: (error: unknown) => void
+  folder?: (folder: { path?: string; specialUse?: string | null }) => boolean
 }): { run: (accountId: string) => void; onEvent: (event: unknown) => void } {
   const running = new Set<string>()
   const again = new Set<string>()
@@ -189,7 +191,7 @@ export function mailLinkRunner(deps: {
   const onEvent = (event: unknown): void => {
     const e = event as MailClientEvent
     if (e.type !== 'sync-event' || e.event?.type !== 'folder-done') return
-    if (!linkableFolder(e.event)) return
+    if (!(deps.folder ?? linkableFolder)(e.event)) return
     if (!e.accountId) return
     run(e.accountId)
   }
@@ -577,7 +579,8 @@ export class MailLinkService {
           UNION SELECT mail_account_id FROM invoice_email WHERE mail_account_id IS NOT NULL
           UNION SELECT mail_account_id FROM invoice_email_pending
           UNION SELECT source_mail_account_id FROM document WHERE source_mail_account_id IS NOT NULL
-          UNION SELECT mail_account_id FROM follow_up WHERE mail_account_id IS NOT NULL`
+          UNION SELECT mail_account_id FROM follow_up WHERE mail_account_id IS NOT NULL
+          UNION SELECT mail_account_id FROM mail_rule`
       )
       .map((row) => row.id)
       .filter((id) => !current.has(id))
@@ -617,6 +620,12 @@ export class MailLinkService {
           .update(schema.follow_up)
           .set({ mail_account_id: account.id })
           .where(eq(schema.follow_up.mail_account_id, old))
+          .run(),
+        // #124: the account's rules come along
+        tx
+          .update(schema.mail_rule)
+          .set({ mail_account_id: account.id })
+          .where(eq(schema.mail_rule.mail_account_id, old))
           .run()
       ].reduce((sum, result) => sum + result.changes, 0)
       known[account.id] = email

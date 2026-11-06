@@ -35,6 +35,7 @@ import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
+import { MailRulesCard } from '@/components/settings/MailRulesCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
@@ -422,6 +423,7 @@ export default function SettingsPage() {
           <MailClientSwitchCard />
           <MailAccountsCard />
           <MailTemplatesCard />
+          <MailRulesCard />
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />

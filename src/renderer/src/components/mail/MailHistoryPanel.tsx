@@ -151,7 +151,13 @@ export function MailHistoryPanel({
                     {row.sourceEvent.name}
                   </Badge>
                 )}
-                <span>{row.source === 'manual' ? 'zugeordnet' : 'automatisch'}</span>
+                <span>
+                  {row.source === 'manual'
+                    ? 'zugeordnet'
+                    : row.source === 'rule'
+                      ? 'per Regel'
+                      : 'automatisch'}
+                </span>
               </p>
             </div>
             {/* Removes the link only; the mail stays in the mailbox */}

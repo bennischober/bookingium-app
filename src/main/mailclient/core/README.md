@@ -19,7 +19,8 @@ the prototype's `test-core-boundary.ts`) holds this boundary.
 |---|---|
 | `index.ts` | `createMailCore(options)` factory + `MailCore`: events, sync status/trigger/pause/resume, lifecycle (`start()`/`close()`); every other `Api` method is a one-line delegation to the modules below |
 | `account_entries.ts` | `AccountEntries`: builds one store + sync engine + write engine per account, lazy credentials, `getAccount`/`listAccounts`/`selectAccount`, `entry`/`writableEntry` |
-| `message_views.ts` | `MessageViews`: the read calls (folders, lists, threads, message, raw source, attachments, remote images, search, header lookups, contacts) and the row-to-DTO mapping |
+| `message_views.ts` | `MessageViews`: the read calls (folders, lists, threads, message, raw source, attachments, remote images, search, header lookups, contacts, `matchInboxSince` for mail rules) and the row-to-DTO mapping |
+| `mail_rules.ts` | #124: `ruleMatches`/`matchingRules` (a rule's sender, To/Cc and subject conditions against a stored mail) and `recipientsOf`; pure |
 | `message_keys.ts` | `messageFallbackKey` + `normalizeMessageId`, the keys mail linking matches on (re-exported from `index.ts`) |
 | `op_api.ts` | `OpApi`: flags, move, trash, archive, expunge from Trash, the op journal calls (list, counts, retry, resolve, cancel, undo), replay and the retry schedule, `MOVE_BATCH_LIMIT` (re-exported from `index.ts`) |
 | `folder_api.ts` | `FolderApi`: create, rename, move and delete folder, and the folder-delete refusals |

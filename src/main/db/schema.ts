@@ -669,7 +669,7 @@ export const MAIL_LINK_ENTITY_TYPES = [
   'contract'
 ] as const
 export type MailLinkEntityType = (typeof MAIL_LINK_ENTITY_TYPES)[number]
-export const MAIL_LINK_SOURCES = ['address', 'thread', 'sent', 'manual'] as const
+export const MAIL_LINK_SOURCES = ['address', 'thread', 'sent', 'manual', 'rule'] as const
 export type MailLinkSource = (typeof MAIL_LINK_SOURCES)[number]
 
 export const mail_link = sqliteTable(
@@ -749,6 +749,60 @@ export const mail_template = sqliteTable(
       .notNull()
   },
   (table) => [uniqueIndex('mail_template_kind_lang_idx').on(table.kind, table.lang)]
+)
+
+// #124: rules for incoming mail (Regeln), per mail account. Each non-empty condition must match
+// ("contains", case-insensitive; the address fields hold alternatives split on , or ;). The
+// actions run in the worker's INBOX: mark, flag, move on the server (writable accounts only) and
+// link to a record. A rule applies to mail received from active_since on - never to the mailbox
+// it finds when created - and position orders them: the first matching rule with a folder moves.
+export const mail_rule = sqliteTable(
+  'mail_rule',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mail_account_id: text('mail_account_id').notNull(),
+    name: text('name').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).default(true).notNull(),
+    position: integer('position').default(0).notNull(),
+    match_from: text('match_from').default('').notNull(),
+    match_to: text('match_to').default('').notNull(),
+    match_subject: text('match_subject').default('').notNull(),
+    // IMAP path of the target folder; null = leave the mail in INBOX
+    move_to_folder_path: text('move_to_folder_path'),
+    mark_read: integer('mark_read', { mode: 'boolean' }).default(false).notNull(),
+    mark_flagged: integer('mark_flagged', { mode: 'boolean' }).default(false).notNull(),
+    // Like mail_link: a type plus an id, no FK; a deleted record ends the link action
+    link_entity_type: text('link_entity_type', { enum: MAIL_LINK_ENTITY_TYPES }),
+    link_entity_id: integer('link_entity_id'),
+    active_since: text('active_since').notNull(), // ISO time; set on create and when re-enabled
+    hit_count: integer('hit_count').default(0).notNull(),
+    last_applied_at: text('last_applied_at'),
+    last_error: text('last_error'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [index('mail_rule_account_idx').on(table.mail_account_id, table.position)]
+)
+
+// #124: the mails a rule has handled, by Message-ID (without brackets) or the fallback key, so a
+// mail the user moves back into INBOX is not filed again.
+export const mail_rule_hit = sqliteTable(
+  'mail_rule_hit',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    rule_id: integer('rule_id')
+      .notNull()
+      .references(() => mail_rule.id, { onDelete: 'cascade' }),
+    mail_key: text('mail_key').notNull(),
+    applied_at: text('applied_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('mail_rule_hit_unique_idx').on(table.rule_id, table.mail_key)]
 )
 
 // Follow-ups (Wiedervorlagen): a date and a note, optionally on one record
@@ -936,5 +990,7 @@ export const schema = {
   contact_list,
   mail_link,
   follow_up,
-  mail_template
+  mail_template,
+  mail_rule,
+  mail_rule_hit
 }

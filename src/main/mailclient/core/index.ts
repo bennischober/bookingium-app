@@ -18,7 +18,7 @@ import { WriteEngine, OpResult } from './write_engine.js';
 import { WriteAccount } from './write_guard.js';
 import { RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
-import type { HeaderPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, ThreadSummary, OpSummary, SavedDraft } from './types.js';
+import type { HeaderPage, RuleMatcher, RuleMatchPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, ThreadSummary, OpSummary, SavedDraft } from './types.js';
 import { AccountEntries } from './account_entries.js';
 import { MessageViews } from './message_views.js';
 import { OpApi } from './op_api.js';
@@ -273,6 +273,7 @@ export class MailCore implements Api {
   // ----- C2: mail -> record linking -----
 
   listHeadersSince(cursor: number, limit: number, accountId?: string): Promise<HeaderPage> { return this.views.listHeadersSince(cursor, limit, accountId); }
+  matchInboxSince(cursor: number, limit: number, rules: RuleMatcher[], accountId?: string): Promise<RuleMatchPage> { return this.views.matchInboxSince(cursor, limit, rules, accountId); }
 
   findByMessageIds(ids: string[], accountId?: string): Promise<MessageListItem[]> { return this.views.findByMessageIds(ids, accountId); }
 
