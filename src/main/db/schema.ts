@@ -725,6 +725,22 @@ export const contact_list = sqliteTable('contact_list', {
     .notNull()
 })
 
+// #123: the user's own mail templates (Vorlagen) for the mail client: a name, a subject and a
+// plain-text body with {Platzhalter} (MAIL_TEMPLATE_PLACEHOLDERS in mail/mailTemplate.ts), filled
+// from an event when one is chosen while composing.
+export const mail_template = sqliteTable('mail_template', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  subject: text('subject').default('').notNull(),
+  body: text('body').default('').notNull(),
+  created_at: text('created_at')
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  updated_at: text('updated_at')
+    .default(sql`(datetime('now'))`)
+    .notNull()
+})
+
 // Follow-ups (Wiedervorlagen): a date and a note, optionally on one record
 // (at most one of the *_id columns is set; none = a general follow-up).
 // Open while done_at is null. #121: one made when sending a mail names that
@@ -909,5 +925,6 @@ export const schema = {
   app_setting,
   contact_list,
   mail_link,
-  follow_up
+  follow_up,
+  mail_template
 }
