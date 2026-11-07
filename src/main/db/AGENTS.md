@@ -1,20 +1,23 @@
 # src/main/db - Schema, Migrations, Seed
 
 ## OVERVIEW
+
 Drizzle schema for 27 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
 
 ## WHERE TO LOOK
-| Task | Location |
-|---|---|
-| Add/change a table | `schema.ts`, then `pnpm db:generate` |
-| Lazy handle, WAL, test swap | `index.ts` (`getDb`, `getSqlite`, `getDbPath`, `useTestDb`, `db` proxy) |
+
+| Task                              | Location                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| Add/change a table                | `schema.ts`, then `pnpm db:generate`                                           |
+| Lazy handle, WAL, test swap       | `index.ts` (`getDb`, `getSqlite`, `getDbPath`, `useTestDb`, `db` proxy)        |
 | Migration runner, legacy adoption | `migrate.ts` (`runMigrations`, `upgradeLegacyDatabase`, `setMigrationsFolder`) |
-| Demo data | `seed.ts` |
-| Generated SQL | `migrations/*.sql` |
-| Generated snapshots | `migrations/meta/*` (do not touch) |
+| Demo data                         | `seed.ts`                                                                      |
+| Generated SQL                     | `migrations/*.sql`                                                             |
+| Generated snapshots               | `migrations/meta/*` (do not touch)                                             |
 
 ## CONVENTIONS
+
 - `db` is a `Proxy` resolving `getDb()` on first property access, so importing a
   repository has no side effects - this is what makes `useTestDb` work. Outside
   Electron the path falls back to `$TMP/bookingum-test`.
@@ -29,11 +32,13 @@ database handle, and the demo seed.
   `LEGACY_FINAL_MIGRATION_MILLIS`.
 - Document ownership has no FK: `owner_type` + `owner_id`, with triggers in the
   initial migration deleting rows when the owner goes.
-- Seeding runs only on an empty database and reads demo data; real master data
-  comes from the gitignored `sample_data/internal-seed.json`.
+- Seeding runs only in unpackaged builds (dev and e2e) and only on an empty
+  database; the installed app starts empty. Demo data is read from this file, real
+  master data comes from the gitignored `sample_data/internal-seed.json`.
 - `seed.ts` is the only file here that logs (`console.log` progress).
 
 ## ANTI-PATTERNS
+
 - Touching an already-shipped file in `migrations/` or its `meta/*.json`
   snapshot: the whole chain is append-only, so the fix is always the next number.
   The 1.0.0 history is pinned by `tests/migration_upgrade.test.ts`; never update that list.
@@ -48,6 +53,7 @@ database handle, and the demo seed.
   `try { require('electron') } catch` so tests can import them.
 
 ## COMMANDS
+
 ```bash
 pnpm db:generate   # schema.ts -> new migration, then review the SQL
 pnpm db:migrate

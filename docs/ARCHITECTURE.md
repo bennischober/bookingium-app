@@ -291,8 +291,8 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
     tabs look alike: the memberships card on top, the linked records below (the
     Bands, Companies and Spielstätten tabs of the person page).
 
-11. **Seed** (optional demo data) — `src/main/db/seed.ts`; real master data
-    only in the gitignored `sample_data/internal-seed.json`.
+11. **Seed** (demo data, development and e2e only) — `src/main/db/seed.ts`;
+    real master data only in the gitignored `sample_data/internal-seed.json`.
 12. **Tests** — unit tests in `tests/`, an e2e spec in `tests/e2e/`.
 13. **Gates** — `pnpm test && pnpm lint && pnpm typecheck && pnpm build`,
     then `npx playwright test`.

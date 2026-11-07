@@ -1045,9 +1045,13 @@ app.whenReady().then(async () => {
     .catch((error) => console.error('Relocating documents failed:', error))
   // Calendar file (Einstellungen › Kalender): refresh with the current events
   void container.resolve(CalendarFeedService).update()
-  await seedDatabase().catch((error) => {
-    console.error('Database seeding failed:', error)
-  })
+  // Demo data belongs to development and the e2e app, which both run unpackaged.
+  // An installed app starts with an empty database.
+  if (!app.isPackaged) {
+    await seedDatabase().catch((error) => {
+      console.error('Database seeding failed:', error)
+    })
+  }
 
   createWindow()
   // Automatic backups: checked after startup, then hourly; each run copies in the background

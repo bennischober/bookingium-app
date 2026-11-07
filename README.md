@@ -73,8 +73,9 @@ pnpm dev            # start the app in dev mode (HMR)
 ```
 
 The database is created and migrated automatically on first launch
-(`%APPDATA%\bookingum-app\data\bookingum.db`). Demo data is seeded on first
-run; dates are relative to the seeding day so the dashboard shows content.
+(`%APPDATA%\bookingum-app\data\bookingum.db`). The development app and the
+e2e suite seed demo data on first run (dates are relative to the seeding day,
+so the dashboard shows content); the installed app starts with an empty database.
 
 Real issuer master data (agency address, tax numbers, bank details,
 signatures) is loaded from `sample_data/internal-seed.json` when present —
@@ -169,11 +170,11 @@ the coding guidelines.
 
 ## Documentation
 
-| Document | What's in it |
-| --- | --- |
+| Document                                | What's in it                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, data on disk, migrations, the end-to-end recipe, coding guidelines |
-| [UI_LANGUAGE.md](docs/UI_LANGUAGE.md) | German UI rules and glossary |
-| [mail-client.md](docs/mail-client.md) | The mail client: architecture, sync, write path, rules for working on it |
+| [UI_LANGUAGE.md](docs/UI_LANGUAGE.md)   | German UI rules and glossary                                                  |
+| [mail-client.md](docs/mail-client.md)   | The mail client: architecture, sync, write path, rules for working on it      |
 
 Open work (bugs, features, decisions, chores) is tracked in
 [GitHub issues](https://github.com/bennischober/bookingium-app/issues), labelled
