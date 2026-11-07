@@ -594,6 +594,48 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.
 
+## Own appointments (Termine)
+
+An appointment (#71) is the user's own entry in the calendar: a title, a
+start and end (`start_date`/`start_time`, `end_date`/`end_time`; both times
+null means all-day), a place, notes, a reminder and optionally the record it
+is on (`appointment`, `appointment` router, `AppointmentService`).
+
+- **Times** are local wall-clock values, like the shows. The rules
+  (`appointmentTimesError`: both times or none, the end not before the
+  start) live in the pure `calendar/appointments.ts`, shared by the zod
+  input, the service (which checks the merged fields of a partial update)
+  and the dialog.
+- **On a record:** event, band, venue, company or person as nullable
+  foreign keys with `ON DELETE SET NULL`, unlike follow-ups: an appointment
+  outlives its record and just loses the "Zu: ..." link.
+- **Calendar page:** `listBetween(from, to)` returns every appointment that
+  touches the visible month grid or agenda range, several-day ones on each
+  of their days (`components/appointments/appointmentDays.ts`). A sky dot
+  marks the day in the month, the day and the agenda list them, "+ Termin"
+  creates one on the selected day and the pencil edits it
+  (`AppointmentDialog`). `/calendar?day=YYYY-MM-DD` opens the day view on
+  that day and then drops the search, so the same day can be asked again.
+- **Reminders:** `reminder_minutes` before the start, or before 08:00 of an
+  all-day one's day (`reminderWindow`). Main looks every minute, 10 s after
+  the start and after a wake (`notifications/appointmentReminders.ts`); a
+  reminder is due from its time until 30 minutes after the start (all-day:
+  until the day ends), so one missed while the app was closed is not shown
+  later. Due ones get `reminded_at` and one notice together; changing the
+  start or the reminder clears `reminded_at`. The notice names the day and
+  time, never the title (Windows shows it on the lock screen). It follows
+  the follow-up reminder's path and switch (`reminderNotifications`): a
+  popup with the main window in front, otherwise Windows; the click opens
+  the calendar on that day (`app:openCalendar`).
+- **Calendar file:** with "Eigene Termine mit aufnehmen"
+  (`calendarFeedAppointments`, off by default, as the file is often shared)
+  the .ics gets each one with its times (floating) or as all-day across its
+  days (`UID:appointment-<id>@bookingium`, `CATEGORIES:Termin`). Service
+  changes call `scheduleAppointmentCalendarUpdate()`; record renames reach it
+  through `scheduleFollowUpCalendarUpdate()`, which runs when either switch
+  is on.
+- **Not yet:** recurring appointments, and invitations (iMIP) from mail.
+
 ## Mail client
 
 An IMAP mail client in `src/main/mailclient/`, always part of the app since

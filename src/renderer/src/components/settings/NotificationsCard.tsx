@@ -27,7 +27,7 @@ export function NotificationsCard() {
       <CardHeader>
         <CardTitle>Benachrichtigungen</CardTitle>
         <CardDescription>
-          Erinnerungen an fällige Wiedervorlagen und der Infobereich.
+          Erinnerungen an Termine und fällige Wiedervorlagen, und der Infobereich.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -43,7 +43,7 @@ export function NotificationsCard() {
                 disabled={updateSettings.isPending}
               />
               <Label htmlFor="settings-reminder-notifications">
-                Erinnerung an fällige Wiedervorlagen
+                Erinnerungen an Termine und fällige Wiedervorlagen
               </Label>
             </div>
             <div className="flex items-center gap-3">
@@ -59,7 +59,8 @@ export function NotificationsCard() {
             </div>
             <p className="text-xs text-muted-foreground">
               Einmal am Tag, beim ersten Start ab 8 Uhr, meldet Bookingium, wie viele Wiedervorlagen
-              heute fällig oder überfällig sind; nur die Anzahl, keine Notiz. Ist Bookingium im
+              heute fällig oder überfällig sind; nur die Anzahl, keine Notiz. Termine mit Erinnerung
+              meldet es zur gewählten Zeit, mit Tag und Uhrzeit, aber ohne Titel. Ist Bookingium im
               Hintergrund, meldet es Windows, sonst erscheint ein Hinweis im Fenster. Läuft
               Bookingium im Infobereich weiter, kommen Erinnerungen und E-Mails auch bei
               geschlossenem Fenster; beendet wird es dann über das Symbol im Infobereich.

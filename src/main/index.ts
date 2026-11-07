@@ -122,7 +122,9 @@ import {
   type WindowFocus
 } from './notifications/noticeText'
 import { checkFollowUpSummary } from './notifications/followUpSummary'
+import { checkAppointmentReminders } from './notifications/appointmentReminders'
 import { FollowUpService } from './services/FollowUpService'
+import { AppointmentService } from './services/AppointmentService'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
@@ -137,6 +139,8 @@ let toldStillRunning = false
 /** #142: the first look for due follow-ups after the start or a wake, then the regular one */
 const REMINDER_FIRST_CHECK_MS = 10_000
 const REMINDER_CHECK_MS = 5 * 60_000
+/** #71: appointment reminders are looked at every minute (a timed one has a time) */
+const APPOINTMENT_CHECK_MS = 60_000
 
 /**
  * #127: e2e runs open their windows without taking the focus from the user's other programs.
@@ -322,6 +326,11 @@ function showFollowUps(): void {
   showMainWindow('/')?.webContents.send('app:openDashboard')
 }
 
+/** #71: the main window on the calendar, that day selected (an appointment's reminder) */
+function showCalendarDay(day: string): void {
+  showMainWindow(`/calendar?day=${day}`)?.webContents.send('app:openCalendar', day)
+}
+
 /** #142: the tray icon, there while the app runs; mail adds its counts and menu item */
 function setUpTray(): AppTray {
   const tray = new AppTray({
@@ -338,16 +347,36 @@ function setUpTray(): AppTray {
 
 /**
  * #142: the daily summary of due follow-ups: a look soon after the start, then every few minutes
- * (the first look at or after 08:00 shows it) and after a wake
+ * (the first look at or after 08:00 shows it) and after a wake. #71: own appointments' reminders,
+ * looked at every minute. Both go to the popup with the main window in front, otherwise to Windows;
+ * a click opens the dashboard or the appointment's day in the calendar.
  */
 function setUpReminders(tray: AppTray): void {
   const settings = container.resolve(SettingsService)
   const followUps = container.resolve(FollowUpService)
-  const announce = (notice: Notice): void => {
+  const appointments = container.resolve(AppointmentService)
+  // `day`: an appointment's reminder, opened on that day in the calendar
+  const announce = (notice: Notice, day?: string): void => {
     if (reminderChannel(windowFocus()) === 'app' && mainWindow) {
-      mainWindow.webContents.send('app:reminder', notice)
-    } else tray.notify(notice, showFollowUps)
+      mainWindow.webContents.send('app:reminder', { ...notice, day })
+    } else tray.notify(notice, day ? () => showCalendarDay(day) : showFollowUps)
   }
+  const checkAppointments = (): void => {
+    try {
+      checkAppointmentReminders({
+        now: () => new Date(),
+        enabled: () => settings.get().reminderNotifications,
+        candidates: (from, to) => appointments.reminderCandidates(from, to),
+        markReminded: (ids) => appointments.markReminded(ids),
+        show: announce
+      })
+    } catch (error) {
+      console.error('Checking the appointment reminders failed:', error)
+    }
+  }
+  setTimeout(checkAppointments, REMINDER_FIRST_CHECK_MS)
+  setInterval(checkAppointments, APPOINTMENT_CHECK_MS)
+  powerMonitor.on('resume', () => setTimeout(checkAppointments, REMINDER_FIRST_CHECK_MS))
   const check = (): void => {
     try {
       checkFollowUpSummary({
@@ -356,7 +385,7 @@ function setUpReminders(tray: AppTray): void {
         lastDay: () => followUps.summaryDay(),
         setLastDay: (day) => followUps.setSummaryDay(day),
         dueCount: (today) => followUps.countDue(today),
-        show: announce
+        show: (notice) => announce(notice)
       })
     } catch (error) {
       console.error('Checking the due follow-ups failed:', error)

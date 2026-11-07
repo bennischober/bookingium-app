@@ -47,16 +47,27 @@ export default function RootLayout() {
   )
   // #142: a click on a reminder notification opens the dashboard, whose card lists the follow-ups
   useEffect(() => window.api.onOpenDashboard(() => void navigate({ to: '/' })), [navigate])
-  // #142: a reminder while the app has focus, as a popup; counts only
+  // #71: a click on an appointment's reminder opens its day in the calendar
+  useEffect(
+    () => window.api.onOpenCalendar((day) => void navigate({ to: '/calendar', search: { day } })),
+    [navigate]
+  )
+  // #142: a reminder while the app has focus, as a popup; counts only. #71: an appointment's
+  // (with its day) has its own popup and opens the calendar.
   useEffect(
     () =>
       window.api.onReminder((notice) => {
+        const { day } = notice
         toast.info(notice.title, {
-          id: 'reminder',
+          id: day ? 'appointment-reminder' : 'reminder',
           icon: <Bell className="size-4" />,
           description: notice.body,
           duration: 8000,
-          action: { label: 'Anzeigen', onClick: () => void navigate({ to: '/' }) }
+          action: {
+            label: 'Anzeigen',
+            onClick: () =>
+              void (day ? navigate({ to: '/calendar', search: { day } }) : navigate({ to: '/' }))
+          }
         })
       }),
     [navigate]

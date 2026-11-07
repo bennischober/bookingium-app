@@ -17,7 +17,7 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 | `mailclient/` | IMAP mail client in a utility process; `core/` is self-contained |
 | `einvoice/ import/ csv/ mail/ invoice/ calendar/ payment/` | pure feature modules, no Electron |
 | `backup/` | backup policy (folder names, retention, due) |
-| `notifications/` | the app's tray icon (`appTray.ts`, Electron) and pure notice texts + the daily follow-up summary (#142) |
+| `notifications/` | the app's tray icon (`appTray.ts`, Electron) and pure notice texts, the daily follow-up summary (#142) and appointment reminders (#71) |
 | `utils/` | document/logo storage and path guards |
 
 ## WHERE TO LOOK
@@ -63,7 +63,8 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 ### services/
 - After a mutation on a calendar-visible object (band, venue, deal memo, hotel, follow-up)
   call `scheduleCalendarUpdate()`; after renaming or deleting a person, company or invoice
-  (follow-ups name them) call `scheduleFollowUpCalendarUpdate()`.
+  (follow-ups and appointments name them) call `scheduleFollowUpCalendarUpdate()`;
+  `AppointmentService` calls `scheduleAppointmentCalendarUpdate()` (#71).
 - After deleting a document owner (band, company, venue, person, deal memo) call
   `removeOwnerFolder(type, id)`: DB rows go via triggers, folders do not.
 - Read-only aggregates (`DashboardService`, `SearchService`,

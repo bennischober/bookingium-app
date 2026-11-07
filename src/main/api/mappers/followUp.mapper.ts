@@ -2,7 +2,7 @@ import type { FollowUpRow } from '../../repositories/FollowUpRepository'
 import type { FollowUpDto } from '../schemas/followUp.schema'
 
 /** 2026-06-11 -> 11.06.2026 */
-const germanDate = (iso: string): string => iso.split('-').reverse().join('.')
+export const germanDate = (iso: string): string => iso.split('-').reverse().join('.')
 
 export class FollowUpMapper {
   static toDto(row: FollowUpRow): FollowUpDto {

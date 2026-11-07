@@ -75,6 +75,41 @@ export function followUpSummaryNotice(count: number): Notice {
   }
 }
 
+/** #71: when a reminded appointment starts; YYYY-MM-DD and HH:MM (null: all-day) */
+export interface AppointmentStart {
+  startDate: string
+  startTime: string | null
+}
+
+/** "heute", "morgen" or "am 14.11." for a day, seen from `today` (all YYYY-MM-DD) */
+function dayWords(isoDate: string, today: string): string {
+  if (isoDate === today) return 'heute'
+  const [year, month, day] = today.split('-').map(Number)
+  const next = new Date(year, month - 1, day + 1)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const tomorrow = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`
+  if (isoDate === tomorrow) return 'morgen'
+  const [, m, d] = isoDate.split('-')
+  return `am ${d}.${m}.`
+}
+
+/**
+ * #71: the reminder of own appointments that are due, the earliest first. The day and time only,
+ * never the title: like the mail notices it would show on the lock screen.
+ */
+export function appointmentReminderNotice(due: AppointmentStart[], today: string): Notice {
+  const first = due[0]
+  const when = [dayWords(first.startDate, today), first.startTime && `um ${first.startTime}`]
+    .filter(Boolean)
+    .join(' ')
+  return due.length === 1
+    ? { title: `Termin ${when}`, body: 'Erinnerung an einen eigenen Termin. Zum Kalender.' }
+    : {
+        title: `${due.length} Termine, der erste ${when}`,
+        body: 'Erinnerung an eigene Termine. Zum Kalender.'
+      }
+}
+
 /** Shown once per session when closing the window keeps the app in the tray */
 export function stillRunningNotice(hasMail: boolean): Notice {
   return {

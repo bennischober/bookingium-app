@@ -82,10 +82,15 @@ const api = {
     }
   },
 
-  /** #142: a reminder while the main window has focus (counts only); returns the unsubscribe */
-  onReminder: (callback: (notice: { title: string; body: string }) => void) => {
-    const listener = (_event: unknown, notice: { title: string; body: string }): void =>
-      callback(notice)
+  /**
+   * #142: a reminder while the main window has focus (counts only); #71: `day` for an
+   * appointment's. Returns the unsubscribe.
+   */
+  onReminder: (callback: (notice: { title: string; body: string; day?: string }) => void) => {
+    const listener = (
+      _event: unknown,
+      notice: { title: string; body: string; day?: string }
+    ): void => callback(notice)
     ipcRenderer.on('app:reminder', listener)
     return () => {
       ipcRenderer.removeListener('app:reminder', listener)
@@ -98,6 +103,15 @@ const api = {
     ipcRenderer.on('app:openDashboard', listener)
     return () => {
       ipcRenderer.removeListener('app:openDashboard', listener)
+    }
+  },
+
+  /** #71: a click on an appointment's reminder asks for its day in the calendar */
+  onOpenCalendar: (callback: (day: string) => void) => {
+    const listener = (_event: unknown, day: string): void => callback(day)
+    ipcRenderer.on('app:openCalendar', listener)
+    return () => {
+      ipcRenderer.removeListener('app:openCalendar', listener)
     }
   }
 }
