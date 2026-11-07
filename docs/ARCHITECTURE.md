@@ -634,7 +634,20 @@ is on (`appointment`, `appointment` router, `AppointmentService`).
   changes call `scheduleAppointmentCalendarUpdate()`; record renames reach it
   through `scheduleFollowUpCalendarUpdate()`, which runs when either switch
   is on.
-- **Not yet:** recurring appointments, and invitations (iMIP) from mail.
+- **Invitations from mail:** "Einladung als Termin übernehmen" in the
+  reader shows when a mail has a text/calendar part (iMIP) or an attached
+  .ics (`invitationPart`, the iMIP part first). The pure
+  `calendar/invitation.ts` reads the first VEVENT without RECURRENCE-ID into
+  local wall-clock values: UTC and TZID times are converted to the system
+  zone (Windows zone names as Outlook sends them, Mozilla-style prefixes),
+  an unknown zone keeps its wall time with a hint, floating times stay as
+  they are, an all-day DTEND is exclusive and becomes the last day. CANCEL
+  and REPLY are refused. A series (RRULE/RDATE) is taken as its first
+  occurrence with a hint in the dialog and a line in the notes. The dialog
+  opens prefilled; `ical_uid` (unique, null for own entries) remembers the
+  UID, so a second take-over opens the stored appointment and saving
+  updates it. A cancellation leaves an imported appointment alone.
+- **Not yet:** recurring appointments.
 
 ## Mail client
 

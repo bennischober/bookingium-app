@@ -101,6 +101,11 @@ events and invoices), not a general mail client.
   company or venue the sender's address belongs to (`mailLink.senderOwners`, only when exactly one of a
   type). An unknown sender is offered as a new LoPro person. The new event gets a manual link to the mail.
   Like "Zuordnen…", it needs a Message-ID and also works on read-only accounts.
+- **Invitations** (#71): "Einladung als Termin übernehmen" in the reader, when the mail has a text/calendar
+  part or an attached .ics, reads it (`calendar/invitation.ts`, pure; `invitationPrefill.ts` picks the
+  part) and opens the appointment dialog prefilled (`InvitationFromMail`). An invitation taken over before
+  (same UID) opens that appointment, and saving updates it. Nothing is answered to the organizer.
+  Cancellations and replies are refused with a hint. Also works on read-only accounts.
 - **Mail templates** (#123): the user's own texts, kept in the `mail_template` table and edited under
   Einstellungen › E-Mail (`MailTemplatesCard`). "Vorlage einfügen" in the compose toolbar
   (`InsertTemplateDialog`) inserts one at the caret, its placeholders filled from an event

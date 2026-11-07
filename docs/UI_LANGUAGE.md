@@ -102,15 +102,17 @@ English.
 
 ### Own appointments
 
-| English                       | German                                        |
-| ----------------------------- | --------------------------------------------- |
-| Appointment / new appointment | Termin / Neuer Termin                         |
-| All-day / start / end / place | Ganztägig / Beginn / Ende / Ort               |
-| Reminder / none               | Erinnerung / Keine                            |
-| On a record                   | Zu einem Datensatz                            |
-| Several days, per day         | ab 14:00 / Ganztägig / bis 16:00              |
-| Reminder notice               | Termin heute um 14:00 (never the title)       |
-| Feed switch                   | Eigene Termine mit aufnehmen                  |
+| English                       | German                                  |
+| ----------------------------- | --------------------------------------- |
+| Appointment / new appointment | Termin / Neuer Termin                   |
+| All-day / start / end / place | Ganztägig / Beginn / Ende / Ort         |
+| Reminder / none               | Erinnerung / Keine                      |
+| On a record                   | Zu einem Datensatz                      |
+| Several days, per day         | ab 14:00 / Ganztägig / bis 16:00        |
+| Reminder notice               | Termin heute um 14:00 (never the title) |
+| Feed switch                   | Eigene Termine mit aufnehmen            |
+| From a mail invitation        | Einladung als Termin übernehmen         |
+| Invitation taken over before  | Termin aus der Einladung aktualisieren  |
 
 ### Events and documents
 

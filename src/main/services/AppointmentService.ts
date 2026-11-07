@@ -33,7 +33,17 @@ export class AppointmentService {
     return AppointmentMapper.toDto(this.get(id))
   }
 
+  /** The appointment taken over from the invitation with this UID, null when there is none */
+  getByIcalUid(uid: string): AppointmentDto | null {
+    const row = this.appointmentRepository.getByIcalUid(uid)
+    return row ? AppointmentMapper.toDto(row) : null
+  }
+
   create(input: CreateAppointmentInput): AppointmentDto {
+    // The dialog updates the one already taken over; a second row would be a duplicate
+    if (input.icalUid && this.appointmentRepository.getByIcalUid(input.icalUid)) {
+      throw new Error('Diese Einladung ist schon als Termin im Kalender')
+    }
     const id = this.appointmentRepository.create({
       title: input.title,
       startDate: input.startDate,
@@ -43,7 +53,8 @@ export class AppointmentService {
       place: input.place ?? '',
       notes: input.notes ?? '',
       reminderMinutes: input.reminderMinutes ?? null,
-      record: input.record ?? null
+      record: input.record ?? null,
+      icalUid: input.icalUid ?? null
     })
     scheduleAppointmentCalendarUpdate()
     return this.getById(id)

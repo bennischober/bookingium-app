@@ -15,7 +15,8 @@ export class AppointmentMapper {
       place: appointment.place,
       notes: appointment.notes,
       reminderMinutes: appointment.reminder_minutes,
-      record: this.record(row)
+      record: this.record(row),
+      icalUid: appointment.ical_uid
     }
   }
 
