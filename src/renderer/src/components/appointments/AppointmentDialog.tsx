@@ -32,6 +32,7 @@ import {
 import { defaultReminder, reminderAfterSwitch, reminderOptions } from './appointmentDays'
 import { appointmentTimesError, reminderLabel } from '../../../../main/calendar/appointments'
 import type { AppointmentDto } from '../../../../main/api/schemas/appointment.schema'
+import type { Invitation } from '../../../../main/calendar/invitation'
 
 /** The Select's value for "no reminder"; Radix refuses an empty value */
 const NO_REMINDER = 'none'
@@ -43,10 +44,21 @@ type Props = {
   appointment?: AppointmentDto
   /** The day (YYYY-MM-DD) a new appointment is on; today without it */
   initialDate?: string
+  /**
+   * An invitation from a mail: the form opens with its times, title, place and notes. With
+   * `appointment` (the one taken over before) saving updates that one, without it creates one.
+   */
+  invitation?: Invitation
 }
 
 /** #71: create or edit an own appointment (Termin) */
-export function AppointmentDialog({ open, onOpenChange, appointment, initialDate }: Props) {
+export function AppointmentDialog({
+  open,
+  onOpenChange,
+  appointment,
+  initialDate,
+  invitation
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -54,6 +66,7 @@ export function AppointmentDialog({ open, onOpenChange, appointment, initialDate
         <AppointmentForm
           appointment={appointment}
           initialDate={initialDate}
+          invitation={invitation}
           onDone={() => onOpenChange(false)}
         />
       </DialogContent>
@@ -64,19 +77,22 @@ export function AppointmentDialog({ open, onOpenChange, appointment, initialDate
 function AppointmentForm({
   appointment,
   initialDate,
+  invitation,
   onDone
-}: Pick<Props, 'appointment' | 'initialDate'> & { onDone: () => void }) {
+}: Pick<Props, 'appointment' | 'initialDate' | 'invitation'> & { onDone: () => void }) {
   const day = initialDate ?? localIsoDate()
-  const [title, setTitle] = useState(appointment?.title ?? '')
-  const [allDay, setAllDay] = useState(appointment ? appointment.startTime === null : false)
-  const [startDate, setStartDate] = useState(appointment?.startDate ?? day)
-  const [startTime, setStartTime] = useState(appointment?.startTime ?? '10:00')
-  const [endDate, setEndDate] = useState(appointment?.endDate ?? day)
-  const [endTime, setEndTime] = useState(appointment?.endTime ?? '11:00')
-  const [place, setPlace] = useState(appointment?.place ?? '')
-  const [notes, setNotes] = useState(appointment?.notes ?? '')
+  // An invitation brings what it says; reminder and record stay the appointment's own
+  const filled = invitation ?? appointment
+  const [title, setTitle] = useState(filled?.title ?? '')
+  const [allDay, setAllDay] = useState(filled ? filled.startTime === null : false)
+  const [startDate, setStartDate] = useState(filled?.startDate ?? day)
+  const [startTime, setStartTime] = useState(filled?.startTime ?? '10:00')
+  const [endDate, setEndDate] = useState(filled?.endDate ?? day)
+  const [endTime, setEndTime] = useState(filled?.endTime ?? '11:00')
+  const [place, setPlace] = useState(filled?.place ?? '')
+  const [notes, setNotes] = useState(filled?.notes ?? '')
   const [reminder, setReminder] = useState<number | null>(
-    appointment ? appointment.reminderMinutes : defaultReminder(false)
+    appointment ? appointment.reminderMinutes : defaultReminder(filled?.startTime === null)
   )
   const [link, setLink] = useState(Boolean(appointment?.record))
   const [linkType, setLinkType] = useState<RecordType>(appointment?.record?.type ?? 'event')
@@ -149,7 +165,7 @@ function AppointmentForm({
       record: link && linkChoice ? { type: linkType, id: linkChoice.id } : null
     }
     if (appointment) update.mutate({ id: appointment.id, ...fields })
-    else create.mutate(fields)
+    else create.mutate({ ...fields, icalUid: invitation?.uid ?? undefined })
   }
 
   const handleDelete = async () => {
@@ -174,11 +190,30 @@ function AppointmentForm({
       }}
     >
       <DialogHeader>
-        <DialogTitle>{appointment ? 'Termin bearbeiten' : 'Neuer Termin'}</DialogTitle>
+        <DialogTitle>
+          {invitation
+            ? appointment
+              ? 'Termin aus der Einladung aktualisieren'
+              : 'Einladung als Termin übernehmen'
+            : appointment
+              ? 'Termin bearbeiten'
+              : 'Neuer Termin'}
+        </DialogTitle>
         <DialogDescription>
-          Ein eigener Termin im Kalender, zum Beispiel eine Besprechung oder ein Anruf.
+          {invitation
+            ? appointment
+              ? 'Diese Einladung ist schon als Termin im Kalender. Speichern übernimmt, was die Einladung jetzt sagt.'
+              : 'Aus der Einladung vorausgefüllt – bitte prüfen.'
+            : 'Ein eigener Termin im Kalender, zum Beispiel eine Besprechung oder ein Anruf.'}
         </DialogDescription>
       </DialogHeader>
+      {invitation && invitation.hints.length > 0 && (
+        <ul className="mt-3 space-y-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          {invitation.hints.map((hint) => (
+            <li key={hint}>{hint}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="my-4 space-y-4">
         <div className="space-y-2">

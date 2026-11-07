@@ -866,6 +866,8 @@ export const appointment = sqliteTable(
     notes: text('notes').notNull().default(''),
     reminder_minutes: integer('reminder_minutes'),
     reminded_at: text('reminded_at'),
+    // The UID of the invitation it was taken over from: taking it over again updates this row
+    ical_uid: text('ical_uid'),
     event_id: integer('event_id').references(() => deal_memo.id, { onDelete: 'set null' }),
     band_id: integer('band_id').references(() => band.id, { onDelete: 'set null' }),
     venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
@@ -884,7 +886,8 @@ export const appointment = sqliteTable(
     index('appointment_band_idx').on(table.band_id),
     index('appointment_venue_idx').on(table.venue_id),
     index('appointment_company_idx').on(table.company_id),
-    index('appointment_person_idx').on(table.person_id)
+    index('appointment_person_idx').on(table.person_id),
+    uniqueIndex('appointment_ical_uid_idx').on(table.ical_uid)
   ]
 )
 

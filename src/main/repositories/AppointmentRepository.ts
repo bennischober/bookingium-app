@@ -44,6 +44,11 @@ export interface AppointmentFields {
   record: AppointmentRecord | null
 }
 
+/** Only on create: the invitation an appointment is taken over from never changes */
+export interface NewAppointmentFields extends AppointmentFields {
+  icalUid: string | null
+}
+
 /** The link columns for `record`: the chosen one set, the others cleared */
 function recordColumns(record: AppointmentRecord | null) {
   const columns = {
@@ -118,6 +123,10 @@ export class AppointmentRepository {
     return this.select(eq(schema.appointment.id, id))[0] ?? null
   }
 
+  getByIcalUid(uid: string) {
+    return this.select(eq(schema.appointment.ical_uid, uid))[0] ?? null
+  }
+
   /** Not yet reminded appointments with a reminder that start from `from` to `to` */
   reminderCandidates(from: string, to: string) {
     return db
@@ -147,10 +156,10 @@ export class AppointmentRepository {
       .run()
   }
 
-  create(fields: AppointmentFields): number {
+  create(fields: NewAppointmentFields): number {
     return db
       .insert(schema.appointment)
-      .values(columns(fields))
+      .values({ ...columns(fields), ical_uid: fields.icalUid })
       .returning({ id: schema.appointment.id })
       .get().id
   }

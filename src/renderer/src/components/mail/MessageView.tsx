@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
+  CalendarCheck,
   CalendarPlus,
   ChevronDown,
   ChevronRight,
@@ -31,9 +32,12 @@ import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
 import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
 import { EventFromMail } from '@/components/mail/EventFromMail'
+import { InvitationFromMail, type InvitationToTake } from '@/components/mail/InvitationFromMail'
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { parseInvitation } from '../../../../main/calendar/invitation'
 import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
+import { calendarText, invitationPart, withTitle } from './invitationPrefill'
 import {
   formatAddresses,
   formatFullDate,
@@ -160,6 +164,8 @@ export function MessageView({
   const [creatingContact, setCreatingContact] = useState(false)
   // #122: "Event anlegen" from a booking request, which also only changes the app's data
   const [creatingEvent, setCreatingEvent] = useState(false)
+  // #71: an invitation in the mail taken over as an own appointment, the app's data again
+  const [takingInvitation, setTakingInvitation] = useState<InvitationToTake | null>(null)
   // S1: the whole message is being downloaded (stored without its large parts until now)
   const [downloading, setDownloading] = useState(false)
   const queryClient = useQueryClient()
@@ -282,6 +288,27 @@ export function MessageView({
   /** A forward carries the files: offline it stops here, never a forward without them */
   const forward = (compose: NonNullable<typeof onCompose>) =>
     whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
+
+  /** #71: reads the invitation part and opens the appointment dialog with it */
+  const takeInvitation = async (partId: string) => {
+    try {
+      const bytes = await whole(() => mailApi.getAttachment(message.id, partId, accountId))
+      const parsed = parseInvitation(calendarText(bytes))
+      if (!parsed.ok) {
+        toast.error('Einladung kann nicht übernommen werden', { description: parsed.error })
+        return
+      }
+      const existing = parsed.invitation.uid
+        ? await trpcVanilla.appointment.byIcalUid.query({ uid: parsed.invitation.uid })
+        : null
+      setTakingInvitation({ invitation: withTitle(parsed.invitation, message.subject), existing })
+    } catch (error) {
+      toast.error('Einladung konnte nicht gelesen werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
+  }
+  const invitation = invitationPart(message.attachments)
 
   const saveEml = async () => {
     try {
@@ -411,6 +438,18 @@ export function MessageView({
             >
               <CalendarPlus />
             </Button>
+            {invitation && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void takeInvitation(invitation.partId)}
+                disabled={downloading}
+                title="Einladung als Termin übernehmen"
+                aria-label="Einladung als Termin übernehmen"
+              >
+                <CalendarCheck />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -645,6 +684,9 @@ export function MessageView({
           onClose={() => setCreatingEvent(false)}
           onOpenEvent={onOpenEvent}
         />
+      )}
+      {takingInvitation && (
+        <InvitationFromMail taking={takingInvitation} onClose={() => setTakingInvitation(null)} />
       )}
     </article>
   )

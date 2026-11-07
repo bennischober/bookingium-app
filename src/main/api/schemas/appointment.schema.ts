@@ -18,6 +18,7 @@ const Title = z.string().trim().min(1, 'Titel ist erforderlich').max(200)
 const Place = z.string().trim().max(500)
 const Notes = z.string().max(10_000)
 const ReminderMinutes = z.number().int().min(0).max(REMINDER_MAX_MINUTES)
+const IcalUid = z.string().trim().min(1).max(500)
 
 export const AppointmentDto = z.object({
   id: z.number(),
@@ -32,7 +33,9 @@ export const AppointmentDto = z.object({
   // null: no reminder
   reminderMinutes: z.number().nullable(),
   // null: not on a record; an event's name with its date, e.g. "München (11.06.2026)"
-  record: AppointmentRecord.extend({ name: z.string() }).nullable()
+  record: AppointmentRecord.extend({ name: z.string() }).nullable(),
+  // null: made in the app, not taken over from an invitation
+  icalUid: z.string().nullable()
 })
 export type AppointmentDto = z.infer<typeof AppointmentDto>
 
@@ -46,7 +49,9 @@ export const CreateAppointmentInput = z
     place: Place.optional(),
     notes: Notes.optional(),
     reminderMinutes: ReminderMinutes.nullable().optional(),
-    record: AppointmentRecord.nullable().optional()
+    record: AppointmentRecord.nullable().optional(),
+    // Taken over from an invitation; an appointment with this UID already there is refused
+    icalUid: IcalUid.optional()
   })
   .superRefine((input, ctx) => {
     const error = appointmentTimesError(input)
@@ -77,3 +82,6 @@ export const ListAppointmentsInput = z
   .object({ from: IsoDate, to: IsoDate })
   .refine((input) => input.from <= input.to, 'Der Zeitraum endet vor seinem Beginn')
 export type ListAppointmentsInput = z.infer<typeof ListAppointmentsInput>
+
+/** The appointment taken over from the invitation with this UID */
+export const AppointmentByIcalUidInput = z.object({ uid: IcalUid })
