@@ -11,10 +11,13 @@
 // The per-line VAT is only for display (standard template); it can differ
 // from the per-rate VAT by a cent when several lines share a rate.
 
-/** Rounds to an integer, halves away from zero, ignoring float noise (1.005 × 100) */
+/**
+ * Rounds to an integer, halves away from zero, ignoring float noise (1.005 × 100).
+ * Never returns -0: Intl writes it as "-0,00 €" (e.g. 0.3 - 0.1 - 0.2 is -2.8e-17).
+ */
 function roundHalfAway(value: number): number {
   const magnitude = Math.round(Number(Math.abs(value).toPrecision(15)))
-  return value < 0 ? -magnitude : magnitude
+  return value < 0 && magnitude !== 0 ? -magnitude : magnitude
 }
 
 export function toCents(amount: number): number {
