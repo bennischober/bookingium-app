@@ -23,6 +23,7 @@ tests/
 | Import / export / search | `import*.test.ts`, `export.test.ts`, `list_query`, `search` | normalizer + mapping |
 | Schema + settings | `migrations.test.ts`, `settings.test.ts` | real migration chain |
 | Pure helpers | `germanNumbers.test.ts`, `parseAmount.test.ts` | no DB |
+| Money rounding properties | `einvoice_amounts_properties.test.ts` | fast-check; EN 16931 sum rules vs exact BigInt arithmetic |
 | DB bootstrap | `helpers/setup.ts` | `setupTestDb` / `getTestDb` |
 | E-invoice fixtures | `helpers/einvoiceFixtures.ts` | `party`, `buyer`, `invoice`, `EINVOICE_SAMPLES` |
 
