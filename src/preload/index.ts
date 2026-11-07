@@ -80,6 +80,25 @@ const api = {
     return () => {
       ipcRenderer.removeListener('app:openMailPage', listener)
     }
+  },
+
+  /** #142: a reminder while the main window has focus (counts only); returns the unsubscribe */
+  onReminder: (callback: (notice: { title: string; body: string }) => void) => {
+    const listener = (_event: unknown, notice: { title: string; body: string }): void =>
+      callback(notice)
+    ipcRenderer.on('app:reminder', listener)
+    return () => {
+      ipcRenderer.removeListener('app:reminder', listener)
+    }
+  },
+
+  /** #142: a click on a reminder notification asks for the dashboard; returns the unsubscribe */
+  onOpenDashboard: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:openDashboard', listener)
+    return () => {
+      ipcRenderer.removeListener('app:openDashboard', listener)
+    }
   }
 }
 

@@ -7,7 +7,7 @@ import {
   newMailNotice,
   trayTooltip,
   withUnreadDot
-} from '../src/main/mailclient/trayText'
+} from '../src/main/notifications/noticeText'
 import type { FolderNode } from '../src/main/mailclient/core/types'
 
 const folder = (path: string, unreadCount: number): FolderNode =>

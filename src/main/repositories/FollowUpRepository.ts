@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type {
@@ -67,6 +67,16 @@ export class FollowUpRepository {
   /** Every open follow-up, earliest first */
   listOpen() {
     return this.select(isNull(schema.follow_up.done_at))
+  }
+
+  /** #142: how many open follow-ups are due on `today` (YYYY-MM-DD) or earlier */
+  countDue(today: string): number {
+    const row = db
+      .select({ n: sql<number>`count(*)` })
+      .from(schema.follow_up)
+      .where(and(isNull(schema.follow_up.done_at), lte(schema.follow_up.due_date, today)))
+      .get()
+    return row?.n ?? 0
   }
 
   /** Done follow-ups, the last ticked off first; one more than `limit` tells there are more */

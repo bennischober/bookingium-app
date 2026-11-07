@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
  * "E-Mail" (Einstellungen › E-Mail): how the built-in mail client behaves. #136: the client is
  * always part of the app (no switch any more, its worker starts once an account exists); left
  * are the new-mail notification from Windows and the popup in the app (#133, both off by
- * default), and closing to the tray (#65).
+ * default). Closing to the tray (#65) moved to `NotificationsCard` with #142.
  */
 export function MailClientSwitchCard() {
   const utils = trpcReact.useUtils()
@@ -59,23 +59,12 @@ export function MailClientSwitchCard() {
                 Hinweis in Bookingium bei neuen E-Mails
               </Label>
             </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                id="settings-mail-close-to-tray"
-                checked={settings.data.mailCloseToTray}
-                onCheckedChange={(checked) => updateSettings.mutate({ mailCloseToTray: checked })}
-                disabled={updateSettings.isPending}
-              />
-              <Label htmlFor="settings-mail-close-to-tray">
-                Beim Schließen im Infobereich weiterlaufen
-              </Label>
-            </div>
             <p className="text-xs text-muted-foreground">
               Die Zahl ungelesener E-Mails steht immer im Menü und am Symbol im Infobereich. Windows
               meldet neue E-Mails, wenn Bookingium im Hintergrund ist, der Hinweis erscheint, wenn
               das Fenster vorne ist; beide nennen nur die Anzahl und das Konto, keinen Betreff und
-              keinen Absender. Läuft Bookingium im Infobereich weiter, werden E-Mails auch bei
-              geschlossenem Fenster abgerufen; beendet wird es dann über das Symbol im Infobereich.
+              keinen Absender. Läuft Bookingium im Infobereich weiter (Einstellungen › Allgemein),
+              werden E-Mails auch bei geschlossenem Fenster abgerufen.
             </p>
           </div>
         )}

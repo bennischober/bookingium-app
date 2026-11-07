@@ -113,6 +113,10 @@ export interface DocumentAPI {
    * account; returns the unsubscribe
    */
   onOpenMailPage: (callback: (accountId?: string) => void) => () => void
+  /** #142: a reminder while the main window has focus: the popup's text (counts only) */
+  onReminder: (callback: (notice: { title: string; body: string }) => void) => () => void
+  /** #142: a click on a reminder notification asks for the dashboard; returns the unsubscribe */
+  onOpenDashboard: (callback: () => void) => () => void
 }
 
 declare global {

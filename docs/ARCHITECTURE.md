@@ -578,6 +578,19 @@ A follow-up is a due date with a note (`follow_up`, `followUp` router,
   without a reply shows "Keine Antwort"; the history says "Antwort erhalten am
   …" when the reply closed it. A re-created account adopts them with its
   links (#55).
+- **Daily reminder** (#142): once a day, the first time the app runs at or
+  after 08:00 local time, main announces how many open follow-ups are due
+  today or earlier (`notifications/followUpSummary.ts`, count only, never a
+  note). It looks 10 s after the start, every 5 minutes and after a wake; the
+  day it last looked is kept under the `followUpSummaryDay` key in
+  `app_setting`, set even when nothing was due, so a restart or a follow-up
+  added later that day stays quiet. With the main window in front the app
+  shows a popup (`app:reminder`), otherwise Windows (`AppTray.notify`); a
+  click opens the Dashboard. Switch "Erinnerung an fällige Wiedervorlagen"
+  (`reminderNotifications`, on by default) under Einstellungen › Allgemein,
+  next to "Beim Schließen im Infobereich weiterlaufen" (`mailCloseToTray`,
+  key kept from #65): the tray icon is the app's since #142, with or without
+  a mail account.
 - **Dates** are local calendar days ("2026-10-21", `lib/followUps.ts`), so
   "Heute" follows the computer's clock, not UTC.
 

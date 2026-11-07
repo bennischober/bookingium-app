@@ -1,6 +1,7 @@
-// #65: what the tray icon and the new-mail notification say, and the dot the icon gets while
-// mail is unread. Counts and account addresses only, never a subject or a sender: they would show
-// on the lock screen and in the notification history. Kept free of Electron for the tests.
+// #65: what the tray icon and the notifications say, and the dot the icon gets while mail is
+// unread. Counts and account addresses only, never a subject, a sender or a follow-up's note:
+// they would show on the lock screen and in the notification history. #142: the tray and the
+// notifications belong to the app, mail only adds its counts. Kept free of Electron for the tests.
 
 export interface TrayAccount {
   email: string
@@ -8,7 +9,7 @@ export interface TrayAccount {
 }
 
 /** A notification's text: the desktop notification and the in-app popup say the same */
-export interface MailNotice {
+export interface Notice {
   title: string
   body: string
 }
@@ -18,8 +19,12 @@ export const TRAY_TOOLTIP_MAX = 127
 
 const mails = (n: number): string => `${n} ${n === 1 ? 'ungelesene E-Mail' : 'ungelesene E-Mails'}`
 
-/** The tray icon's tooltip: the total, then each account's share when there are several */
+/**
+ * The tray icon's tooltip: the app's name, and with mail accounts the unread total, then each
+ * account's share when there are several
+ */
 export function trayTooltip(accounts: TrayAccount[]): string {
+  if (accounts.length === 0) return 'Bookingium'
   const total = accounts.reduce((sum, account) => sum + account.unread, 0)
   const lines = [`Bookingium – ${mails(total)}`]
   if (accounts.length > 1) {
@@ -30,15 +35,15 @@ export function trayTooltip(accounts: TrayAccount[]): string {
 }
 
 /** The desktop notification for `count` new mails in one account */
-export function newMailNotice(count: number, email: string): MailNotice {
+export function newMailNotice(count: number, email: string): Notice {
   return {
     title: count === 1 ? 'Neue E-Mail' : `${count} neue E-Mails`,
     body: email ? `Im Posteingang von ${email}` : 'Im Posteingang'
   }
 }
 
-/** Which window has the focus when new mail arrives: none (the app is in the background) */
-export type NewMailFocus = 'none' | 'main' | 'other'
+/** Which window has the focus when something is announced: none (the app is in the background) */
+export type WindowFocus = 'none' | 'main' | 'other'
 
 /**
  * #133: where new mail is announced, if at all. In the background Windows announces it, with the
@@ -46,7 +51,7 @@ export type NewMailFocus = 'none' | 'main' | 'other'
  * already. Each has its own switch, both off by default; the unread counts show either way.
  */
 export function newMailChannel(
-  focus: NewMailFocus,
+  focus: WindowFocus,
   settings: { desktop: boolean; inApp: boolean }
 ): 'desktop' | 'app' | null {
   if (focus === 'none') return settings.desktop ? 'desktop' : null
@@ -54,10 +59,30 @@ export function newMailChannel(
   return null
 }
 
+/**
+ * #142: where a reminder is announced (its switch is checked before): with the main window in
+ * front the app's popup, otherwise Windows. Unlike new mail, a mail window in front does not
+ * swallow it.
+ */
+export const reminderChannel = (focus: WindowFocus): 'desktop' | 'app' =>
+  focus === 'main' ? 'app' : 'desktop'
+
+/** #142: the daily summary of open follow-ups due today or earlier; the count only */
+export function followUpSummaryNotice(count: number): Notice {
+  return {
+    title: count === 1 ? '1 Wiedervorlage fällig' : `${count} Wiedervorlagen fällig`,
+    body: 'Heute fällig oder überfällig. Zur Übersicht im Dashboard.'
+  }
+}
+
 /** Shown once per session when closing the window keeps the app in the tray */
-export const STILL_RUNNING_NOTICE: MailNotice = {
-  title: 'Bookingium läuft weiter',
-  body: 'E-Mails werden weiter abgerufen. Beenden über das Symbol im Infobereich.'
+export function stillRunningNotice(hasMail: boolean): Notice {
+  return {
+    title: 'Bookingium läuft weiter',
+    body: hasMail
+      ? 'Erinnerungen und E-Mails kommen weiter. Beenden über das Symbol im Infobereich.'
+      : 'Erinnerungen kommen weiter. Beenden über das Symbol im Infobereich.'
+  }
 }
 
 /**

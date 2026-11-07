@@ -112,19 +112,31 @@ import type { FollowUpRecord } from './api/schemas/followUp.schema'
 import { watchSystemWake } from './mailclient/systemWake'
 import type { FolderNode, OpSummary } from './mailclient/core/types'
 import { inboxUnreadOf, inboxWatch } from './mailclient/inboxWatch'
-import { MailTray } from './mailclient/mailTray'
-import { STILL_RUNNING_NOTICE, newMailChannel, newMailNotice } from './mailclient/trayText'
+import { AppTray } from './notifications/appTray'
+import {
+  newMailChannel,
+  newMailNotice,
+  reminderChannel,
+  stillRunningNotice,
+  type Notice,
+  type WindowFocus
+} from './notifications/noticeText'
+import { checkFollowUpSummary } from './notifications/followUpSummary'
+import { FollowUpService } from './services/FollowUpService'
 
 // One tRPC handler for all windows; each new window is attached to it
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
 let mainWindow: BrowserWindow | null = null
 // Mails opened in their own window, by `${accountId}:${messageId}`
 const mailWindows = new Map<string, BrowserWindow>()
-// #65: the tray icon while the mail client has an account (set up once the app is ready)
-let mailTray: MailTray | null = null
+// #65, #142: the tray icon (set up once the app is ready)
+let appTray: AppTray | null = null
 // The app is quitting (or Windows is ending the session): a close is a close, never a hide
 let quitting = false
 let toldStillRunning = false
+/** #142: the first look for due follow-ups after the start or a wake, then the regular one */
+const REMINDER_FIRST_CHECK_MS = 10_000
+const REMINDER_CHECK_MS = 5 * 60_000
 
 /**
  * #127: e2e runs open their windows without taking the focus from the user's other programs.
@@ -266,15 +278,21 @@ function createWindow(hash?: string): void {
 /**
  * #65: closing the main window keeps the app in the tray while "Beim Schließen im Infobereich
  * weiterlaufen" is on and the tray icon is there to bring it back. The first time per session a
- * notice says so.
+ * notice says so. #142: with or without a mail account.
  */
 function keepInTray(): boolean {
-  if (!mailTray?.visible || !container.resolve(SettingsService).get().mailCloseToTray) return false
+  if (!appTray?.visible || !container.resolve(SettingsService).get().mailCloseToTray) return false
   if (!toldStillRunning) {
     toldStillRunning = true
-    mailTray.notify(STILL_RUNNING_NOTICE)
+    appTray.notify(stillRunningNotice(listMailAccounts().length > 0))
   }
   return true
+}
+
+/** Which of the app's windows has the focus, if any */
+function windowFocus(): WindowFocus {
+  const focused = BrowserWindow.getFocusedWindow()
+  return !focused ? 'none' : focused === mainWindow ? 'main' : 'other'
 }
 
 /** Brings the main window up: shown again from the tray, restored, focused; or opened anew */
@@ -299,20 +317,63 @@ function showMailPage(accountId?: string): void {
   showMainWindow(hash)?.webContents.send('app:openMailPage', accountId)
 }
 
-/**
- * #65: the tray icon is there while the mail client is on and has an account; the watcher reads
- * each INBOX's unread count after every sync and every own write and announces new mail
- */
-function setUpMailTray(): void {
-  const settings = container.resolve(SettingsService)
-  const tray = new MailTray({
+/** #142: the main window on the dashboard, whose card lists the due follow-ups */
+function showFollowUps(): void {
+  showMainWindow('/')?.webContents.send('app:openDashboard')
+}
+
+/** #142: the tray icon, there while the app runs; mail adds its counts and menu item */
+function setUpTray(): AppTray {
+  const tray = new AppTray({
     icon,
-    accounts: listMailAccounts,
+    mailAccounts: listMailAccounts,
     showApp: () => void showMainWindow(),
     showMail: showMailPage,
     quit: () => app.quit()
   })
-  mailTray = tray
+  appTray = tray
+  tray.show()
+  return tray
+}
+
+/**
+ * #142: the daily summary of due follow-ups: a look soon after the start, then every few minutes
+ * (the first look at or after 08:00 shows it) and after a wake
+ */
+function setUpReminders(tray: AppTray): void {
+  const settings = container.resolve(SettingsService)
+  const followUps = container.resolve(FollowUpService)
+  const announce = (notice: Notice): void => {
+    if (reminderChannel(windowFocus()) === 'app' && mainWindow) {
+      mainWindow.webContents.send('app:reminder', notice)
+    } else tray.notify(notice, showFollowUps)
+  }
+  const check = (): void => {
+    try {
+      checkFollowUpSummary({
+        now: () => new Date(),
+        enabled: () => settings.get().reminderNotifications,
+        lastDay: () => followUps.summaryDay(),
+        setLastDay: (day) => followUps.setSummaryDay(day),
+        dueCount: (today) => followUps.countDue(today),
+        show: announce
+      })
+    } catch (error) {
+      console.error('Checking the due follow-ups failed:', error)
+    }
+  }
+  // The window has loaded by then, so with the app in front the popup can show
+  setTimeout(check, REMINDER_FIRST_CHECK_MS)
+  setInterval(check, REMINDER_CHECK_MS)
+  powerMonitor.on('resume', () => setTimeout(check, REMINDER_FIRST_CHECK_MS))
+}
+
+/**
+ * #65: the watcher reads each INBOX's unread count after every sync and every own write, puts it
+ * on the tray icon and announces new mail
+ */
+function setUpMailWatch(tray: AppTray): void {
+  const settings = container.resolve(SettingsService)
   const watch = inboxWatch({
     accountIds: () => listMailAccounts().map((account) => account.id),
     inboxUnread: async (accountId) =>
@@ -322,30 +383,24 @@ function setUpMailTray(): void {
       // #133: each announcement has its own switch, both off by default (the popup in the app
       // also leaves it out on the mail page)
       const { mailNotifications, mailInAppNotifications } = settings.get()
-      const focused = BrowserWindow.getFocusedWindow()
-      const channel = newMailChannel(
-        !focused ? 'none' : focused === mainWindow ? 'main' : 'other',
-        { desktop: mailNotifications, inApp: mailInAppNotifications }
-      )
+      const channel = newMailChannel(windowFocus(), {
+        desktop: mailNotifications,
+        inApp: mailInAppNotifications
+      })
       if (!channel) return
       const email = listMailAccounts().find((account) => account.id === accountId)?.email ?? ''
       const notice = newMailNotice(count, email)
-      if (channel === 'desktop') tray.notifyNewMail(notice, accountId)
-      else focused?.webContents.send('app:newMail', { ...notice, accountId })
+      if (channel === 'desktop') tray.notify(notice, () => showMailPage(accountId))
+      else mainWindow?.webContents.send('app:newMail', { ...notice, accountId })
     },
     log: (error) => console.warn('[mail] reading the INBOX unread count failed:', error)
   })
-  // Started, stopped, restarted after an account change: show or hide the icon
-  const sync = (): void => {
-    tray.setVisible(listMailAccounts().length > 0)
-    if (!tray.visible && mainWindow && !mainWindow.isVisible()) present(mainWindow)
-  }
+  // Started, stopped, restarted after an account change: the mail parts come or go
   mailClient.events.on('status', (status: { running: boolean }) => {
-    sync()
+    tray.refresh()
     if (status.running) watch.onRunning()
   })
   mailClient.events.on('event', watch.onEvent)
-  sync()
 }
 
 /**
@@ -995,8 +1050,10 @@ app.whenReady().then(async () => {
     onResume: (listener) => powerMonitor.on('resume', listener),
     isOnline: () => net.isOnline()
   })
-  // #65: tray icon and new-mail notifications, from each account's INBOX unread count
-  setUpMailTray()
+  // #65, #142: the tray icon, reminders, and new-mail notifications from each INBOX's unread count
+  const tray = setUpTray()
+  setUpReminders(tray)
+  setUpMailWatch(tray)
   // C2: link incoming mail to the records it belongs to, after each folder sync.
   // The linker yields between batches, so a big mailbox never blocks the app.
   const mailLinks = container.resolve(MailLinkService)
