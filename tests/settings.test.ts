@@ -27,6 +27,7 @@ const DEFAULTS = {
   defaultCountry: 'DE',
   calendarFeedPath: '',
   calendarFeedFollowUps: false,
+  calendarFeedAppointments: false,
   eInvoiceEmbed: true,
   paymentQr: true,
   // #133: no new-mail notifications, closing still quits (#65)

@@ -7,7 +7,14 @@ import { notArchived } from '../repositories/archiveFilter'
 import { SettingsService } from './SettingsService'
 import { FollowUpRepository } from '../repositories/FollowUpRepository'
 import { FollowUpMapper } from '../api/mappers/followUp.mapper'
-import { buildCalendar, type CalendarEvent, type CalendarFollowUp } from '../calendar/ics'
+import { AppointmentRepository } from '../repositories/AppointmentRepository'
+import { AppointmentMapper } from '../api/mappers/appointment.mapper'
+import {
+  buildCalendar,
+  type CalendarAppointment,
+  type CalendarEvent,
+  type CalendarFollowUp
+} from '../calendar/ics'
 import type { CalendarFeedStatusDto } from '../api/schemas/settings.schema'
 
 const UPDATE_DELAY_MS = 1500
@@ -15,7 +22,7 @@ const UPDATE_DELAY_MS = 1500
 /**
  * Keeps the calendar file chosen in Einstellungen (calendarFeedPath) up to
  * date: rewritten shortly after events, bands, venues, hotels or (when
- * included) follow-ups change, and on start. Calendar apps subscribed to the file (or its shared link) pick
+ * included) follow-ups or own appointments change, and on start. Calendar apps subscribed to the file (or its shared link) pick
  * the changes up on their next refresh.
  */
 // One instance: it owns the pending write and the last status
@@ -26,11 +33,13 @@ export class CalendarFeedService {
   private lastError: string | null = null
   private lastCount = 0
   private lastFollowUpCount = 0
+  private lastAppointmentCount = 0
 
-  // The repository, not FollowUpService: that one schedules updates here
+  // The repositories, not the services: those schedule updates here
   constructor(
     @inject(SettingsService) private settings: SettingsService,
-    @inject(FollowUpRepository) private followUpRepository: FollowUpRepository
+    @inject(FollowUpRepository) private followUpRepository: FollowUpRepository,
+    @inject(AppointmentRepository) private appointmentRepository: AppointmentRepository
   ) {}
 
   async events(): Promise<CalendarEvent[]> {
@@ -87,24 +96,50 @@ export class CalendarFeedService {
     }))
   }
 
+  /** #71: own appointments, when the setting includes them (off by default); none otherwise */
+  appointments(): CalendarAppointment[] {
+    if (!this.settings.get().calendarFeedAppointments) return []
+    return this.appointmentRepository.listAll().map((row) => ({
+      id: row.appointment.id,
+      title: row.appointment.title,
+      startDate: row.appointment.start_date,
+      startTime: row.appointment.start_time,
+      endDate: row.appointment.end_date,
+      endTime: row.appointment.end_time,
+      place: row.appointment.place,
+      notes: row.appointment.notes,
+      recordName: AppointmentMapper.toDto(row).record?.name ?? null,
+      updatedAt: row.appointment.updated_at ?? row.appointment.created_at
+    }))
+  }
+
   /** The calendar as text (also for a one-off export) */
-  async calendar(): Promise<{ ics: string; count: number; followUps: number }> {
+  async calendar(): Promise<{
+    ics: string
+    count: number
+    followUps: number
+    appointments: number
+  }> {
     const events = await this.events()
     const followUps = this.followUps()
+    const appointments = this.appointments()
     return {
-      ics: buildCalendar(events, new Date(), followUps),
+      ics: buildCalendar(events, new Date(), followUps, appointments),
       count: events.length,
-      followUps: followUps.length
+      followUps: followUps.length,
+      appointments: appointments.length
     }
   }
 
   /** Writes the calendar to `path` (temp file + rename: never half-written) */
-  async writeTo(path: string): Promise<{ events: number; followUps: number }> {
-    const { ics, count, followUps } = await this.calendar()
+  async writeTo(
+    path: string
+  ): Promise<{ events: number; followUps: number; appointments: number }> {
+    const { ics, count, followUps, appointments } = await this.calendar()
     const temp = `${path}.tmp`
     await writeFile(temp, ics, 'utf-8')
     await rename(temp, path)
-    return { events: count, followUps }
+    return { events: count, followUps, appointments }
   }
 
   /** Rewrites the feed file now, if one is set */
@@ -115,6 +150,7 @@ export class CalendarFeedService {
         const written = await this.writeTo(path)
         this.lastCount = written.events
         this.lastFollowUpCount = written.followUps
+        this.lastAppointmentCount = written.appointments
         this.lastWrittenAt = new Date().toISOString()
         this.lastError = null
       } catch (error) {
@@ -135,9 +171,15 @@ export class CalendarFeedService {
     }, UPDATE_DELAY_MS)
   }
 
-  /** Only when follow-ups are in the file: their record is named in it */
+  /** Only when follow-ups or appointments are in the file: their record is named in it */
   scheduleFollowUpUpdate(): void {
-    if (this.settings.get().calendarFeedFollowUps) this.scheduleUpdate()
+    const settings = this.settings.get()
+    if (settings.calendarFeedFollowUps || settings.calendarFeedAppointments) this.scheduleUpdate()
+  }
+
+  /** Only when own appointments are in the file */
+  scheduleAppointmentUpdate(): void {
+    if (this.settings.get().calendarFeedAppointments) this.scheduleUpdate()
   }
 
   status(): CalendarFeedStatusDto {
@@ -148,6 +190,8 @@ export class CalendarFeedService {
       events: this.lastCount,
       includeFollowUps: settings.calendarFeedFollowUps,
       followUps: this.lastFollowUpCount,
+      includeAppointments: settings.calendarFeedAppointments,
+      appointments: this.lastAppointmentCount,
       error: this.lastError
     }
   }
@@ -170,6 +214,15 @@ export function scheduleCalendarUpdate(): void {
 export function scheduleFollowUpCalendarUpdate(): void {
   try {
     container.resolve(CalendarFeedService).scheduleFollowUpUpdate()
+  } catch (error) {
+    console.error('Calendar feed update could not be scheduled:', error)
+  }
+}
+
+/** #71: after an own appointment changes, when appointments are in the file */
+export function scheduleAppointmentCalendarUpdate(): void {
+  try {
+    container.resolve(CalendarFeedService).scheduleAppointmentUpdate()
   } catch (error) {
     console.error('Calendar feed update could not be scheduled:', error)
   }

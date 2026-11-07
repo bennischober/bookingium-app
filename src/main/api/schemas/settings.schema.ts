@@ -112,6 +112,8 @@ export const AppSettings = z.object({
   // #52: open follow-ups (Wiedervorlagen) in that file too. Off by default: the file is
   // often shared by link, and follow-up notes are the user's own.
   calendarFeedFollowUps: z.boolean().default(false),
+  // #71: own appointments (Termine) in that file too, off by default for the same reason
+  calendarFeedAppointments: z.boolean().default(false),
   // Invoice PDFs carry the e-invoice XML (ZUGFeRD/Factur-X) when complete
   eInvoiceEmbed: z.boolean().default(true),
   // Payable invoices carry the EPC payment QR code ("GiroCode")
@@ -125,8 +127,9 @@ export const AppSettings = z.object({
   // come; off, closing quits as before. #142: no longer tied to a mail account (the key keeps its
   // old name so the stored choice stays).
   mailCloseToTray: z.boolean().default(false),
-  // #142: reminders (the daily summary of due follow-ups) as a Windows notification in the
-  // background and a popup in the app. On by default: the user set them on purpose.
+  // #142: reminders (the daily summary of due follow-ups, #71 an appointment's reminder) as a
+  // Windows notification in the background and a popup in the app. On by default: the user set
+  // them on purpose.
   reminderNotifications: z.boolean().default(true),
   // "Karte (experimentell)": the map preview (#102), off until the user turns it on. Off, the
   // renderer hides the page; the lookup runs offline by postcode (bundled GeoNames table).
@@ -149,6 +152,7 @@ export const UpdateAppSettingsInput = z
     defaultCountry: shape.defaultCountry.unwrap(),
     calendarFeedPath: shape.calendarFeedPath.unwrap(),
     calendarFeedFollowUps: shape.calendarFeedFollowUps.unwrap(),
+    calendarFeedAppointments: shape.calendarFeedAppointments.unwrap(),
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
     paymentQr: shape.paymentQr.unwrap(),
     mailNotifications: shape.mailNotifications.unwrap(),
@@ -172,6 +176,9 @@ export const CalendarFeedStatusDto = z.object({
   // Whether open follow-ups go into the file, and how many did on the last write
   includeFollowUps: z.boolean(),
   followUps: z.number(),
+  // #71: the same for own appointments
+  includeAppointments: z.boolean(),
+  appointments: z.number(),
   error: z.string().nullable()
 })
 export type CalendarFeedStatusDto = z.infer<typeof CalendarFeedStatusDto>

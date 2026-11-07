@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   compareAsc,
   endOfMonth,
@@ -12,7 +12,7 @@ import {
   startOfWeek
 } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Calendar } from '@/components/ui/calendar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +21,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
 import { FollowUpDialog } from '@/components/follow-ups/FollowUpDialog'
 import { FollowUpList } from '@/components/follow-ups/FollowUpList'
+import { AppointmentDialog } from '@/components/appointments/AppointmentDialog'
+import { AppointmentList } from '@/components/appointments/AppointmentList'
+import { appointmentsByDay } from '@/components/appointments/appointmentDays'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
@@ -44,6 +47,25 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
   const [wizardOpen, setWizardOpen] = useState(false)
   const [followUpOpen, setFollowUpOpen] = useState(false)
+  const [appointmentOpen, setAppointmentOpen] = useState(false)
+
+  // #71: an appointment's reminder opens the calendar on its day (?day=); taken over once, then
+  // dropped from the URL, so the same day can be asked for again
+  const { day: requestedDay } = useSearch({ strict: false }) as { day?: string }
+  // Taken over while rendering (React's "adjust state on a prop change"), not in an effect
+  const [takenDay, setTakenDay] = useState<string>()
+  if (requestedDay !== takenDay) {
+    setTakenDay(requestedDay)
+    const date = requestedDay ? parseISO(requestedDay) : null
+    if (date && !Number.isNaN(date.getTime())) {
+      setSelectedDate(date)
+      setCalendarMonth(startOfMonth(date))
+      setViewMode('day')
+    }
+  }
+  useEffect(() => {
+    if (requestedDay) void navigate({ to: '/calendar', search: {}, replace: true })
+  }, [requestedDay, navigate])
 
   const events = trpcReact.dealMemo.getAllPaginated.useQuery({
     page: 1,
@@ -114,6 +136,26 @@ export default function CalendarPage() {
     }
   }, [viewMode, selectedDate, activeMonthDate])
 
+  // #71: own appointments on the days the month grid shows and the agenda lists
+  const appointmentRange = useMemo(() => {
+    const gridStart = format(
+      startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }),
+      'yyyy-MM-dd'
+    )
+    const gridEnd = format(endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    return {
+      from: range.start < gridStart ? range.start : gridStart,
+      to: range.end > gridEnd ? range.end : gridEnd
+    }
+  }, [calendarMonth, range])
+  const appointments = trpcReact.appointment.listBetween.useQuery(appointmentRange, {
+    keepPreviousData: true
+  })
+  const appointmentsOnDay = useMemo(
+    () => appointmentsByDay(appointments.data ?? [], appointmentRange.from, appointmentRange.to),
+    [appointments.data, appointmentRange]
+  )
+
   const groupedAgenda = useMemo(() => {
     const groups = new Map<string, typeof filteredEvents>()
 
@@ -122,8 +164,8 @@ export default function CalendarPage() {
       const existing = groups.get(key) ?? []
       groups.set(key, [...existing, event])
     })
-    // Days with only follow-ups get a group too
-    for (const dayKey of followUpsByDay.keys()) {
+    // Days with only follow-ups or appointments get a group too
+    for (const dayKey of [...followUpsByDay.keys(), ...appointmentsOnDay.keys()]) {
       if (dayKey >= range.start && dayKey <= range.end && !groups.has(dayKey)) {
         groups.set(dayKey, [])
       }
@@ -135,9 +177,10 @@ export default function CalendarPage() {
         dayKey,
         dayLabel: format(parseISO(dayKey), 'EEEE, dd. MMMM yyyy', { locale: de }),
         items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate)),
-        followUps: followUpsByDay.get(dayKey) ?? []
+        followUps: followUpsByDay.get(dayKey) ?? [],
+        appointments: appointmentsOnDay.get(dayKey) ?? []
       }))
-  }, [filteredEvents, followUpsByDay, range])
+  }, [filteredEvents, followUpsByDay, appointmentsOnDay, range])
 
   const highlightedDates = useMemo(() => {
     return new Set(eventsWithParsedDate.map((event) => format(event.parsedDate, 'yyyy-MM-dd')))
@@ -145,6 +188,7 @@ export default function CalendarPage() {
 
   const selectedKey = format(selectedDate, 'yyyy-MM-dd')
   const selectedDayFollowUps = followUpsByDay.get(selectedKey) ?? []
+  const selectedDayAppointments = appointmentsOnDay.get(selectedKey) ?? []
   const openEvent = (id: number) =>
     navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
 
@@ -153,8 +197,8 @@ export default function CalendarPage() {
       <div>
         <h1 className="text-2xl font-bold mb-2">Kalender</h1>
         <p className="text-sm text-muted-foreground">
-          Tag anklicken, um seine Events und Wiedervorlagen zu sehen oder dort ein neues Event
-          anzulegen (Doppelklick legt direkt an).
+          Tag anklicken, um seine Events, Termine und Wiedervorlagen zu sehen oder dort etwas Neues
+          anzulegen (Doppelklick legt direkt ein Event an).
         </p>
       </div>
 
@@ -186,14 +230,18 @@ export default function CalendarPage() {
               className="w-full"
               modifiers={{
                 hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd')),
-                hasFollowUp: (date) => followUpsByDay.has(format(date, 'yyyy-MM-dd'))
+                hasFollowUp: (date) => followUpsByDay.has(format(date, 'yyyy-MM-dd')),
+                hasAppointment: (date) => appointmentsOnDay.has(format(date, 'yyyy-MM-dd'))
               }}
               modifiersClassNames={{
                 hasEvent:
                   'font-semibold underline decoration-primary decoration-2 underline-offset-4',
                 // A small amber dot in the corner: a follow-up is due that day
                 hasFollowUp:
-                  'relative after:pointer-events-none after:absolute after:right-1.5 after:top-1.5 after:size-1.5 after:rounded-full after:bg-amber-500'
+                  'relative after:pointer-events-none after:absolute after:right-1.5 after:top-1.5 after:size-1.5 after:rounded-full after:bg-amber-500',
+                // #71: a sky-blue dot in the other corner: an own appointment that day
+                hasAppointment:
+                  'relative before:pointer-events-none before:absolute before:left-1.5 before:top-1.5 before:size-1.5 before:rounded-full before:bg-sky-500'
               }}
             />
 
@@ -205,9 +253,12 @@ export default function CalendarPage() {
                 </p>
                 {/* "+" as text like the other create buttons: the thin Plus icon
                     sat visibly higher than the text in this font */}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
                     + Wiedervorlage
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setAppointmentOpen(true)}>
+                    + Termin
                   </Button>
                   <Button size="sm" onClick={() => setWizardOpen(true)}>
                     + Event anlegen
@@ -232,6 +283,14 @@ export default function CalendarPage() {
                     </button>
                   ))}
                 </div>
+              )}
+              {selectedDayAppointments.length > 0 && (
+                <section aria-label="Termine an diesem Tag" className="space-y-2 pt-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Termine
+                  </h3>
+                  <AppointmentList appointments={selectedDayAppointments} day={selectedKey} />
+                </section>
               )}
               {selectedDayFollowUps.length > 0 && (
                 <section aria-label="Wiedervorlagen an diesem Tag" className="space-y-2 pt-1">
@@ -272,7 +331,7 @@ export default function CalendarPage() {
               <p className="text-sm text-muted-foreground">Events werden geladen…</p>
             ) : groupedAgenda.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine Events oder Wiedervorlagen für diese Auswahl.
+                Keine Events, Termine oder Wiedervorlagen für diese Auswahl.
               </p>
             ) : (
               <div className="space-y-5">
@@ -317,6 +376,11 @@ export default function CalendarPage() {
                             </div>
                           </button>
                         ))}
+                        {group.appointments.length > 0 && (
+                          <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-4 py-3 dark:border-sky-900/60 dark:bg-sky-950/20">
+                            <AppointmentList appointments={group.appointments} day={group.dayKey} />
+                          </div>
+                        )}
                         {group.followUps.length > 0 && (
                           <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/20">
                             <FollowUpList followUps={group.followUps} showRecord />
@@ -345,6 +409,11 @@ export default function CalendarPage() {
         open={followUpOpen}
         onOpenChange={setFollowUpOpen}
         initialDueDate={selectedKey}
+      />
+      <AppointmentDialog
+        open={appointmentOpen}
+        onOpenChange={setAppointmentOpen}
+        initialDate={selectedKey}
       />
     </div>
   )

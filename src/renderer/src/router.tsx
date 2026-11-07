@@ -68,6 +68,13 @@ const indexRoute = createRoute({
 const calendarRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.calendar.path,
+  // #71: an appointment's reminder opens the calendar on its day
+  validateSearch: (search: Record<string, unknown>): { day?: string } => ({
+    day:
+      typeof search.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.day)
+        ? search.day
+        : undefined
+  }),
   component: Calendar
 })
 

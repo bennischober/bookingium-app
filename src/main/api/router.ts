@@ -24,6 +24,7 @@ import { exportRouter } from './routers/export.router'
 import { calendarRouter } from './routers/calendar.router'
 import { contactListRouter } from './routers/contact_list.router'
 import { followUpRouter } from './routers/follow_up.router'
+import { appointmentRouter } from './routers/appointment.router'
 import { mailRouter } from './routers/mail.router'
 import { mailLinkRouter } from './routers/mail_link.router'
 import { mailRuleRouter } from './routers/mail_rule.router'
@@ -65,6 +66,7 @@ export const router = t.router({
   calendar: calendarRouter,
   contactList: contactListRouter,
   followUp: followUpRouter,
+  appointment: appointmentRouter,
   mail: mailRouter,
   mailLink: mailLinkRouter,
   mailRule: mailRuleRouter,

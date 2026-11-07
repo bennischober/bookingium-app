@@ -6,7 +6,9 @@
 // are all-day. The UID is stable per event, so a re-import or subscription
 // updates entries instead of duplicating them. Open follow-ups
 // (Wiedervorlagen), when included, are all-day entries on their due date;
-// one ticked off drops out, and so out of the subscribed calendars.
+// one ticked off drops out, and so out of the subscribed calendars. Own
+// appointments (#71, Termine), when included, keep their times (floating,
+// like the shows) or are all-day across their days.
 
 export interface CalendarEvent {
   id: number
@@ -34,6 +36,25 @@ export interface CalendarFollowUp {
   dueDate: string
   note: string
   // The record it is on ("München (11.06.2026)"), null for a general one
+  recordName: string | null
+  updatedAt: string | null
+}
+
+/** #71: an own appointment (Termin) in the calendar */
+export interface CalendarAppointment {
+  id: number
+  title: string
+  // YYYY-MM-DD
+  startDate: string
+  // HH:MM, null for all-day
+  startTime: string | null
+  // YYYY-MM-DD
+  endDate: string
+  // HH:MM, null for all-day
+  endTime: string | null
+  place: string
+  notes: string
+  // The record it is on, null for none
   recordName: string | null
   updatedAt: string | null
 }
@@ -110,12 +131,21 @@ function formatUtc(date: Date): string {
   return `${formatDateTime(date)}Z`
 }
 
-/** DTSTART/DTEND of an all-day entry on 2026-06-11 */
-function allDayLines(isoDate: string): string[] {
+/** DTSTART/DTEND of an all-day entry on 2026-06-11 (to `lastDate` for several days) */
+function allDayLines(isoDate: string, lastDate = isoDate): string[] {
   const [year, month, day] = isoDate.split('-').map(Number)
+  const [endYear, endMonth, endDay] = lastDate.split('-').map(Number)
   const start = new Date(Date.UTC(year, month - 1, day))
-  const end = new Date(Date.UTC(year, month - 1, day + 1))
+  // DTEND of an all-day entry is the day after its last
+  const end = new Date(Date.UTC(endYear, endMonth - 1, endDay + 1))
   return [`DTSTART;VALUE=DATE:${formatDate(start)}`, `DTEND;VALUE=DATE:${formatDate(end)}`]
+}
+
+/** A wall-clock date and time as floating DTSTART/DTEND value (20260611T210000) */
+function floatingDateTime(isoDate: string, time: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const [hours, minutes] = time.split(':').map(Number)
+  return formatDateTime(new Date(Date.UTC(year, month - 1, day, hours, minutes)))
 }
 
 /** LAST-MODIFIED from an SQLite "2026-05-01 10:00:00" (UTC) or an ISO timestamp */
@@ -184,13 +214,38 @@ function followUpLines(followUp: CalendarFollowUp, now: Date): string[] {
   ]
 }
 
+function appointmentLines(appointment: CalendarAppointment, now: Date): string[] {
+  const lines = [
+    'BEGIN:VEVENT',
+    `UID:appointment-${appointment.id}@bookingium`,
+    `DTSTAMP:${formatUtc(now)}`
+  ]
+  if (appointment.startTime !== null && appointment.endTime !== null) {
+    lines.push(
+      `DTSTART:${floatingDateTime(appointment.startDate, appointment.startTime)}`,
+      `DTEND:${floatingDateTime(appointment.endDate, appointment.endTime)}`
+    )
+  } else {
+    lines.push(...allDayLines(appointment.startDate, appointment.endDate))
+  }
+  lines.push(`SUMMARY:${escapeText(appointment.title)}`)
+  if (appointment.place) lines.push(`LOCATION:${escapeText(appointment.place)}`)
+  const description = [appointment.recordName && `Zu: ${appointment.recordName}`, appointment.notes]
+    .filter(Boolean)
+    .join('\n\n')
+  if (description) lines.push(`DESCRIPTION:${escapeText(description)}`)
+  lines.push('CATEGORIES:Termin', ...lastModifiedLines(appointment.updatedAt), 'END:VEVENT')
+  return lines
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/
 
 /** A whole calendar file (CRLF line endings, folded lines) */
 export function buildCalendar(
   events: CalendarEvent[],
   now = new Date(),
-  followUps: CalendarFollowUp[] = []
+  followUps: CalendarFollowUp[] = [],
+  appointments: CalendarAppointment[] = []
 ): string {
   const lines = [
     'BEGIN:VCALENDAR',
@@ -205,6 +260,9 @@ export function buildCalendar(
     ...followUps
       .filter((followUp) => ISO_DATE.test(followUp.dueDate))
       .flatMap((followUp) => followUpLines(followUp, now)),
+    ...appointments
+      .filter((appointment) => ISO_DATE.test(appointment.startDate))
+      .flatMap((appointment) => appointmentLines(appointment, now)),
     'END:VCALENDAR'
   ]
   return lines.map(foldLine).join('\r\n') + '\r\n'

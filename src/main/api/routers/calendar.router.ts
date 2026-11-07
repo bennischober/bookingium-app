@@ -55,6 +55,12 @@ export const calendarRouter = t.router({
     return feed.update()
   }),
 
+  /** #71: own appointments in the file or not (off by default); rewrites it at once */
+  setFeedAppointments: t.procedure.input(z.boolean()).mutation(({ input }) => {
+    settings.update({ calendarFeedAppointments: input })
+    return feed.update()
+  }),
+
   revealFeedFile: t.procedure.mutation(() => {
     const path = settings.get().calendarFeedPath
     if (path) shell.showItemInFolder(path)
@@ -63,11 +69,11 @@ export const calendarRouter = t.router({
   /** One-off .ics of all events (e.g. to import into Outlook once) */
   exportOnce: t.procedure.mutation(async () => {
     const path = await askForIcsPath('Kalender exportieren', 'Bookingium Events.ics')
-    if (!path) return { canceled: true, path: null, events: 0, followUps: 0 }
+    if (!path) return { canceled: true, path: null, events: 0, followUps: 0, appointments: 0 }
     try {
-      const { events, followUps } = await feed.writeTo(path)
+      const { events, followUps, appointments } = await feed.writeTo(path)
       shell.showItemInFolder(path)
-      return { canceled: false, path, events, followUps }
+      return { canceled: false, path, events, followUps, appointments }
     } catch (error) {
       throw badRequest(error, 'Export fehlgeschlagen')
     }

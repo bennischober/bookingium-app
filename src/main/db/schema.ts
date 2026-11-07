@@ -846,6 +846,49 @@ export const follow_up = sqliteTable(
 )
 
 // ========================================
+// Appointments (#71): the user's own entries in the calendar
+// ========================================
+// A meeting, a call, a rehearsal: with a time or all-day, optionally on one record. Unlike a
+// follow-up the appointment still happens when that record goes, so the link is set to NULL
+// instead of taking the appointment with it. A reminder fires `reminder_minutes` before the start
+// (an all-day one before 08:00 of its day); reminded_at keeps it from firing twice and is cleared
+// when the time or the reminder changes.
+export const appointment = sqliteTable(
+  'appointment',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    title: text('title').notNull(),
+    start_date: text('start_date').notNull(), // YYYY-MM-DD
+    start_time: text('start_time'), // HH:MM, NULL for all-day
+    end_date: text('end_date').notNull(), // YYYY-MM-DD, the start day for one day
+    end_time: text('end_time'), // HH:MM, NULL for all-day
+    place: text('place').notNull().default(''),
+    notes: text('notes').notNull().default(''),
+    reminder_minutes: integer('reminder_minutes'),
+    reminded_at: text('reminded_at'),
+    event_id: integer('event_id').references(() => deal_memo.id, { onDelete: 'set null' }),
+    band_id: integer('band_id').references(() => band.id, { onDelete: 'set null' }),
+    venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'set null' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('appointment_start_idx').on(table.start_date),
+    index('appointment_event_idx').on(table.event_id),
+    index('appointment_band_idx').on(table.band_id),
+    index('appointment_venue_idx').on(table.venue_id),
+    index('appointment_company_idx').on(table.company_id),
+    index('appointment_person_idx').on(table.person_id)
+  ]
+)
+
+// ========================================
 // Management contracts (management company <-> band)
 // ========================================
 // A band can have several over time (renewals with new terms); the newest
@@ -990,6 +1033,7 @@ export const schema = {
   contact_list,
   mail_link,
   follow_up,
+  appointment,
   mail_template,
   mail_rule,
   mail_rule_hit

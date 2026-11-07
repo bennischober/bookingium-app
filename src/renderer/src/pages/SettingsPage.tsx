@@ -155,15 +155,28 @@ function CalendarCard() {
     onError: (error) =>
       toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
   })
+  // #71: own appointments in the file, off by default
+  const setAppointments = trpcReact.calendar.setFeedAppointments.useMutation({
+    onSuccess: (next) => {
+      onStatus(next)
+      void utils.settings.get.invalidate()
+      if (!next.error) toast.success('Einstellung gespeichert')
+    },
+    onError: (error) =>
+      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+  })
   const disable = trpcReact.calendar.disableFeed.useMutation({ onSuccess: onStatus })
   const reveal = trpcReact.calendar.revealFeedFile.useMutation()
   const exportOnce = trpcReact.calendar.exportOnce.useMutation({
     onSuccess: (result) => {
       if (result.canceled) return
+      const parts = [
+        `${result.events} Events`,
+        result.appointments > 0 && `${result.appointments} Termine`,
+        result.followUps > 0 && `${result.followUps} Wiedervorlagen`
+      ].filter(Boolean)
       toast.success(
-        result.followUps > 0
-          ? `${result.events} Events und ${result.followUps} Wiedervorlagen exportiert`
-          : `${result.events} Events exportiert`
+        `${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} und ${parts.at(-1)}` : parts[0]} exportiert`
       )
     },
     onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
@@ -188,7 +201,7 @@ function CalendarCard() {
             </p>
             <p className="text-muted-foreground">
               {feed.lastWrittenAt
-                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events${feed.includeFollowUps ? ` · ${feed.followUps} Wiedervorlagen` : ''}`
+                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events${feed.includeAppointments ? ` · ${feed.appointments} Termine` : ''}${feed.includeFollowUps ? ` · ${feed.followUps} Wiedervorlagen` : ''}`
                 : 'Wird beim nächsten Ändern eines Events geschrieben.'}
             </p>
             {feed.error && <p className="text-destructive">{feed.error}</p>}
@@ -239,6 +252,22 @@ function CalendarCard() {
           <p className="text-xs text-muted-foreground">
             Als ganztägige Einträge am Fälligkeitstag, mit der Notiz als Text. Erledigte fallen
             heraus. Wer die Datei abonniert, sieht dann auch die Notizen.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="settings-calendar-appointments"
+              checked={feed?.includeAppointments ?? false}
+              onCheckedChange={(checked) => setAppointments.mutate(checked)}
+              disabled={status.isLoading || setAppointments.isPending}
+            />
+            <Label htmlFor="settings-calendar-appointments">Eigene Termine mit aufnehmen</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Mit Titel, Zeit, Ort und Notizen. Wer die Datei abonniert, sieht dann auch diese
+            Angaben; ohne den Schalter bleiben Termine nur in Bookingium.
           </p>
         </div>
 
