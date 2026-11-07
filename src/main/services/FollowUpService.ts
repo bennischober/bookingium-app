@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe'
 import { FollowUpRepository } from '../repositories/FollowUpRepository'
+import { SettingsRepository } from '../repositories/SettingsRepository'
 import { FollowUpMapper } from '../api/mappers/followUp.mapper'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
 import type {
@@ -13,9 +14,36 @@ import type {
 // Follow-ups (Wiedervorlagen): due dates with a note, on a record or general.
 // Done ones stay in the table (done_at): "Rückgängig" and the history bring them back.
 // Every change rewrites the calendar file soon, which lists open ones when set to (#52).
+/** #142: app_setting key of the day the follow-up summary was last considered */
+const SUMMARY_DAY_KEY = 'followUpSummaryDay'
+
 @injectable()
 export class FollowUpService {
-  constructor(@inject(FollowUpRepository) private followUpRepository: FollowUpRepository) {}
+  constructor(
+    @inject(FollowUpRepository) private followUpRepository: FollowUpRepository,
+    @inject(SettingsRepository) private settings: SettingsRepository
+  ) {}
+
+  /** #142: open follow-ups due on `today` (YYYY-MM-DD) or earlier, for the daily summary */
+  countDue(today: string): number {
+    return this.followUpRepository.countDue(today)
+  }
+
+  /** #142: the day the daily summary was last considered, or null */
+  summaryDay(): string | null {
+    const raw = this.settings.getAll()[SUMMARY_DAY_KEY]
+    if (raw === undefined) return null
+    try {
+      const day = JSON.parse(raw) as unknown
+      return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null
+    } catch {
+      return null
+    }
+  }
+
+  setSummaryDay(day: string): void {
+    this.settings.setMany({ [SUMMARY_DAY_KEY]: JSON.stringify(day) })
+  }
 
   listOpen(): FollowUpDto[] {
     return FollowUpMapper.toDtoList(this.followUpRepository.listOpen())

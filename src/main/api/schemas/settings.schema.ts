@@ -121,9 +121,13 @@ export const AppSettings = z.object({
   mailNotifications: z.boolean().default(false),
   // #133: the same as a popup in the app while its main window is in front, off by default
   mailInAppNotifications: z.boolean().default(false),
-  // #65: closing the window keeps the app in the tray (Infobereich), so mail is still fetched
-  // and announced; off, closing quits as before. Only while the mail client has an account.
+  // #65: closing the window keeps the app in the tray (Infobereich), so reminders and mail still
+  // come; off, closing quits as before. #142: no longer tied to a mail account (the key keeps its
+  // old name so the stored choice stays).
   mailCloseToTray: z.boolean().default(false),
+  // #142: reminders (the daily summary of due follow-ups) as a Windows notification in the
+  // background and a popup in the app. On by default: the user set them on purpose.
+  reminderNotifications: z.boolean().default(true),
   // "Karte (experimentell)": the map preview (#102), off until the user turns it on. Off, the
   // renderer hides the page; the lookup runs offline by postcode (bundled GeoNames table).
   mapPreview: z.boolean().default(false),
@@ -150,6 +154,7 @@ export const UpdateAppSettingsInput = z
     mailNotifications: shape.mailNotifications.unwrap(),
     mailInAppNotifications: shape.mailInAppNotifications.unwrap(),
     mailCloseToTray: shape.mailCloseToTray.unwrap(),
+    reminderNotifications: shape.reminderNotifications.unwrap(),
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),

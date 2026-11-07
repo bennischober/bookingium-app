@@ -33,6 +33,7 @@ const DEFAULTS = {
   mailNotifications: false,
   mailInAppNotifications: false,
   mailCloseToTray: false,
+  reminderNotifications: true,
   // The map preview (#102) is experimental and off until the user turns it on
   mapPreview: false,
   radiusClub: DEFAULT_CLUB_RADIUS,

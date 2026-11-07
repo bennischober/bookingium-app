@@ -7,7 +7,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { Mail } from 'lucide-react'
+import { Bell, Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
@@ -44,6 +44,22 @@ export default function RootLayout() {
         })
       }),
     [navigate, router]
+  )
+  // #142: a click on a reminder notification opens the dashboard, whose card lists the follow-ups
+  useEffect(() => window.api.onOpenDashboard(() => void navigate({ to: '/' })), [navigate])
+  // #142: a reminder while the app has focus, as a popup; counts only
+  useEffect(
+    () =>
+      window.api.onReminder((notice) => {
+        toast.info(notice.title, {
+          id: 'reminder',
+          icon: <Bell className="size-4" />,
+          description: notice.body,
+          duration: 8000,
+          action: { label: 'Anzeigen', onClick: () => void navigate({ to: '/' }) }
+        })
+      }),
+    [navigate]
   )
 
   return (

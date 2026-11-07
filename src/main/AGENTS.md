@@ -17,6 +17,7 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 | `mailclient/` | IMAP mail client in a utility process; `core/` is self-contained |
 | `einvoice/ import/ csv/ mail/ invoice/ calendar/ payment/` | pure feature modules, no Electron |
 | `backup/` | backup policy (folder names, retention, due) |
+| `notifications/` | the app's tray icon (`appTray.ts`, Electron) and pure notice texts + the daily follow-up summary (#142) |
 | `utils/` | document/logo storage and path guards |
 
 ## WHERE TO LOOK

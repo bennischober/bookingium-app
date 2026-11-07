@@ -502,8 +502,6 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
         return saved.mailNotifications && saved.mailInAppNotifications
       })
       .toBe(true)
-    const closeToTray = page.getByLabel('Beim Schließen im Infobereich weiterlaufen')
-    await expect(closeToTray).not.toBeChecked()
 
     await appendTestMail(SANDBOX.host, SANDBOX.port, tag)
     await mail('triggerSync', true, sandboxId)
@@ -529,9 +527,12 @@ test('new mail is announced by its count, and closing keeps the app in the tray'
     await expect(page.getByRole('heading', { name: 'E-Mail', level: 1 })).toBeVisible()
     await expect(page.getByRole('heading', { name: `${tag}-app`, exact: true })).toBeVisible()
     await expect(page).not.toHaveURL(/newMail/)
-    await page.goto(`${page.url().split('#')[0]}#/settings?tab=email`)
+    // #142: the tray switch is the app's, under Einstellungen › Allgemein
+    await page.goto(`${page.url().split('#')[0]}#/settings?tab=general`)
 
     // Closing hides the window instead of quitting, and says so once
+    const closeToTray = page.getByLabel('Beim Schließen im Infobereich weiterlaufen')
+    await expect(closeToTray).not.toBeChecked()
     await closeToTray.click()
     await expect(closeToTray).toBeChecked()
     await expect

@@ -37,6 +37,7 @@ import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
 import { MailRulesCard } from '@/components/settings/MailRulesCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
+import { NotificationsCard } from '@/components/settings/NotificationsCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -412,6 +413,7 @@ export default function SettingsPage() {
           <GeneralCard />
           <AppearanceCard />
           <MapPreviewSwitchCard />
+          <NotificationsCard />
         </TabsContent>
         <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />

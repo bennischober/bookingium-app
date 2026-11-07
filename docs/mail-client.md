@@ -58,9 +58,10 @@ events and invoices), not a general mail client.
   (`hooks/useMailUnreadCount.ts`, `components/mail/unreadBadge.ts`, `MailCore.getInboxUnread`).
   With several accounts its tooltip lists each account's share, and the mail page's account picker
   shows the same per-account count ("· 6 ungelesen"), so the sum is traceable (#88).
-- **Tray icon and new-mail notification** (#65): while the switch is on and an account exists, an
-  icon in the Windows notification area (Infobereich) shows the INBOX unread counts in its tooltip and
-  a red dot while mail is unread; its menu opens the app, the mail page, or quits. New mail raises a
+- **Tray icon and new-mail notification** (#65): the icon in the Windows notification area
+  (Infobereich) is the app's since #142 (`notifications/appTray.ts`, there with or without an
+  account). With an account it shows the INBOX unread counts in its tooltip and a red dot while
+  mail is unread, and its menu gets „E-Mail öffnen“ besides opening the app and quitting. New mail raises a
   desktop notification with the count and the account only ("2 neue E-Mails", "Im Posteingang von …"),
   never a subject or sender; a click opens that account's INBOX with its newest unread mail
   (`/mail?newMail=<account>`, taken once and removed; an open editor is left alone). While the main
@@ -73,10 +74,10 @@ events and invoices), not a general mail client.
   nothing. Switches under Einstellungen › E-Mail: „Windows-Benachrichtigung bei neuen E-Mails“
   (setting `mailNotifications`) and „Hinweis in Bookingium bei neuen E-Mails“
   (`mailInAppNotifications`), both off by default since #133 (users found them annoying; the
-  unread counts stay), where to announce decided by `newMailChannel` in `trayText.ts`; and „Beim
-  Schließen im Infobereich weiterlaufen“ (off by default; on, closing the main
-  window hides it and sync goes on, quitting is via the tray menu; once per session a notice says
-  so). The app's AppUserModelID is `com.bookingium.app`, the electron-builder `appId`, which Windows
+  unread counts stay), where to announce decided by `newMailChannel` in
+  `notifications/noticeText.ts`. „Beim Schließen im Infobereich weiterlaufen“ moved to
+  Einstellungen › Allgemein with #142 (off by default; on, closing the main window hides it and
+  sync and reminders go on, quitting is via the tray menu; once per session a notice says so). The app's AppUserModelID is `com.bookingium.app`, the electron-builder `appId`, which Windows
   needs for the notifications to show the app's name and icon: the installer's Start Menu shortcut
   registers it, so a dev run (`pnpm dev`) still shows "Electron" in the notification header.
 
@@ -182,11 +183,12 @@ account whose login was rejected is left alone.
 src/main/
   index.ts                        startup (enabled check, startIfConfigured), pop-out mail windows,
                                   invoice:email, contract:email, mail:copyLink
+  notifications/                  the app's tray icon and notices (#142): appTray.ts, noticeText.ts
+                                  (tooltip, dot, new-mail text), followUpSummary.ts
   mailclient/
     MailClientService.ts          the host: worker lifecycle, crash limit, credentials, connection test
     systemWake.ts                 wake from sleep (power monitor, late clock tick, network wait)
     inboxWatch.ts                 INBOX unread counts in main: tray counts, new-mail detection (#65)
-    mailTray.ts, trayText.ts      the tray icon, its tooltip and dot, the new-mail notification
     worker.ts                     utility-process entry: createMailCore, the allowlist, events to main
     protocol.ts                   main <-> worker messages; MAIL_API_METHODS (the IPC allowlist)
     accounts.ts                   accounts.json, safeStorage, "Nur lesen", writeRefusal for the renderer
