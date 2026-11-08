@@ -351,6 +351,23 @@ export const deal_memo = sqliteTable(
   ]
 )
 
+// Optional prepayments on the fee (net euros, like deal_memo.guarantee_amount):
+// the contract's "Vorkasse" clause, printed only when a deal memo has rows here.
+// Ordered by position; a null due date means "bei Vertragsabschluss"
+export const deal_memo_deposit = sqliteTable(
+  'deal_memo_deposit',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    amount: real('amount').notNull(),
+    due_date: text('due_date') // ISO 8601 date
+  },
+  (table) => [index('deal_memo_deposit_deal_memo_idx').on(table.deal_memo_id, table.position)]
+)
+
 // Per-company invoice numbering settings
 export const company_invoice_settings = sqliteTable(
   'company_invoice_settings',
@@ -1019,6 +1036,7 @@ export const schema = {
   venue_member,
   hotel,
   deal_memo,
+  deal_memo_deposit,
   itinerary,
   document,
   company_invoice_settings,

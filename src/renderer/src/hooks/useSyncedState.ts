@@ -19,3 +19,24 @@ export function useSyncedState<T>(value: T): [T, React.Dispatch<React.SetStateAc
 
   return [state, setState]
 }
+
+/**
+ * useSyncedState for an object or array value: re-syncs when `key` changes
+ * instead of comparing the value by identity (a fresh array every render would
+ * otherwise re-sync forever). `key` is a primitive digest of the value, such as
+ * JSON.stringify of the source data.
+ */
+export function useSyncedStateByKey<T>(
+  value: T,
+  key: string
+): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState(value)
+  const [prevKey, setPrevKey] = useState(key)
+
+  if (prevKey !== key) {
+    setPrevKey(key)
+    setState(value)
+  }
+
+  return [state, setState]
+}

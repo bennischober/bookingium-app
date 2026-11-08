@@ -1,5 +1,6 @@
 import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
 import { PagedDocument } from '../print/PagedDocument'
+import { contractDeposits, contractSectionNumbers } from './contractSections'
 
 // ========================================
 // Formatting helpers
@@ -33,10 +34,12 @@ function Section({
   title,
   children
 }: {
-  number: number
+  /** Null: the optional section is not printed (see contractSectionNumbers) */
+  number: number | null
   title: string
   children: React.ReactNode
 }) {
+  if (number === null) return null
   return (
     <div className="mb-3">
       <h3 className="font-bold text-[12pt] underline mb-1">
@@ -94,6 +97,14 @@ export function ContractDocument({
   const guaranteeVat = guarantee !== null && vatRate !== null ? (guarantee * vatRate) / 100 : null
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
 
+  // Optional sections are skipped entirely and the later ones move up a number
+  const deposits = contractDeposits(dealMemo)
+  const sections = contractSectionNumbers({
+    deposits: deposits.length > 0,
+    specialAgreements: Boolean(dealMemo.contractNotes)
+  })
+  const plusVat = vatRate !== null && vatRate > 0 ? ` zzgl. ${formatVatRate(vatRate)} % MwSt.` : ''
+
   return (
     <PagedDocument>
       {/* Letterhead: artist company identity */}
@@ -145,8 +156,8 @@ export function ContractDocument({
         <p className="font-bold mt-4">gilt folgendes als vereinbart:</p>
       </div>
 
-      {/* 1. Engagement */}
-      <Section number={1} title="Engagement">
+      {/* Engagement */}
+      <Section number={sections.engagement} title="Engagement">
         <p className="font-bold">
           Gegenstand dieses Vertrages ist die Durchführung eines Konzertes von örtlichen
           Veranstalter (VP2) mit der Gruppe/Künstler {band?.name ?? '-'} (VP1) am{' '}
@@ -176,24 +187,22 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 2. Honorar */}
-      <Section number={2} title="Honorar / Produktionskosten">
+      {/* Honorar */}
+      <Section number={sections.fee} title="Honorar / Produktionskosten">
         <p>
           Als Honorar ist vereinbart: VP1 erhält {dealMemo.deal || 'die getroffene Vereinbarung'}.
         </p>
         {guarantee !== null && (
           <p className="font-bold">
             Eine Garantiezahlung in Höhe von {formatMoney(guarantee)}
-            {vatRate !== null && vatRate > 0
-              ? ` zzgl. ${formatVatRate(vatRate)} % MwSt. (Gesamt: ${formatMoney(guaranteeGross ?? 0)})`
-              : ''}{' '}
-            ist an VP1 zu zahlen.
+            {plusVat ? `${plusVat} (Gesamt: ${formatMoney(guaranteeGross ?? 0)})` : ''} ist an VP1
+            zu zahlen.
           </p>
         )}
       </Section>
 
-      {/* 3. Abrechnung */}
-      <Section number={3} title="Abrechnung">
+      {/* Abrechnung */}
+      <Section number={sections.billing} title="Abrechnung">
         <p>
           Die Fixgage sowie eine etwaige Eintritts Einnahmenbeteiligung ist im Anschluss nach Erhalt
           der Rechnungen per Banküberweisung auf folgendes Konto zu überweisen.
@@ -220,8 +229,36 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 4. GEMA/KSK/Steuern */}
-      <Section number={4} title="Anmeldungen, GEMA, KSK und Steuern">
+      {/* Vorkasse: only with prepayments on the deal memo */}
+      {deposits.length > 0 && (
+        <Section number={sections.deposits} title="Vorkasse">
+          <p>
+            VP2 leistet folgende Vorauszahlungen auf das vereinbarte Honorar an VP1 (Bankverbindung
+            siehe Punkt {sections.billing}):
+          </p>
+          <p className="font-bold">
+            {deposits.map((deposit, index) => (
+              <span key={index}>
+                {index > 0 && <br />}
+                {deposits.length > 1 ? `${index + 1}. Vorkasse` : 'Vorkasse'}:{' '}
+                {formatMoney(deposit.amount)}
+                {plusVat}, fällig{' '}
+                {deposit.dueDate
+                  ? `bis zum ${formatDate(deposit.dueDate)}`
+                  : 'bei Vertragsabschluss'}
+              </span>
+            ))}
+          </p>
+          <p>
+            Geht eine Vorauszahlung nicht fristgerecht bei VP1 ein, ist ausschließlich VP1
+            berechtigt, vom Vertrag zurückzutreten. Schadensersatzansprüche von VP1 bleiben davon
+            unberührt.
+          </p>
+        </Section>
+      )}
+
+      {/* GEMA/KSK/Steuern */}
+      <Section number={sections.registration} title="Anmeldungen, GEMA, KSK und Steuern">
         <p>
           VP2 ist verpflichtet die Veranstaltung der GEMA zu melden. Sämtliche aus der Veranstaltung
           anfallenden Steuern, Abgaben und GEMA sind zu 100% von VP2 zu zahlen.
@@ -236,8 +273,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 5. Technik/Personal */}
-      <Section number={5} title="Technik / Personal">
+      {/* Technik/Personal */}
+      <Section number={sections.technics} title="Technik / Personal">
         <p>
           Der Veranstalter stellt die Ton- und Lichttechnik und das zur Bedienung selbiger nötige
           Fachpersonal laut anliegender Bühnenanweisung (Technikrider). VP2 gewährleistet, dass der
@@ -258,8 +295,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 6. Bühne */}
-      <Section number={6} title="Bühne">
+      {/* Bühne */}
+      <Section number={sections.stage} title="Bühne">
         <p>
           VP2 stellt eine überdachte Bühne entsprechend beiliegender Bühnenanweisung. Die Bühne muss
           stabil, eben und sauber sein und die Spielfläche muss horizontal gerade (!!) ausgerichtet
@@ -267,8 +304,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 7. Anreise */}
-      <Section number={7} title="Anreise / Zufahrt / Parken">
+      {/* Anreise */}
+      <Section number={sections.travel} title="Anreise / Zufahrt / Parken">
         <p>
           VP2 schickt spätestens 8 Tage vor VA eine genaue Wegbeschreibung sowie evtl.
           Zufahrtberechtigungsscheine an VP1. VP2 gewährleistet in logistischer Hinsicht, dass VP1
@@ -278,8 +315,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 8. Übernachtung */}
-      <Section number={8} title="Übernachtung">
+      {/* Übernachtung */}
+      <Section number={sections.accommodation} title="Übernachtung">
         <p>
           VP2 stellt und trägt die Kosten für Übernachtung mit Frühstück für{' '}
           {dealMemo.amountOfPeople ?? '-'} Personen mit den folgenden Zimmern:{' '}
@@ -288,24 +325,24 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 9. Catering */}
-      <Section number={9} title="Catering">
+      {/* Catering */}
+      <Section number={sections.catering} title="Catering">
         <p>
           VP2 stellt Catering für Künstler (VP1) und deren Crew laut anliegender Cateringanweisung,
           bzw. Festival-Catering.
         </p>
       </Section>
 
-      {/* 10. Künstlerische Freiheit */}
-      <Section number={10} title="Künstlerische Freiheit">
+      {/* Künstlerische Freiheit */}
+      <Section number={sections.artisticFreedom} title="Künstlerische Freiheit">
         <p>
           Die Art der Darbietung und Gestaltung liegt ausschließlich bei dem Künstler (VP1). Der
           Künstler (VP1) ist nur an die durch diesen Vertrag vereinbarten Regelungen gebunden.
         </p>
       </Section>
 
-      {/* 11. Sponsoring */}
-      <Section number={11} title="Vereinigungen, Sponsoring, Präsentation">
+      {/* Sponsoring */}
+      <Section number={sections.associations} title="Vereinigungen, Sponsoring, Präsentation">
         <p>
           Handelt es sich bei VP2 um eine Partei, eine Firma, einen Verband, einen eingetragenen
           Verein oder um eine parteienähnliche Organisation etc., so ist dies vor Vertragsabschluss
@@ -317,8 +354,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 12. Organisation und Sicherheit */}
-      <Section number={12} title="Organisation und Sicherheit">
+      {/* Organisation und Sicherheit */}
+      <Section number={sections.security} title="Organisation und Sicherheit">
         <p>
           VP2 sorgt für einen ungehinderten organisatorischen Ablauf der gesamten Veranstaltung und
           ist verantwortlich für die Sicherheit und die Erfüllung sämtlicher diesbezüglicher
@@ -353,8 +390,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 13. Werbung */}
-      <Section number={13} title="Werbung">
+      {/* Werbung */}
+      <Section number={sections.advertising} title="Werbung">
         <p>
           VP2 verpflichtet sich, alle zumutbaren Maßnahmen zu unternehmen, um das Konzert in der
           Öffentlichkeit zu bewerben (Presse, Radio, Plakate, Internet, etc...)
@@ -369,9 +406,12 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 14. Konzertausfall */}
-      <Section number={14} title="Konzertausfall / Vertragsstrafe / pauschalierter Schadensersatz">
-        <p className="font-bold">14.1.</p>
+      {/* Konzertausfall */}
+      <Section
+        number={sections.cancellation}
+        title="Konzertausfall / Vertragsstrafe / pauschalierter Schadensersatz"
+      >
+        <p className="font-bold">{sections.cancellation}.1.</p>
         <p>
           Für jeden einzelnen Fall, dass infolge einer dem Veranstalter (VP2) zurechenbaren
           schuldhaften Handlung oder Unterlassung, insbesondere Vertragsbruch, Rücktritt vom
@@ -384,7 +424,7 @@ export function ContractDocument({
           die von VP1 beauftragt wurden. Die Geltendmachung eines weitergehenden Schadens wird durch
           die vorstehende Schadenspauschalierung nicht ausgeschlossen.
         </p>
-        <p className="font-bold">14.2.</p>
+        <p className="font-bold">{sections.cancellation}.2.</p>
         <p>
           Fälle höherer Gewalt einschließlich Krankheit der Künstler (VP1), behördlicher Maßnahmen,
           Streiks, Betriebsstörungen, Ausfall bzw. Verspätung von Verkehrsmitteln und alle sonstigen
@@ -406,8 +446,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 15. Merchandising */}
-      <Section number={15} title="Merchandising">
+      {/* Merchandising */}
+      <Section number={sections.merchandising} title="Merchandising">
         <p>
           VP1 ist berechtigt, vor, während und nach dem Konzert bandeigene Merchandising Artikel zu
           verkaufen (CDs, T-Shirts etc.). VP2 teilt VP1 unmittelbar nach Ankunft den Kontakt zum
@@ -421,8 +461,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 16. Aufnahmen */}
-      <Section number={16} title="Video- und Tonaufnahmen sowie -Übertragungen">
+      {/* Aufnahmen */}
+      <Section number={sections.recordings} title="Video- und Tonaufnahmen sowie -Übertragungen">
         <p>
           VP1 ist berechtigt, seinen kompletten Auftritt per Foto, Video- und Audiomitschnitt zu
           dokumentieren. Video- und Tonaufnahmen sowie -Übertragungen durch Dritte sind im Vorfeld
@@ -430,8 +470,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 17. Gästeliste */}
-      <Section number={17} title="Gästeliste / Freikarten / Presseakkreditierungen">
+      {/* Gästeliste */}
+      <Section number={sections.guestList} title="Gästeliste / Freikarten / Presseakkreditierungen">
         <p>
           Die Gästelistenkapazität wird wie folgt festgelegt und dem Vertreter des Künstlers (VP1)
           mitgeteilt. Sie umfasst aber mindestens 10 (i. W. zehn) Gästelistenplätze. Zusätzlich
@@ -441,16 +481,16 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 18. Bühnenanweisung */}
-      <Section number={18} title="Bühnenanweisung">
+      {/* Bühnenanweisung */}
+      <Section number={sections.rider} title="Bühnenanweisung">
         <p>
           Die beiliegende Bühnenanweisung inklusive dem Catering-/Technik-Rider und ggf. einer
           Nightliner-Anweisung sind Bestandteil des Vertrages. Die Kosten hieraus trägt VP2.
         </p>
       </Section>
 
-      {/* 19. Rechtsverhältnis */}
-      <Section number={19} title="Rechtsverhältnis">
+      {/* Rechtsverhältnis */}
+      <Section number={sections.legal} title="Rechtsverhältnis">
         <p>
           Ein Rechtsverhältnis aus diesem Vertrag kommt nur zwischen der VP1 und dem Veranstalter
           VP2 zustande
@@ -464,8 +504,8 @@ export function ContractDocument({
         </p>
       </Section>
 
-      {/* 20. Allgemeines */}
-      <Section number={20} title="Allgemeines">
+      {/* Allgemeines */}
+      <Section number={sections.general} title="Allgemeines">
         <ul className="list-disc pl-5 space-y-2">
           <li>
             VP2 versichert, dass er volljährig, geschäftsfähig und berechtigt ist, die Vereinbarung
@@ -502,29 +542,34 @@ export function ContractDocument({
 
       {/* Special clauses */}
       {dealMemo.contractNotes && (
-        <Section number={21} title="Sondervereinbarungen">
+        <Section number={sections.specialAgreements} title="Sondervereinbarungen">
           <p className="whitespace-pre-wrap">{dealMemo.contractNotes}</p>
         </Section>
       )}
 
-      {/* Signatures (old layout: place+date line, signature image above the
-          line, label below it; both sides structurally identical). Never
-          split, and never alone on a page: it stays with the last clause. */}
+      {/* Signatures (old layout: place+date line, room for the signature above
+          the line, label below it; both sides structurally identical, so the
+          lines align). Never split, and never alone on a page: it stays with
+          the last clause. */}
       <div className="mt-12 flex break-before-avoid break-inside-avoid text-[10pt]">
         <div className="w-1/2 pr-8">
           <div className="w-4/5">
             {representative?.city || artist?.city || '____________'}, den {todayStr}
           </div>
-          {artistSignatureUrl && (
-            <img src={artistSignatureUrl} alt="" className="max-h-[15mm] mt-2 object-contain" />
-          )}
+          <div className="mt-2 h-[15mm]">
+            {artistSignatureUrl && (
+              <img src={artistSignatureUrl} alt="" className="max-h-full object-contain" />
+            )}
+          </div>
           <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
             Unterschrift VP1 mit Stempel
             {representative && <div>i. A. {representative.name}</div>}
           </div>
         </div>
+        {/* VP2 fills in place, date and signature by hand: nothing is prefilled */}
         <div className="w-1/2 pr-8">
-          <div className="w-4/5">, den</div>
+          <div className="w-4/5">____________, den ____________</div>
+          <div className="mt-2 h-[15mm]" />
           <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
             Unterschrift VP2 mit Stempel
           </div>

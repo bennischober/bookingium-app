@@ -80,6 +80,58 @@ describe('ContractService', () => {
     expect(data?.dealMemo.guaranteeVatRate).toBe(7)
     expect(data?.dealMemo.contractNotes).toBe('Sondervereinbarung: Backline gestellt.')
     expect(data?.venue).toBeNull()
+    expect(data?.dealMemo.deposits).toEqual([])
+  })
+
+  it('passes the prepayments ("Vorkasse") through and keeps them on unrelated updates', async () => {
+    const { contracts, artistCompany } = await seedScenario()
+    const dealMemoRepo = container.resolve(DealMemoRepository)
+    const bandRepo = container.resolve(BandRepository)
+
+    const band = await bandRepo.create({ name: 'Deposit Band', companyId: artistCompany.id })
+    const memo = await dealMemoRepo.create({
+      name: 'Deposit Show',
+      date: '2026-12-10',
+      bandId: band.id
+    })
+
+    const three = [
+      { amount: 1000, dueDate: null },
+      { amount: 1500.5, dueDate: '2026-11-15' },
+      { amount: 250, dueDate: '2026-12-01' }
+    ]
+    await dealMemoRepo.update({ id: memo.id, deposits: three })
+    // An update that does not name the deposits leaves them alone
+    await dealMemoRepo.update({ id: memo.id, contractNotes: 'Notiz' })
+
+    let data = await contracts.getContractData(memo.id)
+    expect(data?.dealMemo.deposits).toEqual(three)
+    expect((await dealMemoRepo.getById(memo.id))?.deposits.map((d) => d.position)).toEqual([
+      1, 2, 3
+    ])
+
+    // Sending the list replaces it, in the new order
+    await dealMemoRepo.update({ id: memo.id, deposits: [three[2], three[0]] })
+    data = await contracts.getContractData(memo.id)
+    expect(data?.dealMemo.deposits).toEqual([three[2], three[0]])
+
+    // An empty list clears them
+    await dealMemoRepo.update({ id: memo.id, deposits: [] })
+    data = await contracts.getContractData(memo.id)
+    expect(data?.dealMemo.deposits).toEqual([])
+  })
+
+  it('deletes the prepayments together with their event', async () => {
+    const { artistCompany } = await seedScenario()
+    const dealMemoRepo = container.resolve(DealMemoRepository)
+    const bandRepo = container.resolve(BandRepository)
+
+    const band = await bandRepo.create({ name: 'Cascade Band', companyId: artistCompany.id })
+    const memo = await dealMemoRepo.create({ name: 'Cascade', date: '2026-12-10', bandId: band.id })
+    await dealMemoRepo.update({ id: memo.id, deposits: [{ amount: 500, dueDate: null }] })
+
+    await dealMemoRepo.delete(memo.id)
+    expect(await dealMemoRepo.listDeposits(memo.id)).toEqual([])
   })
 
   it('works when the promoter company has no linked contact/bank (left joins)', async () => {
@@ -179,11 +231,13 @@ describe('ContractService', () => {
     await companies.createCompany({
       name: 'Own Default AG',
       logoPath: 'logos/own.png',
+      signaturePath: 'logos/own-signature.png',
       isDefaultForInvoicing: true
     })
     const management = await companies.createCompany({
       name: 'Band Management GmbH',
       logoPath: 'logos/mgmt.png',
+      signaturePath: 'logos/mgmt-signature.png',
       isDefaultForInvoicing: false
     })
     const agency = await companies.createCompany({
@@ -199,19 +253,21 @@ describe('ContractService', () => {
     let data = await resolve()
     expect(data.representative?.name).toBe('Own Default AG')
     expect(data.letterheadLogoPath).toBe('logos/own.png')
+    expect(data.representative?.signaturePath).toBe('logos/own-signature.png')
 
-    // Band management wins over the default
+    // Band management wins over the default. Logo and signature belong to the main
+    // company only, so the ones stored on other companies are ignored
     await bandRepo.update({ id: band.id, managementCompanyId: management.id })
     data = await resolve()
     expect(data.representative?.name).toBe('Band Management GmbH')
-    expect(data.letterheadLogoPath).toBe('logos/mgmt.png')
+    expect(data.letterheadLogoPath).toBeNull()
+    expect(data.representative?.signaturePath).toBe('')
 
-    // Event override wins over the band; without its own logo the letterhead
-    // falls back to the band company's
+    // Event override wins over the band
     await dealMemoRepo.update({ id: memo.id, representingCompanyId: agency.id })
     data = await resolve()
     expect(data.representative?.name).toBe('Extratours')
-    expect(data.letterheadLogoPath).toBe('logos/band.png')
+    expect(data.letterheadLogoPath).toBeNull()
 
     // A band represented by its own company has no "vertreten durch"
     await dealMemoRepo.update({ id: memo.id, representingCompanyId: bandCompany.id })

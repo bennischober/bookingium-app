@@ -29,6 +29,13 @@ export type PaginatedDealMemoResponse = z.infer<typeof PaginatedDealMemoResponse
 /**
  * Full DTO for the detail/edit view.
  */
+/** One prepayment ("Vorkasse") on the fee: net euros, a null due date = on signing */
+export const DealMemoDeposit = z.object({
+  amount: z.number().positive(),
+  dueDate: z.iso.date().nullable()
+})
+export type DealMemoDeposit = z.infer<typeof DealMemoDeposit>
+
 export const DealMemoDto = DealMemoListItemDto.extend({
   ticketPriceVvk: z.number().nullable(),
   ticketPriceAk: z.number().nullable(),
@@ -41,6 +48,9 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   performanceInformation: z.string().nullable(),
   guaranteeAmount: z.number().nullable(),
   guaranteeVatRate: z.number().nullable(),
+  // Contract "Vorkasse": prepayments on the fee, in order. Loaded by getById only;
+  // the list procedures leave it empty
+  deposits: z.array(DealMemoDeposit),
   contractNotes: z.string(),
   loProPersonId: z.number().nullable(),
   loProCompanyId: z.number().nullable(),
@@ -134,6 +144,8 @@ export const UpdateDealMemoInput = CreateDealMemoInput.partial()
     performanceInformation: z.string().nullable().optional(),
     guaranteeAmount: z.number().nullable().optional(),
     guaranteeVatRate: z.number().nullable().optional(),
+    // Replaces all prepayments of the event; [] clears them, absent keeps them
+    deposits: z.array(DealMemoDeposit).optional(),
     contractNotes: z.string().optional()
   })
   .extend(RadiusOverrideInput.shape)

@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { ContractData } from '../api/schemas/contract.schema'
@@ -45,6 +45,12 @@ export class ContractRepository {
         ? await loadCompanyParty(representingCompanyId)
         : null
 
+    const deposits = await db
+      .select()
+      .from(schema.deal_memo_deposit)
+      .where(eq(schema.deal_memo_deposit.deal_memo_id, dealMemoId))
+      .orderBy(asc(schema.deal_memo_deposit.position))
+
     // Promoter ("oeV"): the deal memo's local promoter company. The
     // representative (lopro person) belongs to the deal memo, not the company.
     const promoterRepresentative = row.person
@@ -74,6 +80,7 @@ export class ContractRepository {
         performanceInformation: row.deal_memo.performance_information ?? '',
         guaranteeAmount: row.deal_memo.guarantee_amount,
         guaranteeVatRate: row.deal_memo.guarantee_vat_rate,
+        deposits: deposits.map((d) => ({ amount: d.amount, dueDate: d.due_date })),
         contractNotes: row.deal_memo.contract_notes ?? '',
         notes: row.deal_memo.notes ?? '',
         deal: row.deal_memo.deal ?? '',

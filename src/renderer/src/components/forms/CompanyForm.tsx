@@ -28,34 +28,19 @@ import {
 
 interface CompanyFormProps {
   company?: CompanyDto
-  onSubmit: (
-    data: z.infer<typeof CreateCompanyInput> & { id?: number; logoSourcePath?: string }
-  ) => void
+  onSubmit: (data: z.infer<typeof CreateCompanyInput> & { id?: number }) => void
   onCancel: () => void
   /** true while the save is running, so the form cannot be sent twice */
   isSubmitting?: boolean
 }
 
-// Resolves a stored relative logo path (or freshly picked absolute path) to a displayable URL
+// Resolves a stored relative logo/signature path to a displayable URL
 function LogoPreview({ path }: { path: string }) {
   const [src, setSrc] = useState<string>('')
 
   useEffect(() => {
     let revoked = false
     if (!path) return
-
-    if (/^[a-zA-Z]:[\\/]/.test(path)) {
-      // Freshly picked absolute path from the dialog: the file is readable by
-      // the main process only, so resolve a data URL through IPC.
-      const fileName = path.split(/[\\/]/).pop() || 'logo'
-      void window.api.uploadLogo(0, path, fileName).then(async (result) => {
-        if (result.success && result.relativePath) {
-          const dataUrl = await window.api.getLogoPath(result.relativePath)
-          if (dataUrl.success && dataUrl.dataUrl && !revoked) setSrc(dataUrl.dataUrl)
-        }
-      })
-      return
-    }
 
     void window.api.getLogoPath(path).then((result) => {
       if (result.success && result.dataUrl && !revoked) {
@@ -93,38 +78,28 @@ export function CompanyForm({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const signatureInputRef = useRef<HTMLInputElement>(null)
 
-  const handleLogoSelect = async () => {
-    const result = await window.api.showOpenDialog()
-    if (result.canceled || result.filePaths.length === 0) return
+  // Logo and signature belong to the main company (the default for invoicing, chosen in the
+  // settings) only. That company always exists already, so a picked image is uploaded at once.
+  const isMainCompany = company?.isDefaultForInvoicing === true
 
+  const pickImage = async (fallbackName: string): Promise<string | null> => {
+    if (!company) return null
+    const result = await window.api.showOpenDialog()
+    if (result.canceled || result.filePaths.length === 0) return null
     const sourcePath = result.filePaths[0]
-    const fileName = sourcePath.split(/[\\/]/).pop() || 'logo'
-    // New company has no id yet -> logo is stored after creation (see onSubmit),
-    // for existing companies we upload immediately and store the relative path.
-    if (company) {
-      const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
-      if (upload.success && upload.relativePath) {
-        setLogoPreview(upload.relativePath)
-      }
-    } else {
-      setLogoPreview(sourcePath)
-    }
+    const fileName = sourcePath.split(/[\\/]/).pop() || fallbackName
+    const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
+    return upload.success && upload.relativePath ? upload.relativePath : null
+  }
+
+  const handleLogoSelect = async () => {
+    const path = await pickImage('logo')
+    if (path) setLogoPreview(path)
   }
 
   const handleSignatureSelect = async () => {
-    const result = await window.api.showOpenDialog()
-    if (result.canceled || result.filePaths.length === 0) return
-
-    const sourcePath = result.filePaths[0]
-    const fileName = sourcePath.split(/[\\/]/).pop() || 'signature'
-    if (company) {
-      const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
-      if (upload.success && upload.relativePath) {
-        setSignaturePreview(upload.relativePath)
-      }
-    } else {
-      setSignaturePreview(sourcePath)
-    }
+    const path = await pickImage('signature')
+    if (path) setSignaturePreview(path)
   }
   const form = useForm({
     defaultValues: {
@@ -161,18 +136,11 @@ export function CompanyForm({
       }
     },
     onSubmit: async ({ value }) => {
-      // For new companies the picked logo/signature paths are passed through
-      // so the form owner can upload them after the company id exists.
+      // The form leaves out a few input fields (kskNumber, isDefaultForInvoicing); zod defaults them
       const payload = company
         ? { ...value, id: company.id, logoPath: logoPreview, signaturePath: signaturePreview }
-        : { ...value, logoSourcePath: logoPreview, signatureSourcePath: signaturePreview }
-      onSubmit(
-        payload as z.infer<typeof CreateCompanyInput> & {
-          id?: number
-          logoSourcePath?: string
-          signatureSourcePath?: string
-        }
-      )
+        : value
+      onSubmit(payload as z.infer<typeof CreateCompanyInput> & { id?: number })
     }
   })
 
@@ -330,103 +298,111 @@ export function CompanyForm({
           </form.Field>
         </div>
 
-        <div className="space-y-2">
-          <Label>Rechnungslogo (optional)</Label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) void handleLogoSelect()
-            }}
-          />
-          <div className="flex items-center gap-3">
-            {logoPreview ? (
-              <LogoPreview path={logoPreview} />
-            ) : (
-              <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                Kein Logo
+        {isMainCompany ? (
+          <>
+            <div className="space-y-2">
+              <Label>Logo (optional)</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleLogoSelect()
+                }}
+              />
+              <div className="flex items-center gap-3">
+                {logoPreview ? (
+                  <LogoPreview path={logoPreview} />
+                ) : (
+                  <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
+                    Kein Logo
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Bild auswählen…
+                  </Button>
+                  {logoPreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (company && logoPreview) {
+                          await window.api.deleteLogo(logoPreview)
+                        }
+                        setLogoPreview('')
+                        form.setFieldValue('logoPath', '')
+                      }}
+                    >
+                      Entfernen
+                    </Button>
+                  )}
+                </div>
               </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Bild auswählen…
-              </Button>
-              {logoPreview && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
-                    if (company && logoPreview) {
-                      await window.api.deleteLogo(logoPreview)
-                    }
-                    setLogoPreview('')
-                    form.setFieldValue('logoPath', '')
-                  }}
-                >
-                  Entfernen
-                </Button>
-              )}
             </div>
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label>Unterschrift für Verträge (optional)</Label>
-          <input
-            ref={signatureInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml"
-            className="hidden"
-            onChange={() => void handleSignatureSelect()}
-          />
-          <div className="flex items-center gap-3">
-            {signaturePreview ? (
-              <LogoPreview path={signaturePreview} />
-            ) : (
-              <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                Keine Unterschrift
+            <div className="space-y-2">
+              <Label>Unterschrift für Verträge (optional)</Label>
+              <input
+                ref={signatureInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={() => void handleSignatureSelect()}
+              />
+              <div className="flex items-center gap-3">
+                {signaturePreview ? (
+                  <LogoPreview path={signaturePreview} />
+                ) : (
+                  <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
+                    Keine Unterschrift
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => signatureInputRef.current?.click()}
+                  >
+                    Bild auswählen…
+                  </Button>
+                  {signaturePreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (company && signaturePreview) {
+                          await window.api.deleteLogo(signaturePreview)
+                        }
+                        setSignaturePreview('')
+                        form.setFieldValue('signaturePath', '')
+                      }}
+                    >
+                      Entfernen
+                    </Button>
+                  )}
+                </div>
               </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => signatureInputRef.current?.click()}
-              >
-                Bild auswählen…
-              </Button>
-              {signaturePreview && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
-                    if (company && signaturePreview) {
-                      await window.api.deleteLogo(signaturePreview)
-                    }
-                    setSignaturePreview('')
-                    form.setFieldValue('signaturePath', '')
-                  }}
-                >
-                  Entfernen
-                </Button>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Erscheint über der Unterschriftszeile des Künstlers im Auftrittsvertrag.
+              </p>
             </div>
-          </div>
+          </>
+        ) : (
           <p className="text-xs text-muted-foreground">
-            Erscheint über der Unterschriftszeile des Künstlers im Auftrittsvertrag.
+            Logo und Unterschrift gibt es nur bei der Standardfirma für Rechnungen (Einstellungen).
           </p>
-        </div>
+        )}
 
         <form.Field name="bankId">
           {(field) => (
