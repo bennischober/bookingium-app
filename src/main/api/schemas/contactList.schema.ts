@@ -89,13 +89,21 @@ export const ContactListFilterOptionsDto = z.object({
 })
 export type ContactListFilterOptionsDto = z.infer<typeof ContactListFilterOptionsDto>
 
+// filter: recipients by ContactListFilters; members (#154): a fixed set of
+// persons, companies and clubs/festivals, e.g. from an imported CSV list
+export const ContactListKind = z.enum(['filter', 'members'])
+export type ContactListKind = z.infer<typeof ContactListKind>
+
 export const SavedContactListDto = z.object({
   id: z.number(),
   name: z.string(),
+  kind: ContactListKind,
+  // '{}' parsed for member lists: filters do not apply to them
   filters: ContactListFilters
 })
 export type SavedContactListDto = z.infer<typeof SavedContactListDto>
 
+// Creates or updates a filter list; for a member list only the name changes
 export const SaveContactListInput = z.object({
   // Omitted: a new list
   id: z.number().optional(),
@@ -103,6 +111,23 @@ export const SaveContactListInput = z.object({
   filters: ContactListFilters
 })
 export type SaveContactListInput = z.infer<typeof SaveContactListInput>
+
+// What a list is built from: the members of a saved member list, or filters
+export const ContactListSource = z.union([
+  z.object({ memberListId: z.number().int() }),
+  ContactListFilters
+])
+export type ContactListSource = z.infer<typeof ContactListSource>
+
+export const isMemberListSource = (source: ContactListSource): source is { memberListId: number } =>
+  'memberListId' in source
+
+// Removes every member of the list that this address belongs to
+export const RemoveContactListMemberInput = z.object({
+  listId: z.number().int(),
+  email: z.string().min(1)
+})
+export type RemoveContactListMemberInput = z.infer<typeof RemoveContactListMemberInput>
 
 export const SetNoAdvertisingInput = z.object({
   email: z.string().min(1),

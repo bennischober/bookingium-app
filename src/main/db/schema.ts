@@ -5,6 +5,7 @@ import {
   real,
   index,
   uniqueIndex,
+  check,
   type AnySQLiteColumn
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
@@ -727,12 +728,17 @@ export const app_setting = sqliteTable('app_setting', {
     .notNull()
 })
 
-// Saved mailing lists (Verteiler): a name plus the filter, stored as JSON
-// (ContactListFilters in api/schemas/contactList.schema.ts). Lists are
-// dynamic: recipients are computed from the current data on every load.
+// Saved mailing lists (Verteiler). kind 'filter': a name plus the filter,
+// stored as JSON (ContactListFilters in api/schemas/contactList.schema.ts).
+// kind 'members' (#154): the records in contact_list_member, e.g. from an
+// imported CSV list; filters stays '{}'. Both are dynamic: recipients are
+// computed from the current data on every load.
 export const contact_list = sqliteTable('contact_list', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
+  kind: text('kind', { enum: ['filter', 'members'] })
+    .default('filter')
+    .notNull(),
   filters: text('filters').default('{}').notNull(),
   created_at: text('created_at')
     .default(sql`(datetime('now'))`)
@@ -741,6 +747,37 @@ export const contact_list = sqliteTable('contact_list', {
     .default(sql`(datetime('now'))`)
     .notNull()
 })
+
+// #154: the records of a member list. Exactly one of person, company and
+// venue is set; the list mails that record's current primary address.
+export const contact_list_member = sqliteTable(
+  'contact_list_member',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    contact_list_id: integer('contact_list_id')
+      .notNull()
+      .references(() => contact_list.id, { onDelete: 'cascade' }),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'cascade' }),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'cascade' }),
+    venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'cascade' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    // NULLs are distinct in SQLite, so each index only binds rows of its kind
+    uniqueIndex('contact_list_member_person_idx').on(table.contact_list_id, table.person_id),
+    uniqueIndex('contact_list_member_company_idx').on(table.contact_list_id, table.company_id),
+    uniqueIndex('contact_list_member_venue_idx').on(table.contact_list_id, table.venue_id),
+    index('contact_list_member_person_id_idx').on(table.person_id),
+    index('contact_list_member_company_id_idx').on(table.company_id),
+    index('contact_list_member_venue_id_idx').on(table.venue_id),
+    check(
+      'contact_list_member_one_record',
+      sql`(${table.person_id} IS NOT NULL) + (${table.company_id} IS NOT NULL) + (${table.venue_id} IS NOT NULL) = 1`
+    )
+  ]
+)
 
 // #123: the user's own mail templates (Vorlagen) for the mail client: a name, a subject and a
 // plain-text body with {Platzhalter} (MAIL_TEMPLATE_PLACEHOLDERS in mail/mailTemplate.ts), filled
@@ -1052,6 +1089,7 @@ export const schema = {
   management_share_income,
   app_setting,
   contact_list,
+  contact_list_member,
   mail_link,
   follow_up,
   appointment,

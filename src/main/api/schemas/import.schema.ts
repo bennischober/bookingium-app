@@ -238,6 +238,14 @@ export const ImportOptions = z.object({
 })
 export type ImportOptions = z.infer<typeof ImportOptions>
 
+// #154 "Als Verteiler speichern": the records that take an address of the
+// file go into a member list, a new one (id null, named) or an existing one
+export const ImportContactList = z.object({
+  id: z.number().int().nullable().default(null),
+  name: z.string().trim().default('')
+})
+export type ImportContactList = z.infer<typeof ImportContactList>
+
 export const ImportRequest = z.object({
   target: ImportTarget,
   headers: z.array(z.string()),
@@ -245,7 +253,9 @@ export const ImportRequest = z.object({
   mapping: z.array(ImportField),
   options: ImportOptions,
   // Row numbers the user unticked in the preview
-  excludedRows: z.array(z.number()).default([])
+  excludedRows: z.array(z.number()).default([]),
+  // null: no Verteiler
+  contactList: ImportContactList.nullable().default(null)
 })
 export type ImportRequest = z.infer<typeof ImportRequest>
 
@@ -287,6 +297,8 @@ export const ImportPreview = z.object({
     companies: ImportCount,
     persons: ImportCount
   }),
+  // Records a Verteiler of this import would get (#154)
+  listMembers: z.number(),
   // Problems that block the import (e.g. no name column mapped)
   errors: z.array(z.string())
 })
@@ -298,6 +310,8 @@ export const ImportResult = z.object({
   venues: ImportOutcome,
   bands: ImportOutcome,
   companies: ImportOutcome,
-  persons: ImportOutcome
+  persons: ImportOutcome,
+  // The Verteiler the import filled (#154); added: records new to the list
+  contactList: z.object({ id: z.number(), name: z.string(), added: z.number() }).nullable()
 })
 export type ImportResult = z.infer<typeof ImportResult>

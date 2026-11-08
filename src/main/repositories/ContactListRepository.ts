@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
@@ -48,6 +48,28 @@ export interface ListSource {
   lopros: SourceLoPro[]
   // Non-cancelled events at this venue
   bookings: { bandId: number; bandGenre: string }[]
+}
+
+/**
+ * A record on a member list (#154): a person, a company or a club/festival,
+ * reached through its primary address
+ */
+export interface ListMember {
+  type: 'person' | 'company' | 'venue'
+  id: number
+  // Full name for a person
+  name: string
+  firstName: string
+  lastName: string
+  // A person's company (the first by name), a company's own name
+  company: string
+  email: string
+  city: string
+  country: string
+  capacity: number | null
+  // Clubs/festivals and media companies the record is or belongs to;
+  // kind is venue.kind or 'media'
+  sources: { id: number; kind: string; name: string; role: string }[]
 }
 
 function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V): void {
@@ -251,14 +273,185 @@ export class ContactListRepository {
     return db.select().from(schema.contact_list).orderBy(schema.contact_list.name).all()
   }
 
+  getSaved(id: number) {
+    return db.select().from(schema.contact_list).where(eq(schema.contact_list.id, id)).get()
+  }
+
+  /** The records of a member list (#154) with their current primary address */
+  loadMembers(listId: number): ListMember[] {
+    const onList = eq(schema.contact_list_member.contact_list_id, listId)
+    const place = (address: { city: string; country: string; country_code: string } | null) => ({
+      city: address?.city ?? '',
+      country: address?.country || address?.country_code || ''
+    })
+
+    const listPersons = db
+      .select({ id: schema.contact_list_member.person_id })
+      .from(schema.contact_list_member)
+      .where(and(onList, isNotNull(schema.contact_list_member.person_id)))
+    const companiesOf = new Map<number, string[]>()
+    const sourcesOf = new Map<number, ListMember['sources']>()
+    for (const row of db
+      .select({
+        personId: schema.company_member.person_id,
+        id: schema.company.id,
+        name: schema.company.name,
+        kind: schema.company.kind,
+        role: schema.company_member.role
+      })
+      .from(schema.company_member)
+      .innerJoin(schema.company, eq(schema.company_member.company_id, schema.company.id))
+      .where(inArray(schema.company_member.person_id, listPersons))
+      .orderBy(schema.company.name)
+      .all()) {
+      pushTo(companiesOf, row.personId, row.name)
+      if (row.kind === 'media') {
+        pushTo(sourcesOf, row.personId, {
+          id: row.id,
+          kind: 'media',
+          name: row.name,
+          role: row.role ?? ''
+        })
+      }
+    }
+    for (const row of db
+      .select({
+        personId: schema.venue_member.person_id,
+        id: schema.venue.id,
+        name: schema.venue.name,
+        kind: schema.venue.kind,
+        role: schema.venue_member.role
+      })
+      .from(schema.venue_member)
+      .innerJoin(schema.venue, eq(schema.venue_member.venue_id, schema.venue.id))
+      .where(inArray(schema.venue_member.person_id, listPersons))
+      .orderBy(schema.venue.name)
+      .all()) {
+      pushTo(sourcesOf, row.personId, {
+        id: row.id,
+        kind: row.kind,
+        name: row.name,
+        role: row.role ?? ''
+      })
+    }
+
+    const persons = db
+      .select()
+      .from(schema.contact_list_member)
+      .innerJoin(schema.person, eq(schema.contact_list_member.person_id, schema.person.id))
+      .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
+      .leftJoin(schema.address, eq(schema.person.address_id, schema.address.id))
+      .where(onList)
+      .all()
+      .map(
+        ({ person, contact, address }): ListMember => ({
+          type: 'person',
+          id: person.id,
+          name: `${person.first_name} ${person.last_name}`.trim(),
+          firstName: person.first_name,
+          lastName: person.last_name,
+          company: companiesOf.get(person.id)?.[0] ?? '',
+          email: contact?.email ?? '',
+          ...place(address),
+          capacity: null,
+          sources: sourcesOf.get(person.id) ?? []
+        })
+      )
+
+    const companies = db
+      .select()
+      .from(schema.contact_list_member)
+      .innerJoin(schema.company, eq(schema.contact_list_member.company_id, schema.company.id))
+      .leftJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+      .leftJoin(schema.address, eq(schema.company.address_id, schema.address.id))
+      .where(onList)
+      .all()
+      .map(
+        ({ company, contact, address }): ListMember => ({
+          type: 'company',
+          id: company.id,
+          name: company.name,
+          firstName: '',
+          lastName: '',
+          company: company.name,
+          email: contact?.email ?? '',
+          ...place(address),
+          capacity: null,
+          sources:
+            company.kind === 'media'
+              ? [{ id: company.id, kind: 'media', name: company.name, role: '' }]
+              : []
+        })
+      )
+
+    const venues = db
+      .select()
+      .from(schema.contact_list_member)
+      .innerJoin(schema.venue, eq(schema.contact_list_member.venue_id, schema.venue.id))
+      .leftJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .where(onList)
+      .all()
+      .map(
+        ({ venue, contact, address }): ListMember => ({
+          type: 'venue',
+          id: venue.id,
+          name: venue.name,
+          firstName: '',
+          lastName: '',
+          company: '',
+          email: contact?.email ?? '',
+          ...place(address),
+          capacity: venue.capacity,
+          sources: [{ id: venue.id, kind: venue.kind, name: venue.name, role: '' }]
+        })
+      )
+
+    return [...persons, ...companies, ...venues]
+  }
+
+  /** Takes every record whose primary address is this one off the member list */
+  removeMembersByEmail(listId: number, email: string): number {
+    const matches = sql`lower(trim(${schema.contact.email})) = ${email.trim().toLowerCase()}`
+    const personIds = db
+      .select({ id: schema.person.id })
+      .from(schema.person)
+      .innerJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
+      .where(matches)
+    const companyIds = db
+      .select({ id: schema.company.id })
+      .from(schema.company)
+      .innerJoin(schema.contact, eq(schema.company.contact_id, schema.contact.id))
+      .where(matches)
+    const venueIds = db
+      .select({ id: schema.venue.id })
+      .from(schema.venue)
+      .innerJoin(schema.contact, eq(schema.venue.contact_id, schema.contact.id))
+      .where(matches)
+    return db
+      .delete(schema.contact_list_member)
+      .where(
+        and(
+          eq(schema.contact_list_member.contact_list_id, listId),
+          or(
+            inArray(schema.contact_list_member.person_id, personIds),
+            inArray(schema.contact_list_member.company_id, companyIds),
+            inArray(schema.contact_list_member.venue_id, venueIds)
+          )
+        )
+      )
+      .run().changes
+  }
+
   insertSaved(name: string, filters: string) {
     return db.insert(schema.contact_list).values({ name, filters }).returning().get()
   }
 
-  updateSaved(id: number, name: string, filters: string) {
+  /** filters null: only the name changes (member lists) */
+  updateSaved(id: number, name: string, filters: string | null) {
     return db
       .update(schema.contact_list)
-      .set({ name, filters, updated_at: sql`datetime('now')` })
+      .set({ name, ...(filters !== null && { filters }), updated_at: sql`datetime('now')` })
       .where(eq(schema.contact_list.id, id))
       .returning()
       .get()

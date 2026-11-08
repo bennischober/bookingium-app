@@ -55,9 +55,16 @@ describe('cell cleaning', () => {
   })
 
   it('finds emails, URLs, capacities and tax ids', () => {
-    expect(parseEmails('cm@hhk.example.test; no@hhk.example.test')).toEqual(['cm@hhk.example.test', 'no@hhk.example.test'])
-    expect(parseEmails('info(@)vaddi-concerts.example.test')).toEqual(['info@vaddi-concerts.example.test'])
-    expect(parseEmails('Benjamin.Geisser@vsbbg.example.test>')).toEqual(['Benjamin.Geisser@vsbbg.example.test'])
+    expect(parseEmails('cm@hhk.example.test; no@hhk.example.test')).toEqual([
+      'cm@hhk.example.test',
+      'no@hhk.example.test'
+    ])
+    expect(parseEmails('info(@)vaddi-concerts.example.test')).toEqual([
+      'info@vaddi-concerts.example.test'
+    ])
+    expect(parseEmails('Benjamin.Geisser@vsbbg.example.test>')).toEqual([
+      'Benjamin.Geisser@vsbbg.example.test'
+    ])
     expect(parseEmails('www.goldrush-productions.com')).toEqual([])
 
     expect(normalizeUrl('www.diepumpe.de')).toBe('https://www.diepumpe.de')
@@ -246,7 +253,12 @@ describe('writing the import', () => {
     const companies = container.resolve(CompanyService)
     const existing = await companies.createCompany({
       name: 'Markthalle Hamburg GmbH',
-      contact: { email: 'office@markthalle.example.test', phone: '', mobilePhone: '', homepage: '' },
+      contact: {
+        email: 'office@markthalle.example.test',
+        phone: '',
+        mobilePhone: '',
+        homepage: ''
+      },
       isDefaultForInvoicing: false
     })
 
@@ -323,6 +335,12 @@ describe('writing the import', () => {
       ])
     )
     const nothing = { created: 0, updated: 0 }
-    expect(again).toEqual({ venues: nothing, bands: nothing, companies: nothing, persons: nothing })
+    expect(again).toEqual({
+      venues: nothing,
+      bands: nothing,
+      companies: nothing,
+      persons: nothing,
+      contactList: null
+    })
   })
 })
