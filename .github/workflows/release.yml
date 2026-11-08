@@ -61,7 +61,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Electron binary
-        run: pnpm exec install-electron
+        uses: ./.github/actions/electron-binary
 
       # Typecheck and electron-vite build, then the NSIS installer. --publish never: the
       # release job below uploads it, electron-builder must not try on its own when it sees a tag.

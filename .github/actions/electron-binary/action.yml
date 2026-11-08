@@ -1,0 +1,51 @@
+# Downloads the Electron binary once per job, from the Actions cache when it can.
+#
+# Electron 44 has no postinstall: the binary is downloaded on the first require('electron').
+# Left to the test run, parallel vitest workers start that download at once and race on
+# extracting into the same dist folder (Windows: os error 183, "Electron failed to install
+# correctly"), so every job fetches it up front with install-electron.
+#
+# That fetch goes to GitHub's release CDN, which answers with the odd 504 and turned whole runs
+# red. The zip is therefore cached, keyed on OS and Electron version: install-electron finds it
+# under electron_config_cache and checks it against the checksums.json shipped in the package,
+# so a cache hit never touches the network. On a miss the download is retried with backoff.
+# Caches are shared from main, so a PR restores what main saved.
+name: Electron binary
+description: Install the Electron binary from the Actions cache, downloading it with retries on a miss
+
+runs:
+  using: composite
+  steps:
+    - name: Electron version
+      id: electron
+      shell: bash
+      run: |
+        echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+        echo "electron_config_cache=$RUNNER_TEMP/electron-cache" >> "$GITHUB_ENV"
+
+    - name: Restore the Electron download
+      id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.temp }}/electron-cache
+        key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+    - name: Install Electron
+      shell: bash
+      run: |
+        for attempt in 1 2 3 4; do
+          pnpm exec install-electron && exit 0
+          [ "$attempt" = 4 ] && break
+          echo "::warning::Electron download failed (attempt $attempt), retrying in $((attempt * 15))s"
+          sleep $((attempt * 15))
+        done
+        echo "::error::Electron download failed 4 times"
+        exit 1
+
+    # Saved right away, not at the end of the job, so a red test run still keeps the download
+    - name: Save the Electron download
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ runner.temp }}/electron-cache
+        key: ${{ steps.cache.outputs.cache-primary-key }}
