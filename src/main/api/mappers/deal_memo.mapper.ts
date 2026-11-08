@@ -1,4 +1,4 @@
-import { deal_memo, band, venue, person, company, hotel } from '../../db/schema'
+import { deal_memo, deal_memo_deposit, band, venue, person, company, hotel } from '../../db/schema'
 import type {
   DealMemoListItemDto,
   DealMemoDto,
@@ -11,6 +11,7 @@ type VenueEntity = typeof venue.$inferSelect
 type PersonEntity = typeof person.$inferSelect
 type CompanyEntity = typeof company.$inferSelect
 type HotelEntity = typeof hotel.$inferSelect
+type DepositEntity = typeof deal_memo_deposit.$inferSelect
 
 type DealMemoWithRelations = DealMemoEntity & {
   band?: BandEntity | null
@@ -18,6 +19,7 @@ type DealMemoWithRelations = DealMemoEntity & {
   hotel?: HotelEntity | null
   loProPerson?: PersonEntity | null
   loProCompany?: CompanyEntity | null
+  deposits?: DepositEntity[]
 }
 
 export class DealMemoMapper {
@@ -53,6 +55,7 @@ export class DealMemoMapper {
       performanceInformation: entity.performance_information,
       guaranteeAmount: entity.guarantee_amount,
       guaranteeVatRate: entity.guarantee_vat_rate,
+      deposits: (entity.deposits ?? []).map((d) => ({ amount: d.amount, dueDate: d.due_date })),
       contractNotes: entity.contract_notes ?? '',
       loProPersonId: entity.lopro_person_id,
       loProCompanyId: entity.lopro_company_id,

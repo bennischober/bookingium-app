@@ -17,6 +17,7 @@ import {
   venue_member,
   hotel,
   deal_memo,
+  deal_memo_deposit,
   itinerary,
   company_invoice_settings,
   invoice,
@@ -363,6 +364,8 @@ export async function seedDatabase() {
             nextInvoiceNumber?: number
             logoFile?: string
             signatureFile?: string
+            // Makes this the main company: only that one carries a logo and a signature
+            isDefaultForInvoicing?: boolean
           }>
         }
 
@@ -417,6 +420,9 @@ export async function seedDatabase() {
             bankId = row.id
           }
 
+          if (entry.isDefaultForInvoicing) {
+            await db.update(company).set({ is_default_for_invoicing: false })
+          }
           const [created] = await db
             .insert(company)
             .values({
@@ -428,7 +434,7 @@ export async function seedDatabase() {
               tax_number: entry.taxNumber ?? '',
               commercial_register_no: entry.commercialRegisterNo ?? '',
               register_court: entry.registerCourt ?? '',
-              is_default_for_invoicing: false,
+              is_default_for_invoicing: entry.isDefaultForInvoicing ?? false,
               address_id: addressId,
               contact_id: contactId
             })
@@ -738,9 +744,17 @@ export async function seedDatabase() {
         invoice_company_id: company1.id,
         band_id: band2.id,
         venue_id: venue1.id,
-        hotel_id: null
+        hotel_id: null,
+        guarantee_amount: 5000,
+        guarantee_vat_rate: 19
       })
       .returning()
+
+    // Two prepayments: the contract prints its optional "Vorkasse" section
+    await db.insert(deal_memo_deposit).values([
+      { deal_memo_id: dealMemo2.id, position: 1, amount: 1500, due_date: null },
+      { deal_memo_id: dealMemo2.id, position: 2, amount: 1000, due_date: isoInDays(1) }
+    ])
 
     // ========================================
     // Internal contract demo: when the internal seed companies exist, create

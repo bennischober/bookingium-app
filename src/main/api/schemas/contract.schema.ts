@@ -35,6 +35,8 @@ export const ContractDataSchema = z.object({
     performanceInformation: z.string(),
     guaranteeAmount: z.number().nullable(),
     guaranteeVatRate: z.number().nullable(),
+    // Prepayments ("Vorkasse"), in order; a null due date = on signing
+    deposits: z.array(z.object({ amount: z.number(), dueDate: z.string().nullable() })),
     contractNotes: z.string(),
     notes: z.string(),
     deal: z.string(),

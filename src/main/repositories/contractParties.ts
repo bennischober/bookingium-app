@@ -36,7 +36,8 @@ export function toParty(
     accountHolder: bank?.account_holder ?? '',
     iban: bank?.iban ?? '',
     bic: bank?.bic ?? '',
-    signaturePath: company.signature_path,
+    // Logo and signature belong to the main company only; a stale one elsewhere is ignored
+    signaturePath: company.is_default_for_invoicing ? company.signature_path : '',
     representative
   }
 }
@@ -58,7 +59,8 @@ export async function loadCompanyParty(companyId: number, representative = '') {
     .limit(1)
   const r = rows[0]
   const party = r ? toParty(r.company, r.contact, r.bank, r.address, representative) : null
-  return party ? { party, logoPath: r.company.logo_path || null } : null
+  const logoPath = r?.company.is_default_for_invoicing ? r.company.logo_path || null : null
+  return party ? { party, logoPath } : null
 }
 
 /** The own company marked as default (also the invoicing default) */

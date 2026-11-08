@@ -1,7 +1,7 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useEffect, useRef, useState } from 'react'
 import { trpcReact } from '@/lib/trpc'
-import { useSyncedState } from '@/hooks/useSyncedState'
+import { useSyncedState, useSyncedStateByKey } from '@/hooks/useSyncedState'
 import { InvoiceEditSheet } from '@/components/invoice/InvoiceEditSheet'
 import { InvoiceRowActions } from '@/components/invoice/InvoiceRowActions'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
@@ -12,10 +12,17 @@ import { Input } from '@/components/ui/input'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Euro, FileText, FileSignature } from 'lucide-react'
+import { Euro, FileText, FileSignature, Plus, Trash2 } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
+import {
+  depositsChanged,
+  depositSummary,
+  fromDepositDrafts,
+  toDepositDrafts,
+  type DepositDraft
+} from './depositDrafts'
 
 export interface FinancialsTabProps {
   event: DealMemoDetailDto
@@ -57,6 +64,13 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const [guaranteeVatRate, setGuaranteeVatRate] = useSyncedState(
     event.guaranteeVatRate?.toString() ?? ''
   )
+  // Contract "Vorkasse": any number of prepayments on the fee; an empty due date = on signing
+  const [deposits, setDeposits] = useSyncedStateByKey(
+    toDepositDrafts(event.deposits),
+    JSON.stringify(event.deposits)
+  )
+  const updateDeposit = (index: number, change: Partial<DepositDraft>) =>
+    setDeposits((rows) => rows.map((row, i) => (i === index ? { ...row, ...change } : row)))
   const [contractNotes, setContractNotes] = useSyncedState(event.contractNotes ?? '')
   // Contract "vertreten durch" override; null = band management / default
   const [representingCompanyId, setRepresentingCompanyId] = useSyncedState<number | null>(
@@ -65,6 +79,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const isContractDirty =
     (parseFloat(guaranteeAmount) || null) !== event.guaranteeAmount ||
     (parseFloat(guaranteeVatRate) || null) !== event.guaranteeVatRate ||
+    depositsChanged(deposits, event.deposits) ||
     contractNotes !== (event.contractNotes ?? '') ||
     representingCompanyId !== (event.representingCompanyId ?? null)
   const isDirty =
@@ -80,6 +95,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       setInvoiceCompanyId(event.invoiceCompanyId ?? null)
       setGuaranteeAmount(event.guaranteeAmount?.toString() ?? '')
       setGuaranteeVatRate(event.guaranteeVatRate?.toString() ?? '')
+      setDeposits(toDepositDrafts(event.deposits))
       setContractNotes(event.contractNotes ?? '')
       setRepresentingCompanyId(event.representingCompanyId ?? null)
     }
@@ -104,6 +120,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       invoiceCompanyId,
       guaranteeAmount: guaranteeAmount ? parseFloat(guaranteeAmount) : null,
       guaranteeVatRate: guaranteeVatRate ? parseFloat(guaranteeVatRate) : null,
+      deposits: fromDepositDrafts(deposits),
       contractNotes: contractNotes,
       representingCompanyId
     })
@@ -300,6 +317,70 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 <p className="text-xs text-muted-foreground">Leer oder 0 = keine MwSt. ausweisen</p>
               </div>
               <div className="space-y-2 md:col-span-2">
+                {/* A heading, not a <Label>: it labels no single control, and the inline
+                    <label> put the add button next to it */}
+                <p className="text-sm font-medium leading-none">Vorkasse</p>
+                {deposits.map((deposit, index) => (
+                  <div key={index} className="flex items-end gap-2">
+                    <div className="flex-1 space-y-1">
+                      <Label
+                        htmlFor={`deposit-${index}-amount`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {index + 1}. Vorkasse (netto, €)
+                      </Label>
+                      <Input
+                        id={`deposit-${index}-amount`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="z. B. 1000"
+                        value={deposit.amount}
+                        onChange={(e) => updateDeposit(index, { amount: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label
+                        htmlFor={`deposit-${index}-due`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Fällig am (leer = bei Vertragsabschluss)
+                      </Label>
+                      <Input
+                        id={`deposit-${index}-due`}
+                        type="date"
+                        value={deposit.dueDate}
+                        onChange={(e) => updateDeposit(index, { dueDate: e.target.value })}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${index + 1}. Vorkasse entfernen`}
+                      title="Vorkasse entfernen"
+                      onClick={() => setDeposits((rows) => rows.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDeposits((rows) => [...rows, { amount: '', dueDate: '' }])}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Vorkasse hinzufügen
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Mit einer Vorkasse erhält der Vertrag den Abschnitt „Vorkasse“ nach der
+                  Abrechnung; ohne entfällt er und die folgenden Punkte rücken auf. Zeilen ohne
+                  Betrag werden nicht gespeichert.
+                </p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="event-representing-company">Vertreten durch (Management)</Label>
                 <SearchableSelect
                   id="event-representing-company"
@@ -340,6 +421,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 label="MwSt.-Satz der Gage"
                 value={guaranteeVatRate ? `${guaranteeVatRate} %` : null}
                 placeholder="Keine MwSt. ausgewiesen"
+              />
+              <ReadOnlyField
+                label="Vorkasse (netto)"
+                value={depositSummary(event.deposits)}
+                placeholder="Keine Vorkasse"
+                className="md:col-span-2"
               />
               <ReadOnlyField
                 label="Vertreten durch (Management)"

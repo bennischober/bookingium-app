@@ -333,6 +333,22 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   `tests/e2e/__screenshots__/` — inspect the PDF, not just the screenshot.
 - Issuing a draft re-takes both snapshots, so an invoice freezes the
   parties as they are when it gets its number.
+- **Concert contract sections** (`contract/contractSections.ts`): the
+  numbers come from `contractSectionNumbers`, never from literals. An
+  optional section is left out entirely and every later one moves up, so
+  the numbering has no gaps and cross-references („siehe Punkt …") use the
+  computed number. Optional are „Vorkasse" (point 4, after „Abrechnung",
+  printed when the event has a prepayment: any number of rows in the
+  child table `deal_memo_deposit`, ordered by `position`, in net euros
+  like the guarantee, with a due date or „bei Vertragsabschluss"; an
+  update that sends `deposits` replaces all rows) and
+  „Sondervereinbarungen". The VP2 (ÖV) signature
+  block stays blank (place, date, signature by hand); only VP1 gets the
+  city, today's date and the stored signature.
+- **Logo and signature** belong to the main company only (the default for
+  invoicing, Einstellungen): `CompanyForm` offers them only there, and the
+  contract parties, letterhead and invoice snapshot ignore one stored on
+  any other company.
 - **Payment QR code** (EPC QR, „GiroCode“, setting `paymentQr`):
   `payment/epcQr.ts` builds the text (version 002, BIC optional, gross
   total, „Rechnung 1040“/„Invoice 1040“ as reference, max 331 bytes);

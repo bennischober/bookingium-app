@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { notArchived, onlyArchived } from './archiveFilter'
 import { db } from '../db'
@@ -125,8 +125,18 @@ export class DealMemoRepository {
       venue: row.venue,
       hotel: row.hotel,
       loProPerson: row.person,
-      loProCompany: row.company
+      loProCompany: row.company,
+      deposits: await this.listDeposits(id)
     }
+  }
+
+  /** The prepayments ("Vorkasse") of an event, in contract order */
+  async listDeposits(dealMemoId: number) {
+    return await db
+      .select()
+      .from(schema.deal_memo_deposit)
+      .where(eq(schema.deal_memo_deposit.deal_memo_id, dealMemoId))
+      .orderBy(asc(schema.deal_memo_deposit.position))
   }
 
   async create(input: CreateDealMemoInput) {
@@ -196,13 +206,35 @@ export class DealMemoRepository {
     if ('radiusWeeksBefore' in input) values.radius_weeks_before = input.radiusWeeksBefore ?? null
     if ('radiusWeeksAfter' in input) values.radius_weeks_after = input.radiusWeeksAfter ?? null
 
-    const result = await db
-      .update(schema.deal_memo)
-      .set(values)
-      .where(eq(schema.deal_memo.id, input.id))
-      .returning()
+    // better-sqlite3 is synchronous: the callback must not be async
+    return db.transaction((tx) => {
+      const updated = tx
+        .update(schema.deal_memo)
+        .set(values)
+        .where(eq(schema.deal_memo.id, input.id))
+        .returning()
+        .get()
 
-    return result[0]
+      // The deposits are a list: an update that names them replaces all of them
+      if (updated && input.deposits !== undefined) {
+        tx.delete(schema.deal_memo_deposit)
+          .where(eq(schema.deal_memo_deposit.deal_memo_id, input.id))
+          .run()
+        if (input.deposits.length > 0) {
+          tx.insert(schema.deal_memo_deposit)
+            .values(
+              input.deposits.map((deposit, index) => ({
+                deal_memo_id: input.id,
+                position: index + 1,
+                amount: deposit.amount,
+                due_date: deposit.dueDate
+              }))
+            )
+            .run()
+        }
+      }
+      return updated
+    })
   }
 
   async delete(id: number) {

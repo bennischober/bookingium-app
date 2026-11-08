@@ -192,7 +192,8 @@ export class InvoiceRepository {
       website: row.contact?.homepage ?? '',
       account_holder: row.bank?.account_holder ?? '',
       bank_name: row.bank?.bank_name ?? '',
-      logo_path: row.company.logo_path,
+      // Only the main company has a logo (a stale one on another company is ignored)
+      logo_path: row.company.is_default_for_invoicing ? row.company.logo_path : '',
       email: row.contact?.email ?? '',
       phone: row.contact?.phone ?? row.contact?.mobile_phone ?? '',
       iban: row.bank?.iban ?? '',

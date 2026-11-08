@@ -100,42 +100,12 @@ export function CompanyPage() {
   })
 
   // Handlers
-  const handleCreate = (
-    data: z.infer<typeof CreateCompanyInput> & {
-      id?: number
-      logoSourcePath?: string
-      signatureSourcePath?: string
-    }
-  ) => {
-    const { logoSourcePath, signatureSourcePath, ...companyData } = data
-    createMutation.mutate(companyData, {
-      onSuccess: async (created) => {
-        // Upload the picked logo/signature now that the company id exists
-        if (logoSourcePath && /^[a-zA-Z]:[\\/]/.test(logoSourcePath)) {
-          const fileName = logoSourcePath.split(/[\\/]/).pop() || 'logo'
-          const upload = await window.api.uploadLogo(created.id, logoSourcePath, fileName)
-          if (upload.success && upload.relativePath) {
-            updateMutation.mutate({ id: created.id, logoPath: upload.relativePath })
-          }
-        }
-        if (signatureSourcePath && /^[a-zA-Z]:[\\/]/.test(signatureSourcePath)) {
-          const fileName = signatureSourcePath.split(/[\\/]/).pop() || 'signature'
-          const upload = await window.api.uploadLogo(created.id, signatureSourcePath, fileName)
-          if (upload.success && upload.relativePath) {
-            updateMutation.mutate({ id: created.id, signaturePath: upload.relativePath })
-          }
-        }
-      }
-    })
+  // A new company is never the main company, so it has no logo or signature to upload
+  const handleCreate = (data: z.infer<typeof CreateCompanyInput> & { id?: number }) => {
+    createMutation.mutate(data)
   }
 
-  const handleUpdate = (
-    data: z.infer<typeof CreateCompanyInput> & {
-      id?: number
-      logoSourcePath?: string
-      signatureSourcePath?: string
-    }
-  ) => {
+  const handleUpdate = (data: z.infer<typeof CreateCompanyInput> & { id?: number }) => {
     updateMutation.mutate(data as z.infer<typeof UpdateCompanyInput>)
   }
 
