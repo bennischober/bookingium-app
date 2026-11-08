@@ -107,12 +107,22 @@ export interface BandDraft extends DraftBase {
   members: Map<string, string>
 }
 
+// A record that takes an address of the file: what "Als Verteiler speichern"
+// puts into the list (#154)
+export interface ListMemberDraft {
+  type: 'person' | 'company' | 'venue'
+  // Draft key within its type
+  key: string
+}
+
 export interface ImportPlan {
   preview: ImportPreview
   venues: VenueDraft[]
   bands: BandDraft[]
   companies: CompanyDraft[]
   persons: PersonDraft[]
+  // In row order, each record once
+  listMembers: ListMemberDraft[]
 }
 
 export interface ExistingRecords {
@@ -236,6 +246,15 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
   const bands = new Map<string, BandDraft>()
   const companies = new Map<string, CompanyDraft>()
   const persons = new Map<string, PersonDraft>()
+  const listMembers = new Map<string, ListMemberDraft>()
+
+  /** Adds addresses of the file to a record, which makes it a Verteiler member */
+  const takeEmails = (type: ListMemberDraft['type'], draft: DraftBase, emails: string[]): void => {
+    if (!emails.some((email) => email.trim())) return
+    addEmails(draft.contact, emails)
+    const id = `${type}:${draft.key}`
+    if (!listMembers.has(id)) listMembers.set(id, { type, key: draft.key })
+  }
 
   const refOf = (draft: DraftBase, label: string, rowNumber: number): ImportEntityRef => ({
     label,
@@ -429,12 +448,14 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
         companies: count([...companies.values()]),
         persons: count([...persons.values()])
       },
+      listMembers: listMembers.size,
       errors
     },
     venues: [...venues.values()],
     bands: [...bands.values()],
     companies: [...companies.values()],
-    persons: [...persons.values()]
+    persons: [...persons.values()],
+    listMembers: [...listMembers.values()]
   })
 
   // Companies of company and person lists are of the chosen kind; a venue
@@ -463,6 +484,7 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
     venueFor,
     bandFor,
     personFor,
+    takeEmails,
     finish
   }
 }
@@ -661,8 +683,9 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
     fill(organisation.contact, { email: generalEmail, phone })
     if (parsedPersons.length !== 1) fill(organisation.contact, { mobilePhone: mobile })
     // Addresses no one else takes are the organisation's further ones
-    addEmails(
-      organisation.contact,
+    ctx.takeEmails(
+      organisation === company ? 'company' : 'venue',
+      organisation,
       emails.filter((email) => !personEmails.includes(email))
     )
     if (company) {
@@ -681,7 +704,7 @@ function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
     )
     const personRefs = parsedPersons.map((parsed, index) => {
       const person = personDrafts[index]
-      if (personEmails[index]) addEmails(person.contact, [personEmails[index]])
+      if (personEmails[index]) ctx.takeEmails('person', person, [personEmails[index]])
       if (parsedPersons.length === 1) fill(person.contact, { phone, mobilePhone: mobile })
       const role = parsed.role || DEFAULT_ROLE
       if (company && !company.members.has(person.key)) company.members.set(person.key, role)
@@ -813,7 +836,7 @@ function buildBandRows(ctx: PlanContext): ImportPreviewRow[] {
     const phone = cleanText(read.value('phone'))
     const mobile = cleanText(read.value('mobile'))
     if (contactPerson) {
-      addEmails(contactPerson.contact, emails)
+      ctx.takeEmails('person', contactPerson, emails)
       fill(contactPerson.contact, { phone, mobilePhone: mobile })
     } else {
       if (emails.length > 0) notes.push(`E-Mail: ${emails.join(', ')}`)
@@ -920,7 +943,7 @@ function buildPersonRows(ctx: PlanContext): ImportPreviewRow[] {
     if (emailText && emails.length === 0) {
       warnings.push(`Keine gültige E-Mail-Adresse: „${cleanText(emailText)}“`)
     }
-    addEmails(holder.contact, emails)
+    ctx.takeEmails(person ? 'person' : 'company', holder, emails)
     fill(holder.contact, {
       phone: cleanText(read.value('phone')),
       mobilePhone: cleanText(read.value('mobile')),

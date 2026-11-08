@@ -129,3 +129,55 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await page.getByRole('button', { name: /speichern/i }).click()
   await expect(page.getByText(/aktualisiert/).first()).toBeVisible()
 })
+
+// #154: a mailing list from a CSV file becomes a Verteiler in the same import
+test('saves an imported contact list as Verteiler', async () => {
+  const { page } = h
+  const file = join(fixtureDir, 'Presse.csv')
+  const rows = [
+    ['Vorname', 'Name', 'Firma', 'E-Mail'],
+    ['Lena', 'Presse', 'Blatt Eins', 'lena@blatt-eins.example.test'],
+    ['Tom', 'Funk', '', 'tom@funk-zwei.example.test'],
+    ['Ute', 'Ohnemail', 'Blatt Eins', '']
+  ]
+  writeFileSync(file, CSV_BOM + toCsv(rows, ';'), 'utf-8')
+  await h.app.evaluate(({ dialog }, path) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+  }, file)
+
+  await page.getByRole('link', { name: 'Personen' }).first().click()
+  await page.getByRole('button', { name: 'Importieren' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
+  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
+
+  await dialog.getByLabel('Als Verteiler speichern').check()
+  await expect(dialog.getByText(/2 Kontakte kommen in den\s+Verteiler/)).toBeVisible()
+  const name = dialog.getByLabel('Name des Verteilers')
+  await name.fill('')
+  await expect(dialog.getByRole('button', { name: '3 Zeilen importieren' })).toBeDisabled()
+  await name.fill('Presse aus Datei')
+  await dialog.getByRole('button', { name: '3 Zeilen importieren' }).click()
+  await expect(
+    dialog.getByText('2 Kontakte in den Verteiler „Presse aus Datei“ aufgenommen')
+  ).toBeVisible()
+  await dialog.getByRole('button', { name: 'Schließen' }).click()
+
+  await page.getByRole('link', { name: 'Verteiler' }).first().click()
+  const savedSelect = page.getByRole('combobox', { name: 'Gespeicherter Verteiler' })
+  await savedSelect.click()
+  await page.getByRole('option', { name: 'Presse aus Datei' }).click()
+  // Fixed contacts: no filters to change
+  await expect(page.getByRole('button', { name: 'Filter' })).toBeHidden()
+  const table = page.locator('tbody')
+  await expect(table.locator('tr')).toHaveCount(2)
+  await expect(table.getByText('lena@blatt-eins.example.test')).toBeVisible()
+
+  await table
+    .locator('tr', { hasText: 'tom@funk-zwei.example.test' })
+    .getByRole('button', { name: 'Aus Verteiler entfernen' })
+    .click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Entfernen' }).click()
+  await expect(table.locator('tr')).toHaveCount(1)
+  await expect(table.getByText('tom@funk-zwei.example.test')).toBeHidden()
+})

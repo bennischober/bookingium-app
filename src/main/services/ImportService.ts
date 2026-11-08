@@ -46,7 +46,7 @@ export class ImportService {
   commit(request: ImportRequest): ImportResult {
     const plan = buildImportPlan(request, this.importRepository.loadExisting())
     if (plan.preview.errors.length > 0) throw new Error(plan.preview.errors.join(' '))
-    const result = this.importRepository.apply(plan)
+    const result = this.importRepository.apply(plan, request.contactList)
     this.settingsRepository.setMany({
       [mappingKey(request.headers)]: JSON.stringify({
         target: request.target,

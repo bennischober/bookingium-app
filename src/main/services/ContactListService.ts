@@ -1,9 +1,15 @@
 import { injectable, inject } from 'tsyringe'
-import { ContactListRepository, type ListSource } from '../repositories/ContactListRepository'
+import {
+  ContactListRepository,
+  type ListMember,
+  type ListSource
+} from '../repositories/ContactListRepository'
 import { splitGenres } from '../api/schemas/genres'
 import {
   ContactListFilters,
+  isMemberListSource,
   ListKind,
+  type ContactListSource,
   RECIPIENT_TYPE_LABELS,
   type ContactListFilterOptionsDto,
   type ContactListRecipientDto,
@@ -21,6 +27,10 @@ import { toCsv } from '../csv/csv'
 // the list when at least one of its sources matches. Addresses marked "Keine
 // Werbung" (on any contact with that address) are listed separately and
 // never mailed.
+//
+// A member list (#154) is a fixed set of persons, companies and
+// clubs/festivals instead, typically from an imported CSV list. It is built
+// from their current primary addresses; filters do not apply to it.
 
 const lower = (value: string): string => value.trim().toLowerCase()
 
@@ -152,8 +162,24 @@ function candidates(source: ListSource, types: RecipientType[]): Candidate[] {
       })
     }
   }
-  // Something that looks like an address; the rest can't be mailed anyway
-  return list.filter((candidate) => /^[^\s@]+@[^\s@]+$/.test(candidate.email.trim()))
+  return list.filter((candidate) => isMailable(candidate.email))
+}
+
+// Something that looks like an address; the rest can't be mailed anyway
+const isMailable = (email: string): boolean => /^[^\s@]+@[^\s@]+$/.test(email.trim())
+
+/** Sorted by name, "Keine Werbung" addresses split off */
+function splitRecipients(
+  byEmail: Map<string, ContactListRecipientDto>,
+  noAdvertising: Set<string>
+): ContactListResultDto {
+  const rows = [...byEmail.values()].sort(
+    (a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email, 'de')
+  )
+  return {
+    recipients: rows.filter((row) => !noAdvertising.has(lower(row.email))),
+    excluded: rows.filter((row) => noAdvertising.has(lower(row.email)))
+  }
 }
 
 /** Recipients of the matching sources, one per address, sorted by name */
@@ -202,13 +228,57 @@ export function buildContactList(
     }
   }
 
-  const rows = [...byEmail.values()].sort(
-    (a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email, 'de')
-  )
-  return {
-    recipients: rows.filter((row) => !noAdvertising.has(lower(row.email))),
-    excluded: rows.filter((row) => noAdvertising.has(lower(row.email)))
+  return splitRecipients(byEmail, noAdvertising)
+}
+
+/**
+ * Recipients of a member list, one per address: a person counts as
+ * Ansprechpartner, a company or club/festival with its Hauptadresse
+ */
+export function buildMemberList(
+  members: ListMember[],
+  noAdvertising: Set<string>
+): ContactListResultDto {
+  const byEmail = new Map<string, ContactListRecipientDto>()
+  for (const member of members) {
+    if (!isMailable(member.email)) continue
+    const key = lower(member.email)
+    const type: RecipientType = member.type === 'person' ? 'member' : 'venue'
+    let row = byEmail.get(key)
+    if (!row) {
+      row = {
+        email: member.email.trim(),
+        name: member.name,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        company: member.company,
+        types: [],
+        sources: [],
+        city: member.city,
+        country: member.country,
+        capacity: member.capacity
+      }
+      byEmail.set(key, row)
+    } else if (!row.firstName && member.firstName) {
+      row.name = member.name
+      row.firstName = member.firstName
+      row.lastName = member.lastName
+    }
+    if (!row.company) row.company = member.company
+    if (!row.city) row.city = member.city
+    if (!row.country) row.country = member.country
+    if (!row.types.includes(type)) row.types.push(type)
+    for (const source of member.sources) {
+      const kind = ListKind.catch('venue').parse(source.kind)
+      if (!row.sources.some((entry) => entry.id === source.id && entry.kind === kind)) {
+        row.sources.push({ id: source.id, kind, name: source.name, role: source.role })
+      }
+    }
+    if (member.capacity !== null && (row.capacity === null || member.capacity > row.capacity)) {
+      row.capacity = member.capacity
+    }
   }
+  return splitRecipients(byEmail, noAdvertising)
 }
 
 const CSV_HEADERS = [
@@ -254,16 +324,51 @@ function parseFilters(raw: string): ContactListFilters {
   return ContactListFilters.parse({})
 }
 
+const toSavedDto = (row: {
+  id: number
+  name: string
+  kind: SavedContactListDto['kind']
+  filters: string
+}): SavedContactListDto => ({
+  id: row.id,
+  name: row.name,
+  kind: row.kind,
+  filters: parseFilters(row.filters)
+})
+
 @injectable()
 export class ContactListService {
   constructor(@inject(ContactListRepository) private repository: ContactListRepository) {}
 
-  build(filters: ContactListFilters): ContactListResultDto {
+  build(source: ContactListSource): ContactListResultDto {
+    if (isMemberListSource(source)) {
+      this.memberList(source.memberListId)
+      return buildMemberList(
+        this.repository.loadMembers(source.memberListId),
+        this.repository.noAdvertisingEmails()
+      )
+    }
     return buildContactList(
       this.repository.loadSources(),
-      filters,
+      source,
       this.repository.noAdvertisingEmails()
     )
+  }
+
+  /** The saved list, which must be a member list */
+  private memberList(id: number) {
+    const row = this.repository.getSaved(id)
+    if (!row) throw new Error('Verteiler nicht gefunden')
+    if (row.kind !== 'members') {
+      throw new Error(`„${row.name}“ ist ein Filter-Verteiler und hat keine festen Kontakte.`)
+    }
+    return row
+  }
+
+  /** Takes the records with this address off a member list; their contacts stay */
+  removeMember(listId: number, email: string): number {
+    this.memberList(listId)
+    return this.repository.removeMembersByEmail(listId, email)
   }
 
   filterOptions(): ContactListFilterOptionsDto {
@@ -292,21 +397,21 @@ export class ContactListService {
   }
 
   listSaved(): SavedContactListDto[] {
-    return this.repository.listSaved().map((row) => ({
-      id: row.id,
-      name: row.name,
-      filters: parseFilters(row.filters)
-    }))
+    return this.repository.listSaved().map(toSavedDto)
   }
 
+  /** A member list keeps its kind and members: only the name changes */
   save(input: SaveContactListInput): SavedContactListDto {
     const filters = JSON.stringify(input.filters)
-    const row =
-      input.id !== undefined
-        ? this.repository.updateSaved(input.id, input.name, filters)
-        : this.repository.insertSaved(input.name, filters)
+    let row
+    if (input.id !== undefined) {
+      const kept = this.repository.getSaved(input.id)?.kind === 'members'
+      row = this.repository.updateSaved(input.id, input.name, kept ? null : filters)
+    } else {
+      row = this.repository.insertSaved(input.name, filters)
+    }
     if (!row) throw new Error('Verteiler nicht gefunden')
-    return { id: row.id, name: row.name, filters: parseFilters(row.filters) }
+    return toSavedDto(row)
   }
 
   deleteSaved(id: number): void {

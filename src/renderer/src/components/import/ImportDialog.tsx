@@ -185,6 +185,11 @@ export function ImportDialog({
   const [defaultCountry, setDefaultCountry] = useState('')
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
+  // #154: the records that take an address of the file go into a member list
+  const [saveAsList, setSaveAsList] = useState(false)
+  // 'new' or the id of an existing member list
+  const [listTarget, setListTarget] = useState('new')
+  const [listName, setListName] = useState('')
 
   const table = file?.table ?? null
   const columns = PREVIEW_COLUMNS[target]
@@ -211,6 +216,9 @@ export function ImportDialog({
     setGenres('')
     setDefaultCountry(next.suggestedCountry)
     setExcluded(new Set())
+    setSaveAsList(false)
+    setListTarget('new')
+    setListName(next.name)
   }
 
   const selectTarget = (next: ImportTarget): void => {
@@ -249,9 +257,17 @@ export function ImportDialog({
         rows: table.rows,
         mapping,
         options: { kind, companyKind, genres, defaultCountry },
-        excludedRows: [...excluded]
+        excludedRows: [...excluded],
+        // Set on commit only: the preview does not depend on it
+        contactList: null
       }
     : null
+
+  const savedLists = trpcReact.contactList.listSaved.useQuery(undefined, {
+    enabled: open && step === 'preview'
+  })
+  const memberLists = (savedLists.data ?? []).filter((entry) => entry.kind === 'members')
+  const listMissingName = saveAsList && listTarget === 'new' && !listName.trim()
 
   const preview = trpcReact.dataImport.preview.useQuery(request as ImportRequest, {
     enabled: step === 'preview' && request !== null,
@@ -269,6 +285,7 @@ export function ImportDialog({
       void utils.person.invalidate()
       void utils.relation.invalidate()
       void utils.search.invalidate()
+      void utils.contactList.invalidate()
     },
     onError: (error) => {
       toast.error('Import fehlgeschlagen', { description: error.message })
@@ -541,6 +558,51 @@ export function ImportDialog({
               </div>
             )}
 
+            {previewData && (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={saveAsList}
+                    onChange={(event) => setSaveAsList(event.target.checked)}
+                  />
+                  Als Verteiler speichern
+                </label>
+                {saveAsList && (
+                  <>
+                    <Select value={listTarget} onValueChange={setListTarget}>
+                      <SelectTrigger className="h-8 w-56" aria-label="Verteiler">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">Neuer Verteiler</SelectItem>
+                        {memberLists.map((entry) => (
+                          <SelectItem key={entry.id} value={String(entry.id)}>
+                            {entry.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {listTarget === 'new' && (
+                      <Input
+                        className="h-8 w-56"
+                        aria-label="Name des Verteilers"
+                        placeholder="Name des Verteilers"
+                        value={listName}
+                        onChange={(event) => setListName(event.target.value)}
+                      />
+                    )}
+                    <span className="text-muted-foreground">
+                      {previewData.listMembers}{' '}
+                      {previewData.listMembers === 1 ? 'Kontakt kommt' : 'Kontakte kommen'} in den
+                      Verteiler (alle mit E-Mail-Adresse in der Datei)
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
             {previewData?.errors.map((error) => (
               <div
                 key={error}
@@ -651,6 +713,13 @@ export function ImportDialog({
                   <strong>{result[entity].updated}</strong> ergänzt
                 </p>
               ))}
+              {result.contactList && (
+                <p>
+                  <strong>{result.contactList.added}</strong>{' '}
+                  {result.contactList.added === 1 ? 'Kontakt' : 'Kontakte'} in den Verteiler „
+                  {result.contactList.name}“ aufgenommen
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -674,9 +743,21 @@ export function ImportDialog({
                 <ArrowLeft className="h-4 w-4" /> Zuordnung
               </Button>
               <Button
-                onClick={() => request && commit.mutate(request)}
+                onClick={() =>
+                  request &&
+                  commit.mutate({
+                    ...request,
+                    contactList: saveAsList
+                      ? {
+                          id: listTarget === 'new' ? null : Number(listTarget),
+                          name: listName.trim()
+                        }
+                      : null
+                  })
+                }
                 disabled={
                   !previewData ||
+                  listMissingName ||
                   preview.isFetching ||
                   previewData.errors.length > 0 ||
                   importableRows === 0 ||

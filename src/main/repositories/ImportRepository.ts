@@ -2,12 +2,13 @@ import { and, eq, max, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import type { ImportResult } from '../api/schemas/import.schema'
+import type { ImportContactList, ImportResult } from '../api/schemas/import.schema'
 import type {
   AddressDraft,
   ContactDraft,
   ExistingRecords,
-  ImportPlan
+  ImportPlan,
+  ListMemberDraft
 } from '../import/buildImportPlan'
 import { contactAddressEvents, normalizeEmail } from './contactEmails'
 
@@ -80,25 +81,29 @@ export class ImportRepository {
   /**
    * Writes the plan in one transaction: new records are created, existing
    * ones only get their empty fields filled, and links (venue → company,
-   * contact persons, band members) are added where missing.
+   * contact persons, band members) are added where missing. With a
+   * contactList, the records that took an address of the file go into that
+   * member list (#154), in the same transaction.
    */
-  apply(plan: ImportPlan): ImportResult {
-    const result = this.write(plan)
+  apply(plan: ImportPlan, contactList: ImportContactList | null = null): ImportResult {
+    const result = this.write(plan, contactList)
     // The mail linker looks for mail of the imported addresses (after the commit)
-    if (Object.values(result).some((outcome) => outcome.created + outcome.updated > 0)) {
+    const outcomes = [result.venues, result.bands, result.companies, result.persons]
+    if (outcomes.some((outcome) => outcome.created + outcome.updated > 0)) {
       contactAddressEvents.emit('saved')
     }
     return result
   }
 
-  private write(plan: ImportPlan): ImportResult {
+  private write(plan: ImportPlan, contactList: ImportContactList | null): ImportResult {
     return db.transaction((tx) => {
       const outcome = () => ({ created: 0, updated: 0 })
       const result: ImportResult = {
         venues: outcome(),
         bands: outcome(),
         companies: outcome(),
-        persons: outcome()
+        persons: outcome(),
+        contactList: null
       }
 
       // ---- Persons ----
@@ -243,6 +248,7 @@ export class ImportRepository {
       }
 
       // ---- Venues ----
+      const venueIds = new Map<string, number>()
       for (const draft of plan.venues) {
         const notes = draft.notes.join('\n')
         const companyId = draft.companyKey ? (companyIds.get(draft.companyKey) ?? null) : null
@@ -261,6 +267,7 @@ export class ImportRepository {
             })
             .returning({ id: schema.venue.id })
             .get()
+          venueIds.set(draft.key, created.id)
           this.addVenueMembers(tx, created.id, draft.members, personIds)
           result.venues.created++
           continue
@@ -271,6 +278,7 @@ export class ImportRepository {
           .where(eq(schema.venue.id, draft.existingId))
           .get()
         if (!row) throw new Error(`Club / Festival ${draft.existingId} nicht gefunden`)
+        venueIds.set(draft.key, row.id)
         const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
         const changes = emptyOnly(row, {
@@ -293,8 +301,68 @@ export class ImportRepository {
         }
       }
 
+      if (contactList) {
+        result.contactList = this.fillContactList(tx, contactList, plan.listMembers, {
+          person: personIds,
+          company: companyIds,
+          venue: venueIds
+        })
+      }
       return result
     })
+  }
+
+  /** Creates the member list or checks the chosen one, then adds the records */
+  private fillContactList(
+    tx: Tx,
+    target: ImportContactList,
+    members: ListMemberDraft[],
+    ids: Record<ListMemberDraft['type'], Map<string, number>>
+  ): NonNullable<ImportResult['contactList']> {
+    let list: { id: number; name: string }
+    if (target.id !== null) {
+      const row = tx
+        .select()
+        .from(schema.contact_list)
+        .where(eq(schema.contact_list.id, target.id))
+        .get()
+      if (!row) throw new Error('Der gewählte Verteiler existiert nicht mehr.')
+      if (row.kind !== 'members') {
+        throw new Error(`„${row.name}“ ist ein Filter-Verteiler und nimmt keine Kontakte auf.`)
+      }
+      list = row
+    } else {
+      if (!target.name) throw new Error('Geben Sie dem Verteiler einen Namen.')
+      list = tx
+        .insert(schema.contact_list)
+        .values({ name: target.name, kind: 'members' })
+        .returning({ id: schema.contact_list.id, name: schema.contact_list.name })
+        .get()
+    }
+
+    let added = 0
+    for (const member of members) {
+      const id = ids[member.type].get(member.key)
+      if (id === undefined) continue
+      added += tx
+        .insert(schema.contact_list_member)
+        .values({
+          contact_list_id: list.id,
+          person_id: member.type === 'person' ? id : null,
+          company_id: member.type === 'company' ? id : null,
+          venue_id: member.type === 'venue' ? id : null
+        })
+        // Already on the list
+        .onConflictDoNothing()
+        .run().changes
+    }
+    if (target.id !== null && added > 0) {
+      tx.update(schema.contact_list)
+        .set({ updated_at: sql`datetime('now')` })
+        .where(eq(schema.contact_list.id, list.id))
+        .run()
+    }
+    return { id: list.id, name: list.name, added }
   }
 
   private insertAddress(tx: Tx, draft: AddressDraft): number | null {

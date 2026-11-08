@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2 } from 'lucide-react'
+import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2, UserMinus } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -38,7 +38,8 @@ import {
   ListKind,
   RECIPIENT_TYPE_LABELS,
   RecipientType,
-  type ContactListRecipientDto
+  type ContactListRecipientDto,
+  type ContactListSource
 } from '../../../main/api/schemas/contactList.schema'
 
 const EMPTY_FILTERS: ContactListFilters = ContactListFilters.parse({})
@@ -98,14 +99,19 @@ export default function ContactListPage() {
     refetchOnMount: 'always'
   })
   const savedLists = trpcReact.contactList.listSaved.useQuery()
-  const list = trpcReact.contactList.build.useQuery(filters, { keepPreviousData: true })
+  const saved = savedLists.data?.find((entry) => entry.id === savedId) ?? null
+  // #154: a fixed set of contacts (e.g. an imported CSV list); filters don't apply
+  const memberList = saved?.kind === 'members' ? saved : null
+  const source: ContactListSource = memberList ? { memberListId: memberList.id } : filters
+  const list = trpcReact.contactList.build.useQuery(source, { keepPreviousData: true })
 
   const recipients = useMemo(() => list.data?.recipients ?? [], [list.data])
   const excluded = list.data?.excluded ?? []
-  const saved = savedLists.data?.find((entry) => entry.id === savedId) ?? null
-  const changed = saved
-    ? !sameFilters(saved.filters, filters)
-    : !sameFilters(EMPTY_FILTERS, filters)
+  const changed = memberList
+    ? false
+    : saved
+      ? !sameFilters(saved.filters, filters)
+      : !sameFilters(EMPTY_FILTERS, filters)
 
   const update = (patch: Partial<ContactListFilters>) =>
     setFilters((current) => ({ ...current, ...patch }))
@@ -130,6 +136,29 @@ export default function ContactListPage() {
     onError: (error) =>
       toast.error('Verteiler konnte nicht gelöscht werden', { description: error.message })
   })
+
+  const removeMemberMutation = trpcReact.contactList.removeMember.useMutation({
+    onSuccess: () => void utils.contactList.build.invalidate(),
+    onError: (error) =>
+      toast.error('Kontakt konnte nicht entfernt werden', { description: error.message })
+  })
+
+  const removeMember = async (row: ContactListRecipientDto) => {
+    if (
+      memberList &&
+      (await confirmAction({
+        title: `${row.name || row.email} aus „${memberList.name}“ entfernen?`,
+        description: 'Der Kontakt selbst bleibt erhalten.',
+        confirmLabel: 'Entfernen',
+        destructive: true
+      }))
+    ) {
+      removeMemberMutation.mutate(
+        { listId: memberList.id, email: row.email },
+        { onSuccess: () => toast.success(`${row.email} aus dem Verteiler entfernt`) }
+      )
+    }
+  }
 
   const noAdvertisingMutation = trpcReact.contactList.setNoAdvertising.useMutation({
     onSuccess: () => void utils.contactList.build.invalidate(),
@@ -208,7 +237,9 @@ export default function ContactListPage() {
       saved &&
       (await confirmAction({
         title: `Verteiler „${saved.name}“ löschen?`,
-        description: 'Nur die gespeicherten Filter werden gelöscht, keine Kontakte.',
+        description: memberList
+          ? 'Nur der Verteiler wird gelöscht, die Kontakte bleiben erhalten.'
+          : 'Nur die gespeicherten Filter werden gelöscht, keine Kontakte.',
         confirmLabel: 'Löschen',
         destructive: true
       }))
@@ -256,6 +287,13 @@ export default function ContactListPage() {
       header: 'Aktionen',
       cell: ({ row }) => (
         <RowActions>
+          {memberList && (
+            <RowActionButton
+              icon={UserMinus}
+              label="Aus Verteiler entfernen"
+              onClick={() => void removeMember(row.original)}
+            />
+          )}
           <RowActionButton
             icon={Ban}
             label="Keine Werbung"
@@ -276,24 +314,27 @@ export default function ContactListPage() {
         <div>
           <h1 className="text-2xl font-bold mb-2">Verteiler</h1>
           <p className="text-sm text-muted-foreground">
-            Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe
-            und Buchungen zusammenstellen.
+            {memberList
+              ? 'Feste Kontakte, z. B. aus einer importierten Liste. Es gilt jeweils die Haupt-E-Mail des Kontakts.'
+              : 'Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe und Buchungen zusammenstellen.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={filtersOpen ? 'secondary' : 'outline'}
-            aria-pressed={filtersOpen}
-            onClick={() => setFiltersOpen((open) => !open)}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filter
-            {activeFilters > 0 && (
-              <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground">
-                {activeFilters}
-              </span>
-            )}
-          </Button>
+          {!memberList && (
+            <Button
+              variant={filtersOpen ? 'secondary' : 'outline'}
+              aria-pressed={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filter
+              {activeFilters > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+          )}
           <Select value={savedId === null ? 'new' : String(savedId)} onValueChange={chooseSaved}>
             <SelectTrigger className="w-56" aria-label="Gespeicherter Verteiler">
               <SelectValue />
@@ -307,21 +348,25 @@ export default function ContactListPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            disabled={!changed || saveMutation.isLoading}
-          >
-            Speichern
-          </Button>
+          {!memberList && (
+            <Button
+              variant="outline"
+              onClick={handleSave}
+              disabled={!changed || saveMutation.isLoading}
+            >
+              Speichern
+            </Button>
+          )}
           {saved && (
             <>
-              <Button
-                variant="outline"
-                onClick={() => setNameDialog({ name: `${saved.name} (Kopie)` })}
-              >
-                Speichern unter…
-              </Button>
+              {!memberList && (
+                <Button
+                  variant="outline"
+                  onClick={() => setNameDialog({ name: `${saved.name} (Kopie)` })}
+                >
+                  Speichern unter…
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setNameDialog({ id: saved.id, name: saved.name })}
@@ -337,7 +382,7 @@ export default function ContactListPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-6">
-        {filtersOpen && (
+        {filtersOpen && !memberList && (
           <aside
             className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
             aria-label="Filter"
@@ -525,13 +570,13 @@ export default function ContactListPage() {
             isLoading={list.isLoading}
             error={list.error}
             onRetry={() => void list.refetch()}
-            filtered={!sameFilters(EMPTY_FILTERS, filters)}
+            filtered={!memberList && !sameFilters(EMPTY_FILTERS, filters)}
             actionButton={
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   disabled={empty || busy}
-                  onClick={() => copyAddresses.mutate(filters)}
+                  onClick={() => copyAddresses.mutate(source)}
                 >
                   <Copy className="h-4 w-4" />
                   Adressen kopieren
@@ -539,12 +584,12 @@ export default function ContactListPage() {
                 <Button
                   variant="outline"
                   disabled={empty || busy}
-                  onClick={() => exportCsv.mutate({ filters, name: saved?.name ?? '' })}
+                  onClick={() => exportCsv.mutate({ source, name: saved?.name ?? '' })}
                 >
                   <FileDown className="h-4 w-4" />
                   CSV exportieren
                 </Button>
-                <Button disabled={empty || busy} onClick={() => writeEmail.mutate(filters)}>
+                <Button disabled={empty || busy} onClick={() => writeEmail.mutate(source)}>
                   <Mail className="h-4 w-4" />
                   E-Mail schreiben
                 </Button>
@@ -583,7 +628,9 @@ export default function ContactListPage() {
                 {nameDialog?.id !== undefined ? 'Verteiler umbenennen' : 'Verteiler speichern'}
               </DialogTitle>
               <DialogDescription>
-                Gespeichert werden die Filter, nicht die Adressen.
+                {nameDialog?.id !== undefined && memberList
+                  ? 'Die Kontakte des Verteilers bleiben gleich.'
+                  : 'Gespeichert werden die Filter, nicht die Adressen.'}
               </DialogDescription>
             </DialogHeader>
             <div className="my-4 space-y-2">
@@ -615,7 +662,9 @@ export default function ContactListPage() {
           <DialogHeader>
             <DialogTitle>Keine Werbung</DialogTitle>
             <DialogDescription>
-              Diese Adressen passen zu den Filtern, bekommen aber keine Rundmails.
+              {memberList
+                ? 'Diese Adressen stehen im Verteiler, bekommen aber keine Rundmails.'
+                : 'Diese Adressen passen zu den Filtern, bekommen aber keine Rundmails.'}
             </DialogDescription>
           </DialogHeader>
           <ul className="max-h-80 divide-y overflow-y-auto">

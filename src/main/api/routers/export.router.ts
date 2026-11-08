@@ -6,7 +6,7 @@ import { join } from 'path'
 import { mkdir, writeFile } from 'fs/promises'
 import { ExportService } from '../../services/ExportService'
 import { ContactListService, contactListCsv } from '../../services/ContactListService'
-import { ContactListFilters } from '../schemas/contactList.schema'
+import { ContactListSource } from '../schemas/contactList.schema'
 import { EXPORT_LIST_LABELS, ExportListInput, type ExportResultDto } from '../schemas/export.schema'
 
 const t = initTRPC.create()
@@ -124,9 +124,9 @@ export const exportRouter = t.router({
 
   /** A mailing list (Verteiler) as CSV for newsletter services */
   exportContactList: t.procedure
-    .input(z.object({ filters: ContactListFilters, name: z.string().default('') }))
+    .input(z.object({ source: ContactListSource, name: z.string().default('') }))
     .mutation(async ({ input }): Promise<ExportResultDto> => {
-      const { recipients } = contactListService.build(input.filters)
+      const { recipients } = contactListService.build(input.source)
       const listName = input.name.trim().replace(/[\\/:*?"<>|]/g, '-') || 'Verteiler'
       const fileName = `${listName} ${today()}.csv`
       const filePath = await askSavePath(fileName, 'Als CSV-Datei exportieren', {

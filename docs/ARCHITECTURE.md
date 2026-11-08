@@ -499,6 +499,13 @@ already exist (matched by name) only get their empty fields filled.
   or after the address itself.
 - **Genres.** A Genre column fills `venue.genres` or `company.genres`;
   "Genres für alle" is added to every club, festival or media company.
+- **As Verteiler (#154).** "Als Verteiler speichern" puts every record that
+  takes an address of the file (the plan's `listMembers`, recorded by
+  `takeEmails`) into a new or an existing member list, in the same
+  transaction (`ImportRepository.fillContactList`). Rows without an address
+  add nobody; a record already on the list is skipped (unique index), so a
+  second import of the same file adds only the new ones. A filter list
+  can't take members, and the whole import is rolled back then.
 
 ## Mailing lists (Verteiler)
 
@@ -540,6 +547,18 @@ bulk sending belongs in a newsletter service that handles unsubscribes.
 - **Saved lists** (`contact_list`) store the filters as JSON, not the
   addresses: a saved list always shows the current contacts. Unreadable
   filters fall back to "everything".
+- **Member lists (#154)** (`contact_list.kind` `'members'`) are a fixed set
+  of records instead of filters, filled by the import: `contact_list_member`
+  points at exactly one person, company or venue (a CHECK), with
+  `ON DELETE CASCADE` on the list and the record. `build({ memberListId })`
+  mails each record's current primary address (`loadMembers`,
+  `buildMemberList`): persons are Ansprechpartner with their companies,
+  media and venues as sources, companies and venues their own Hauptadresse.
+  Rows merge per address as above and "Keine Werbung" still applies; filters
+  don't, so the page hides them, and saving only renames. „Aus Verteiler
+  entfernen“ drops the records behind a row's address (`removeMember`), the
+  contacts stay. Converting between the kinds, or adding a contact from its
+  detail page, is not built.
 
 ## Follow-ups (Wiedervorlagen)
 
