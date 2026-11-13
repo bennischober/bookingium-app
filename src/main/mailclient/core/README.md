@@ -198,8 +198,11 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   first baseline.
 - **Falls back to `syncAll`** while the store is not complete: no finished pass, a folder without
   UIDVALIDITY, a paused or held first download.
-- **LIST-STATUS.** Advertised: one `client.list({ statusQuery })`; a folder missing from the inline
-  answer gets its own STATUS. A server that advertises it but rejects it makes imapflow fall back to an
+- **LIST-STATUS.** Advertised: one `client.list({ statusQuery })` (`StatusCheck.listStatus`); a folder
+  missing from the inline answer gets its own STATUS. `syncAll`'s STATUS sweep (the deep check, the
+  start pass) uses the same call with SIZE added (imapflow drops it without STATUS=SIZE) and counts
+  in `rounds.listStatus` too; its pass summary says `list-status=yes`. IONOS advertises it (seen
+  2026-11-13). A server that advertises it but rejects it makes imapflow fall back to an
   UNPACED STATUS per folder and set `skipListStatusArgs`; `StatusCheck` then latches `listStatusBroken`
   and uses the paced path from the next round on. A server that silently ignores the RETURN option
   cannot be told apart and pays that unpaced round each time.
@@ -208,8 +211,8 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   value comes from the prototype and was never measured (#64), so it stays the default; the host can
   set `MailCoreOptions.censusPauseMs` for every account (the worker reads
   `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` through `parseCensusPause`, 0 to 10000 ms; the core itself reads no
-  environment). It covers the change pass's check, the poll and `syncAll`'s STATUS sweep, nothing else.
-  LIST-STATUS is one command and needs none.
+  environment). It covers the change pass's check, the poll and `syncAll`'s STATUS sweep, nothing else,
+  and only where they ask folder by folder: LIST-STATUS is one command and needs none.
 - **The opened folder** (`SyncEngine.syncOpened`, `MailCore.syncOpenedFolder`): synced on the sync
   client after one STATUS, never on a new connection. During a pass it becomes `openRequest`, which the
   pass's folder loop (`syncAll`) or `takeOpened` (`syncChanges`, before each priority folder and inside

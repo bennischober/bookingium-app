@@ -10,7 +10,8 @@
 // a cautious value from the prototype, never measured; issue #64). imapflow falls back to its
 // own unpaced per-folder STATUS when a server advertises LIST-STATUS but rejects it, and then
 // sets `skipListStatusArgs` on that connection; the engine remembers that and uses the paced
-// path from then on, so such a server pays the unpaced round at most once.
+// path from then on, so such a server pays the unpaced round at most once. syncAll's STATUS
+// sweep (the deep check and the start pass) uses the same LIST-STATUS answer, with SIZE.
 import type { ImapFlow } from 'imapflow';
 import { STAGING_PREFIX, Store, type FolderRow } from './store.js';
 import type { AccountConfig } from './sync.js';
@@ -21,6 +22,8 @@ export interface FolderStatus {
   uidNext?: number;
   highestModseq?: bigint;
   unseen?: number;
+  /** #63: octets, only where the server has STATUS=SIZE and the caller asked for it (syncAll). */
+  size?: number;
 }
 
 /** One folder's answer in a round; `status` is null when the server did not answer for it. */
@@ -72,9 +75,10 @@ export class StatusCheck {
 
   constructor(private readonly ctx: StatusCheckContext) {}
 
-  // HIGHESTMODSEQ as the poll always asked it: imapflow leaves it out where the server has no CONDSTORE
-  private query() {
-    return { messages: true, uidNext: true, unseen: true, highestModseq: true };
+  // HIGHESTMODSEQ as the poll always asked it: imapflow leaves it out where the server has no
+  // CONDSTORE, and SIZE where it has no STATUS=SIZE, so neither can get the command rejected
+  private query(opts: { size?: boolean } = {}) {
+    return { messages: true, uidNext: true, unseen: true, highestModseq: true, ...(opts.size ? { size: true } : {}) };
   }
 
   private async pace(): Promise<void> {
@@ -101,8 +105,7 @@ export class StatusCheck {
    */
   async *round(client: ImapFlow, folders: FolderRow[], shouldStop: () => boolean): AsyncGenerator<StatusAnswer> {
     const inline = await this.listStatus(client);
-    if (inline) this.rounds.listStatus++;
-    else this.rounds.perFolder++;
+    if (!inline) this.rounds.perFolder++;
     for (const folder of folders) {
       if (shouldStop()) return;
       const known = inline?.get(folder.imap_path);
@@ -113,15 +116,20 @@ export class StatusCheck {
     }
   }
 
-  /** The inline STATUS answers of one LIST-STATUS command, or null when the server cannot give them. */
-  private async listStatus(client: ImapFlow): Promise<Map<string, FolderStatus> | null> {
+  /**
+   * The inline STATUS answers of one LIST-STATUS command, by IMAP path, or null when the server
+   * cannot give them (no LIST-STATUS, or it rejected it before). `round` uses it, and so does
+   * `syncAll`'s STATUS sweep (with `size`), which then asks only the folders missing from the
+   * map on their own. Counts `rounds.listStatus` when it answered.
+   */
+  async listStatus(client: ImapFlow, opts: { size?: boolean } = {}): Promise<Map<string, FolderStatus> | null> {
     if (this.listStatusBroken || !client.capabilities?.has('LIST-STATUS')) return null;
     const connection = client as unknown as { skipListStatusArgs?: boolean };
     if (connection.skipListStatusArgs) { this.listStatusBroken = true; return null; }
     await this.ctx.gate();
     let entries: Awaited<ReturnType<ImapFlow['list']>>;
     try {
-      entries = await client.list({ statusQuery: this.query() });
+      entries = await client.list({ statusQuery: this.query(opts) });
     } catch {
       this.listStatusBroken = true;
       return null;
@@ -134,6 +142,7 @@ export class StatusCheck {
       const st = e.status as (Record<string, unknown> & { error?: unknown }) | undefined;
       if (st && !st.error) map.set(e.path, toStatus(st));
     }
+    this.rounds.listStatus++;
     return map;
   }
 
@@ -177,5 +186,6 @@ function toStatus(st: Record<string, unknown>): FolderStatus {
   const num = (v: unknown) => typeof v === 'number' ? v : undefined;
   const out: FolderStatus = { messages: num(st.messages), uidNext: num(st.uidNext), unseen: num(st.unseen) };
   if (typeof st.highestModseq === 'bigint') out.highestModseq = st.highestModseq;
+  if (typeof st.size === 'number') out.size = st.size;
   return out;
 }

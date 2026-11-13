@@ -3,7 +3,7 @@
 // nothing changed. It now syncs the priority folders (open folder, INBOX, Sent, Drafts, Trash)
 // and asks every other folder for STATUS, syncing only the ones whose MESSAGES, UIDNEXT or
 // UNSEEN moved. LIST-STATUS makes that round one command where the server has it. The deep
-// check (syncAll) still opens every folder.
+// check (syncAll) still opens every folder; its STATUS sweep uses the same LIST-STATUS.
 //
 // Every server here is tests/helpers/scriptedImap.ts on 127.0.0.1; the messages are synthetic.
 import fs from 'fs'
@@ -191,7 +191,8 @@ describe('#156: the change pass', () => {
     for (const p of OTHERS) expect(imap.log).not.toContain(`STATUS ${p}`)
     expect(opened(imap.log)).toEqual([...PRIORITY, 'A'])
     expect(unseenOf(store, 'A')).toBe(0)
-    expect(engine.statusCheck.rounds).toEqual({ listStatus: 1, perFolder: 0 })
+    // one for the first syncAll's STATUS sweep, one for the change pass
+    expect(engine.statusCheck.rounds).toEqual({ listStatus: 2, perFolder: 0 })
   }, 30_000)
 
   it('falls back to a STATUS per folder when LIST-STATUS is not advertised', async () => {
@@ -243,6 +244,32 @@ describe('#156: the deep check', () => {
     await engine.syncAll({ full: true })
 
     expect(opened(imap.log).sort()).toEqual([...PRIORITY, ...OTHERS].sort())
+  }, 30_000)
+
+  it('asks one LIST-STATUS for its STATUS sweep when the server has it', async () => {
+    const imap = await server(['LIST-STATUS'])
+    const { engine, store } = engineFor(imap.port)
+
+    await engine.syncAll({ full: true })
+
+    expect(imap.log.filter((l) => l === 'LIST-STATUS')).toHaveLength(1)
+    for (const p of [...PRIORITY, ...OTHERS]) expect(imap.log).not.toContain(`STATUS ${p}`)
+    expect(engine.statusCheck.rounds).toEqual({ listStatus: 1, perFolder: 0 })
+    expect(engine.getStatus().messagesTotal).toBe(2 * (PRIORITY.length + OTHERS.length))
+    // the UNSEEN baseline of the change check comes from the LIST-STATUS answer
+    for (const p of OTHERS) expect(unseenOf(store, p)).toBe(1)
+  }, 30_000)
+
+  it('asks every folder on its own without LIST-STATUS', async () => {
+    const imap = await server()
+    const { engine, store } = engineFor(imap.port)
+
+    await engine.syncAll({ full: true })
+
+    expect(imap.log).not.toContain('LIST-STATUS')
+    for (const p of [...PRIORITY, ...OTHERS]) expect(imap.log).toContain(`STATUS ${p}`)
+    expect(engine.statusCheck.rounds).toEqual({ listStatus: 0, perFolder: 0 })
+    for (const p of OTHERS) expect(unseenOf(store, p)).toBe(1)
   }, 30_000)
 })
 
@@ -407,6 +434,12 @@ describe('#156: the pass summary', () => {
   it('reports a change pass with LIST-STATUS in counts only', async () => {
     const { imap, core, lines } = await coreFor(['LIST-STATUS'])
     await core.triggerSync(true, 'r1')
+    expect((await core.getSyncStatus('r1')).lastPass).toMatchObject({
+      kind: 'full',
+      listStatus: true,
+      foldersChecked: PRIORITY.length + OTHERS.length
+    })
+    expect(summaries(lines)[0]).toMatch(/^sync pass \(full\): list-status=yes /)
     imap.folders.get('A')!.messages[1].flags = ['\\Seen']
     lines.length = 0
 
@@ -430,7 +463,7 @@ describe('#156: the pass summary', () => {
   it('reports the STATUS fallback with the configured census pause', async () => {
     const { core, lines } = await coreFor([], 0)
     await core.triggerSync(true, 'r1')
-    expect(summaries(lines)[0]).toMatch(/^sync pass \(full\): /)
+    expect(summaries(lines)[0]).toMatch(/^sync pass \(full\): list-status=no /)
     lines.length = 0
 
     await core.triggerSync(false, 'r1')

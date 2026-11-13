@@ -245,8 +245,11 @@ so does the button while the store is not complete (no pass finished, a folder n
 paused first download). The background poll uses the same STATUS round and the same change rule
 (`core/status_check.ts`). Each folder's UNSEEN is stored (`folders.unseen`, migration 6) after a folder
 sync that went through, as the server reported it before that sync; unknown (NULL) never counts as a
-change. Whether IONOS advertises LIST-STATUS is not known yet: without it the button costs one paced
-STATUS round (~276 × 150 ms) plus the changed folders.
+change. IONOS advertises LIST-STATUS (read off „Verbindung testen“ on 2026-11-13, a small test
+account), so there the check is one command plus the changed folders; a server without it pays one
+paced STATUS round (~276 × 150 ms on the large mailbox). The deep check and the pass after start use
+the same LIST-STATUS for their STATUS sweep (counts, size where the server has STATUS=SIZE, the UNSEEN
+baseline) before they open every folder.
 
 **Two buttons in the sync bar (#156):** „Synchronisieren“ is the change pass above, „Alle Ordner
 prüfen“ the deep check. Both are always visible; there is no menu.
@@ -258,7 +261,8 @@ pass already synced is not synced again. It is skipped while the folder's mutex 
 a write's resync, the poll), before the first pass finished, while paused, offline or the disk is full.
 
 **The census pause** is the pause between two STATUS commands of a round without LIST-STATUS (the
-sync button's check, the background poll, `syncAll`'s STATUS sweep). Default 150 ms, taken from the
+sync button's check, the background poll, `syncAll`'s STATUS sweep); with LIST-STATUS it only applies
+to a folder the LIST answer left out. Default 150 ms, taken from the
 prototype and never measured (issue #64). It can be changed without editing code by starting the app
 with `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` (whole ms, 0 to 10000; anything else is ignored), for example in
 PowerShell `$env:BOOKINGIUM_MAIL_CENSUS_PAUSE_MS='50'; pnpm dev`. The host reads it and passes

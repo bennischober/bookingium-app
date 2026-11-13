@@ -758,7 +758,7 @@ export class SyncEngine {
     this.syncing = true;
     // #156: for the pass summary
     const t0 = Date.now();
-    let censusMs = 0, checked = 0, synced = 0;
+    let censusMs = 0, checked = 0, synced = 0, listStatus = false;
     this.passSynced = new Set();
     this.passErrorCount = 0;
     // settled once the folder list is known; until then a first pass after start looks initial
@@ -782,14 +782,23 @@ export class SyncEngine {
       // #156: UNSEEN too, remembered after each folder's sync as the change check's baseline
       const unseenByPath = new Map<string, number>();
       const c0 = Date.now();
+      const record = (p: string, st: { messages?: number; size?: number; unseen?: number }) => {
+        if (st.messages !== undefined) statusByPath.set(p, st.messages);
+        if (typeof st.size === 'number') sizeByPath.set(p, st.size);
+        if (typeof st.unseen === 'number') unseenByPath.set(p, st.unseen);
+      };
+      // #156: one LIST-STATUS where the server has it, the change pass's round; only the
+      // folders its answer left out get their own paced STATUS below
+      const inline = await this.statusCheck.listStatus(client0, { size: true });
+      listStatus = inline !== null;
       for (const p of folders) {
+        const known = inline?.get(p);
+        if (known) { record(p, known); continue; }
         await this.gate();
         try {
           // #63: SIZE where the server has it (STATUS=SIZE, IMAP4rev2); imapflow leaves it out otherwise
           const st = await client0.status(p, { messages: true, size: true, unseen: true });
-          if (st && st.messages !== undefined) statusByPath.set(p, st.messages);
-          if (st && typeof st.size === 'number') sizeByPath.set(p, st.size);
-          if (st && typeof st.unseen === 'number') unseenByPath.set(p, st.unseen);
+          if (st) record(p, st);
           const pause = censusPauseOf(this.account);
           if (pause) await new Promise(r => setTimeout(r, pause));
         } catch { /* STATUS on a weird folder — ignore, sync pass will handle */ }
@@ -873,7 +882,7 @@ export class SyncEngine {
       this.syncing = false;
       this.progress.running = false;
       this.progress.currentFolder = null;
-      this.endPass(opts.report ? { kind: opts.full ? 'full' : 'all', listStatus: false, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
+      this.endPass(opts.report ? { kind: opts.full ? 'full' : 'all', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
     }
     return this.getStatus();
   }
