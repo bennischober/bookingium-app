@@ -6,7 +6,8 @@
 //
 // LIST-STATUS (RFC 5819): when the server advertises it, the whole round is ONE LIST command
 // with the STATUS data inline, so no per-folder pacing is needed. Otherwise every folder gets
-// its own STATUS, paced by requestDelayMs (150 ms, tuned for IONOS). imapflow falls back to its
+// its own STATUS, paced by the census pause (censusDelayMs, default 150 ms like requestDelayMs:
+// a cautious value from the prototype, never measured; issue #64). imapflow falls back to its
 // own unpaced per-folder STATUS when a server advertises LIST-STATUS but rejects it, and then
 // sets `skipListStatusArgs` on that connection; the engine remembers that and uses the paced
 // path from then on, so such a server pays the unpaced round at most once.
@@ -38,6 +39,26 @@ export interface StatusCheckContext {
   folderErrors(imapPath: string): number;
 }
 
+/**
+ * #156: the pause after each STATUS of a census (a STATUS round over the folders): the
+ * account's own censusDelayMs where set, else requestDelayMs, the pause of sweeps and downloads.
+ */
+export function censusPauseOf(account: Pick<AccountConfig, 'censusDelayMs' | 'requestDelayMs'>): number {
+  return account.censusDelayMs ?? account.requestDelayMs ?? 0;
+}
+
+/**
+ * #156: a census pause as the host got it as text (BOOKINGIUM_MAIL_CENSUS_PAUSE_MS): a whole
+ * number of ms from 0 to 10000. Anything else (unset, empty, not a number, out of range) is
+ * undefined, so the account default applies. The core reads no environment; the host passes it.
+ */
+export function parseCensusPause(value: string | undefined): number | undefined {
+  const v = value?.trim();
+  if (!v || !/^\d{1,5}$/.test(v)) return undefined;
+  const ms = Number(v);
+  return ms <= 10_000 ? ms : undefined;
+}
+
 /** The folders a round asks: every stored folder except the staging copies of a UIDVALIDITY swap. */
 export function checkableFolders(store: Store): FolderRow[] {
   return store.allFolders().filter(f => !f.imap_path.startsWith(STAGING_PREFIX));
@@ -57,7 +78,8 @@ export class StatusCheck {
   }
 
   private async pace(): Promise<void> {
-    if (this.ctx.account.requestDelayMs) await new Promise(r => setTimeout(r, this.ctx.account.requestDelayMs));
+    const ms = censusPauseOf(this.ctx.account);
+    if (ms) await new Promise(r => setTimeout(r, ms));
   }
 
   /** One paced STATUS for one folder; null when the server did not answer. */

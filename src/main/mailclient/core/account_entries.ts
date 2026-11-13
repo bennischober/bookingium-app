@@ -62,6 +62,8 @@ export class AccountEntries {
         : isSandboxHost(a.host)
           ? makeSandboxAccount(input)
           : makeLiveAccount(input);
+      // #156: the host may set the census pause for every account (a pacing test)
+      if (options.censusPauseMs !== undefined) config.censusDelayMs = options.censusPauseMs;
       // user/pass are resolved lazily via ensureCredentials(), which the engine calls before
       // every login — never stored at construction, never logged
       // I12 (MR-41): one account whose store cannot be opened is skipped, not fatal for the rest.

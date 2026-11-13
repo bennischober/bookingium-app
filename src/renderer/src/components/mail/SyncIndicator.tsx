@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, HardDrive, Pause, Play, RefreshCw, WifiOff } from 'lucide-react'
+import { HardDrive, Pause, Play, RefreshCw, WifiOff } from 'lucide-react'
 import { retryIn } from '@/lib/mailConnection'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { runningOpLabel } from '@/components/mail/opLabel'
-import { syncProgressText } from '@/components/mail/syncProgress'
+import { passSummaryText, syncProgressText } from '@/components/mail/syncProgress'
 import type { SyncStatus } from '../../../../main/mailclient/core/types'
 
 /** The current time, updated every second while `active` (for countdowns) */
@@ -31,17 +30,17 @@ export function SyncIndicator({
   onPause,
   onResume,
   onSync,
-  onDeepCheck
+  onSyncAll
 }: {
   status: SyncStatus | undefined
   runningOp: string | null
   onPause: () => void
   onResume: () => void
+  /** #156: the open folder, INBOX, Sent, Drafts, Trash and every folder whose STATUS changed */
   onSync: () => void
-  /** #156: the full pass over every folder; the button itself only syncs what changed */
-  onDeepCheck: () => void
+  /** #156: the deep check, every folder opened and compared */
+  onSyncAll: () => void
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
   const offline = status?.connection === 'offline' && !status.running
   const now = useNow(offline && Boolean(status?.retryAt))
   // A running write op needs no sync status to be worth showing
@@ -152,7 +151,11 @@ export function SyncIndicator({
         </>
       ) : (
         <>
-          <span>
+          {/* #156: what the last pass the user started did, counts only (pacing checks) */}
+          <span
+            title={status.lastPass ? passSummaryText(status.lastPass) : undefined}
+            data-testid="mail-sync-time"
+          >
             {status.lastSyncAt
               ? `Synchronisiert ${new Date(status.lastSyncAt).toLocaleTimeString('de-DE', {
                   hour: '2-digit',
@@ -172,44 +175,27 @@ export function SyncIndicator({
           >
             {status.idleConnected ? '· automatisch' : '· regelmäßig'}
           </span>
-          {/* #156: the button syncs the important folders and whatever STATUS says changed;
-              the full check of every folder stays one click away */}
+          {/* #156: two visible actions. "Synchronisieren" is the fast pass (the important
+              folders and whatever STATUS says changed); "Alle Ordner prüfen" opens every folder */}
           <Button
-            variant="ghost"
-            size="icon-xs"
+            variant="outline"
+            size="xs"
             onClick={onSync}
-            title="Jetzt synchronisieren (wichtige und geänderte Ordner)"
+            title="Gleicht den geöffneten Ordner, Posteingang, Gesendet, Entwürfe und Papierkorb ab, dazu jeden Ordner, der sich auf dem Server geändert hat."
+            data-testid="mail-sync"
           >
             <RefreshCw />
+            Synchronisieren
           </Button>
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                title="Weitere Optionen"
-                aria-label="Weitere Synchronisierungsoptionen"
-                data-testid="mail-sync-menu"
-              >
-                <ChevronDown />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto p-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                title="Gleicht jeden Ordner vollständig ab, auch gelesene und markierte E-Mails. Dauert bei einem großen Postfach einige Minuten."
-                onClick={() => {
-                  setMenuOpen(false)
-                  onDeepCheck()
-                }}
-              >
-                <RefreshCw />
-                Alle Ordner vollständig prüfen
-              </Button>
-            </PopoverContent>
-          </Popover>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onSyncAll}
+            title="Öffnet und vergleicht jeden Ordner, auch gelesene und markierte E-Mails. Dauert bei einem großen Postfach einige Minuten."
+            data-testid="mail-sync-all"
+          >
+            Alle Ordner prüfen
+          </Button>
         </>
       )}
       {status.errors.length > 0 && (

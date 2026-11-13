@@ -75,3 +75,21 @@ describe('G3: the sync bar exists before the first status', () => {
     expect(branch).toContain('mail-disk-full')
   })
 })
+
+describe('#156: two visible sync actions', () => {
+  it('offers the fast pass and the deep check as buttons, not a menu', () => {
+    const body = indicatorBody()
+    expect(body).toContain('onClick={onSync}')
+    expect(body).toContain('onClick={onSyncAll}')
+    expect(body).toMatch(/data-testid="mail-sync"[\s\S]*Synchronisieren/)
+    expect(body).toMatch(/data-testid="mail-sync-all"[\s\S]*Alle Ordner prüfen/)
+    expect(body).not.toContain('mail-sync-menu')
+    expect(body).not.toContain('Popover')
+  })
+
+  it('shows the last pass summary on the sync time', () => {
+    expect(indicatorBody()).toMatch(
+      /title=\{status\.lastPass \? passSummaryText\(status\.lastPass\)/
+    )
+  })
+})

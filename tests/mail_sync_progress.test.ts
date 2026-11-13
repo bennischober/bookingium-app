@@ -2,8 +2,8 @@
 // time left, each only as far as the core knows it.
 import { describe, expect, it } from 'vitest'
 import { formatSize } from '@/components/mail/format'
-import { remainingText, syncProgressText } from '@/components/mail/syncProgress'
-import type { SyncStatus } from '../src/main/mailclient/core/types'
+import { passSummaryText, remainingText, syncProgressText } from '@/components/mail/syncProgress'
+import type { PassSummary, SyncStatus } from '../src/main/mailclient/core/types'
 
 const base: SyncStatus = {
   running: true,
@@ -81,5 +81,47 @@ describe('#63: the progress text', () => {
   it('formats gigabytes', () => {
     expect(formatSize(12_340_000_000)).toBe('12,3 GB')
     expect(formatSize(999_000_000)).toBe('999 MB')
+  })
+})
+
+describe('#156: the last pass summary', () => {
+  const pass: PassSummary = {
+    kind: 'changes',
+    listStatus: false,
+    censusPauseMs: 150,
+    censusMs: 41_234,
+    foldersChecked: 271,
+    foldersSynced: 6,
+    totalMs: 52_050,
+    errors: 0,
+    phase: 'idle',
+    connection: 'online',
+    at: '2026-11-13T09:30:00.000Z'
+  }
+
+  it('reads counts and times in German', () => {
+    const lines = passSummaryText(pass).split('\n')
+    expect(lines[0]).toMatch(/^Zuletzt: Synchronisieren um \d\d:\d\d$/)
+    expect(lines.slice(1)).toEqual([
+      '271 Ordner geprüft in 41,2 s (einzeln per STATUS, Pause 150 ms)',
+      '6 Ordner synchronisiert, gesamt 52,1 s',
+      '0 Fehler'
+    ])
+  })
+
+  it('names LIST-STATUS, the deep check and a pass that ended early', () => {
+    const text = passSummaryText({
+      ...pass,
+      kind: 'full',
+      listStatus: true,
+      errors: 2,
+      phase: 'error',
+      connection: 'offline'
+    })
+    expect(text).toContain('Zuletzt: Alle Ordner prüfen')
+    expect(text).toContain('(mit einem LIST-STATUS)')
+    expect(text).toContain('2 Fehler')
+    expect(text).toContain('Vorzeitig beendet')
+    expect(text).toContain('Verbindung danach getrennt')
   })
 })

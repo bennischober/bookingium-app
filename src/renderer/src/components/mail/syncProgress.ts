@@ -1,5 +1,5 @@
 import { formatSize } from '@/components/mail/format'
-import type { SyncStatus } from '../../../../main/mailclient/core/types'
+import type { PassSummary, SyncStatus } from '../../../../main/mailclient/core/types'
 
 /** "noch ca. 25 Min." from the core's estimate; rounded so it does not flicker each second */
 export function remainingText(seconds: number | null | undefined): string | null {
@@ -34,4 +34,34 @@ export function syncProgressText(status: SyncStatus): string {
   const left = status.paused ? null : remainingText(status.secondsLeft)
   if (left) parts.push(left)
   return parts.join(' · ')
+}
+
+const PASS_KIND: Record<PassSummary['kind'], string> = {
+  changes: 'Synchronisieren',
+  all: 'Synchronisieren (alle Ordner, Abgleich noch nicht vollständig)',
+  full: 'Alle Ordner prüfen'
+}
+
+/** "1,2 s" */
+const seconds = (ms: number): string =>
+  `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`
+
+/**
+ * #156: the tooltip on "Synchronisiert HH:MM": what the last pass the user started did, to judge
+ * the STATUS census pacing against a real server. Counts and times only, never folder names.
+ */
+export function passSummaryText(pass: PassSummary): string {
+  const at = new Date(pass.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const census = pass.listStatus
+    ? 'mit einem LIST-STATUS'
+    : `einzeln per STATUS, Pause ${pass.censusPauseMs} ms`
+  const lines = [
+    `Zuletzt: ${PASS_KIND[pass.kind]} um ${at}`,
+    `${pass.foldersChecked} Ordner geprüft in ${seconds(pass.censusMs)} (${census})`,
+    `${pass.foldersSynced} Ordner synchronisiert, gesamt ${seconds(pass.totalMs)}`,
+    `${pass.errors} Fehler`
+  ]
+  if (pass.phase !== 'idle') lines.push('Vorzeitig beendet')
+  if (pass.connection !== 'online') lines.push('Verbindung danach getrennt')
+  return lines.join('\n')
 }

@@ -10,8 +10,12 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createMailCore } from '../src/main/mailclient/core/index'
-import type { AccountEntry } from '../src/main/mailclient/core/index'
+import {
+  createMailCore,
+  passSummaryLine,
+  type AccountEntry
+} from '../src/main/mailclient/core/index'
+import { censusPauseOf, parseCensusPause } from '../src/main/mailclient/core/status_check'
 import { Store } from '../src/main/mailclient/core/store'
 import { makeSandboxAccount, SyncEngine } from '../src/main/mailclient/core/sync'
 import { scriptedImap, type FakeFolder, type ScriptedImap } from './helpers/scriptedImap'
@@ -277,4 +281,178 @@ describe('#156: the sync button through the core', () => {
     await core.triggerSync(true, 'r1')
     expect(opened(imap.log).sort()).toEqual([...PRIORITY, ...OTHERS].sort())
   }, 60_000)
+})
+
+describe('#156: the census pause', () => {
+  it('parses the host setting as whole milliseconds from 0 to 10000', () => {
+    expect(parseCensusPause('150')).toBe(150)
+    expect(parseCensusPause('0')).toBe(0)
+    expect(parseCensusPause(' 20 ')).toBe(20)
+    expect(parseCensusPause('10000')).toBe(10_000)
+    for (const bad of [undefined, '', '  ', 'abc', '-5', '10001', '1.5', '1e3'])
+      expect(parseCensusPause(bad)).toBeUndefined()
+  })
+
+  it('uses its own setting before the request delay', () => {
+    expect(censusPauseOf({ censusDelayMs: 0, requestDelayMs: 150 })).toBe(0)
+    expect(censusPauseOf({ requestDelayMs: 150 })).toBe(150)
+    expect(censusPauseOf({})).toBe(0)
+  })
+})
+
+describe('#156: syncing the folder the user opens', () => {
+  const countOf = (store: Store, imapPath: string): number =>
+    (
+      store.db
+        .prepare(
+          'SELECT COUNT(*) n FROM messages m JOIN folders f ON f.id = m.folder_id WHERE f.imap_path = ?'
+        )
+        .get(imapPath) as { n: number }
+    ).n
+
+  it('syncs only that folder, on the existing connection', async () => {
+    const imap = await server()
+    const { engine, store } = engineFor(imap.port)
+    await engine.syncAll()
+    const b = imap.folders.get('B')!
+    b.messages.push({ uid: 3, flags: [], source: source('b-3') })
+    b.uidNext = 4
+    const connections = imap.connections()
+    imap.log.length = 0
+
+    expect(await engine.syncOpened(store.getFolderByPath('B')!.id)).toBe('synced')
+
+    expect(opened(imap.log)).toEqual(['B'])
+    expect(countOf(store, 'B')).toBe(3)
+    expect(imap.connections()).toBe(connections)
+  }, 30_000)
+
+  it('is skipped before the first pass and while the folder is being synced', async () => {
+    const imap = await server()
+    const { engine, store } = engineFor(imap.port)
+    await engine.syncAll()
+    const id = store.getFolderByPath('B')!.id
+    // a second engine on the same store has not finished a pass yet
+    const fresh = new SyncEngine(
+      makeSandboxAccount({
+        id: 'c156',
+        host: '127.0.0.1',
+        port: imap.port,
+        security: 'none',
+        user: 'u',
+        pass: 'p',
+        dataDir: scratch()
+      }),
+      store
+    )
+    cleanups.push(() => fresh.close())
+    const connections = imap.connections()
+    expect(await fresh.syncOpened(id)).toBe('skipped')
+    expect(imap.connections()).toBe(connections)
+
+    imap.log.length = 0
+    const held = await engine.withFolderMutexPublic('B', () => engine.syncOpened(id))
+    expect(held).toBe('skipped')
+    expect(opened(imap.log)).not.toContain('B')
+    expect(await engine.syncOpened('no-such-folder')).toBe('skipped')
+  }, 30_000)
+
+  it('is taken next by a running pass, and synced once', async () => {
+    const imap = await server()
+    const { engine, store } = engineFor(imap.port)
+    await engine.syncAll()
+    const id = store.getFolderByPath('C')!.id
+    imap.log.length = 0
+
+    const pass = engine.syncAll()
+    expect(await engine.syncOpened(id)).toBe('queued')
+    await pass
+
+    expect(opened(imap.log)[0]).toBe('C')
+    expect(imap.log.filter((l) => l === 'SELECT C' || l === 'EXAMINE C')).toHaveLength(1)
+    // once the pass synced it, opening it again during that pass asks nothing
+    expect(engine.getStatus().phase).toBe('idle')
+  }, 30_000)
+})
+
+describe('#156: the pass summary', () => {
+  type Core = ReturnType<typeof createMailCore>
+  const LINE =
+    /^sync pass \((changes|all|full)\): list-status=(yes|no) census-pause=\d+ms census=\d+ms checked=\d+ synced=\d+ total=\d+ms errors=\d+ ended=\w+ connection=\w+$/
+
+  async function coreFor(capabilities: string[], censusPauseMs?: number) {
+    const imap = await server(capabilities)
+    const lines: string[] = []
+    const core: Core = createMailCore({
+      dataDir: scratch(),
+      log: { info: (m) => lines.push(m) },
+      censusPauseMs,
+      accounts: [
+        {
+          id: 'r1',
+          readOnly: true,
+          email: 'r1@example.test',
+          host: '127.0.0.1',
+          port: imap.port,
+          security: 'none' as const,
+          credentials: async () => ({ user: 'r1@example.test', pass: 'x' })
+        }
+      ]
+    })
+    cleanups.push(() => core.close())
+    return { imap, core, lines }
+  }
+  const summaries = (lines: string[]): string[] => lines.filter((l) => l.startsWith('sync pass'))
+
+  it('reports a change pass with LIST-STATUS in counts only', async () => {
+    const { imap, core, lines } = await coreFor(['LIST-STATUS'])
+    await core.triggerSync(true, 'r1')
+    imap.folders.get('A')!.messages[1].flags = ['\\Seen']
+    lines.length = 0
+
+    await core.triggerSync(false, 'r1')
+
+    const pass = (await core.getSyncStatus('r1')).lastPass!
+    expect(pass).toMatchObject({
+      kind: 'changes',
+      listStatus: true,
+      foldersChecked: OTHERS.length,
+      foldersSynced: PRIORITY.length + 1,
+      errors: 0,
+      phase: 'idle',
+      connection: 'online'
+    })
+    const [line] = summaries(lines)
+    expect(line).toMatch(LINE)
+    expect(line).toContain('list-status=yes')
+  }, 60_000)
+
+  it('reports the STATUS fallback with the configured census pause', async () => {
+    const { core, lines } = await coreFor([], 0)
+    await core.triggerSync(true, 'r1')
+    expect(summaries(lines)[0]).toMatch(/^sync pass \(full\): /)
+    lines.length = 0
+
+    await core.triggerSync(false, 'r1')
+
+    const pass = (await core.getSyncStatus('r1')).lastPass!
+    expect(pass).toMatchObject({
+      kind: 'changes',
+      listStatus: false,
+      censusPauseMs: 0,
+      foldersChecked: OTHERS.length,
+      foldersSynced: PRIORITY.length
+    })
+    expect(summaries(lines)).toHaveLength(1)
+    expect(summaries(lines)[0]).toMatch(LINE)
+    expect(passSummaryLine(pass)).toBe(summaries(lines)[0])
+  }, 60_000)
+
+  it('is left alone by passes the user did not start', async () => {
+    const imap = await server()
+    const { engine } = engineFor(imap.port)
+    await engine.syncAll()
+    await engine.syncChanges()
+    expect(engine.getStatus().lastPass ?? null).toBeNull()
+  }, 30_000)
 })

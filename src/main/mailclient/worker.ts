@@ -2,7 +2,7 @@
 // so SQLite (synchronous), sync and indexing never block the main process.
 // It never sees stored passwords; it asks the main process for credentials
 // per connection (main decrypts them with safeStorage).
-import { createMailCore, type MailCore } from './core/index'
+import { createMailCore, parseCensusPause, type MailCore } from './core/index'
 import { MAIL_API_METHODS, type FromWorker, type ToWorker, type WorkerInit } from './protocol'
 
 const port = process.parentPort
@@ -55,7 +55,9 @@ function init(options: WorkerInit): void {
     // message stays: the user clicks, nothing loads on its own.
     remoteImages: { enabled: true },
     // QA only: lets an e2e exercise the disk-full path with a REAL failing write. Off unless set.
-    faultWriteCode: process.env['BOOKINGIUM_FAULT_WRITE'] || undefined
+    faultWriteCode: process.env['BOOKINGIUM_FAULT_WRITE'] || undefined,
+    // #156: a pacing test of the STATUS census, without editing code. Unset: 150 ms.
+    censusPauseMs: parseCensusPause(process.env['BOOKINGIUM_MAIL_CENSUS_PAUSE_MS'])
   })
   core.on('sync-event', (event) => send({ type: 'event', event }))
   // I15a (MR-40): op events used to arrive only because on() ignored the name (and then twice)

@@ -25,6 +25,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import {
+  capabilitiesLine,
   connectionTestMessage,
   parseAliases,
   SECURITY_LABELS,
@@ -83,15 +84,27 @@ const EMPTY_DRAFT: Draft = {
 /** Result of "Verbindung testen", or of the test that runs before saving */
 function TestResult({ result }: { result: ConnectionTestResult }) {
   if (result.ok) {
+    const capabilities = capabilitiesLine(result)
     return (
-      <p
+      <div
         className="flex gap-2 text-sm text-emerald-700 dark:text-emerald-400"
         role="status"
         data-testid="mail-account-test-result"
       >
         <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
-        {connectionTestMessage(result)}
-      </p>
+        <div className="min-w-0">
+          <p>{connectionTestMessage(result)}</p>
+          {/* #156: what the server offers (LIST-STATUS, CONDSTORE, …), names only */}
+          {capabilities && (
+            <p
+              className="break-words text-xs text-muted-foreground"
+              data-testid="mail-account-test-capabilities"
+            >
+              {capabilities}
+            </p>
+          )}
+        </div>
+      </div>
     )
   }
   return (

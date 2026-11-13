@@ -146,6 +146,36 @@ export type SyncStatus = {
    *  Trash sync, 'check' while every other folder's STATUS is compared; foldersSynced/foldersTotal
    *  count the folders of that half. null or absent otherwise. */
   changePass?: 'priority' | 'check' | null;
+  /** #156: the last pass the user started (sync button or deep check), counts only */
+  lastPass?: PassSummary | null;
+};
+
+/**
+ * #156: what one user-started pass did, to judge the STATUS census pacing against a real server.
+ * Counts and times only: no folder names, subjects or addresses.
+ */
+export type PassSummary = {
+  /** 'changes': the sync button's change pass; 'all': every folder (a first download); 'full': the deep check */
+  kind: 'changes' | 'all' | 'full';
+  /** the census was one LIST-STATUS command (false: one paced STATUS per folder) */
+  listStatus: boolean;
+  /** the pause after each STATUS of the census, in ms */
+  censusPauseMs: number;
+  /** how long the census took, in ms (folder syncs in between not counted) */
+  censusMs: number;
+  /** folders the census asked for STATUS */
+  foldersChecked: number;
+  /** folders opened and synced */
+  foldersSynced: number;
+  /** the whole pass, in ms */
+  totalMs: number;
+  /** error events during the pass */
+  errors: number;
+  /** how the pass ended ('idle' = done) and the connection after it */
+  phase: string;
+  connection: string;
+  /** ISO time the pass ended */
+  at: string;
 };
 
 /** How an IMAP connection is encrypted: TLS from the first byte, upgraded with STARTTLS, or
@@ -185,6 +215,9 @@ export interface Api {
   /** #156: `full` is the deep check of every folder; without it only the open folder, INBOX,
    *  Sent, Drafts, Trash and the folders whose STATUS changed are synced (MailCore.triggerSync) */
   triggerSync(full?: boolean): Promise<void>;
+  /** #156: the folder the user just opened, synced right away unless a sync of it is running
+   *  anyway; a running pass takes it next ('queued'). MailCore.syncOpenedFolder */
+  syncOpenedFolder?(folderId: string, accountId?: string): Promise<'synced' | 'queued' | 'skipped' | 'failed'>;
 
   // --- Task 3 additions (optional for implementors, additive) ---
   listAccounts?(): Promise<AccountSummary[]>;

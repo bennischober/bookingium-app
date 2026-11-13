@@ -187,3 +187,12 @@ English.
 | Insert template (compose toolbar)      | Vorlage einfügen; button „Einfügen“                                                  |
 | Event for the placeholders / no event  | Event für die Platzhalter / Ohne Event                                               |
 | Placeholders                           | {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro}, {Empfänger} |
+
+### Mail sync
+
+| English                                    | German                                      |
+| ------------------------------------------ | ------------------------------------------- |
+| Sync (fast: important and changed folders) | Synchronisieren                             |
+| Deep check of every folder                 | Alle Ordner prüfen                          |
+| Last synced at (tooltip: last pass)        | Synchronisiert HH:MM; „Zuletzt: … um HH:MM“ |
+| Server capabilities (connection test)      | Server-Funktionen: …                        |

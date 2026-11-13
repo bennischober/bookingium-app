@@ -16,7 +16,7 @@
 import { ImapFlow } from 'imapflow';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, type FolderRow } from './store.js';
-import type { ConnectionState, ImapSecurity } from './types.js';
+import type { ConnectionState, ImapSecurity, PassSummary } from './types.js';
 import { allowsPlainLogin } from './imap_options.js';
 import { diskFullMessage, downloadSpaceMessage, downloadSpaceNeeded, freeBytesOf, isDiskFullError } from './disk_full.js';
 import { secondsLeft } from './download_estimate.js';
@@ -27,7 +27,7 @@ import { SyncConnection } from './sync_connection.js';
 import { MessageIngest } from './message_ingest.js';
 import { FolderSync, nextUid, uidRange } from './folder_sync.js';
 import { IDLE_CAP_MS, IdleLoop, idleWait, Poller } from './idle_poll.js';
-import { checkableFolders, StatusCheck, type FolderStatus } from './status_check.js';
+import { censusPauseOf, checkableFolders, StatusCheck, type FolderStatus } from './status_check.js';
 
 export { IDLE_CAP_MS, idleWait, nextUid, uidRange };
 
@@ -48,6 +48,9 @@ export interface AccountConfig {
   lazyAboveBytes?: number;
   interBatchDelayMs?: number;  // sleep between download batches
   requestDelayMs?: number;     // sleep between IMAP commands in sweeps
+  // #156: sleep after each STATUS of a census (the STATUS round of the sync button, the poll and
+  // syncAll); unset: requestDelayMs. Separate so a test can lower it without touching downloads.
+  censusDelayMs?: number;
 }
 
 /** S1: the agreed threshold (5 MB of RFC822.SIZE); a builder that sets it turns partial ingest on */
@@ -166,7 +169,12 @@ export type SyncProgress = {
    * foldersSynced/foldersTotal count the folders of that half.
    */
   changePass?: 'priority' | 'check' | null;
+  /** #156: the last pass the user started, counts only (MailCore.triggerSync logs it) */
+  lastPass?: PassSummary | null;
 };
+
+/** #156: what opening a folder did (SyncEngine.syncOpened) */
+export type OpenedSync = 'synced' | 'queued' | 'skipped' | 'failed';
 
 export class SyncEngine {
   private syncing = false;
@@ -216,6 +224,14 @@ export class SyncEngine {
   readonly statusCheck: StatusCheck;
   // #156: sync errors reported per folder; a folder sync that added none went through
   private readonly folderErrors = new Map<string, number>();
+  // #156: the folders the running pass synced (or tried), so a folder opened meanwhile is not synced twice
+  private passSynced = new Set<string>();
+  // #156: a folder opened in the UI while a pass runs; the pass takes it as its next folder
+  private openRequest: string | null = null;
+  // #156: folders being synced because they were opened, outside a pass
+  private readonly openSyncs = new Set<string>();
+  // #156: error events of the running pass (progress.errors keeps only the last ten)
+  private passErrorCount = 0;
   // I18: free bytes on the store's drive, checked before a UIDVALIDITY swap (a seam for tests)
   private readonly freeBytes: (dir: string) => number | null;
   // Task 5: injected structured logger (host decides where output goes; core never
@@ -576,6 +592,7 @@ export class SyncEngine {
     this.progress.errors = this.progress.errors.slice(-9);
     if (e.type === 'error') this.progress.errors.push(`${e.path ?? '?'}: ${e.message}`);
     if (e.type === 'error' && e.path) this.folderErrors.set(e.path, (this.folderErrors.get(e.path) ?? 0) + 1);
+    if (e.type === 'error' && this.syncing) this.passErrorCount++;
     if (e.type === 'folder-done') {
       this.progress.newMessages += e.newCount;
       this.progress.flagChanges += e.flagChanges;
@@ -734,11 +751,16 @@ export class SyncEngine {
   //   priority 2: everything else (deep history)
   // Resume: a restart continues where the store left off — folders already fully
   // synced (uid_validity set AND no missing UIDs) are skipped after a cheap check.
-  async syncAll(opts: { full?: boolean } = {}): Promise<SyncProgress> {
+  async syncAll(opts: { full?: boolean; report?: boolean } = {}): Promise<SyncProgress> {
     if (this.syncing) return this.getStatus();
     // I4: stopped until resume(); a pass would only fail on the first download again
     if (this.diskFull) return this.getStatus();
     this.syncing = true;
+    // #156: for the pass summary
+    const t0 = Date.now();
+    let censusMs = 0, checked = 0, synced = 0;
+    this.passSynced = new Set();
+    this.passErrorCount = 0;
     // settled once the folder list is known; until then a first pass after start looks initial
     this.passPhase = this.progress.messagesTotal === null ? 'initial' : 'incremental';
     this.progress = {
@@ -759,6 +781,7 @@ export class SyncEngine {
       const sizeByPath = new Map<string, number>();
       // #156: UNSEEN too, remembered after each folder's sync as the change check's baseline
       const unseenByPath = new Map<string, number>();
+      const c0 = Date.now();
       for (const p of folders) {
         await this.gate();
         try {
@@ -767,9 +790,12 @@ export class SyncEngine {
           if (st && st.messages !== undefined) statusByPath.set(p, st.messages);
           if (st && typeof st.size === 'number') sizeByPath.set(p, st.size);
           if (st && typeof st.unseen === 'number') unseenByPath.set(p, st.unseen);
-          if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
+          const pause = censusPauseOf(this.account);
+          if (pause) await new Promise(r => setTimeout(r, pause));
         } catch { /* STATUS on a weird folder — ignore, sync pass will handle */ }
       }
+      censusMs = Date.now() - c0;
+      checked = folders.length;
       this.progress.messagesTotal = [...statusByPath.values()].reduce((a, b) => a + b, 0)
         || (this.store.db.prepare('SELECT COUNT(*) c FROM messages').get() as { c: number }).c;
       this.progress.bytesTotal = await this.serverBytes(client0, folders, sizeByPath);
@@ -807,13 +833,19 @@ export class SyncEngine {
         return sb - sa;
       });
 
-      for (const p of ordered) {
+      const queue = [...ordered];
+      while (queue.length) {
+        // #156: a folder opened in the UI meanwhile goes next; each folder once per pass
+        const p = this.nextOpenRequest(folders) ?? queue.shift()!;
+        if (this.passSynced.has(p)) continue;
         await this.gate();
         this.progress.currentFolder = p;
+        this.passSynced.add(p);
         try {
           const unseen = unseenByPath.get(p);
           await this.syncFolderRemembering(p, unseen === undefined ? null : { unseen }, opts);
           this.noteSuccess();
+          synced++;
         } catch (e) {
           // A full disk is not a connection problem and will not fix itself: stop the whole
           // pass instead of walking the remaining folders, and do NOT report it as offline
@@ -841,8 +873,80 @@ export class SyncEngine {
       this.syncing = false;
       this.progress.running = false;
       this.progress.currentFolder = null;
+      this.endPass(opts.report ? { kind: opts.full ? 'full' : 'all', listStatus: false, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
     }
     return this.getStatus();
+  }
+
+  /** #156: the folder opened in the UI while this pass runs, once, when the pass did not sync it yet. */
+  private nextOpenRequest(listed: Iterable<string>): string | null {
+    const p = this.openRequest;
+    this.openRequest = null;
+    if (!p || this.passSynced.has(p)) return null;
+    for (const l of listed) if (l === p) return p;
+    return null;
+  }
+
+  /**
+   * #156: after a pass. Records the summary of a user-started pass; a folder opened too late for
+   * the pass to take it is synced now.
+   */
+  private endPass(summary: Omit<PassSummary, 'censusPauseMs' | 'errors' | 'phase' | 'connection' | 'at'> | null): void {
+    if (summary) {
+      this.progress.lastPass = {
+        ...summary,
+        censusPauseMs: censusPauseOf(this.account),
+        errors: this.passErrorCount,
+        phase: this.progress.phase ?? 'idle',
+        connection: this.progress.connection,
+        at: new Date().toISOString(),
+      };
+    }
+    const left = this.openRequest;
+    this.openRequest = null;
+    if (left && !this.passSynced.has(left)) void this.syncOpenedPath(left);
+  }
+
+  /**
+   * #156: the folder the user just opened, synced right away on the sync connection, so it shows
+   * what the server has without waiting for the next pass or poll. Never a second connection:
+   *   - a running pass takes it as its next folder, unless the pass synced it already;
+   *   - skipped while its folder mutex is held (IDLE on INBOX, a write's resync, a poll's sync) or
+   *     it is already being synced because it was opened;
+   *   - skipped while the store is not complete (the first download owns every folder), paused,
+   *     not online, the circuit open, the disk full, or a rename moves the folder.
+   * Never throws; a sync error is reported as a sync event like any other.
+   */
+  async syncOpened(folderId: string): Promise<OpenedSync> {
+    const f = this.store.getFolder(folderId);
+    if (!f || f.account_id !== this.account.id || f.imap_path.startsWith(STAGING_PREFIX) || !f.uid_validity) return 'skipped';
+    if (this.syncing) {
+      if (this.passSynced.has(f.imap_path)) return 'skipped';
+      this.openRequest = f.imap_path;
+      return 'queued';
+    }
+    return this.syncOpenedPath(f.imap_path);
+  }
+
+  private async syncOpenedPath(imapPath: string): Promise<OpenedSync> {
+    if (this.stopped || this.syncing || this.diskFull || this.paused || this.restoredPause || !this.lastSyncAt) return 'skipped';
+    if (Date.now() < this.circuitOpenUntil || this.progress.connection !== 'online') return 'skipped';
+    if (this.openSyncs.has(imapPath) || this.syncingFolders.has(imapPath) || this.renamePending(imapPath)) return 'skipped';
+    this.openSyncs.add(imapPath);
+    // counted from here, so close() also waits out the connect and the STATUS
+    this.inFlight++;
+    try {
+      const client = await this.connect();
+      const st = await this.statusCheck.statusOf(client, imapPath);
+      await this.syncFolderRemembering(imapPath, st);
+      this.noteSuccess();
+      return 'synced';
+    } catch {
+      return 'failed';
+    } finally {
+      this.inFlight--;
+      this.openSyncs.delete(imapPath);
+    }
   }
 
   /** #156: syncFolder, then remember the UNSEEN count asked before it when the sync went through. */
@@ -865,14 +969,19 @@ export class SyncEngine {
    * While the store is not complete (no pass finished yet, a folder never downloaded, the first
    * download paused) this is syncAll(): only that pass continues a first download.
    */
-  async syncChanges(opts: { openFolder?: string | null } = {}): Promise<SyncProgress> {
+  async syncChanges(opts: { openFolder?: string | null; report?: boolean } = {}): Promise<SyncProgress> {
     if (this.syncing) return this.getStatus();
     if (this.diskFull) return this.getStatus();
     const known = checkableFolders(this.store);
     if (!this.lastSyncAt || this.paused || this.restoredPause || known.length === 0 || known.some(f => !f.uid_validity)) {
-      return this.syncAll();
+      return this.syncAll({ report: opts.report });
     }
     this.syncing = true;
+    // #156: for the pass summary
+    const t0 = Date.now();
+    let censusMs = 0, checked = 0, synced = 0, syncMs = 0, listStatus = false;
+    this.passSynced = new Set();
+    this.passErrorCount = 0;
     this.passPhase = 'incremental';
     this.progress = {
       ...this.progress, running: true,
@@ -886,9 +995,12 @@ export class SyncEngine {
     const syncOne = async (imapPath: string, st: FolderStatus | null): Promise<boolean> => {
       await this.gate();
       this.progress.currentFolder = imapPath;
+      this.passSynced.add(imapPath);
+      const s0 = Date.now();
       try {
         await this.syncFolderRemembering(imapPath, st);
         this.noteSuccess();
+        synced++;
         return true;
       } catch (e) {
         // the same stops as syncAll's folder loop
@@ -903,6 +1015,7 @@ export class SyncEngine {
         return true;
       } finally {
         this.progress.currentFolder = null;
+        syncMs += Date.now() - s0;
       }
     };
     try {
@@ -910,6 +1023,14 @@ export class SyncEngine {
       const listed = new Set(await this.syncFolderList());
       const folders = checkableFolders(this.store).filter(f => listed.has(f.imap_path));
       const client = await this.connect();
+      // #156: a folder opened in the UI meanwhile goes next (false: the pass has to stop)
+      const takeOpened = async (): Promise<boolean> => {
+        const p = this.nextOpenRequest(folders.map(f => f.imap_path));
+        if (!p) return true;
+        const st = await this.statusCheck.statusOf(client, p);
+        if (st) answered++;
+        return syncOne(p, st);
+      };
 
       // 1. priority folders, in this order, each once
       const priority: FolderRow[] = [];
@@ -922,9 +1043,12 @@ export class SyncEngine {
       for (const use of PRIORITY_SPECIAL_USE) add(folders.find(f => f.special_use === use));
       this.progress.foldersTotal = priority.length;
       for (const f of priority) {
-        const st = await this.statusCheck.statusOf(client, f.imap_path);
-        if (st) answered++;
-        if (!await syncOne(f.imap_path, st)) return this.getStatus();
+        if (!await takeOpened()) return this.getStatus();
+        if (!this.passSynced.has(f.imap_path)) {
+          const st = await this.statusCheck.statusOf(client, f.imap_path);
+          if (st) answered++;
+          if (!await syncOne(f.imap_path, st)) return this.getStatus();
+        }
         this.progress.foldersSynced++;
       }
 
@@ -933,17 +1057,26 @@ export class SyncEngine {
       this.progress.changePass = 'check';
       this.progress.foldersSynced = 0;
       this.progress.foldersTotal = rest.length;
+      const r0 = this.statusCheck.rounds.listStatus;
+      const c0 = Date.now(), syncMs0 = syncMs;
+      checked = rest.length;
       for await (const { folder: f, status: st } of this.statusCheck.round(client, rest, () => this.diskFull)) {
+        listStatus = this.statusCheck.rounds.listStatus > r0;
+        if (!await takeOpened()) return this.getStatus();
         if (st) {
           answered++;
-          if (this.statusCheck.changed(f, st)) {
+          // opened in the UI and synced meanwhile: its baseline is already remembered
+          if (this.passSynced.has(f.imap_path)) { /* nothing left to do */ }
+          else if (this.statusCheck.changed(f, st)) {
             if (!await syncOne(f.imap_path, st)) return this.getStatus();
           } else {
             this.statusCheck.rememberBaseline(f, st);
           }
         }
         this.progress.foldersSynced++;
+        censusMs = Date.now() - c0 - (syncMs - syncMs0);
       }
+      censusMs = Date.now() - c0 - (syncMs - syncMs0);
       if (this.diskFull) return this.getStatus();
       if (folders.length > 0 && answered === 0) {
         this.emit({ type: 'error', path: null, message: `syncChanges: no folder answered (${folders.length} tried)` });
@@ -961,6 +1094,7 @@ export class SyncEngine {
       this.progress.running = false;
       this.progress.currentFolder = null;
       this.progress.changePass = null;
+      this.endPass(opts.report ? { kind: 'changes', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
     }
     return this.getStatus();
   }
