@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { HardDrive, Pause, Play, RefreshCw, WifiOff } from 'lucide-react'
+import { ChevronDown, HardDrive, Pause, Play, RefreshCw, WifiOff } from 'lucide-react'
 import { retryIn } from '@/lib/mailConnection'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { runningOpLabel } from '@/components/mail/opLabel'
 import { syncProgressText } from '@/components/mail/syncProgress'
@@ -29,14 +30,18 @@ export function SyncIndicator({
   runningOp,
   onPause,
   onResume,
-  onSync
+  onSync,
+  onDeepCheck
 }: {
   status: SyncStatus | undefined
   runningOp: string | null
   onPause: () => void
   onResume: () => void
   onSync: () => void
+  /** #156: the full pass over every folder; the button itself only syncs what changed */
+  onDeepCheck: () => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const offline = status?.connection === 'offline' && !status.running
   const now = useNow(offline && Boolean(status?.retryAt))
   // A running write op needs no sync status to be worth showing
@@ -167,9 +172,44 @@ export function SyncIndicator({
           >
             {status.idleConnected ? '· automatisch' : '· regelmäßig'}
           </span>
-          <Button variant="ghost" size="icon-xs" onClick={onSync} title="Jetzt synchronisieren">
+          {/* #156: the button syncs the important folders and whatever STATUS says changed;
+              the full check of every folder stays one click away */}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onSync}
+            title="Jetzt synchronisieren (wichtige und geänderte Ordner)"
+          >
             <RefreshCw />
           </Button>
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                title="Weitere Optionen"
+                aria-label="Weitere Synchronisierungsoptionen"
+                data-testid="mail-sync-menu"
+              >
+                <ChevronDown />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                title="Gleicht jeden Ordner vollständig ab, auch gelesene und markierte E-Mails. Dauert bei einem großen Postfach einige Minuten."
+                onClick={() => {
+                  setMenuOpen(false)
+                  onDeepCheck()
+                }}
+              >
+                <RefreshCw />
+                Alle Ordner vollständig prüfen
+              </Button>
+            </PopoverContent>
+          </Popover>
         </>
       )}
       {status.errors.length > 0 && (

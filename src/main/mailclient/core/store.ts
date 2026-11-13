@@ -69,6 +69,7 @@ export interface FolderRow {
   last_sync_at: string | null;
   last_flag_sweep: string | null;
   list_absent_since: string | null;   // Task 4: first LIST pass where this folder was absent (prune debounce)
+  unseen: number | null;              // #156: server UNSEEN count at the last completed sync; NULL = not known yet
 }
 
 /** Task 4: one pending/finished write operation (see docs/WRITE_PATH.md §1). */
@@ -494,6 +495,11 @@ export class Store {
 
   setFlagSwept(id: string, atIso: string | null): void {
     this.db.prepare('UPDATE folders SET last_flag_sweep = ? WHERE id = ?').run(atIso, id);
+  }
+
+  /** #156: remember the server's UNSEEN count, compared by the next STATUS round (core/status_check.ts) */
+  setFolderUnseen(id: string, unseen: number | null): void {
+    this.db.prepare('UPDATE folders SET unseen = ? WHERE id = ?').run(unseen, id);
   }
 
   // message helpers ----------------------------------------------------------

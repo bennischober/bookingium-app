@@ -142,6 +142,10 @@ export type SyncStatus = {
   diskFull?: string | null;
   /** A3: file/row consistency of this account (counts only; see MailCore.checkFileConsistency) */
   fileConsistency?: { rowsWithoutFile: number; filesWithoutRow: number; tmpFiles: number };
+  /** #156: the sync button's change pass: 'priority' while the open folder, INBOX, Sent, Drafts and
+   *  Trash sync, 'check' while every other folder's STATUS is compared; foldersSynced/foldersTotal
+   *  count the folders of that half. null or absent otherwise. */
+  changePass?: 'priority' | 'check' | null;
 };
 
 /** How an IMAP connection is encrypted: TLS from the first byte, upgraded with STARTTLS, or
@@ -178,6 +182,8 @@ export interface Api {
   // account / system
   getAccount(): Promise<AccountInfo>;
   getSyncStatus(): Promise<SyncStatus>;
+  /** #156: `full` is the deep check of every folder; without it only the open folder, INBOX,
+   *  Sent, Drafts, Trash and the folders whose STATUS changed are synced (MailCore.triggerSync) */
   triggerSync(full?: boolean): Promise<void>;
 
   // --- Task 3 additions (optional for implementors, additive) ---

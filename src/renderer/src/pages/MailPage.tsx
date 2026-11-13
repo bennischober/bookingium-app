@@ -616,8 +616,15 @@ function MailClient() {
             onPause={() => void mailApi.pauseSync(accountId).then(() => syncStatus.refetch())}
             onResume={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
             onSync={() =>
+              // #156: the open folder goes first in the change pass
               void mailApi
-                .triggerSync(false, accountId)
+                .triggerSync(false, accountId, folderId)
+                .then(() => syncStatus.refetch())
+                .catch(failed('Synchronisierung fehlgeschlagen'))
+            }
+            onDeepCheck={() =>
+              void mailApi
+                .triggerSync(true, accountId)
                 .then(() => syncStatus.refetch())
                 .catch(failed('Synchronisierung fehlgeschlagen'))
             }

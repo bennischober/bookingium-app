@@ -4,7 +4,8 @@
 //
 // It speaks only the subset imapflow uses against a plain IMAP4rev1 server (no CONDSTORE,
 // no IDLE), and records the mailbox commands so a test can assert which folder a FETCH
-// really went to.
+// really went to. #156: `capabilities` adds to IMAP4rev1 (e.g. LIST-STATUS, RFC 5819, which
+// answers `LIST ... RETURN (STATUS (...))` with inline STATUS lines), and STATUS carries UNSEEN.
 import net from 'net'
 
 export type FakeMessage = { uid: number; flags?: string[]; source?: string }
@@ -18,8 +19,13 @@ export type FakeFolder = {
 export type ScriptedImap = {
   port: number
   folders: Map<string, FakeFolder>
-  /** "SELECT A", "EXAMINE A", "STATUS A", "FETCH A" (the folder selected when it ran) */
+  /**
+   * "SELECT A", "EXAMINE A", "STATUS A", "FETCH A" (the folder selected when it ran), and
+   * "LIST-STATUS" for a LIST that asked for inline STATUS
+   */
   log: string[]
+  /** advertised next to IMAP4rev1, read at each connection's greeting; e.g. ['LIST-STATUS'] */
+  capabilities: string[]
   /** connections accepted so far */
   connections: () => number
   /** answer every STATUS with NO */
@@ -56,15 +62,22 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
     log: [],
     connections: () => accepted,
     failStatus: false,
+    capabilities: [],
     close: async () => undefined
   }
+  const unseen = (folder: FakeFolder): number =>
+    folder.messages.filter((m) => !(m.flags ?? []).includes('\\Seen')).length
+  const statusItems = (folder: FakeFolder): string =>
+    `MESSAGES ${folder.messages.length} UIDNEXT ${folder.uidNext} UIDVALIDITY ${folder.uidValidity} UNSEEN ${unseen(folder)}`
 
   const server = net.createServer((socket) => {
     accepted++
     sockets.add(socket)
     socket.on('close', () => sockets.delete(socket))
     socket.on('error', () => {})
-    socket.write('* OK [CAPABILITY IMAP4rev1] fake server ready\r\n')
+    // read at connect time, so a test can change it between connections
+    const advertised = ['IMAP4rev1', ...state.capabilities].join(' ')
+    socket.write(`* OK [CAPABILITY ${advertised}] fake server ready\r\n`)
     let selected: string | null = null
     let buffer = ''
     socket.on('data', (chunk) => {
@@ -86,16 +99,24 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
           socket.write(s)
         }
         if (command === 'CAPABILITY') {
-          write(`* CAPABILITY IMAP4rev1\r\n${tag} OK done\r\n`)
+          write(`* CAPABILITY ${advertised}\r\n${tag} OK done\r\n`)
         } else if (command === 'LOGIN') {
-          write(`${tag} OK [CAPABILITY IMAP4rev1] logged in\r\n`)
+          write(`${tag} OK [CAPABILITY ${advertised}] logged in\r\n`)
         } else if (command === 'LIST' || command === 'LSUB') {
           let out = ''
+          // LIST-STATUS (RFC 5819): only when advertised; a STATUS line follows each LIST line
+          const withStatus =
+            command === 'LIST' &&
+            advertised.includes('LIST-STATUS') &&
+            /RETURN\s*\(.*STATUS/i.test(rest)
+          if (withStatus) state.log.push('LIST-STATUS')
           // LIST "" "" asks for the hierarchy delimiter only (RFC 3501 6.3.8)
-          if (/""\s*""\s*$/.test(rest)) out = `* ${command} (\\Noselect) "/" ""\r\n`
+          if (/^""\s*""(\s|$)/.test(rest)) out = `* ${command} (\\Noselect) "/" ""\r\n`
           else
-            for (const path of state.folders.keys())
+            for (const [path, folder] of state.folders) {
               out += `* ${command} (\\HasNoChildren) "/" ${quote(path)}\r\n`
+              if (withStatus) out += `* STATUS ${quote(path)} (${statusItems(folder)})\r\n`
+            }
           write(`${out}${tag} OK done\r\n`)
         } else if (command === 'SELECT' || command === 'EXAMINE') {
           const path = mailboxArg(rest)
@@ -122,9 +143,7 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
             write(`${tag} NO status refused\r\n`)
             continue
           }
-          write(
-            `* STATUS ${quote(path)} (MESSAGES ${folder.messages.length} UIDNEXT ${folder.uidNext} UIDVALIDITY ${folder.uidValidity})\r\n${tag} OK done\r\n`
-          )
+          write(`* STATUS ${quote(path)} (${statusItems(folder)})\r\n${tag} OK done\r\n`)
         } else if (command === 'UID FETCH' || command === 'FETCH') {
           const folder = selected ? state.folders.get(selected) : undefined
           state.log.push(`FETCH ${selected ?? '-'}`)

@@ -9,6 +9,7 @@ import { isAuthFailure } from './imap_options.js';
 import { isDiskFullError } from './disk_full.js';
 import { flagsFromSet } from './message_ingest.js';
 import { uidRange } from './folder_sync.js';
+import { checkableFolders, type StatusCheck } from './status_check.js';
 import type { ConnectionBudget } from './connection_budget.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
 
@@ -249,13 +250,13 @@ export interface PollerContext {
   setInFlight(n: number): void;
   syncingFolders(): Map<string, symbol>;
   connect(): Promise<ImapFlow>;
-  gate(): Promise<void>;
   noteError(context: string): boolean;
   noteSuccess(): void;
   noteServerContact(): void;
   noteDiskFull(path: string | null): void;
-  syncFolder(imapPath: string): Promise<void>;
   syncAll(): Promise<SyncProgress>;
+  /** #156: the STATUS round and change rule shared with the sync button */
+  statusCheck(): StatusCheck;
   withSelected<T>(imapPath: string, expectedValidity: string | null, fn: (client: ImapFlow) => Promise<T>): Promise<T | null>;
 }
 
@@ -277,12 +278,11 @@ export class Poller {
   private get syncingFolders(): Map<string, symbol> { return this.ctx.syncingFolders(); }
   private emit(e: SyncEvent): void { this.ctx.emit(e); }
   private connect(): Promise<ImapFlow> { return this.ctx.connect(); }
-  private gate(): Promise<void> { return this.ctx.gate(); }
   private noteError(context: string): boolean { return this.ctx.noteError(context); }
   private noteSuccess(): void { this.ctx.noteSuccess(); }
   private noteServerContact(): void { this.ctx.noteServerContact(); }
   private noteDiskFull(path: string | null): void { this.ctx.noteDiskFull(path); }
-  private syncFolder(imapPath: string): Promise<void> { return this.ctx.syncFolder(imapPath); }
+  private get statusCheck(): StatusCheck { return this.ctx.statusCheck(); }
   private syncAll(): Promise<SyncProgress> { return this.ctx.syncAll(); }
   private withSelected<T>(imapPath: string, expectedValidity: string | null, fn: (client: ImapFlow) => Promise<T>): Promise<T | null> {
     return this.ctx.withSelected(imapPath, expectedValidity, fn);
@@ -327,30 +327,23 @@ export class Poller {
   private async pollPass(): Promise<boolean> {
     const client = await this.connect();
     this.pollCount++;
-    const folders = this.store.allFolders();
+    // #156: the STATUS round and the change rule are shared with the sync button (status_check.ts)
+    const check = this.statusCheck;
+    const folders = checkableFolders(this.store);
     let answered = 0;
-    for (let i = 0; i < folders.length; i++) {
-      if (this.pollingStop || this.syncing || this.diskFull) break;
-      const f = folders[i];
-      await this.gate();
+    for await (const { folder: f, status: st } of check.round(client, folders, () => this.pollingStop || this.syncing || this.diskFull)) {
+      if (!st) continue;
+      answered++;
       try {
-        const st = await client.status(f.imap_path, { messages: true, uidNext: true, highestModseq: true });
-        if (!st) continue;
-        if (typeof st === 'boolean') continue;
-        answered++;
-        const localCount = (this.store.db.prepare('SELECT COUNT(*) c FROM messages WHERE folder_id = ?').get(f.id) as { c: number }).c;
-        const changed =
-          (st.messages !== undefined && st.messages !== localCount) ||
-          (st.uidNext !== undefined && f.uid_next !== null && st.uidNext !== f.uid_next) ||
-          (st.highestModseq !== undefined && f.highest_modseq !== null && String(st.highestModseq) !== f.highest_modseq);
-        if (changed) {
-          await this.syncFolder(f.imap_path);
+        if (check.changed(f, st)) {
+          await check.syncAndRemember(f.imap_path, st);
           // Task 4 fix: syncFolder used to skip flag fetching entirely without
           // CONDSTORE — now it applies flags (incrementalSyncFolder else-branch),
           // but keep the sweep fallback ONLY when the folder sync itself errored
           // out silently (e.g. folder vanished mid-poll).
           continue;
         }
+        check.rememberBaseline(f, st);
         // tiered flag sweep (only without CONDSTORE; with it, changedSince is enough).
         // Divisors measured on prod (32k msgs): sweep-all ~95 s of server time, so
         // tier-2 folders (recently active) are swept every 6th poll and cold ones
@@ -361,7 +354,6 @@ export class Poller {
             await this.flagSweep(f);
           }
         }
-        if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
       } catch (e) {
         // I4: a full disk stops the poll (and everything else) until resume()
         if (isDiskFullError(e)) { this.noteDiskFull(f.imap_path); break; }

@@ -188,14 +188,21 @@ export class MailCore implements Api {
     };
   }
 
-  async triggerSync(full?: boolean, accountId?: string): Promise<void> {
+  /**
+   * The sync button. #156: without `full` it is the change pass (SyncEngine.syncChanges): the
+   * open folder, INBOX, Sent, Drafts and Trash first, then only the folders whose STATUS moved.
+   * `full` is the deep check, every folder opened and compared (syncAll). `openFolderId` is the
+   * folder shown in the UI, synced first.
+   */
+  async triggerSync(full?: boolean, accountId?: string, openFolderId?: string | null): Promise<void> {
     const e = this.entry(accountId);
     await this.ensureCredentials(e.config.id);
     if (e.engine.isSyncing()) {
       await e.engine.waitForSync(120_000);
       return;
     }
-    await e.engine.syncAll({ full }).catch(err => this.log.error?.(`sync error: ${(err as Error).message}`));
+    const pass = full ? e.engine.syncAll({ full }) : e.engine.syncChanges({ openFolder: openFolderId ?? null });
+    await pass.catch(err => this.log.error?.(`sync error: ${(err as Error).message}`));
   }
 
   /** The unread mails in each account's INBOX, as its folder shows them (pending moves left out). Counts only. */

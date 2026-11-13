@@ -224,6 +224,30 @@ folder: IDLE; recently active folders: short poll; cold folders: slow). IDLE wor
 UIDVALIDITY change resyncs that folder and never applies stale UIDs. Deleting local data because of a
 server listing is gated three ways: an empty or truncated LIST never prunes.
 
+**The sync button syncs what changed (#156).** Without CONDSTORE a full pass opens every folder and
+compares its whole UID list and all flags, which takes minutes on a large mailbox (276 folders, ~30k
+messages) even when nothing changed. So `triggerSync(false, accountId, openFolderId)` runs
+`SyncEngine.syncChanges`, in two halves the sync bar names:
+
+1. „Wichtige Ordner · n / m“: the folder open in the UI, INBOX, then the special-use Sent, Drafts and
+   Trash, each fully synced whatever its STATUS says.
+2. „Wichtige Ordner aktuell · n / m Ordner geprüft“: one STATUS round over every other folder; only
+   folders whose MESSAGES, UIDNEXT, HIGHESTMODSEQ (where the server has it) or UNSEEN differ from the
+   store are synced. The round is one `LIST … RETURN (STATUS …)` where the server advertises LIST-STATUS
+   (RFC 5819), else one STATUS per folder paced by `requestDelayMs` (150 ms).
+
+The button covers new and removed mail and read-state changes in every folder. It does **not** see
+other flag changes (`\Flagged`, `\Answered`, …) in an unchanged, non-priority folder, or read-state
+changes that cancel out in the count; the background flag sweep finds those, and „Alle Ordner
+vollständig prüfen“ in the sync bar's menu (`triggerSync(true)`, the full `syncAll`) checks every folder
+at once. The first download, the pass after start and the pass after waking from sleep stay full passes;
+so does the button while the store is not complete (no pass finished, a folder never downloaded, a
+paused first download). The background poll uses the same STATUS round and the same change rule
+(`core/status_check.ts`). Each folder's UNSEEN is stored (`folders.unseen`, migration 6) after a folder
+sync that went through, as the server reported it before that sync; unknown (NULL) never counts as a
+change. Whether IONOS advertises LIST-STATUS is not known yet: without it the button costs one paced
+STATUS round (~276 × 150 ms) plus the changed folders.
+
 **Connections have hard limits** (`core/imap_options.ts`): 15 s to connect, 10 s for the greeting, 120 s of
 silence mid-command, one connection budget per account. Unreachable shows "Offline · nächster Versuch in …".
 **A rejected login is never retried:** the account stops all server contact until it is saved again (a

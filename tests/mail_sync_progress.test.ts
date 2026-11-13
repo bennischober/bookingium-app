@@ -36,6 +36,18 @@ describe('#63: the progress text', () => {
     )
   })
 
+  it('#156: names the two halves of the change pass of the sync button', () => {
+    expect(syncProgressText({ ...base, phase: 'incremental', changePass: 'priority' })).toBe(
+      'Wichtige Ordner · 2 / 9'
+    )
+    expect(syncProgressText({ ...base, phase: 'incremental', changePass: 'check' })).toBe(
+      'Wichtige Ordner aktuell · 2 / 9 Ordner geprüft'
+    )
+    expect(syncProgressText({ ...base, phase: 'incremental', changePass: null })).toBe(
+      '2 / 9 Ordner'
+    )
+  })
+
   it('shows messages, size and time left during the first download', () => {
     expect(
       syncProgressText({
