@@ -37,6 +37,15 @@ database handle, and the demo seed.
   net is rounded. Percentages and VAT rates are `real` too.
 - Document ownership has no FK: `owner_type` + `owner_id`, with triggers in the
   initial migration deleting rows when the owner goes.
+- Enum-like text columns carry a `CHECK` built from the zod enum's `.options`
+  (`oneOf` in `schema.ts`, #151), so router and database accept the same values;
+  `tests/constraints.test.ts` writes one invalid row per constraint. A new enum value
+  therefore needs a migration (a table rebuild). Name columns bare in `check()`:
+  drizzle-kit rebuilds as `__new_<table>`, where a qualified name does not resolve.
+- A rebuild drops the table's triggers. A migration that rebuilds `deal_memo`,
+  `band`, `company`, `venue`, `person`, `invoice` or `management_contract` is followed
+  by a custom one creating their triggers again (see `0036`); the trigger list is
+  pinned in `tests/migrations.test.ts`.
 - Seeding runs only in unpackaged builds (dev and e2e) and only on an empty
   database; the installed app starts empty. Demo data is read from this file, real
   master data comes from the gitignored `sample_data/internal-seed.json`.
