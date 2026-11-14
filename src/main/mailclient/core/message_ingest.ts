@@ -192,7 +192,41 @@ export function flagsFromSet(set: Set<string> | undefined): Flags {
     draft: s.has('\\Draft'),
     deleted: s.has('\\Deleted'),
     answered: s.has('\\Answered'),
+    // #163: keywords are case-insensitive (RFC 3501), and servers keep the client's spelling
+    forwarded: [...s].some(f => f.toLowerCase() === FORWARDED_KEYWORD.toLowerCase()),
   };
+}
+
+/** #163: the keyword Thunderbird, Apple Mail and Outlook set on a forwarded mail */
+export const FORWARDED_KEYWORD = '$Forwarded';
+
+const FLAG_KEYS = ['seen', 'flagged', 'draft', 'deleted', 'answered', 'forwarded'] as const;
+
+/**
+ * #163: the `Flags` key an IMAP flag name is stored under ('\\Seen' -> 'seen',
+ * '$Forwarded' -> 'forwarded'); null for a flag the store does not keep.
+ */
+export function flagKey(name: string): keyof Flags | null {
+  const key = name.replace(/^[\\$]/, '').toLowerCase();
+  return (FLAG_KEYS as readonly string[]).includes(key) ? key as keyof Flags : null;
+}
+
+/** #163: a stored flags_json as `Flags`; keys a row was stored without read as false */
+export function parseStoredFlags(json: string): Flags {
+  const raw = JSON.parse(json) as Partial<Flags>;
+  return {
+    seen: !!raw.seen, flagged: !!raw.flagged, draft: !!raw.draft,
+    deleted: !!raw.deleted, answered: !!raw.answered, forwarded: !!raw.forwarded,
+  };
+}
+
+/**
+ * #163: compares key by key, not as JSON text, so a row stored before a flag existed
+ * does not count as changed (which would rewrite every row on the first sync).
+ */
+export function sameFlags(storedJson: string, flags: Flags): boolean {
+  const stored = parseStoredFlags(storedJson);
+  return FLAG_KEYS.every(k => stored[k] === flags[k]);
 }
 
 export function toIso(d: Date | string | undefined | null): string | null {

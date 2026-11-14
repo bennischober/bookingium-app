@@ -10,7 +10,8 @@ import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 import { matchingRules, recipientsOf } from './mail_rules.js';
 import type { MessageHeader, HeaderPage, RuleMatcher, RuleMatchPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
 import type { AccountEntry, MailCoreEvent, MailCoreOptions } from './index.js';
-import type { MessageRow } from './store.js';
+import type { Flags, MessageRow } from './store.js';
+import { parseStoredFlags } from './message_ingest.js';
 
 /** What the read calls need from the core. */
 export interface MessageViewsContext {
@@ -34,6 +35,7 @@ export class MessageViews {
     return e.store.listThreads(folderId, opts.offset, opts.limit).map(t => ({
       threadId: t.threadId, count: t.count, subject: t.subject, fromName: t.fromName,
       date: t.date, unread: t.unread, hasAttachments: t.hasAttachments,
+      answered: t.answered, forwarded: t.forwarded,
       snippet: t.snippet, messageIds: t.messageIds,
     }));
   }
@@ -336,8 +338,8 @@ export class MessageViews {
     return this.entry(accountId).store.searchContacts(partial);
   }
 
-  parseFlags(row: { flags_json: string }): { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean } {
-    return JSON.parse(row.flags_json);
+  parseFlags(row: { flags_json: string }): Flags {
+    return parseStoredFlags(row.flags_json);
   }
 
   private toListItem(row: import('./store.js').MessageRow): MessageListItem {
@@ -358,6 +360,8 @@ export class MessageViews {
       isRead: flags.seen,
       isFlagged: flags.flagged,
       isDraft: flags.draft,
+      isAnswered: flags.answered,
+      isForwarded: flags.forwarded,
       snippet: row.snippet,
       threadId: row.thread_id,
       threadCount: 1,

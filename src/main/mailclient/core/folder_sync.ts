@@ -6,7 +6,7 @@ import { ImapFlow, type FetchMessageObject } from 'imapflow';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, Flags } from './store.js';
 import { isDiskFullError, swapSpaceMessage, swapSpaceNeeded } from './disk_full.js';
-import { flagsFromSet, MessageIngest, toIso } from './message_ingest.js';
+import { flagsFromSet, MessageIngest, sameFlags, toIso } from './message_ingest.js';
 import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
 import type { Pacer } from './pacer.js';
@@ -307,8 +307,7 @@ export class FolderSync {
       // Task 4 coexistence: a pending/running journal op owns this message's flags —
       // don't clobber the optimistic local state with the (older) server view
       if (this.store.opInFlightForMessageKey(local.message_key)) continue;
-      const localFlags = JSON.parse(local.flags_json) as Flags;
-      if (JSON.stringify(localFlags) !== JSON.stringify(info.flags) ||
+      if (!sameFlags(local.flags_json, info.flags) ||
           (info.modseq && local.modseq !== info.modseq)) {
         this.store.updateMessageFlags(local.id, JSON.stringify(info.flags), info.modseq,
           info.internalDate ?? local.internal_date ?? null);
@@ -378,7 +377,7 @@ export class FolderSync {
           if (this.store.opInFlightForMessageKey(local.message_key)) continue;
           const flags = flagsFromSet(m.flags);
           const modseq = m.modseq !== undefined ? String(m.modseq) : null;
-          if (JSON.stringify(JSON.parse(local.flags_json)) !== JSON.stringify(flags) ||
+          if (!sameFlags(local.flags_json, flags) ||
               (modseq && local.modseq !== modseq)) {
             this.store.updateMessageFlags(local.id, JSON.stringify(flags), modseq, null);
             flagChanges++;
@@ -398,7 +397,7 @@ export class FolderSync {
           if (!local) continue;
           if (this.store.opInFlightForMessageKey(local.message_key)) continue;   // Task 4 coexistence
           const flags = flagsFromSet(m.flags);
-          if (JSON.stringify(JSON.parse(local.flags_json)) !== JSON.stringify(flags)) {
+          if (!sameFlags(local.flags_json, flags)) {
             this.store.updateMessageFlags(local.id, JSON.stringify(flags), null, null);
             flagChanges++;
           }

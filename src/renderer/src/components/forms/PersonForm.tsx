@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -139,12 +140,12 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <div className="flex justify-end gap-2 pt-4">
+      <FormActions>
         <Button type="button" variant="outline" onClick={onCancel}>
           Abbrechen
         </Button>
         <Button type="submit">Person speichern</Button>
-      </div>
+      </FormActions>
     </form>
   )
 }

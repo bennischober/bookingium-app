@@ -12,6 +12,7 @@ import { useBandTabCounts } from '@/hooks/useTabCounts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
+import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -127,6 +128,18 @@ export default function BandDetailPage() {
     enabled: id !== null
   })
 
+  // #162: delete from the detail page, then back to the list
+  const deleteBand = trpcReact.band.delete.useMutation({
+    onSuccess: async () => {
+      await navigate({ to: '/band' })
+      void utils.band.invalidate()
+      toast.success('Band gelöscht', { description: 'Die Band wurde erfolgreich gelöscht.' })
+    },
+    onError: (error) => {
+      toast.error('Band konnte nicht gelöscht werden', { description: error.message })
+    }
+  })
+
   const updateBand = trpcReact.band.update.useMutation({
     onSuccess: (data) => {
       void utils.band.invalidate()
@@ -191,6 +204,11 @@ export default function BandDetailPage() {
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
+            <DeleteRecordButton
+              confirmTitle={`„${band.name}“ löschen?`}
+              pending={deleteBand.isPending}
+              onDelete={() => deleteBand.mutate(band.id)}
+            />
           </div>
         </div>
       </div>

@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
+import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -266,6 +267,18 @@ export default function CompanyDetailPage() {
     refetch
   } = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
+  // #162: delete from the detail page, then back to the list
+  const deleteCompany = trpcReact.company.delete.useMutation({
+    onSuccess: async () => {
+      await navigate({ to: '/companies' })
+      void utils.company.invalidate()
+      toast.success('Firma gelöscht', { description: 'Die Firma wurde erfolgreich gelöscht.' })
+    },
+    onError: (error) => {
+      toast.error('Firma konnte nicht gelöscht werden', { description: error.message })
+    }
+  })
+
   const updateCompany = trpcReact.company.update.useMutation({
     onSuccess: (data) => {
       void utils.company.invalidate()
@@ -338,6 +351,11 @@ export default function CompanyDetailPage() {
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
+            <DeleteRecordButton
+              confirmTitle={`„${company.name}“ löschen?`}
+              pending={deleteCompany.isPending}
+              onDelete={() => deleteCompany.mutate({ id: company.id })}
+            />
           </div>
         </div>
       </div>

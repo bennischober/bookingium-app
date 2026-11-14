@@ -43,6 +43,12 @@ export class BandService {
   }
 
   async deleteBand(id: number) {
+    const events = this.bandRepository.countEvents(id)
+    if (events > 0) {
+      throw new Error(
+        `Die Band hat noch ${events === 1 ? '1 Event' : `${events} Events`} und kann nicht gelöscht werden.`
+      )
+    }
     const deleted = await this.bandRepository.delete(id)
     await removeOwnerFolder('band', id).catch((error) => console.error(error))
     scheduleCalendarUpdate()

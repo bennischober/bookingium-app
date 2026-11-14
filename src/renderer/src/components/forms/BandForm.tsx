@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -259,7 +260,7 @@ export function BandForm({
       </form.Field>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      <FormActions>
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
           Abbrechen
         </Button>
@@ -270,7 +271,7 @@ export function BandForm({
               ? 'Band anlegen'
               : 'Änderungen speichern'}
         </Button>
-      </div>
+      </FormActions>
     </form>
   )
 }

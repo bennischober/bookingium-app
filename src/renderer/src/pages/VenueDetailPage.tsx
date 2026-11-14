@@ -20,6 +20,7 @@ import { useVenueTabCounts } from '@/hooks/useTabCounts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
+import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -139,6 +140,23 @@ export default function VenueDetailPage() {
     refetch
   } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
+  // #162: delete from the detail page, then back to the list of its kind
+  const deleteCopy = venue ? VENUE_KIND_COPY[venue.kind] : null
+  const deleteVenue = trpcReact.venue.delete.useMutation({
+    onSuccess: async () => {
+      if (venue) await navigate({ to: venueListPath(venue.kind) })
+      void utils.venue.invalidate()
+      toast.success(`${deleteCopy?.singular ?? 'Eintrag'} gelöscht`, {
+        description: `${deleteCopy?.article ?? 'Der Eintrag'} wurde erfolgreich gelöscht.`
+      })
+    },
+    onError: (error) => {
+      toast.error(`${deleteCopy?.singular ?? 'Eintrag'} konnte nicht gelöscht werden`, {
+        description: error.message
+      })
+    }
+  })
+
   // Links that do not know the kind, older /venues links, or the kind changed in the sheet:
   // replace the URL with the one below the right list, keeping the tab
   const misplaced = venue ? isMisplacedVenuePath(pathname, venue) : false
@@ -221,6 +239,11 @@ export default function VenueDetailPage() {
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
+            <DeleteRecordButton
+              confirmTitle={`„${venue.name}“ löschen?`}
+              pending={deleteVenue.isPending}
+              onDelete={() => deleteVenue.mutate({ id: venue.id })}
+            />
           </div>
         </div>
       </div>

@@ -22,6 +22,7 @@ import { connectWriteImap, WriteAccount } from './write_guard.js'
 import { WriteConnectionPool } from './write_connection.js'
 import type { ConnectionBudget } from './connection_budget.js'
 import { isPathOrChild } from './folders.js'
+import { flagKey, parseStoredFlags } from './message_ingest.js'
 import { selectFailed } from './write_select.js'
 import { WriteMoves } from './write_moves.js'
 import { WriteSend } from './write_send.js'
@@ -567,9 +568,10 @@ export class WriteEngine {
       .get(op.message_key) as { id: number; flags_json: string } | undefined
     if (!row) return
     // flags_json is a JSON OBJECT {"seen":bool,...} (store convention), not an array
-    const flags = JSON.parse(row.flags_json) as Record<string, boolean>
-    for (const f of payload.add || []) flags[f.replace(/^\\/, '').toLowerCase()] = true
-    for (const f of payload.remove || []) flags[f.replace(/^\\/, '').toLowerCase()] = false
+    const flags = parseStoredFlags(row.flags_json)
+    // #163: flagKey maps '\\Seen' and '$Forwarded' alike and skips flags the store does not keep
+    for (const f of payload.add || []) { const k = flagKey(f); if (k) flags[k] = true }
+    for (const f of payload.remove || []) { const k = flagKey(f); if (k) flags[k] = false }
     this.store.updateMessageFlags(row.id, JSON.stringify(flags))
   }
 

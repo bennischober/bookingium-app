@@ -29,6 +29,10 @@ export type MessageListItem = {
   isRead: boolean;
   isFlagged: boolean;
   isDraft: boolean;
+  /** #163: \Answered is set (a reply went out) */
+  isAnswered: boolean;
+  /** #163: $Forwarded is set (the mail was forwarded) */
+  isForwarded: boolean;
   snippet: string;
   threadId: string | null; // conversation grouping
   threadCount: number;
@@ -234,6 +238,8 @@ export type ThreadSummary = {
   date: string | null;              // newest message date
   unread: number;
   hasAttachments: boolean;
+  answered: boolean;                // #163: some message of the thread has \Answered
+  forwarded: boolean;               // #163: some message of the thread has $Forwarded
   snippet: string;
   messageIds: number[];             // newest-first row ids (open newest directly)
 };
@@ -403,7 +409,7 @@ export type DraftInput = {
   signature?: string;
   /** Message (DB id) this one answers: it gets \Answered once the reply is sent */
   repliesTo?: number | null;
-  /** Message (DB id) whose attachments go along (forward) */
+  /** Message (DB id) whose attachments go along (forward): it gets $Forwarded once the mail is sent */
   forwardsFrom?: number | null;
   /**
    * I2: a UUID the editor keeps for one mail. A send uses it as the Message-ID, so sending

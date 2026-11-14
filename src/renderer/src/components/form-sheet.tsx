@@ -25,7 +25,8 @@ export function FormSheet({ isOpen, onClose, mode, title, description, children 
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="sm:max-w-xl overflow-y-auto">
+      {/* #161: no bottom padding, the sticky FormActions row closes the panel */}
+      <SheetContent className="sm:max-w-xl overflow-y-auto pb-0">
         <SheetHeader>
           <SheetTitle>{title || defaultTitle}</SheetTitle>
           <SheetDescription>{description || defaultDescription}</SheetDescription>
