@@ -211,6 +211,13 @@
       "when": 1794132771641,
       "tag": "0029_silly_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1794675787356,
+      "tag": "0030_delete_unused_addresses",
+      "breakpoints": true
     }
   ]
 }

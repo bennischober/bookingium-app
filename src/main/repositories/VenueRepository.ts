@@ -1,6 +1,7 @@
 import { and, eq, like, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { saveContactEmails, withContactEmails } from './contactEmails'
+import { deleteUnusedCompanions } from './companions'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
@@ -309,6 +310,7 @@ export class VenueRepository {
         })
         .where(eq(schema.venue.id, input.id))
         .run()
+      deleteUnusedCompanions(tx, existingVenue)
 
       const rows = tx
         .select()
@@ -334,6 +336,9 @@ export class VenueRepository {
   }
 
   async delete(id: number) {
-    await db.delete(schema.venue).where(eq(schema.venue.id, id))
+    db.transaction((tx) => {
+      const [deleted] = tx.delete(schema.venue).where(eq(schema.venue.id, id)).returning().all()
+      if (deleted) deleteUnusedCompanions(tx, deleted)
+    })
   }
 }

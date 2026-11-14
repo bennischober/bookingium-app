@@ -121,6 +121,38 @@ describe('runMigrations', () => {
     ])
   })
 
+  it('deletes the addresses and contacts no record uses any more', () => {
+    const sqlite = openDb()
+    const cleanup = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('#149'))
+    )
+    for (const { sql } of migrations.slice(0, cleanup)) for (const s of sql) sqlite.exec(s)
+    sqlite.exec(`
+      insert into address (id, city) values (1, 'Verwaist'), (2, 'Person'), (3, 'Geteilt');
+      insert into contact (id, email) values
+        (1, 'weg@example.test'), (2, 'person@example.test'), (3, 'hotel@example.test');
+      insert into contact_email (contact_id, email, position) values
+        (1, 'weg2@example.test', 0), (2, 'person2@example.test', 0);
+      insert into person (id, first_name, last_name, address_id, contact_id)
+        values (1, 'Erika', 'Musterfrau', 2, 2);
+      insert into venue (id, name, address_id) values (1, 'Musterhalle', 3);
+      insert into hotel (id, name, address_id, contact_id) values (1, 'Hotel Muster', 3, 3);
+    `)
+    for (const s of migrations[cleanup].sql) sqlite.exec(s)
+
+    expect(sqlite.prepare('select id from address order by id').all()).toEqual([
+      { id: 2 },
+      { id: 3 }
+    ])
+    expect(sqlite.prepare('select id from contact order by id').all()).toEqual([
+      { id: 2 },
+      { id: 3 }
+    ])
+    expect(sqlite.prepare('select contact_id from contact_email').all()).toEqual([
+      { contact_id: 2 }
+    ])
+  })
+
   it('takes over a database from before the merge, keeping its data', () => {
     const sqlite = legacyDb()
     runMigrations()

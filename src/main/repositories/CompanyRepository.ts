@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { eq, like, or, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { saveContactEmails, withContactEmails } from './contactEmails'
+import { deleteUnusedCompanions } from './companions'
 import { db } from '../db'
 import { company, address, contact, bank, band, invoice } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
@@ -335,6 +336,7 @@ export class CompanyRepository {
         })
         .where(eq(company.id, input.id))
         .run()
+      deleteUnusedCompanions(tx, existingCompany)
 
       // Fetch with relations
       const updated = tx
@@ -373,8 +375,11 @@ export class CompanyRepository {
   }
 
   async delete(id: number) {
-    const result = await db.delete(company).where(eq(company.id, id)).returning()
-    return result[0]
+    return db.transaction((tx) => {
+      const [deleted] = tx.delete(company).where(eq(company.id, id)).returning().all()
+      if (deleted) deleteUnusedCompanions(tx, deleted)
+      return deleted
+    })
   }
 
   /** Makes one company the default own company (or none) */
