@@ -218,6 +218,27 @@
       "when": 1794675787356,
       "tag": "0030_delete_unused_addresses",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1794676094647,
+      "tag": "0031_money_in_cents",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794676122021,
+      "tag": "0032_copy_money_to_cents",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794676151462,
+      "tag": "0033_drop_euro_amounts",
+      "breakpoints": true
     }
   ]
 }

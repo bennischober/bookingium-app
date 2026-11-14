@@ -1,4 +1,5 @@
 import { deal_memo, deal_memo_deposit, band, venue, person, company, hotel } from '../../db/schema'
+import { fromCents, fromNullableCents } from '../../einvoice/amounts'
 import type {
   DealMemoListItemDto,
   DealMemoDto,
@@ -44,8 +45,8 @@ export class DealMemoMapper {
   static toDto(entity: DealMemoWithRelations): DealMemoDto {
     return {
       ...this.toListItemDto(entity),
-      ticketPriceVvk: entity.ticket_price_vvk,
-      ticketPriceAk: entity.ticket_price_ak,
+      ticketPriceVvk: fromNullableCents(entity.ticket_price_vvk_cents),
+      ticketPriceAk: fromNullableCents(entity.ticket_price_ak_cents),
       posters: entity.posters,
       notes: entity.notes,
       amountOfPeople: entity.amount_of_people,
@@ -53,9 +54,12 @@ export class DealMemoMapper {
       performanceDuration: entity.performance_duration,
       performanceTime: entity.performance_time,
       performanceInformation: entity.performance_information,
-      guaranteeAmount: entity.guarantee_amount,
+      guaranteeAmount: fromNullableCents(entity.guarantee_cents),
       guaranteeVatRate: entity.guarantee_vat_rate,
-      deposits: (entity.deposits ?? []).map((d) => ({ amount: d.amount, dueDate: d.due_date })),
+      deposits: (entity.deposits ?? []).map((d) => ({
+        amount: fromCents(d.amount_cents),
+        dueDate: d.due_date
+      })),
       contractNotes: entity.contract_notes ?? '',
       loProPersonId: entity.lopro_person_id,
       loProCompanyId: entity.lopro_company_id,

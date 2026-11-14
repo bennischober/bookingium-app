@@ -153,6 +153,57 @@ describe('runMigrations', () => {
     ])
   })
 
+  it('turns the stored euro amounts into exact cents', () => {
+    const sqlite = openDb()
+    const copy = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('`total_gross_cents` = CAST'))
+    )
+    for (const { sql } of migrations.slice(0, copy)) for (const s of sql) sqlite.exec(s)
+    sqlite.exec(`
+      insert into company (id, name) values (1, 'Issuer GmbH');
+      insert into band (id, name, company_id) values (1, 'Musterband', 1);
+      insert into deal_memo (id, name, date, band_id, ticket_price_vvk, ticket_price_ak, guarantee_amount)
+        values (1, 'Konzert', '2026-11-01', 1, 1.005, null, 4999.99);
+      insert into deal_memo_deposit (deal_memo_id, position, amount) values (1, 1, 0.1 + 0.2);
+      insert into invoice (id, company_id, subtotal_net_amount, subtotal_tax_amount, total_gross_amount, total_amount)
+        values (1, 1, 3529.41, 670.59, 4200, 4200), (2, 1, -3529.41, -670.59, -4200, -4200);
+      insert into invoice_line_item (invoice_id, description, line_net_amount, line_tax_amount, line_gross_amount)
+        values (2, 'Storno', -529.41, -100.59, -630);
+    `)
+    for (const s of migrations[copy].sql) sqlite.exec(s)
+    for (const { sql } of migrations.slice(copy + 1)) for (const s of sql) sqlite.exec(s)
+
+    expect(
+      sqlite
+        .prepare(
+          'select ticket_price_vvk_cents, ticket_price_ak_cents, guarantee_cents from deal_memo'
+        )
+        .get()
+    ).toEqual({ ticket_price_vvk_cents: 101, ticket_price_ak_cents: null, guarantee_cents: 499999 })
+    expect(sqlite.prepare('select amount_cents from deal_memo_deposit').get()).toEqual({
+      amount_cents: 30
+    })
+    expect(
+      sqlite
+        .prepare(
+          'select subtotal_net_cents, subtotal_tax_cents, total_gross_cents from invoice order by id'
+        )
+        .all()
+    ).toEqual([
+      { subtotal_net_cents: 352941, subtotal_tax_cents: 67059, total_gross_cents: 420000 },
+      { subtotal_net_cents: -352941, subtotal_tax_cents: -67059, total_gross_cents: -420000 }
+    ])
+    expect(
+      sqlite
+        .prepare('select line_net_cents, line_tax_cents, line_gross_cents from invoice_line_item')
+        .get()
+    ).toEqual({ line_net_cents: -52941, line_tax_cents: -10059, line_gross_cents: -63000 })
+    // Integers, not floats that happen to look whole
+    expect(
+      sqlite.prepare('select typeof(total_gross_cents) as t from invoice limit 1').get()
+    ).toEqual({ t: 'integer' })
+  })
+
   it('takes over a database from before the merge, keeping its data', () => {
     const sqlite = legacyDb()
     runMigrations()

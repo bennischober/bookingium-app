@@ -30,6 +30,11 @@ database handle, and the demo seed.
   `./src/main/db/migrations`). Pre-2026-10 migrations were squashed into
   `0000_initial`; `upgradeLegacyDatabase` adopts older databases via
   `LEGACY_FINAL_MIGRATION_MILLIS`.
+- Money columns are integers named `*_cents` (#150). Repositories write them with
+  `toCents`, mappers turn them back into euro DTO fields with `fromCents`, so SQL
+  sums are exact. `invoice_line_item.unit_price_net` stays `real` on purpose: an
+  item price may have more than two decimals (EN 16931 BT-146) and only the line
+  net is rounded. Percentages and VAT rates are `real` too.
 - Document ownership has no FK: `owner_type` + `owner_id`, with triggers in the
   initial migration deleting rows when the owner goes.
 - Seeding runs only in unpackaged builds (dev and e2e) and only on an empty

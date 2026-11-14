@@ -28,7 +28,7 @@ import type {
   UpdateInvoiceInput
 } from '../api/schemas/invoice.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
-import { computeInvoiceAmounts, fromCents } from '../einvoice/amounts'
+import { computeInvoiceAmounts, toCents } from '../einvoice/amounts'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -123,14 +123,14 @@ export class InvoiceRepository {
       items: lines.map((line, index) => ({
         ...line,
         position: index + 1,
-        lineNetAmount: fromCents(amounts.lines[index].netCents),
-        lineTaxAmount: fromCents(amounts.lines[index].taxCents),
-        lineGrossAmount: fromCents(amounts.lines[index].grossCents)
+        lineNetCents: amounts.lines[index].netCents,
+        lineTaxCents: amounts.lines[index].taxCents,
+        lineGrossCents: amounts.lines[index].grossCents
       })),
       totals: {
-        subtotalNetAmount: fromCents(amounts.netCents),
-        subtotalTaxAmount: fromCents(amounts.taxCents),
-        totalGrossAmount: fromCents(amounts.grossCents)
+        subtotalNetCents: amounts.netCents,
+        subtotalTaxCents: amounts.taxCents,
+        totalGrossCents: amounts.grossCents
       }
     }
   }
@@ -600,7 +600,7 @@ export class InvoiceRepository {
             dealMemoName: [schema.deal_memo.name],
             issueDate: [schema.invoice.issue_date, schema.invoice.created_at],
             status: [schema.invoice.status],
-            totalAmount: [schema.invoice.total_amount]
+            totalAmount: [schema.invoice.total_gross_cents]
           },
           { key: 'issueDate', dir: 'desc' },
           schema.invoice.id
@@ -759,8 +759,8 @@ export class InvoiceRepository {
   }
 
   /** An invoice needs a non-zero total before it can be issued */
-  private assertIssuable(totalGrossAmount: number) {
-    if (totalGrossAmount === 0) {
+  private assertIssuable(totalGrossCents: number) {
+    if (totalGrossCents === 0) {
       throw new Error(
         'Eine Rechnung über 0,00 kann nicht gestellt werden – bitte Positionen erfassen'
       )
@@ -814,7 +814,7 @@ export class InvoiceRepository {
 
     const status = input.status ?? 'draft'
     // Drafts get their number when they are issued
-    if (status !== 'draft') this.assertIssuable(totals.totalGrossAmount)
+    if (status !== 'draft') this.assertIssuable(totals.totalGrossCents)
     const assignedInvoiceNumber =
       status === 'draft' ? null : this.takeNextInvoiceNumber(tx, companyId)
 
@@ -833,10 +833,9 @@ export class InvoiceRepository {
         due_date: input.dueDate ?? null,
         status,
         currency: input.currency ?? 'EUR',
-        subtotal_net_amount: totals.subtotalNetAmount,
-        subtotal_tax_amount: totals.subtotalTaxAmount,
-        total_gross_amount: totals.totalGrossAmount,
-        total_amount: totals.totalGrossAmount,
+        subtotal_net_cents: totals.subtotalNetCents,
+        subtotal_tax_cents: totals.subtotalTaxCents,
+        total_gross_cents: totals.totalGrossCents,
         payment_terms: input.paymentTerms ?? '',
         reverse_charge_note: input.reverseChargeNote ?? '',
         buyer_reference: input.buyerReference ?? '',
@@ -862,11 +861,11 @@ export class InvoiceRepository {
           quantity: item.quantity,
           unit: item.unit,
           unit_price_net: item.unitPriceNet,
-          line_net_amount: item.lineNetAmount,
+          line_net_cents: item.lineNetCents,
           tax_rate: item.taxRate,
           tax_code: item.taxCode,
-          line_tax_amount: item.lineTaxAmount,
-          line_gross_amount: item.lineGrossAmount
+          line_tax_cents: item.lineTaxCents,
+          line_gross_cents: item.lineGrossCents
         })
         .run()
     }
@@ -898,13 +897,11 @@ export class InvoiceRepository {
     if ('status' in input) values.status = input.status
     if ('currency' in input) values.currency = input.currency
     if (computedTotals) {
-      values.subtotal_net_amount = computedTotals.subtotalNetAmount
-      values.subtotal_tax_amount = computedTotals.subtotalTaxAmount
-      values.total_gross_amount = computedTotals.totalGrossAmount
-      values.total_amount = computedTotals.totalGrossAmount
-    } else if ('totalAmount' in input) {
-      values.total_gross_amount = input.totalAmount
-      values.total_amount = input.totalAmount
+      values.subtotal_net_cents = computedTotals.subtotalNetCents
+      values.subtotal_tax_cents = computedTotals.subtotalTaxCents
+      values.total_gross_cents = computedTotals.totalGrossCents
+    } else if ('totalAmount' in input && input.totalAmount !== undefined) {
+      values.total_gross_cents = toCents(input.totalAmount)
     }
     if ('paymentTerms' in input) values.payment_terms = input.paymentTerms
     if ('reverseChargeNote' in input) values.reverse_charge_note = input.reverseChargeNote
@@ -975,7 +972,7 @@ export class InvoiceRepository {
       const issuing = values.status !== undefined && values.status !== 'draft'
       if (issuing && existing.invoice_number === null) {
         this.assertIssuable(
-          (values.total_gross_amount as number | undefined) ?? existing.total_gross_amount
+          (values.total_gross_cents as number | undefined) ?? existing.total_gross_cents
         )
         values.invoice_number = this.takeNextInvoiceNumber(tx, nextCompanyId)
         Object.assign(
@@ -1016,11 +1013,11 @@ export class InvoiceRepository {
               quantity: item.quantity,
               unit: item.unit,
               unit_price_net: item.unitPriceNet,
-              line_net_amount: item.lineNetAmount,
+              line_net_cents: item.lineNetCents,
               tax_rate: item.taxRate,
               tax_code: item.taxCode,
-              line_tax_amount: item.lineTaxAmount,
-              line_gross_amount: item.lineGrossAmount
+              line_tax_cents: item.lineTaxCents,
+              line_gross_cents: item.lineGrossCents
             })
             .run()
         }
@@ -1189,7 +1186,7 @@ export class InvoiceRepository {
 
       const values: Record<string, unknown> = { status, updated_at: sql`datetime('now')` }
       if (status !== 'draft' && existing.invoice_number === null) {
-        this.assertIssuable(existing.total_gross_amount)
+        this.assertIssuable(existing.total_gross_cents)
         values.invoice_number = this.takeNextInvoiceNumber(tx, existing.company_id)
         Object.assign(values, this.issueSnapshotIds(tx, existing))
       }
@@ -1235,10 +1232,9 @@ export class InvoiceRepository {
         due_date: null,
         status: 'issued',
         currency: original.currency,
-        subtotal_net_amount: -original.subtotal_net_amount,
-        subtotal_tax_amount: -original.subtotal_tax_amount,
-        total_gross_amount: -original.total_gross_amount,
-        total_amount: -original.total_amount,
+        subtotal_net_cents: -original.subtotal_net_cents,
+        subtotal_tax_cents: -original.subtotal_tax_cents,
+        total_gross_cents: -original.total_gross_cents,
         payment_terms: `Storno der Rechnung Nr. ${original.invoice_number} vom ${germanDate(original.issue_date)}`,
         reverse_charge_note: original.reverse_charge_note,
         buyer_reference: original.buyer_reference,
@@ -1260,11 +1256,11 @@ export class InvoiceRepository {
           quantity: -line.quantity,
           unit: line.unit,
           unit_price_net: line.unit_price_net,
-          line_net_amount: -line.line_net_amount,
+          line_net_cents: -line.line_net_cents,
           tax_rate: line.tax_rate,
           tax_code: line.tax_code,
-          line_tax_amount: -line.line_tax_amount,
-          line_gross_amount: -line.line_gross_amount
+          line_tax_cents: -line.line_tax_cents,
+          line_gross_cents: -line.line_gross_cents
         })
         .run()
     }

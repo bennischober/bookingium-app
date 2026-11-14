@@ -704,8 +704,8 @@ export async function seedDatabase() {
         name: 'The Electric Waves - Berlin Tour',
         deal: '70/30',
         date: isoInDays(21),
-        ticket_price_vvk: 35.0,
-        ticket_price_ak: 40.0,
+        ticket_price_vvk_cents: 3500,
+        ticket_price_ak_cents: 4000,
         posters: '500 A1 posters, 1000 flyers',
         status: 'confirmed',
         notes: 'Summer tour kick-off show',
@@ -729,8 +729,8 @@ export async function seedDatabase() {
         name: 'Midnight Symphony - LA Showcase',
         deal: '60/40 with $5,000 guarantee',
         date: isoInDays(3),
-        ticket_price_vvk: 25.0,
-        ticket_price_ak: 30.0,
+        ticket_price_vvk_cents: 2500,
+        ticket_price_ak_cents: 3000,
         posters: '300 A2 posters',
         status: 'pending',
         notes: 'Album release party',
@@ -745,15 +745,15 @@ export async function seedDatabase() {
         band_id: band2.id,
         venue_id: venue1.id,
         hotel_id: null,
-        guarantee_amount: 5000,
+        guarantee_cents: 500000,
         guarantee_vat_rate: 19
       })
       .returning()
 
     // Two prepayments: the contract prints its optional "Vorkasse" section
     await db.insert(deal_memo_deposit).values([
-      { deal_memo_id: dealMemo2.id, position: 1, amount: 1500, due_date: null },
-      { deal_memo_id: dealMemo2.id, position: 2, amount: 1000, due_date: isoInDays(1) }
+      { deal_memo_id: dealMemo2.id, position: 1, amount_cents: 150000, due_date: null },
+      { deal_memo_id: dealMemo2.id, position: 2, amount_cents: 100000, due_date: isoInDays(1) }
     ])
 
     // ========================================
@@ -798,8 +798,8 @@ export async function seedDatabase() {
             name: 'Pretty Wild - Bad Hindelang Open Air',
             deal: 'Garantie 4.000,00 € zzgl. 7% MwSt.',
             date: isoInDays(10),
-            ticket_price_vvk: 25.0,
-            ticket_price_ak: 30.0,
+            ticket_price_vvk_cents: 2500,
+            ticket_price_ak_cents: 3000,
             posters: '200 A1 posters',
             status: 'confirmed',
             notes: 'Internal contract demo event',
@@ -814,7 +814,7 @@ export async function seedDatabase() {
             band_id: internalBand.id,
             venue_id: venue2.id,
             hotel_id: hotel1.id,
-            guarantee_amount: 4000,
+            guarantee_cents: 400000,
             guarantee_vat_rate: 7,
             contract_notes: 'Sondervereinbarung: Vorband stellt Backline. Auf- und Abbau am Vortag.'
           })
@@ -912,10 +912,9 @@ export async function seedDatabase() {
         due_date: isoInDays(11),
         status: 'issued',
         currency: 'EUR',
-        subtotal_net_amount: 3529.41,
-        subtotal_tax_amount: 670.59,
-        total_gross_amount: 4200,
-        total_amount: 4200,
+        subtotal_net_cents: 352941,
+        subtotal_tax_cents: 67059,
+        total_gross_cents: 420000,
         notes: 'Berlin show settlement invoice'
       })
       .returning()
@@ -935,10 +934,9 @@ export async function seedDatabase() {
         due_date: isoInDays(-26),
         status: 'paid',
         currency: 'EUR',
-        subtotal_net_amount: 1250,
-        subtotal_tax_amount: 0,
-        total_gross_amount: 1250,
-        total_amount: 1250,
+        subtotal_net_cents: 125000,
+        subtotal_tax_cents: 0,
+        total_gross_cents: 125000,
         reverse_charge_note: 'Reverse charge applies',
         notes: 'General promoter service invoice'
       })
@@ -960,10 +958,9 @@ export async function seedDatabase() {
         due_date: isoInDays(13),
         status: 'draft',
         currency: 'USD',
-        subtotal_net_amount: 5000,
-        subtotal_tax_amount: 0,
-        total_gross_amount: 5000,
-        total_amount: 5000,
+        subtotal_net_cents: 500000,
+        subtotal_tax_cents: 0,
+        total_gross_cents: 500000,
         notes: 'LA showcase guarantee invoice draft'
       })
       .returning()
@@ -976,11 +973,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 3000,
-        line_net_amount: 3000,
+        line_net_cents: 300000,
         tax_rate: 19,
         tax_code: 'standard',
-        line_tax_amount: 570,
-        line_gross_amount: 3570
+        line_tax_cents: 57000,
+        line_gross_cents: 357000
       },
       {
         invoice_id: invoice1.id,
@@ -989,11 +986,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 529.41,
-        line_net_amount: 529.41,
+        line_net_cents: 52941,
         tax_rate: 19,
         tax_code: 'standard',
-        line_tax_amount: 100.59,
-        line_gross_amount: 630
+        line_tax_cents: 10059,
+        line_gross_cents: 63000
       },
       {
         invoice_id: invoice2.id,
@@ -1002,11 +999,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 1250,
-        line_net_amount: 1250,
+        line_net_cents: 125000,
         tax_rate: 0,
         tax_code: 'reverse_charge',
-        line_tax_amount: 0,
-        line_gross_amount: 1250
+        line_tax_cents: 0,
+        line_gross_cents: 125000
       },
       {
         invoice_id: invoice3.id,
@@ -1015,11 +1012,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 5000,
-        line_net_amount: 5000,
+        line_net_cents: 500000,
         tax_rate: 0,
         tax_code: 'other',
-        line_tax_amount: 0,
-        line_gross_amount: 5000
+        line_tax_cents: 0,
+        line_gross_cents: 500000
       }
     ])
 

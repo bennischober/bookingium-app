@@ -107,12 +107,12 @@ describe('ManagementContractService.createShare', () => {
       quantity: 1,
       unit_price_net: 22843.52,
       tax_rate: 19,
-      line_net_amount: 22843.52,
-      line_tax_amount: 4340.27
+      line_net_cents: 2284352,
+      line_tax_cents: 434027
     })
-    expect(invoice?.subtotal_net_amount).toBe(22843.52)
-    expect(invoice?.subtotal_tax_amount).toBe(4340.27)
-    expect(invoice?.total_gross_amount).toBe(27183.79)
+    expect(invoice?.subtotal_net_cents).toBe(2284352)
+    expect(invoice?.subtotal_tax_cents).toBe(434027)
+    expect(invoice?.total_gross_cents).toBe(2718379)
   })
 
   it("uses the chosen contract's commission and payment days", async () => {

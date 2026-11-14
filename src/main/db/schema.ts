@@ -293,8 +293,8 @@ export const deal_memo = sqliteTable(
     name: text('name').notNull(),
     deal: text('deal').notNull().default(''), // financial deal terms, e.g. "70/30"
     date: text('date').notNull(), // ISO 8601 format: YYYY-MM-DD
-    ticket_price_vvk: real('ticket_price_vvk'),
-    ticket_price_ak: real('ticket_price_ak'),
+    ticket_price_vvk_cents: integer('ticket_price_vvk_cents'),
+    ticket_price_ak_cents: integer('ticket_price_ak_cents'),
     posters: text('posters').default('').notNull(),
     status: text('status').default('').notNull(),
     notes: text('notes').default('').notNull(),
@@ -303,7 +303,7 @@ export const deal_memo = sqliteTable(
     performance_duration: text('performance_duration').default(''),
     performance_time: text('performance_time').default(''),
     performance_information: text('performance_information').default(''),
-    guarantee_amount: real('guarantee_amount'),
+    guarantee_cents: integer('guarantee_cents'),
     guarantee_vat_rate: real('guarantee_vat_rate'),
     contract_notes: text('contract_notes').default(''),
     // Radius clause of this contract, #102; null = the venue's, then the global default
@@ -352,7 +352,7 @@ export const deal_memo = sqliteTable(
   ]
 )
 
-// Optional prepayments on the fee (net euros, like deal_memo.guarantee_amount):
+// Optional prepayments on the fee (net, in cents like deal_memo.guarantee_cents):
 // the contract's "Vorkasse" clause, printed only when a deal memo has rows here.
 // Ordered by position; a null due date means "bei Vertragsabschluss"
 export const deal_memo_deposit = sqliteTable(
@@ -363,7 +363,7 @@ export const deal_memo_deposit = sqliteTable(
       .notNull()
       .references(() => deal_memo.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    amount: real('amount').notNull(),
+    amount_cents: integer('amount_cents').default(0).notNull(),
     due_date: text('due_date') // ISO 8601 date
   },
   (table) => [index('deal_memo_deposit_deal_memo_idx').on(table.deal_memo_id, table.position)]
@@ -464,10 +464,9 @@ export const invoice = sqliteTable(
     due_date: text('due_date'),
     status: text('status').default('draft').notNull(),
     currency: text('currency').default('EUR').notNull(),
-    subtotal_net_amount: real('subtotal_net_amount').default(0).notNull(),
-    subtotal_tax_amount: real('subtotal_tax_amount').default(0).notNull(),
-    total_gross_amount: real('total_gross_amount').default(0).notNull(),
-    total_amount: real('total_amount').default(0).notNull(),
+    subtotal_net_cents: integer('subtotal_net_cents').default(0).notNull(),
+    subtotal_tax_cents: integer('subtotal_tax_cents').default(0).notNull(),
+    total_gross_cents: integer('total_gross_cents').default(0).notNull(),
     payment_terms: text('payment_terms').default('').notNull(),
     // Tax note printed on the invoice; also the e-invoice exemption reason
     // (BT-120) for reverse charge, exempt and other zero-VAT lines
@@ -521,11 +520,11 @@ export const invoice_line_item = sqliteTable(
     quantity: real('quantity').default(1).notNull(),
     unit: text('unit').default('service').notNull(),
     unit_price_net: real('unit_price_net').default(0).notNull(),
-    line_net_amount: real('line_net_amount').default(0).notNull(),
     tax_rate: real('tax_rate').default(0).notNull(),
     tax_code: text('tax_code').default('standard').notNull(),
-    line_tax_amount: real('line_tax_amount').default(0).notNull(),
-    line_gross_amount: real('line_gross_amount').default(0).notNull(),
+    line_net_cents: integer('line_net_cents').default(0).notNull(),
+    line_tax_cents: integer('line_tax_cents').default(0).notNull(),
+    line_gross_cents: integer('line_gross_cents').default(0).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull()
@@ -1048,7 +1047,7 @@ export const management_share_income = sqliteTable(
       .references(() => management_share.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     description: text('description').notNull(),
-    net_amount: real('net_amount').notNull()
+    net_cents: integer('net_cents').default(0).notNull()
   },
   (table) => [index('management_share_income_share_idx').on(table.share_id)]
 )

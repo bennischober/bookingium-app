@@ -716,14 +716,14 @@ describe('EInvoiceService', () => {
       status: 'issued',
       invoice_number: (original.invoice_number ?? 0) + 1,
       cancels_invoice_id: original.id,
-      total_gross_amount: -original.total_gross_amount,
-      subtotal_tax_amount: -original.subtotal_tax_amount,
+      total_gross_cents: -original.total_gross_cents,
+      subtotal_tax_cents: -original.subtotal_tax_cents,
       issuer_snapshot_id: original.issuer_snapshot_id
     })
     expect(storno?.payment_terms).toMatch(/^Storno der Rechnung Nr\. \d+ vom \d{2}\.\d{2}\.\d{4}$/)
     expect(storno?.lineItems.map((line) => line.quantity)).toEqual([-1, -3])
     expect(
-      original.total_gross_amount + storno!.total_gross_amount,
+      original.total_gross_cents + storno!.total_gross_cents,
       'invoice and Storno add up to zero'
     ).toBe(0)
 

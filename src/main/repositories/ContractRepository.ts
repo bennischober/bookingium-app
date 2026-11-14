@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { asc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { fromCents, fromNullableCents } from '../einvoice/amounts'
 import type { ContractData } from '../api/schemas/contract.schema'
 import { defaultOwnCompanyId, loadCompanyParty } from './contractParties'
 
@@ -78,9 +79,9 @@ export class ContractRepository {
         performanceDuration: row.deal_memo.performance_duration ?? '',
         performanceTime: row.deal_memo.performance_time ?? '',
         performanceInformation: row.deal_memo.performance_information ?? '',
-        guaranteeAmount: row.deal_memo.guarantee_amount,
+        guaranteeAmount: fromNullableCents(row.deal_memo.guarantee_cents),
         guaranteeVatRate: row.deal_memo.guarantee_vat_rate,
-        deposits: deposits.map((d) => ({ amount: d.amount, dueDate: d.due_date })),
+        deposits: deposits.map((d) => ({ amount: fromCents(d.amount_cents), dueDate: d.due_date })),
         contractNotes: row.deal_memo.contract_notes ?? '',
         notes: row.deal_memo.notes ?? '',
         deal: row.deal_memo.deal ?? '',
