@@ -16,7 +16,17 @@ import { OpApi, type OpApiContext } from '../src/main/mailclient/core/op_api'
 import type { AccountEntry } from '../src/main/mailclient/core/index'
 
 const ACCOUNT = 'acc'
-const OLD_FLAGS = '{"seen":true,"flagged":false,"draft":false,"deleted":false,"answered":false}'
+/** flags_json the way a build before #163 stored it: no `forwarded` key */
+const storedFlags = (extra: Record<string, boolean> = {}) =>
+  JSON.stringify({
+    seen: true,
+    flagged: false,
+    draft: false,
+    deleted: false,
+    answered: false,
+    ...extra
+  })
+const OLD_FLAGS = storedFlags()
 
 const cleanups: (() => void)[] = []
 afterEach(() => {
@@ -92,8 +102,8 @@ describe('threads', () => {
     const store = openStore()
     const inbox = store.upsertFolder({ imapPath: 'INBOX', delimiter: '/', uidValidity: '7' })
     addMessage(store, inbox.id, 1, 't-a', OLD_FLAGS)
-    addMessage(store, inbox.id, 2, 't-a', OLD_FLAGS.replace('"answered":false', '"answered":true'))
-    addMessage(store, inbox.id, 3, 't-f', OLD_FLAGS.replace('}', ',"forwarded":true}'))
+    addMessage(store, inbox.id, 2, 't-a', storedFlags({ answered: true }))
+    addMessage(store, inbox.id, 3, 't-f', storedFlags({ forwarded: true }))
     addMessage(store, inbox.id, 4, 't-n', OLD_FLAGS)
 
     const byId = new Map(store.listThreads(inbox.id, 0, 50).map((t) => [t.threadId, t]))
