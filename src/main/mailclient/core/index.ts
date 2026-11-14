@@ -73,8 +73,9 @@ export interface MailCoreOptions {
   /**
    * #156: the pause in ms after each STATUS of a census (the sync button's check, the poll,
    * syncAll's STATUS sweep) for every account; omit for the account default (requestDelayMs,
-   * 150 ms on a real server). The worker reads BOOKINGIUM_MAIL_CENSUS_PAUSE_MS to set it, so
-   * the pacing can be tried against a server without editing code.
+   * none on a real server since #157). The pacer adds its learned pause on top: this is the
+   * floor. The worker reads BOOKINGIUM_MAIL_CENSUS_PAUSE_MS to set it, so a fixed pause can be
+   * tried against a server without editing code.
    */
   censusPauseMs?: number;
   /** testing: force the no-CONDSTORE sync strategy even on CONDSTORE servers */

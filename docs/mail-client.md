@@ -234,7 +234,7 @@ messages) even when nothing changed. So `triggerSync(false, accountId, openFolde
 2. „Wichtige Ordner aktuell · n / m Ordner geprüft“: one STATUS round over every other folder; only
    folders whose MESSAGES, UIDNEXT, HIGHESTMODSEQ (where the server has it) or UNSEEN differ from the
    store are synced. The round is one `LIST … RETURN (STATUS …)` where the server advertises LIST-STATUS
-   (RFC 5819), else one STATUS per folder with the census pause between them (150 ms, see below).
+   (RFC 5819), else one STATUS per folder, paced adaptively (see below).
 
 The button covers new and removed mail and read-state changes in every folder. It does **not** see
 other flag changes (`\Flagged`, `\Answered`, …) in an unchanged, non-priority folder, or read-state
@@ -247,7 +247,7 @@ paused first download). The background poll uses the same STATUS round and the s
 sync that went through, as the server reported it before that sync; unknown (NULL) never counts as a
 change. IONOS advertises LIST-STATUS (read off „Verbindung testen“ on 2026-11-13, a small test
 account), so there the check is one command plus the changed folders; a server without it pays one
-paced STATUS round (~276 × 150 ms on the large mailbox). The deep check and the pass after start use
+STATUS round, one command per folder. The deep check and the pass after start use
 the same LIST-STATUS for their STATUS sweep (counts, size where the server has STATUS=SIZE, the UNSEEN
 baseline) before they open every folder.
 
@@ -260,18 +260,33 @@ one. While a pass runs the folder is queued and the pass takes it next (`'queued
 pass already synced is not synced again. It is skipped while the folder's mutex is held (IDLE on INBOX,
 a write's resync, the poll), before the first pass finished, while paused, offline or the disk is full.
 
-**The census pause** is the pause between two STATUS commands of a round without LIST-STATUS (the
-sync button's check, the background poll, `syncAll`'s STATUS sweep); with LIST-STATUS it only applies
-to a folder the LIST answer left out. Default 150 ms, taken from the
-prototype and never measured (adaptive pacing: issue #157). It can be changed without editing code by starting the app
-with `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` (whole ms, 0 to 10000; anything else is ignored), for example in
-PowerShell `$env:BOOKINGIUM_MAIL_CENSUS_PAUSE_MS='50'; pnpm dev`. The host reads it and passes
-`censusPauseMs` to the core; it applies to every account and leaves `requestDelayMs` (the pause between
-other commands) alone.
+**Adaptive pacing (#157).** The sync connection's paced loops (the STATUS round without
+LIST-STATUS, the flag sweep's 500-UID chunks, the download batches) share one pacer per account
+(`core/pacer.ts`). Commands on one connection are sequential, so the server's own latency already paces
+them; the pacer adds a pause only when the server signals throttling: a tagged NO/BAD with `[LIMIT]`,
+`[UNAVAILABLE]` or `[INUSE]` (RFC 5530), imapflow's `ETHROTTLE`, a BYE, a lost sync connection, or a
+STATUS or flag chunk that took at least 750 ms and more than three times the connection's median. Each
+signal doubles the learned pause (first step 100 ms, at most 2 s); every five normal answers shrink it
+by a fifth, back to 0. The learned pause is remembered in the store (`kv` key `pacer_pause_ms`), a hint
+and not a setting, so a restart begins where the last run ended. The circuit breaker stays the last
+resort. imapflow's STATUS answers a refused command with `false` instead of throwing, so the sync
+connection hands imapflow a logger that passes only the error object of its warnings to the pacer
+(`syncCommandFailed`); nothing of a log entry is written anywhere.
+
+The pacer's pause adds to fixed floors: 100 ms between download batches on a real mailbox
+(`interBatchDelayMs`; it was 750 ms), none for STATUS and the flag sweep (`requestDelayMs` was 150 ms).
+**The census pause**, the floor between two STATUS commands of a round, can be set without editing
+code by starting the app with `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` (whole ms, 0 to 10000; anything else is
+ignored), for example in PowerShell `$env:BOOKINGIUM_MAIL_CENSUS_PAUSE_MS='150'; pnpm dev` for the old
+fixed value. The host reads it and passes `censusPauseMs` to the core; it applies to every account and
+leaves the other floors alone.
 
 **What the last pass did.** After each pass the user started (either button) the core logs one line,
-counts only, never folder names: `[mail] sync pass (changes): list-status=no census-pause=150ms
-census=41234ms checked=271 synced=6 total=52050ms errors=0 ended=idle connection=online`. It shows in
+counts only, never folder names: `[mail] sync pass (changes): list-status=no census-pause=0ms
+census=21234ms checked=271 synced=6 total=32050ms errors=0 ended=idle connection=online pause=0ms
+max-pause=200ms throttled=2`. `pause`, `max-pause` and `throttled` are the pacer's learned pause at the
+end and at its highest, and its throttling signals during the pass; a pass that was slowed down says so
+in the panel below („Vom Server gebremst: …“). It shows in
 the `pnpm dev` terminal; the same numbers are the tooltip on „Synchronisiert HH:MM“ in the sync bar
 (`SyncStatus.lastPass`). `kind` is `changes` (the button), `full` (the deep check) or `all` (the button
 while the store is not complete). `census` is the time of the STATUS round without the folder syncs in

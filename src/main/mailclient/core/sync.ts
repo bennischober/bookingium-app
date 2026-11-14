@@ -29,6 +29,7 @@ import { MessageIngest } from './message_ingest.js';
 import { FolderSync, nextUid, uidRange } from './folder_sync.js';
 import { IDLE_CAP_MS, IdleLoop, idleWait, Poller } from './idle_poll.js';
 import { censusPauseOf, checkableFolders, StatusCheck, type FolderStatus } from './status_check.js';
+import { Pacer, PACER_KV_KEY, parseRememberedPause } from './pacer.js';
 
 export { IDLE_CAP_MS, idleWait, nextUid, uidRange };
 
@@ -47,6 +48,8 @@ export interface AccountConfig {
   // S1: a message above this server size (RFC822.SIZE) is stored as its skeleton, without its
   // large parts, until it is opened. Unset: every message is downloaded whole.
   lazyAboveBytes?: number;
+  // #157: the three pauses below are FLOORS: the engine's pacer (pacer.ts) adds what it learned
+  // from the server's throttling signals on top, and starts with nothing added.
   interBatchDelayMs?: number;  // sleep between download batches
   requestDelayMs?: number;     // sleep between IMAP commands in sweeps
   // #156: sleep after each STATUS of a census (the STATUS round of the sync button, the poll and
@@ -76,15 +79,16 @@ export function makeReadOnlyAccount(input: {
     dataDir: input.dataDir,
     maxConnections: 2,             // sync + IDLE, or sync + write (I15a) — hard cap, gentle to the live server
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
-    interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
-    requestDelayMs: 150,           // pace STATUS/UID sweeps
+    // #157: a small fixed floor between download batches only; STATUS and flag sweeps start
+    // without a pause and the pacer backs off when the server signals throttling
+    interBatchDelayMs: 100,
     lazyAboveBytes: LAZY_ABOVE_BYTES, // S1, on since the first IONOS run (2026-10-28); removing it turns partial ingest off
   };
 }
 
 /**
  * A real, writable mailbox. A real server, so it gets the same pacing as a read-only one
- * (2 connections, ~4 MB batches, paced STATUS sweeps). The guard still decides whether a
+ * (2 connections, ~4 MB batches, the download floor; #157: the rest is adaptive). The guard still decides whether a
  * write may actually go out; this only builds the account.
  */
 export function makeLiveAccount(input: {
@@ -102,8 +106,9 @@ export function makeLiveAccount(input: {
     dataDir: input.dataDir,
     maxConnections: 2,             // sync + IDLE, or sync + write (I15a) - hard cap, gentle to the live server
     batchBytes: 4 * 1024 * 1024,   // ~4 MB per batch, then interBatchDelay
-    interBatchDelayMs: 750,        // ~5 MB/s sustained body throughput, well under any limit
-    requestDelayMs: 150,           // pace STATUS/UID sweeps
+    // #157: a small fixed floor between download batches only; STATUS and flag sweeps start
+    // without a pause and the pacer backs off when the server signals throttling
+    interBatchDelayMs: 100,
     lazyAboveBytes: LAZY_ABOVE_BYTES,
   };
 }
@@ -238,6 +243,8 @@ export class SyncEngine {
   private passErrorCount = 0;
   // #159: of those, the ones of the whole pass (no folder)
   private passGeneralErrors = 0;
+  // #157: paces the sync connection's census, flag sweeps and downloads
+  private readonly pacer: Pacer;
   // #159: the last passes and the sync errors still standing, for the activity panel
   private readonly activity = new SyncActivity();
   // I18: free bytes on the store's drive, checked before a UIDVALIDITY swap (a seam for tests)
@@ -280,6 +287,13 @@ export class SyncEngine {
     // Applied once the pass knows the download is not done: every server contact waits while
     // paused, so holding it here would keep the pass from ever finding out.
     this.restoredPause = store.getFlag(PAUSED_FLAG) === '1';
+    // #157: the floors are the account's fixed pauses; the learned part starts where the last
+    // run ended (a hint in the store, not a setting)
+    this.pacer = new Pacer({
+      census: censusPauseOf(account),
+      sweep: account.requestDelayMs ?? 0,
+      batch: account.interBatchDelayMs ?? 0,
+    }, parseRememberedPause(store.getFlag(PACER_KV_KEY)), ms => this.saveFlag(PACER_KV_KEY, ms ? String(ms) : null));
     this.budget = options?.budget ?? new ConnectionBudget(account.maxConnections ?? 4);
     this.freeBytes = options?.freeBytes ?? freeBytesOf;
     this.log = options?.log ?? {};
@@ -296,6 +310,8 @@ export class SyncEngine {
       authFailed: () => this.onAuthFailed?.(),
       loadCredentials: async () => { await options?.credentials?.(); },
       waitWhilePaused: () => this.waitWhilePaused(),
+      syncClientClosed: () => this.pacer.signal('disconnect'),
+      syncCommandFailed: (err) => this.pacer.failed(err),
     }, options?.forceNoCondstore === true);
     this.ingest = new MessageIngest({
       account: this.account,
@@ -316,6 +332,7 @@ export class SyncEngine {
       gate: () => this.gate(),
       noteError: context => this.noteError(context),
       hasCondstore: () => this.hasCondstore,
+      pacer: this.pacer,
       yieldFolderToWrites: imapPath => this.yieldFolderToWrites(imapPath),
       freeBytes: dir => this.freeBytes(dir),
       noteDiskFull: (path, message) => this.noteDiskFull(path, message),
@@ -360,6 +377,7 @@ export class SyncEngine {
       syncFolder: (imapPath, opts) => this.syncFolder(imapPath, opts),
       renamePending: imapPath => this.renamePending(imapPath),
       folderErrors: imapPath => this.folderErrors.get(imapPath) ?? 0,
+      pacer: this.pacer,
     });
     this.poller = new Poller({
       account: this.account,
@@ -381,6 +399,7 @@ export class SyncEngine {
       noteDiskFull: path => this.noteDiskFull(path),
       syncAll: () => this.syncAll(),
       statusCheck: () => this.statusCheck,
+      pacer: this.pacer,
       withSelected: (imapPath, expectedValidity, fn) => this.withSelected(imapPath, expectedValidity, fn),
     });
   }
@@ -781,6 +800,7 @@ export class SyncEngine {
     this.passSynced = new Set();
     this.passErrorCount = 0;
     this.passGeneralErrors = 0;
+    this.pacer.beginPass();
     // settled once the folder list is known; until then a first pass after start looks initial
     this.passPhase = this.progress.messagesTotal === null ? 'initial' : 'incremental';
     this.progress = {
@@ -817,11 +837,10 @@ export class SyncEngine {
         await this.gate();
         try {
           // #63: SIZE where the server has it (STATUS=SIZE, IMAP4rev2); imapflow leaves it out otherwise
-          const st = await client0.status(p, { messages: true, size: true, unseen: true });
+          const st = await this.pacer.timed(() => client0.status(p, { messages: true, size: true, unseen: true }));
           if (st) record(p, st);
-          const pause = censusPauseOf(this.account);
-          if (pause) await new Promise(r => setTimeout(r, pause));
         } catch { /* STATUS on a weird folder — ignore, sync pass will handle */ }
+        await this.pacer.pace('census');
       }
       censusMs = Date.now() - c0;
       checked = folders.length;
@@ -920,11 +939,12 @@ export class SyncEngine {
    * #156: after a pass. Records its summary (#159: every pass in the history, the user-started
    * one also as lastPass); a folder opened too late for the pass to take it is synced now.
    */
-  private endPass(summary: Omit<PassSummary, 'censusPauseMs' | 'errors' | 'phase' | 'connection' | 'at'>, byUser: boolean): void {
+  private endPass(summary: Omit<PassSummary, 'censusPauseMs' | 'pacing' | 'errors' | 'phase' | 'connection' | 'at'>, byUser: boolean): void {
     const phase = this.progress.phase ?? 'idle';
     const pass: PassSummary = {
       ...summary,
-      censusPauseMs: censusPauseOf(this.account),
+      censusPauseMs: this.pacer.pauseFor('census'),
+      pacing: this.pacer.passStats(),
       errors: this.passErrorCount,
       phase,
       connection: this.progress.connection,
@@ -1023,6 +1043,7 @@ export class SyncEngine {
     this.passSynced = new Set();
     this.passErrorCount = 0;
     this.passGeneralErrors = 0;
+    this.pacer.beginPass();
     this.passPhase = 'incremental';
     this.progress = {
       ...this.progress, running: true,

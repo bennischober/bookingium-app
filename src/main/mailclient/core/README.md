@@ -34,7 +34,8 @@ the prototype's `test-core-boundary.ts`) holds this boundary.
 | `message_ingest.ts` | `MessageIngest`: storing a fetched message or an appended draft (body file + row), the fault-injection hook |
 | `folder_sync.ts` | `FolderSync`: one folder's pass (CONDSTORE/QRESYNC tiered + UID-sweep fallback), staged UIDVALIDITY swap, downloads, mass-expunge check |
 | `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, the STATUS poll (through `status_check.ts`), the tiered flag sweep |
-| `status_check.ts` | #156: `StatusCheck`, the STATUS round (LIST-STATUS where advertised, else per-folder STATUS paced by the census pause) and the one "folder changed" rule (MESSAGES, UIDNEXT, HIGHESTMODSEQ, UNSEEN) the poll and `syncChanges` share; remembers UNSEEN after a sync that went through; `censusPauseOf`, `parseCensusPause` |
+| `status_check.ts` | #156: `StatusCheck`, the STATUS round (LIST-STATUS where advertised, else per-folder STATUS paced by the pacer) and the one "folder changed" rule (MESSAGES, UIDNEXT, HIGHESTMODSEQ, UNSEEN) the poll and `syncChanges` share; remembers UNSEEN after a sync that went through; `censusPauseOf`, `parseCensusPause` |
+| `pacer.ts` | #157: `Pacer`, the adaptive pause of the sync connection's census, flag sweep and download batches (floors from the account, a learned part that doubles on a throttling signal and recovers on normal answers, remembered in kv); `throttleSignalOf` |
 | `pass_summary.ts` | #156: `passSummaryLine`, the one content-free log line after a pass the user started |
 | `sync_activity.ts` | #159: `SyncActivity`, the last 10 passes and the sync errors still standing (per folder or per masked message, counted, dismissable), in memory; `SyncStatus.passHistory` / `syncErrors` |
 | `write_engine.ts` | `WriteEngine`: crash-safe, serialized playback of journaled ops: the queue, `execute`, the watchdog, the write connection, `preflight`, flags and expunge; the other op kinds go to the four modules below |
@@ -207,13 +208,21 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   UNPACED STATUS per folder and set `skipListStatusArgs`; `StatusCheck` then latches `listStatusBroken`
   and uses the paced path from the next round on. A server that silently ignores the RETURN option
   cannot be told apart and pays that unpaced round each time.
-- **Pacing.** Per-folder STATUS commands are paced by the census pause, `censusPauseOf(account)`:
-  `AccountConfig.censusDelayMs`, else `requestDelayMs`, i.e. 150 ms for every account builder. That
-  value comes from the prototype and was never measured (#157), so it stays the default; the host can
-  set `MailCoreOptions.censusPauseMs` for every account (the worker reads
-  `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` through `parseCensusPause`, 0 to 10000 ms; the core itself reads no
-  environment). It covers the change pass's check, the poll and `syncAll`'s STATUS sweep, nothing else,
-  and only where they ask folder by folder: LIST-STATUS is one command and needs none.
+- **Pacing (#157, `pacer.ts`).** One `Pacer` per `SyncEngine` paces the per-folder STATUS
+  (`StatusCheck.statusOf`, `syncAll`'s sweep: kind `census`), the flag sweep's chunks (`sweep`) and the
+  download batches (`batch`). Each kind has a fixed floor (`censusPauseOf(account)`, `requestDelayMs`,
+  `interBatchDelayMs`: 0, 0 and 100 ms for the real-mailbox builders); the learned part on top starts at
+  0 (or the value in kv `pacer_pause_ms`), doubles on a throttling signal (`throttleSignalOf`: RFC 5530
+  `[LIMIT]`/`[UNAVAILABLE]`/`[INUSE]`, `ETHROTTLE`, BYE, a lost connection; `answered`: a STATUS or flag
+  chunk slower than 750 ms and 3× the median of the last 31) up to 2 s, and shrinks by a fifth every
+  five normal answers. Downloads only count as normal answers (`normal`): their time says more about
+  their size. `SyncConnection` reports a closed sync client (`syncClientClosed`) and, through the
+  logger it hands imapflow, the errors imapflow swallows (STATUS answers `false` for a `NO [LIMIT]`:
+  `syncCommandFailed`; only the error object, nothing is logged). `Pacer.failed` reads each error once,
+  and `timed` does not count a `false` answer as normal. The circuit breaker
+  stays the last resort. The host can still set the census floor with `MailCoreOptions.censusPauseMs`
+  (the worker reads `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` through `parseCensusPause`, 0 to 10000 ms; the core
+  itself reads no environment).
 - **The opened folder** (`SyncEngine.syncOpened`, `MailCore.syncOpenedFolder`): synced on the sync
   client after one STATUS, never on a new connection. During a pass it becomes `openRequest`, which the
   pass's folder loop (`syncAll`) or `takeOpened` (`syncChanges`, before each priority folder and inside
@@ -225,7 +234,8 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   started with `report: true`, i.e. from `MailCore.triggerSync`; the background passes leave it alone.
   Counts and times only: LIST-STATUS used, census pause and duration (the STATUS round without the
   syncs inside it), folders checked and synced, total time, error events during the pass, the phase
-  and connection at the end. `triggerSync` logs it once with `passSummaryLine`.
+  and connection at the end, and (#157) `pacing`: the pacer's learned pause at the end and at its
+  highest, and its throttling signals. `triggerSync` logs it once with `passSummaryLine`.
 - **Not covered by the button:** flag changes other than `\Seen` in unchanged non-priority folders, and
   `\Seen` changes that cancel out in the count. The poll's tiered flag sweep and the deep check do.
 

@@ -405,7 +405,7 @@ describe('#156: syncing the folder the user opens', () => {
 describe('#156: the pass summary', () => {
   type Core = ReturnType<typeof createMailCore>
   const LINE =
-    /^sync pass \((changes|all|full)\): list-status=(yes|no) census-pause=\d+ms census=\d+ms checked=\d+ synced=\d+ total=\d+ms errors=\d+ ended=\w+ connection=\w+$/
+    /^sync pass \((changes|all|full)\): list-status=(yes|no) census-pause=\d+ms census=\d+ms checked=\d+ synced=\d+ total=\d+ms errors=\d+ ended=\w+ connection=\w+ pause=\d+ms max-pause=\d+ms throttled=\d+$/
 
   async function coreFor(capabilities: string[], censusPauseMs?: number) {
     const imap = await server(capabilities)
