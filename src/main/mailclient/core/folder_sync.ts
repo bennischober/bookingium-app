@@ -10,6 +10,16 @@ import { flagsFromSet, MessageIngest, sameFlags, toIso } from './message_ingest.
 import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
 
+/**
+ * #159: an error's message with the server's own text where imapflow keeps it apart
+ * ("Command failed" alone says nothing). The server's status text, never mail content.
+ */
+export function imapErrorMessage(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e);
+  const text = (e as { responseText?: unknown } | null)?.responseText;
+  return typeof text === 'string' && text && !message.includes(text) ? `${message}: ${text}` : message;
+}
+
 /** I12 (MR-41): an expunge this large in one pass needs EXAMINE's EXISTS to confirm the UID list. */
 const MASS_EXPUNGE_MIN = 20;
 const MASS_EXPUNGE_SHARE = 0.2;
@@ -75,7 +85,15 @@ export class FolderSync {
     const prevValidity = folder?.uid_validity ?? null;
     const prevModseq = folder?.highest_modseq ? BigInt(folder.highest_modseq) : null;
 
-    const lock = await client.getMailboxLock(imapPath, this.account.readOnly ? { readOnly: true } : {});
+    // #159: a SELECT the server refuses fails here, before the try below; reported like any
+    // other folder error, so the activity panel and the folder tree show it (the pass goes on)
+    let lock: Awaited<ReturnType<ImapFlow['getMailboxLock']>>;
+    try {
+      lock = await client.getMailboxLock(imapPath, this.account.readOnly ? { readOnly: true } : {});
+    } catch (e) {
+      if (!isDiskFullError(e)) this.emit({ type: 'error', path: imapPath, message: imapErrorMessage(e) });
+      throw e;
+    }
     try {
       // Task 3 (found by diag-expunge-clean.ts): getMailboxLock does NOT re-select an
       // already-selected mailbox, and a selected session's view can lag the server by a
@@ -109,7 +127,7 @@ export class FolderSync {
         await this.ctx.incrementalSyncFolder(client, imapPath, uidValidity, prevModseq!, highestModseq, mailbox.uidNext);
       }
     } catch (e) {
-      this.emit({ type: 'error', path: imapPath, message: (e as Error).message });
+      this.emit({ type: 'error', path: imapPath, message: imapErrorMessage(e) });
       // A full disk is not a connection fault: it must reach syncAll's disk-full branch so the
       // pass stops and the user is told the truth, instead of being swallowed here as a generic
       // folder error (which leaves the UI saying "offline" or nothing at all).

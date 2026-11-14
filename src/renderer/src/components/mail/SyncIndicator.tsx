@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { runningOpLabel } from '@/components/mail/opLabel'
 import { passSummaryText, syncProgressText } from '@/components/mail/syncProgress'
+import { syncErrorsOf } from '@/components/mail/syncActivity'
+import { SyncActivityPanel } from '@/components/mail/SyncActivityPanel'
 import type { SyncStatus } from '../../../../main/mailclient/core/types'
 
 /** The current time, updated every second while `active` (for countdowns) */
@@ -30,7 +32,10 @@ export function SyncIndicator({
   onPause,
   onResume,
   onSync,
-  onSyncAll
+  onSyncAll,
+  folderName = (path) => path,
+  onRetryFolder,
+  onDismissErrors
 }: {
   status: SyncStatus | undefined
   runningOp: string | null
@@ -40,9 +45,17 @@ export function SyncIndicator({
   onSync: () => void
   /** #156: the deep check, every folder opened and compared */
   onSyncAll: () => void
+  /** #159: the folder's name in the tree, for the activity panel */
+  folderName?: (path: string) => string
+  /** #159: "Ordner erneut synchronisieren" in the activity panel */
+  onRetryFolder?: (path: string) => Promise<void>
+  /** #159: "Ausblenden" in the activity panel; null hides all */
+  onDismissErrors?: (keys: string[] | null) => void
 }) {
   const offline = status?.connection === 'offline' && !status.running
   const now = useNow(offline && Boolean(status?.retryAt))
+  // #159: the activity panel behind the sync time and the error count
+  const [panelOpen, setPanelOpen] = useState(false)
   // A running write op needs no sync status to be worth showing
   const label = runningOpLabel(runningOp)
 
@@ -84,6 +97,30 @@ export function SyncIndicator({
       </div>
     )
   }
+  // #159: the errors still standing, not only the last pass's; a click opens the panel
+  const errorCount = syncErrorsOf(status).length
+  const errorsButton =
+    errorCount > 0 ? (
+      <button
+        type="button"
+        className="text-destructive hover:underline"
+        onClick={() => setPanelOpen(true)}
+        title="Fehler und letzte Durchläufe anzeigen"
+        data-testid="mail-sync-errors"
+      >
+        · {errorCount} Fehler
+      </button>
+    ) : null
+  const panel = (
+    <SyncActivityPanel
+      open={panelOpen}
+      onOpenChange={setPanelOpen}
+      status={status}
+      folderName={folderName}
+      onRetryFolder={onRetryFolder}
+      onDismiss={onDismissErrors}
+    />
+  )
   if (offline) {
     const due = status.retryAt ? new Date(status.retryAt).getTime() <= now : false
     return (
@@ -102,6 +139,8 @@ export function SyncIndicator({
         <Button variant="ghost" size="icon-xs" onClick={onSync} title="Jetzt verbinden">
           <RefreshCw />
         </Button>
+        {errorsButton}
+        {panel}
       </div>
     )
   }
@@ -151,9 +190,17 @@ export function SyncIndicator({
         </>
       ) : (
         <>
-          {/* #156: what the last pass the user started did, counts only (pacing checks) */}
-          <span
-            title={status.lastPass ? passSummaryText(status.lastPass) : undefined}
+          {/* #156: what the last pass the user started did, counts only (pacing checks);
+              #159: a click opens the activity panel */}
+          <button
+            type="button"
+            className="hover:text-foreground hover:underline"
+            onClick={() => setPanelOpen(true)}
+            title={
+              status.lastPass
+                ? `${passSummaryText(status.lastPass)}\n\nKlicken für die letzten Durchläufe`
+                : 'Klicken für die letzten Durchläufe'
+            }
             data-testid="mail-sync-time"
           >
             {status.lastSyncAt
@@ -162,7 +209,7 @@ export function SyncIndicator({
                   minute: '2-digit'
                 })}`
               : 'Noch nicht synchronisiert'}
-          </span>
+          </button>
           {/* F14: the mailbox updates by itself (IDLE on INBOX, plus a poll), so the
               button is an extra, not the only way to get new mail */}
           <span
@@ -198,11 +245,8 @@ export function SyncIndicator({
           </Button>
         </>
       )}
-      {status.errors.length > 0 && (
-        <span className="text-destructive" title={status.errors.join('\n')}>
-          · {status.errors.length} Fehler
-        </span>
-      )}
+      {errorsButton}
+      {panel}
     </div>
   )
 }

@@ -88,8 +88,10 @@ describe('#156: two visible sync actions', () => {
   })
 
   it('shows the last pass summary on the sync time', () => {
+    // #159: the summary stays the title; the sync time is now the button to the activity panel
     expect(indicatorBody()).toMatch(
-      /title=\{status\.lastPass \? passSummaryText\(status\.lastPass\)/
+      /status\.lastPass\s*\?\s*`\$\{passSummaryText\(status\.lastPass\)\}/
     )
+    expect(indicatorBody()).toMatch(/data-testid="mail-sync-time"/)
   })
 })

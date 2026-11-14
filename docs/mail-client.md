@@ -277,6 +277,24 @@ the `pnpm dev` terminal; the same numbers are the tooltip on „Synchronisiert H
 while the store is not complete). `census` is the time of the STATUS round without the folder syncs in
 it.
 
+**The sync activity panel (#159).** A click on „Synchronisiert HH:MM“ or on „· N Fehler“ opens a sheet
+„Synchronisierung“ with two lists, both kept by `core/sync_activity.ts` in memory (gone on restart):
+
+- **Fehler**: the sync errors still standing, not only the last pass's (`SyncStatus.syncErrors`). One
+  entry per folder (key `folder:<path>`) or per pass-level message with its digits masked; repeats bump
+  `count` and `lastAt`, at most 50. A folder's error ends when that folder syncs again, a pass-level one
+  when a pass ends idle without one; „Ausblenden“ (`MailCore.dismissSyncErrors`) hides it until it
+  happens again. Known messages get a German text, the server's own text stays under „Details“; a
+  refused SELECT now reaches the list too (`imapErrorMessage` keeps imapflow's `responseText`). Folder
+  errors also mark the folder in the tree (a warning icon with the text as tooltip), and „Ordner erneut
+  synchronisieren“ runs `syncOpenedFolder`, which now answers `'failed'` when the folder errored.
+- **Letzte Durchläufe**: the last 10 passes, background passes included („Automatischer Abgleich“,
+  `trigger: 'auto'`), with new messages, flag changes and removed messages counted. `lastPass` and the
+  log line stay for passes the user started.
+
+„Alles kopieren“ puts both lists on the clipboard as text for a support request: folder names and
+counts, never mail content.
+
 **„Verbindung testen“ lists the server's capabilities** („Server-Funktionen: …“), so whether a server
 has LIST-STATUS, CONDSTORE or QRESYNC can be read off without a debugger.
 

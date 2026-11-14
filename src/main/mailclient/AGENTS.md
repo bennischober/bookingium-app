@@ -14,7 +14,7 @@ The full guide is `docs/mail-client.md`.
 | `inboxWatch.ts` | Electron-free: each account's INBOX unread from `getFolders`, new mail = stored AND unread rose (#65) |
 | `../notifications/` | since #142 the tray icon and the new-mail texts live there (`appTray.ts`, `noticeText.ts`); `inboxWatch.ts` feeds them |
 | `worker.ts` | utility-process entry (second electron-vite main input `mailWorker`), hosts the core |
-| `protocol.ts` | `ToWorker`/`FromWorker`/`MailEvent` messages + `MAIL_API_METHODS` allowlist (44 methods) |
+| `protocol.ts` | `ToWorker`/`FromWorker`/`MailEvent` messages + `MAIL_API_METHODS` allowlist (46 methods) |
 | `accounts.ts` | `<userData>/mail/accounts.json`, password via `safeStorage` only |
 | `core/` | the engine - see `core/AGENTS.md` |
 

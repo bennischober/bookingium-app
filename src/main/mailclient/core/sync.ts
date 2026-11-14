@@ -16,7 +16,8 @@
 import { ImapFlow } from 'imapflow';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, type FolderRow } from './store.js';
-import type { ConnectionState, ImapSecurity, PassSummary } from './types.js';
+import type { ConnectionState, ImapSecurity, PassSummary, SyncErrorEntry } from './types.js';
+import { SyncActivity } from './sync_activity.js';
 import { allowsPlainLogin } from './imap_options.js';
 import { diskFullMessage, downloadSpaceMessage, downloadSpaceNeeded, freeBytesOf, isDiskFullError } from './disk_full.js';
 import { secondsLeft } from './download_estimate.js';
@@ -171,6 +172,9 @@ export type SyncProgress = {
   changePass?: 'priority' | 'check' | null;
   /** #156: the last pass the user started, counts only (MailCore.triggerSync logs it) */
   lastPass?: PassSummary | null;
+  /** #159: the last passes and the standing sync errors (sync_activity.ts); filled by getStatus() */
+  passHistory?: PassSummary[];
+  syncErrors?: SyncErrorEntry[];
 };
 
 /** #156: what opening a folder did (SyncEngine.syncOpened) */
@@ -232,6 +236,10 @@ export class SyncEngine {
   private readonly openSyncs = new Set<string>();
   // #156: error events of the running pass (progress.errors keeps only the last ten)
   private passErrorCount = 0;
+  // #159: of those, the ones of the whole pass (no folder)
+  private passGeneralErrors = 0;
+  // #159: the last passes and the sync errors still standing, for the activity panel
+  private readonly activity = new SyncActivity();
   // I18: free bytes on the store's drive, checked before a UIDVALIDITY swap (a seam for tests)
   private readonly freeBytes: (dir: string) => number | null;
   // Task 5: injected structured logger (host decides where output goes; core never
@@ -406,7 +414,15 @@ export class SyncEngine {
     const left = downloading && this.rateStart
       ? secondsLeft(this.rateStart, { at: Date.now(), done: this.progress.messagesDone }, this.progress.messagesTotal)
       : null;
-    return { ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt, secondsLeft: left };
+    return {
+      ...this.progress, running: this.syncing, lastSyncAt: this.lastSyncAt, paused: this.paused, retryAt, secondsLeft: left,
+      passHistory: this.activity.history(), syncErrors: this.activity.errors(),
+    };
+  }
+
+  /** #159: hides sync errors by key (SyncErrorEntry.key); all of them without keys. */
+  dismissSyncErrors(keys?: readonly string[] | null): void {
+    this.activity.dismiss(keys);
   }
 
   isSyncing(): boolean { return this.syncing; }
@@ -593,7 +609,10 @@ export class SyncEngine {
     if (e.type === 'error') this.progress.errors.push(`${e.path ?? '?'}: ${e.message}`);
     if (e.type === 'error' && e.path) this.folderErrors.set(e.path, (this.folderErrors.get(e.path) ?? 0) + 1);
     if (e.type === 'error' && this.syncing) this.passErrorCount++;
+    if (e.type === 'error' && this.syncing && !e.path) this.passGeneralErrors++;
+    if (e.type === 'error') this.activity.noteError(e.path, e.message);
     if (e.type === 'folder-done') {
+      this.activity.noteFolderDone(e.path);
       this.progress.newMessages += e.newCount;
       this.progress.flagChanges += e.flagChanges;
       this.progress.expunged += e.expunged;
@@ -761,6 +780,7 @@ export class SyncEngine {
     let censusMs = 0, checked = 0, synced = 0, listStatus = false;
     this.passSynced = new Set();
     this.passErrorCount = 0;
+    this.passGeneralErrors = 0;
     // settled once the folder list is known; until then a first pass after start looks initial
     this.passPhase = this.progress.messagesTotal === null ? 'initial' : 'incremental';
     this.progress = {
@@ -882,7 +902,7 @@ export class SyncEngine {
       this.syncing = false;
       this.progress.running = false;
       this.progress.currentFolder = null;
-      this.endPass(opts.report ? { kind: opts.full ? 'full' : 'all', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
+      this.endPass({ kind: opts.full ? 'full' : 'all', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 }, opts.report === true);
     }
     return this.getStatus();
   }
@@ -897,20 +917,27 @@ export class SyncEngine {
   }
 
   /**
-   * #156: after a pass. Records the summary of a user-started pass; a folder opened too late for
-   * the pass to take it is synced now.
+   * #156: after a pass. Records its summary (#159: every pass in the history, the user-started
+   * one also as lastPass); a folder opened too late for the pass to take it is synced now.
    */
-  private endPass(summary: Omit<PassSummary, 'censusPauseMs' | 'errors' | 'phase' | 'connection' | 'at'> | null): void {
-    if (summary) {
-      this.progress.lastPass = {
-        ...summary,
-        censusPauseMs: censusPauseOf(this.account),
-        errors: this.passErrorCount,
-        phase: this.progress.phase ?? 'idle',
-        connection: this.progress.connection,
-        at: new Date().toISOString(),
-      };
-    }
+  private endPass(summary: Omit<PassSummary, 'censusPauseMs' | 'errors' | 'phase' | 'connection' | 'at'>, byUser: boolean): void {
+    const phase = this.progress.phase ?? 'idle';
+    const pass: PassSummary = {
+      ...summary,
+      censusPauseMs: censusPauseOf(this.account),
+      errors: this.passErrorCount,
+      phase,
+      connection: this.progress.connection,
+      at: new Date().toISOString(),
+      trigger: byUser ? 'user' : 'auto',
+      newMessages: this.progress.newMessages,
+      flagChanges: this.progress.flagChanges,
+      expunged: this.progress.expunged,
+    };
+    if (byUser) this.progress.lastPass = pass;
+    this.activity.notePass(pass);
+    // #159: a pass that went through without an error of its own ends the earlier ones
+    if (phase === 'idle' && this.passGeneralErrors === 0) this.activity.clearPassErrors();
     const left = this.openRequest;
     this.openRequest = null;
     if (left && !this.passSynced.has(left)) void this.syncOpenedPath(left);
@@ -947,7 +974,11 @@ export class SyncEngine {
     try {
       const client = await this.connect();
       const st = await this.statusCheck.statusOf(client, imapPath);
+      // #159: syncFolder reports a folder error as an event and goes on; the caller (the
+      // activity panel's retry) must hear that it failed, not "synced"
+      const errorsBefore = this.folderErrors.get(imapPath) ?? 0;
       await this.syncFolderRemembering(imapPath, st);
+      if ((this.folderErrors.get(imapPath) ?? 0) !== errorsBefore) return 'failed';
       this.noteSuccess();
       return 'synced';
     } catch {
@@ -991,6 +1022,7 @@ export class SyncEngine {
     let censusMs = 0, checked = 0, synced = 0, syncMs = 0, listStatus = false;
     this.passSynced = new Set();
     this.passErrorCount = 0;
+    this.passGeneralErrors = 0;
     this.passPhase = 'incremental';
     this.progress = {
       ...this.progress, running: true,
@@ -1103,7 +1135,7 @@ export class SyncEngine {
       this.progress.running = false;
       this.progress.currentFolder = null;
       this.progress.changePass = null;
-      this.endPass(opts.report ? { kind: 'changes', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 } : null);
+      this.endPass({ kind: 'changes', listStatus, censusMs, foldersChecked: checked, foldersSynced: synced, totalMs: Date.now() - t0 }, opts.report === true);
     }
     return this.getStatus();
   }

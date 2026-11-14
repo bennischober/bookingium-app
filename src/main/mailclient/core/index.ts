@@ -226,6 +226,11 @@ export class MailCore implements Api {
     return e.engine.syncOpened(folderId);
   }
 
+  /** #159: hides sync errors in the activity panel by key (SyncErrorEntry.key); all without keys. */
+  async dismissSyncErrors(keys?: string[] | null, accountId?: string): Promise<void> {
+    this.entry(accountId).engine.dismissSyncErrors(keys ?? null);
+  }
+
   /** The unread mails in each account's INBOX, as its folder shows them (pending moves left out). Counts only. */
   async getInboxUnread(): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};

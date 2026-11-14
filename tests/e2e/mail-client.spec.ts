@@ -335,6 +335,27 @@ test('the mail page shows folders, messages and a sandboxed reader', async () =>
   await expect(page.getByText(/\d+ Treffer · \d+ ms/)).toBeVisible()
 })
 
+test('#159: the sync time opens the activity panel with the last passes', async () => {
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  await openMailPage(sandboxId)
+  await page.getByTestId('mail-sync-time').click({ timeout: 30_000 })
+  const panel = page.getByTestId('mail-sync-panel')
+  await expect(panel.getByRole('heading', { name: 'Synchronisierung' })).toBeVisible()
+  await expect(panel.getByText('Letzte Durchläufe')).toBeVisible()
+  // the pass after start is a background pass
+  await expect(panel.getByTestId('mail-sync-pass').first()).toBeVisible({ timeout: 30_000 })
+  await expect(panel.getByTestId('mail-sync-no-errors')).toBeVisible()
+  // the report goes to the clipboard (navigator.clipboard in the renderer)
+  await panel.getByRole('button', { name: 'Alles kopieren' }).click()
+  await expect(page.getByText('In die Zwischenablage kopiert')).toBeVisible()
+  const report = await h.app.evaluate(({ clipboard }) => clipboard.readText())
+  expect(report).toContain('Letzte Durchläufe:')
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveCount(0)
+})
+
 test('the mail panes can be resized and keep their width', async () => {
   const { page } = h
   const sandboxId = await ensureSandboxAccount()
