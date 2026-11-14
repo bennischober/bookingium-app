@@ -6,6 +6,8 @@
 // no IDLE), and records the mailbox commands so a test can assert which folder a FETCH
 // really went to. #156: `capabilities` adds to IMAP4rev1 (e.g. LIST-STATUS, RFC 5819, which
 // answers `LIST ... RETURN (STATUS (...))` with inline STATUS lines), and STATUS carries UNSEEN.
+// #157: two throttling modes for the pacer: `limitStatus` refuses the next STATUS commands with
+// `NO [LIMIT]` (RFC 5530), `byeOnStatus` ends the connection with a BYE at the next STATUS.
 import net from 'net'
 
 export type FakeMessage = { uid: number; flags?: string[]; source?: string }
@@ -32,6 +34,10 @@ export type ScriptedImap = {
   failStatus: boolean
   /** #159: answer SELECT and EXAMINE of these folders with NO (they stay listed) */
   failSelect: Set<string>
+  /** #157: answer this many of the next STATUS commands with `NO [LIMIT]`, counting down */
+  limitStatus: number
+  /** #157: answer the next STATUS with an untagged BYE and close the connection (once) */
+  byeOnStatus: boolean
   close: () => Promise<void>
 }
 
@@ -65,6 +71,8 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
     connections: () => accepted,
     failStatus: false,
     failSelect: new Set(),
+    limitStatus: 0,
+    byeOnStatus: false,
     capabilities: [],
     close: async () => undefined
   }
@@ -147,6 +155,16 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
           const path = mailboxArg(rest)
           const folder = state.folders.get(path)
           state.log.push(`STATUS ${path}`)
+          if (state.byeOnStatus) {
+            state.byeOnStatus = false
+            socket.end(`* BYE too many commands\r\n`)
+            return
+          }
+          if (state.limitStatus > 0) {
+            state.limitStatus--
+            write(`${tag} NO [LIMIT] too many commands\r\n`)
+            continue
+          }
           if (state.failStatus || !folder) {
             write(`${tag} NO status refused\r\n`)
             continue

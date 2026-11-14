@@ -185,8 +185,13 @@ export type PassSummary = {
   kind: 'changes' | 'all' | 'full';
   /** the census was one LIST-STATUS command (false: one paced STATUS per folder) */
   listStatus: boolean;
-  /** the pause after each STATUS of the census, in ms */
+  /** the pause after each STATUS of the census at the end of the pass (#157: floor + learned), in ms */
   censusPauseMs: number;
+  /**
+   * #157: the pacer's learned pause on top of the fixed floors: at the end of the pass, its
+   * highest during the pass, and the throttling signals that raised it (pacer.ts)
+   */
+  pacing?: { pauseMs: number; maxPauseMs: number; signals: number };
   /** how long the census took, in ms (folder syncs in between not counted) */
   censusMs: number;
   /** folders the census asked for STATUS */

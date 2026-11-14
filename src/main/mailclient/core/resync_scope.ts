@@ -2,7 +2,7 @@
  * G2/L3b: which folders a move needs to resync.
  *
  * Every write used to fire a full syncAll() afterwards. That pass does detectCapabilities plus a
- * STATUS per folder with a 150 ms pause between each (requestDelayMs, tuned for IONOS), so a
+ * STATUS per folder with a 150 ms pause between each (requestDelayMs then; #157 made it adaptive), so a
  * ten-folder mailbox paid roughly 1.5 seconds of pure sleeping after every single click - on top
  * of the write itself.
  *

@@ -21,6 +21,7 @@ import {
   syncErrorText,
   syncErrorWhere
 } from './syncActivity'
+import { pacingText } from './syncProgress'
 import type { SyncErrorEntry, SyncStatus } from '../../../../main/mailclient/core/types'
 
 /**
@@ -121,6 +122,7 @@ export function SyncActivityPanel({
             <ul className="flex flex-col gap-1.5">
               {passes.map((pass) => {
                 const outcome = passOutcome(pass)
+                const pacing = pacingText(pass)
                 return (
                   <li
                     key={`${pass.at}-${pass.kind}`}
@@ -144,6 +146,14 @@ export function SyncActivityPanel({
                       )}
                     </span>
                     <span className="text-muted-foreground">{passFacts(pass)}</span>
+                    {pacing && (
+                      <span
+                        className="text-amber-700 dark:text-amber-400"
+                        data-testid="mail-sync-pass-pacing"
+                      >
+                        {pacing}
+                      </span>
+                    )}
                   </li>
                 )
               })}

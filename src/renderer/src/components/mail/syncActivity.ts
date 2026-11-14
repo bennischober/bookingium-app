@@ -3,6 +3,7 @@ import type {
   SyncErrorEntry,
   SyncStatus
 } from '../../../../main/mailclient/core/types'
+import { pacingText } from './syncProgress'
 
 /**
  * #159: the text of the sync activity panel behind the sync bar: the last passes and the sync
@@ -174,7 +175,10 @@ export function syncActivityReport(
     for (const p of passes) {
       const outcome = passOutcome(p)
       const census = p.listStatus ? 'LIST-STATUS' : `STATUS, Pause ${p.censusPauseMs} ms`
-      lines.push(`- ${passTitle(p)}: ${passFacts(p)} (${census})${outcome ? ` · ${outcome}` : ''}`)
+      const pacing = pacingText(p)
+      lines.push(
+        `- ${passTitle(p)}: ${passFacts(p)} (${census})${pacing ? ` · ${pacing}` : ''}${outcome ? ` · ${outcome}` : ''}`
+      )
     }
   }
   return lines.join('\n')

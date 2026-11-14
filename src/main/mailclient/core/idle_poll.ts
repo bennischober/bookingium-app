@@ -12,6 +12,7 @@ import { uidRange } from './folder_sync.js';
 import { checkableFolders, type StatusCheck } from './status_check.js';
 import type { ConnectionBudget } from './connection_budget.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
+import type { Pacer } from './pacer.js';
 
 /** What the IDLE loop needs from its engine. */
 export interface IdleLoopContext {
@@ -257,6 +258,8 @@ export interface PollerContext {
   syncAll(): Promise<SyncProgress>;
   /** #156: the STATUS round and change rule shared with the sync button */
   statusCheck(): StatusCheck;
+  /** #157: the pause between the flag sweep's chunks, and what each chunk's answer says */
+  readonly pacer: Pacer;
   withSelected<T>(imapPath: string, expectedValidity: string | null, fn: (client: ImapFlow) => Promise<T>): Promise<T | null>;
 }
 
@@ -265,7 +268,6 @@ export class Poller {
 
   constructor(private readonly ctx: PollerContext) {}
 
-  private get account(): AccountConfig { return this.ctx.account; }
   private get store(): Store { return this.ctx.store; }
   private get progress(): SyncProgress { return this.ctx.progress(); }
   private get syncing(): boolean { return this.ctx.isSyncing(); }
@@ -442,18 +444,21 @@ export class Poller {
     for (let i = 0; i < uidList.length; i += 500) {
       const range = uidRange(uidList.slice(i, i + 500));
       if (!range) continue;
-      for await (const m of client.fetch(range, { uid: true, flags: true }, { uid: true })) {
-        const local = localByUid.get(Number(m.uid));
-        if (!local) continue;
-        // Task 4 coexistence: skip messages with pending/running write ops
-        if (this.store.opInFlightForMessageKey(local.message_key)) continue;
-        const flags = flagsFromSet(m.flags);
-        if (!sameFlags(local.flags_json, flags)) {
-          pending.push({ id: local.id, flags_json: JSON.stringify(flags) });
+      // #157: a chunk of 500 flag lines is a command of even size, so its time is read too
+      await this.ctx.pacer.timed(async () => {
+        for await (const m of client.fetch(range, { uid: true, flags: true }, { uid: true })) {
+          const local = localByUid.get(Number(m.uid));
+          if (!local) continue;
+          // Task 4 coexistence: skip messages with pending/running write ops
+          if (this.store.opInFlightForMessageKey(local.message_key)) continue;
+          const flags = flagsFromSet(m.flags);
+          if (!sameFlags(local.flags_json, flags)) {
+            pending.push({ id: local.id, flags_json: JSON.stringify(flags) });
+          }
         }
-      }
+      });
       flush();
-      if (this.account.requestDelayMs) await new Promise(r => setTimeout(r, this.account.requestDelayMs));
+      await this.ctx.pacer.pace('sweep');
     }
     flush();
     this.store.setFlagSwept(f.id, new Date().toISOString());

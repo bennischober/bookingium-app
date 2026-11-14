@@ -6,8 +6,8 @@
 //
 // LIST-STATUS (RFC 5819): when the server advertises it, the whole round is ONE LIST command
 // with the STATUS data inline, so no per-folder pacing is needed. Otherwise every folder gets
-// its own STATUS, paced by the census pause (censusDelayMs, default 150 ms like requestDelayMs:
-// a cautious value from the prototype, never measured; issue #157). imapflow falls back to its
+// its own STATUS, paced by the pacer (#157, pacer.ts: no pause until the server signals
+// throttling, on top of censusDelayMs where a host sets one). imapflow falls back to its
 // own unpaced per-folder STATUS when a server advertises LIST-STATUS but rejects it, and then
 // sets `skipListStatusArgs` on that connection; the engine remembers that and uses the paced
 // path from then on, so such a server pays the unpaced round at most once. syncAll's STATUS
@@ -15,6 +15,7 @@
 import type { ImapFlow } from 'imapflow';
 import { STAGING_PREFIX, Store, type FolderRow } from './store.js';
 import type { AccountConfig } from './sync.js';
+import type { Pacer } from './pacer.js';
 
 /** The STATUS items a check compares. */
 export interface FolderStatus {
@@ -40,11 +41,14 @@ export interface StatusCheckContext {
   renamePending(imapPath: string): boolean;
   /** How many sync errors this folder has reported so far (SyncEngine.emit). */
   folderErrors(imapPath: string): number;
+  /** #157: the sync connection's pacer: the census pause, and what each STATUS answer says */
+  readonly pacer: Pacer;
 }
 
 /**
- * #156: the pause after each STATUS of a census (a STATUS round over the folders): the
- * account's own censusDelayMs where set, else requestDelayMs, the pause of sweeps and downloads.
+ * #156: the fixed part of the pause after each STATUS of a census (a STATUS round over the
+ * folders): the account's own censusDelayMs where set, else requestDelayMs. #157: the floor the
+ * pacer adds its learned part to; 0 for the real-mailbox builders.
  */
 export function censusPauseOf(account: Pick<AccountConfig, 'censusDelayMs' | 'requestDelayMs'>): number {
   return account.censusDelayMs ?? account.requestDelayMs ?? 0;
@@ -81,21 +85,17 @@ export class StatusCheck {
     return { messages: true, uidNext: true, unseen: true, highestModseq: true, ...(opts.size ? { size: true } : {}) };
   }
 
-  private async pace(): Promise<void> {
-    const ms = censusPauseOf(this.ctx.account);
-    if (ms) await new Promise(r => setTimeout(r, ms));
-  }
-
   /** One paced STATUS for one folder; null when the server did not answer. */
   async statusOf(client: ImapFlow, imapPath: string): Promise<FolderStatus | null> {
     await this.ctx.gate();
     try {
-      const st = await client.status(imapPath, this.query());
+      // #157: the pacer reads the answer's time, or the throttling signal of its error
+      const st = await this.ctx.pacer.timed(() => client.status(imapPath, this.query()));
       return st && typeof st === 'object' ? toStatus(st as unknown as Record<string, unknown>) : null;
     } catch {
       return null;   // folder vanished / transient error: the next round asks again
     } finally {
-      await this.pace();
+      await this.ctx.pacer.pace('census');
     }
   }
 

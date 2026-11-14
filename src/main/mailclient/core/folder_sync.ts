@@ -9,6 +9,7 @@ import { isDiskFullError, swapSpaceMessage, swapSpaceNeeded } from './disk_full.
 import { flagsFromSet, MessageIngest, sameFlags, toIso } from './message_ingest.js';
 import { fetchSkeleton, storedAsSkeleton } from './skeleton_fetch.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
+import type { Pacer } from './pacer.js';
 
 /**
  * #159: an error's message with the server's own text where imapflow keeps it apart
@@ -41,6 +42,8 @@ export interface FolderSyncContext {
   gate(): Promise<void>;
   noteError(context: string): boolean;
   hasCondstore(): boolean;
+  /** #157: the pause between download batches, and what a failed batch says */
+  readonly pacer: Pacer;
   yieldFolderToWrites(imapPath: string): Promise<void>;
   freeBytes(dir: string): number | null;
   noteDiskFull(path: string | null, message?: string): void;
@@ -428,7 +431,6 @@ export class FolderSync {
     stored += adopted.size;
     const sorted = uids.filter(u => !adopted.has(u)).sort((a, b) => opts.newestFirst ? b - a : a - b);
     const batchBytes = this.account.batchBytes ?? Infinity;
-    const interDelay = this.account.interBatchDelayMs ?? 0;
     const BATCH_COUNT = 100;
     for (let i = 0; i < sorted.length;) {
       // the caller holds the folder's mutex; writes waiting for it go first
@@ -455,33 +457,39 @@ export class FolderSync {
         // acceptable: one batch is ~4 MB)
         if (this.paused) await this.waitWhilePaused();
       };
-      // S1: sizes and structures first, so the large messages stay out of the whole download
-      const large = this.account.lazyAboveBytes === undefined ? [] : await this.largeIn(client, range);
-      const wholeRange = large.length ? uidRange(batch.filter(u => !large.some(m => m.uid === u))) : range;
-      if (wholeRange) {
-        for await (const msg of client.fetch(wholeRange, {
-          uid: true, source: true, flags: true, internalDate: true, size: true,
-        }, { uid: true })) {
-          if (!msg.source) continue;
-          await keep({ ...msg, source: msg.source });
+      try {
+        // S1: sizes and structures first, so the large messages stay out of the whole download
+        const large = this.account.lazyAboveBytes === undefined ? [] : await this.largeIn(client, range);
+        const wholeRange = large.length ? uidRange(batch.filter(u => !large.some(m => m.uid === u))) : range;
+        if (wholeRange) {
+          for await (const msg of client.fetch(wholeRange, {
+            uid: true, source: true, flags: true, internalDate: true, size: true,
+          }, { uid: true })) {
+            if (!msg.source) continue;
+            await keep({ ...msg, source: msg.source });
+          }
         }
-      }
-      for (const meta of large) {
-        await this.gate();
-        const skeleton = await fetchSkeleton(client, meta.uid, meta.bodyStructure);
-        if (skeleton) {
-          await keep({ uid: meta.uid, flags: meta.flags, internalDate: meta.internalDate, modseq: meta.modseq, size: meta.size, ...skeleton });
-          continue;
+        for (const meta of large) {
+          await this.gate();
+          const skeleton = await fetchSkeleton(client, meta.uid, meta.bodyStructure);
+          if (skeleton) {
+            await keep({ uid: meta.uid, flags: meta.flags, internalDate: meta.internalDate, modseq: meta.modseq, size: meta.size, ...skeleton });
+            continue;
+          }
+          // a structure the skeleton does not cover: downloaded whole, as below the threshold
+          const whole = await client.fetchOne(String(meta.uid), { uid: true, source: true, flags: true, internalDate: true, size: true }, { uid: true });
+          if (whole && whole.source) await keep({ ...whole, source: whole.source });
         }
-        // a structure the skeleton does not cover: downloaded whole, as below the threshold
-        const whole = await client.fetchOne(String(meta.uid), { uid: true, source: true, flags: true, internalDate: true, size: true }, { uid: true });
-        if (whole && whole.source) await keep({ ...whole, source: whole.source });
+      } catch (e) {
+        // #157: a [LIMIT], a BYE or a lost connection slows the next batches down
+        this.ctx.pacer.failed(e);
+        throw e;
       }
+      // a batch's time says more about its size than about the server: counted, not timed
+      this.ctx.pacer.normal();
       stored += batchStored;
       this.progress.currentFolder = imapPath;
-      if (i < sorted.length && interDelay > 0) {
-        await new Promise(r => setTimeout(r, interDelay));
-      }
+      if (i < sorted.length) await this.ctx.pacer.pace('batch');
       if (this.stopped) break;
     }
     return stored;

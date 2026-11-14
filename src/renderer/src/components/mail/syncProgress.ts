@@ -47,6 +47,17 @@ const seconds = (ms: number): string =>
   `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`
 
 /**
+ * #157: what the pacer did in a pass, when it slowed down at all ("Vom Server gebremst: 2 Signale,
+ * Pause bis 200 ms"); null for a pass without a signal and without a learned pause.
+ */
+export function pacingText(pass: PassSummary): string | null {
+  const p = pass.pacing
+  if (!p || (p.signals === 0 && p.maxPauseMs === 0)) return null
+  const signals = p.signals === 1 ? '1 Signal' : `${p.signals} Signale`
+  return `Vom Server gebremst: ${signals}, Pause bis ${p.maxPauseMs} ms`
+}
+
+/**
  * #156: the tooltip on "Synchronisiert HH:MM": what the last pass the user started did, to judge
  * the STATUS census pacing against a real server. Counts and times only, never folder names.
  */
@@ -61,6 +72,8 @@ export function passSummaryText(pass: PassSummary): string {
     `${pass.foldersSynced} Ordner synchronisiert, gesamt ${seconds(pass.totalMs)}`,
     `${pass.errors} Fehler`
   ]
+  const pacing = pacingText(pass)
+  if (pacing) lines.push(pacing)
   if (pass.phase !== 'idle') lines.push('Vorzeitig beendet')
   if (pass.connection !== 'online') lines.push('Verbindung danach getrennt')
   return lines.join('\n')

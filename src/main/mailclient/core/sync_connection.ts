@@ -1,7 +1,7 @@
 // R1: the sync engine's IMAP connections, out of SyncEngine: opening a client, capability
 // detection, backoff, the circuit breaker and the connection state the UI shows. The engine
 // keeps one-line delegations, so its passes, IDLE and polling call these as before.
-import { ImapFlow } from 'imapflow';
+import { ImapFlow, type Logger } from 'imapflow';
 import { IMAP_TIMEOUTS, imapSecurityOptions, isAuthFailure } from './imap_options.js';
 import type { ConnectionBudget } from './connection_budget.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
@@ -22,6 +22,13 @@ export interface SyncConnectionContext {
   /** The host's credentials into `account` before a login; a no-op once the factory has them. */
   loadCredentials(): Promise<void>;
   waitWhilePaused(): Promise<void>;
+  /** #157: the sync connection closed while the engine runs (the pacer reads it as a signal). */
+  syncClientClosed?(): void;
+  /**
+   * #157: a command of the sync connection failed, as imapflow logs it. Some commands swallow
+   * their error (STATUS answers `false` for a `NO [LIMIT]`), so the pacer reads it here.
+   */
+  syncCommandFailed?(err: unknown): void;
 }
 
 export class SyncConnection {
@@ -135,7 +142,7 @@ export class SyncConnection {
   }
 
   newClient(): ImapFlow {
-    const client = new ImapFlow({
+    const client: ImapFlow = new ImapFlow({
       host: this.account.host,
       port: this.account.port,
       ...imapSecurityOptions(this.account.security),
@@ -143,7 +150,10 @@ export class SyncConnection {
       // enables CONDSTORE + QRESYNC (+UTF8=ACCEPT) automatically after login.
       // Harmless when the server lacks them (server just ignores ENABLE).
       qresync: true,
-      logger: false, emitLogs: false,
+      // #157: only imapflow's warnings and errors, and only their error object, for the pacer;
+      // nothing of an entry is written anywhere, so no mail content leaves this hook
+      logger: this.commandFailureLogger(() => client),
+      emitLogs: false,
       ...IMAP_TIMEOUTS,
     });
     // After connect() imapflow reports a dead connection (socket timeout, reset) as an 'error'
@@ -153,6 +163,19 @@ export class SyncConnection {
       this.log.warn?.(`imap connection error: ${err.message}`);
     });
     return client;
+  }
+
+  /** imapflow's logger: warn/error entries of the sync connection that carry an error. */
+  private commandFailureLogger(clientOf: () => ImapFlow): Logger {
+    const note = (entry: unknown): void => {
+      const err = (entry as { err?: unknown } | null)?.err;
+      if (err && this.client === clientOf()) this.ctx.syncCommandFailed?.(err);
+    };
+    const ignore = (): void => undefined;
+    // isLevelEnabled (pino's) lets imapflow skip building debug entries nobody reads
+    const logger = { debug: ignore, info: ignore, warn: note, error: note, fatal: note,
+      isLevelEnabled: (level: string) => level === 'warn' || level === 'error' || level === 'fatal' };
+    return logger;
   }
 
   /** Task 3: server capabilities, detected once per engine (used to pick sync strategy). */
@@ -201,6 +224,7 @@ export class SyncConnection {
     client.on('close', () => {
       release();
       if (this.client === client || this.idleClient === client) this.noteDisconnect();
+      if (this.client === client && !this.ctx.isStopped()) this.ctx.syncClientClosed?.();
     });
     if (!client.usable) release();
     this.client = client;
