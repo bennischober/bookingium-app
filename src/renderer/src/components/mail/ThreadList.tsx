@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Paperclip } from 'lucide-react'
+import { ReplyStateIcons } from './ReplyStateIcons'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatListDate } from './format'
@@ -70,6 +71,7 @@ export function ThreadList({
             <span className={cn('min-w-0 flex-1 truncate', thread.unread > 0 && 'font-semibold')}>
               {thread.fromName || '(Unbekannt)'}
             </span>
+            <ReplyStateIcons answered={thread.answered} forwarded={thread.forwarded} />
             {thread.hasAttachments && (
               <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Anhang" />
             )}

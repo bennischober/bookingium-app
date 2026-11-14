@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
+import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -430,6 +431,18 @@ export default function PersonDetailPage() {
     refetch
   } = trpcReact.person.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
+  // #162: delete from the detail page, then back to the list
+  const deletePerson = trpcReact.person.delete.useMutation({
+    onSuccess: async () => {
+      await navigate({ to: '/persons' })
+      void utils.person.invalidate()
+      toast.success('Person gelöscht', { description: 'Die Person wurde erfolgreich gelöscht.' })
+    },
+    onError: (error) => {
+      toast.error('Person konnte nicht gelöscht werden', { description: error.message })
+    }
+  })
+
   const updatePerson = trpcReact.person.update.useMutation({
     onSuccess: (data) => {
       void utils.person.invalidate()
@@ -500,6 +513,11 @@ export default function PersonDetailPage() {
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
+            <DeleteRecordButton
+              confirmTitle={`„${personName(person)}“ löschen?`}
+              pending={deletePerson.isPending}
+              onDelete={() => deletePerson.mutate({ id: person.id })}
+            />
           </div>
         </div>
       </div>

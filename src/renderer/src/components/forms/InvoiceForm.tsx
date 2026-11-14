@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { INVOICE_STATUS_LABELS, formatMoney, parseNumber } from '@/lib/invoiceLabels'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { InfoLabel } from '@/components/InfoLabel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -719,11 +720,11 @@ export function InvoiceForm({
             )}
           </div>
 
-          <div className="flex justify-end">
+          <FormActions>
             <Button type="button" onClick={() => setStep('lines')}>
               Weiter: Positionen
             </Button>
-          </div>
+          </FormActions>
         </TabsContent>
 
         <TabsContent value="lines" className="space-y-4 mt-4">
@@ -884,14 +885,14 @@ export function InvoiceForm({
             </div>
           </div>
 
-          <div className="flex justify-between">
+          <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('basics')}>
               Zurück
             </Button>
             <Button type="button" onClick={() => setStep('finalize')}>
               Weiter: Abschließen
             </Button>
-          </div>
+          </FormActions>
         </TabsContent>
 
         <TabsContent value="finalize" className="space-y-4 mt-4">
@@ -954,7 +955,7 @@ export function InvoiceForm({
 
           {eInvoiceEnabled && eInvoiceCheck && <EInvoiceStatus check={eInvoiceCheck} />}
 
-          <div className="flex justify-between gap-2 pt-2">
+          <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('lines')}>
               Zurück
             </Button>
@@ -970,7 +971,7 @@ export function InvoiceForm({
                     : 'Entwurf speichern'}
               </Button>
             </div>
-          </div>
+          </FormActions>
         </TabsContent>
       </Tabs>
     </div>

@@ -37,6 +37,7 @@ import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { parseInvitation } from '../../../../main/calendar/invitation'
 import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
+import { ReplyStateIcons } from './ReplyStateIcons'
 import { calendarText, invitationPart, withTitle } from './invitationPrefill'
 import {
   formatAddresses,
@@ -493,7 +494,14 @@ export function MessageView({
             </>
           )}
           <dt className="text-muted-foreground">Datum</dt>
-          <dd>{formatFullDate(message.date ?? message.internalDate)}</dd>
+          <dd className="flex flex-wrap items-center gap-x-3">
+            {formatFullDate(message.date ?? message.internalDate)}
+            <ReplyStateIcons
+              answered={message.isAnswered}
+              forwarded={message.isForwarded}
+              withLabel
+            />
+          </dd>
         </dl>
 
         {message.attachments.filter((a) => !a.isInline).length > 1 && (

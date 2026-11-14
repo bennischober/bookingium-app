@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { z } from 'zod'
@@ -103,12 +104,12 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
         )}
       </form.Field>
 
-      <div className="flex justify-end gap-2 pt-4">
+      <FormActions>
         <Button type="button" variant="outline" onClick={onCancel}>
           Abbrechen
         </Button>
         <Button type="submit">Bank speichern</Button>
-      </div>
+      </FormActions>
     </form>
   )
 }

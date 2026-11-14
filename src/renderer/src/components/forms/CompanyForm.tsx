@@ -2,6 +2,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useForm } from '@tanstack/react-form'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -479,14 +480,14 @@ export function CompanyForm({
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <div className="flex justify-end gap-2 pt-4">
+      <FormActions>
         <Button type="button" variant="outline" onClick={onCancel}>
           Abbrechen
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Speichert…' : 'Firma speichern'}
         </Button>
-      </div>
+      </FormActions>
     </form>
   )
 }

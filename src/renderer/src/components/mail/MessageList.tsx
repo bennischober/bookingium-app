@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Flag, Paperclip } from 'lucide-react'
+import { ReplyStateIcons } from './ReplyStateIcons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -241,6 +242,7 @@ export function MessageList({
               <span className={cn('min-w-0 flex-1 truncate', !m.isRead && 'font-semibold')}>
                 {m.fromName || m.fromEmail || '(Unbekannt)'}
               </span>
+              <ReplyStateIcons answered={m.isAnswered} forwarded={m.isForwarded} />
               {m.isFlagged && (
                 <Flag className="size-3.5 shrink-0 text-orange-500" aria-label="Markiert" />
               )}

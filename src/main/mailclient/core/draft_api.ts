@@ -7,6 +7,7 @@ import type { DraftInput, SavedDraft } from './types.js';
 import { composeMime, ComposeError, SEND_KEY, type ComposedMime } from './compose.js';
 import { parseStoredMessage } from './parse.js';
 import { sendPhase } from './op_retry.js';
+import { FORWARDED_KEYWORD } from './message_ingest.js';
 import type { AccountEntry } from './index.js';
 
 /** What the draft calls need from the core. */
@@ -109,6 +110,10 @@ export class DraftApi {
     if (mail.repliesTo != null) {
       // best effort: the reply is out either way
       await this.replayOps(e, this.planFlagOp(e, [mail.repliesTo], { add: ['\\Answered'] })).catch(() => { });
+    }
+    if (mail.forwardsFrom != null) {
+      // #163, best effort as above; a server without keywords drops $Forwarded and the next sweep clears it here
+      await this.replayOps(e, this.planFlagOp(e, [mail.forwardsFrom], { add: [FORWARDED_KEYWORD] })).catch(() => { });
     }
     return { messageId };
   }
