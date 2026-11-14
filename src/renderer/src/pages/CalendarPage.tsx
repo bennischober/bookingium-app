@@ -24,6 +24,7 @@ import { FollowUpList } from '@/components/follow-ups/FollowUpList'
 import { AppointmentDialog } from '@/components/appointments/AppointmentDialog'
 import { AppointmentList } from '@/components/appointments/AppointmentList'
 import { appointmentsByDay } from '@/components/appointments/appointmentDays'
+import { AgencyBookingList } from '@/components/agency/AgencyBookingList'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
@@ -156,6 +157,19 @@ export default function CalendarPage() {
     [appointments.data, appointmentRange]
   )
 
+  // #103: shows other agencies booked, on the same days - read-only, cancelled ones struck through
+  const agencyBookings = trpcReact.externalBooking.listBetween.useQuery(appointmentRange, {
+    keepPreviousData: true
+  })
+  const agencyData = agencyBookings.data
+  const agencyOnDay = useMemo(() => {
+    const byDay = new Map<string, NonNullable<typeof agencyData>>()
+    for (const booking of agencyData ?? []) {
+      byDay.set(booking.date, [...(byDay.get(booking.date) ?? []), booking])
+    }
+    return byDay
+  }, [agencyData])
+
   const groupedAgenda = useMemo(() => {
     const groups = new Map<string, typeof filteredEvents>()
 
@@ -164,8 +178,12 @@ export default function CalendarPage() {
       const existing = groups.get(key) ?? []
       groups.set(key, [...existing, event])
     })
-    // Days with only follow-ups or appointments get a group too
-    for (const dayKey of [...followUpsByDay.keys(), ...appointmentsOnDay.keys()]) {
+    // Days with only follow-ups, appointments or agency bookings get a group too
+    for (const dayKey of [
+      ...followUpsByDay.keys(),
+      ...appointmentsOnDay.keys(),
+      ...agencyOnDay.keys()
+    ]) {
       if (dayKey >= range.start && dayKey <= range.end && !groups.has(dayKey)) {
         groups.set(dayKey, [])
       }
@@ -178,9 +196,10 @@ export default function CalendarPage() {
         dayLabel: format(parseISO(dayKey), 'EEEE, dd. MMMM yyyy', { locale: de }),
         items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate)),
         followUps: followUpsByDay.get(dayKey) ?? [],
-        appointments: appointmentsOnDay.get(dayKey) ?? []
+        appointments: appointmentsOnDay.get(dayKey) ?? [],
+        agency: agencyOnDay.get(dayKey) ?? []
       }))
-  }, [filteredEvents, followUpsByDay, appointmentsOnDay, range])
+  }, [filteredEvents, followUpsByDay, appointmentsOnDay, agencyOnDay, range])
 
   const highlightedDates = useMemo(() => {
     return new Set(eventsWithParsedDate.map((event) => format(event.parsedDate, 'yyyy-MM-dd')))
@@ -189,6 +208,7 @@ export default function CalendarPage() {
   const selectedKey = format(selectedDate, 'yyyy-MM-dd')
   const selectedDayFollowUps = followUpsByDay.get(selectedKey) ?? []
   const selectedDayAppointments = appointmentsOnDay.get(selectedKey) ?? []
+  const selectedDayAgency = agencyOnDay.get(selectedKey) ?? []
   const openEvent = (id: number) =>
     navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
 
@@ -231,7 +251,8 @@ export default function CalendarPage() {
               modifiers={{
                 hasEvent: (date) => highlightedDates.has(format(date, 'yyyy-MM-dd')),
                 hasFollowUp: (date) => followUpsByDay.has(format(date, 'yyyy-MM-dd')),
-                hasAppointment: (date) => appointmentsOnDay.has(format(date, 'yyyy-MM-dd'))
+                hasAppointment: (date) => appointmentsOnDay.has(format(date, 'yyyy-MM-dd')),
+                hasAgencyBooking: (date) => agencyOnDay.has(format(date, 'yyyy-MM-dd'))
               }}
               modifiersClassNames={{
                 hasEvent:
@@ -241,7 +262,9 @@ export default function CalendarPage() {
                   'relative after:pointer-events-none after:absolute after:right-1.5 after:top-1.5 after:size-1.5 after:rounded-full after:bg-amber-500',
                 // #71: a sky-blue dot in the other corner: an own appointment that day
                 hasAppointment:
-                  'relative before:pointer-events-none before:absolute before:left-1.5 before:top-1.5 before:size-1.5 before:rounded-full before:bg-sky-500'
+                  'relative before:pointer-events-none before:absolute before:left-1.5 before:top-1.5 before:size-1.5 before:rounded-full before:bg-sky-500',
+                // #103: a teal frame: another agency booked one of the bands that day
+                hasAgencyBooking: 'rounded-md ring-2 ring-inset ring-teal-500/70'
               }}
             />
 
@@ -283,6 +306,14 @@ export default function CalendarPage() {
                     </button>
                   ))}
                 </div>
+              )}
+              {selectedDayAgency.length > 0 && (
+                <section aria-label="Agenturbuchungen an diesem Tag" className="space-y-2 pt-1">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Agenturbuchungen
+                  </h3>
+                  <AgencyBookingList bookings={selectedDayAgency} />
+                </section>
               )}
               {selectedDayAppointments.length > 0 && (
                 <section aria-label="Termine an diesem Tag" className="space-y-2 pt-1">
@@ -331,7 +362,7 @@ export default function CalendarPage() {
               <p className="text-sm text-muted-foreground">Events werden geladen…</p>
             ) : groupedAgenda.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine Events, Termine oder Wiedervorlagen für diese Auswahl.
+                Keine Events, Agenturbuchungen, Termine oder Wiedervorlagen für diese Auswahl.
               </p>
             ) : (
               <div className="space-y-5">
@@ -376,6 +407,11 @@ export default function CalendarPage() {
                             </div>
                           </button>
                         ))}
+                        {group.agency.length > 0 && (
+                          <div className="rounded-lg border border-teal-200 bg-teal-50/60 px-4 py-3 dark:border-teal-900/60 dark:bg-teal-950/20">
+                            <AgencyBookingList bookings={group.agency} />
+                          </div>
+                        )}
                         {group.appointments.length > 0 && (
                           <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-4 py-3 dark:border-sky-900/60 dark:bg-sky-950/20">
                             <AppointmentList appointments={group.appointments} day={group.dayKey} />
