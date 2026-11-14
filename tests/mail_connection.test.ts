@@ -6,6 +6,7 @@ import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  capabilityNames,
   classifyConnectionError,
   testImapConnection
 } from '../src/main/mailclient/core/connection_test'
@@ -61,7 +62,8 @@ async function fakeImapServer(mode: Mode): Promise<FakeServer> {
           socket.write(
             mode === 'reject-login'
               ? `${tag} NO [AUTHENTICATIONFAILED] Authentication failed.\r\n`
-              : `${tag} OK [CAPABILITY IMAP4rev1] logged in\r\n`
+              : // #156: more after login, as real servers do
+                `${tag} OK [CAPABILITY IMAP4rev1 LIST-STATUS UIDPLUS idle] logged in\r\n`
           )
         } else if (command === 'LIST' || command === 'LSUB') {
           const lines = FOLDERS.map((f) => `* ${command} (\\HasNoChildren) "/" "${f}"\r\n`)
@@ -109,6 +111,21 @@ async function server(mode: Mode): Promise<FakeServer> {
 
 const login = { user: 'tester', pass: 'secret' }
 
+describe('capabilityNames', () => {
+  it('#156: keeps capability atoms only, upper-cased, sorted and once', () => {
+    const caps = new Map<string, unknown>([
+      ['IMAP4rev1', true],
+      ['AUTH=PLAIN', true],
+      ['APPENDLIMIT', 1000],
+      ['imap4rev1', true],
+      ['two words', true],
+      ['', true]
+    ])
+    expect(capabilityNames(caps)).toEqual(['APPENDLIMIT', 'AUTH=PLAIN', 'IMAP4REV1'])
+    expect(capabilityNames(undefined)).toEqual([])
+  })
+})
+
 describe('testImapConnection', () => {
   it('counts the folders after a successful login', async () => {
     const s = await server('ok')
@@ -119,6 +136,22 @@ describe('testImapConnection', () => {
       ...login
     })
     expect(result).toMatchObject({ ok: true, folderCount: FOLDERS.length })
+  })
+
+  it('#156: lists the capability names the server advertised after login', async () => {
+    const s = await server('ok')
+    const result = await testImapConnection({
+      host: '127.0.0.1',
+      port: s.port,
+      security: 'none',
+      ...login
+    })
+    expect(result.ok && result.capabilities).toEqual([
+      'IDLE',
+      'IMAP4REV1',
+      'LIST-STATUS',
+      'UIDPLUS'
+    ])
   })
 
   it('reports a closed port as refused, quickly', async () => {

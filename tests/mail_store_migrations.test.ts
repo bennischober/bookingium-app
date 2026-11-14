@@ -385,3 +385,22 @@ describe('complete flag (migration 5)', () => {
     }
   })
 })
+
+describe('folder unseen (migration 6)', () => {
+  it('adds the column to an adopted store, unknown until the first sync', () => {
+    const dir = tempDir()
+    writeLegacyDb(dir)
+    const store = open(dir)
+    expect(columns(store.db, 'folders')).toContain('unseen')
+    const counts = store.db.prepare('SELECT unseen FROM folders').all() as { unseen: unknown }[]
+    expect(counts.length).toBeGreaterThan(0)
+    for (const row of counts) expect(row.unseen).toBeNull()
+  })
+
+  it('stores the count per folder', () => {
+    const { store, folderId } = storeWithFolder()
+    expect(store.getFolder(folderId)!.unseen).toBeNull()
+    store.setFolderUnseen(folderId, 4)
+    expect(store.getFolder(folderId)!.unseen).toBe(4)
+  })
+})

@@ -28,12 +28,14 @@ the prototype's `test-core-boundary.ts`) holds this boundary.
 | `maintenance.ts` | `Maintenance`: orphan sweep, missing-file repair, the idle wait both run behind |
 | `store.ts` | SQLite/FTS5 storage: folders, messages, threads, contacts, **search** (weighted BM25, facets, snippets), **operation journal** |
 | `migrations.ts` | Versioned schema migrations (`PRAGMA user_version`): append-only list, one transaction each, a DB from a newer build is refused |
-| `sync.ts` | `SyncEngine`: the sync façade (status, pause/resume, disk full, folder list, `syncAll`, move detection); wires the five modules below |
+| `sync.ts` | `SyncEngine`: the sync façade (status, pause/resume, disk full, folder list, `syncAll`, the sync button's change pass `syncChanges`, move detection); wires the six modules below |
 | `folder_locks.ts` | `FolderLocks`: the per-folder mutex sync and writes share, yielding a folder to waiting writes |
 | `sync_connection.ts` | `SyncConnection`: the sync and IDLE clients, capability detection, backoff, circuit breaker, connection state |
 | `message_ingest.ts` | `MessageIngest`: storing a fetched message or an appended draft (body file + row), the fault-injection hook |
 | `folder_sync.ts` | `FolderSync`: one folder's pass (CONDSTORE/QRESYNC tiered + UID-sweep fallback), staged UIDVALIDITY swap, downloads, mass-expunge check |
-| `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, STATUS polling, the tiered flag sweep |
+| `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, the STATUS poll (through `status_check.ts`), the tiered flag sweep |
+| `status_check.ts` | #156: `StatusCheck`, the STATUS round (LIST-STATUS where advertised, else per-folder STATUS paced by the census pause) and the one "folder changed" rule (MESSAGES, UIDNEXT, HIGHESTMODSEQ, UNSEEN) the poll and `syncChanges` share; remembers UNSEEN after a sync that went through; `censusPauseOf`, `parseCensusPause` |
+| `pass_summary.ts` | #156: `passSummaryLine`, the one content-free log line after a pass the user started |
 | `write_engine.ts` | `WriteEngine`: crash-safe, serialized playback of journaled ops: the queue, `execute`, the watchdog, the write connection, `preflight`, flags and expunge; the other op kinds go to the four modules below |
 | `write_moves.ts` | `WriteMoves`: single and batch moves (delete, archive and draft delete are moves too), the batch preflight, the resume after a crash, the local half |
 | `write_send.ts` | `WriteSend`: send with its phases, the unknown-outcome probe, filing to Sent, draft save and removing old draft versions; `smtpRefused` (re-exported from `write_engine.ts`) |
@@ -175,6 +177,60 @@ leaves the user guessing.
   waits behind it. The space hold is not saved: after a restart it is checked again.
 
 Tests: `tests/mail_large_mailbox.test.ts` (fake server with `STATUS=SIZE` / `QUOTA`).
+
+## The sync button syncs what changed
+
+#156. Without CONDSTORE every folder sync is a SELECT, a `UID FETCH 1:*` and a `FETCH 1:* FLAGS`, so a
+`syncAll` over a large mailbox takes minutes even when nothing changed. `MailCore.triggerSync(false, …,
+openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSync(true)` stays the full
+`syncAll` (the deep check, the sync bar's „Alle Ordner prüfen“).
+
+- **Priority folders** (`SyncProgress.changePass = 'priority'`): the open folder, INBOX, then the folders
+  with special use `\Sent`, `\Drafts`, `\Trash`, each once, synced fully after one STATUS (for UNSEEN).
+- **The check** (`changePass = 'check'`): `StatusCheck.round` over every other folder, synced only when
+  `StatusCheck.changed`: no UIDVALIDITY yet, MESSAGES against the stored rows, UIDNEXT, HIGHESTMODSEQ
+  (only asked where imapflow sees CONDSTORE), or UNSEEN against `folders.unseen`. A NULL stored value
+  never counts; an unchanged folder takes the server's UNSEEN as its baseline.
+- **UNSEEN is remembered** (`syncAndRemember`) only after a sync that went through: the rename was not
+  pending and the folder reported no error meanwhile (`syncFolder` swallows folder errors, so the engine
+  counts `error` events per path). The value is the one asked BEFORE the sync, so a change during the
+  sync shows in the next round. `syncAll` stores it the same way, which is how the start pass sets the
+  first baseline.
+- **Falls back to `syncAll`** while the store is not complete: no finished pass, a folder without
+  UIDVALIDITY, a paused or held first download.
+- **LIST-STATUS.** Advertised: one `client.list({ statusQuery })` (`StatusCheck.listStatus`); a folder
+  missing from the inline answer gets its own STATUS. `syncAll`'s STATUS sweep (the deep check, the
+  start pass) uses the same call with SIZE added (imapflow drops it without STATUS=SIZE) and counts
+  in `rounds.listStatus` too; its pass summary says `list-status=yes`. IONOS advertises it (seen
+  2026-11-13). A server that advertises it but rejects it makes imapflow fall back to an
+  UNPACED STATUS per folder and set `skipListStatusArgs`; `StatusCheck` then latches `listStatusBroken`
+  and uses the paced path from the next round on. A server that silently ignores the RETURN option
+  cannot be told apart and pays that unpaced round each time.
+- **Pacing.** Per-folder STATUS commands are paced by the census pause, `censusPauseOf(account)`:
+  `AccountConfig.censusDelayMs`, else `requestDelayMs`, i.e. 150 ms for every account builder. That
+  value comes from the prototype and was never measured (#157), so it stays the default; the host can
+  set `MailCoreOptions.censusPauseMs` for every account (the worker reads
+  `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` through `parseCensusPause`, 0 to 10000 ms; the core itself reads no
+  environment). It covers the change pass's check, the poll and `syncAll`'s STATUS sweep, nothing else,
+  and only where they ask folder by folder: LIST-STATUS is one command and needs none.
+- **The opened folder** (`SyncEngine.syncOpened`, `MailCore.syncOpenedFolder`): synced on the sync
+  client after one STATUS, never on a new connection. During a pass it becomes `openRequest`, which the
+  pass's folder loop (`syncAll`) or `takeOpened` (`syncChanges`, before each priority folder and inside
+  the check) takes next; `passSynced` makes sure a pass syncs no folder twice, and a request still open
+  when the pass ends is run by `endPass`. Skipped (`'skipped'`) while its mutex is held, it is already
+  being synced because it was opened, a rename is pending, before `lastSyncAt`, paused, the circuit
+  open, not online or the disk full. `inFlight` counts it, so `close()` waits for it.
+- **The pass summary** (`SyncProgress.lastPass`, a `PassSummary`): set by `endPass` only for passes
+  started with `report: true`, i.e. from `MailCore.triggerSync`; the background passes leave it alone.
+  Counts and times only: LIST-STATUS used, census pause and duration (the STATUS round without the
+  syncs inside it), folders checked and synced, total time, error events during the pass, the phase
+  and connection at the end. `triggerSync` logs it once with `passSummaryLine`.
+- **Not covered by the button:** flag changes other than `\Seen` in unchanged non-priority folders, and
+  `\Seen` changes that cancel out in the count. The poll's tiered flag sweep and the deep check do.
+
+Tests: `tests/mail_change_pass.test.ts` (`tests/helpers/scriptedImap.ts` with `capabilities`, UNSEEN and
+LIST-STATUS; the census pause, the opened folder, the pass summary), the migration in
+`tests/mail_store_migrations.test.ts`; `capabilityNames` in `tests/mail_connection.test.ts`.
 
 ## A large message is stored without its large parts
 

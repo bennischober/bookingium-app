@@ -62,6 +62,8 @@ import type { MessageDetail, MessageListItem } from '../../../main/mailclient/co
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
+/** #156: how long a folder stays open before it is synced (clicking through starts no sync each) */
+const OPEN_SYNC_DELAY_MS = 300
 
 /** The mail client; #136: always part of the app, no longer behind a switch */
 export default function MailPage() {
@@ -248,6 +250,22 @@ function MailClient() {
         ? 2000
         : 10_000
   })
+
+  // #156: the folder the user opens is synced right away, on the sync connection (the core
+  // skips it while that folder is being synced anyway; a running pass takes it next). A short
+  // delay, so clicking through folders does not start a sync for each one passed over. Quiet on
+  // failure: the list shows what is stored, and the sync bar reports connection problems.
+  const refetchSyncStatus = useEffectEvent(() => void syncStatus.refetch())
+  useEffect(() => {
+    if (!ready || !accountId || folderId === null) return
+    const timer = setTimeout(() => {
+      void mailApi
+        .syncOpenedFolder(folderId, accountId)
+        .then(refetchSyncStatus)
+        .catch(() => undefined)
+    }, OPEN_SYNC_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [ready, accountId, folderId])
   const loginFailed = syncStatus.data?.connection === 'auth-failed'
 
   const { runningOp, opList, opNow, busyOpId, runOpAction } = useMailOps({
@@ -616,8 +634,15 @@ function MailClient() {
             onPause={() => void mailApi.pauseSync(accountId).then(() => syncStatus.refetch())}
             onResume={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
             onSync={() =>
+              // #156: the open folder goes first in the change pass
               void mailApi
-                .triggerSync(false, accountId)
+                .triggerSync(false, accountId, folderId)
+                .then(() => syncStatus.refetch())
+                .catch(failed('Synchronisierung fehlgeschlagen'))
+            }
+            onSyncAll={() =>
+              void mailApi
+                .triggerSync(true, accountId)
                 .then(() => syncStatus.refetch())
                 .catch(failed('Synchronisierung fehlgeschlagen'))
             }

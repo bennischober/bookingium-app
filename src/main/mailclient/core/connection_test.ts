@@ -21,7 +21,9 @@ export type ConnectionTestStage =
   | 'timeout' | 'other';
 
 export type ConnectionTestResult =
-  | { ok: true; folderCount: number; ms: number }
+  // #156: `capabilities` are the names the server advertised after login (e.g. LIST-STATUS,
+  // CONDSTORE), so the user can read what the server offers; names only, sorted
+  | { ok: true; folderCount: number; ms: number; capabilities: string[] }
   | { ok: false; stage: ConnectionTestStage; message: string; ms: number };
 
 export type ConnectionTestInput = {
@@ -55,6 +57,20 @@ export function classifyConnectionError(err: unknown): ConnectionTestStage {
   return 'other';
 }
 
+/**
+ * #156: the advertised capability names, upper-cased, sorted and de-duplicated. Only tokens
+ * that look like an IMAP capability atom pass (letters, digits and `=+-._/`), so nothing but
+ * the names leaves the connection.
+ */
+export function capabilityNames(caps: Iterable<[string, unknown]> | Map<string, unknown> | undefined | null): string[] {
+  const names = new Set<string>();
+  for (const [name] of caps ?? []) {
+    const n = String(name).toUpperCase();
+    if (/^[A-Z0-9][A-Z0-9=+\-._/]{0,63}$/.test(n)) names.add(n);
+  }
+  return [...names].sort();
+}
+
 /** Connects once, logs in, counts the folders and logs out, all within `timeoutMs`. */
 export async function testImapConnection(input: ConnectionTestInput, opts: { timeoutMs?: number } = {}):
   Promise<ConnectionTestResult> {
@@ -84,8 +100,9 @@ export async function testImapConnection(input: ConnectionTestInput, opts: { tim
     try {
       await client.connect();
       const folders = await client.list();
+      const capabilities = capabilityNames(client.capabilities);
       await client.logout().catch(() => { });
-      return { ok: true, folderCount: folders.length, ms: ms() };
+      return { ok: true, folderCount: folders.length, ms: ms(), capabilities };
     } catch (err) {
       return { ok: false, stage: classifyConnectionError(err), message: (err as Error)?.message ?? String(err), ms: ms() };
     }

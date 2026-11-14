@@ -286,12 +286,23 @@ function completeFlag(db: BetterSqlite3.Database): void {
   db.exec(`ALTER TABLE messages ADD COLUMN complete INTEGER NOT NULL DEFAULT 1`);
 }
 
+/**
+ * 6 (#156): the server's UNSEEN count per folder at the last completed sync. The change-driven
+ * sync button and the background poll compare it with STATUS, so read-state changes made in
+ * another client are noticed without a flag sweep. NULL means not known yet and never counts
+ * as a change.
+ */
+function folderUnseen(db: BetterSqlite3.Database): void {
+  db.exec(`ALTER TABLE folders ADD COLUMN unseen INTEGER`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
   { version: 2, name: 'split bodies', up: splitBodies },
   { version: 3, name: 'relinks', up: relinks },
   { version: 4, name: 'compose key', up: composeKey },
   { version: 5, name: 'complete flag', up: completeFlag },
+  { version: 6, name: 'folder unseen', up: folderUnseen },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -43,6 +43,15 @@ export function connectionTestMessage(result: ConnectionTestResult): string {
   return STAGE_MESSAGES[result.stage]
 }
 
+/**
+ * #156: the capabilities the server advertised, as one line for the account test, so it can be
+ * read whether the server offers LIST-STATUS, CONDSTORE and so on. null when there are none.
+ */
+export function capabilitiesLine(result: ConnectionTestResult): string | null {
+  if (!result.ok || !result.capabilities?.length) return null
+  return `Server-Funktionen: ${result.capabilities.join(', ')}`
+}
+
 /** "in 40 s", "in 2 min" until `iso`, never negative */
 export function retryIn(iso: string, now: number): string {
   const s = Math.max(0, Math.round((new Date(iso).getTime() - now) / 1000))

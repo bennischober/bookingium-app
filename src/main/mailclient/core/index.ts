@@ -13,7 +13,8 @@
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import path from 'path';
 import { Store, JournalRow } from './store.js';
-import { SyncEngine, AccountConfig, SyncEvent } from './sync.js';
+import { SyncEngine, AccountConfig, SyncEvent, type OpenedSync } from './sync.js';
+import { passSummaryLine } from './pass_summary.js';
 import { WriteEngine, OpResult } from './write_engine.js';
 import { WriteAccount } from './write_guard.js';
 import { RemoteImageFetchOptions } from './remote_images.js';
@@ -69,6 +70,13 @@ export interface MailCoreOptions {
   clock?: () => number;
   /** remote-image fetching policy (opt-in "load images"); omit to leave images blocked */
   remoteImages?: RemoteImageFetchOptions & { enabled: boolean };
+  /**
+   * #156: the pause in ms after each STATUS of a census (the sync button's check, the poll,
+   * syncAll's STATUS sweep) for every account; omit for the account default (requestDelayMs,
+   * 150 ms on a real server). The worker reads BOOKINGIUM_MAIL_CENSUS_PAUSE_MS to set it, so
+   * the pacing can be tried against a server without editing code.
+   */
+  censusPauseMs?: number;
   /** testing: force the no-CONDSTORE sync strategy even on CONDSTORE servers */
   forceNoCondstore?: boolean;
   /** testing: fail every local write with this error code, so the disk-full path can be exercised
@@ -188,14 +196,34 @@ export class MailCore implements Api {
     };
   }
 
-  async triggerSync(full?: boolean, accountId?: string): Promise<void> {
+  /**
+   * The sync button. #156: without `full` it is the change pass (SyncEngine.syncChanges): the
+   * open folder, INBOX, Sent, Drafts and Trash first, then only the folders whose STATUS moved.
+   * `full` is the deep check, every folder opened and compared (syncAll). `openFolderId` is the
+   * folder shown in the UI, synced first.
+   */
+  async triggerSync(full?: boolean, accountId?: string, openFolderId?: string | null): Promise<void> {
     const e = this.entry(accountId);
     await this.ensureCredentials(e.config.id);
     if (e.engine.isSyncing()) {
       await e.engine.waitForSync(120_000);
       return;
     }
-    await e.engine.syncAll({ full }).catch(err => this.log.error?.(`sync error: ${(err as Error).message}`));
+    const pass = full ? e.engine.syncAll({ full, report: true }) : e.engine.syncChanges({ openFolder: openFolderId ?? null, report: true });
+    await pass.catch(err => this.log.error?.(`sync error: ${(err as Error).message}`));
+    // #156: one content-free line per pass the user started, for judging the census pacing
+    const summary = e.engine.getStatus().lastPass;
+    if (summary) this.log.info?.(passSummaryLine(summary));
+  }
+
+  /**
+   * #156: the folder the user just opened, synced right away on the sync connection (or taken
+   * next by a running pass); skipped while it is being synced anyway. SyncEngine.syncOpened.
+   */
+  async syncOpenedFolder(folderId: string, accountId?: string): Promise<OpenedSync> {
+    const e = this.entry(accountId);
+    await this.ensureCredentials(e.config.id);
+    return e.engine.syncOpened(folderId);
   }
 
   /** The unread mails in each account's INBOX, as its folder shows them (pending moves left out). Counts only. */
@@ -414,3 +442,5 @@ export function createMailCore(options: MailCoreOptions): MailCore {
 
 export { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 export { MOVE_BATCH_LIMIT } from './op_api.js';
+export { parseCensusPause } from './status_check.js';
+export { passSummaryLine } from './pass_summary.js';
