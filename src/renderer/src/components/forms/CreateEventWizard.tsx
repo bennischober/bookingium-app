@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GenreField } from './GenreField'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -177,10 +178,10 @@ function BandQuickCreateDialog({ isOpen, prefillName, onClose, onCreated }: Band
           </div>
           <div className="space-y-2">
             <Label htmlFor="band-genre">Genre</Label>
-            <Input
+            <GenreField
               id="band-genre"
               value={genre}
-              onChange={(e) => setGenre(e.target.value)}
+              onChange={setGenre}
               placeholder="z. B. Rock"
             />
           </div>

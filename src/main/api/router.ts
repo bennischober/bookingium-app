@@ -6,6 +6,7 @@ import { bandRouter } from './routers/band.router'
 import { companyRouter } from './routers/company.router'
 import { personRouter } from './routers/person.router'
 import { bankRouter } from './routers/bank.router'
+import { genreRouter } from './routers/genre.router'
 import { venueRouter } from './routers/venue.router'
 import { relationRouter } from './routers/relation.router'
 import { dealMemoRouter } from './routers/deal_memo.router'
@@ -48,6 +49,7 @@ export const router = t.router({
   company: companyRouter,
   person: personRouter,
   bank: bankRouter,
+  genre: genreRouter,
   venue: venueRouter,
   relation: relationRouter,
   dealMemo: dealMemoRouter,

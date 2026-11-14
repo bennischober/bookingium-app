@@ -250,6 +250,48 @@ describe('runMigrations', () => {
     ])
   })
 
+  it('turns the genre strings into genre rows, one per spelling', () => {
+    const sqlite = openDb()
+    const copy = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('CREATE TABLE `__genre_tag`'))
+    )
+    apply(sqlite, migrations.slice(0, copy))
+    sqlite.exec(`
+      insert into company (id, name, genres) values (1, 'Label', ''), (2, 'Radio', ' metal ;Doom,, ');
+      insert into band (id, name, company_id, genre) values (1, 'Musterband', 1, 'Metal; Rock');
+      insert into venue (id, name, genres) values (1, 'Halle', 'Rock, punk'), (2, 'Leer', '');
+    `)
+    apply(sqlite, migrations.slice(copy))
+
+    // Venues first, then companies, then bands: a name keeps its first spelling
+    expect(sqlite.prepare('select id, name from genre order by id').all()).toEqual([
+      { id: 1, name: 'Rock' },
+      { id: 2, name: 'punk' },
+      { id: 3, name: 'metal' },
+      { id: 4, name: 'Doom' }
+    ])
+    const tags = (table: string, owner: string) =>
+      sqlite
+        .prepare(
+          `select l.${owner} as id, group_concat(g.name, ', ' order by l.position) as tags
+           from ${table} l join genre g on g.id = l.genre_id group by l.${owner} order by 1`
+        )
+        .all()
+    expect(tags('venue_genre', 'venue_id')).toEqual([{ id: 1, tags: 'Rock, punk' }])
+    expect(tags('company_genre', 'company_id')).toEqual([{ id: 2, tags: 'metal, Doom' }])
+    expect(tags('band_genre', 'band_id')).toEqual([{ id: 1, tags: 'metal, Rock' }])
+    expect(
+      sqlite.prepare("select count(*) as n from sqlite_master where name = '__genre_tag'").get()
+    ).toEqual({ n: 0 })
+    const columns = (table: string) =>
+      (sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map(
+        ({ name }) => name
+      )
+    expect(columns('venue')).not.toContain('genres')
+    expect(columns('company')).not.toContain('genres')
+    expect(columns('band')).not.toContain('genre')
+  })
+
   it('keeps every trigger through the table rebuilds', () => {
     // A drizzle-kit rebuild (CREATE __new_x, DROP x, RENAME) drops x's triggers, so a
     // migration that rebuilds one of these tables has to create them again

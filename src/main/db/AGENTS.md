@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Drizzle schema for 27 tables, the append-only migration chain, a lazy/overridable
+Drizzle schema for 40 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
 
 ## WHERE TO LOOK
@@ -35,6 +35,12 @@ database handle, and the demo seed.
   sums are exact. `invoice_line_item.unit_price_net` stays `real` on purpose: an
   item price may have more than two decimals (EN 16931 BT-146) and only the line
   net is rounded. Percentages and VAT rates are `real` too.
+- Genres are rows (#152): one `genre` row per spelling (unique, case-insensitive),
+  linked by `venue_genre`, `company_genre` and `band_genre` (with `position`, the
+  entered order). The API keeps the comma-separated string; `repositories/genres.ts`
+  turns it into rows (`writeGenres`), reads it back (`withGenres`, `genresSql` for
+  search and sort) and deletes genres nobody uses (`deleteUnusedGenres`, called by
+  every write that can drop a link). `genre.list` feeds the form suggestions.
 - Document ownership has no FK: `owner_type` + `owner_id`, with triggers in the
   initial migration deleting rows when the owner goes.
 - Enum-like text columns carry a `CHECK` built from the zod enum's `.options`

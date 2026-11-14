@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GenreField } from './GenreField'
 import {
   Select,
   SelectContent,
@@ -208,15 +209,15 @@ export function CompanyForm({
                 {(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="genres">Genres</Label>
-                    <Input
+                    <GenreField
                       id="genres"
                       value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
+                      onChange={field.handleChange}
                       onBlur={field.handleBlur}
-                      placeholder="z. B. Metal, Rock"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mit Komma trennen; wird für die Verteiler genutzt.
+                      Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die
+                      Verteiler genutzt.
                     </p>
                   </div>
                 )}

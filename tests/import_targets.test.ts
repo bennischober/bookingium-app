@@ -13,6 +13,7 @@ import { detectMapping, detectMappings, suggestTarget } from '../src/main/import
 import { parseBirthday, parsePersons } from '../src/main/import/normalize'
 import type { ImportRequest, ImportTarget, ImportFile } from '../src/main/api/schemas/import.schema'
 
+import { withGenres } from '../src/main/repositories/genres'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
@@ -115,9 +116,11 @@ describe('band lists', () => {
     expect(result.bands).toEqual({ created: 2, updated: 0 })
     expect(result.persons.created).toBe(4)
 
-    const band = db.select().from(schema.band).where(eq(schema.band.name, 'Pretty Wild')).get()!
+    const band = withGenres('band', [
+      db.select().from(schema.band).where(eq(schema.band.name, 'Pretty Wild')).get()!
+    ])[0]
     expect(band).toMatchObject({
-      genre: 'Hard Rock',
+      genres: 'Hard Rock',
       company_id: bandCompany.id,
       management_company_id: management.id
     })

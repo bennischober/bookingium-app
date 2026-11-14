@@ -1,6 +1,7 @@
 // Genre tags of venues, bands and media companies (the Verteiler's genre
-// filter). Free text, comma-separated; stored trimmed and deduplicated
-// (case-insensitive) as "Metal, Rock"
+// filter). Free text, comma-separated in the API, trimmed and deduplicated
+// (case-insensitive) as "Metal, Rock"; stored as genre rows (#152,
+// repositories/genres.ts)
 export function splitGenres(value: string): string[] {
   const seen = new Set<string>()
   const tags: string[] = []
@@ -14,5 +15,5 @@ export function splitGenres(value: string): string[] {
   return tags
 }
 
-/** " Rock;metal " -> "Rock, metal" (how genres are stored) */
+/** " Rock;metal " -> "Rock, metal" (the API form) */
 export const normalizeGenres = (value: string): string => splitGenres(value).join(', ')

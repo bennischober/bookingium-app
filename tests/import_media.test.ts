@@ -17,6 +17,7 @@ import type {
   ImportTarget
 } from '../src/main/api/schemas/import.schema'
 
+import { withGenres } from '../src/main/repositories/genres'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
@@ -46,8 +47,10 @@ function request(
 
 const service = () => container.resolve(ImportService)
 
-const companyNamed = (name: string) =>
-  db.select().from(schema.company).where(eq(schema.company.name, name)).get()
+const companyNamed = (name: string) => {
+  const row = db.select().from(schema.company).where(eq(schema.company.name, name)).get()
+  return row && withGenres('company', [row])[0]
+}
 
 const contactOf = (id: number | null | undefined) =>
   db.select().from(schema.contact).where(eq(schema.contact.id, id!)).get()!
@@ -220,11 +223,9 @@ describe('media lists', () => {
         }
       )
     )
-    const venue = db
-      .select()
-      .from(schema.venue)
-      .where(eq(schema.venue.name, 'Moortest Open Air'))
-      .get()!
+    const venue = withGenres('venue', [
+      db.select().from(schema.venue).where(eq(schema.venue.name, 'Moortest Open Air')).get()!
+    ])[0]
     expect(venue.genres).toBe('Stoner, Rock')
     expect(venue.notes).not.toContain('Genre')
   })

@@ -5,7 +5,7 @@ import { deleteUnusedCompanions } from './companions'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import { normalizeGenres } from '../api/schemas/genres'
+import { deleteUnusedGenres, withGenres, writeGenres } from './genres'
 import type {
   CreateVenueInput,
   UpdateVenueInput,
@@ -23,13 +23,16 @@ export class VenueRepository {
       .leftJoin(schema.company, eq(schema.venue.company_id, schema.company.id))
       .orderBy(schema.venue.name)
 
-    return withContactEmails(
-      rows.map((row) => ({
-        ...row.venue,
-        address: row.address,
-        contact: row.contact,
-        company: row.company
-      }))
+    return withGenres(
+      'venue',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.venue,
+          address: row.address,
+          contact: row.contact,
+          company: row.company
+        }))
+      )
     )
   }
 
@@ -74,13 +77,16 @@ export class VenueRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = withContactEmails(
-      rows.map((row) => ({
-        ...row.venue,
-        address: row.address,
-        contact: row.contact,
-        company: row.company
-      }))
+    const items = withGenres(
+      'venue',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.venue,
+          address: row.address,
+          contact: row.contact,
+          company: row.company
+        }))
+      )
     )
 
     return {
@@ -103,13 +109,16 @@ export class VenueRepository {
       .where(eq(schema.venue.company_id, companyId))
       .orderBy(schema.venue.name)
 
-    return withContactEmails(
-      rows.map((row) => ({
-        ...row.venue,
-        address: row.address,
-        contact: row.contact,
-        company: row.company
-      }))
+    return withGenres(
+      'venue',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.venue,
+          address: row.address,
+          contact: row.contact,
+          company: row.company
+        }))
+      )
     )
   }
 
@@ -123,14 +132,17 @@ export class VenueRepository {
       .where(eq(schema.venue.id, id))
 
     if (!rows[0]) return null
-    return withContactEmails([
-      {
-        ...rows[0].venue,
-        address: rows[0].address,
-        contact: rows[0].contact,
-        company: rows[0].company
-      }
-    ])[0]
+    return withGenres(
+      'venue',
+      withContactEmails([
+        {
+          ...rows[0].venue,
+          address: rows[0].address,
+          contact: rows[0].contact,
+          company: rows[0].company
+        }
+      ])
+    )[0]
   }
 
   async create(input: CreateVenueInput) {
@@ -177,7 +189,6 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
-          genres: normalizeGenres(input.genres ?? ''),
           notes: input.notes,
           radius_km: input.radiusKm ?? null,
           radius_weeks_before: input.radiusWeeksBefore ?? null,
@@ -188,6 +199,7 @@ export class VenueRepository {
         })
         .returning()
         .all()
+      writeGenres(tx, 'venue', venueResult[0].id, input.genres ?? '')
 
       const rows = tx
         .select()
@@ -198,15 +210,19 @@ export class VenueRepository {
         .where(eq(schema.venue.id, venueResult[0].id))
         .all()
 
-      return withContactEmails(
-        [
-          {
-            ...rows[0].venue,
-            address: rows[0].address,
-            contact: rows[0].contact,
-            company: rows[0].company
-          }
-        ],
+      return withGenres(
+        'venue',
+        withContactEmails(
+          [
+            {
+              ...rows[0].venue,
+              address: rows[0].address,
+              contact: rows[0].contact,
+              company: rows[0].company
+            }
+          ],
+          tx
+        ),
         tx
       )[0]
     })
@@ -291,7 +307,6 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
-          genres: input.genres === undefined ? undefined : normalizeGenres(input.genres),
           notes: input.notes,
           // Callers that don't send the clause keep the stored one; null clears it
           radius_km: input.radiusKm !== undefined ? input.radiusKm : existingVenue.radius_km,
@@ -310,6 +325,7 @@ export class VenueRepository {
         })
         .where(eq(schema.venue.id, input.id))
         .run()
+      if (input.genres !== undefined) writeGenres(tx, 'venue', input.id, input.genres)
       deleteUnusedCompanions(tx, existingVenue)
 
       const rows = tx
@@ -321,15 +337,19 @@ export class VenueRepository {
         .where(eq(schema.venue.id, input.id))
         .all()
 
-      return withContactEmails(
-        [
-          {
-            ...rows[0].venue,
-            address: rows[0].address,
-            contact: rows[0].contact,
-            company: rows[0].company
-          }
-        ],
+      return withGenres(
+        'venue',
+        withContactEmails(
+          [
+            {
+              ...rows[0].venue,
+              address: rows[0].address,
+              contact: rows[0].contact,
+              company: rows[0].company
+            }
+          ],
+          tx
+        ),
         tx
       )[0]
     })
@@ -339,6 +359,7 @@ export class VenueRepository {
     db.transaction((tx) => {
       const [deleted] = tx.delete(schema.venue).where(eq(schema.venue.id, id)).returning().all()
       if (deleted) deleteUnusedCompanions(tx, deleted)
+      deleteUnusedGenres(tx)
     })
   }
 }

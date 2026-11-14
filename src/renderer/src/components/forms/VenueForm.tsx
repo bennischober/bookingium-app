@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GenreField } from './GenreField'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -212,16 +213,16 @@ export function VenueForm({
         {(field) => (
           <div className="space-y-2">
             <Label htmlFor={field.name}>Genres</Label>
-            <Input
+            <GenreField
               id={field.name}
               value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               onBlur={field.handleBlur}
-              placeholder="z. B. Metal, Rock"
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">
-              Mit Komma trennen; wird für die Verteiler genutzt.
+              Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler
+              genutzt.
             </p>
           </div>
         )}

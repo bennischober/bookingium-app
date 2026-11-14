@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, asc, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { notArchived, onlyArchived } from './archiveFilter'
+import { withGenres } from './genres'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { toCents, toNullableCents } from '../einvoice/amounts'
@@ -122,7 +123,7 @@ export class DealMemoRepository {
     const row = rows[0]
     return {
       ...row.deal_memo,
-      band: row.band,
+      band: row.band ? withGenres('band', [row.band])[0] : null,
       venue: row.venue,
       hotel: row.hotel,
       loProPerson: row.person,

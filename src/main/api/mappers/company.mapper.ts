@@ -9,6 +9,8 @@ type AddressEntity = typeof addressTable.$inferSelect
 type BankEntity = typeof bankTable.$inferSelect
 
 type CompanyWithRelations = CompanyEntity & {
+  /** From company_genre (#152) */
+  genres: string
   address?: AddressEntity | null
   contact?: ContactEntity | null
   bank?: BankEntity | null

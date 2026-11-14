@@ -11,6 +11,7 @@ import type {
   ListMemberDraft
 } from '../import/buildImportPlan'
 import { contactAddressEvents, normalizeEmail } from './contactEmails'
+import { genresByOwner, writeGenres, type GenreOwner } from './genres'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -29,6 +30,13 @@ function emptyOnly<T extends Record<string, unknown>>(row: T, values: Partial<T>
     if (isEmpty && value !== '' && value !== null && value !== undefined) changes[column] = value
   }
   return changes
+}
+
+/** Like emptyOnly for genre tags: sets them only on a record that has none; true if it did */
+function fillGenres(tx: Tx, owner: GenreOwner, id: number, value: string): boolean {
+  if (!value.trim() || genresByOwner(owner, [id], tx).has(id)) return false
+  writeGenres(tx, owner, id, value)
+  return genresByOwner(owner, [id], tx).has(id)
 }
 
 function addressValues(draft: AddressDraft): Partial<AddressRow> {
@@ -161,7 +169,6 @@ export class ImportRepository {
             .values({
               name: draft.name,
               kind: draft.kind,
-              genres: draft.genres,
               notes: notes || null,
               vat_number: draft.vatNumber,
               tax_number: draft.taxNumber,
@@ -171,6 +178,7 @@ export class ImportRepository {
             .returning({ id: schema.company.id })
             .get()
           companyIds.set(draft.key, created.id)
+          writeGenres(tx, 'company', created.id, draft.genres)
           this.addCompanyMembers(tx, created.id, draft.members, personIds)
           result.companies.created++
           continue
@@ -186,7 +194,6 @@ export class ImportRepository {
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
         const changes = emptyOnly(row, {
           notes,
-          genres: draft.genres,
           vat_number: draft.vatNumber,
           tax_number: draft.taxNumber,
           address_id: address.id,
@@ -198,8 +205,15 @@ export class ImportRepository {
             .where(eq(schema.company.id, row.id))
             .run()
         }
+        const genresAdded = fillGenres(tx, 'company', row.id, draft.genres)
         const membersAdded = this.addCompanyMembers(tx, row.id, draft.members, personIds)
-        if (address.changed || contact.changed || hasValues(changes) || membersAdded > 0) {
+        if (
+          address.changed ||
+          contact.changed ||
+          hasValues(changes) ||
+          genresAdded ||
+          membersAdded > 0
+        ) {
           result.companies.updated++
         }
       }
@@ -215,7 +229,6 @@ export class ImportRepository {
             .insert(schema.band)
             .values({
               name: draft.name,
-              genre: draft.genre,
               founded: draft.founded || null,
               notes,
               company_id: draft.companyId,
@@ -224,6 +237,7 @@ export class ImportRepository {
             })
             .returning({ id: schema.band.id })
             .get()
+          writeGenres(tx, 'band', created.id, draft.genre)
           this.addBandMembers(tx, created.id, draft.members, personIds)
           result.bands.created++
           continue
@@ -231,7 +245,6 @@ export class ImportRepository {
         const row = tx.select().from(schema.band).where(eq(schema.band.id, draft.existingId)).get()
         if (!row) throw new Error(`Band ${draft.existingId} nicht gefunden`)
         const changes = emptyOnly(row, {
-          genre: draft.genre,
           founded: draft.founded,
           notes,
           management_company_id: draft.managementCompanyId,
@@ -243,8 +256,9 @@ export class ImportRepository {
             .where(eq(schema.band.id, row.id))
             .run()
         }
+        const genresAdded = fillGenres(tx, 'band', row.id, draft.genre)
         const membersAdded = this.addBandMembers(tx, row.id, draft.members, personIds)
-        if (hasValues(changes) || membersAdded > 0) result.bands.updated++
+        if (hasValues(changes) || genresAdded || membersAdded > 0) result.bands.updated++
       }
 
       // ---- Venues ----
@@ -259,7 +273,6 @@ export class ImportRepository {
               name: draft.name,
               kind: draft.kind,
               capacity: draft.capacity,
-              genres: draft.genres,
               notes,
               company_id: companyId,
               address_id: this.insertAddress(tx, draft.address),
@@ -268,6 +281,7 @@ export class ImportRepository {
             .returning({ id: schema.venue.id })
             .get()
           venueIds.set(draft.key, created.id)
+          writeGenres(tx, 'venue', created.id, draft.genres)
           this.addVenueMembers(tx, created.id, draft.members, personIds)
           result.venues.created++
           continue
@@ -284,7 +298,6 @@ export class ImportRepository {
         const changes = emptyOnly(row, {
           notes,
           capacity: draft.capacity,
-          genres: draft.genres,
           company_id: companyId,
           address_id: address.id,
           contact_id: contact.id
@@ -295,8 +308,15 @@ export class ImportRepository {
             .where(eq(schema.venue.id, row.id))
             .run()
         }
+        const genresAdded = fillGenres(tx, 'venue', row.id, draft.genres)
         const membersAdded = this.addVenueMembers(tx, row.id, draft.members, personIds)
-        if (address.changed || contact.changed || hasValues(changes) || membersAdded > 0) {
+        if (
+          address.changed ||
+          contact.changed ||
+          hasValues(changes) ||
+          genresAdded ||
+          membersAdded > 0
+        ) {
           result.venues.updated++
         }
       }

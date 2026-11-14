@@ -140,8 +140,6 @@ export const company = sqliteTable(
     name: text('name').notNull(),
     // 'company' or 'media' (radio stations and the like, a Verteiler source, #80)
     kind: text('kind').default('company').notNull(),
-    // Genre tags like venue.genres ("Metal, Rock"); used for media in the Verteiler
-    genres: text('genres').default('').notNull(),
     notes: text('notes'),
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
     vat_number: text('vat_number').default('').notNull(),
@@ -203,7 +201,6 @@ export const band = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
-    genre: text('genre').default('').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
     company_id: integer('company_id')
@@ -258,8 +255,6 @@ export const venue = sqliteTable(
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
-    // Comma-separated genre tags ("Metal, Rock"); used by the mailing lists
-    genres: text('genres').default('').notNull(),
     notes: text('notes').default('').notNull(),
     // Radius clause (Gebietsschutz) this venue usually demands, #102: km around it and weeks
     // before/after the show. Null = the global default for the kind (Einstellungen).
@@ -300,6 +295,77 @@ export const venue_member = sqliteTable(
     index('venue_member_venue_idx').on(table.venue_id),
     index('venue_member_person_idx').on(table.person_id),
     uniqueIndex('venue_member_unique_idx').on(table.venue_id, table.person_id)
+  ]
+)
+
+// #152: genre tags of venues, media companies and bands (the Verteiler's genre filter).
+// A name exists once, whatever its case; a genre no record uses any more is deleted
+// (repositories/genres.ts), so this is the list of known genres the forms suggest.
+export const genre = sqliteTable(
+  'genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  // NOCASE folds ASCII only; the repository also matches names with toLocaleLowerCase
+  (table) => [uniqueIndex('genre_name_idx').on(sql`${table.name} COLLATE NOCASE`)]
+)
+
+// One row per tag of a record; position keeps the order the tags were entered in
+export const venue_genre = sqliteTable(
+  'venue_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    venue_id: integer('venue_id')
+      .notNull()
+      .references(() => venue.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('venue_genre_unique_idx').on(table.venue_id, table.genre_id),
+    index('venue_genre_genre_idx').on(table.genre_id)
+  ]
+)
+
+export const company_genre = sqliteTable(
+  'company_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    company_id: integer('company_id')
+      .notNull()
+      .references(() => company.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('company_genre_unique_idx').on(table.company_id, table.genre_id),
+    index('company_genre_genre_idx').on(table.genre_id)
+  ]
+)
+
+export const band_genre = sqliteTable(
+  'band_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('band_genre_unique_idx').on(table.band_id, table.genre_id),
+    index('band_genre_genre_idx').on(table.genre_id)
   ]
 )
 
@@ -1142,6 +1208,10 @@ export const schema = {
   band_member,
   venue,
   venue_member,
+  genre,
+  venue_genre,
+  company_genre,
+  band_genre,
   hotel,
   deal_memo,
   deal_memo_deposit,

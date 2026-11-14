@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { copyLogoToStorage } from '../utils/fileStorage'
+import { writeGenres, type GenreOwner } from '../repositories/genres'
 import {
   address,
   contact,
@@ -24,6 +25,11 @@ import {
   invoice_line_item,
   invoice_party_snapshot
 } from './schema'
+
+/** Genre tags live in their own tables (#152) */
+function tagGenres(owner: GenreOwner, id: number, value: string) {
+  db.transaction((tx) => writeGenres(tx, owner, id, value))
+}
 
 export async function seedDatabase() {
   try {
@@ -536,7 +542,6 @@ export async function seedDatabase() {
       .insert(band)
       .values({
         name: 'The Electric Waves',
-        genre: 'Alternative Rock',
         founded: '2015-06-20',
         notes: 'High-energy rock band with three studio albums',
         company_id: company1.id
@@ -547,12 +552,14 @@ export async function seedDatabase() {
       .insert(band)
       .values({
         name: 'Midnight Symphony',
-        genre: 'Electronic/Indie',
         founded: '2018-09-15',
         notes: 'Electronic fusion with indie sensibilities',
         company_id: company1.id
       })
       .returning()
+
+    tagGenres('band', band1.id, 'Alternative Rock')
+    tagGenres('band', band2.id, 'Electronic/Indie')
 
     // Create band members with specific roles for each band
     await db.insert(band_member).values([
@@ -775,7 +782,6 @@ export async function seedDatabase() {
           .insert(band)
           .values({
             name: 'Pretty Wild',
-            genre: 'Rock',
             founded: '2019-04-01',
             notes: 'Internal contract demo band',
             company_id: pww.id,
@@ -783,6 +789,8 @@ export async function seedDatabase() {
             management_company_id: bmm.id
           })
           .returning()
+
+        tagGenres('band', internalBand.id, 'Rock')
 
         // TL band membership
         await db.insert(band_member).values({

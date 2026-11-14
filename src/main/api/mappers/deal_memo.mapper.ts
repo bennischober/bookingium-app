@@ -7,7 +7,7 @@ import type {
 } from '../schemas/deal_memo.schema'
 
 type DealMemoEntity = typeof deal_memo.$inferSelect
-type BandEntity = typeof band.$inferSelect
+type BandEntity = typeof band.$inferSelect & { genres?: string }
 type VenueEntity = typeof venue.$inferSelect
 type PersonEntity = typeof person.$inferSelect
 type CompanyEntity = typeof company.$inferSelect
@@ -81,7 +81,7 @@ export class DealMemoMapper {
         ? {
             id: entity.band.id,
             name: entity.band.name,
-            genre: entity.band.genre,
+            genre: entity.band.genres ?? '',
             managementCompanyId: entity.band.management_company_id
           }
         : null,

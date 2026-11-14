@@ -3,6 +3,7 @@ import { eq, like, or, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { saveContactEmails, withContactEmails } from './contactEmails'
 import { deleteUnusedCompanions } from './companions'
+import { deleteUnusedGenres, withGenres, writeGenres } from './genres'
 import { db } from '../db'
 import { company, address, contact, bank, band, invoice } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
@@ -18,13 +19,16 @@ export class CompanyRepository {
       .leftJoin(contact, eq(company.contact_id, contact.id))
       .leftJoin(bank, eq(company.bank_id, bank.id))
 
-    return withContactEmails(
-      rows.map((row) => ({
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }))
+    return withGenres(
+      'company',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }))
+      )
     )
   }
 
@@ -39,13 +43,16 @@ export class CompanyRepository {
       .where(eq(company.invoice_contact_person_id, personId))
       .orderBy(company.name)
 
-    return withContactEmails(
-      rows.map((row) => ({
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }))
+    return withGenres(
+      'company',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }))
+      )
     )
   }
 
@@ -89,13 +96,16 @@ export class CompanyRepository {
       .limit(pageSize)
       .offset(offset)
 
-    const items = withContactEmails(
-      rows.map((row) => ({
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }))
+    const items = withGenres(
+      'company',
+      withContactEmails(
+        rows.map((row) => ({
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }))
+      )
     )
 
     return {
@@ -119,14 +129,17 @@ export class CompanyRepository {
     if (rows.length === 0) return null
 
     const row = rows[0]
-    return withContactEmails([
-      {
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }
-    ])[0]
+    return withGenres(
+      'company',
+      withContactEmails([
+        {
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }
+      ])
+    )[0]
   }
 
   async create(input: CreateCompanyInput) {
@@ -179,7 +192,6 @@ export class CompanyRepository {
         .values({
           name: input.name,
           kind: input.kind ?? 'company',
-          genres: input.genres ?? '',
           notes: input.notes || '',
           vat_number: input.vatNumber || '',
           ust_number: input.ustNumber || '',
@@ -197,6 +209,7 @@ export class CompanyRepository {
         })
         .returning()
         .all()
+      writeGenres(tx, 'company', companyResult[0].id, input.genres ?? '')
 
       // Fetch with relations
       const created = tx
@@ -209,15 +222,19 @@ export class CompanyRepository {
         .all()
 
       const row = created[0]
-      return withContactEmails(
-        [
-          {
-            ...row.company,
-            address: row.address,
-            contact: row.contact,
-            bank: row.bank
-          }
-        ],
+      return withGenres(
+        'company',
+        withContactEmails(
+          [
+            {
+              ...row.company,
+              address: row.address,
+              contact: row.contact,
+              bank: row.bank
+            }
+          ],
+          tx
+        ),
         tx
       )[0]
     })
@@ -312,7 +329,6 @@ export class CompanyRepository {
         .set({
           name: input.name ?? existingCompany.name,
           kind: input.kind ?? existingCompany.kind,
-          genres: input.genres ?? existingCompany.genres,
           notes: input.notes ?? existingCompany.notes,
           vat_number: input.vatNumber ?? existingCompany.vat_number,
           ust_number: input.ustNumber ?? existingCompany.ust_number,
@@ -336,6 +352,7 @@ export class CompanyRepository {
         })
         .where(eq(company.id, input.id))
         .run()
+      if (input.genres !== undefined) writeGenres(tx, 'company', input.id, input.genres)
       deleteUnusedCompanions(tx, existingCompany)
 
       // Fetch with relations
@@ -349,15 +366,19 @@ export class CompanyRepository {
         .all()
 
       const row = updated[0]
-      return withContactEmails(
-        [
-          {
-            ...row.company,
-            address: row.address,
-            contact: row.contact,
-            bank: row.bank
-          }
-        ],
+      return withGenres(
+        'company',
+        withContactEmails(
+          [
+            {
+              ...row.company,
+              address: row.address,
+              contact: row.contact,
+              bank: row.bank
+            }
+          ],
+          tx
+        ),
         tx
       )[0]
     })
@@ -378,6 +399,7 @@ export class CompanyRepository {
     return db.transaction((tx) => {
       const [deleted] = tx.delete(company).where(eq(company.id, id)).returning().all()
       if (deleted) deleteUnusedCompanions(tx, deleted)
+      deleteUnusedGenres(tx)
       return deleted
     })
   }
@@ -411,13 +433,16 @@ export class CompanyRepository {
     if (rows.length === 0) return null
 
     const row = rows[0]
-    return withContactEmails([
-      {
-        ...row.company,
-        address: row.address,
-        contact: row.contact,
-        bank: row.bank
-      }
-    ])[0]
+    return withGenres(
+      'company',
+      withContactEmails([
+        {
+          ...row.company,
+          address: row.address,
+          contact: row.contact,
+          bank: row.bank
+        }
+      ])
+    )[0]
   }
 }

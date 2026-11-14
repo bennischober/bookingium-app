@@ -497,7 +497,8 @@ already exist (matched by name) only get their empty fields filled.
   domain, so it reaches the Verteiler; the next rows at that domain are its
   further addresses. A freemail address names the outlet after the person,
   or after the address itself.
-- **Genres.** A Genre column fills `venue.genres` or `company.genres`;
+- **Genres.** A Genre column adds tags to the venue or company (only to
+  one without genres yet);
   "Genres für alle" is added to every club, festival or media company.
 - **As Verteiler (#154).** "Als Verteiler speichern" puts every record that
   takes an address of the file (the plan's `listMembers`, recorded by
@@ -527,8 +528,8 @@ bulk sending belongs in a newsletter service that handles unsubscribes.
   Festivals, Radio/Medien), recipient type, country, state, PLZ prefixes,
   capacity (a bound excludes sources without capacity, media among them),
   genre and bookings (any choice but "alle" leaves media out). Genres are
-  the source's own tags (`venue.genres` or `company.genres`, stored as
-  "Rock, Punk" via `normalizeGenres` in `api/schemas/genres.ts`) plus the
+  the source's own tags (`venue_genre` or `company_genre` rows, one
+  `genre` row per spelling, #152; the API passes them as "Rock, Punk") plus the
   genres of bands with a non-cancelled event there; "gebucht" means such an
   event (of one band, when chosen). Empty filters mean no restriction.
 - **One row per address** (case-insensitive): a person's name wins over a

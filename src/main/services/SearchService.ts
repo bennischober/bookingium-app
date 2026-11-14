@@ -5,6 +5,7 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { DocumentRepository } from '../repositories/DocumentRepository'
 import { notArchived } from '../repositories/archiveFilter'
+import { genresSql } from '../repositories/genres'
 import {
   DOCUMENT_TYPE_LABELS,
   type DocumentType,
@@ -66,7 +67,11 @@ export class SearchService {
         .orderBy(desc(schema.deal_memo.date))
         .limit(perTypeLimit),
       db
-        .select({ id: schema.band.id, name: schema.band.name, genre: schema.band.genre })
+        .select({
+          id: schema.band.id,
+          name: schema.band.name,
+          genre: genresSql('band', schema.band.id)
+        })
         .from(schema.band)
         .where(like(schema.band.name, pattern))
         .limit(perTypeLimit),
