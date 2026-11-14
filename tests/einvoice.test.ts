@@ -173,7 +173,7 @@ describe('completeness check', () => {
         invoiceNumber: null,
         dueDate: null,
         paymentTerms: '',
-        seller: party({ email: '', vatNumber: '', taxNumber: '', commercialRegisterNo: '' }),
+        seller: party({ email: '', vatId: '', taxNumber: '', commercialRegisterNo: '' }),
         buyer: buyer({ street: '', streetNumber: '', countryCode: '', country: '' }),
         lines: [
           {
@@ -250,7 +250,7 @@ describe('completeness check', () => {
         taxCode: 'exempt' as const
       }
     ]
-    expect(prepareEInvoice(invoice({ lines, buyer: buyer({ vatNumber: '' }) })).missing).toEqual([
+    expect(prepareEInvoice(invoice({ lines, buyer: buyer({ vatId: '' }) })).missing).toEqual([
       'Steuerhinweis mit dem Grund der Steuerbefreiung (z. B. § 4 Nr. 20 a UStG)',
       'Rechnungsempfänger: USt-IdNr. (für Reverse Charge)'
     ])
@@ -295,11 +295,11 @@ describe('completeness check', () => {
         taxCode: 'reverse_charge' as const
       }
     ]
-    const swiss = buyer({ countryCode: 'CH', vatNumber: 'CHE123456789' })
+    const swiss = buyer({ countryCode: 'CH', vatId: 'CHE123456789' })
     expect(prepareEInvoice(invoice({ lines, buyer: swiss })).missing).toEqual([
       '„nicht steuerbar“ statt „Reverse Charge“ (Empfänger außerhalb der EU)'
     ])
-    const austrian = buyer({ countryCode: 'AT', vatNumber: 'ATU12345678' })
+    const austrian = buyer({ countryCode: 'AT', vatId: 'ATU12345678' })
     expect(prepareEInvoice(invoice({ lines, buyer: austrian })).complete).toBe(true)
   })
 
@@ -402,7 +402,7 @@ describe('CII XML', () => {
   it('writes reverse charge (AE) with exemption reason and buyer VAT id', () => {
     const xml = xmlOf(
       invoice({
-        buyer: buyer({ countryCode: 'AT', country: 'Österreich', vatNumber: 'ATU12345678' }),
+        buyer: buyer({ countryCode: 'AT', country: 'Österreich', vatId: 'ATU12345678' }),
         lines: [
           {
             description: 'Gage',
@@ -481,7 +481,7 @@ describe('CII XML', () => {
   it('writes intra-community supplies (K) with ship-to country', () => {
     const xml = xmlOf(
       invoice({
-        buyer: buyer({ countryCode: 'FR', country: 'Frankreich', vatNumber: 'FR12345678901' }),
+        buyer: buyer({ countryCode: 'FR', country: 'Frankreich', vatId: 'FR12345678901' }),
         lines: [
           {
             description: 'Merch',
@@ -561,7 +561,7 @@ describe('EInvoiceService', () => {
     })
     const issuer = await companies.createCompany({
       name: `Beispiel Booking GmbH ${Math.random()}`,
-      vatNumber: 'DE123456789',
+      vatId: 'DE123456789',
       commercialRegisterNo: 'HRB 12345',
       invoiceContactPersonId: contact.id,
       address: {
@@ -578,7 +578,7 @@ describe('EInvoiceService', () => {
     })
     const recipient = await companies.createCompany({
       name: 'Konzertveranstaltung Nord GmbH',
-      vatNumber: 'DE987654321',
+      vatId: 'DE987654321',
       address: {
         street: 'Hafenweg',
         streetNumber: '7',
@@ -716,14 +716,14 @@ describe('EInvoiceService', () => {
       status: 'issued',
       invoice_number: (original.invoice_number ?? 0) + 1,
       cancels_invoice_id: original.id,
-      total_gross_amount: -original.total_gross_amount,
-      subtotal_tax_amount: -original.subtotal_tax_amount,
+      total_gross_cents: -original.total_gross_cents,
+      subtotal_tax_cents: -original.subtotal_tax_cents,
       issuer_snapshot_id: original.issuer_snapshot_id
     })
     expect(storno?.payment_terms).toMatch(/^Storno der Rechnung Nr\. \d+ vom \d{2}\.\d{2}\.\d{4}$/)
     expect(storno?.lineItems.map((line) => line.quantity)).toEqual([-1, -3])
     expect(
-      original.total_gross_amount + storno!.total_gross_amount,
+      original.total_gross_cents + storno!.total_gross_cents,
       'invoice and Storno add up to zero'
     ).toBe(0)
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GenreField } from './GenreField'
 import {
   Select,
   SelectContent,
@@ -108,8 +109,7 @@ export function CompanyForm({
       kind: company?.kind ?? ('company' as CompanyKind),
       genres: company?.genres ?? '',
       notes: company?.notes || '',
-      vatNumber: company?.vatNumber || '',
-      ustNumber: company?.ustNumber || '',
+      vatId: company?.vatId || '',
       taxNumber: company?.taxNumber || '',
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
@@ -208,15 +208,15 @@ export function CompanyForm({
                 {(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="genres">Genres</Label>
-                    <Input
+                    <GenreField
                       id="genres"
                       value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
+                      onChange={field.handleChange}
                       onBlur={field.handleBlur}
-                      placeholder="z. B. Metal, Rock"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mit Komma trennen; wird für die Verteiler genutzt.
+                      Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die
+                      Verteiler genutzt.
                     </p>
                   </div>
                 )}
@@ -226,26 +226,13 @@ export function CompanyForm({
         </form.Subscribe>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="vatNumber">
+          <form.Field name="vatId">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="vatNumber">USt-IdNr.</Label>
+                <Label htmlFor="vatId">USt-IdNr.</Label>
                 <Input
-                  id="vatNumber"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="ustNumber">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="ustNumber">USt-Nr.</Label>
-                <Input
-                  id="ustNumber"
+                  id="vatId"
+                  placeholder="z. B. DE123456789"
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}

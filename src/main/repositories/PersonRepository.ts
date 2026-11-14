@@ -6,6 +6,7 @@ import { schema } from '../db/schema'
 import type { CreatePersonInput, UpdatePersonInput } from '../api/schemas/person.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
 import { saveContactEmails, withContactEmails } from './contactEmails'
+import { deleteUnusedCompanions } from './companions'
 
 @injectable()
 export class PersonRepository {
@@ -275,6 +276,7 @@ export class PersonRepository {
         })
         .where(eq(schema.person.id, input.id))
         .run()
+      deleteUnusedCompanions(tx, existingPerson)
 
       // Fetch with relations
       const updated = tx
@@ -300,6 +302,9 @@ export class PersonRepository {
   }
 
   async delete(id: number) {
-    await db.delete(schema.person).where(eq(schema.person.id, id))
+    db.transaction((tx) => {
+      const [deleted] = tx.delete(schema.person).where(eq(schema.person.id, id)).returning().all()
+      if (deleted) deleteUnusedCompanions(tx, deleted)
+    })
   }
 }

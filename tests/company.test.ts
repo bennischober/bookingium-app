@@ -12,8 +12,7 @@ setupTestDb()
 const fullInput = {
   name: 'Test AG',
   notes: 'note',
-  vatNumber: 'DE212298737',
-  ustNumber: 'UST-1',
+  vatId: 'DE212298737',
   taxNumber: '12712063600',
   commercialRegisterNo: 'HRB 7710',
   registerCourt: 'AG Kempten',
@@ -50,7 +49,7 @@ describe('CompanyService', () => {
     expect(back?.name).toBe('Test AG')
     // The service returns raw DB entities (snake_case); camelCase DTO mapping
     // happens in the tRPC router layer.
-    expect(back?.vat_number).toBe('DE212298737')
+    expect(back?.vat_id).toBe('DE212298737')
     expect(back?.tax_number).toBe('12712063600')
     expect(back?.commercial_register_no).toBe('HRB 7710')
     expect(back?.register_court).toBe('AG Kempten')
@@ -69,7 +68,7 @@ describe('CompanyService', () => {
     await service.updateCompany({ id: created.id, logoPath: 'logos/99/test.png' })
 
     const after = await service.getCompanyById(created.id)
-    expect(after?.vat_number).toBe('DE212298737')
+    expect(after?.vat_id).toBe('DE212298737')
     expect(after?.tax_number).toBe('12712063600')
     expect(after?.commercial_register_no).toBe('HRB 7710')
     expect(after?.register_court).toBe('AG Kempten')
@@ -87,11 +86,11 @@ describe('CompanyService', () => {
     const updated = await service.updateCompany({
       id: created.id,
       name: 'Renamed AG',
-      vatNumber: 'DE999999999'
+      vatId: 'DE999999999'
     })
 
     expect(updated.name).toBe('Renamed AG')
-    expect(updated.vat_number).toBe('DE999999999')
+    expect(updated.vat_id).toBe('DE999999999')
     // Untouched fields survive
     expect(updated.tax_number).toBe('12712063600')
   })

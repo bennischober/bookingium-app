@@ -78,8 +78,8 @@ describe('cell cleaning', () => {
     expect(parseCapacity('500-1000')).toBe(500)
     expect(parseCapacity('???')).toBeNull()
 
-    expect(parseTaxId('DE 20 033 044 16')).toEqual({ vatNumber: 'DE2003304416', taxNumber: '' })
-    expect(parseTaxId('StNr 25133/30314')).toEqual({ vatNumber: '', taxNumber: '25133/30314' })
+    expect(parseTaxId('DE 20 033 044 16')).toEqual({ vatId: 'DE2003304416', taxNumber: '' })
+    expect(parseTaxId('StNr 25133/30314')).toEqual({ vatId: '', taxNumber: '25133/30314' })
   })
 
   it('reads German states and countries', () => {

@@ -149,10 +149,8 @@ function checkParty(
   ].filter(Boolean)
   if (absent.length > 0) missing.push(`${role}: ${absent.join(', ')}`)
 
-  const vatId = vatIdOf(party.vatNumber) ?? vatIdOf(party.ustNumber)
-  // "USt-Nr." without country prefix is a tax number, not a VAT id
-  const taxNumber =
-    text(party.taxNumber) || (vatIdOf(party.ustNumber) ? '' : text(party.ustNumber)) || null
+  const vatId = vatIdOf(party.vatId)
+  const taxNumber = text(party.taxNumber) || null
   const contactName = text(party.contactName)
   const contactPhone = text(party.contactPhone)
   const contactEmail = text(party.contactEmail)

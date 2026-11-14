@@ -8,6 +8,7 @@ import path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { container } from 'tsyringe'
 import { setupTestDb, getTestDb } from './helpers/setup'
+import { parseSqlTimestamp, sqlTimestamp } from '../src/main/db/timestamps'
 import { matchingRules, recipientsOf, ruleMatches } from '../src/main/mailclient/core/mail_rules'
 import { Store } from '../src/main/mailclient/core/store'
 import { createMailCore, type MailCore } from '../src/main/mailclient/core/index'
@@ -264,7 +265,7 @@ const row = (over: Partial<MailRuleRow> = {}): MailRuleRow => ({
   mark_flagged: false,
   link_entity_type: null,
   link_entity_id: null,
-  active_since: '2026-10-01T10:00:00.000Z',
+  active_since: '2026-10-01 10:00:00',
   hit_count: 0,
   last_applied_at: null,
   last_error: null,
@@ -294,7 +295,7 @@ describe('which rules act on a mail', () => {
 
   it('acts on mail received since the rule was switched on, with the clock grace', () => {
     const rules = [row()]
-    const since = Date.parse(rules[0].active_since)
+    const since = parseSqlTimestamp(rules[0].active_since)
     const at = (ms: number) => new Date(ms).toISOString()
     const none = () => false
     expect(applicableRules(rules, match({ receivedAt: at(since + 1) }), none)).toHaveLength(1)
@@ -498,7 +499,7 @@ describe('MailRuleService', () => {
     expect(dto).toMatchObject({
       id: rule.id,
       hitCount: 2,
-      lastAppliedAt: '2026-10-02T09:00:00.000Z',
+      lastAppliedAt: '2026-10-02 09:00:00',
       lastError: null,
       link: { entityType: 'venue', entityId: venueId, label: 'Beispielhalle' }
     })
@@ -593,12 +594,12 @@ describe('MailRuleService', () => {
     const since = () =>
       (sqlite().prepare('SELECT active_since FROM mail_rule').get() as { active_since: string })
         .active_since
-    expect(since()).toBe(ON.toISOString())
+    expect(since()).toBe(sqlTimestamp(ON))
     service().setEnabled({ id: rule.id, enabled: true }, later)
-    expect(since()).toBe(later.toISOString())
+    expect(since()).toBe(sqlTimestamp(later))
     // Editing a rule that stays on keeps its start
     service().save(input({ id: rule.id, name: 'Neu' }), new Date('2026-10-09T00:00:00.000Z'))
-    expect(since()).toBe(later.toISOString())
+    expect(since()).toBe(sqlTimestamp(later))
   })
 
   it('keeps the order per account and moves rules up and down', () => {

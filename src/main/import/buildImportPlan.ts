@@ -82,7 +82,7 @@ export interface CompanyDraft extends DraftBase {
   // Only for companies the import creates
   kind: CompanyKind
   genres: string
-  vatNumber: string
+  vatId: string
   taxNumber: string
   address: AddressDraft
   members: Map<string, string>
@@ -278,7 +278,7 @@ function createContext(request: ImportRequest, existing: ExistingRecords) {
         name,
         kind,
         genres: '',
-        vatNumber: '',
+        vatId: '',
         taxNumber: '',
         notes: [],
         address: emptyAddress(),

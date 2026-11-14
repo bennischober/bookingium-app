@@ -107,7 +107,7 @@ function AddressBlock({
   if (!party) return null
   const isForeign =
     issuerCountryCode && party.countryCode && issuerCountryCode !== party.countryCode
-  const vatId = party.vatNumber || party.ustNumber
+  const vatId = party.vatId
   return (
     <div className="text-[10pt] leading-snug">
       <div>{party.legalName}</div>
@@ -255,8 +255,7 @@ function CenteredLegalFooter({
 
   const line3: Array<[string, string]> = []
   if (issuer.registerCourt) line3.push([L.registerCourt, issuer.registerCourt])
-  if (issuer.vatNumber || issuer.ustNumber)
-    line3.push([L.vatId, issuer.vatNumber || issuer.ustNumber])
+  if (issuer.vatId) line3.push([L.vatId, issuer.vatId])
   if (issuer.email) line3.push([L.email, issuer.email])
   if (line3.length > 0) lines.push(line3)
 

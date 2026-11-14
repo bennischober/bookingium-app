@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Drizzle schema for 27 tables, the append-only migration chain, a lazy/overridable
+Drizzle schema for 41 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
 
 ## WHERE TO LOOK
@@ -26,12 +26,47 @@ database handle, and the demo seed.
   `onDelete`, indexes on name columns, booleans as
   `integer(..., { mode: 'boolean' })`. Add every new table to the `schema` object
   at the bottom of `schema.ts`; both `schema.x` and direct table imports are in use.
+- `deal_memo` is the event table: the UI says "Event" (routes, pages, the
+  `event-hub/` components), the database and the API keep `deal_memo`; every
+  `deal_memo_id` column points at an event.
+- Timestamps have one format (#153): UTC `YYYY-MM-DD HH:MM:SS`, what
+  `datetime('now')` writes. Write ``sql`datetime('now')` `` or `sqlTimestamp()` from
+  `timestamps.ts`, never `toISOString()`; read them with `parseSqlTimestamp` (main)
+  or `parseTimestamp` (renderer `lib/utils.ts`), since `Date.parse` takes a time
+  without a zone as local. Invoice status changes and invoice emails write milliseconds
+  (`%Y-%m-%d %H:%M:%f`), which sorts the same. `mail_link.mail_date` is the mail's
+  own date and stays ISO. `updated_at` is NOT NULL with the same default.
+- Tax ids (#153): `vat_id` is the USt-IdNr. with country prefix (BT-31/48),
+  `tax_number` the Steuernummer (BT-32). There is no third field; `vatIdOf`
+  (`einvoice/codes.ts`) decides whether a value is a VAT id.
 - Migrations are generated from `schema.ts` (`drizzle.config.ts`: sqlite, out
   `./src/main/db/migrations`). Pre-2026-10 migrations were squashed into
   `0000_initial`; `upgradeLegacyDatabase` adopts older databases via
   `LEGACY_FINAL_MIGRATION_MILLIS`.
+- Money columns are integers named `*_cents` (#150). Repositories write them with
+  `toCents`, mappers turn them back into euro DTO fields with `fromCents`, so SQL
+  sums are exact. `invoice_line_item.unit_price_net` stays `real` on purpose: an
+  item price may have more than two decimals (EN 16931 BT-146) and only the line
+  net is rounded. Percentages and VAT rates are `real` too.
+- Genres are rows (#152): one `genre` row per spelling (unique, case-insensitive),
+  linked by `venue_genre`, `company_genre` and `band_genre` (with `position`, the
+  entered order). The API keeps the comma-separated string; `repositories/genres.ts`
+  turns it into rows (`writeGenres`), reads it back (`withGenres`, `genresSql` for
+  search and sort) and deletes genres nobody uses (`deleteUnusedGenres`, called by
+  every write that can drop a link). `genre.list` feeds the form suggestions.
 - Document ownership has no FK: `owner_type` + `owner_id`, with triggers in the
   initial migration deleting rows when the owner goes.
+- Enum-like text columns carry a `CHECK` built from the zod enum's `.options`
+  (`oneOf` in `schema.ts`, #151), so router and database accept the same values;
+  `tests/constraints.test.ts` writes one invalid row per constraint. A new enum value
+  therefore needs a migration (a table rebuild). Name columns bare in `check()`:
+  drizzle-kit rebuilds as `__new_<table>`, where a qualified name does not resolve.
+- A rebuild drops the table's triggers. A migration that rebuilds `deal_memo`,
+  `band`, `company`, `venue`, `person`, `invoice` or `management_contract` is followed
+  by a custom one creating their triggers again (see `0037`); the trigger list is
+  pinned in `tests/migrations.test.ts`. Rebuilding `document` (or `mail_link`) needs
+  the triggers dropped first: the owner triggers name it, and SQLite refuses the
+  rename while a trigger refers to a missing table (`0042` drops all, `0044` restores).
 - Seeding runs only in unpackaged builds (dev and e2e) and only on an empty
   database; the installed app starts empty. Demo data is read from this file, real
   master data comes from the gitignored `sample_data/internal-seed.json`.

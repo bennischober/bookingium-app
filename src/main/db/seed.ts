@@ -3,6 +3,9 @@ import { eq } from 'drizzle-orm'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { copyLogoToStorage } from '../utils/fileStorage'
+import { writeGenres, type GenreOwner } from '../repositories/genres'
+import { vatIdOf } from '../einvoice/codes'
+import { sqlTimestamp } from './timestamps'
 import {
   address,
   contact,
@@ -25,6 +28,11 @@ import {
   invoice_line_item,
   invoice_party_snapshot
 } from './schema'
+
+/** Genre tags live in their own tables (#152) */
+function tagGenres(owner: GenreOwner, id: number, value: string) {
+  db.transaction((tx) => writeGenres(tx, owner, id, value))
+}
 
 export async function seedDatabase() {
   try {
@@ -303,8 +311,8 @@ export async function seedDatabase() {
         name: 'Soundwave Records',
         notes: 'Independent record label specializing in rock and alternative music',
         bank_id: bank2.id,
-        vat_number: 'US123456789',
-        ust_number: 'UST-98765',
+        vat_id: 'US123456789',
+        tax_number: '98765',
         is_default_for_invoicing: false,
         address_id: companyAddress1.id,
         contact_id: companyContact1.id
@@ -317,8 +325,7 @@ export async function seedDatabase() {
         name: 'Live Music Berlin GmbH',
         notes: 'Concert promoter and venue operator in Berlin',
         bank_id: bank1.id,
-        vat_number: 'DE987654321',
-        ust_number: 'DE123456789',
+        vat_id: 'DE987654321',
         is_default_for_invoicing: true,
         address_id: companyAddress2.id,
         contact_id: companyContact2.id
@@ -357,6 +364,8 @@ export async function seedDatabase() {
               iban?: string
               bic?: string
             }
+            vatId?: string
+            // Older files: USt-IdNr. and USt-Nr. as two fields (#153)
             vatNumber?: string
             ustNumber?: string
             taxNumber?: string
@@ -430,9 +439,14 @@ export async function seedDatabase() {
               name: entry.name,
               notes: entry.notes ?? '',
               bank_id: bankId,
-              vat_number: entry.vatNumber ?? '',
-              ust_number: entry.ustNumber ?? '',
-              tax_number: entry.taxNumber ?? '',
+              vat_id:
+                entry.vatId ??
+                [entry.vatNumber, entry.ustNumber].find((value) => value && vatIdOf(value)) ??
+                entry.vatNumber ??
+                '',
+              tax_number:
+                entry.taxNumber ||
+                (entry.ustNumber && !vatIdOf(entry.ustNumber) ? entry.ustNumber : ''),
               commercial_register_no: entry.commercialRegisterNo ?? '',
               register_court: entry.registerCourt ?? '',
               is_default_for_invoicing: entry.isDefaultForInvoicing ?? false,
@@ -537,7 +551,6 @@ export async function seedDatabase() {
       .insert(band)
       .values({
         name: 'The Electric Waves',
-        genre: 'Alternative Rock',
         founded: '2015-06-20',
         notes: 'High-energy rock band with three studio albums',
         company_id: company1.id
@@ -548,12 +561,14 @@ export async function seedDatabase() {
       .insert(band)
       .values({
         name: 'Midnight Symphony',
-        genre: 'Electronic/Indie',
         founded: '2018-09-15',
         notes: 'Electronic fusion with indie sensibilities',
         company_id: company1.id
       })
       .returning()
+
+    tagGenres('band', band1.id, 'Alternative Rock')
+    tagGenres('band', band2.id, 'Electronic/Indie')
 
     // Create band members with specific roles for each band
     await db.insert(band_member).values([
@@ -705,8 +720,8 @@ export async function seedDatabase() {
         name: 'The Electric Waves - Berlin Tour',
         deal: '70/30',
         date: isoInDays(21),
-        ticket_price_vvk: 35.0,
-        ticket_price_ak: 40.0,
+        ticket_price_vvk_cents: 3500,
+        ticket_price_ak_cents: 4000,
         posters: '500 A1 posters, 1000 flyers',
         status: 'confirmed',
         notes: 'Summer tour kick-off show',
@@ -730,8 +745,8 @@ export async function seedDatabase() {
         name: 'Midnight Symphony - LA Showcase',
         deal: '60/40 with $5,000 guarantee',
         date: isoInDays(3),
-        ticket_price_vvk: 25.0,
-        ticket_price_ak: 30.0,
+        ticket_price_vvk_cents: 2500,
+        ticket_price_ak_cents: 3000,
         posters: '300 A2 posters',
         status: 'pending',
         notes: 'Album release party',
@@ -746,22 +761,22 @@ export async function seedDatabase() {
         band_id: band2.id,
         venue_id: venue1.id,
         hotel_id: null,
-        guarantee_amount: 5000,
+        guarantee_cents: 500000,
         guarantee_vat_rate: 19
       })
       .returning()
 
     // Two prepayments: the contract prints its optional "Vorkasse" section
     await db.insert(deal_memo_deposit).values([
-      { deal_memo_id: dealMemo2.id, position: 1, amount: 1500, due_date: null },
-      { deal_memo_id: dealMemo2.id, position: 2, amount: 1000, due_date: isoInDays(1) }
+      { deal_memo_id: dealMemo2.id, position: 1, amount_cents: 150000, due_date: null },
+      { deal_memo_id: dealMemo2.id, position: 2, amount_cents: 100000, due_date: isoInDays(1) }
     ])
 
     // ========================================
     // Agency bookings (#103): shows another agency booked, as an import
     // would leave them - one confirmed, one open, one cancelled
     // ========================================
-    const importedAt = new Date().toISOString()
+    const importedAt = sqlTimestamp()
     await db.insert(external_booking).values([
       {
         band_id: band1.id,
@@ -826,7 +841,6 @@ export async function seedDatabase() {
           .insert(band)
           .values({
             name: 'Pretty Wild',
-            genre: 'Rock',
             founded: '2019-04-01',
             notes: 'Internal contract demo band',
             company_id: pww.id,
@@ -834,6 +848,8 @@ export async function seedDatabase() {
             management_company_id: bmm.id
           })
           .returning()
+
+        tagGenres('band', internalBand.id, 'Rock')
 
         // TL band membership
         await db.insert(band_member).values({
@@ -849,8 +865,8 @@ export async function seedDatabase() {
             name: 'Pretty Wild - Bad Hindelang Open Air',
             deal: 'Garantie 4.000,00 € zzgl. 7% MwSt.',
             date: isoInDays(10),
-            ticket_price_vvk: 25.0,
-            ticket_price_ak: 30.0,
+            ticket_price_vvk_cents: 2500,
+            ticket_price_ak_cents: 3000,
             posters: '200 A1 posters',
             status: 'confirmed',
             notes: 'Internal contract demo event',
@@ -865,7 +881,7 @@ export async function seedDatabase() {
             band_id: internalBand.id,
             venue_id: venue2.id,
             hotel_id: hotel1.id,
-            guarantee_amount: 4000,
+            guarantee_cents: 400000,
             guarantee_vat_rate: 7,
             contract_notes: 'Sondervereinbarung: Vorband stellt Backline. Auf- und Abbau am Vortag.'
           })
@@ -898,8 +914,8 @@ export async function seedDatabase() {
       city: sourceAddress.city,
       country: sourceAddress.country,
       country_code: sourceAddress.country_code,
-      vat_number: source.vat_number,
-      ust_number: source.ust_number,
+      vat_id: source.vat_id,
+      tax_number: source.tax_number,
       website: sourceContact.homepage ?? '',
       email: sourceContact.email,
       phone: sourceContact.phone ?? '',
@@ -920,8 +936,8 @@ export async function seedDatabase() {
         kind: 'company',
         source_company_id: company1.id,
         legal_name: company1.name,
-        vat_number: company1.vat_number,
-        ust_number: company1.ust_number
+        vat_id: company1.vat_id,
+        tax_number: company1.tax_number
       })
       .returning()
 
@@ -963,10 +979,9 @@ export async function seedDatabase() {
         due_date: isoInDays(11),
         status: 'issued',
         currency: 'EUR',
-        subtotal_net_amount: 3529.41,
-        subtotal_tax_amount: 670.59,
-        total_gross_amount: 4200,
-        total_amount: 4200,
+        subtotal_net_cents: 352941,
+        subtotal_tax_cents: 67059,
+        total_gross_cents: 420000,
         notes: 'Berlin show settlement invoice'
       })
       .returning()
@@ -986,10 +1001,9 @@ export async function seedDatabase() {
         due_date: isoInDays(-26),
         status: 'paid',
         currency: 'EUR',
-        subtotal_net_amount: 1250,
-        subtotal_tax_amount: 0,
-        total_gross_amount: 1250,
-        total_amount: 1250,
+        subtotal_net_cents: 125000,
+        subtotal_tax_cents: 0,
+        total_gross_cents: 125000,
         reverse_charge_note: 'Reverse charge applies',
         notes: 'General promoter service invoice'
       })
@@ -1011,10 +1025,9 @@ export async function seedDatabase() {
         due_date: isoInDays(13),
         status: 'draft',
         currency: 'USD',
-        subtotal_net_amount: 5000,
-        subtotal_tax_amount: 0,
-        total_gross_amount: 5000,
-        total_amount: 5000,
+        subtotal_net_cents: 500000,
+        subtotal_tax_cents: 0,
+        total_gross_cents: 500000,
         notes: 'LA showcase guarantee invoice draft'
       })
       .returning()
@@ -1027,11 +1040,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 3000,
-        line_net_amount: 3000,
+        line_net_cents: 300000,
         tax_rate: 19,
         tax_code: 'standard',
-        line_tax_amount: 570,
-        line_gross_amount: 3570
+        line_tax_cents: 57000,
+        line_gross_cents: 357000
       },
       {
         invoice_id: invoice1.id,
@@ -1040,11 +1053,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 529.41,
-        line_net_amount: 529.41,
+        line_net_cents: 52941,
         tax_rate: 19,
         tax_code: 'standard',
-        line_tax_amount: 100.59,
-        line_gross_amount: 630
+        line_tax_cents: 10059,
+        line_gross_cents: 63000
       },
       {
         invoice_id: invoice2.id,
@@ -1053,11 +1066,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 1250,
-        line_net_amount: 1250,
+        line_net_cents: 125000,
         tax_rate: 0,
         tax_code: 'reverse_charge',
-        line_tax_amount: 0,
-        line_gross_amount: 1250
+        line_tax_cents: 0,
+        line_gross_cents: 125000
       },
       {
         invoice_id: invoice3.id,
@@ -1066,11 +1079,11 @@ export async function seedDatabase() {
         quantity: 1,
         unit: 'service',
         unit_price_net: 5000,
-        line_net_amount: 5000,
+        line_net_cents: 500000,
         tax_rate: 0,
         tax_code: 'other',
-        line_tax_amount: 0,
-        line_gross_amount: 5000
+        line_tax_cents: 0,
+        line_gross_cents: 500000
       }
     ])
 

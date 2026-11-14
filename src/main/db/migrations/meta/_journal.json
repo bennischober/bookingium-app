@@ -218,6 +218,111 @@
       "when": 1794675155552,
       "tag": "0030_acoustic_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1794675787356,
+      "tag": "0031_delete_unused_addresses",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794676094647,
+      "tag": "0032_money_in_cents",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794676122021,
+      "tag": "0033_copy_money_to_cents",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1794676151462,
+      "tag": "0034_drop_euro_amounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1794676712513,
+      "tag": "0035_enum_check_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1794676739263,
+      "tag": "0036_enum_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794676762803,
+      "tag": "0037_recreate_owner_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794677104736,
+      "tag": "0038_genre_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1794677111231,
+      "tag": "0039_copy_genres",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794677135605,
+      "tag": "0040_drop_genre_strings",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794678166445,
+      "tag": "0041_vat_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794678171625,
+      "tag": "0042_normalize_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1794678265561,
+      "tag": "0043_rebuild_vat_updated_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1794678309947,
+      "tag": "0044_recreate_owner_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794681044603,
+      "tag": "0045_external_booking_checks",
+      "breakpoints": true
     }
   ]
 }

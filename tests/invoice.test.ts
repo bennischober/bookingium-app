@@ -15,7 +15,7 @@ setupTestDb()
 
 const issuer = {
   name: 'Issuer GmbH',
-  vatNumber: 'DE212298737',
+  vatId: 'DE212298737',
   taxNumber: '12712063600',
   commercialRegisterNo: 'HRB 7710',
   registerCourt: 'AG Kempten',
@@ -98,7 +98,7 @@ describe('InvoiceService', () => {
     // The recipient snapshot must be frozen with the issuer company's data
     expect(invoice.recipientSnapshot).not.toBeNull()
     expect(invoice.recipientSnapshot?.legal_name).toBe('Issuer GmbH')
-    expect(invoice.recipientSnapshot?.vat_number).toBe('DE212298737')
+    expect(invoice.recipientSnapshot?.vat_id).toBe('DE212298737')
     expect(invoice.recipientSnapshot?.tax_number).toBe('12712063600')
   })
 
@@ -128,13 +128,14 @@ describe('InvoiceService', () => {
     })
 
     expect(invoice.lineItems).toHaveLength(2)
-    expect(invoice.lineItems[0].line_net_amount).toBe(100)
-    expect(invoice.lineItems[0].line_tax_amount).toBe(19)
-    expect(invoice.lineItems[1].line_net_amount).toBe(10)
-    expect(invoice.lineItems[1].line_tax_amount).toBeCloseTo(1.9, 2)
-    expect(invoice.subtotal_net_amount).toBe(110)
-    expect(invoice.subtotal_tax_amount).toBeCloseTo(20.9, 2)
-    expect(invoice.total_gross_amount).toBeCloseTo(130.9, 2)
+    // Stored in cents (#150), so the sums are exact
+    expect(invoice.lineItems[0].line_net_cents).toBe(10000)
+    expect(invoice.lineItems[0].line_tax_cents).toBe(1900)
+    expect(invoice.lineItems[1].line_net_cents).toBe(1000)
+    expect(invoice.lineItems[1].line_tax_cents).toBe(190)
+    expect(invoice.subtotal_net_cents).toBe(11000)
+    expect(invoice.subtotal_tax_cents).toBe(2090)
+    expect(invoice.total_gross_cents).toBe(13090)
   })
 
   it('updates an invoice without wiping line items', async () => {

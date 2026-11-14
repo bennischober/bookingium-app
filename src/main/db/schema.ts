@@ -10,6 +10,33 @@ import {
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 import { DOCUMENT_OWNER_TYPES } from '../api/schemas/document.schema'
+import { CompanyKind } from '../api/schemas/company.schema'
+import { VenueKind } from '../api/schemas/venue.schema'
+import { ExternalBookingKind, ExternalBookingStatus } from '../api/schemas/external_booking.schema'
+import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
+import {
+  InvoiceEmailKind,
+  InvoiceKind,
+  InvoiceRecipientKind,
+  InvoiceStatus,
+  InvoiceTaxCode
+} from '../api/schemas/invoice.schema'
+import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplate.schema'
+
+/**
+ * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
+ * the router accept the same set. NULL passes (SQLite CHECKs only reject false). The column
+ * is named bare on purpose: drizzle-kit rebuilds a table as `__new_<table>`, and a
+ * table-qualified name would not resolve there.
+ */
+function oneOf(name: string, column: string, values: readonly string[]) {
+  return check(name, sql.raw(`"${column}" IN (${values.map((v) => `'${v}'`).join(', ')})`))
+}
+
+/** #151: at most one of the record columns is set (follow_up, appointment) */
+function atMostOne(name: string, columns: readonly string[]) {
+  return check(name, sql.raw(`${columns.map((c) => `("${c}" IS NOT NULL)`).join(' + ')} <= 1`))
+}
 
 // ========================================
 // Normalized Reference Tables
@@ -102,6 +129,8 @@ export const person = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('person_name_idx').on(table.first_name, table.last_name)]
 )
@@ -114,12 +143,9 @@ export const company = sqliteTable(
     name: text('name').notNull(),
     // 'company' or 'media' (radio stations and the like, a Verteiler source, #80)
     kind: text('kind').default('company').notNull(),
-    // Genre tags like venue.genres ("Metal, Rock"); used for media in the Verteiler
-    genres: text('genres').default('').notNull(),
     notes: text('notes'),
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
-    vat_number: text('vat_number').default('').notNull(),
-    ust_number: text('ust_number').default('').notNull(),
+    vat_id: text('vat_id').default('').notNull(), // USt-IdNr. with country prefix (#153)
     tax_number: text('tax_number').default('').notNull(),
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
@@ -139,8 +165,17 @@ export const company = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
-  (table) => [index('company_name_idx').on(table.name)]
+  (table) => [
+    index('company_name_idx').on(table.name),
+    // One company issues invoices by default
+    uniqueIndex('company_default_for_invoicing_idx')
+      .on(table.is_default_for_invoicing)
+      .where(sql.raw('"is_default_for_invoicing" = 1')),
+    oneOf('company_kind_check', 'kind', CompanyKind.options)
+  ]
 )
 
 // Company member junction table
@@ -170,7 +205,6 @@ export const band = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
-    genre: text('genre').default('').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
     company_id: integer('company_id')
@@ -225,8 +259,6 @@ export const venue = sqliteTable(
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
-    // Comma-separated genre tags ("Metal, Rock"); used by the mailing lists
-    genres: text('genres').default('').notNull(),
     notes: text('notes').default('').notNull(),
     // Radius clause (Gebietsschutz) this venue usually demands, #102: km around it and weeks
     // before/after the show. Null = the global default for the kind (Einstellungen).
@@ -241,10 +273,13 @@ export const venue = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('venue_name_idx').on(table.name),
-    index('venue_company_idx').on(table.company_id)
+    index('venue_company_idx').on(table.company_id),
+    oneOf('venue_kind_check', 'kind', VenueKind.options)
   ]
 )
 
@@ -264,7 +299,79 @@ export const venue_member = sqliteTable(
   },
   (table) => [
     index('venue_member_venue_idx').on(table.venue_id),
-    index('venue_member_person_idx').on(table.person_id)
+    index('venue_member_person_idx').on(table.person_id),
+    uniqueIndex('venue_member_unique_idx').on(table.venue_id, table.person_id)
+  ]
+)
+
+// #152: genre tags of venues, media companies and bands (the Verteiler's genre filter).
+// A name exists once, whatever its case; a genre no record uses any more is deleted
+// (repositories/genres.ts), so this is the list of known genres the forms suggest.
+export const genre = sqliteTable(
+  'genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  // NOCASE folds ASCII only; the repository also matches names with toLocaleLowerCase
+  (table) => [uniqueIndex('genre_name_idx').on(sql`${table.name} COLLATE NOCASE`)]
+)
+
+// One row per tag of a record; position keeps the order the tags were entered in
+export const venue_genre = sqliteTable(
+  'venue_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    venue_id: integer('venue_id')
+      .notNull()
+      .references(() => venue.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('venue_genre_unique_idx').on(table.venue_id, table.genre_id),
+    index('venue_genre_genre_idx').on(table.genre_id)
+  ]
+)
+
+export const company_genre = sqliteTable(
+  'company_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    company_id: integer('company_id')
+      .notNull()
+      .references(() => company.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('company_genre_unique_idx').on(table.company_id, table.genre_id),
+    index('company_genre_genre_idx').on(table.genre_id)
+  ]
+)
+
+export const band_genre = sqliteTable(
+  'band_genre',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    genre_id: integer('genre_id')
+      .notNull()
+      .references(() => genre.id, { onDelete: 'cascade' }),
+    position: integer('position').default(0).notNull()
+  },
+  (table) => [
+    uniqueIndex('band_genre_unique_idx').on(table.band_id, table.genre_id),
+    index('band_genre_genre_idx').on(table.genre_id)
   ]
 )
 
@@ -281,6 +388,8 @@ export const hotel = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('hotel_name_idx').on(table.name)]
 )
@@ -293,17 +402,17 @@ export const deal_memo = sqliteTable(
     name: text('name').notNull(),
     deal: text('deal').notNull().default(''), // financial deal terms, e.g. "70/30"
     date: text('date').notNull(), // ISO 8601 format: YYYY-MM-DD
-    ticket_price_vvk: real('ticket_price_vvk'),
-    ticket_price_ak: real('ticket_price_ak'),
+    ticket_price_vvk_cents: integer('ticket_price_vvk_cents'),
+    ticket_price_ak_cents: integer('ticket_price_ak_cents'),
     posters: text('posters').default('').notNull(),
-    status: text('status').default('').notNull(),
+    status: text('status').default('pending').notNull(),
     notes: text('notes').default('').notNull(),
     amount_of_people: integer('amount_of_people').default(0),
     room_information: text('room_information').default(''),
     performance_duration: text('performance_duration').default(''),
     performance_time: text('performance_time').default(''),
     performance_information: text('performance_information').default(''),
-    guarantee_amount: real('guarantee_amount'),
+    guarantee_cents: integer('guarantee_cents'),
     guarantee_vat_rate: real('guarantee_vat_rate'),
     contract_notes: text('contract_notes').default(''),
     // Radius clause of this contract, #102; null = the venue's, then the global default
@@ -340,6 +449,8 @@ export const deal_memo = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('deal_memo_name_idx').on(table.name),
@@ -348,11 +459,12 @@ export const deal_memo = sqliteTable(
     index('deal_memo_venue_idx').on(table.venue_id),
     index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
     index('deal_memo_status_idx').on(table.status),
-    index('deal_memo_archived_idx').on(table.archived_at)
+    index('deal_memo_archived_idx').on(table.archived_at),
+    oneOf('deal_memo_status_check', 'status', DealMemoStatus.options)
   ]
 )
 
-// Optional prepayments on the fee (net euros, like deal_memo.guarantee_amount):
+// Optional prepayments on the fee (net, in cents like deal_memo.guarantee_cents):
 // the contract's "Vorkasse" clause, printed only when a deal memo has rows here.
 // Ordered by position; a null due date means "bei Vertragsabschluss"
 export const deal_memo_deposit = sqliteTable(
@@ -363,7 +475,7 @@ export const deal_memo_deposit = sqliteTable(
       .notNull()
       .references(() => deal_memo.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    amount: real('amount').notNull(),
+    amount_cents: integer('amount_cents').default(0).notNull(),
     due_date: text('due_date') // ISO 8601 date
   },
   (table) => [index('deal_memo_deposit_deal_memo_idx').on(table.deal_memo_id, table.position)]
@@ -382,6 +494,8 @@ export const company_invoice_settings = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     uniqueIndex('company_invoice_settings_company_unique_idx').on(table.company_id),
@@ -409,8 +523,7 @@ export const invoice_party_snapshot = sqliteTable(
     city: text('city').default('').notNull(),
     country: text('country').default('').notNull(),
     country_code: text('country_code', { length: 2 }).default('').notNull(),
-    vat_number: text('vat_number').default('').notNull(),
-    ust_number: text('ust_number').default('').notNull(),
+    vat_id: text('vat_id').default('').notNull(), // USt-IdNr. with country prefix (#153)
     tax_number: text('tax_number').default('').notNull(),
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
@@ -432,7 +545,8 @@ export const invoice_party_snapshot = sqliteTable(
   },
   (table) => [
     index('invoice_party_snapshot_kind_idx').on(table.kind),
-    index('invoice_party_snapshot_legal_name_idx').on(table.legal_name)
+    index('invoice_party_snapshot_legal_name_idx').on(table.legal_name),
+    oneOf('invoice_party_snapshot_kind_check', 'kind', InvoiceRecipientKind.options)
   ]
 )
 
@@ -464,10 +578,9 @@ export const invoice = sqliteTable(
     due_date: text('due_date'),
     status: text('status').default('draft').notNull(),
     currency: text('currency').default('EUR').notNull(),
-    subtotal_net_amount: real('subtotal_net_amount').default(0).notNull(),
-    subtotal_tax_amount: real('subtotal_tax_amount').default(0).notNull(),
-    total_gross_amount: real('total_gross_amount').default(0).notNull(),
-    total_amount: real('total_amount').default(0).notNull(),
+    subtotal_net_cents: integer('subtotal_net_cents').default(0).notNull(),
+    subtotal_tax_cents: integer('subtotal_tax_cents').default(0).notNull(),
+    total_gross_cents: integer('total_gross_cents').default(0).notNull(),
     payment_terms: text('payment_terms').default('').notNull(),
     // Tax note printed on the invoice; also the e-invoice exemption reason
     // (BT-120) for reverse charge, exempt and other zero-VAT lines
@@ -492,6 +605,8 @@ export const invoice = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('invoice_company_idx').on(table.company_id),
@@ -504,7 +619,9 @@ export const invoice = sqliteTable(
     uniqueIndex('invoice_company_invoice_number_unique_idx').on(
       table.company_id,
       table.invoice_number
-    )
+    ),
+    oneOf('invoice_status_check', 'status', InvoiceStatus.options),
+    oneOf('invoice_kind_check', 'kind', InvoiceKind.options)
   ]
 )
 
@@ -521,18 +638,20 @@ export const invoice_line_item = sqliteTable(
     quantity: real('quantity').default(1).notNull(),
     unit: text('unit').default('service').notNull(),
     unit_price_net: real('unit_price_net').default(0).notNull(),
-    line_net_amount: real('line_net_amount').default(0).notNull(),
     tax_rate: real('tax_rate').default(0).notNull(),
     tax_code: text('tax_code').default('standard').notNull(),
-    line_tax_amount: real('line_tax_amount').default(0).notNull(),
-    line_gross_amount: real('line_gross_amount').default(0).notNull(),
+    line_net_cents: integer('line_net_cents').default(0).notNull(),
+    line_tax_cents: integer('line_tax_cents').default(0).notNull(),
+    line_gross_cents: integer('line_gross_cents').default(0).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull()
   },
   (table) => [
     index('invoice_line_item_invoice_idx').on(table.invoice_id),
-    index('invoice_line_item_position_idx').on(table.invoice_id, table.position)
+    index('invoice_line_item_position_idx').on(table.invoice_id, table.position),
+    check('invoice_line_item_position_check', sql.raw('"position" >= 1')),
+    oneOf('invoice_line_item_tax_code_check', 'tax_code', InvoiceTaxCode.options)
   ]
 )
 
@@ -558,7 +677,10 @@ export const invoice_email = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('invoice_email_invoice_idx').on(table.invoice_id)]
+  (table) => [
+    index('invoice_email_invoice_idx').on(table.invoice_id),
+    oneOf('invoice_email_kind_check', 'kind', InvoiceEmailKind.options)
+  ]
 )
 
 /**
@@ -582,7 +704,10 @@ export const invoice_email_pending = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [uniqueIndex('invoice_email_pending_send_key_idx').on(table.send_key)]
+  (table) => [
+    uniqueIndex('invoice_email_pending_send_key_idx').on(table.send_key),
+    oneOf('invoice_email_pending_kind_check', 'kind', InvoiceEmailKind.options)
+  ]
 )
 
 // Each status an invoice moved to (issued, paid, overdue, back to issued,
@@ -600,7 +725,10 @@ export const invoice_status_change = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('invoice_status_change_invoice_idx').on(table.invoice_id)]
+  (table) => [
+    index('invoice_status_change_invoice_idx').on(table.invoice_id),
+    oneOf('invoice_status_change_status_check', 'status', InvoiceStatus.options)
+  ]
 )
 
 export const itinerary = sqliteTable(
@@ -626,6 +754,8 @@ export const itinerary = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     uniqueIndex('itinerary_deal_memo_idx').on(table.deal_memo_id) // One itinerary per deal memo
@@ -665,6 +795,8 @@ export const document = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('document_owner_idx').on(table.owner_type, table.owner_id),
@@ -802,7 +934,13 @@ export const mail_template = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [uniqueIndex('mail_template_kind_lang_idx').on(table.kind, table.lang)]
+  (table) => [
+    uniqueIndex('mail_template_kind_lang_idx').on(table.kind, table.lang),
+    oneOf('mail_template_kind_check', 'kind', DocumentEmailKind.options),
+    oneOf('mail_template_lang_check', 'lang', DocumentEmailLang.options),
+    // A fixed text has both, an own template neither
+    check('mail_template_kind_lang_check', sql.raw('("kind" IS NULL) = ("lang" IS NULL)'))
+  ]
 )
 
 // #124: rules for incoming mail (Regeln), per mail account. Each non-empty condition must match
@@ -828,7 +966,7 @@ export const mail_rule = sqliteTable(
     // Like mail_link: a type plus an id, no FK; a deleted record ends the link action
     link_entity_type: text('link_entity_type', { enum: MAIL_LINK_ENTITY_TYPES }),
     link_entity_id: integer('link_entity_id'),
-    active_since: text('active_since').notNull(), // ISO time; set on create and when re-enabled
+    active_since: text('active_since').notNull(), // UTC timestamp; set on create and when re-enabled
     hit_count: integer('hit_count').default(0).notNull(),
     last_applied_at: text('last_applied_at'),
     last_error: text('last_error'),
@@ -895,7 +1033,15 @@ export const follow_up = sqliteTable(
     index('follow_up_venue_idx').on(table.venue_id),
     index('follow_up_company_idx').on(table.company_id),
     index('follow_up_person_idx').on(table.person_id),
-    index('follow_up_invoice_idx').on(table.invoice_id)
+    index('follow_up_invoice_idx').on(table.invoice_id),
+    atMostOne('follow_up_one_record', [
+      'event_id',
+      'band_id',
+      'venue_id',
+      'company_id',
+      'person_id',
+      'invoice_id'
+    ])
   ]
 )
 
@@ -941,7 +1087,14 @@ export const appointment = sqliteTable(
     index('appointment_venue_idx').on(table.venue_id),
     index('appointment_company_idx').on(table.company_id),
     index('appointment_person_idx').on(table.person_id),
-    uniqueIndex('appointment_ical_uid_idx').on(table.ical_uid)
+    uniqueIndex('appointment_ical_uid_idx').on(table.ical_uid),
+    atMostOne('appointment_one_record', [
+      'event_id',
+      'band_id',
+      'venue_id',
+      'company_id',
+      'person_id'
+    ])
   ]
 )
 
@@ -986,7 +1139,9 @@ export const external_booking = sqliteTable(
   (table) => [
     index('external_booking_date_idx').on(table.date),
     index('external_booking_band_idx').on(table.band_id),
-    uniqueIndex('external_booking_source_idx').on(table.agency, table.source_key)
+    uniqueIndex('external_booking_source_idx').on(table.agency, table.source_key),
+    oneOf('external_booking_kind_check', 'kind', ExternalBookingKind.options),
+    oneOf('external_booking_status_check', 'status', ExternalBookingStatus.options)
   ]
 )
 
@@ -1032,6 +1187,8 @@ export const management_contract = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('management_contract_band_idx').on(table.band_id)]
 )
@@ -1071,7 +1228,7 @@ export const management_share = sqliteTable(
       { onDelete: 'set null' }
     ),
     year: integer('year').notNull(),
-    quarter: integer('quarter').notNull(), // 1-4
+    quarter: integer('quarter').notNull(),
     commission_percent: real('commission_percent').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
@@ -1079,7 +1236,8 @@ export const management_share = sqliteTable(
   },
   (table) => [
     uniqueIndex('management_share_invoice_unique_idx').on(table.invoice_id),
-    index('management_share_band_period_idx').on(table.band_id, table.year, table.quarter)
+    index('management_share_band_period_idx').on(table.band_id, table.year, table.quarter),
+    check('management_share_quarter_check', sql.raw('"quarter" BETWEEN 1 AND 4'))
   ]
 )
 
@@ -1093,7 +1251,7 @@ export const management_share_income = sqliteTable(
       .references(() => management_share.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     description: text('description').notNull(),
-    net_amount: real('net_amount').notNull()
+    net_cents: integer('net_cents').default(0).notNull()
   },
   (table) => [index('management_share_income_share_idx').on(table.share_id)]
 )
@@ -1116,6 +1274,10 @@ export const schema = {
   band_member,
   venue,
   venue_member,
+  genre,
+  venue_genre,
+  company_genre,
+  band_genre,
   hotel,
   deal_memo,
   deal_memo_deposit,

@@ -21,7 +21,7 @@ async function seedScenario() {
   // Artist company (band owner) with full contract-relevant data
   const artistCompany = await companies.createCompany({
     name: 'Artist Booking GmbH',
-    vatNumber: 'DE212298737',
+    vatId: 'DE212298737',
     taxNumber: '12712063600',
     commercialRegisterNo: 'HRB 7710',
     registerCourt: 'AG Kempten',
@@ -32,7 +32,7 @@ async function seedScenario() {
   // Promoter company
   const promoterCompany = await companies.createCompany({
     name: 'Örtlicher Veranstalter e.V.',
-    vatNumber: 'DE111111111',
+    vatId: 'DE111111111',
     kskNumber: '',
     isDefaultForInvoicing: false
   })

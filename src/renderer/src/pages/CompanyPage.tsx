@@ -129,7 +129,7 @@ export function CompanyPage() {
       header: 'Firmenname'
     },
     {
-      accessorKey: 'vatNumber',
+      accessorKey: 'vatId',
       header: 'USt-IdNr.'
     },
     {

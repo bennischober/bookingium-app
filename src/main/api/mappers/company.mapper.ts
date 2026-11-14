@@ -9,6 +9,8 @@ type AddressEntity = typeof addressTable.$inferSelect
 type BankEntity = typeof bankTable.$inferSelect
 
 type CompanyWithRelations = CompanyEntity & {
+  /** From company_genre (#152) */
+  genres: string
   address?: AddressEntity | null
   contact?: ContactEntity | null
   bank?: BankEntity | null
@@ -23,8 +25,7 @@ export class CompanyMapper {
       kind: CompanyKind.catch('company').parse(entity.kind),
       genres: entity.genres,
       notes: entity.notes ?? '',
-      vatNumber: entity.vat_number,
-      ustNumber: entity.ust_number,
+      vatId: entity.vat_id,
       taxNumber: entity.tax_number,
       commercialRegisterNo: entity.commercial_register_no,
       registerCourt: entity.register_court,

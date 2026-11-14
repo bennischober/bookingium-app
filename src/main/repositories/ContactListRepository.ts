@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
+import { genresByOwner, genresSql } from './genres'
 
 export interface SourcePerson {
   firstName: string
@@ -156,7 +157,7 @@ export class ContactListRepository {
       .select({
         venueId: schema.deal_memo.venue_id,
         bandId: schema.deal_memo.band_id,
-        bandGenre: schema.band.genre,
+        bandGenre: genresSql('band', schema.band.id),
         status: schema.deal_memo.status,
         loProCompanyId: schema.deal_memo.lopro_company_id,
         loProPersonId: schema.deal_memo.lopro_person_id,
@@ -201,12 +202,20 @@ export class ContactListRepository {
       }
     }
 
+    const venueGenres = genresByOwner(
+      'venue',
+      venues.map(({ venue }) => venue.id)
+    )
+    const companyGenres = genresByOwner(
+      'company',
+      companyRows.map(({ company }) => company.id)
+    )
     const venueSources: ListSource[] = venues.map(({ venue, address, contact }) => ({
       id: venue.id,
       name: venue.name,
       kind: venue.kind,
       capacity: venue.capacity,
-      genres: venue.genres,
+      genres: venueGenres.get(venue.id) ?? '',
       city: address?.city ?? '',
       state: address?.state ?? '',
       zipCode: address?.zip_code ?? '',
@@ -226,7 +235,7 @@ export class ContactListRepository {
         name: company.name,
         kind: 'media',
         capacity: null,
-        genres: company.genres,
+        genres: companyGenres.get(company.id) ?? '',
         city: address?.city ?? '',
         state: address?.state ?? '',
         zipCode: address?.zip_code ?? '',
@@ -263,7 +272,11 @@ export class ContactListRepository {
 
   listBands(): { id: number; name: string; genre: string }[] {
     return db
-      .select({ id: schema.band.id, name: schema.band.name, genre: schema.band.genre })
+      .select({
+        id: schema.band.id,
+        name: schema.band.name,
+        genre: genresSql('band', schema.band.id)
+      })
       .from(schema.band)
       .orderBy(schema.band.name)
       .all()

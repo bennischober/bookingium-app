@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GenreField } from './GenreField'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { trpcReact } from '@/lib/trpc'
@@ -212,10 +213,10 @@ export function BandForm({
         {(field) => (
           <div className="space-y-2">
             <Label htmlFor={field.name}>Genre</Label>
-            <Input
+            <GenreField
               id={field.name}
               value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onChange={field.handleChange}
               onBlur={field.handleBlur}
               placeholder="z. B. Rock, Metal, Pop"
               disabled={isSubmitting}

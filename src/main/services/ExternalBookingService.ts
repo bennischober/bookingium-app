@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe'
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { ExternalBookingRepository } from '../repositories/ExternalBookingRepository'
+import { sqlTimestamp } from '../db/timestamps'
 import { SettingsRepository } from '../repositories/SettingsRepository'
 import { ExternalBookingMapper } from '../api/mappers/external_booking.mapper'
 import { buildAgencyImportPlan, detectAgencyMapping } from '../import/agencyBookings'
@@ -95,7 +96,7 @@ export class ExternalBookingService {
     const written = this.repository.applyImport(plan, {
       agency,
       fileName: request.fileName,
-      importedAt: new Date().toISOString()
+      importedAt: sqlTimestamp()
     })
     this.settingsRepository.setMany({
       [agencyImportKey(request.headers)]: JSON.stringify({

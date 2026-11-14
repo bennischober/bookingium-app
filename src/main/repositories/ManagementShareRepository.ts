@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { InvoiceRepository } from './InvoiceRepository'
-import { roundMoney } from '../einvoice/amounts'
+import { fromCents, roundMoney, toCents } from '../einvoice/amounts'
 import {
   managementShareAmount,
   quarterDates,
@@ -117,7 +117,7 @@ export class ManagementShareRepository {
             share_id: share.id,
             position: index + 1,
             description: line.description,
-            net_amount: line.netAmount
+            net_cents: toCents(line.netAmount)
           })
           .run()
       })
@@ -163,7 +163,7 @@ export class ManagementShareRepository {
     return rows.map(({ share, invoice }) => {
       const income = incomeRows
         .filter((line) => line.share_id === share.id)
-        .map((line) => ({ description: line.description, netAmount: line.net_amount }))
+        .map((line) => ({ description: line.description, netAmount: fromCents(line.net_cents) }))
       return {
         id: share.id,
         invoiceId: share.invoice_id,
@@ -174,7 +174,7 @@ export class ManagementShareRepository {
         commissionPercent: share.commission_percent,
         income,
         incomeTotal: roundMoney(income.reduce((sum, line) => sum + line.netAmount, 0)),
-        netAmount: invoice.subtotal_net_amount,
+        netAmount: fromCents(invoice.subtotal_net_cents),
         invoiceNumber: invoice.invoice_number,
         invoiceStatus: invoice.status,
         createdAt: share.created_at

@@ -2,8 +2,11 @@ import { injectable } from 'tsyringe'
 import { and, asc, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { notArchived, onlyArchived } from './archiveFilter'
+import { withGenres } from './genres'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { sqlTimestamp } from '../db/timestamps'
+import { toCents, toNullableCents } from '../einvoice/amounts'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
 
@@ -121,7 +124,7 @@ export class DealMemoRepository {
     const row = rows[0]
     return {
       ...row.deal_memo,
-      band: row.band,
+      band: row.band ? withGenres('band', [row.band])[0] : null,
       venue: row.venue,
       hotel: row.hotel,
       loProPerson: row.person,
@@ -153,8 +156,8 @@ export class DealMemoRepository {
         invoice_company_id: input.invoiceCompanyId ?? null,
         representing_company_id: input.representingCompanyId ?? null,
         status: input.status ?? 'pending',
-        ticket_price_vvk: input.ticketPriceVvk ?? null,
-        ticket_price_ak: input.ticketPriceAk ?? null,
+        ticket_price_vvk_cents: toNullableCents(input.ticketPriceVvk ?? null),
+        ticket_price_ak_cents: toNullableCents(input.ticketPriceAk ?? null),
         notes: input.notes ?? '',
         posters: '',
         amount_of_people: 0,
@@ -162,7 +165,7 @@ export class DealMemoRepository {
         performance_duration: '',
         performance_time: '',
         performance_information: '',
-        guarantee_amount: input.guaranteeAmount ?? null,
+        guarantee_cents: toNullableCents(input.guaranteeAmount ?? null),
         guarantee_vat_rate: input.guaranteeVatRate ?? null,
         contract_notes: input.contractNotes ?? ''
       })
@@ -173,7 +176,7 @@ export class DealMemoRepository {
 
   async update(input: UpdateDealMemoInput) {
     const values: Record<string, unknown> = {
-      updated_at: new Date().toISOString()
+      updated_at: sqlTimestamp()
     }
 
     if ('name' in input) values.name = input.name
@@ -188,8 +191,10 @@ export class DealMemoRepository {
     if ('invoiceCompanyId' in input) values.invoice_company_id = input.invoiceCompanyId ?? null
     if ('representingCompanyId' in input)
       values.representing_company_id = input.representingCompanyId ?? null
-    if ('ticketPriceVvk' in input) values.ticket_price_vvk = input.ticketPriceVvk ?? null
-    if ('ticketPriceAk' in input) values.ticket_price_ak = input.ticketPriceAk ?? null
+    if ('ticketPriceVvk' in input)
+      values.ticket_price_vvk_cents = toNullableCents(input.ticketPriceVvk ?? null)
+    if ('ticketPriceAk' in input)
+      values.ticket_price_ak_cents = toNullableCents(input.ticketPriceAk ?? null)
     if ('notes' in input) values.notes = input.notes
     if ('posters' in input) values.posters = input.posters
     if ('amountOfPeople' in input) values.amount_of_people = input.amountOfPeople ?? null
@@ -199,7 +204,8 @@ export class DealMemoRepository {
     if ('performanceTime' in input) values.performance_time = input.performanceTime ?? null
     if ('performanceInformation' in input)
       values.performance_information = input.performanceInformation ?? null
-    if ('guaranteeAmount' in input) values.guarantee_amount = input.guaranteeAmount ?? null
+    if ('guaranteeAmount' in input)
+      values.guarantee_cents = toNullableCents(input.guaranteeAmount ?? null)
     if ('guaranteeVatRate' in input) values.guarantee_vat_rate = input.guaranteeVatRate ?? null
     if ('contractNotes' in input) values.contract_notes = input.contractNotes ?? ''
     if ('radiusKm' in input) values.radius_km = input.radiusKm ?? null
@@ -226,7 +232,7 @@ export class DealMemoRepository {
               input.deposits.map((deposit, index) => ({
                 deal_memo_id: input.id,
                 position: index + 1,
-                amount: deposit.amount,
+                amount_cents: toCents(deposit.amount),
                 due_date: deposit.dueDate
               }))
             )
@@ -245,7 +251,7 @@ export class DealMemoRepository {
   async archive(id: number) {
     const result = await db
       .update(schema.deal_memo)
-      .set({ archived_at: new Date().toISOString() })
+      .set({ archived_at: sqlTimestamp() })
       .where(eq(schema.deal_memo.id, id))
       .returning()
     return result[0] ?? null

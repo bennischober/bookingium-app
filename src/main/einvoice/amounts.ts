@@ -28,6 +28,15 @@ export function fromCents(cents: number): number {
   return cents / 100
 }
 
+/** toCents for optional amounts (deal memo prices, guarantee): null stays null */
+export function toNullableCents(amount: number | null): number | null {
+  return amount === null ? null : toCents(amount)
+}
+
+export function fromNullableCents(cents: number | null): number | null {
+  return cents === null ? null : fromCents(cents)
+}
+
 /** Same rounding as toCents, as an amount (e.g. 1.005 -> 1.01) */
 export function roundMoney(amount: number): number {
   return fromCents(toCents(amount))

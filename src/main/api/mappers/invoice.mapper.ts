@@ -8,6 +8,7 @@ import {
   invoice_status_change,
   invoice_party_snapshot
 } from '../../db/schema'
+import { fromCents } from '../../einvoice/amounts'
 import type {
   InvoiceDto,
   InvoiceEmailDto,
@@ -43,8 +44,7 @@ const EMPTY_SNAPSHOT: InvoicePartySnapshotEntity = {
   city: '',
   country: '',
   country_code: '',
-  vat_number: '',
-  ust_number: '',
+  vat_id: '',
   tax_number: '',
   commercial_register_no: '',
   register_court: '',
@@ -83,11 +83,11 @@ export class InvoiceMapper {
       quantity: entity.quantity,
       unit: entity.unit,
       unitPriceNet: entity.unit_price_net,
-      lineNetAmount: entity.line_net_amount,
+      lineNetAmount: fromCents(entity.line_net_cents),
       taxRate: entity.tax_rate,
       taxCode: entity.tax_code as InvoiceLineItemDto['taxCode'],
-      lineTaxAmount: entity.line_tax_amount,
-      lineGrossAmount: entity.line_gross_amount
+      lineTaxAmount: fromCents(entity.line_tax_cents),
+      lineGrossAmount: fromCents(entity.line_gross_cents)
     }
   }
 
@@ -114,10 +114,10 @@ export class InvoiceMapper {
       dueDate: entity.due_date,
       status: entity.status as InvoiceListItemDto['status'],
       currency: entity.currency,
-      subtotalNetAmount: entity.subtotal_net_amount,
-      subtotalTaxAmount: entity.subtotal_tax_amount,
-      totalGrossAmount: entity.total_gross_amount,
-      totalAmount: entity.total_amount,
+      subtotalNetAmount: fromCents(entity.subtotal_net_cents),
+      subtotalTaxAmount: fromCents(entity.subtotal_tax_cents),
+      totalGrossAmount: fromCents(entity.total_gross_cents),
+      totalAmount: fromCents(entity.total_gross_cents),
       emailedAt: entity.emailed_at,
       emailedTo: entity.emailed_to
     }
@@ -186,8 +186,7 @@ export class InvoiceMapper {
       city: entity.city,
       country: entity.country,
       countryCode: entity.country_code,
-      vatNumber: entity.vat_number,
-      ustNumber: entity.ust_number,
+      vatId: entity.vat_id,
       taxNumber: entity.tax_number,
       commercialRegisterNo: entity.commercial_register_no,
       registerCourt: entity.register_court,

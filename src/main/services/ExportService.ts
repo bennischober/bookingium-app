@@ -188,7 +188,7 @@ export class ExportService {
           ],
           rows: CompanyMapper.toDtoList(result.items).map((company) => [
             company.name,
-            text(company.vatNumber),
+            text(company.vatId),
             text(company.taxNumber),
             ...contactCells(company.contact),
             ...addressCells(company.address),

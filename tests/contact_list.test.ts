@@ -15,6 +15,7 @@ import { ContactListFilters } from '../src/main/api/schemas/contactList.schema'
 import { CreateVenueInput } from '../src/main/api/schemas/venue.schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../src/main/api/schemas/company.schema'
 
+import { writeGenres } from '../src/main/repositories/genres'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
@@ -87,14 +88,16 @@ beforeAll(async () => {
   const label = db.insert(schema.company).values({ name: 'Band GbR' }).returning().get()
   metalBandId = db
     .insert(schema.band)
-    .values({ name: 'Iron Fist', genre: 'Metal', company_id: label.id })
+    .values({ name: 'Iron Fist', company_id: label.id })
     .returning()
     .get().id
+  db.transaction((tx) => writeGenres(tx, 'band', metalBandId, 'Metal'))
   popBandId = db
     .insert(schema.band)
-    .values({ name: 'Sunny', genre: 'Pop; Indie', company_id: label.id })
+    .values({ name: 'Sunny', company_id: label.id })
     .returning()
     .get().id
+  db.transaction((tx) => writeGenres(tx, 'band', popBandId, 'Pop; Indie'))
 
   const promoter = db
     .insert(schema.contact)
@@ -473,11 +476,12 @@ describe('media and LoPros', () => {
   it('keeps the kind and genres of a company that an update leaves out', async () => {
     const companies = container.resolve(CompanyService)
     const station = await companies.getCompanyById(stationId)
-    expect(station).toMatchObject({ kind: 'media', genres: 'Alternative, rock' })
+    // #152: a genre has one spelling, the one it was first stored in ("Rock" of the club)
+    expect(station).toMatchObject({ kind: 'media', genres: 'Alternative, Rock' })
     await companies.updateCompany(UpdateCompanyInput.parse({ id: stationId, notes: 'Sendet' }))
     expect(await companies.getCompanyById(stationId)).toMatchObject({
       kind: 'media',
-      genres: 'Alternative, rock'
+      genres: 'Alternative, Rock'
     })
     await companies.updateCompany(
       UpdateCompanyInput.parse({ id: stationId, genres: ' Indie ,indie' })

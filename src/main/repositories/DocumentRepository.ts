@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { sqlTimestamp } from '../db/timestamps'
 import { notArchived } from './archiveFilter'
 import type { DocumentOwnerType, UpdateDocumentInput } from '../api/schemas/document.schema'
 import { normalizeDisplayName } from '../api/schemas/document.schema'
@@ -104,7 +105,7 @@ export class DocumentRepository {
 
   async update(input: UpdateDocumentInput) {
     const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString()
+      updated_at: sqlTimestamp()
     }
 
     if (input.documentType) {

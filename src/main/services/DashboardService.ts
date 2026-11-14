@@ -3,6 +3,7 @@ import { and, count, eq, gte, inArray, lt, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { overdueInvoiceWhere } from '../repositories/InvoiceRepository'
+import { fromCents } from '../einvoice/amounts'
 import { notArchived } from '../repositories/archiveFilter'
 import type { DashboardStatsDto } from '../api/routers/dashboard.router'
 
@@ -66,7 +67,7 @@ export class DashboardService {
         db
           .select({
             n: count(),
-            amount: sql<number>`coalesce(sum(${schema.invoice.total_amount}), 0)`
+            cents: sql<number>`coalesce(sum(${schema.invoice.total_gross_cents}), 0)`
           })
           .from(schema.invoice)
           // Drafts aren't billed yet; Stornorechnungen offset their invoice
@@ -98,7 +99,7 @@ export class DashboardService {
       eventsThisMonthCount: thisMonth[0]?.n ?? 0,
       openInvoicesCount: openInvoices[0]?.n ?? 0,
       overdueInvoicesCount: overdue[0]?.n ?? 0,
-      openInvoiceAmount: openInvoices[0]?.amount ?? 0,
+      openInvoiceAmount: fromCents(openInvoices[0]?.cents ?? 0),
       directory: {
         bands: bands[0]?.n ?? 0,
         venues: venues[0]?.n ?? 0,

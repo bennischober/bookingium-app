@@ -75,8 +75,7 @@ function OverviewTab({ company }: { company: CompanyDto }) {
       <InfoCard label="Steuer & Register">
         <Fields
           fields={[
-            ['USt-IdNr.', company.vatNumber],
-            ['USt-Nr.', company.ustNumber],
+            ['USt-IdNr.', company.vatId],
             ['Steuernummer', company.taxNumber],
             ['Registernummer', company.commercialRegisterNo],
             ['Registergericht', company.registerCourt],
