@@ -131,9 +131,12 @@ UPDATE `appointment` SET `updated_at` = strftime('%Y-%m-%d %H:%M:%S', `updated_a
 UPDATE `management_contract` SET `created_at` = strftime('%Y-%m-%d %H:%M:%S', `created_at`) WHERE (`created_at` GLOB '*T*' OR length(`created_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `created_at`) IS NOT NULL;--> statement-breakpoint
 UPDATE `management_contract` SET `updated_at` = strftime('%Y-%m-%d %H:%M:%S', `updated_at`) WHERE (`updated_at` GLOB '*T*' OR length(`updated_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `updated_at`) IS NOT NULL;--> statement-breakpoint
 UPDATE `management_share` SET `created_at` = strftime('%Y-%m-%d %H:%M:%S', `created_at`) WHERE (`created_at` GLOB '*T*' OR length(`created_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `created_at`) IS NOT NULL;--> statement-breakpoint
+UPDATE `external_booking` SET `created_at` = strftime('%Y-%m-%d %H:%M:%S', `created_at`) WHERE (`created_at` GLOB '*T*' OR length(`created_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `created_at`) IS NOT NULL;--> statement-breakpoint
+UPDATE `external_booking` SET `updated_at` = strftime('%Y-%m-%d %H:%M:%S', `updated_at`) WHERE (`updated_at` GLOB '*T*' OR length(`updated_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `updated_at`) IS NOT NULL;--> statement-breakpoint
+UPDATE `external_booking` SET `imported_at` = strftime('%Y-%m-%d %H:%M:%S', `imported_at`) WHERE (`imported_at` GLOB '*T*' OR length(`imported_at`) = 10) AND strftime('%Y-%m-%d %H:%M:%S', `imported_at`) IS NOT NULL;--> statement-breakpoint
 -- 4. The next migration rebuilds document, and SQLite refuses to rename a table that a
 --    trigger on another table (band) still names. All owner triggers go here; most would
---    go with their rebuilt table anyway, and 0043 creates every one of them again.
+--    go with their rebuilt table anyway, and 0044 creates every one of them again.
 DROP TRIGGER IF EXISTS `document_owner_event_deleted`;--> statement-breakpoint
 DROP TRIGGER IF EXISTS `document_owner_band_deleted`;--> statement-breakpoint
 DROP TRIGGER IF EXISTS `document_owner_company_deleted`;--> statement-breakpoint

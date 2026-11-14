@@ -39,7 +39,7 @@ Only the symbols that cross a subtree boundary are listed here; per-area tables 
 |--------|------|----------|------|------|
 | `PaginationInput` | zod schema | `src/main/api/schemas/base.schema.ts` | 27 | list/search/sort input every list procedure takes |
 | `db` | lazy Proxy | `src/main/db/index.ts` | 23 | every repository's handle; `useTestDb` swaps it in tests |
-| `schema` | 40-table registry | `src/main/db/schema.ts` | 34 | drizzle tables used by repositories, services, seed |
+| `schema` | 41-table registry | `src/main/db/schema.ts` | 34 | drizzle tables used by repositories, services, seed |
 | `setupTestDb` | function | `tests/helpers/setup.ts` | 18 | in-memory SQLite + real migrations |
 
 ## CONVENTIONS

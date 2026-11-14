@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs'
 import { copyLogoToStorage } from '../utils/fileStorage'
 import { writeGenres, type GenreOwner } from '../repositories/genres'
 import { vatIdOf } from '../einvoice/codes'
+import { sqlTimestamp } from './timestamps'
 import {
   address,
   contact,
@@ -20,6 +21,7 @@ import {
   hotel,
   deal_memo,
   deal_memo_deposit,
+  external_booking,
   itinerary,
   company_invoice_settings,
   invoice,
@@ -768,6 +770,56 @@ export async function seedDatabase() {
     await db.insert(deal_memo_deposit).values([
       { deal_memo_id: dealMemo2.id, position: 1, amount_cents: 150000, due_date: null },
       { deal_memo_id: dealMemo2.id, position: 2, amount_cents: 100000, due_date: isoInDays(1) }
+    ])
+
+    // ========================================
+    // Agency bookings (#103): shows another agency booked, as an import
+    // would leave them - one confirmed, one open, one cancelled
+    // ========================================
+    const importedAt = sqlTimestamp()
+    await db.insert(external_booking).values([
+      {
+        band_id: band1.id,
+        date: isoInDays(28),
+        kind: 'venue',
+        status: 'confirmed',
+        venue_name: 'Beispielhalle',
+        zip_code: '20095',
+        city: 'Hamburg',
+        country: 'DE',
+        agency: 'Beispiel Agentur',
+        source_key: 'demo-1',
+        source_file: 'agentur-export.csv',
+        imported_at: importedAt
+      },
+      {
+        band_id: band1.id,
+        date: isoInDays(45),
+        kind: 'festival',
+        status: 'pending',
+        venue_name: 'Sommerwiese Open Air',
+        zip_code: '04109',
+        city: 'Leipzig',
+        country: 'DE',
+        agency: 'Beispiel Agentur',
+        source_key: 'demo-2',
+        source_file: 'agentur-export.csv',
+        imported_at: importedAt
+      },
+      {
+        band_id: band2.id,
+        date: isoInDays(10),
+        kind: 'venue',
+        status: 'cancelled',
+        venue_name: 'Club Muster',
+        zip_code: '80331',
+        city: 'München',
+        country: 'DE',
+        agency: 'Beispiel Agentur',
+        source_key: 'demo-3',
+        source_file: 'agentur-export.csv',
+        imported_at: importedAt
+      }
     ])
 
     // ========================================

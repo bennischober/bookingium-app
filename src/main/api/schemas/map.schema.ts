@@ -4,8 +4,8 @@ import { z } from 'zod'
 // Map preview (experimental, #102)
 // ========================================
 // One procedure (map.getData) returns everything the map page draws: the
-// markers (events and venues at postcode precision) and the filtered rows it
-// could not locate. No coordinates are stored anywhere - they are looked up
+// markers (events, agency bookings (#103) and venues at postcode precision)
+// and the filtered rows it could not locate. No coordinates are stored anywhere - they are looked up
 // offline from the bundled postcode table at request time.
 
 /** YYYY-MM-DD, as a date input gives it; the bounds compare as strings, so the format matters */
@@ -30,12 +30,24 @@ export type MapKindFilter = NonNullable<MapDataInput['kinds']>[number]
 export const MapRingDto = z.object({ km: z.number(), from: z.string(), to: z.string() })
 export type MapRingDto = z.infer<typeof MapRingDto>
 
-/** An event that blocks (confirmed) or endangers (pending) a venue */
-export const MapBlockDto = z.object({ eventId: z.number(), name: z.string(), date: z.string() })
+/**
+ * An event that blocks (confirmed) or endangers (pending) a venue. With
+ * `agency` set it is an agency booking (#103): eventId is the booking's id,
+ * and there is no event page to link to.
+ */
+export const MapBlockDto = z.object({
+  eventId: z.number(),
+  name: z.string(),
+  date: z.string(),
+  agency: z.string().optional()
+})
 export type MapBlockDto = z.infer<typeof MapBlockDto>
 
+/** agency: a show another agency booked (#103) - read-only, drawn like an event */
+const MapMarkerType = z.enum(['event', 'agency', 'venue'])
+
 export const MapMarkerDto = z.object({
-  type: z.enum(['event', 'venue']),
+  type: MapMarkerType,
   id: z.number(),
   /** Venue kind of the marker (or of the event's venue): 'venue' = club */
   kind: z.enum(['venue', 'festival']),
@@ -46,6 +58,8 @@ export const MapMarkerDto = z.object({
   status: z.enum(['confirmed', 'pending']).optional(),
   /** Events: the radius clause that applies (event, else venue, else the kind's default) */
   ring: MapRingDto.optional(),
+  /** Agency bookings: the agency that booked it */
+  agency: z.string().optional(),
   /** Bands of the event / bands that played at the venue (per the filters) */
   bandIds: z.array(z.number()),
   /** Venues, with a band chosen: the band's confirmed events whose ring covers it */
@@ -63,7 +77,7 @@ export const MapMarkerDto = z.object({
 export type MapMarkerDto = z.infer<typeof MapMarkerDto>
 
 export const MapUnlocatedDto = z.object({
-  type: z.enum(['event', 'venue']),
+  type: MapMarkerType,
   id: z.number(),
   /** Venue kind, so the page links a venue to its Clubs or Festivals page */
   kind: z.enum(['venue', 'festival']),
@@ -80,6 +94,8 @@ export const MapConflictDto = z.object({
   name: z.string(),
   date: z.string(),
   status: z.enum(['confirmed', 'pending']),
+  /** An agency booking (#103): eventId is the booking's id */
+  agency: z.string().optional(),
   /** Whole km between the venues; null when a location is unknown */
   distanceKm: z.number().nullable(),
   /** candidate_covers: the event lies in the candidate's ring; event_covers: the other way round */

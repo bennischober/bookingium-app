@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/data-table'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
-import { Archive, Trash2 } from 'lucide-react'
+import { Archive, Building2, Trash2 } from 'lucide-react'
+import { AgencyBookingsView } from '@/components/agency/AgencyBookingsView'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
@@ -39,8 +40,9 @@ export function EventPage() {
   const { sorting, setSorting, sortInput } = useListSorting('events', { id: 'date', desc: false })
   const [search, setSearch] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
-  // D3: the archive view replaces the list while it is open
-  const [showArchive, setShowArchive] = useState(false)
+  // D3: the archive view replaces the list while it is open; so do the agency bookings (#103)
+  const [view, setView] = useState<'list' | 'archive' | 'agency'>('list')
+  const showArchive = view === 'archive'
   const navigate = useNavigate()
 
   const utils = trpcReact.useUtils()
@@ -187,13 +189,28 @@ export function EventPage() {
             Verwalten Sie Ihre Shows, Tours und Deal Memos.
           </p>
         </div>
-        {/* D3: archived events are out of every working view, and findable here */}
-        <Button variant="outline" onClick={() => setShowArchive((on) => !on)}>
-          <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* #103: shows other agencies booked - read-only, imported from their export */}
+          <Button
+            variant="outline"
+            onClick={() => setView((current) => (current === 'agency' ? 'list' : 'agency'))}
+          >
+            <Building2 className="h-4 w-4" />{' '}
+            {view === 'agency' ? 'Agenturbuchungen schließen' : 'Agenturbuchungen'}
+          </Button>
+          {/* D3: archived events are out of every working view, and findable here */}
+          <Button
+            variant="outline"
+            onClick={() => setView((current) => (current === 'archive' ? 'list' : 'archive'))}
+          >
+            <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
+          </Button>
+        </div>
       </div>
 
-      {showArchive ? (
+      {view === 'agency' ? (
+        <AgencyBookingsView />
+      ) : showArchive ? (
         <section aria-label="Archiv" className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Archivierte Events sind aus den Listen und dem Kalender verschwunden. Rechnungen,

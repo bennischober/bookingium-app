@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "508c4139-de09-4744-9c5d-eb42779e076e",
-  "prevId": "70b1687f-480c-4fbb-94dc-b21a7e0a756e",
+  "id": "70b1687f-480c-4fbb-94dc-b21a7e0a756e",
+  "prevId": "cf331d18-102c-4f4e-9369-d91bedd4bd7b",
   "tables": {
     "address": {
       "name": "address",
@@ -796,14 +796,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "vat_id": {
-          "name": "vat_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
         },
         "vat_number": {
           "name": "vat_number",
@@ -2179,6 +2171,183 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "external_booking": {
+      "name": "external_booking",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "band_id": {
+          "name": "band_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'venue'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'confirmed'"
+        },
+        "venue_name": {
+          "name": "venue_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "street": {
+          "name": "street",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "zip_code": {
+          "name": "zip_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "agency": {
+          "name": "agency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_file": {
+          "name": "source_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "external_booking_date_idx": {
+          "name": "external_booking_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "external_booking_band_idx": {
+          "name": "external_booking_band_idx",
+          "columns": [
+            "band_id"
+          ],
+          "isUnique": false
+        },
+        "external_booking_source_idx": {
+          "name": "external_booking_source_idx",
+          "columns": [
+            "agency",
+            "source_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "external_booking_band_id_band_id_fk": {
+          "name": "external_booking_band_id_band_id_fk",
+          "tableFrom": "external_booking",
+          "tableTo": "band",
+          "columnsFrom": [
+            "band_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "follow_up": {
       "name": "follow_up",
       "columns": {
@@ -3337,14 +3506,6 @@
         "country_code": {
           "name": "country_code",
           "type": "text(2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "vat_id": {
-          "name": "vat_id",
-          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,

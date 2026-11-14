@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Drizzle schema for 40 tables, the append-only migration chain, a lazy/overridable
+Drizzle schema for 41 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
 
 ## WHERE TO LOOK
@@ -63,10 +63,10 @@ database handle, and the demo seed.
   drizzle-kit rebuilds as `__new_<table>`, where a qualified name does not resolve.
 - A rebuild drops the table's triggers. A migration that rebuilds `deal_memo`,
   `band`, `company`, `venue`, `person`, `invoice` or `management_contract` is followed
-  by a custom one creating their triggers again (see `0036`); the trigger list is
+  by a custom one creating their triggers again (see `0037`); the trigger list is
   pinned in `tests/migrations.test.ts`. Rebuilding `document` (or `mail_link`) needs
   the triggers dropped first: the owner triggers name it, and SQLite refuses the
-  rename while a trigger refers to a missing table (`0041` drops all, `0043` restores).
+  rename while a trigger refers to a missing table (`0042` drops all, `0044` restores).
 - Seeding runs only in unpackaged builds (dev and e2e) and only on an empty
   database; the installed app starts empty. Demo data is read from this file, real
   master data comes from the gitignored `sample_data/internal-seed.json`.

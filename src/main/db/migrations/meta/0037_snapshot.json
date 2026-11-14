@@ -1,8 +1,8 @@
 {
+  "id": "9a2f9309-bcde-4b10-bd88-a4b069f2a4b0",
+  "prevId": "0e52329c-14c7-41a9-a6ac-14b5497b51c5",
   "version": "6",
   "dialect": "sqlite",
-  "id": "7870a3f0-6f52-4f3f-b7d9-88fbd10bb6fd",
-  "prevId": "9a2f9309-bcde-4b10-bd88-a4b069f2a4b0",
   "tables": {
     "address": {
       "name": "address",
@@ -321,67 +321,67 @@
         "appointment_event_id_deal_memo_id_fk": {
           "name": "appointment_event_id_deal_memo_id_fk",
           "tableFrom": "appointment",
-          "tableTo": "deal_memo",
           "columnsFrom": [
             "event_id"
           ],
+          "tableTo": "deal_memo",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "appointment_band_id_band_id_fk": {
           "name": "appointment_band_id_band_id_fk",
           "tableFrom": "appointment",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "appointment_venue_id_venue_id_fk": {
           "name": "appointment_venue_id_venue_id_fk",
           "tableFrom": "appointment",
-          "tableTo": "venue",
           "columnsFrom": [
             "venue_id"
           ],
+          "tableTo": "venue",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "appointment_company_id_company_id_fk": {
           "name": "appointment_company_id_company_id_fk",
           "tableFrom": "appointment",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "appointment_person_id_person_id_fk": {
           "name": "appointment_person_id_person_id_fk",
           "tableFrom": "appointment",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -491,123 +491,41 @@
         "band_company_id_company_id_fk": {
           "name": "band_company_id_company_id_fk",
           "tableFrom": "band",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "band_responsible_person_id_person_id_fk": {
           "name": "band_responsible_person_id_person_id_fk",
           "tableFrom": "band",
-          "tableTo": "person",
           "columnsFrom": [
             "responsible_person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "band_management_company_id_company_id_fk": {
           "name": "band_management_company_id_company_id_fk",
           "tableFrom": "band",
-          "tableTo": "company",
           "columnsFrom": [
             "management_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "band_genre": {
-      "name": "band_genre",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "band_id": {
-          "name": "band_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "genre_id": {
-          "name": "genre_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "band_genre_unique_idx": {
-          "name": "band_genre_unique_idx",
-          "columns": [
-            "band_id",
-            "genre_id"
-          ],
-          "isUnique": true
-        },
-        "band_genre_genre_idx": {
-          "name": "band_genre_genre_idx",
-          "columns": [
-            "genre_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "band_genre_band_id_band_id_fk": {
-          "name": "band_genre_band_id_band_id_fk",
-          "tableFrom": "band_genre",
-          "tableTo": "band",
-          "columnsFrom": [
-            "band_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "band_genre_genre_id_genre_id_fk": {
-          "name": "band_genre_genre_id_genre_id_fk",
-          "tableFrom": "band_genre",
-          "tableTo": "genre",
-          "columnsFrom": [
-            "genre_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -681,28 +599,28 @@
         "band_member_band_id_band_id_fk": {
           "name": "band_member_band_id_band_id_fk",
           "tableFrom": "band_member",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "band_member_person_id_person_id_fk": {
           "name": "band_member_person_id_person_id_fk",
           "tableFrom": "band_member",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -935,62 +853,62 @@
           "columns": [
             "is_default_for_invoicing"
           ],
-          "isUnique": true,
-          "where": "\"is_default_for_invoicing\" = 1"
+          "where": "\"is_default_for_invoicing\" = 1",
+          "isUnique": true
         }
       },
       "foreignKeys": {
         "company_bank_id_bank_id_fk": {
           "name": "company_bank_id_bank_id_fk",
           "tableFrom": "company",
-          "tableTo": "bank",
           "columnsFrom": [
             "bank_id"
           ],
+          "tableTo": "bank",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "company_address_id_address_id_fk": {
           "name": "company_address_id_address_id_fk",
           "tableFrom": "company",
-          "tableTo": "address",
           "columnsFrom": [
             "address_id"
           ],
+          "tableTo": "address",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "company_contact_id_contact_id_fk": {
           "name": "company_contact_id_contact_id_fk",
           "tableFrom": "company",
-          "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
           ],
+          "tableTo": "contact",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "company_invoice_contact_person_id_person_id_fk": {
           "name": "company_invoice_contact_person_id_person_id_fk",
           "tableFrom": "company",
-          "tableTo": "person",
           "columnsFrom": [
             "invoice_contact_person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1001,88 +919,6 @@
           "value": "\"kind\" IN ('company', 'media')"
         }
       }
-    },
-    "company_genre": {
-      "name": "company_genre",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "company_id": {
-          "name": "company_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "genre_id": {
-          "name": "genre_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "company_genre_unique_idx": {
-          "name": "company_genre_unique_idx",
-          "columns": [
-            "company_id",
-            "genre_id"
-          ],
-          "isUnique": true
-        },
-        "company_genre_genre_idx": {
-          "name": "company_genre_genre_idx",
-          "columns": [
-            "genre_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "company_genre_company_id_company_id_fk": {
-          "name": "company_genre_company_id_company_id_fk",
-          "tableFrom": "company_genre",
-          "tableTo": "company",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "company_genre_genre_id_genre_id_fk": {
-          "name": "company_genre_genre_id_genre_id_fk",
-          "tableFrom": "company_genre",
-          "tableTo": "genre",
-          "columnsFrom": [
-            "genre_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "company_invoice_settings": {
       "name": "company_invoice_settings",
@@ -1145,15 +981,15 @@
         "company_invoice_settings_company_id_company_id_fk": {
           "name": "company_invoice_settings_company_id_company_id_fk",
           "tableFrom": "company_invoice_settings",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1227,28 +1063,28 @@
         "company_member_company_id_company_id_fk": {
           "name": "company_member_company_id_company_id_fk",
           "tableFrom": "company_member",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "company_member_person_id_person_id_fk": {
           "name": "company_member_person_id_person_id_fk",
           "tableFrom": "company_member",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1371,15 +1207,15 @@
         "contact_email_contact_id_contact_id_fk": {
           "name": "contact_email_contact_id_contact_id_fk",
           "tableFrom": "contact_email",
-          "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
           ],
+          "tableTo": "contact",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1540,54 +1376,54 @@
         "contact_list_member_contact_list_id_contact_list_id_fk": {
           "name": "contact_list_member_contact_list_id_contact_list_id_fk",
           "tableFrom": "contact_list_member",
-          "tableTo": "contact_list",
           "columnsFrom": [
             "contact_list_id"
           ],
+          "tableTo": "contact_list",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "contact_list_member_person_id_person_id_fk": {
           "name": "contact_list_member_person_id_person_id_fk",
           "tableFrom": "contact_list_member",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "contact_list_member_company_id_company_id_fk": {
           "name": "contact_list_member_company_id_company_id_fk",
           "tableFrom": "contact_list_member",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "contact_list_member_venue_id_venue_id_fk": {
           "name": "contact_list_member_venue_id_venue_id_fk",
           "tableFrom": "contact_list_member",
-          "tableTo": "venue",
           "columnsFrom": [
             "venue_id"
           ],
+          "tableTo": "venue",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1879,93 +1715,93 @@
         "deal_memo_lopro_person_id_person_id_fk": {
           "name": "deal_memo_lopro_person_id_person_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "person",
           "columnsFrom": [
             "lopro_person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "deal_memo_lopro_company_id_company_id_fk": {
           "name": "deal_memo_lopro_company_id_company_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "company",
           "columnsFrom": [
             "lopro_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "deal_memo_invoice_company_id_company_id_fk": {
           "name": "deal_memo_invoice_company_id_company_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "company",
           "columnsFrom": [
             "invoice_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "deal_memo_representing_company_id_company_id_fk": {
           "name": "deal_memo_representing_company_id_company_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "company",
           "columnsFrom": [
             "representing_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "deal_memo_band_id_band_id_fk": {
           "name": "deal_memo_band_id_band_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "deal_memo_venue_id_venue_id_fk": {
           "name": "deal_memo_venue_id_venue_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "venue",
           "columnsFrom": [
             "venue_id"
           ],
+          "tableTo": "venue",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "deal_memo_hotel_id_hotel_id_fk": {
           "name": "deal_memo_hotel_id_hotel_id_fk",
           "tableFrom": "deal_memo",
-          "tableTo": "hotel",
           "columnsFrom": [
             "hotel_id"
           ],
+          "tableTo": "hotel",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2031,15 +1867,15 @@
         "deal_memo_deposit_deal_memo_id_deal_memo_id_fk": {
           "name": "deal_memo_deposit_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "deal_memo_deposit",
-          "tableTo": "deal_memo",
           "columnsFrom": [
             "deal_memo_id"
           ],
+          "tableTo": "deal_memo",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -2183,6 +2019,183 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "external_booking": {
+      "name": "external_booking",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "band_id": {
+          "name": "band_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'venue'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'confirmed'"
+        },
+        "venue_name": {
+          "name": "venue_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "street": {
+          "name": "street",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "zip_code": {
+          "name": "zip_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "agency": {
+          "name": "agency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_file": {
+          "name": "source_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "external_booking_date_idx": {
+          "name": "external_booking_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "external_booking_band_idx": {
+          "name": "external_booking_band_idx",
+          "columns": [
+            "band_id"
+          ],
+          "isUnique": false
+        },
+        "external_booking_source_idx": {
+          "name": "external_booking_source_idx",
+          "columns": [
+            "agency",
+            "source_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "external_booking_band_id_band_id_fk": {
+          "name": "external_booking_band_id_band_id_fk",
+          "tableFrom": "external_booking",
+          "tableTo": "band",
+          "columnsFrom": [
+            "band_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -2362,80 +2375,80 @@
         "follow_up_event_id_deal_memo_id_fk": {
           "name": "follow_up_event_id_deal_memo_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "deal_memo",
           "columnsFrom": [
             "event_id"
           ],
+          "tableTo": "deal_memo",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "follow_up_band_id_band_id_fk": {
           "name": "follow_up_band_id_band_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "follow_up_venue_id_venue_id_fk": {
           "name": "follow_up_venue_id_venue_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "venue",
           "columnsFrom": [
             "venue_id"
           ],
+          "tableTo": "venue",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "follow_up_company_id_company_id_fk": {
           "name": "follow_up_company_id_company_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "follow_up_person_id_person_id_fk": {
           "name": "follow_up_person_id_person_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "follow_up_invoice_id_invoice_id_fk": {
           "name": "follow_up_invoice_id_invoice_id_fk",
           "tableFrom": "follow_up",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -2446,46 +2459,6 @@
           "value": "(\"event_id\" IS NOT NULL) + (\"band_id\" IS NOT NULL) + (\"venue_id\" IS NOT NULL) + (\"company_id\" IS NOT NULL) + (\"person_id\" IS NOT NULL) + (\"invoice_id\" IS NOT NULL) <= 1"
         }
       }
-    },
-    "genre": {
-      "name": "genre",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "genre_name_idx": {
-          "name": "genre_name_idx",
-          "columns": [
-            "\"name\" COLLATE NOCASE"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "hotel": {
       "name": "hotel",
@@ -2554,28 +2527,28 @@
         "hotel_contact_id_contact_id_fk": {
           "name": "hotel_contact_id_contact_id_fk",
           "tableFrom": "hotel",
-          "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
           ],
+          "tableTo": "contact",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "hotel_address_id_address_id_fk": {
           "name": "hotel_address_id_address_id_fk",
           "tableFrom": "hotel",
-          "tableTo": "address",
           "columnsFrom": [
             "address_id"
           ],
+          "tableTo": "address",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2853,67 +2826,67 @@
         "invoice_company_id_company_id_fk": {
           "name": "invoice_company_id_company_id_fk",
           "tableFrom": "invoice",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "invoice_issuer_snapshot_id_invoice_party_snapshot_id_fk": {
           "name": "invoice_issuer_snapshot_id_invoice_party_snapshot_id_fk",
           "tableFrom": "invoice",
-          "tableTo": "invoice_party_snapshot",
           "columnsFrom": [
             "issuer_snapshot_id"
           ],
+          "tableTo": "invoice_party_snapshot",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "invoice_recipient_snapshot_id_invoice_party_snapshot_id_fk": {
           "name": "invoice_recipient_snapshot_id_invoice_party_snapshot_id_fk",
           "tableFrom": "invoice",
-          "tableTo": "invoice_party_snapshot",
           "columnsFrom": [
             "recipient_snapshot_id"
           ],
+          "tableTo": "invoice_party_snapshot",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "invoice_deal_memo_id_deal_memo_id_fk": {
           "name": "invoice_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "invoice",
-          "tableTo": "deal_memo",
           "columnsFrom": [
             "deal_memo_id"
           ],
+          "tableTo": "deal_memo",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "invoice_cancels_invoice_id_invoice_id_fk": {
           "name": "invoice_cancels_invoice_id_invoice_id_fk",
           "tableFrom": "invoice",
-          "tableTo": "invoice",
           "columnsFrom": [
             "cancels_invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2998,15 +2971,15 @@
         "invoice_email_invoice_id_invoice_id_fk": {
           "name": "invoice_email_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_email",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -3087,15 +3060,15 @@
         "invoice_email_pending_invoice_id_invoice_id_fk": {
           "name": "invoice_email_pending_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_email_pending",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -3233,15 +3206,15 @@
         "invoice_line_item_invoice_id_invoice_id_fk": {
           "name": "invoice_line_item_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_line_item",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -3507,41 +3480,41 @@
         "invoice_party_snapshot_source_company_id_company_id_fk": {
           "name": "invoice_party_snapshot_source_company_id_company_id_fk",
           "tableFrom": "invoice_party_snapshot",
-          "tableTo": "company",
           "columnsFrom": [
             "source_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "invoice_party_snapshot_source_band_id_band_id_fk": {
           "name": "invoice_party_snapshot_source_band_id_band_id_fk",
           "tableFrom": "invoice_party_snapshot",
-          "tableTo": "band",
           "columnsFrom": [
             "source_band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "invoice_party_snapshot_source_person_id_person_id_fk": {
           "name": "invoice_party_snapshot_source_person_id_person_id_fk",
           "tableFrom": "invoice_party_snapshot",
-          "tableTo": "person",
           "columnsFrom": [
             "source_person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -3599,15 +3572,15 @@
         "invoice_status_change_invoice_id_invoice_id_fk": {
           "name": "invoice_status_change_invoice_id_invoice_id_fk",
           "tableFrom": "invoice_status_change",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -3761,15 +3734,15 @@
         "itinerary_deal_memo_id_deal_memo_id_fk": {
           "name": "itinerary_deal_memo_id_deal_memo_id_fk",
           "tableFrom": "itinerary",
-          "tableTo": "deal_memo",
           "columnsFrom": [
             "deal_memo_id"
           ],
+          "tableTo": "deal_memo",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4084,15 +4057,15 @@
         "mail_rule_hit_rule_id_mail_rule_id_fk": {
           "name": "mail_rule_hit_rule_id_mail_rule_id_fk",
           "tableFrom": "mail_rule_hit",
-          "tableTo": "mail_rule",
           "columnsFrom": [
             "rule_id"
           ],
+          "tableTo": "mail_rule",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4362,41 +4335,41 @@
         "management_contract_band_id_band_id_fk": {
           "name": "management_contract_band_id_band_id_fk",
           "tableFrom": "management_contract",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "management_contract_management_company_id_company_id_fk": {
           "name": "management_contract_management_company_id_company_id_fk",
           "tableFrom": "management_contract",
-          "tableTo": "company",
           "columnsFrom": [
             "management_company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "management_contract_representative_person_id_person_id_fk": {
           "name": "management_contract_representative_person_id_person_id_fk",
           "tableFrom": "management_contract",
-          "tableTo": "person",
           "columnsFrom": [
             "representative_person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -4442,28 +4415,28 @@
         "management_contract_member_contract_id_management_contract_id_fk": {
           "name": "management_contract_member_contract_id_management_contract_id_fk",
           "tableFrom": "management_contract_member",
-          "tableTo": "management_contract",
           "columnsFrom": [
             "contract_id"
           ],
+          "tableTo": "management_contract",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "management_contract_member_person_id_person_id_fk": {
           "name": "management_contract_member_person_id_person_id_fk",
           "tableFrom": "management_contract_member",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4553,41 +4526,41 @@
         "management_share_invoice_id_invoice_id_fk": {
           "name": "management_share_invoice_id_invoice_id_fk",
           "tableFrom": "management_share",
-          "tableTo": "invoice",
           "columnsFrom": [
             "invoice_id"
           ],
+          "tableTo": "invoice",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "management_share_band_id_band_id_fk": {
           "name": "management_share_band_id_band_id_fk",
           "tableFrom": "management_share",
-          "tableTo": "band",
           "columnsFrom": [
             "band_id"
           ],
+          "tableTo": "band",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "management_share_management_contract_id_management_contract_id_fk": {
           "name": "management_share_management_contract_id_management_contract_id_fk",
           "tableFrom": "management_share",
-          "tableTo": "management_contract",
           "columnsFrom": [
             "management_contract_id"
           ],
+          "tableTo": "management_contract",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -4652,15 +4625,15 @@
         "management_share_income_share_id_management_share_id_fk": {
           "name": "management_share_income_share_id_management_share_id_fk",
           "tableFrom": "management_share_income",
-          "tableTo": "management_share",
           "columnsFrom": [
             "share_id"
           ],
+          "tableTo": "management_share",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4749,28 +4722,28 @@
         "person_contact_id_contact_id_fk": {
           "name": "person_contact_id_contact_id_fk",
           "tableFrom": "person",
-          "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
           ],
+          "tableTo": "contact",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "person_address_id_address_id_fk": {
           "name": "person_address_id_address_id_fk",
           "tableFrom": "person",
-          "tableTo": "address",
           "columnsFrom": [
             "address_id"
           ],
+          "tableTo": "address",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -4903,41 +4876,41 @@
         "venue_address_id_address_id_fk": {
           "name": "venue_address_id_address_id_fk",
           "tableFrom": "venue",
-          "tableTo": "address",
           "columnsFrom": [
             "address_id"
           ],
+          "tableTo": "address",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "venue_company_id_company_id_fk": {
           "name": "venue_company_id_company_id_fk",
           "tableFrom": "venue",
-          "tableTo": "company",
           "columnsFrom": [
             "company_id"
           ],
+          "tableTo": "company",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "venue_contact_id_contact_id_fk": {
           "name": "venue_contact_id_contact_id_fk",
           "tableFrom": "venue",
-          "tableTo": "contact",
           "columnsFrom": [
             "contact_id"
           ],
+          "tableTo": "contact",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -4948,88 +4921,6 @@
           "value": "\"kind\" IN ('venue', 'festival')"
         }
       }
-    },
-    "venue_genre": {
-      "name": "venue_genre",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "genre_id": {
-          "name": "genre_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "venue_genre_unique_idx": {
-          "name": "venue_genre_unique_idx",
-          "columns": [
-            "venue_id",
-            "genre_id"
-          ],
-          "isUnique": true
-        },
-        "venue_genre_genre_idx": {
-          "name": "venue_genre_genre_idx",
-          "columns": [
-            "genre_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "venue_genre_venue_id_venue_id_fk": {
-          "name": "venue_genre_venue_id_venue_id_fk",
-          "tableFrom": "venue_genre",
-          "tableTo": "venue",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "venue_genre_genre_id_genre_id_fk": {
-          "name": "venue_genre_genre_id_genre_id_fk",
-          "tableFrom": "venue_genre",
-          "tableTo": "genre",
-          "columnsFrom": [
-            "genre_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
     },
     "venue_member": {
       "name": "venue_member",
@@ -5098,28 +4989,28 @@
         "venue_member_venue_id_venue_id_fk": {
           "name": "venue_member_venue_id_venue_id_fk",
           "tableFrom": "venue_member",
-          "tableTo": "venue",
           "columnsFrom": [
             "venue_id"
           ],
+          "tableTo": "venue",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "venue_member_person_id_person_id_fk": {
           "name": "venue_member_person_id_person_id_fk",
           "tableFrom": "venue_member",
-          "tableTo": "person",
           "columnsFrom": [
             "person_id"
           ],
+          "tableTo": "person",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -5130,19 +5021,11 @@
   "views": {},
   "enums": {},
   "_meta": {
+    "columns": {},
     "schemas": {},
-    "tables": {},
-    "columns": {}
+    "tables": {}
   },
   "internal": {
-    "indexes": {
-      "genre_name_idx": {
-        "columns": {
-          "\"name\" COLLATE NOCASE": {
-            "isExpression": true
-          }
-        }
-      }
-    }
+    "indexes": {}
   }
 }

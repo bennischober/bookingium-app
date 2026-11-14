@@ -62,6 +62,14 @@ describe('enum columns', () => {
     [
       "insert into mail_template (name, kind, lang) values ('X', 'invoice', 'fr')",
       'mail_template_lang_check'
+    ],
+    [
+      "insert into external_booking (band_id, date, kind, agency, source_key, imported_at) values (1, '2026-11-01', 'club', 'A', 'k1', '2026-11-01 10:00:00')",
+      'external_booking_kind_check'
+    ],
+    [
+      "insert into external_booking (band_id, date, status, agency, source_key, imported_at) values (1, '2026-11-01', 'option', 'A', 'k2', '2026-11-01 10:00:00')",
+      'external_booking_status_check'
     ]
   ])('%s', (sql, constraint) => {
     expect(run(sql)).toThrow(CHECK)
@@ -76,6 +84,8 @@ describe('enum columns', () => {
         insert into invoice (company_id, status, kind) values (1, 'overdue', 'cancellation');
         insert into mail_template (name, kind, lang) values ('', 'contract', 'en');
         insert into mail_template (name) values ('Eigene Vorlage');
+        insert into external_booking (band_id, date, kind, status, agency, source_key, imported_at)
+          values (1, '2026-11-02', 'festival', 'cancelled', 'A', 'k3', '2026-11-01 10:00:00');
       `)
     ).not.toThrow()
   })

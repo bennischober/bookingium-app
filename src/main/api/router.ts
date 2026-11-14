@@ -26,6 +26,7 @@ import { calendarRouter } from './routers/calendar.router'
 import { contactListRouter } from './routers/contact_list.router'
 import { followUpRouter } from './routers/follow_up.router'
 import { appointmentRouter } from './routers/appointment.router'
+import { externalBookingRouter } from './routers/external_booking.router'
 import { mailRouter } from './routers/mail.router'
 import { mailLinkRouter } from './routers/mail_link.router'
 import { mailRuleRouter } from './routers/mail_rule.router'
@@ -69,6 +70,7 @@ export const router = t.router({
   contactList: contactListRouter,
   followUp: followUpRouter,
   appointment: appointmentRouter,
+  externalBooking: externalBookingRouter,
   mail: mailRouter,
   mailLink: mailLinkRouter,
   mailRule: mailRuleRouter,

@@ -1,4 +1,4 @@
--- #153: 0041 dropped the owner triggers so that 0042 could rebuild document and the
+-- #153: 0042 dropped the owner triggers so that 0043 could rebuild document and the
 -- tables with a nullable updated_at. These are the ones from 0000_initial and 0011,
 -- unchanged; tests/migrations.test.ts pins the full trigger list.
 CREATE TRIGGER `document_owner_event_deleted` AFTER DELETE ON `deal_memo` BEGIN

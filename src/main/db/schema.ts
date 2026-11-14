@@ -12,6 +12,7 @@ import { sql } from 'drizzle-orm'
 import { DOCUMENT_OWNER_TYPES } from '../api/schemas/document.schema'
 import { CompanyKind } from '../api/schemas/company.schema'
 import { VenueKind } from '../api/schemas/venue.schema'
+import { ExternalBookingKind, ExternalBookingStatus } from '../api/schemas/external_booking.schema'
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import {
   InvoiceEmailKind,
@@ -1098,6 +1099,53 @@ export const appointment = sqliteTable(
 )
 
 // ========================================
+// Agency bookings (#103): shows of the user's bands that another agency booked
+// ========================================
+// Read-only copies from an agency's export, so tour planning, the calendar and the radius
+// clauses see them. A table of their own rather than a flag on deal_memo: no invoice, contract,
+// Abrechnung, mailing list or follow-up path reads this table, so none can pick one up. Rows
+// change only through a new import, which finds a row by (agency, source_key) and updates it.
+export const external_booking = sqliteTable(
+  'external_booking',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(), // YYYY-MM-DD
+    // 'venue' (club) or 'festival': picks the default radius clause
+    kind: text('kind').notNull().default('venue'),
+    // 'confirmed' blocks like a confirmed show, 'pending' is a risk, 'cancelled' is kept but inert
+    status: text('status').notNull().default('confirmed'),
+    venue_name: text('venue_name').notNull().default(''),
+    street: text('street').notNull().default(''),
+    zip_code: text('zip_code').notNull().default(''),
+    city: text('city').notNull().default(''),
+    country: text('country').notNull().default(''),
+    notes: text('notes').notNull().default(''),
+    // Who booked it (the source), and the row's key within that source's exports
+    agency: text('agency').notNull(),
+    source_key: text('source_key').notNull(),
+    // The file the row last came from, and when
+    source_file: text('source_file').notNull().default(''),
+    imported_at: text('imported_at').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('external_booking_date_idx').on(table.date),
+    index('external_booking_band_idx').on(table.band_id),
+    uniqueIndex('external_booking_source_idx').on(table.agency, table.source_key),
+    oneOf('external_booking_kind_check', 'kind', ExternalBookingKind.options),
+    oneOf('external_booking_status_check', 'status', ExternalBookingStatus.options)
+  ]
+)
+
+// ========================================
 // Management contracts (management company <-> band)
 // ========================================
 // A band can have several over time (renewals with new terms); the newest
@@ -1252,6 +1300,7 @@ export const schema = {
   mail_link,
   follow_up,
   appointment,
+  external_booking,
   mail_template,
   mail_rule,
   mail_rule_hit
