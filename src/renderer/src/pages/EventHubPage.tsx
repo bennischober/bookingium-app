@@ -10,10 +10,12 @@ import { TabCount } from '@/components/detail/DetailParts'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
+import { toast } from '@/lib/toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
+import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
 import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
@@ -37,6 +39,19 @@ export function EventHubPage() {
     error,
     refetch
   } = trpcReact.dealMemo.getById.useQuery(Number(eventId), { enabled: !!eventId })
+  const utils = trpcReact.useUtils()
+
+  // #162: delete from the detail page, then back to the list
+  const deleteEvent = trpcReact.dealMemo.delete.useMutation({
+    onSuccess: async () => {
+      await navigate({ to: '/events' })
+      void utils.dealMemo.invalidate()
+      toast.success('Event gelöscht')
+    },
+    onError: (error) => {
+      toast.error('Event konnte nicht gelöscht werden', { description: error.message })
+    }
+  })
 
   // ── Edit-mode state ──
   const [isEditing, setIsEditing] = useState(false)
@@ -166,6 +181,11 @@ export function EventHubPage() {
                   <Pencil className="h-3.5 w-3.5" />
                   Bearbeiten
                 </Button>
+                <DeleteRecordButton
+                  confirmTitle={`Event „${event.name}“ löschen?`}
+                  pending={deleteEvent.isPending}
+                  onDelete={() => deleteEvent.mutate(event.id)}
+                />
               </>
             )}
           </div>

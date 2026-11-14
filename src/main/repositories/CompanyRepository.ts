@@ -3,7 +3,7 @@ import { eq, like, or, sql } from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { saveContactEmails, withContactEmails } from './contactEmails'
 import { db } from '../db'
-import { company, address, contact, bank } from '../db/schema'
+import { company, address, contact, bank, band, invoice } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
 
@@ -359,6 +359,17 @@ export class CompanyRepository {
         tx
       )[0]
     })
+  }
+
+  /** #162: rows whose company_id has no ON DELETE rule, so they block the delete */
+  deleteBlockers(id: number) {
+    const count = (table: typeof band | typeof invoice) =>
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(table)
+        .where(eq(table.company_id, id))
+        .get()?.n ?? 0
+    return { bands: count(band), invoices: count(invoice) }
   }
 
   async delete(id: number) {

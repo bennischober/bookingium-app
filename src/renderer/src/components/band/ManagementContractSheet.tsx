@@ -7,6 +7,7 @@ import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { FormSheet } from '@/components/form-sheet'
 import { Button } from '@/components/ui/button'
+import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -428,7 +429,7 @@ function ContractForm({
         />
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t pt-4">
+      <FormActions className="items-center justify-between">
         <Button
           variant="ghost"
           className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -472,7 +473,7 @@ function ContractForm({
             Speichern
           </Button>
         </div>
-      </div>
+      </FormActions>
     </div>
   )
 }

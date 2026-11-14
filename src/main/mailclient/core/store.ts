@@ -22,7 +22,8 @@ import {
 type StoreLogger = { warn?: (msg: string) => void };
 
 
-export type Flags = { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean };
+/** #163: `forwarded` is the `$Forwarded` keyword; rows stored before it have no such key (read as false) */
+export type Flags = { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean; forwarded: boolean };
 
 /** Task 3: thread summary row (see Store.listThreads). */
 export interface ThreadRow {
@@ -33,6 +34,9 @@ export interface ThreadRow {
   date: string | null;
   unread: number;
   hasAttachments: boolean;
+  /** #163: some mail of the thread was answered / forwarded */
+  answered: boolean;
+  forwarded: boolean;
   snippet: string;
   messageIds: number[];
 }
@@ -44,6 +48,8 @@ interface ThreadAggRow {
   newest: string | null;
   unread: number | null;
   atts: number | null;
+  answered: number | null;
+  forwarded: number | null;
   n: number;
 }
 
@@ -790,6 +796,8 @@ export class Store {
       SELECT messages.thread_id AS threadId, COUNT(*) AS count, MAX(messages.sort_date) AS newest,
         SUM(CASE WHEN json_extract(messages.flags_json, '$.seen') IS NOT 1 THEN 1 ELSE 0 END) AS unread,
         SUM(messages.has_attachments) AS atts,
+        MAX(json_extract(messages.flags_json, '$.answered') IS 1) AS answered,
+        MAX(json_extract(messages.flags_json, '$.forwarded') IS 1) AS forwarded,
         COUNT(DISTINCT messages.id) AS n
       FROM messages ${folderSql}
       GROUP BY messages.thread_id
@@ -821,6 +829,8 @@ export class Store {
         date: newest?.sort_date || r.newest || null,
         unread: r.unread || 0,
         hasAttachments: (r.atts || 0) > 0,
+        answered: r.answered === 1,
+        forwarded: r.forwarded === 1,
         snippet: newest?.snippet || '',
         messageIds: list.map(x => x.id),
       } as ThreadRow;
