@@ -2,7 +2,8 @@
 // expunge, running a journaled op and applying its result, replay at start, the automatic
 // retry schedule, the op panel's list, retry, resolve, cancel and undo. MailCore keeps one-line
 // delegations, and every run goes through its runOp.
-import type { Store, JournalRow } from './store.js';
+import type { Flags, Store, JournalRow } from './store.js';
+import { flagKey } from './message_ingest.js';
 import type { OpResult, BatchMember, BatchMoved } from './write_engine.js';
 import type { OpSummary } from './types.js';
 import { foldersToResync } from './resync_scope.js';
@@ -21,7 +22,7 @@ export interface OpApiContext {
   emitEvent(e: MailCoreEvent): void;
   /** The core's runOp: a test replaces it on the instance, so every run goes through it. */
   runOp(e: AccountEntry, op: JournalRow): Promise<OpResult>;
-  parseFlags(row: { flags_json: string }): { seen: boolean; flagged: boolean; draft: boolean; deleted: boolean; answered: boolean };
+  parseFlags(row: { flags_json: string }): Flags;
   refuseFolderDelete(e: AccountEntry, path: string): void;
   throwIfServerRefusedDelete(e: AccountEntry, opId: string): void;
 }
@@ -62,16 +63,10 @@ export class OpApi {
       const folder = e.store.getFolder(row.folder_id);
       if (!folder) continue;
       const flags = this.parseFlags(row);
-      const flip: Record<string, boolean | undefined> = {};
-      for (const f of delta.add || []) flip[f.replace(/^\\/, '').toLowerCase()] = true;
-      for (const f of delta.remove || []) flip[f.replace(/^\\/, '').toLowerCase()] = false;
-      const next = {
-        seen: flip.seen !== undefined ? flip.seen : flags.seen,
-        flagged: flip.flagged !== undefined ? flip.flagged : flags.flagged,
-        draft: flip.draft !== undefined ? flip.draft : flags.draft,
-        deleted: flip.deleted !== undefined ? flip.deleted : flags.deleted,
-        answered: flip.answered !== undefined ? flip.answered : flags.answered,
-      };
+      // #163: flagKey maps '\\Seen' and '$Forwarded' alike; flags the store does not keep only go to the server
+      const next: Flags = { ...flags };
+      for (const f of delta.add || []) { const k = flagKey(f); if (k) next[k] = true; }
+      for (const f of delta.remove || []) { const k = flagKey(f); if (k) next[k] = false; }
       e.store.updateMessageFlags(row.id, JSON.stringify(next));
       const opId = e.store.journalEnqueue({
         accountId: e.config.id, kind: 'flag',

@@ -7,7 +7,7 @@ import { ImapFlow } from 'imapflow';
 import { Store } from './store.js';
 import { isAuthFailure } from './imap_options.js';
 import { isDiskFullError } from './disk_full.js';
-import { flagsFromSet } from './message_ingest.js';
+import { flagsFromSet, sameFlags } from './message_ingest.js';
 import { uidRange } from './folder_sync.js';
 import { checkableFolders, type StatusCheck } from './status_check.js';
 import type { ConnectionBudget } from './connection_budget.js';
@@ -448,7 +448,7 @@ export class Poller {
         // Task 4 coexistence: skip messages with pending/running write ops
         if (this.store.opInFlightForMessageKey(local.message_key)) continue;
         const flags = flagsFromSet(m.flags);
-        if (JSON.stringify(JSON.parse(local.flags_json)) !== JSON.stringify(flags)) {
+        if (!sameFlags(local.flags_json, flags)) {
           pending.push({ id: local.id, flags_json: JSON.stringify(flags) });
         }
       }
