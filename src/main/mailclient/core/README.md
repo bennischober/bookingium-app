@@ -238,6 +238,18 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   highest, and its throttling signals. `triggerSync` logs it once with `passSummaryLine`.
 - **Not covered by the button:** flag changes other than `\Seen` in unchanged non-priority folders, and
   `\Seen` changes that cancel out in the count. The poll's tiered flag sweep and the deep check do.
+- **„Nur beim Öffnen“ (#158).** `syncsOnOpen(f)` (`folders.sync_mode = 'on_open'`): `syncAll` asks the
+  folder for STATUS but leaves it out of `syncedHere` (so also out of `messagesTotal`, the bytes and the
+  `initial` phase), the check and the poll call `StatusCheck.rememberCounts` instead of syncing or
+  sweeping, and a never-downloaded one does not make the store incomplete. `rememberCounts` stores
+  MESSAGES and UNSEEN in `status_messages`/`status_unseen` while the folder has no UIDVALIDITY;
+  `syncAndRemember` clears them after a sync that went through. `syncOpened` syncs such a folder even
+  without a first sync, and with `evenUndownloaded` any folder (`MailCore.downloadSwitched`, after a
+  switch to `always`). Seeding at INSERT only: `seedSyncModes(list)` in `syncFolderList` (anything but
+  `subscribed: true` from imapflow counts as not subscribed; no ordinary folder subscribed → all
+  `always`), `upsertFolder`'s UPDATE keeps the mode, `rekeyFolder` carries it to the new path.
+  `MailCore.setFolderSyncMode` and `adoptSubscriptions` refuse staging and protected folders
+  (`isProtectedFolder`).
 
 Tests: `tests/mail_change_pass.test.ts` (`tests/helpers/scriptedImap.ts` with `capabilities`, UNSEEN and
 LIST-STATUS; the census pause, the opened folder, the pass summary), the migration in

@@ -10,8 +10,21 @@ export type FolderNode = {
   specialUse: string | null;
   unreadCount: number;
   totalCount: number;
+  /** #158: the local sync setting ('always' for INBOX and the special-use folders) */
+  syncMode: FolderSyncMode;
+  /** #158: subscribed on the server at the last folder list; null while not known */
+  subscribed: boolean | null;
+  /** #158: an 'on_open' folder whose mail was never downloaded (its counts are the server's) */
+  notDownloaded: boolean;
   children: FolderNode[];
 };
+
+/**
+ * #158: how a folder is synced. 'always': by every pass, as before. 'on_open': only when the
+ * user opens it; the deep check, the flag sweep and the first download skip it, and the
+ * STATUS round only keeps its counts. A local setting: the server's subscriptions are never changed.
+ */
+export type FolderSyncMode = 'always' | 'on_open';
 
 export type MessageListItem = {
   id: number;              // DB row id
@@ -98,6 +111,8 @@ export type SearchResult = {
   elapsedMs: number;
   snippetMap: Record<number, string>; // highlighted snippet per message id
   facets?: { folderId: string; count: number }[];   // Task 3: per-folder hit counts
+  /** #158: folders set to 'on_open' whose mail was never downloaded, so not searched */
+  notDownloadedFolders?: number;
 };
 
 /** 'read-only': set to "Nur lesen" (or refused by the write guard); 'sandbox': the local test server; 'live': a real, writable mailbox */
@@ -320,6 +335,14 @@ export interface Api {
   deleteFolder?(path: string, accountId?: string): Promise<OpSummary>;
   /** B2: move a folder under a new parent (same rules as a rename) */
   moveFolder?(path: string, newParentPath: string | null, accountId?: string): Promise<OpSummary>;
+  /**
+   * #158: the local sync setting of these folders (ids from getFolders). INBOX and the
+   * special-use folders stay 'always'. Never subscribes or unsubscribes on the server.
+   * Returns how many folders changed; folders switched to 'always' are synced next.
+   */
+  setFolderSyncMode?(folderIds: string[], mode: FolderSyncMode, accountId?: string): Promise<number>;
+  /** #158: „Abonnierte Ordner übernehmen“: subscribed folders 'always', the others 'on_open' */
+  adoptSubscriptions?(accountId?: string): Promise<number>;
   /** List items for the history panel of a record (C3), by Message-ID */
   findByMessageIds?(ids: string[], accountId?: string): Promise<MessageListItem[]>;
   /** C4: the mails answering one of these Message-IDs (In-Reply-To/References), newest first */

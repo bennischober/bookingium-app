@@ -10,7 +10,7 @@ import { messageFallbackKey, normalizeMessageId } from './message_keys.js';
 import { matchingRules, recipientsOf } from './mail_rules.js';
 import type { MessageHeader, HeaderPage, RuleMatcher, RuleMatchPage, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, RemoteImageRef, AttachmentInfo, ThreadSummary } from './types.js';
 import type { AccountEntry, MailCoreEvent, MailCoreOptions } from './index.js';
-import type { MessageRow } from './store.js';
+import type { FolderRow, MessageRow } from './store.js';
 
 /** What the read calls need from the core. */
 export interface MessageViewsContext {
@@ -44,14 +44,19 @@ export class MessageViews {
     // I12: a UIDVALIDITY swap's staging folder is internal until it is swapped in
     const flat = store.allFolders().filter(f => !f.imap_path.startsWith(STAGING_PREFIX)).map(f => {
       const counts = store.countByFolder(f.id);
+      // #158: an 'on_open' folder never downloaded shows the server's counts from the STATUS round
+      const notDownloaded = isNotDownloaded(f);
       return {
         id: f.id,
         path: f.imap_path,
         name: f.imap_path.split(f.delimiter).pop() || f.imap_path,
         delimiter: f.delimiter,
         specialUse: f.special_use,
-        unreadCount: counts.unread,
-        totalCount: counts.total,
+        unreadCount: notDownloaded ? f.status_unseen ?? counts.unread : counts.unread,
+        totalCount: notDownloaded ? f.status_messages ?? counts.total : counts.total,
+        syncMode: f.sync_mode,
+        subscribed: f.subscribed === null ? null : f.subscribed === 1,
+        notDownloaded,
         children: [] as FolderNode[],
       };
     });
@@ -180,6 +185,10 @@ export class MessageViews {
     if (filters.wantSnippets && matchExpr) {
       result.snippetMap = store.searchSnippets(matchExpr, result.items.map(i => i.id));
     }
+    // #158: the search only sees downloaded mail; the UI notes the folders that were never opened
+    const folders = store.allFolders().filter(f => !f.imap_path.startsWith(STAGING_PREFIX));
+    const searched = filters.folderId ? folders.filter(f => f.id === filters.folderId) : folders;
+    result.notDownloadedFolders = searched.filter(isNotDownloaded).length;
     result.elapsedMs = Math.round(performance.now() - t0);
     return result;
   }
@@ -435,4 +444,9 @@ function parseJsonArray(raw: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+/** #158: an 'on_open' folder that was never synced, so none of its mail is local */
+function isNotDownloaded(f: FolderRow): boolean {
+  return f.sync_mode === 'on_open' && !f.uid_validity;
 }

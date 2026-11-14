@@ -16,19 +16,19 @@
 import { ImapFlow } from 'imapflow';
 import fs from 'fs';
 import { STAGING_PREFIX, Store, type FolderRow } from './store.js';
-import type { ConnectionState, ImapSecurity, PassSummary, SyncErrorEntry } from './types.js';
+import type { ConnectionState, FolderSyncMode, ImapSecurity, PassSummary, SyncErrorEntry } from './types.js';
 import { SyncActivity } from './sync_activity.js';
 import { allowsPlainLogin } from './imap_options.js';
 import { diskFullMessage, downloadSpaceMessage, downloadSpaceNeeded, freeBytesOf, isDiskFullError } from './disk_full.js';
 import { secondsLeft } from './download_estimate.js';
-import { isPathOrChild } from './folders.js';
+import { isPathOrChild, isProtectedFolder } from './folders.js';
 import { ConnectionBudget } from './connection_budget.js';
 import { FolderLocks, hasInFlightOps } from './folder_locks.js';
 import { SyncConnection } from './sync_connection.js';
 import { MessageIngest } from './message_ingest.js';
 import { FolderSync, nextUid, uidRange } from './folder_sync.js';
 import { IDLE_CAP_MS, IdleLoop, idleWait, Poller } from './idle_poll.js';
-import { censusPauseOf, checkableFolders, StatusCheck, type FolderStatus } from './status_check.js';
+import { censusPauseOf, checkableFolders, StatusCheck, syncsOnOpen, type FolderStatus } from './status_check.js';
 import { Pacer, PACER_KV_KEY, parseRememberedPause } from './pacer.js';
 
 export { IDLE_CAP_MS, idleWait, nextUid, uidRange };
@@ -138,6 +138,22 @@ export type SyncEvent =
 const PAUSED_FLAG = 'sync_paused';
 /** #156: after INBOX (and the open folder) the sync button always syncs these special-use folders */
 const PRIORITY_SPECIAL_USE = ['\\Sent', '\\Drafts', '\\Trash'];
+
+type ListedFolder = { path: string; specialUse?: string; subscribed?: boolean; flags: Set<string> };
+
+/**
+ * #158: the sync mode a folder gets when it first appears. INBOX and the special-use folders
+ * always sync; another folder syncs only when it is opened if the server lists it as not
+ * subscribed. Safeguard: when no ordinary folder of the list is subscribed, the subscriptions
+ * say nothing (never set up, or a server without them), so everything syncs as before.
+ * imapflow marks a subscribed folder `subscribed: true` and leaves the others undefined (when
+ * no LIST or LSUB answered it marks them all true), so anything but true means "not subscribed".
+ */
+export function seedSyncModes(list: readonly ListedFolder[]): (f: Omit<ListedFolder, 'flags'>) => FolderSyncMode {
+  const isProtected = (f: Omit<ListedFolder, 'flags'>) => isProtectedFolder({ path: f.path, specialUse: f.specialUse ?? null });
+  const used = list.some(f => !f.flags.has('\\Noselect') && !isProtected(f) && f.subscribed === true);
+  return f => !used || isProtected(f) || f.subscribed === true ? 'always' : 'on_open';
+}
 
 export type SyncProgress = {
   running: boolean;
@@ -484,7 +500,8 @@ export class SyncEngine {
    */
   private async serverBytes(client: ImapFlow, folders: string[], sizeByPath: Map<string, number>): Promise<number | null> {
     if (folders.length && folders.every(p => sizeByPath.has(p))) {
-      return [...sizeByPath.values()].reduce((a, b) => a + b, 0);
+      // #158: only the folders this pass downloads; the QUOTA below counts every folder
+      return folders.reduce((n, p) => n + (sizeByPath.get(p) ?? 0), 0);
     }
     try {
       const quota = await client.getQuota('INBOX');
@@ -649,6 +666,9 @@ export class SyncEngine {
     // the folder twice, so paths inside a pending rename are left to the rename op.
     const renames = this.pendingRenames();
     const renaming = (path: string) => renames.some(r => isPathOrChild(path, r.from, r.delimiter) || isPathOrChild(path, r.to, r.delimiter));
+    // #158: a new folder's sync mode comes from the server's subscriptions (see seedSyncModes);
+    // a folder already in the store keeps the user's choice, only `subscribed` is refreshed
+    const seed = seedSyncModes(list);
     for (const f of list) {
       if (f.flags.has('\\Noselect')) continue;
       if (renaming(f.path)) { paths.push(f.path); continue; }
@@ -656,6 +676,8 @@ export class SyncEngine {
         imapPath: f.path,
         delimiter: f.delimiter || '/',
         specialUse: f.specialUse || null,
+        subscribed: f.subscribed === true,
+        seedSyncMode: seed(f),
       });
       paths.push(f.path);
     }
@@ -813,7 +835,10 @@ export class SyncEngine {
     try {
       await this.detectCapabilities();
       const folders = await this.syncFolderList();
-      this.progress.foldersTotal = folders.length;
+      // #158: „Nur beim Öffnen“ folders are asked for STATUS below but not synced by this pass
+      const onOpen = new Set(folders.filter(p => syncsOnOpen(this.store.getFolderByPath(p))));
+      const syncedHere = folders.filter(p => !onOpen.has(p));
+      this.progress.foldersTotal = syncedHere.length;
 
       // total messages (one STATUS round per folder, also used for prioritization)
       const client0 = await this.connect();
@@ -844,9 +869,13 @@ export class SyncEngine {
       }
       censusMs = Date.now() - c0;
       checked = folders.length;
-      this.progress.messagesTotal = [...statusByPath.values()].reduce((a, b) => a + b, 0)
+      for (const p of onOpen) {
+        const f = this.store.getFolderByPath(p);
+        if (f && statusByPath.has(p)) this.statusCheck.rememberCounts(f, { messages: statusByPath.get(p), unseen: unseenByPath.get(p) });
+      }
+      this.progress.messagesTotal = syncedHere.reduce((n, p) => n + (statusByPath.get(p) ?? 0), 0)
         || (this.store.db.prepare('SELECT COUNT(*) c FROM messages').get() as { c: number }).c;
-      this.progress.bytesTotal = await this.serverBytes(client0, folders, sizeByPath);
+      this.progress.bytesTotal = await this.serverBytes(client0, syncedHere, sizeByPath);
 
       // prioritization: INBOX first, then folders by "recentness" unknown → by size desc
       const localCounts = new Map<string, number>(
@@ -855,7 +884,7 @@ export class SyncEngine {
       );
       // A pass is a download only while some folder was never synced; after a restart the
       // count starts at what is already stored, so it does not look like starting over
-      this.passPhase = folders.some(p => !this.store.getFolderByPath(p)?.uid_validity) ? 'initial' : 'incremental';
+      this.passPhase = syncedHere.some(p => !this.store.getFolderByPath(p)?.uid_validity) ? 'initial' : 'incremental';
       // #63: a pause kept from before the restart is the first download's; with that done it goes
       if (this.restoredPause) {
         this.restoredPause = false;
@@ -863,10 +892,10 @@ export class SyncEngine {
         else this.saveFlag(PAUSED_FLAG, null);
       }
       if (!this.paused) this.progress.phase = this.passPhase;
-      this.progress.messagesDone = folders.reduce((n, p) => n + (localCounts.get(p) ?? 0), 0);
+      this.progress.messagesDone = syncedHere.reduce((n, p) => n + (localCounts.get(p) ?? 0), 0);
       if (this.passPhase === 'initial') this.checkDownloadSpace();
       this.rateStart = { at: Date.now(), done: this.progress.messagesDone };
-      const ordered = [...folders].sort((a, b) => {
+      const ordered = [...syncedHere].sort((a, b) => {
         if (a === 'INBOX') return -1;
         if (b === 'INBOX') return 1;
         const la = localCounts.get(a) ?? 0, lb = localCounts.get(b) ?? 0;
@@ -973,9 +1002,13 @@ export class SyncEngine {
    *     not online, the circuit open, the disk full, or a rename moves the folder.
    * Never throws; a sync error is reported as a sync event like any other.
    */
-  async syncOpened(folderId: string): Promise<OpenedSync> {
+  async syncOpened(folderId: string, opts: { evenUndownloaded?: boolean } = {}): Promise<OpenedSync> {
     const f = this.store.getFolder(folderId);
-    if (!f || f.account_id !== this.account.id || f.imap_path.startsWith(STAGING_PREFIX) || !f.uid_validity) return 'skipped';
+    // #158: an 'on_open' folder is synced on open even when it was never downloaded, and so is a
+    // folder just switched to 'always' (evenUndownloaded); any other folder without a first sync
+    // is left to the first download
+    if (!f || f.account_id !== this.account.id || f.imap_path.startsWith(STAGING_PREFIX)) return 'skipped';
+    if (!f.uid_validity && !syncsOnOpen(f) && !opts.evenUndownloaded) return 'skipped';
     if (this.syncing) {
       if (this.passSynced.has(f.imap_path)) return 'skipped';
       this.openRequest = f.imap_path;
@@ -1033,7 +1066,8 @@ export class SyncEngine {
     if (this.syncing) return this.getStatus();
     if (this.diskFull) return this.getStatus();
     const known = checkableFolders(this.store);
-    if (!this.lastSyncAt || this.paused || this.restoredPause || known.length === 0 || known.some(f => !f.uid_validity)) {
+    // #158: an 'on_open' folder never opened does not make the store incomplete
+    if (!this.lastSyncAt || this.paused || this.restoredPause || known.length === 0 || known.some(f => !f.uid_validity && !syncsOnOpen(f))) {
       return this.syncAll({ report: opts.report });
     }
     this.syncing = true;
@@ -1129,6 +1163,8 @@ export class SyncEngine {
           answered++;
           // opened in the UI and synced meanwhile: its baseline is already remembered
           if (this.passSynced.has(f.imap_path)) { /* nothing left to do */ }
+          // #158: „Nur beim Öffnen“: its counts only
+          else if (syncsOnOpen(f)) this.statusCheck.rememberCounts(f, st);
           else if (this.statusCheck.changed(f, st)) {
             if (!await syncOne(f.imap_path, st)) return this.getStatus();
           } else {

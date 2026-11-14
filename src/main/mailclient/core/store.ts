@@ -13,6 +13,7 @@ import { isPathOrChild, renamedPath } from './folders.js';
 import fs from 'fs';
 import path from 'path';
 import { runMigrations } from './migrations.js';
+import type { FolderSyncMode } from './types.js';
 import {
   assertIntact, clearIntegrityCheck, isCorruptStoreError, markForIntegrityCheck, needsIntegrityCheck,
   quarantineStoreFiles, salvageRelinks, watchForCorruption, type RelinkEntry,
@@ -70,6 +71,10 @@ export interface FolderRow {
   last_flag_sweep: string | null;
   list_absent_since: string | null;   // Task 4: first LIST pass where this folder was absent (prune debounce)
   unseen: number | null;              // #156: server UNSEEN count at the last completed sync; NULL = not known yet
+  subscribed: number | null;          // #158: 1/0 as the server's subscription list said at the last LIST; NULL = not known
+  sync_mode: FolderSyncMode;          // #158: the user's local choice; only seeded from `subscribed`
+  status_messages: number | null;     // #158: the server's MESSAGES from the last STATUS round
+  status_unseen: number | null;       // #158: the server's UNSEEN from the last STATUS round
 }
 
 /** Task 4: one pending/finished write operation (see docs/WRITE_PATH.md §1). */
@@ -395,17 +400,24 @@ export class Store {
   }
 
   // folder helpers -----------------------------------------------------------
-  upsertFolder(f: { imapPath: string; delimiter: string; specialUse?: string | null; uidValidity?: string | null; uidNext?: number | null; highestModseq?: string | null }): FolderRow {
+  /**
+   * The folder row by IMAP path, created when missing. #158: `subscribed` (when given) is
+   * recorded on every call; `seedSyncMode` applies only when the row is created, so a later
+   * change of the server's subscriptions never overrides a folder's setting.
+   */
+  upsertFolder(f: { imapPath: string; delimiter: string; specialUse?: string | null; uidValidity?: string | null; uidNext?: number | null; highestModseq?: string | null; subscribed?: boolean | null; seedSyncMode?: FolderSyncMode }): FolderRow {
     const id = crypto.createHash('sha1').update(`${this.accountId}|${f.imapPath}`).digest('hex').slice(0, 16);
     const existing = this.db.prepare('SELECT * FROM folders WHERE id = ?').get(id) as FolderRow | undefined;
+    const subscribed = f.subscribed === undefined || f.subscribed === null ? null : f.subscribed ? 1 : 0;
     if (existing) {
       this.db.prepare(`UPDATE folders SET delimiter=@delimiter, special_use=@specialUse, uid_validity=COALESCE(@uidValidity, uid_validity),
-        uid_next=COALESCE(@uidNext, uid_next), highest_modseq=COALESCE(@highestModseq, highest_modseq) WHERE id=@id`)
-        .run({ id, delimiter: f.delimiter, specialUse: f.specialUse ?? null, uidValidity: f.uidValidity ?? null, uidNext: f.uidNext ?? null, highestModseq: f.highestModseq ?? null });
+        uid_next=COALESCE(@uidNext, uid_next), highest_modseq=COALESCE(@highestModseq, highest_modseq),
+        subscribed=COALESCE(@subscribed, subscribed) WHERE id=@id`)
+        .run({ id, delimiter: f.delimiter, specialUse: f.specialUse ?? null, uidValidity: f.uidValidity ?? null, uidNext: f.uidNext ?? null, highestModseq: f.highestModseq ?? null, subscribed });
     } else {
-      this.db.prepare(`INSERT INTO folders (id, account_id, imap_path, delimiter, special_use, uid_validity, uid_next, highest_modseq)
-        VALUES (@id, @accountId, @imapPath, @delimiter, @specialUse, @uidValidity, @uidNext, @highestModseq)`)
-        .run({ id, accountId: this.accountId, imapPath: f.imapPath, delimiter: f.delimiter, specialUse: f.specialUse ?? null, uidValidity: f.uidValidity ?? null, uidNext: f.uidNext ?? null, highestModseq: f.highestModseq ?? null });
+      this.db.prepare(`INSERT INTO folders (id, account_id, imap_path, delimiter, special_use, uid_validity, uid_next, highest_modseq, subscribed, sync_mode)
+        VALUES (@id, @accountId, @imapPath, @delimiter, @specialUse, @uidValidity, @uidNext, @highestModseq, @subscribed, @syncMode)`)
+        .run({ id, accountId: this.accountId, imapPath: f.imapPath, delimiter: f.delimiter, specialUse: f.specialUse ?? null, uidValidity: f.uidValidity ?? null, uidNext: f.uidNext ?? null, highestModseq: f.highestModseq ?? null, subscribed, syncMode: f.seedSyncMode ?? 'always' });
     }
     return this.db.prepare('SELECT * FROM folders WHERE id = ?').get(id) as FolderRow;
   }
@@ -452,10 +464,11 @@ export class Store {
         }
         // The new row goes in first: the messages carry a foreign key to it, so the
         // old row cannot be removed before they point at the new one.
+        // #158: the folder keeps its sync setting across a rename or move
         this.db.prepare(`INSERT INTO folders (id, account_id, imap_path, delimiter, special_use,
-            uid_validity, uid_next, highest_modseq, last_sync_at, last_flag_sweep)
+            uid_validity, uid_next, highest_modseq, last_sync_at, last_flag_sweep, subscribed, sync_mode)
           SELECT @newId, account_id, @newPath, delimiter, special_use, uid_validity, uid_next,
-            highest_modseq, last_sync_at, last_flag_sweep FROM folders WHERE id = @oldId`)
+            highest_modseq, last_sync_at, last_flag_sweep, subscribed, sync_mode FROM folders WHERE id = @oldId`)
           .run({ newId, newPath, oldId: folder.id });
         if (keepUids) {
           // The UIDs stay valid: re-key the rows and their message keys
@@ -500,6 +513,21 @@ export class Store {
   /** #156: remember the server's UNSEEN count, compared by the next STATUS round (core/status_check.ts) */
   setFolderUnseen(id: string, unseen: number | null): void {
     this.db.prepare('UPDATE folders SET unseen = ? WHERE id = ?').run(unseen, id);
+  }
+
+  /** #158: the sync setting of these folders (ids of this account); returns how many changed */
+  setFolderSyncMode(ids: readonly string[], mode: FolderSyncMode): number {
+    const stmt = this.db.prepare('UPDATE folders SET sync_mode = ? WHERE id = ? AND account_id = ? AND sync_mode <> ?');
+    let changed = 0;
+    this.db.transaction(() => {
+      for (const id of ids) changed += stmt.run(mode, id, this.accountId, mode).changes;
+    })();
+    return changed;
+  }
+
+  /** #158: the server's counts from a STATUS round; NULL clears them once the folder's own rows are current */
+  setFolderStatusCounts(id: string, messages: number | null, unseen: number | null): void {
+    this.db.prepare('UPDATE folders SET status_messages = ?, status_unseen = ? WHERE id = ?').run(messages, unseen, id);
   }
 
   // message helpers ----------------------------------------------------------

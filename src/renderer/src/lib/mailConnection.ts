@@ -38,7 +38,13 @@ const seconds = (ms: number): string =>
 export function connectionTestMessage(result: ConnectionTestResult): string {
   if (result.ok) {
     const folders = result.folderCount === 1 ? '1 Ordner' : `${result.folderCount} Ordner`
-    return `Verbindung erfolgreich: ${folders} gefunden (${seconds(result.ms)}).`
+    // #158: only when it says something; all folders subscribed is also what a server without
+    // subscriptions reports
+    const subscribed =
+      result.subscribedCount < result.folderCount
+        ? `, davon ${result.subscribedCount} abonniert`
+        : ''
+    return `Verbindung erfolgreich: ${folders} gefunden${subscribed} (${seconds(result.ms)}).`
   }
   return STAGE_MESSAGES[result.stage]
 }

@@ -12,14 +12,15 @@
 // account wiring (store + sync engine + write engine with shared folder mutexes),
 // and the shutdown contract (close() = stop loops, replay-safe, flush, release lock).
 import path from 'path';
-import { Store, JournalRow } from './store.js';
+import { Store, JournalRow, STAGING_PREFIX, type FolderRow } from './store.js';
 import { SyncEngine, AccountConfig, SyncEvent, type OpenedSync } from './sync.js';
 import { passSummaryLine } from './pass_summary.js';
 import { WriteEngine, OpResult } from './write_engine.js';
 import { WriteAccount } from './write_guard.js';
 import { RemoteImageFetchOptions } from './remote_images.js';
 import { DataDirLock, InstanceLockError } from './instance_lock.js';
-import type { HeaderPage, RuleMatcher, RuleMatchPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, ThreadSummary, OpSummary, SavedDraft } from './types.js';
+import type { HeaderPage, RuleMatcher, RuleMatchPage, Api, AccountInfo, AccountSummary, ImapSecurity, SyncStatus, FolderNode, MessageListItem, MessageDetail, SearchFilters, SearchResult, DraftInput, RemoteImageRef, ThreadSummary, OpSummary, SavedDraft, FolderSyncMode } from './types.js';
+import { isProtectedFolder } from './folders.js';
 import { AccountEntries } from './account_entries.js';
 import { MessageViews } from './message_views.js';
 import { OpApi } from './op_api.js';
@@ -225,6 +226,51 @@ export class MailCore implements Api {
     const e = this.entry(accountId);
     await this.ensureCredentials(e.config.id);
     return e.engine.syncOpened(folderId);
+  }
+
+  /**
+   * #158: the folders' sync mode, a local setting (allowed on read-only accounts too). INBOX and
+   * the special-use folders always sync and are left out. A folder switched to 'always' that was
+   * never downloaded is synced right after, one after the other, in the background.
+   * Returns the number of folders whose mode changed.
+   */
+  async setFolderSyncMode(folderIds: string[], mode: FolderSyncMode, accountId?: string): Promise<number> {
+    if (mode !== 'always' && mode !== 'on_open') throw new Error(`unknown sync mode: ${String(mode)}`);
+    const e = this.entry(accountId);
+    const rows = folderIds.map(id => e.store.getFolder(id)).filter((f): f is FolderRow => !!f && switchable(f, e.config.id));
+    const changed = e.store.setFolderSyncMode(rows.map(f => f.id), mode);
+    if (mode === 'always' && changed > 0) this.downloadSwitched(e, rows.filter(f => !f.uid_validity).map(f => f.id));
+    return changed;
+  }
+
+  /**
+   * #158: the server's subscriptions as the sync modes: a subscribed folder syncs always, an
+   * unsubscribed one only when opened. Folders the server said nothing about keep their mode.
+   */
+  async adoptSubscriptions(accountId?: string): Promise<number> {
+    const e = this.entry(accountId);
+    const rows = e.store.allFolders().filter(f => switchable(f, e.config.id) && f.subscribed !== null);
+    const subscribed = rows.filter(f => f.subscribed === 1);
+    const changed = e.store.setFolderSyncMode(subscribed.map(f => f.id), 'always')
+      + e.store.setFolderSyncMode(rows.filter(f => f.subscribed === 0).map(f => f.id), 'on_open');
+    this.downloadSwitched(e, subscribed.filter(f => !f.uid_validity).map(f => f.id));
+    return changed;
+  }
+
+  /** #158: folders switched to 'always' that were never downloaded, synced in the background. */
+  private downloadSwitched(e: AccountEntry, folderIds: string[]): void {
+    if (folderIds.length === 0) return;
+    void (async () => {
+      await this.ensureCredentials(e.config.id);
+      if (e.engine.isSyncing()) await e.engine.waitForSync(10 * 60_000);
+      for (const id of folderIds) {
+        if (this.closed) return;
+        const outcome = await e.engine.syncOpened(id, { evenUndownloaded: true });
+        // offline, paused or a pass started: the next pass takes them (a never-downloaded
+        // 'always' folder makes the change pass fall back to the first download)
+        if (outcome === 'skipped' || outcome === 'queued') return;
+      }
+    })().catch(err => this.log.warn?.(`sync of switched folders failed: ${(err as Error).message}`));
   }
 
   /** #159: hides sync errors in the activity panel by key (SyncErrorEntry.key); all without keys. */
@@ -442,6 +488,12 @@ export class MailCore implements Api {
 }
 
 /** Factory: validate options, acquire the data-dir lock, wire accounts. */
+/** #158: a folder of this account whose sync mode the user may change (not INBOX, a special-use or staging folder). */
+function switchable(f: FolderRow, accountId: string): boolean {
+  return f.account_id === accountId && !f.imap_path.startsWith(STAGING_PREFIX)
+    && !isProtectedFolder({ path: f.imap_path, specialUse: f.special_use });
+}
+
 export function createMailCore(options: MailCoreOptions): MailCore {
   return new MailCore(options);
 }

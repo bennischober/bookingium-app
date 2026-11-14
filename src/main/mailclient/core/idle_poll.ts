@@ -9,7 +9,7 @@ import { isAuthFailure } from './imap_options.js';
 import { isDiskFullError } from './disk_full.js';
 import { flagsFromSet } from './message_ingest.js';
 import { uidRange } from './folder_sync.js';
-import { checkableFolders, type StatusCheck } from './status_check.js';
+import { checkableFolders, syncsOnOpen, type StatusCheck } from './status_check.js';
 import type { ConnectionBudget } from './connection_budget.js';
 import type { AccountConfig, SyncEvent, SyncProgress } from './sync.js';
 import type { Pacer } from './pacer.js';
@@ -337,6 +337,8 @@ export class Poller {
       if (!st) continue;
       answered++;
       try {
+        // #158: „Nur beim Öffnen“: counts only, no sync and no flag sweep
+        if (syncsOnOpen(f)) { check.rememberCounts(f, st); continue; }
         if (check.changed(f, st)) {
           await check.syncAndRemember(f.imap_path, st);
           // Task 4 fix: syncFolder used to skip flag fetching entirely without

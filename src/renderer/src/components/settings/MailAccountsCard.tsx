@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleAlert, CircleCheck, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CircleAlert, CircleCheck, FolderCog, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -35,6 +35,7 @@ import type { MailAccountDto } from '../../../../main/mailclient/accounts'
 import type { ConnectionTestResult } from '../../../../main/mailclient/core/connection_test'
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
 import type { ImapSecurity } from '../../../../main/mailclient/core/types'
+import { MailFolderSyncDialog } from '@/components/settings/MailFolderSyncDialog'
 
 /**
  * The badge in the list: read-only, refused by the write guard (stored with a cleartext login),
@@ -481,6 +482,8 @@ export function MailAccountsCard() {
   const status = trpcReact.mail.status.useQuery(undefined, { refetchInterval: 5000 })
   const [editing, setEditing] = useState<MailAccountDto | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  // #158: the account whose folder selection is open
+  const [foldersOf, setFoldersOf] = useState<MailAccountDto | null>(null)
 
   const remove = trpcReact.mail.accounts.delete.useMutation({
     onSuccess: () => {
@@ -546,6 +549,15 @@ export function MailAccountsCard() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  onClick={() => setFoldersOf(account)}
+                  title="Ordner auswählen"
+                  aria-label={`Ordner von ${account.email} auswählen`}
+                >
+                  <FolderCog />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => openDialog(account)}
                   title="Bearbeiten"
                   aria-label={`${account.email} bearbeiten`}
@@ -578,6 +590,14 @@ export function MailAccountsCard() {
       </CardContent>
 
       <MailAccountDialog account={editing} open={dialogOpen} onOpenChange={setDialogOpen} />
+      {foldersOf && (
+        <MailFolderSyncDialog
+          accountId={foldersOf.id}
+          email={foldersOf.email}
+          open
+          onOpenChange={(open) => !open && setFoldersOf(null)}
+        />
+      )}
     </Card>
   )
 }

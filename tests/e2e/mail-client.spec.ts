@@ -159,6 +159,9 @@ type Folder = {
   path: string
   specialUse: string | null
   totalCount: number
+  /** #158 */
+  syncMode?: 'always' | 'on_open'
+  notDownloaded?: boolean
   children: Folder[]
 }
 
@@ -1728,6 +1731,68 @@ test('a folder is created, renamed and deleted from the tree', async () => {
     } finally {
       await client.logout().catch(() => client.close())
     }
+  }
+})
+
+// #158: a folder set to „Nur beim Öffnen“ from its menu shows the mark, still opens with its
+// mail, and goes back to „Immer“. Its own top-level folder with one synthetic mail.
+test('a folder syncs only when opened and back to always, from its menu', async () => {
+  test.setTimeout(180_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  const folderPath = `${FOLDER_PREFIX}sync-${Date.now()}`
+  const { ImapFlow } = await import('imapflow')
+  const client = new ImapFlow({
+    host: SANDBOX.host,
+    port: SANDBOX.port,
+    secure: false,
+    auth: { user: SANDBOX_USER, pass: SANDBOX_PASS },
+    logger: false
+  })
+  await client.connect()
+  try {
+    await client.mailboxCreate(folderPath)
+    await client.append(
+      folderPath,
+      'Message-ID: <e2e-158@example.test>\r\nFrom: a@example.test\r\nTo: b@example.test\r\n' +
+        'Subject: e2e-158\r\nDate: Thu, 01 Jan 2026 09:00:00 +0000\r\n\r\nbody\r\n'
+    )
+    await mail('triggerSync', true, sandboxId)
+    await waitFor(
+      async () => mail<Folder[]>('getFolders', sandboxId),
+      (list) => list.some((f) => f.path === folderPath && f.totalCount === 1),
+      60_000
+    )
+
+    await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1400, 900))
+    await openMailPage(sandboxId)
+    const button = page
+      .getByRole('list', { name: 'Ordner' })
+      .locator(`button[title="${folderPath}"]`)
+    await expect(button).toBeVisible({ timeout: 30_000 })
+    await expect(button.getByTestId('mail-folder-on-open')).toHaveCount(0)
+
+    await button.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Nur beim Öffnen synchronisieren' }).click()
+    await expect(button.getByTestId('mail-folder-on-open')).toBeVisible({ timeout: 30_000 })
+    expect(
+      (await mail<Folder[]>('getFolders', sandboxId)).find((f) => f.path === folderPath)
+    ).toMatchObject({ syncMode: 'on_open', notDownloaded: false })
+
+    // still opens with its mail
+    await button.click()
+    await expect(
+      page.getByRole('listbox', { name: 'Nachrichten' }).getByRole('option')
+    ).toHaveCount(1, { timeout: 30_000 })
+
+    await button.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Immer synchronisieren' }).click()
+    await expect(button.getByTestId('mail-folder-on-open')).toHaveCount(0, { timeout: 30_000 })
+  } finally {
+    // The sandbox is left as it was found, also when a step failed
+    await client.mailboxDelete(folderPath).catch(() => undefined)
+    await client.logout().catch(() => client.close())
   }
 })
 

@@ -190,15 +190,22 @@ English.
 
 ### Mail sync
 
-| English                                    | German                                      |
-| ------------------------------------------ | ------------------------------------------- |
-| Sync (fast: important and changed folders) | Synchronisieren                             |
-| Deep check of every folder                 | Alle Ordner prüfen                          |
-| Last synced at (tooltip: last pass)        | Synchronisiert HH:MM; „Zuletzt: … um HH:MM“ |
-| Server capabilities (connection test)      | Server-Funktionen: …                        |
-| Sync activity panel (#159)                 | Synchronisierung                            |
-| Passes list / a background pass            | Letzte Durchläufe / Automatischer Abgleich  |
-| Retry one folder                           | Ordner erneut synchronisieren               |
-| Hide one error / all errors                | Ausblenden / Alle ausblenden                |
-| Copy one error / the whole panel           | Kopieren / Alles kopieren                   |
-| Folder marker tooltip                      | Synchronisierung fehlgeschlagen: …          |
+| English                                    | German                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| Sync (fast: important and changed folders) | Synchronisieren                                                   |
+| Deep check of every folder                 | Alle Ordner prüfen                                                |
+| Last synced at (tooltip: last pass)        | Synchronisiert HH:MM; „Zuletzt: … um HH:MM“                       |
+| Server capabilities (connection test)      | Server-Funktionen: …                                              |
+| Sync activity panel (#159)                 | Synchronisierung                                                  |
+| Passes list / a background pass            | Letzte Durchläufe / Automatischer Abgleich                        |
+| Retry one folder                           | Ordner erneut synchronisieren                                     |
+| Hide one error / all errors                | Ausblenden / Alle ausblenden                                      |
+| Copy one error / the whole panel           | Kopieren / Alles kopieren                                         |
+| Folder marker tooltip                      | Synchronisierung fehlgeschlagen: …                                |
+| Folder sync mode, folder menu (#158)       | Immer synchronisieren / Nur beim Öffnen synchronisieren           |
+| Folder synced only when opened (marker)    | Nur beim Öffnen synchronisiert (, noch nicht heruntergeladen)     |
+| Folder selection (account settings)        | Ordner auswählen; Ordner filtern; Angezeigte auswählen / abwählen |
+| Adopt the server's subscriptions           | Abonnierte Ordner übernehmen                                      |
+| Folder not subscribed on the server        | nicht abonniert                                                   |
+| Search hint for never-opened folders       | Nicht geöffnete Ordner werden nicht durchsucht (N Ordner).        |
+| Connection test, subscribed folders        | …, davon N abonniert                                              |

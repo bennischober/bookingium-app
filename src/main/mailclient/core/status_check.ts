@@ -71,6 +71,14 @@ export function checkableFolders(store: Store): FolderRow[] {
   return store.allFolders().filter(f => !f.imap_path.startsWith(STAGING_PREFIX));
 }
 
+/**
+ * #158: a folder set to „Nur beim Öffnen“. The rounds still ask it for STATUS, but only keep the
+ * server's counts (StatusCheck.rememberCounts); it is synced when the user opens it.
+ */
+export function syncsOnOpen(f: Pick<FolderRow, 'sync_mode'> | undefined): boolean {
+  return f?.sync_mode === 'on_open';
+}
+
 export class StatusCheck {
   /** Set once a server advertised LIST-STATUS but rejected it; the paced per-folder round is used from then on. */
   listStatusBroken = false;
@@ -171,9 +179,23 @@ export class StatusCheck {
     const skipped = this.ctx.renamePending(imapPath);
     const errors = this.ctx.folderErrors(imapPath);
     await this.ctx.syncFolder(imapPath, opts);
-    if (skipped || st?.unseen === undefined || this.ctx.folderErrors(imapPath) !== errors) return;
+    if (skipped || this.ctx.folderErrors(imapPath) !== errors) return;
+    // #158: an 'on_open' folder's own rows are current now; the tree shows them until the next round
+    const synced = this.ctx.store.getFolderByPath(imapPath);
+    if (synced && (synced.status_messages !== null || synced.status_unseen !== null)) this.ctx.store.setFolderStatusCounts(synced.id, null, null);
+    if (st?.unseen === undefined) return;
     const f = this.ctx.store.getFolderByPath(imapPath);
     if (f) this.ctx.store.setFolderUnseen(f.id, st.unseen);
+  }
+
+  /**
+   * #158: an 'on_open' folder's answer in a round: its counts are kept for the folder tree, and
+   * the folder is not synced. Its own rows count again once it is synced (syncAndRemember).
+   */
+  rememberCounts(f: FolderRow, st: FolderStatus): void {
+    const messages = st.messages ?? f.status_messages;
+    const unseen = st.unseen ?? f.status_unseen;
+    if (messages !== f.status_messages || unseen !== f.status_unseen) this.ctx.store.setFolderStatusCounts(f.id, messages, unseen);
   }
 
   /** An unchanged folder whose UNSEEN is not known yet takes the server's count as its starting point. */

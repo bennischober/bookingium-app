@@ -22,8 +22,9 @@ export type ConnectionTestStage =
 
 export type ConnectionTestResult =
   // #156: `capabilities` are the names the server advertised after login (e.g. LIST-STATUS,
-  // CONDSTORE), so the user can read what the server offers; names only, sorted
-  | { ok: true; folderCount: number; ms: number; capabilities: string[] }
+  // CONDSTORE), so the user can read what the server offers; names only, sorted. #158:
+  // `subscribedCount` is how many of the folders the server lists as subscribed
+  | { ok: true; folderCount: number; subscribedCount: number; ms: number; capabilities: string[] }
   | { ok: false; stage: ConnectionTestStage; message: string; ms: number };
 
 export type ConnectionTestInput = {
@@ -102,7 +103,8 @@ export async function testImapConnection(input: ConnectionTestInput, opts: { tim
       const folders = await client.list();
       const capabilities = capabilityNames(client.capabilities);
       await client.logout().catch(() => { });
-      return { ok: true, folderCount: folders.length, ms: ms(), capabilities };
+      const subscribedCount = folders.filter(f => f.subscribed === true).length;
+      return { ok: true, folderCount: folders.length, subscribedCount, ms: ms(), capabilities };
     } catch (err) {
       return { ok: false, stage: classifyConnectionError(err), message: (err as Error)?.message ?? String(err), ms: ms() };
     }
