@@ -39,6 +39,16 @@ export class CompanyService {
   }
 
   async deleteCompany(id: number) {
+    const { bands, invoices } = this.companyRepository.deleteBlockers(id)
+    if (bands > 0 || invoices > 0) {
+      const links = [
+        bands > 0 && (bands === 1 ? '1 Band' : `${bands} Bands`),
+        invoices > 0 && (invoices === 1 ? '1 Rechnung' : `${invoices} Rechnungen`)
+      ].filter(Boolean)
+      throw new Error(
+        `Die Firma ist noch mit ${links.join(' und ')} verknüpft und kann nicht gelöscht werden.`
+      )
+    }
     const deleted = await this.companyRepository.delete(id)
     scheduleFollowUpCalendarUpdate()
     await removeOwnerFolder('company', id).catch((error) => console.error(error))

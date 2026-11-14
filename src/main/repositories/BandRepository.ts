@@ -127,6 +127,17 @@ export class BandRepository {
     return result[0]
   }
 
+  /** #162: events keep their band (no ON DELETE rule), so they block the delete */
+  countEvents(id: number) {
+    return (
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(schema.deal_memo)
+        .where(eq(schema.deal_memo.band_id, id))
+        .get()?.n ?? 0
+    )
+  }
+
   async delete(id: number) {
     const result = await db.delete(schema.band).where(eq(schema.band.id, id)).returning()
     return result[0]
