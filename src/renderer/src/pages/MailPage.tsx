@@ -22,6 +22,7 @@ import { withWholeMessage } from '@/components/mail/completion'
 import { archiveableIds } from '@/components/mail/archiveActions'
 import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
 import { SyncIndicator } from '@/components/mail/SyncIndicator'
+import { folderErrorMap } from '@/components/mail/syncActivity'
 import {
   type ComposeState,
   emptyCompose,
@@ -267,6 +268,33 @@ function MailClient() {
     return () => clearTimeout(timer)
   }, [ready, accountId, folderId])
   const loginFailed = syncStatus.data?.connection === 'auth-failed'
+  // #159: the folders whose last sync failed, marked in the tree
+  const folderSyncErrors = useMemo(() => folderErrorMap(syncStatus.data), [syncStatus.data])
+  const folderNameOf = (path: string) => {
+    const f = allFolders.find((x) => x.path === path)
+    return f ? folderLabel(f) : path
+  }
+  // #159: "Ordner erneut synchronisieren" in the activity panel, on the sync connection
+  const retryFolder = async (path: string) => {
+    const f = allFolders.find((x) => x.path === path)
+    if (!f) {
+      toast.error('Den Ordner gibt es nicht mehr', { description: path })
+      return
+    }
+    try {
+      const result = await mailApi.syncOpenedFolder(f.id, accountId)
+      if (result === 'synced') toast.success(`${folderLabel(f)} synchronisiert`)
+      else if (result === 'queued') toast.info(`${folderLabel(f)} wird als Nächstes synchronisiert`)
+      else if (result === 'skipped')
+        toast.warning('Gerade nicht möglich', {
+          description: 'Der Ordner wird schon abgeglichen, oder die Verbindung steht nicht.'
+        })
+      else toast.error(`${folderLabel(f)} konnte nicht synchronisiert werden`)
+    } catch (error) {
+      failed('Synchronisierung fehlgeschlagen')(error)
+    }
+    await syncStatus.refetch()
+  }
 
   const { runningOp, opList, opNow, busyOpId, runOpAction } = useMailOps({
     accountId,
@@ -538,6 +566,7 @@ function MailClient() {
       onSelect={chooseFolder}
       onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
       onFolderAction={canWrite ? (action, folder) => void folderAction(action, folder) : undefined}
+      syncErrors={folderSyncErrors}
       drop={
         dragged
           ? {
@@ -645,6 +674,14 @@ function MailClient() {
                 .triggerSync(true, accountId)
                 .then(() => syncStatus.refetch())
                 .catch(failed('Synchronisierung fehlgeschlagen'))
+            }
+            folderName={folderNameOf}
+            onRetryFolder={retryFolder}
+            onDismissErrors={(keys) =>
+              void mailApi
+                .dismissSyncErrors(keys, accountId)
+                .then(() => syncStatus.refetch())
+                .catch(failed('Ausblenden fehlgeschlagen'))
             }
           />
         </div>

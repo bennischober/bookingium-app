@@ -148,6 +148,28 @@ export type SyncStatus = {
   changePass?: 'priority' | 'check' | null;
   /** #156: the last pass the user started (sync button or deep check), counts only */
   lastPass?: PassSummary | null;
+  /** #159: the last passes, user-started or not, newest first (at most 10); counts only */
+  passHistory?: PassSummary[];
+  /** #159: the sync errors still standing, last seen first; see SyncErrorEntry */
+  syncErrors?: SyncErrorEntry[];
+};
+
+/**
+ * #159: a sync error that outlives its pass. A folder's error stays until that folder syncs
+ * without one; an error of the whole pass (path null) until a pass ends without such an error;
+ * either until the user hides it (MailCore.dismissSyncErrors). The message is what the server or
+ * the socket said, never mail content.
+ */
+export type SyncErrorEntry = {
+  /** stable while the error stands; what dismissSyncErrors takes */
+  key: string;
+  /** the folder's IMAP path; null for an error of the whole pass, the poll or the connection */
+  path: string | null;
+  message: string;
+  /** ISO times it was first and last seen, and how often */
+  firstAt: string;
+  lastAt: string;
+  count: number;
 };
 
 /**
@@ -176,6 +198,12 @@ export type PassSummary = {
   connection: string;
   /** ISO time the pass ended */
   at: string;
+  /** #159: who started it: the user (sync button, deep check) or the app (start, retry of a first pass) */
+  trigger?: 'user' | 'auto';
+  /** #159: what the pass changed in the store */
+  newMessages?: number;
+  flagChanges?: number;
+  expunged?: number;
 };
 
 /** How an IMAP connection is encrypted: TLS from the first byte, upgraded with STARTTLS, or
@@ -218,6 +246,8 @@ export interface Api {
   /** #156: the folder the user just opened, synced right away unless a sync of it is running
    *  anyway; a running pass takes it next ('queued'). MailCore.syncOpenedFolder */
   syncOpenedFolder?(folderId: string, accountId?: string): Promise<'synced' | 'queued' | 'skipped' | 'failed'>;
+  /** #159: hides sync errors by their key (SyncErrorEntry.key); all of them without keys */
+  dismissSyncErrors?(keys?: string[] | null, accountId?: string): Promise<void>;
 
   // --- Task 3 additions (optional for implementors, additive) ---
   listAccounts?(): Promise<AccountSummary[]>;

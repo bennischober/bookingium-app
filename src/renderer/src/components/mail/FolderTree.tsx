@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   Archive,
   ChevronRight,
   FileText,
@@ -82,7 +83,8 @@ function FolderItem({
   overId,
   onOver,
   onEmptyTrash,
-  onFolderAction
+  onFolderAction,
+  syncErrors
 }: {
   folder: FolderNode
   depth: number
@@ -101,10 +103,13 @@ function FolderItem({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete - only passed for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #159: path -> message of the folders whose last sync failed */
+  syncErrors?: ReadonlyMap<string, string>
   /** #95: the shown account's tree is "Ordner", another account's is named by its address */
   label?: string
 }) {
   const open = expanded.has(folder.id)
+  const syncError = syncErrors?.get(folder.path)
   const label = folderLabel(folder)
   const accepts = drop?.canDrop(folder) ?? false
   const over = drop !== undefined && overId === folder.id
@@ -214,6 +219,17 @@ function FolderItem({
       >
         <FolderIcon folder={folder} />
         <span className="truncate">{label}</span>
+        {/* #159: the folder's last sync failed; the sync bar's panel has the details */}
+        {syncError && (
+          <span
+            className="shrink-0 text-destructive"
+            title={`Synchronisierung fehlgeschlagen: ${syncError}`}
+            aria-label="Synchronisierung fehlgeschlagen"
+            data-testid="mail-folder-sync-error"
+          >
+            <AlertTriangle className="size-3.5" />
+          </span>
+        )}
         {folder.unreadCount > 0 && (
           <span className="ml-auto text-xs font-semibold text-primary">{folder.unreadCount}</span>
         )}
@@ -284,6 +300,7 @@ function FolderItem({
               onOver={onOver}
               onEmptyTrash={onEmptyTrash}
               onFolderAction={onFolderAction}
+              syncErrors={syncErrors}
             />
           ))}
         </ul>
@@ -305,6 +322,7 @@ export function FolderTree({
   focusRef,
   onEmptyTrash,
   onFolderAction,
+  syncErrors,
   label = 'Ordner'
 }: {
   folders: FolderNode[]
@@ -319,6 +337,8 @@ export function FolderTree({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete, offered only for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #159: path -> message of the folders whose last sync failed, marked in the tree */
+  syncErrors?: ReadonlyMap<string, string>
   /** #95: the shown account's tree is "Ordner", another account's is named by its address */
   label?: string
 }) {
@@ -380,6 +400,7 @@ export function FolderTree({
           onOver={markOver}
           onEmptyTrash={onEmptyTrash}
           onFolderAction={onFolderAction}
+          syncErrors={syncErrors}
         />
       ))}
       {/* F7: a visible place to drop a folder back to the top level. The rows cover

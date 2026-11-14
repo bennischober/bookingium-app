@@ -11,6 +11,7 @@ export const MAIL_API_METHODS = [
   'getSyncStatus',
   'triggerSync',
   'syncOpenedFolder',
+  'dismissSyncErrors',
   'pauseSync',
   'resumeSync',
   'getInboxUnread',

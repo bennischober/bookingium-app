@@ -196,3 +196,9 @@ English.
 | Deep check of every folder                 | Alle Ordner prüfen                          |
 | Last synced at (tooltip: last pass)        | Synchronisiert HH:MM; „Zuletzt: … um HH:MM“ |
 | Server capabilities (connection test)      | Server-Funktionen: …                        |
+| Sync activity panel (#159)                 | Synchronisierung                            |
+| Passes list / a background pass            | Letzte Durchläufe / Automatischer Abgleich  |
+| Retry one folder                           | Ordner erneut synchronisieren               |
+| Hide one error / all errors                | Ausblenden / Alle ausblenden                |
+| Copy one error / the whole panel           | Kopieren / Alles kopieren                   |
+| Folder marker tooltip                      | Synchronisierung fehlgeschlagen: …          |

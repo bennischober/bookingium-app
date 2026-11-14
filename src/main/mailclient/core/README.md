@@ -36,6 +36,7 @@ the prototype's `test-core-boundary.ts`) holds this boundary.
 | `idle_poll.ts` | `IdleLoop` + `Poller`: IMAP IDLE on INBOX, the STATUS poll (through `status_check.ts`), the tiered flag sweep |
 | `status_check.ts` | #156: `StatusCheck`, the STATUS round (LIST-STATUS where advertised, else per-folder STATUS paced by the census pause) and the one "folder changed" rule (MESSAGES, UIDNEXT, HIGHESTMODSEQ, UNSEEN) the poll and `syncChanges` share; remembers UNSEEN after a sync that went through; `censusPauseOf`, `parseCensusPause` |
 | `pass_summary.ts` | #156: `passSummaryLine`, the one content-free log line after a pass the user started |
+| `sync_activity.ts` | #159: `SyncActivity`, the last 10 passes and the sync errors still standing (per folder or per masked message, counted, dismissable), in memory; `SyncStatus.passHistory` / `syncErrors` |
 | `write_engine.ts` | `WriteEngine`: crash-safe, serialized playback of journaled ops: the queue, `execute`, the watchdog, the write connection, `preflight`, flags and expunge; the other op kinds go to the four modules below |
 | `write_moves.ts` | `WriteMoves`: single and batch moves (delete, archive and draft delete are moves too), the batch preflight, the resume after a crash, the local half |
 | `write_send.ts` | `WriteSend`: send with its phases, the unknown-outcome probe, filing to Sent, draft save and removing old draft versions; `smtpRefused` (re-exported from `write_engine.ts`) |

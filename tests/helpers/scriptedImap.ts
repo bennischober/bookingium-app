@@ -30,6 +30,8 @@ export type ScriptedImap = {
   connections: () => number
   /** answer every STATUS with NO */
   failStatus: boolean
+  /** #159: answer SELECT and EXAMINE of these folders with NO (they stay listed) */
+  failSelect: Set<string>
   close: () => Promise<void>
 }
 
@@ -62,6 +64,7 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
     log: [],
     connections: () => accepted,
     failStatus: false,
+    failSelect: new Set(),
     capabilities: [],
     close: async () => undefined
   }
@@ -122,6 +125,11 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
           const path = mailboxArg(rest)
           const folder = state.folders.get(path)
           state.log.push(`${command} ${path}`)
+          if (state.failSelect.has(path)) {
+            selected = null
+            write(`${tag} NO [SERVERBUG] select refused\r\n`)
+            continue
+          }
           if (!folder) {
             selected = null
             write(`${tag} NO no such mailbox\r\n`)
