@@ -296,6 +296,23 @@ function folderUnseen(db: BetterSqlite3.Database): void {
   db.exec(`ALTER TABLE folders ADD COLUMN unseen INTEGER`);
 }
 
+/**
+ * 7 (#158): the per-folder sync setting. `sync_mode` is the user's local choice ('always' or
+ * 'on_open'); every folder known before this migration keeps 'always', so an update changes
+ * nothing. `subscribed` is what the server's subscription list said at the last folder LIST
+ * (NULL: not known yet); it only seeds `sync_mode` for a folder seen for the first time.
+ * `status_messages` and `status_unseen` are the server's counts from the last STATUS round,
+ * shown for an 'on_open' folder whose mail is not downloaded.
+ */
+function folderSyncMode(db: BetterSqlite3.Database): void {
+  db.exec(`
+ALTER TABLE folders ADD COLUMN subscribed INTEGER;
+ALTER TABLE folders ADD COLUMN sync_mode TEXT NOT NULL DEFAULT 'always';
+ALTER TABLE folders ADD COLUMN status_messages INTEGER;
+ALTER TABLE folders ADD COLUMN status_unseen INTEGER;
+`);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'baseline', up: baseline },
   { version: 2, name: 'split bodies', up: splitBodies },
@@ -303,6 +320,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 4, name: 'compose key', up: composeKey },
   { version: 5, name: 'complete flag', up: completeFlag },
   { version: 6, name: 'folder unseen', up: folderUnseen },
+  { version: 7, name: 'folder sync mode', up: folderSyncMode },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

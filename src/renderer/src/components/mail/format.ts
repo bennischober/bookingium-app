@@ -98,6 +98,11 @@ export function snippetParts(snippet: string): Array<{ text: string; hit: boolea
   return parts
 }
 
+/** #158: the search note for folders that sync only when opened and were never opened */
+export function notDownloadedNote(count: number): string {
+  return `Nicht geöffnete Ordner werden nicht durchsucht (${count.toLocaleString('de-DE')} Ordner).`
+}
+
 /** Saves bytes through the browser's download (Electron asks where) */
 export function saveBytes(bytes: Uint8Array, fileName: string, type: string): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }))

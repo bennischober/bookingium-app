@@ -8,6 +8,8 @@ import {
   FolderPlus,
   Inbox,
   Pencil,
+  RefreshCw,
+  RefreshCwOff,
   Send,
   ShieldAlert,
   Trash2,
@@ -21,7 +23,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
-import type { FolderNode } from '../../../../main/mailclient/core/types'
+import type { FolderNode, FolderSyncMode } from '../../../../main/mailclient/core/types'
 import { folderLabel, isInbox, isTrash, FOLDER_DRAG_TYPE } from './format'
 import { isProtectedFolder } from '../../../../main/mailclient/core/folders'
 
@@ -84,6 +86,7 @@ function FolderItem({
   onOver,
   onEmptyTrash,
   onFolderAction,
+  onSyncMode,
   syncErrors
 }: {
   folder: FolderNode
@@ -103,6 +106,8 @@ function FolderItem({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete - only passed for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #158: the folder's sync setting; a local setting, so also for a read-only account */
+  onSyncMode?: (folder: FolderNode, mode: FolderSyncMode) => void
   /** #159: path -> message of the folders whose last sync failed */
   syncErrors?: ReadonlyMap<string, string>
   /** #95: the shown account's tree is "Ordner", another account's is named by its address */
@@ -219,6 +224,21 @@ function FolderItem({
       >
         <FolderIcon folder={folder} />
         <span className="truncate">{label}</span>
+        {/* #158: synced only when opened; before the first opening the count is the server's */}
+        {folder.syncMode === 'on_open' && (
+          <span
+            className="shrink-0 text-muted-foreground"
+            title={
+              folder.notDownloaded
+                ? 'Nur beim Öffnen synchronisiert, noch nicht heruntergeladen'
+                : 'Nur beim Öffnen synchronisiert'
+            }
+            aria-label="Nur beim Öffnen synchronisiert"
+            data-testid="mail-folder-on-open"
+          >
+            <RefreshCwOff className="size-3.5" />
+          </span>
+        )}
         {/* #159: the folder's last sync failed; the sync bar's panel has the details */}
         {syncError && (
           <span
@@ -240,7 +260,9 @@ function FolderItem({
   return (
     <li>
       {/* B5: emptying Trash is the only folder action so far, so only it gets a menu */}
-      {(onEmptyTrash && isTrash(folder)) || onFolderAction ? (
+      {(onEmptyTrash && isTrash(folder)) ||
+      onFolderAction ||
+      (onSyncMode && !isProtected(folder)) ? (
         <ContextMenu>
           <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
           <ContextMenuContent>
@@ -277,6 +299,23 @@ function FolderItem({
                 Papierkorb leeren
               </ContextMenuItem>
             )}
+            {/* #158: INBOX and the special-use folders always sync */}
+            {onSyncMode && !isProtected(folder) && (
+              <>
+                {onFolderAction && <ContextMenuSeparator />}
+                {folder.syncMode === 'on_open' ? (
+                  <ContextMenuItem className="gap-2" onSelect={() => onSyncMode(folder, 'always')}>
+                    <RefreshCw className="size-4 shrink-0 text-muted-foreground" />
+                    Immer synchronisieren
+                  </ContextMenuItem>
+                ) : (
+                  <ContextMenuItem className="gap-2" onSelect={() => onSyncMode(folder, 'on_open')}>
+                    <RefreshCwOff className="size-4 shrink-0 text-muted-foreground" />
+                    Nur beim Öffnen synchronisieren
+                  </ContextMenuItem>
+                )}
+              </>
+            )}
           </ContextMenuContent>
         </ContextMenu>
       ) : (
@@ -300,6 +339,7 @@ function FolderItem({
               onOver={onOver}
               onEmptyTrash={onEmptyTrash}
               onFolderAction={onFolderAction}
+              onSyncMode={onSyncMode}
               syncErrors={syncErrors}
             />
           ))}
@@ -322,6 +362,7 @@ export function FolderTree({
   focusRef,
   onEmptyTrash,
   onFolderAction,
+  onSyncMode,
   syncErrors,
   label = 'Ordner'
 }: {
@@ -337,6 +378,8 @@ export function FolderTree({
   onEmptyTrash?: (folder: FolderNode) => void
   /** B1: create / rename / delete, offered only for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
+  /** #158: "Immer synchronisieren" / "Nur beim Öffnen synchronisieren" */
+  onSyncMode?: (folder: FolderNode, mode: FolderSyncMode) => void
   /** #159: path -> message of the folders whose last sync failed, marked in the tree */
   syncErrors?: ReadonlyMap<string, string>
   /** #95: the shown account's tree is "Ordner", another account's is named by its address */
@@ -400,6 +443,7 @@ export function FolderTree({
           onOver={markOver}
           onEmptyTrash={onEmptyTrash}
           onFolderAction={onFolderAction}
+          onSyncMode={onSyncMode}
           syncErrors={syncErrors}
         />
       ))}

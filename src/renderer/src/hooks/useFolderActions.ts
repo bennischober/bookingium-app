@@ -6,7 +6,7 @@ import { confirmAction } from '@/lib/confirm'
 import { askFolderName } from '@/lib/folderName'
 import type { FolderAction } from '@/components/mail/FolderTree'
 import { folderLabel, isInbox } from '@/components/mail/format'
-import type { FolderNode } from '../../../main/mailclient/core/types'
+import type { FolderNode, FolderSyncMode } from '../../../main/mailclient/core/types'
 
 /** R4: the mail page's folder actions - create, rename, delete - and moving a folder by drag */
 export function useFolderActions({
@@ -98,5 +98,21 @@ export function useFolderActions({
     toast.success(action === 'create' ? 'Ordner angelegt' : 'Ordner umbenannt')
   }
 
-  return { movingFolder, setMovingFolder, moveFolderTo, folderAction }
+  /** #158: the folder's sync setting; switching to "always" downloads a never-opened folder */
+  const setSyncMode = async (folder: FolderNode, mode: FolderSyncMode) => {
+    try {
+      await mailApi.setFolderSyncMode([folder.id], mode, accountId)
+    } catch (error) {
+      failed('Einstellung konnte nicht gespeichert werden')(error)
+      return
+    }
+    await folders.refetch()
+    toast.success(
+      mode === 'always'
+        ? `„${folderLabel(folder)}“ wird immer synchronisiert`
+        : `„${folderLabel(folder)}“ wird nur beim Öffnen synchronisiert`
+    )
+  }
+
+  return { movingFolder, setMovingFolder, moveFolderTo, folderAction, setSyncMode }
 }

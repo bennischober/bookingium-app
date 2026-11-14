@@ -8,6 +8,7 @@
 // answers `LIST ... RETURN (STATUS (...))` with inline STATUS lines), and STATUS carries UNSEEN.
 // #157: two throttling modes for the pacer: `limitStatus` refuses the next STATUS commands with
 // `NO [LIMIT]` (RFC 5530), `byeOnStatus` ends the connection with a BYE at the next STATUS.
+// #158: LSUB lists the folders not marked `subscribed: false` (imapflow asks it after LIST).
 import net from 'net'
 
 export type FakeMessage = { uid: number; flags?: string[]; source?: string }
@@ -16,6 +17,8 @@ export type FakeFolder = {
   uidValidity: number
   uidNext: number
   messages: FakeMessage[]
+  /** #158: false leaves the folder out of LSUB; subscribed when not given */
+  subscribed?: boolean
 }
 
 export type ScriptedImap = {
@@ -125,6 +128,7 @@ export async function scriptedImap(folders: Record<string, FakeFolder>): Promise
           if (/^""\s*""(\s|$)/.test(rest)) out = `* ${command} (\\Noselect) "/" ""\r\n`
           else
             for (const [path, folder] of state.folders) {
+              if (command === 'LSUB' && folder.subscribed === false) continue
               out += `* ${command} (\\HasNoChildren) "/" ${quote(path)}\r\n`
               if (withStatus) out += `* STATUS ${quote(path)} (${statusItems(folder)})\r\n`
             }

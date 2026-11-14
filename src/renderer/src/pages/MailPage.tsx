@@ -56,7 +56,8 @@ import {
   isDrafts,
   isInbox,
   isTrash,
-  messageKey
+  messageKey,
+  notDownloadedNote
 } from '@/components/mail/format'
 import type { MessageDetail, MessageListItem } from '../../../main/mailclient/core/types'
 
@@ -227,12 +228,13 @@ function MailClient() {
       failed
     })
 
-  const { movingFolder, setMovingFolder, moveFolderTo, folderAction } = useFolderActions({
-    accountId,
-    folders,
-    refreshLists,
-    failed
-  })
+  const { movingFolder, setMovingFolder, moveFolderTo, folderAction, setSyncMode } =
+    useFolderActions({
+      accountId,
+      folders,
+      refreshLists,
+      failed
+    })
 
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
@@ -566,6 +568,7 @@ function MailClient() {
       onSelect={chooseFolder}
       onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
       onFolderAction={canWrite ? (action, folder) => void folderAction(action, folder) : undefined}
+      onSyncMode={(folder, mode) => void setSyncMode(folder, mode)}
       syncErrors={folderSyncErrors}
       drop={
         dragged
@@ -912,6 +915,15 @@ function MailClient() {
                 <p className="text-xs text-muted-foreground">
                   {firstResult.total.toLocaleString('de-DE')} Treffer · {firstResult.elapsedMs} ms
                 </p>
+                {/* #158: a folder synced only on open has no local mail until it is opened */}
+                {(firstResult.notDownloadedFolders ?? 0) > 0 && (
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid="mail-search-not-downloaded"
+                  >
+                    {notDownloadedNote(firstResult.notDownloadedFolders ?? 0)}
+                  </p>
+                )}
                 {firstResult.facets && firstResult.facets.length > 1 && (
                   <div className="flex flex-wrap gap-1" aria-label="Treffer nach Ordner">
                     {firstResult.facets.slice(0, 8).map((facet) => {

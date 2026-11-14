@@ -260,6 +260,24 @@ one. While a pass runs the folder is queued and the pass takes it next (`'queued
 pass already synced is not synced again. It is skipped while the folder's mutex is held (IDLE on INBOX,
 a write's resync, the poll), before the first pass finished, while paused, offline or the disk is full.
 
+**Folders that sync only when opened (#158).** Each folder has a sync mode, a local setting
+(`folders.sync_mode`, migration 7): `always` (the default, and fixed for INBOX and the special-use
+folders) or `on_open`. An `on_open` folder is left out of the first download, the syncs of the change
+pass, the deep check and the background poll, and gets no flag sweep; the STATUS rounds still ask it,
+and until its first opening the tree shows the server's counts (`status_messages`, `status_unseen`) and
+search says „Nicht geöffnete Ordner werden nicht durchsucht (N Ordner)“. Opening it syncs it as above,
+and while it is open „Synchronisieren“ syncs it as the open folder; the background poll does not (a
+known limit: an open `on_open` folder is updated by reopening it or by the button). Switching a folder to `always`
+downloads it in the background. A new folder's mode is seeded from the server's subscriptions at its
+first LIST (imapflow's `subscribed`, from `RETURN (SUBSCRIBED)` or LSUB, stored as `folders.subscribed`):
+not subscribed means `on_open`, unless no ordinary folder is subscribed at all (subscriptions not in
+use), then everything stays `always`. After that the mode is the user's: a later LIST refreshes
+`subscribed` only, folders from before #158 stay `always`, and nothing is ever written to the server's
+subscriptions. Set from the folder's menu in the tree („Immer synchronisieren“ / „Nur beim Öffnen
+synchronisieren“) or in the account settings („Ordner auswählen…“: a filtered checkbox list, and
+„Abonnierte Ordner übernehmen“, `MailCore.adoptSubscriptions`). „Verbindung testen“ says how many
+folders are subscribed when not all are.
+
 **Adaptive pacing (#157).** The sync connection's paced loops (the STATUS round without
 LIST-STATUS, the flag sweep's 500-UID chunks, the download batches) share one pacer per account
 (`core/pacer.ts`). Commands on one connection are sequential, so the server's own latency already paces
