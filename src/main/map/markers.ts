@@ -35,12 +35,19 @@ export type MapDataFilter = {
 /** Confirmed bookings block; everything still open (pending, legacy '') is a risk */
 export type MapEventStatus = 'confirmed' | 'pending'
 
-/** An event that blocks (confirmed) or endangers (pending) a venue */
-export type MapBlock = { eventId: number; name: string; date: string }
+/**
+ * An event that blocks (confirmed) or endangers (pending) a venue. `agency`
+ * marks an agency booking (#103): `eventId` is then its booking id, and it has
+ * no event page to link to.
+ */
+export type MapBlock = { eventId: number; name: string; date: string; agency?: string }
 
-/** A marker on the map: an event (deal memo) or a venue, at postcode precision */
+/**
+ * A marker on the map: an event (deal memo), an agency booking (#103, read-only,
+ * booked by someone else) or a venue, at postcode precision
+ */
 export type MapMarker = {
-  type: 'event' | 'venue'
+  type: 'event' | 'agency' | 'venue'
   id: number
   /** Venue kind of the marker (or of the event's venue): 'venue' = club */
   kind: 'venue' | 'festival'
@@ -51,6 +58,8 @@ export type MapMarker = {
   status?: MapEventStatus
   /** Events: the radius clause that applies (event ?? venue ?? default), as km and window */
   ring?: RadiusWindow
+  /** Agency bookings: who booked it */
+  agency?: string
   /** Bands of the event / bands that played at the venue (per the filters) */
   bandIds: number[]
   /** Venues, with a band chosen: the band's confirmed events whose ring covers it */
@@ -75,7 +84,11 @@ export type MapAddressRow = {
   country_code: string
 }
 
-/** An event (deal memo) with its venue's kind and address, as queried */
+/**
+ * An event (deal memo) with its venue's kind and address, as queried. An
+ * agency booking (#103) comes as one too: `agency` set, no venue, its own
+ * kind and address, the kind's default clause.
+ */
 export type MapEventRow = {
   id: number
   name: string
@@ -89,6 +102,8 @@ export type MapEventRow = {
   radius?: RadiusRow | null
   /** Its venue's clause override; absent = none */
   venue_radius?: RadiusRow | null
+  /** Set for an agency booking: the agency that booked it */
+  agency?: string
 }
 
 /** A venue with its address, as queried */
@@ -106,7 +121,7 @@ export type UnlocatedReason = 'no_venue' | 'no_address' | 'unknown_postcode' | '
 
 /** A filtered event or venue without a known location */
 export type MapUnlocated = {
-  type: 'event' | 'venue'
+  type: 'event' | 'agency' | 'venue'
   id: number
   /** Venue kind, so the page links a venue to its Clubs or Festivals page */
   kind: 'venue' | 'festival'
@@ -128,6 +143,8 @@ export type MapConflict = {
   name: string
   date: string
   status: MapEventStatus
+  /** An agency booking (#103): eventId is its booking id */
+  agency?: string
   /** Whole km between the two venues; null when a location is unknown */
   distanceKm: number | null
   kind: MapConflictKind
@@ -227,6 +244,16 @@ type PlacedVenue = {
   coordinates: Coordinates | null
 }
 
+/** The block (or conflict) entry for an event or agency booking */
+function blockOf(row: MapEventRow): MapBlock {
+  return {
+    eventId: row.id,
+    name: row.name,
+    date: row.date,
+    ...(row.agency !== undefined ? { agency: row.agency } : {})
+  }
+}
+
 function placeEvent(event: MapEventRow, defaults: RadiusDefaults): PlacedEvent {
   const kind = venueKind(event.venue_kind)
   const clause = effectiveClause(event.radius, event.venue_radius, defaultClause(defaults, kind))
@@ -296,14 +323,16 @@ export function buildMapData(
   const unlocated: MapData['unlocated'] = []
 
   for (const { row, kind, status, ring, coordinates } of shownEvents) {
+    const type = row.agency !== undefined ? 'agency' : 'event'
     markers.push({
-      type: 'event',
+      type,
       id: row.id,
       kind,
       name: row.name,
       date: row.date,
       status,
       ring,
+      ...(row.agency !== undefined ? { agency: row.agency } : {}),
       bandIds: [row.band_id],
       located: coordinates !== null,
       addressLabel: row.address ? formatAddressLabel(row.address) : '',
@@ -311,11 +340,17 @@ export function buildMapData(
     })
     if (!coordinates) {
       unlocated.push({
-        type: 'event',
+        type,
         id: row.id,
         kind,
         name: row.name,
-        reason: row.venue_id === null ? 'no_venue' : row.address ? 'unknown_postcode' : 'no_address'
+        // An agency booking has no venue record, only the address its export gave
+        reason:
+          row.venue_id === null && row.agency === undefined
+            ? 'no_venue'
+            : row.address
+              ? 'unknown_postcode'
+              : 'no_address'
       })
     }
   }
@@ -324,7 +359,13 @@ export function buildMapData(
     const kind = venueKind(row.venue_kind)
     if (!kindShown(filter.kinds, kind)) continue
     if (filter.bandId !== undefined && row.band_id !== filter.bandId) continue
-    unlocated.push({ type: 'event', id: row.id, kind, name: row.name, reason: 'invalid_date' })
+    unlocated.push({
+      type: row.agency !== undefined ? 'agency' : 'event',
+      id: row.id,
+      kind,
+      name: row.name,
+      reason: 'invalid_date'
+    })
   }
 
   // Rings that can block: the chosen band's events in the range with a location, any kind
@@ -342,7 +383,7 @@ export function buildMapData(
     if (coordinates) {
       for (const event of blockingEvents) {
         if (distanceKm(coordinates, event.coordinates) > event.ring.km) continue
-        const block = { eventId: event.row.id, name: event.row.name, date: event.row.date }
+        const block = blockOf(event.row)
         if (event.status === 'confirmed') blockedBy.push(block)
         else riskBy.push(block)
       }
@@ -424,12 +465,7 @@ function buildCandidate(
     for (const event of events) {
       if (event.row.band_id !== filter.bandId) continue
       const datesCollide = inWindow(ring, event.row.date) || inWindow(event.ring, candidate.date)
-      const base = {
-        eventId: event.row.id,
-        name: event.row.name,
-        date: event.row.date,
-        status: event.status
-      }
+      const base = { ...blockOf(event.row), status: event.status }
       if (!coordinates || !event.coordinates) {
         if (datesCollide) conflicts.push({ ...base, distanceKm: null, kind: 'unknown_location' })
         continue

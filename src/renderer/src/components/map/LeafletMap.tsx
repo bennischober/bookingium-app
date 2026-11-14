@@ -9,6 +9,7 @@ import {
   pointPopupHtml,
   pointRings,
   pointTitle,
+  showDotColor,
   ringWindowLabel,
   venueAvailability
 } from './mapDisplay'
@@ -142,7 +143,7 @@ export function LeafletMap({
               color: '#ffffff',
               weight: 2,
               fill: true,
-              fillColor: MARKER_COLORS.event,
+              fillColor: showDotColor(point),
               fillOpacity: 0.9
             })
               .bindTooltip(tooltip)

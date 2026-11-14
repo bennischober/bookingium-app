@@ -20,6 +20,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { LeafletMap } from '@/components/map/LeafletMap'
 import {
+  agencyLabel,
   CONFLICT_KIND_LABELS,
   germanDate,
   MARKER_COLORS,
@@ -84,6 +85,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   )
   const venues = useMemo(() => located.filter((marker) => marker.type === 'venue'), [located])
   const eventCount = located.filter((marker) => marker.type === 'event').length
+  const agencyCount = located.filter((marker) => marker.type === 'agency').length
   const unlocated = map.data?.unlocated ?? []
   const candidate = map.data?.candidate ?? null
   // With a band chosen: how many venues are free, at risk or blocked
@@ -234,6 +236,15 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               />
               Event
             </div>
+            {agencyCount > 0 && (
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block size-2 rounded-full"
+                  style={{ background: MARKER_COLORS.agency }}
+                />
+                Agenturbuchung
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full"
@@ -319,19 +330,26 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-3 text-sm">
                 <p className="mb-2 font-medium">Nicht auf der Karte</p>
                 <ul className="space-y-1">
-                  {unlocated.map((entry) => (
-                    <li key={`${entry.type}-${entry.id}`} className="flex justify-between gap-2">
-                      <a
-                        href={markerHref(entry)}
-                        className="truncate underline-offset-2 hover:underline"
-                      >
-                        {entry.name}
-                      </a>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {UNLOCATED_REASON_LABELS[entry.reason]}
-                      </span>
-                    </li>
-                  ))}
+                  {unlocated.map((entry) => {
+                    const href = markerHref(entry)
+                    return (
+                      <li key={`${entry.type}-${entry.id}`} className="flex justify-between gap-2">
+                        {href ? (
+                          <a href={href} className="truncate underline-offset-2 hover:underline">
+                            {entry.name}
+                          </a>
+                        ) : (
+                          // An agency booking has no page; its address comes from the next import
+                          <span className="truncate" title="Agenturbuchung">
+                            {entry.name}
+                          </span>
+                        )}
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {UNLOCATED_REASON_LABELS[entry.reason]}
+                        </span>
+                      </li>
+                    )
+                  })}
                 </ul>
               </PopoverContent>
             </Popover>
@@ -368,8 +386,10 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             <CardHeader>
               <CardTitle className="text-base">Auf der Karte</CardTitle>
               <CardDescription>
-                {eventCount} {eventCount === 1 ? 'Event' : 'Events'} · {venues.length}{' '}
-                {venues.length === 1 ? 'Club/Festival' : 'Clubs/Festivals'}
+                {eventCount} {eventCount === 1 ? 'Event' : 'Events'} ·{' '}
+                {agencyCount > 0 &&
+                  `${agencyCount} ${agencyCount === 1 ? 'Agenturbuchung' : 'Agenturbuchungen'} · `}
+                {venues.length} {venues.length === 1 ? 'Club/Festival' : 'Clubs/Festivals'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -445,14 +465,29 @@ function CandidateCard({
           ) : (
             <ul className="space-y-1">
               {candidate.conflicts.map((conflict) => (
-                <li key={conflict.eventId}>
-                  <a
-                    href={`#/events/${conflict.eventId}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {conflict.name} · {germanDate(conflict.date)}
-                  </a>
+                // Event and agency booking ids are separate sequences
+                <li
+                  key={`${conflict.agency !== undefined ? 'agency' : 'event'}-${conflict.eventId}`}
+                >
+                  {conflict.agency !== undefined ? (
+                    <span>
+                      {conflict.name} · {germanDate(conflict.date)}
+                    </span>
+                  ) : (
+                    <a
+                      href={`#/events/${conflict.eventId}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {conflict.name} · {germanDate(conflict.date)}
+                    </a>
+                  )}
                   {conflict.status === 'pending' && ' (ausstehend)'}
+                  {conflict.agency !== undefined && (
+                    <span className="text-xs text-muted-foreground">
+                      {' '}
+                      · {agencyLabel(conflict.agency)}
+                    </span>
+                  )}
                   <span className="block text-xs text-muted-foreground">
                     {conflict.distanceKm !== null && `${conflict.distanceKm} km · `}
                     {CONFLICT_KIND_LABELS[conflict.kind]}
@@ -471,7 +506,9 @@ function CandidateCard({
               {candidate.blocks.map((block) => (
                 <li key={block.id} className="flex justify-between gap-2">
                   <a
-                    href={markerHref({ type: 'venue', kind: block.kind, id: block.id })}
+                    href={
+                      markerHref({ type: 'venue', kind: block.kind, id: block.id }) ?? undefined
+                    }
                     className="truncate underline-offset-2 hover:underline"
                   >
                     {block.name}

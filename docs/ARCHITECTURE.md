@@ -507,6 +507,46 @@ already exist (matched by name) only get their empty fields filled.
   second import of the same file adds only the new ones. A filter list
   can't take members, and the whole import is rolled back then.
 
+## Agency bookings (Agenturbuchungen, #103)
+
+Shows of the user's bands that another agency booked. They live in
+`external_booking`, not in `deal_memo`, so no invoice, contract, Abrechnung,
+Verteiler or Wiedervorlage code ever sees them. They are read-only: a row
+changes only through the agency's next import, and it can be removed (one,
+or all of an agency). They go away with their band (`ON DELETE CASCADE`).
+
+- **Import.** The Events page's "Agenturbuchungen" view opens
+  `AgencyImportDialog`: file (CSV, via the list import's `pickImportFile`),
+  columns and agency, preview, done. `main/import/agencyBookings.ts` is pure
+  and source-agnostic - headers and rows in, plan out - so another format
+  (xlsx, a PDF table) only has to produce the same shape.
+  `ExternalBookingRepository.applyImport` writes the plan in one synchronous
+  transaction, scoped to the agency.
+- **Matching.** A booking is found again by `(agency, source_key)`: `id:<ID>`
+  when a column holds the export's own ID, else `auto:<band>|<date>|<place>`
+  (a moved date then reads as new plus missing). Rows of bands that are not
+  in the app are skipped, never created. A key the file lists twice keeps its
+  first row. Bookings missing from the file stay unless the preview's
+  "... nicht mehr in der Datei – entfernen" box is ticked.
+- **Cells.** `parseShowDate` takes German, ISO and slashed dates with a
+  weekday or time around them. `parseBookingStatus` knows the cancelled and
+  option words; anything else is confirmed, so an unread status still blocks
+  the area. A recognised country is stored as its code. "10115 Berlin" in
+  one Ort column is split.
+- **Remembered.** The columns, agency and default kind are saved per header
+  layout (`agencyImport:<sha1>` in `settings`), so the next export of the
+  same agency opens ready.
+- **Where they show.** The Agenturbuchungen view of the event list, the
+  calendar (teal ring on the day, own section in the agenda and the day
+  panel; cancelled ones struck through), the map and the event wizard (an
+  amber note when the chosen band has an agency booking that day). Nothing
+  links to them: there is no detail page.
+- **Map.** `MapService` passes the active ones (not cancelled) to
+  `buildMapData` as event rows with `agency` set and `venue_id: null`. They
+  draw as `type: 'agency'` markers (teal) with the kind's default radius
+  clause, block or endanger venues, and collide with the what-if booking
+  like own events; blocks and conflicts carry `agency`.
+
 ## Mailing lists (Verteiler)
 
 The Verteiler page (`ContactListPage`, `contactList` router,

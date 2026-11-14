@@ -3,20 +3,31 @@
 // directly; the Leaflet code stays thin.
 
 import type {
+  MapBlockDto,
   MapConflictDto,
   MapMarkerDto,
   MapUnlocatedDto
 } from '../../../../main/api/schemas/map.schema'
 
-/** Ring for an event marker, in metres: its radius clause; venues draw none */
+/**
+ * Whether a marker is a show: an event, or an agency booking (#103) - booked
+ * by someone else, read-only, but its radius clause binds the band all the same
+ */
+export function isShow(marker: Pick<MapMarkerDto, 'type'>): boolean {
+  return marker.type === 'event' || marker.type === 'agency'
+}
+
+/** Ring for a show marker, in metres: its radius clause; venues draw none */
 export function ringMetres(marker: Pick<MapMarkerDto, 'type' | 'ring'>): number | null {
-  if (marker.type !== 'event' || !marker.ring) return null
+  if (!isShow(marker) || !marker.ring) return null
   return marker.ring.km * 1000
 }
 
 /** Tailwind-independent colours for Leaflet, per marker kind and state */
 export const MARKER_COLORS = {
   event: '#22c55e',
+  /** A show another agency booked (#103) */
+  agency: '#14b8a6',
   venue: '#3b82f6',
   festival: '#a855f7',
   /** A venue inside a confirmed ring of the chosen band */
@@ -44,6 +55,7 @@ export function markerColor(
   marker: Pick<MapMarkerDto, 'type' | 'kind'> & Partial<Pick<MapMarkerDto, 'blockedBy'>>
 ): string {
   if (marker.type === 'event') return MARKER_COLORS.event
+  if (marker.type === 'agency') return MARKER_COLORS.agency
   if ((marker.blockedBy?.length ?? 0) > 0) return MARKER_COLORS.blocked
   return marker.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue
 }
@@ -54,17 +66,22 @@ export function markerColor(
  * ring.
  */
 export function ringColor(marker: Pick<MapMarkerDto, 'type' | 'kind'>): string | null {
-  if (marker.type !== 'event') return null
+  if (!isShow(marker)) return null
   return marker.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue
 }
 
-/** One-line label for a marker: name, then the date for events */
+/** One-line label for a marker: name, then the date for shows */
 export function markerTitle(marker: MapMarkerDto): string {
-  if (marker.type === 'event') {
+  if (isShow(marker)) {
     const date = marker.date ? germanDate(marker.date) : ''
     return date ? `${marker.name} · ${date}` : marker.name
   }
   return marker.name
+}
+
+/** "Agenturbuchung (Agentur X)": how an agency booking is marked wherever it is listed */
+export function agencyLabel(agency: string): string {
+  return agency ? `Agenturbuchung (${agency})` : 'Agenturbuchung'
 }
 
 /** km label for the ring legend, German notation */
@@ -108,10 +125,31 @@ export const UNLOCATED_REASON_LABELS: Record<MapUnlocatedDto['reason'], string> 
   invalid_date: 'Datum ungültig'
 }
 
-/** Hash link to a marker's detail page; venues live under the list of their kind */
-export function markerHref(marker: Pick<MapMarkerDto, 'type' | 'kind' | 'id'>): string {
+/**
+ * Hash link to a marker's detail page; venues live under the list of their
+ * kind. An agency booking has no page of its own: null, it is shown as text.
+ */
+export function markerHref(marker: Pick<MapMarkerDto, 'type' | 'kind' | 'id'>): string | null {
   if (marker.type === 'event') return `#/events/${marker.id}`
+  if (marker.type === 'agency') return null
   return `#/${marker.kind === 'festival' ? 'festivals' : 'clubs'}/${marker.id}`
+}
+
+/** "Name · 1.3.2027": a block or conflict, linked to its event; an agency booking as marked text */
+export function blockHtml(
+  block: Pick<MapBlockDto, 'eventId' | 'name' | 'date' | 'agency'>
+): string {
+  const text = `${escapeHtml(block.name)} · ${germanDate(block.date)}`
+  if (block.agency !== undefined)
+    return `${text} <small>(${escapeHtml(agencyLabel(block.agency))})</small>`
+  return `<a href="#/events/${block.eventId}">${text}</a>`
+}
+
+/** Colour of a point's show dot: green for an own event, teal when only agency bookings sit there */
+export function showDotColor(point: Pick<MapPoint, 'events'>): string {
+  return point.events.some((event) => event.type === 'event')
+    ? MARKER_COLORS.event
+    : MARKER_COLORS.agency
 }
 
 /**
@@ -186,18 +224,13 @@ export const POPUP_EVENT_LIMIT = 8
 
 /** Popup of a point: venues with their address, then the events by date, each a link */
 export function pointPopupHtml(point: MapPoint): string {
-  const link = (marker: MapMarkerDto, text: string) =>
-    `<a href="${markerHref(marker)}">${escapeHtml(text)}</a>`
+  const link = (marker: MapMarkerDto, text: string) => {
+    const href = markerHref(marker)
+    return href ? `<a href="${href}">${escapeHtml(text)}</a>` : escapeHtml(text)
+  }
   const parts: string[] = []
   const blocks = (label: string, list: MapMarkerDto['blockedBy']) =>
-    list && list.length > 0
-      ? `<br>${label}: ${list
-          .map(
-            (block) =>
-              `<a href="#/events/${block.eventId}">${escapeHtml(block.name)} · ${germanDate(block.date)}</a>`
-          )
-          .join(', ')}`
-      : ''
+    list && list.length > 0 ? `<br>${label}: ${list.map(blockHtml).join(', ')}` : ''
   for (const venue of point.venues) {
     const availability = venueAvailability(venue)
     parts.push(
@@ -217,8 +250,10 @@ export function pointPopupHtml(point: MapPoint): string {
     const rows = shown.map(
       (event) =>
         `${link(event, markerTitle(event))}${event.status === 'pending' ? ' (ausstehend)' : ''}${
-          event.ring ? `<br><small>Gebietsschutz: ${ringWindowLabel(event.ring)}</small>` : ''
-        }`
+          event.type === 'agency'
+            ? `<br><small>${escapeHtml(agencyLabel(event.agency ?? ''))}</small>`
+            : ''
+        }${event.ring ? `<br><small>Gebietsschutz: ${ringWindowLabel(event.ring)}</small>` : ''}`
     )
     const more = point.events.length - shown.length
     if (more > 0) rows.push(`+ ${more} weitere`)

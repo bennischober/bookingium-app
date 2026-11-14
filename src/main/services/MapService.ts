@@ -8,19 +8,25 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from '../repositories/archiveFilter'
 import { buildMapData } from '../map/markers'
+import { ExternalBookingRepository } from '../repositories/ExternalBookingRepository'
 import { SettingsService } from './SettingsService'
 import type { MapData, MapDataFilter, MapEventRow, MapVenueRow } from '../map/markers'
 
 @injectable()
 export class MapService {
-  constructor(@inject(SettingsService) private settingsService: SettingsService) {}
+  constructor(
+    @inject(SettingsService) private settingsService: SettingsService,
+    @inject(ExternalBookingRepository) private externalBookings: ExternalBookingRepository
+  ) {}
 
   /**
    * Events (deal memos) and venues for the map, filters applied. Archived
    * events are out (D3); a cancelled gig never happens, so it draws no ring
    * (the marker builder leaves it out). Events carry their venue's address,
    * venues their own; both carry their radius clause overrides, and the
-   * settings give the defaults per kind.
+   * settings give the defaults per kind. Agency bookings (#103) come along as
+   * events with `agency` set: their own address, no overrides - the kind's
+   * default clause - and cancelled ones are already left out.
    */
   async getData(filter: MapDataFilter): Promise<MapData> {
     // One event row per event; its venue's kind and address ride along.
@@ -122,6 +128,33 @@ export class MapService {
         radius_weeks_after: row.radius_weeks_after
       }
     }))
+
+    for (const booking of this.externalBookings.listActive()) {
+      const place = booking.venue_name || booking.city
+      events.push({
+        id: booking.id,
+        name: place ? `${booking.band_name} – ${place}` : booking.band_name,
+        date: booking.date,
+        status: booking.status,
+        band_id: booking.band_id,
+        venue_id: null,
+        venue_kind: booking.kind,
+        address:
+          booking.zip_code || booking.city
+            ? {
+                street: booking.street,
+                street_number: '',
+                zip_code: booking.zip_code,
+                city: booking.city,
+                country: booking.country,
+                // The import stores a recognised country as its code, else the text as
+                // written; the lookup reads either (a code first, then a name)
+                country_code: booking.country
+              }
+            : null,
+        agency: booking.agency
+      })
+    }
 
     const settings = this.settingsService.get()
     return buildMapData(events, venues, filter, {

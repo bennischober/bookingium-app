@@ -445,6 +445,12 @@ export function CreateEventWizard({
   const venues = trpcReact.venue.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
   const companies = trpcReact.company.getListItems.useQuery()
+  // #103: another agency already booked the band that day
+  const agencyClash = trpcReact.externalBooking.listForBand.useQuery(
+    { bandId: form.bandId ?? 0, from: form.date, to: form.date },
+    { enabled: isOpen && form.bandId !== null && /^\d{4}-\d{2}-\d{2}$/.test(form.date) }
+  )
+  const agencyClashes = form.bandId !== null ? (agencyClash.data ?? []) : []
 
   const utils = trpcReact.useUtils()
 
@@ -581,6 +587,18 @@ export function CreateEventWizard({
                   onCreateNew={(q) => setBandQC({ open: true, prefill: q })}
                   createNewLabel="Neue Band anlegen"
                 />
+                {agencyClashes.length > 0 && (
+                  <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+                    Agenturbuchung am selben Tag:{' '}
+                    {agencyClashes
+                      .map((booking) =>
+                        [booking.venueName || booking.city, booking.agency]
+                          .filter(Boolean)
+                          .join(' · ')
+                      )
+                      .join('; ')}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
