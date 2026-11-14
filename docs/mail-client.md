@@ -263,7 +263,7 @@ a write's resync, the poll), before the first pass finished, while paused, offli
 **The census pause** is the pause between two STATUS commands of a round without LIST-STATUS (the
 sync button's check, the background poll, `syncAll`'s STATUS sweep); with LIST-STATUS it only applies
 to a folder the LIST answer left out. Default 150 ms, taken from the
-prototype and never measured (issue #64). It can be changed without editing code by starting the app
+prototype and never measured (adaptive pacing: issue #157). It can be changed without editing code by starting the app
 with `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` (whole ms, 0 to 10000; anything else is ignored), for example in
 PowerShell `$env:BOOKINGIUM_MAIL_CENSUS_PAUSE_MS='50'; pnpm dev`. The host reads it and passes
 `censusPauseMs` to the core; it applies to every account and leaves `requestDelayMs` (the pause between

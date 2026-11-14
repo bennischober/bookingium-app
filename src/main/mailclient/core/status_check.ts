@@ -7,7 +7,7 @@
 // LIST-STATUS (RFC 5819): when the server advertises it, the whole round is ONE LIST command
 // with the STATUS data inline, so no per-folder pacing is needed. Otherwise every folder gets
 // its own STATUS, paced by the census pause (censusDelayMs, default 150 ms like requestDelayMs:
-// a cautious value from the prototype, never measured; issue #64). imapflow falls back to its
+// a cautious value from the prototype, never measured; issue #157). imapflow falls back to its
 // own unpaced per-folder STATUS when a server advertises LIST-STATUS but rejects it, and then
 // sets `skipListStatusArgs` on that connection; the engine remembers that and uses the paced
 // path from then on, so such a server pays the unpaced round at most once. syncAll's STATUS

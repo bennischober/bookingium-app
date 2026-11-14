@@ -208,7 +208,7 @@ openFolderId)` runs `SyncEngine.syncChanges({ openFolder })` instead; `triggerSy
   cannot be told apart and pays that unpaced round each time.
 - **Pacing.** Per-folder STATUS commands are paced by the census pause, `censusPauseOf(account)`:
   `AccountConfig.censusDelayMs`, else `requestDelayMs`, i.e. 150 ms for every account builder. That
-  value comes from the prototype and was never measured (#64), so it stays the default; the host can
+  value comes from the prototype and was never measured (#157), so it stays the default; the host can
   set `MailCoreOptions.censusPauseMs` for every account (the worker reads
   `BOOKINGIUM_MAIL_CENSUS_PAUSE_MS` through `parseCensusPause`, 0 to 10000 ms; the core itself reads no
   environment). It covers the change pass's check, the poll and `syncAll`'s STATUS sweep, nothing else,
