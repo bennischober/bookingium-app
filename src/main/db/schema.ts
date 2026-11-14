@@ -128,6 +128,8 @@ export const person = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('person_name_idx').on(table.first_name, table.last_name)]
 )
@@ -142,8 +144,7 @@ export const company = sqliteTable(
     kind: text('kind').default('company').notNull(),
     notes: text('notes'),
     bank_id: integer('bank_id').references(() => bank.id, { onDelete: 'set null' }),
-    vat_number: text('vat_number').default('').notNull(),
-    ust_number: text('ust_number').default('').notNull(),
+    vat_id: text('vat_id').default('').notNull(), // USt-IdNr. with country prefix (#153)
     tax_number: text('tax_number').default('').notNull(),
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
@@ -163,6 +164,8 @@ export const company = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('company_name_idx').on(table.name),
@@ -269,6 +272,8 @@ export const venue = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('venue_name_idx').on(table.name),
@@ -382,6 +387,8 @@ export const hotel = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('hotel_name_idx').on(table.name)]
 )
@@ -441,6 +448,8 @@ export const deal_memo = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('deal_memo_name_idx').on(table.name),
@@ -484,6 +493,8 @@ export const company_invoice_settings = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     uniqueIndex('company_invoice_settings_company_unique_idx').on(table.company_id),
@@ -511,8 +522,7 @@ export const invoice_party_snapshot = sqliteTable(
     city: text('city').default('').notNull(),
     country: text('country').default('').notNull(),
     country_code: text('country_code', { length: 2 }).default('').notNull(),
-    vat_number: text('vat_number').default('').notNull(),
-    ust_number: text('ust_number').default('').notNull(),
+    vat_id: text('vat_id').default('').notNull(), // USt-IdNr. with country prefix (#153)
     tax_number: text('tax_number').default('').notNull(),
     commercial_register_no: text('commercial_register_no').default('').notNull(),
     register_court: text('register_court').default('').notNull(),
@@ -594,6 +604,8 @@ export const invoice = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('invoice_company_idx').on(table.company_id),
@@ -741,6 +753,8 @@ export const itinerary = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     uniqueIndex('itinerary_deal_memo_idx').on(table.deal_memo_id) // One itinerary per deal memo
@@ -780,6 +794,8 @@ export const document = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [
     index('document_owner_idx').on(table.owner_type, table.owner_id),
@@ -949,7 +965,7 @@ export const mail_rule = sqliteTable(
     // Like mail_link: a type plus an id, no FK; a deleted record ends the link action
     link_entity_type: text('link_entity_type', { enum: MAIL_LINK_ENTITY_TYPES }),
     link_entity_id: integer('link_entity_id'),
-    active_since: text('active_since').notNull(), // ISO time; set on create and when re-enabled
+    active_since: text('active_since').notNull(), // UTC timestamp; set on create and when re-enabled
     hit_count: integer('hit_count').default(0).notNull(),
     last_applied_at: text('last_applied_at'),
     last_error: text('last_error'),
@@ -1123,6 +1139,8 @@ export const management_contract = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
     updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
   },
   (table) => [index('management_contract_band_idx').on(table.band_id)]
 )

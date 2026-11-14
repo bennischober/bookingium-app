@@ -281,6 +281,34 @@
       "when": 1794677135605,
       "tag": "0039_drop_genre_strings",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794678166445,
+      "tag": "0040_vat_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794678171625,
+      "tag": "0041_normalize_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794678265561,
+      "tag": "0042_rebuild_vat_updated_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1794678309947,
+      "tag": "0043_recreate_owner_triggers",
+      "breakpoints": true
     }
   ]
 }

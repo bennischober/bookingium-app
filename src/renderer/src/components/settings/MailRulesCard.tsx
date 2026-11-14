@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
 import { confirmAction } from '@/lib/confirm'
+import { parseTimestamp } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -471,7 +472,7 @@ export function MailRulesCard() {
                         <p className="text-xs text-muted-foreground">
                           {rule.hitCount === 0
                             ? 'Noch nicht angewendet'
-                            : `${rule.hitCount} ${rule.hitCount === 1 ? 'E-Mail' : 'E-Mails'}, zuletzt ${new Date(
+                            : `${rule.hitCount} ${rule.hitCount === 1 ? 'E-Mail' : 'E-Mails'}, zuletzt ${parseTimestamp(
                                 rule.lastAppliedAt ?? ''
                               ).toLocaleString('de-DE', {
                                 dateStyle: 'short',

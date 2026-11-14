@@ -18,8 +18,7 @@ export function party(overrides: Partial<InvoicePartySnapshotDto> = {}): Invoice
     city: 'Berlin',
     country: 'Deutschland',
     countryCode: 'DE',
-    vatNumber: 'DE123456789',
-    ustNumber: '',
+    vatId: 'DE123456789',
     taxNumber: '27/123/45678',
     commercialRegisterNo: 'HRB 12345',
     registerCourt: 'AG Berlin',
@@ -45,7 +44,7 @@ export const buyer = (overrides: Partial<InvoicePartySnapshotDto> = {}) =>
     streetNumber: '7',
     zipCode: '20095',
     city: 'Hamburg',
-    vatNumber: 'DE987654321',
+    vatId: 'DE987654321',
     taxNumber: '',
     commercialRegisterNo: '',
     email: 'buchhaltung@nord.test',
@@ -129,7 +128,7 @@ export const EINVOICE_SAMPLES: Record<string, EInvoiceInput> = {
     ]
   }),
   'reverse-charge-eu': invoice({
-    buyer: buyer({ countryCode: 'AT', country: 'Österreich', vatNumber: 'ATU12345678' }),
+    buyer: buyer({ countryCode: 'AT', country: 'Österreich', vatId: 'ATU12345678' }),
     lines: [
       {
         description: 'Gage',
@@ -163,7 +162,7 @@ export const EINVOICE_SAMPLES: Record<string, EInvoiceInput> = {
     ]
   }),
   'not-subject-to-vat': invoice({
-    buyer: buyer({ countryCode: 'US', country: 'USA', vatNumber: '', street: 'Main St' }),
+    buyer: buyer({ countryCode: 'US', country: 'USA', vatId: '', street: 'Main St' }),
     lines: [
       {
         description: 'Show fee',
@@ -176,7 +175,7 @@ export const EINVOICE_SAMPLES: Record<string, EInvoiceInput> = {
     ]
   }),
   'intra-community': invoice({
-    buyer: buyer({ countryCode: 'FR', country: 'Frankreich', vatNumber: 'FR12345678901' }),
+    buyer: buyer({ countryCode: 'FR', country: 'Frankreich', vatId: 'FR12345678901' }),
     lines: [
       {
         description: 'Merchandise',
@@ -189,7 +188,7 @@ export const EINVOICE_SAMPLES: Record<string, EInvoiceInput> = {
     ]
   }),
   export: invoice({
-    buyer: buyer({ countryCode: 'CH', country: 'Schweiz', vatNumber: 'CHE123456789' }),
+    buyer: buyer({ countryCode: 'CH', country: 'Schweiz', vatId: 'CHE123456789' }),
     lines: [
       {
         description: 'Merchandise',

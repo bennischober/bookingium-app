@@ -15,7 +15,7 @@ setupTestDb()
 
 const issuer = {
   name: 'Issuer GmbH',
-  vatNumber: 'DE212298737',
+  vatId: 'DE212298737',
   taxNumber: '12712063600',
   commercialRegisterNo: 'HRB 7710',
   registerCourt: 'AG Kempten',
@@ -98,7 +98,7 @@ describe('InvoiceService', () => {
     // The recipient snapshot must be frozen with the issuer company's data
     expect(invoice.recipientSnapshot).not.toBeNull()
     expect(invoice.recipientSnapshot?.legal_name).toBe('Issuer GmbH')
-    expect(invoice.recipientSnapshot?.vat_number).toBe('DE212298737')
+    expect(invoice.recipientSnapshot?.vat_id).toBe('DE212298737')
     expect(invoice.recipientSnapshot?.tax_number).toBe('12712063600')
   })
 

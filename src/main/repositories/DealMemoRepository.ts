@@ -5,6 +5,7 @@ import { notArchived, onlyArchived } from './archiveFilter'
 import { withGenres } from './genres'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { sqlTimestamp } from '../db/timestamps'
 import { toCents, toNullableCents } from '../einvoice/amounts'
 import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
@@ -175,7 +176,7 @@ export class DealMemoRepository {
 
   async update(input: UpdateDealMemoInput) {
     const values: Record<string, unknown> = {
-      updated_at: new Date().toISOString()
+      updated_at: sqlTimestamp()
     }
 
     if ('name' in input) values.name = input.name
@@ -250,7 +251,7 @@ export class DealMemoRepository {
   async archive(id: number) {
     const result = await db
       .update(schema.deal_memo)
-      .set({ archived_at: new Date().toISOString() })
+      .set({ archived_at: sqlTimestamp() })
       .where(eq(schema.deal_memo.id, id))
       .returning()
     return result[0] ?? null

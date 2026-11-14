@@ -211,14 +211,14 @@ export function parseCapacity(raw: string): number | null {
  * "DE 20 033 044 16" → VAT id DE2003304416; "22/200/80883" or
  * "StNr 25133/30314" → tax number
  */
-export function parseTaxId(raw: string): { vatNumber: string; taxNumber: string } {
+export function parseTaxId(raw: string): { vatId: string; taxNumber: string } {
   const text = cleanText(raw)
-  if (!text) return { vatNumber: '', taxNumber: '' }
+  if (!text) return { vatId: '', taxNumber: '' }
   const compact = text.replace(/\s+/g, '')
   if (/^[A-Z]{2}[0-9A-Z]{2,}$/i.test(compact)) {
-    return { vatNumber: compact.toUpperCase(), taxNumber: '' }
+    return { vatId: compact.toUpperCase(), taxNumber: '' }
   }
-  return { vatNumber: '', taxNumber: text.replace(/^St\.?-?\s*Nr\.?\s*/i, '') }
+  return { vatId: '', taxNumber: text.replace(/^St\.?-?\s*Nr\.?\s*/i, '') }
 }
 
 // ----------------------------------------

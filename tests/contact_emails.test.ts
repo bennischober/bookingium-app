@@ -177,8 +177,7 @@ describe('company, venue and hotel addresses', () => {
     const created = await service.createCompany({
       name: 'Muster GmbH',
       notes: '',
-      vatNumber: '',
-      ustNumber: '',
+      vatId: '',
       taxNumber: '',
       commercialRegisterNo: '',
       registerCourt: '',

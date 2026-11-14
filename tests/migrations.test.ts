@@ -292,6 +292,91 @@ describe('runMigrations', () => {
     expect(columns('band')).not.toContain('genre')
   })
 
+  it('keeps one VAT id, a set updated_at and one timestamp format', () => {
+    const sqlite = openDb()
+    const copy = migrations.findIndex(({ sql }) =>
+      sql.some((statement) => statement.includes('CREATE TABLE `__vat`'))
+    )
+    apply(sqlite, migrations.slice(0, copy))
+    sqlite.exec(`
+      insert into company (id, name, notes, vat_number, ust_number, tax_number, created_at) values
+        (1, 'Beide', null, 'DE 123 456 789', '12/345/67890', '', '2026-01-02 03:04:05'),
+        (2, 'Nur USt', 'Alt', '', 'ATU12345678', '', '2026-01-02T03:04:05.678Z'),
+        (3, 'Zwei IDs', '', 'DE111111111', 'DE222222222', '', '2026-01-02'),
+        (4, 'Volle Steuer', null, '', '99/999/99999', '11/111/11111', '2026-01-02 03:04:05');
+      insert into invoice_party_snapshot (id, kind, legal_name, vat_number, ust_number) values
+        (1, 'company', 'Beleg', '', '27/123/45678');
+      insert into person (id, first_name, last_name, created_at, updated_at) values
+        (1, 'Erika', 'Muster', '2026-03-04T05:06:07Z', null);
+    `)
+    apply(sqlite, migrations.slice(copy))
+
+    // The first VAT id wins; a tax number fills an empty tax_number, the rest the notes
+    const day = '2026-01-02 03:04:05'
+    expect(
+      sqlite
+        .prepare('select id, vat_id, tax_number, notes, created_at, updated_at from company')
+        .all()
+    ).toEqual([
+      {
+        id: 1,
+        vat_id: 'DE 123 456 789',
+        tax_number: '12/345/67890',
+        notes: null,
+        created_at: day,
+        updated_at: day
+      },
+      {
+        id: 2,
+        vat_id: 'ATU12345678',
+        tax_number: '',
+        notes: 'Alt',
+        created_at: day,
+        updated_at: day
+      },
+      {
+        id: 3,
+        vat_id: 'DE111111111',
+        tax_number: '',
+        notes: 'USt-Nr. (alt): DE222222222',
+        created_at: '2026-01-02 00:00:00',
+        updated_at: '2026-01-02 00:00:00'
+      },
+      {
+        id: 4,
+        vat_id: '',
+        tax_number: '11/111/11111',
+        notes: 'USt-Nr. (alt): 99/999/99999',
+        created_at: day,
+        updated_at: day
+      }
+    ])
+    expect(sqlite.prepare('select vat_id, tax_number from invoice_party_snapshot').get()).toEqual({
+      vat_id: '',
+      tax_number: '27/123/45678'
+    })
+    expect(sqlite.prepare('select created_at, updated_at from person').get()).toEqual({
+      created_at: '2026-03-04 05:06:07',
+      updated_at: '2026-03-04 05:06:07'
+    })
+    const info = (table: string) =>
+      sqlite.prepare(`pragma table_info(${table})`).all() as { name: string; notnull: number }[]
+    for (const table of ['company', 'invoice_party_snapshot']) {
+      expect(info(table).map(({ name }) => name)).not.toContain('vat_number')
+      expect(info(table).map(({ name }) => name)).not.toContain('ust_number')
+    }
+    // updated_at is NOT NULL wherever a table has it
+    const tables = sqlite
+      .prepare(
+        "select name from sqlite_master where type = 'table' and name not like '\\_\\_%' escape '\\'"
+      )
+      .all() as { name: string }[]
+    const nullable = tables.filter(({ name }) =>
+      info(name).some((column) => column.name === 'updated_at' && !column.notnull)
+    )
+    expect(nullable).toEqual([])
+  })
+
   it('keeps every trigger through the table rebuilds', () => {
     // A drizzle-kit rebuild (CREATE __new_x, DROP x, RENAME) drops x's triggers, so a
     // migration that rebuilds one of these tables has to create them again

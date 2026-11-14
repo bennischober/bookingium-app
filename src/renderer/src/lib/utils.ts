@@ -17,9 +17,18 @@ export function keepOpenOnToast(event: {
   if (target instanceof Element && target.closest('[data-sonner-toaster]')) event.preventDefault()
 }
 
-/** ISO date as German short date ("11.06.2026") */
+/**
+ * A date or timestamp as a Date. Database timestamps are UTC "YYYY-MM-DD HH:MM:SS" without a
+ * zone (#153), which `new Date` would read as local time
+ */
+export function parseTimestamp(value: string): Date {
+  const utc = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value)
+  return new Date(utc ? `${value.replace(' ', 'T')}Z` : value)
+}
+
+/** ISO date or database timestamp as German short date ("11.06.2026") */
 export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
+  return parseTimestamp(iso).toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'

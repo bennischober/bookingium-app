@@ -84,7 +84,7 @@ export class CompanyRepository {
           pagination,
           {
             name: [company.name],
-            vatNumber: [company.vat_number],
+            vatId: [company.vat_id],
             contact: [contact.email],
             address: [address.city],
             bank: [bank.bank_name]
@@ -193,8 +193,7 @@ export class CompanyRepository {
           name: input.name,
           kind: input.kind ?? 'company',
           notes: input.notes || '',
-          vat_number: input.vatNumber || '',
-          ust_number: input.ustNumber || '',
+          vat_id: input.vatId || '',
           tax_number: input.taxNumber || '',
           commercial_register_no: input.commercialRegisterNo || '',
           register_court: input.registerCourt || '',
@@ -330,8 +329,7 @@ export class CompanyRepository {
           name: input.name ?? existingCompany.name,
           kind: input.kind ?? existingCompany.kind,
           notes: input.notes ?? existingCompany.notes,
-          vat_number: input.vatNumber ?? existingCompany.vat_number,
-          ust_number: input.ustNumber ?? existingCompany.ust_number,
+          vat_id: input.vatId ?? existingCompany.vat_id,
           tax_number: input.taxNumber ?? existingCompany.tax_number,
           commercial_register_no:
             input.commercialRegisterNo ?? existingCompany.commercial_register_no,

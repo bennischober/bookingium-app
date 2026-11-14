@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { parseSqlTimestamp, sqlTimestamp } from '../db/timestamps'
 import { mailClient } from '../mailclient/MailClientService'
 import type { FolderNode, RuleMatch, RuleMatcher, RuleMatchPage } from '../mailclient/core/types'
 import { MailRuleRepository, type MailRuleRow } from '../repositories/MailRuleRepository'
@@ -96,7 +97,7 @@ export function applicableRules(
   return match.ruleIds
     .map((id) => rules.find((rule) => rule.id === id))
     .filter((rule): rule is MailRuleRow => rule !== undefined)
-    .filter((rule) => received >= Date.parse(rule.active_since) - RULE_CLOCK_GRACE_MS)
+    .filter((rule) => received >= parseSqlTimestamp(rule.active_since) - RULE_CLOCK_GRACE_MS)
     .filter((rule) => !handled(rule.id))
 }
 
@@ -255,19 +256,19 @@ export class MailRuleService {
       link_entity_id: input.link?.entityId ?? null
     }
     if (input.id === undefined) {
-      return this.toDto(this.repository.insert({ ...values, active_since: now.toISOString() }))
+      return this.toDto(this.repository.insert({ ...values, active_since: sqlTimestamp(now) }))
     }
     const existing = this.repository.get(input.id)
     if (!existing) throw new Error('Regel nicht gefunden')
     // Moved to another account: last in that account's order
     if (existing.mail_account_id !== input.accountId) {
       this.repository.delete(existing.id)
-      return this.toDto(this.repository.insert({ ...values, active_since: now.toISOString() }))
+      return this.toDto(this.repository.insert({ ...values, active_since: sqlTimestamp(now) }))
     }
     const row = this.repository.update(input.id, {
       ...values,
       // Switched back on: from now on, not for what came while it was off
-      active_since: !existing.enabled && input.enabled ? now.toISOString() : existing.active_since,
+      active_since: !existing.enabled && input.enabled ? sqlTimestamp(now) : existing.active_since,
       // Edited: the next run says whether it still fails
       last_error: null
     })
@@ -280,7 +281,7 @@ export class MailRuleService {
     if (!existing) throw new Error('Regel nicht gefunden')
     const row = this.repository.update(input.id, {
       enabled: input.enabled,
-      active_since: !existing.enabled && input.enabled ? now.toISOString() : existing.active_since
+      active_since: !existing.enabled && input.enabled ? sqlTimestamp(now) : existing.active_since
     })
     if (!row) throw new Error('Regel nicht gefunden')
     return this.toDto(row)
@@ -416,7 +417,7 @@ export class MailRuleService {
         })
       }
 
-      const appliedAt = now().toISOString()
+      const appliedAt = sqlTimestamp(now())
       for (const [ruleId, handledKeys] of plan.handled) {
         const note = plan.blocked.has(ruleId) ? READ_ONLY_NOTE : null
         this.repository.recordRun(ruleId, handledKeys, appliedAt, errors.get(ruleId) ?? note)

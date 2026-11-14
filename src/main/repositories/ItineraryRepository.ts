@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { sqlTimestamp } from '../db/timestamps'
 import type { UpsertItineraryInput } from '../api/schemas/itinerary.schema'
 
 @injectable()
@@ -39,7 +40,7 @@ export class ItineraryRepository {
           curfew_stage: input.curfewStage ?? existing.curfew_stage,
           curfew_venue: input.curfewVenue ?? existing.curfew_venue,
           show_length: input.showLength ?? existing.show_length,
-          updated_at: new Date().toISOString()
+          updated_at: sqlTimestamp()
         })
         .where(eq(schema.itinerary.deal_memo_id, input.dealMemoId))
         .returning()

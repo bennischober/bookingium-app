@@ -170,7 +170,7 @@ export class ImportRepository {
               name: draft.name,
               kind: draft.kind,
               notes: notes || null,
-              vat_number: draft.vatNumber,
+              vat_id: draft.vatId,
               tax_number: draft.taxNumber,
               address_id: this.insertAddress(tx, draft.address),
               contact_id: this.insertContact(tx, draft.contact)
@@ -194,7 +194,7 @@ export class ImportRepository {
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
         const changes = emptyOnly(row, {
           notes,
-          vat_number: draft.vatNumber,
+          vat_id: draft.vatId,
           tax_number: draft.taxNumber,
           address_id: address.id,
           contact_id: contact.id

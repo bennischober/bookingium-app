@@ -4,6 +4,7 @@ import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { copyLogoToStorage } from '../utils/fileStorage'
 import { writeGenres, type GenreOwner } from '../repositories/genres'
+import { vatIdOf } from '../einvoice/codes'
 import {
   address,
   contact,
@@ -308,8 +309,8 @@ export async function seedDatabase() {
         name: 'Soundwave Records',
         notes: 'Independent record label specializing in rock and alternative music',
         bank_id: bank2.id,
-        vat_number: 'US123456789',
-        ust_number: 'UST-98765',
+        vat_id: 'US123456789',
+        tax_number: '98765',
         is_default_for_invoicing: false,
         address_id: companyAddress1.id,
         contact_id: companyContact1.id
@@ -322,8 +323,7 @@ export async function seedDatabase() {
         name: 'Live Music Berlin GmbH',
         notes: 'Concert promoter and venue operator in Berlin',
         bank_id: bank1.id,
-        vat_number: 'DE987654321',
-        ust_number: 'DE123456789',
+        vat_id: 'DE987654321',
         is_default_for_invoicing: true,
         address_id: companyAddress2.id,
         contact_id: companyContact2.id
@@ -362,6 +362,8 @@ export async function seedDatabase() {
               iban?: string
               bic?: string
             }
+            vatId?: string
+            // Older files: USt-IdNr. and USt-Nr. as two fields (#153)
             vatNumber?: string
             ustNumber?: string
             taxNumber?: string
@@ -435,9 +437,14 @@ export async function seedDatabase() {
               name: entry.name,
               notes: entry.notes ?? '',
               bank_id: bankId,
-              vat_number: entry.vatNumber ?? '',
-              ust_number: entry.ustNumber ?? '',
-              tax_number: entry.taxNumber ?? '',
+              vat_id:
+                entry.vatId ??
+                [entry.vatNumber, entry.ustNumber].find((value) => value && vatIdOf(value)) ??
+                entry.vatNumber ??
+                '',
+              tax_number:
+                entry.taxNumber ||
+                (entry.ustNumber && !vatIdOf(entry.ustNumber) ? entry.ustNumber : ''),
               commercial_register_no: entry.commercialRegisterNo ?? '',
               register_court: entry.registerCourt ?? '',
               is_default_for_invoicing: entry.isDefaultForInvoicing ?? false,
@@ -855,8 +862,8 @@ export async function seedDatabase() {
       city: sourceAddress.city,
       country: sourceAddress.country,
       country_code: sourceAddress.country_code,
-      vat_number: source.vat_number,
-      ust_number: source.ust_number,
+      vat_id: source.vat_id,
+      tax_number: source.tax_number,
       website: sourceContact.homepage ?? '',
       email: sourceContact.email,
       phone: sourceContact.phone ?? '',
@@ -877,8 +884,8 @@ export async function seedDatabase() {
         kind: 'company',
         source_company_id: company1.id,
         legal_name: company1.name,
-        vat_number: company1.vat_number,
-        ust_number: company1.ust_number
+        vat_id: company1.vat_id,
+        tax_number: company1.tax_number
       })
       .returning()
 

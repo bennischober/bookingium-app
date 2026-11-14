@@ -109,8 +109,7 @@ export function CompanyForm({
       kind: company?.kind ?? ('company' as CompanyKind),
       genres: company?.genres ?? '',
       notes: company?.notes || '',
-      vatNumber: company?.vatNumber || '',
-      ustNumber: company?.ustNumber || '',
+      vatId: company?.vatId || '',
       taxNumber: company?.taxNumber || '',
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
@@ -227,26 +226,13 @@ export function CompanyForm({
         </form.Subscribe>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="vatNumber">
+          <form.Field name="vatId">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor="vatNumber">USt-IdNr.</Label>
+                <Label htmlFor="vatId">USt-IdNr.</Label>
                 <Input
-                  id="vatNumber"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="ustNumber">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="ustNumber">USt-Nr.</Label>
-                <Input
-                  id="ustNumber"
+                  id="vatId"
+                  placeholder="z. B. DE123456789"
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}

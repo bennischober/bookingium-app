@@ -26,6 +26,19 @@ database handle, and the demo seed.
   `onDelete`, indexes on name columns, booleans as
   `integer(..., { mode: 'boolean' })`. Add every new table to the `schema` object
   at the bottom of `schema.ts`; both `schema.x` and direct table imports are in use.
+- `deal_memo` is the event table: the UI says "Event" (routes, pages, the
+  `event-hub/` components), the database and the API keep `deal_memo`; every
+  `deal_memo_id` column points at an event.
+- Timestamps have one format (#153): UTC `YYYY-MM-DD HH:MM:SS`, what
+  `datetime('now')` writes. Write ``sql`datetime('now')` `` or `sqlTimestamp()` from
+  `timestamps.ts`, never `toISOString()`; read them with `parseSqlTimestamp` (main)
+  or `parseTimestamp` (renderer `lib/utils.ts`), since `Date.parse` takes a time
+  without a zone as local. Invoice status changes and invoice emails write milliseconds
+  (`%Y-%m-%d %H:%M:%f`), which sorts the same. `mail_link.mail_date` is the mail's
+  own date and stays ISO. `updated_at` is NOT NULL with the same default.
+- Tax ids (#153): `vat_id` is the USt-IdNr. with country prefix (BT-31/48),
+  `tax_number` the Steuernummer (BT-32). There is no third field; `vatIdOf`
+  (`einvoice/codes.ts`) decides whether a value is a VAT id.
 - Migrations are generated from `schema.ts` (`drizzle.config.ts`: sqlite, out
   `./src/main/db/migrations`). Pre-2026-10 migrations were squashed into
   `0000_initial`; `upgradeLegacyDatabase` adopts older databases via
@@ -51,7 +64,9 @@ database handle, and the demo seed.
 - A rebuild drops the table's triggers. A migration that rebuilds `deal_memo`,
   `band`, `company`, `venue`, `person`, `invoice` or `management_contract` is followed
   by a custom one creating their triggers again (see `0036`); the trigger list is
-  pinned in `tests/migrations.test.ts`.
+  pinned in `tests/migrations.test.ts`. Rebuilding `document` (or `mail_link`) needs
+  the triggers dropped first: the owner triggers name it, and SQLite refuses the
+  rename while a trigger refers to a missing table (`0041` drops all, `0043` restores).
 - Seeding runs only in unpackaged builds (dev and e2e) and only on an empty
   database; the installed app starts empty. Demo data is read from this file, real
   master data comes from the gitignored `sample_data/internal-seed.json`.
