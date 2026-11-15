@@ -1,7 +1,7 @@
 # src/main - Electron Main Process
 
 ## OVERVIEW
-Electron 44 main process: bootstrap and native IPC in `index.ts`, then a strict
+Electron 44 main process: bootstrap in `index.ts` (+ `app/`, `ipc/`), then a strict
 router -> service -> repository -> SQLite stack. Several pure domain modules
 here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 `mailclient/core/` have their own AGENTS.md; this file covers the rest.
@@ -9,7 +9,9 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 ## STRUCTURE
 | Path | Role |
 |---|---|
-| `index.ts` | bootstrap: userData pinning, single-instance lock, windows, `ipcMain.handle` channels, tRPC handler |
+| `index.ts` | bootstrap only: userData pinning, single-instance lock, the startup order in `whenReady`, quit |
+| `app/` | what startup sets up: `windows.ts` (every window, the one tRPC handler), `tray.ts`, `reminders.ts`, `mailServices.ts`, `migrateDatabase.ts`, `errorLogging.ts` |
+| `ipc/` | native `ipcMain.handle` channels outside tRPC, one `register<Area>Ipc()` per file, called from `index.ts`; `handlerUtils.ts` has the failure answer and owner-attached dialogs |
 | `api/` | tRPC routers, zod DTOs, entity -> DTO mappers (the IPC contract) |
 | `services/` | `@injectable()` business logic (tsyringe) |
 | `repositories/` | Drizzle queries and transactions over `db` |
@@ -27,7 +29,7 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 | Change the DTO/input contract | `api/schemas/<object>.schema.ts` |
 | Business rule | `services/<Object>Service.ts` |
 | New table or migration | `db/schema.ts`, then `pnpm db:generate` |
-| Native dialog/print/mail IPC channel | `index.ts` + `src/preload/index.ts` + `index.d.ts` |
+| Native dialog/print/mail IPC channel | `ipc/<area>.ts` + `src/preload/index.ts` + `index.d.ts` |
 | Money, VAT, XML, payment QR | `einvoice/`, `invoice/`, `payment/` |
 | CSV import | `import/` + `csv/` + `services/ImportService.ts` |
 
