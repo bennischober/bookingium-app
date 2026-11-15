@@ -8,7 +8,7 @@ import { join } from 'path'
 const source = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8')
 const MAIL_PAGE = 'src/renderer/src/pages/MailPage.tsx'
 const COMPOSE = 'src/renderer/src/components/mail/ComposeView.tsx'
-const READER = 'src/renderer/src/components/mail/MessageView.tsx'
+const READER = 'src/renderer/src/components/mail/MessageActions.tsx'
 
 describe('I10 Low: renderer fixes', () => {
   it('clears the hidden rows on an account switch', () => {
