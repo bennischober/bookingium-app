@@ -188,7 +188,7 @@ export class PersonRepository {
     return await db.transaction((tx) => {
       // Get existing person to check for existing address/contact
       const existing = tx.select().from(schema.person).where(eq(schema.person.id, input.id)).all()
-      if (existing.length === 0) throw new Error('Person not found')
+      if (existing.length === 0) throw new Error('Person nicht gefunden')
 
       const existingPerson = existing[0]
 

@@ -243,7 +243,7 @@ export class CompanyRepository {
     return await db.transaction((tx) => {
       // Get existing company to check for existing address/contact
       const existing = tx.select().from(company).where(eq(company.id, input.id)).all()
-      if (existing.length === 0) throw new Error('Company not found')
+      if (existing.length === 0) throw new Error('Firma nicht gefunden')
 
       const existingCompany = existing[0]
 

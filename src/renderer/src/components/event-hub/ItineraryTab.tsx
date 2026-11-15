@@ -430,7 +430,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                   onChange={set('curfewStage')}
                 />
                 <TimeRow
-                  label="Sperrzeit (Venue)"
+                  label="Sperrzeit (Club / Festival)"
                   value={schedule.curfewVenue}
                   onChange={set('curfewVenue')}
                 />
@@ -477,7 +477,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
               </div>
               <Separator className="my-1" />
               <ReadOnlyTimeRow label="Sperrzeit (Bühne)" value={schedule.curfewStage} />
-              <ReadOnlyTimeRow label="Sperrzeit (Venue)" value={schedule.curfewVenue} />
+              <ReadOnlyTimeRow label="Sperrzeit (Club / Festival)" value={schedule.curfewVenue} />
               {schedule.notes && (
                 <>
                   <Separator className="my-1" />

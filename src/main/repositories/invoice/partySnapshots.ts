@@ -55,7 +55,7 @@ export function companySnapshotValues(tx: Tx, companyId: number): SnapshotValues
     .all()
 
   if (rows.length === 0) {
-    throw new Error('Company not found')
+    throw new Error('Firma nicht gefunden')
   }
 
   const row = rows[0]
@@ -113,7 +113,7 @@ function bandSnapshotValues(tx: Tx, bandId: number): SnapshotValues {
     .all()
 
   if (rows.length === 0) {
-    throw new Error('Band not found')
+    throw new Error('Band nicht gefunden')
   }
 
   const row = rows[0]
@@ -150,7 +150,7 @@ function personSnapshotValues(tx: Tx, personId: number): SnapshotValues {
     .all()
 
   if (rows.length === 0) {
-    throw new Error('Person not found')
+    throw new Error('Person nicht gefunden')
   }
 
   const row = rows[0]

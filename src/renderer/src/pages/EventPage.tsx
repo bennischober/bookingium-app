@@ -174,7 +174,7 @@ export function EventPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader title="Events" description="Verwalten Sie Ihre Shows, Tours und Deal Memos.">
+      <ListPageHeader title="Events" description="Shows, Tours und Deal Memos verwalten.">
         {/* #103: shows other agencies booked - read-only, imported from their export */}
         <Button
           variant="outline"

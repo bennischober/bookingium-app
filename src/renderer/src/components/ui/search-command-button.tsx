@@ -61,14 +61,14 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
   '/': { description: 'Übersicht und KPIs öffnen', aliases: ['home', 'landing', 'overview'] },
   '/calendar': { description: 'Terminkalender öffnen', aliases: ['agenda', 'schedule'] },
   '/events': {
-    description: 'Alle Gigs und Deal Memos öffnen',
+    description: 'Alle Events und Deal Memos öffnen',
     aliases: ['gigs', 'shows', 'event hub']
   },
   '/invoices': {
     description: 'Rechnungen und Nummerierung öffnen',
     aliases: ['invoices', 'rechnung', 'billing']
   },
-  '/band': { description: 'Künstlerverzeichnis öffnen', aliases: ['artists'] },
+  '/band': { description: 'Bandverzeichnis öffnen', aliases: ['artists'] },
   '/persons': {
     description: 'Personen-Stammdaten öffnen',
     aliases: ['contacts', 'people', 'kontakte']

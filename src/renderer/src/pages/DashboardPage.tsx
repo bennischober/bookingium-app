@@ -69,7 +69,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Anstehende Gigs (7 Tage)</CardTitle>
+            <CardTitle className="text-base">Anstehende Events (7 Tage)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{stats?.upcomingNext7Days.length ?? '–'}</p>
@@ -132,7 +132,7 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground">Anstehende Events werden geladen…</p>
             ) : !stats || stats.upcomingNext7Days.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine anstehenden Gigs in den nächsten 7 Tagen.
+                Keine anstehenden Events in den nächsten 7 Tagen.
               </p>
             ) : (
               <div className="space-y-3">

@@ -19,7 +19,11 @@ English.
    Rider, Stageplot, Showtime, Local Promoter.
 4. **Exception:** the English agency invoice template (`AGENCY_STRINGS.en` in
    `AgencyInvoiceTemplate.tsx`) stays English.
-5. Formal address ("Sie"), German typography: „Anführungszeichen“, `…`, `–`.
+5. Formal address ("Sie") where the app speaks to the user („Bitte legen Sie
+   zuerst eine Firma an.“, „Geben Sie mindestens eine Bedingung an.“). Page
+   and sheet descriptions are not addressed to anyone: they name the task in
+   the infinitive („Bands und Kontakte verwalten.“, „Änderungen am Eintrag
+   vornehmen.“), never „Verwalten Sie Ihre …“. German typography: „Anführungszeichen“, `…`, `–`.
    Write the ellipsis as one character (`Suchen…`, `Lädt…`, „Zuordnen…“), never
    three dots; `...` stays only in code (spread syntax).
 6. **Nouns come from the terms module.** `src/main/api/terms.ts` holds the
@@ -33,9 +37,8 @@ English.
 7. **No competing words.** `AVOIDED_WORDS` in the same module lists the words
    that compete with a term („Spielstätte“, „Gig“, „Veranstaltung“,
    „Künstler“, „Konzertvertrag“, …) and what to write instead.
-   `tests/terms_guard.test.ts` fails on them in UI strings; its `KNOWN` list
-   holds the uses not reworded yet and may only shrink. The legal text of the
-   contract documents is exempt.
+   `tests/terms_guard.test.ts` fails on them in UI strings. The legal text of
+   the contract documents is exempt.
 
 ## Glossary
 
@@ -145,7 +148,7 @@ singular of its list („Band“, „Festival“, „Firma“):
 | --------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Overview / Itinerary / Financials / Documents | Übersicht / Tagesablauf / Finanzen / Dokumente                                      |
 | Status confirmed / pending / cancelled        | Bestätigt / Ausstehend / Storniert                                                  |
-| Concert contract                              | Vertrag (Auftrittsvertrag)                                                          |
+| Concert contract (PDF name, email subject)    | Vertrag (Auftrittsvertrag)                                                          |
 | Management contract / management share        | Managementvertrag / Managementbeteiligung                                           |
 | Document types                                | Deal Memo, Vertrag, Rider, Stageplot, Presse, Foto, Rechnung, Abrechnung, Sonstiges |
 | Show settlement (from the Veranstalter)       | Abrechnung                                                                          |

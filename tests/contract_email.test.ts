@@ -73,8 +73,8 @@ describe('the contract email (#120)', () => {
       DEFAULT_CONTRACT_EMAIL.de
     )
     expect(draft.to).toBe('booking@club.example.test')
-    expect(draft.subject).toBe('Konzertvertrag – Die Beispielband – 21.10.2026')
-    expect(draft.body).toContain('anbei erhalten Sie den Konzertvertrag für Die Beispielband.')
+    expect(draft.subject).toBe('Auftrittsvertrag – Die Beispielband – 21.10.2026')
+    expect(draft.body).toContain('anbei erhalten Sie den Auftrittsvertrag für Die Beispielband.')
     expect(draft.body).toMatch(/Mit freundlichen Grüßen\nErika Muster$/)
   })
 
@@ -111,7 +111,7 @@ describe('the contract email (#120)', () => {
       subject: '{Dokument} {Veranstaltungsort} {Datum}',
       body: '{Empfänger}|{Absender}|{Band}|{Rechnungsnummer}'
     })
-    expect(draft.subject).toBe('Konzertvertrag Beispielhalle 21.10.2026')
+    expect(draft.subject).toBe('Auftrittsvertrag Beispielhalle 21.10.2026')
     expect(draft.body).toBe('Veranstalter GmbH|Erika Muster|Die Beispielband|{Rechnungsnummer}')
   })
 

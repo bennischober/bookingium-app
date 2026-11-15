@@ -48,9 +48,9 @@ export default function ContractPrintPage() {
     )
   }
 
-  // e.g. "Konzertvertrag_Pretty Wild_Berghain_2026-10-21"
+  // e.g. "Auftrittsvertrag_Pretty Wild_Berghain_2026-10-21"
   const fileName = buildFileName([
-    'Konzertvertrag',
+    'Auftrittsvertrag',
     data.band?.name,
     data.venue?.name,
     data.dealMemo.date

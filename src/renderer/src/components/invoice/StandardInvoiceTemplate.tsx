@@ -71,7 +71,7 @@ export function StandardTemplate({
         <div className="w-1/2 text-[10pt] leading-snug">
           {data.bandName && (
             <div>
-              <span className="font-semibold">Künstler:</span> {data.bandName}
+              <span className="font-semibold">Band:</span> {data.bandName}
             </div>
           )}
           {invoice.dealMemoName && (

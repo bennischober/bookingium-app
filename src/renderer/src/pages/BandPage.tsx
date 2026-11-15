@@ -125,7 +125,7 @@ export default function BandPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader title="Bands" description="Verwalten Sie Ihre Künstler und Kontakte." />
+      <ListPageHeader title="Bands" description="Bands und Kontakte verwalten." />
 
       <DataTable
         columns={columns}
@@ -175,8 +175,8 @@ export default function BandPage() {
         title={sheet.mode === 'create' ? 'Neue Band anlegen' : 'Band bearbeiten'}
         description={
           sheet.mode === 'create'
-            ? 'Füllen Sie die Details aus, um eine neue Band anzulegen.'
-            : 'Nehmen Sie Änderungen am Bandprofil unten vor.'
+            ? 'Details ausfüllen, um eine neue Band anzulegen.'
+            : 'Änderungen am Bandprofil vornehmen.'
         }
       >
         <BandForm

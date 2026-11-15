@@ -18,7 +18,7 @@ export class InvoicePartyRepository {
   currentParties(invoiceId: number) {
     return db.transaction((tx) => {
       const row = tx.select().from(schema.invoice).where(eq(schema.invoice.id, invoiceId)).all()[0]
-      if (!row) throw new Error('Invoice not found')
+      if (!row) throw new Error('Rechnung nicht gefunden')
       const recipient = snapshotById(tx, row.recipient_snapshot_id)
       return {
         issuer: companySnapshotValues(tx, row.company_id),

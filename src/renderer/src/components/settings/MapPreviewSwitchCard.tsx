@@ -39,8 +39,8 @@ export function MapPreviewSwitchCard() {
       <CardHeader>
         <CardTitle>Karte (experimentell)</CardTitle>
         <CardDescription>
-          Events, Clubs und Festivals auf einer Karte, mit dem Gebietsschutz jeder Veranstaltung: wo
-          die Band frei ist und was eine Anfrage blockieren würde.
+          Events, Clubs und Festivals auf einer Karte, mit dem Gebietsschutz jedes Events: wo die
+          Band frei ist und was eine Anfrage blockieren würde.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -108,9 +108,9 @@ function RadiusDefaultsForm({
       <div>
         <h4 className="text-sm font-medium">Gebietsschutz (Standard)</h4>
         <p className="text-xs text-muted-foreground">
-          Wie weit um eine Veranstaltung und wie lange davor und danach die Band nicht anderswo
-          spielen soll. Gilt, solange der Club, das Festival oder das Event nichts Eigenes angibt.
-          Ausstehende Events zeigen das Risiko, blockieren aber nicht.
+          Wie weit um ein Event und wie lange davor und danach die Band nicht anderswo spielen soll.
+          Gilt, solange der Club, das Festival oder das Event nichts Eigenes angibt. Ausstehende
+          Events zeigen das Risiko, blockieren aber nicht.
         </p>
       </div>
       <div className="space-y-1">
