@@ -2,6 +2,7 @@ import { and, eq, max, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import type { Tx } from './tx'
 import type { ImportContactList, ImportResult } from '../api/schemas/import.schema'
 import type {
   AddressDraft,
@@ -12,8 +13,6 @@ import type {
 } from '../import/buildImportPlan'
 import { contactAddressEvents, normalizeEmail } from './contactEmails'
 import { genresByOwner, writeGenres, type GenreOwner } from './genres'
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 type AddressRow = typeof schema.address.$inferSelect
 type ContactRow = typeof schema.contact.$inferSelect

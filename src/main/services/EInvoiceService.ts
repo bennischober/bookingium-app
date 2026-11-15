@@ -1,5 +1,6 @@
 import { inject, injectable } from 'tsyringe'
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
+import { InvoicePartyRepository } from '../repositories/InvoicePartyRepository'
 import { SettingsService } from './SettingsService'
 import { InvoiceMapper } from '../api/mappers/invoice.mapper'
 import type { EInvoiceCheckDto, PreviewInvoicePartiesInput } from '../api/schemas/invoice.schema'
@@ -18,6 +19,7 @@ import { embedFacturX } from '../einvoice/facturx'
 export class EInvoiceService {
   constructor(
     @inject(InvoiceRepository) private invoiceRepository: InvoiceRepository,
+    @inject(InvoicePartyRepository) private invoicePartyRepository: InvoicePartyRepository,
     @inject(SettingsService) private settingsService: SettingsService
   ) {}
 
@@ -41,7 +43,7 @@ export class EInvoiceService {
     )
 
     if (entity.status === 'draft') {
-      const parties = this.invoiceRepository.currentParties(invoiceId)
+      const parties = this.invoicePartyRepository.currentParties(invoiceId)
       const result = prepareEInvoice(
         eInvoiceInputOf({
           ...data,
@@ -93,7 +95,7 @@ export class EInvoiceService {
 
   /** Issuer and recipient as a draft with these settings would get them (form check) */
   previewParties(input: PreviewInvoicePartiesInput) {
-    const parties = this.invoiceRepository.previewParties(input)
+    const parties = this.invoicePartyRepository.previewParties(input)
     return {
       issuer: InvoiceMapper.toPartyPreviewDto(parties.issuer),
       recipient: InvoiceMapper.toPartyPreviewDto(parties.recipient)
