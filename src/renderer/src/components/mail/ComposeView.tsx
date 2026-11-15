@@ -1,34 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bold, FileText, Italic, List, Paperclip, Send, Trash2, Underline, X } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
-import { trpcReact, trpcVanilla } from '@/lib/trpc'
+import { trpcVanilla } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Spinner } from '@/components/ui/spinner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { FOLLOW_UP_CHOICES, followUpForSend, type FollowUpChoice } from './composeFollowUp'
+import { followUpForSend, type FollowUpChoice } from './composeFollowUp'
 import type { FollowUpRecord } from '../../../../main/api/schemas/followUp.schema'
-import {
-  type Address,
-  type ComposeState,
-  addressProblem,
-  draftDirtyKey,
-  isValidEmail,
-  parseAddress,
-  toDraftInput
-} from './composeDraft'
+import { type ComposeState, draftDirtyKey, isValidEmail, toDraftInput } from './composeDraft'
 import { formatSize } from './format'
 import { attachmentsFit, MAX_ATTACHMENT_BYTES, pasteContent } from './composeDraft'
-import { composeBody, toEditorHtml, type ComposeFormat } from './composeBody'
+import { composeBody, toEditorHtml } from './composeBody'
 import { InsertTemplateDialog } from './InsertTemplateDialog'
 import {
   type SendPhase,
@@ -36,18 +16,13 @@ import {
   draftSaveAllowed,
   findSessionSend,
   isUnclearSend,
-  recipientKeyAction,
   unclearCheck
 } from './composeSend'
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), ms)
-    return () => clearTimeout(timer)
-  }, [value, ms])
-  return debounced
-}
+import { ComposeAttachmentList } from './ComposeAttachmentList'
+import { ComposeFormatBar } from './ComposeFormatBar'
+import { ComposeHeaderFields } from './ComposeHeaderFields'
+import { type ComposeBusy, ComposeToolbar } from './ComposeToolbar'
+import { ComposeUnclearBanner } from './ComposeUnclearBanner'
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : undefined)
 
@@ -57,189 +32,6 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
  * sentence does not save per character.
  */
 const AUTOSAVE_MS = 1500
-
-/** G8: where a recipient suggestion came from, in the dropdown */
-const SOURCE_LABELS: Record<'person' | 'company' | 'venue' | 'mail', string> = {
-  person: 'Kontakt',
-  company: 'Firma',
-  venue: 'Club / Festival',
-  mail: 'Aus E-Mails'
-}
-
-/** F3: the four commands the toolbar offers, and nothing that carries a URL or CSS */
-const FORMAT_BUTTONS: { format: ComposeFormat; label: string; Icon: typeof Bold }[] = [
-  { format: 'bold', label: 'Fett', Icon: Bold },
-  { format: 'italic', label: 'Kursiv', Icon: Italic },
-  { format: 'underline', label: 'Unterstrichen', Icon: Underline },
-  { format: 'insertUnorderedList', label: 'Aufzählung', Icon: List }
-]
-
-/** Recipients as chips; typed text becomes one on Enter, comma or leaving the field */
-function RecipientField({
-  label,
-  accountId,
-  value,
-  onChange,
-  autoFocus
-}: {
-  label: string
-  accountId: string
-  value: Address[]
-  onChange: (value: Address[]) => void
-  autoFocus?: boolean
-}) {
-  const [text, setText] = useState('')
-  const [active, setActive] = useState(0)
-  const [focused, setFocused] = useState(false)
-  const query = useDebounced(text.trim(), 150)
-  // G8: the app's own records are searched too, not only addresses seen in mail. A person you have
-  // on file but never mailed was invisible here, which is the case the lookup exists for. The merge
-  // happens in main (the dependency-free mail core cannot read the app database) and arrives ranked.
-  const contacts = trpcReact.mail.contacts.useQuery(
-    { query, accountId },
-    { enabled: query.length >= 2, keepPreviousData: true }
-  )
-  const taken = new Set(value.map((a) => a.email.toLowerCase()))
-  const suggestions =
-    focused && text.trim().length >= 2
-      ? (contacts.data ?? []).filter((c) => !taken.has(c.email.toLowerCase())).slice(0, 8)
-      : []
-
-  const add = (addresses: Address[]) => {
-    const fresh = addresses.filter((a) => a.email && !taken.has(a.email.toLowerCase()))
-    if (fresh.length) onChange([...value, ...fresh])
-    setText('')
-    setActive(0)
-  }
-  const commit = () => {
-    const parts = text.split(/[,;]/).filter((p) => p.trim())
-    if (parts.length) add(parts.map(parseAddress))
-  }
-
-  return (
-    <div className="relative flex items-start gap-2 border-b px-4 py-1.5 text-sm">
-      <span className="w-12 shrink-0 pt-1 text-muted-foreground">{label}</span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-        {value.map((a) => {
-          const valid = isValidEmail(a.email)
-          // G12: the reason, not just "invalid" - the guard knows which part is wrong
-          const problem = valid ? null : addressProblem(a.email)
-          return (
-            <span
-              key={a.email}
-              className={cn(
-                'flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5',
-                valid ? 'bg-muted' : 'bg-destructive/10 text-destructive'
-              )}
-              title={valid ? a.email : (addressProblem(a.email) ?? 'Keine gültige Adresse')}
-            >
-              <span className="truncate">{a.name || a.email}</span>
-              {problem ? (
-                <span className="text-xs opacity-80" data-testid="address-problem">
-                  {problem}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => onChange(value.filter((x) => x !== a))}
-                aria-label={`${a.email} entfernen`}
-              >
-                <X className="size-3" />
-              </button>
-            </span>
-          )
-        })}
-        <input
-          className="min-w-32 flex-1 bg-transparent py-0.5 outline-none"
-          value={text}
-          autoFocus={autoFocus}
-          aria-label={label}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false)
-            commit()
-          }}
-          onChange={(e) => {
-            setText(e.target.value)
-            setActive(0)
-          }}
-          onPaste={(e) => {
-            const pasted = e.clipboardData.getData('text')
-            if (!/[,;\n]/.test(pasted)) return
-            e.preventDefault()
-            add(
-              pasted
-                .split(/[,;\n]/)
-                .filter((p) => p.trim())
-                .map(parseAddress)
-            )
-          }}
-          onKeyDown={(e) => {
-            // Ctrl+Enter is the editor's send shortcut and goes on to the form
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) return
-            const action = recipientKeyAction(e.key, {
-              text,
-              hasSuggestions: suggestions.length > 0,
-              hasRecipients: value.length > 0
-            })
-            if (action === 'navigate') {
-              e.preventDefault()
-              const step = e.key === 'ArrowDown' ? 1 : -1
-              setActive((i) => (i + step + suggestions.length) % suggestions.length)
-            } else if (action === 'pick') {
-              e.preventDefault()
-              add([suggestions[Math.min(active, suggestions.length - 1)]])
-            } else if (action === 'commit') {
-              e.preventDefault()
-              commit()
-            } else if (action === 'swallow') {
-              // I2 (MR-04): an Enter in an empty field used to fall through to the form
-              e.preventDefault()
-            } else if (action === 'removeLast') {
-              onChange(value.slice(0, -1))
-            }
-          }}
-        />
-      </div>
-      {suggestions.length > 0 && (
-        <ul
-          className="absolute top-full right-4 left-16 z-10 mt-1 overflow-hidden rounded-md border bg-popover shadow-md"
-          role="listbox"
-          aria-label="Vorschläge"
-        >
-          {suggestions.map((c, i) => (
-            <li
-              key={c.email}
-              role="option"
-              aria-selected={i === active}
-              className={cn('cursor-pointer px-3 py-1.5', i === active && 'bg-muted')}
-              // Before the input's blur, which would take the typed text as it is
-              onMouseDown={(e) => {
-                e.preventDefault()
-                add([c])
-              }}
-              onMouseEnter={() => setActive(i)}
-            >
-              {c.name ? (
-                <>
-                  {c.name} <span className="text-muted-foreground">{c.email}</span>
-                </>
-              ) : (
-                c.email
-              )}
-              {/* G8: why this address is here. A mail-history hit and an address-book record look
-                  identical otherwise, and the user should know which one they are picking. */}
-              <span className="ml-2 text-xs text-muted-foreground/70">
-                {SOURCE_LABELS[c.source]}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
 
 function readBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -279,11 +71,10 @@ export function ComposeView({
 }) {
   const [mail, setMail] = useState(initial)
   const [showCopies, setShowCopies] = useState(initial.cc.length > 0 || initial.bcc.length > 0)
-  const [busy, setBusy] = useState<'send' | 'save' | 'discard' | null>(null)
+  const [busy, setBusy] = useState<ComposeBusy>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   // #121: "Wiedervorlage ohne Antwort" - a follow-up the send leaves, closed by a reply
   const [followUpChoice, setFollowUpChoice] = useState<FollowUpChoice>('none')
-  const fileInput = useRef<HTMLInputElement>(null)
   const body = useRef<HTMLDivElement>(null)
   // #123: the template dialog, and where the caret was when it opened (the dialog takes the focus)
   const [templateOpen, setTemplateOpen] = useState(false)
@@ -743,270 +534,50 @@ export function ComposeView({
         }
       }}
     >
-      <div className="flex items-center gap-1 border-b px-4 py-2">
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => void send()}
-          disabled={busy !== null || sendBlocked !== null || locked}
-          title={sendBlocked ?? 'Senden (Strg+Enter)'}
-          // The accessible name stays the ACTION ("Senden"). Putting the reason in the aria-label made the
-          // button answer to "An" and collided with the recipient field of the same name; the reason is a
-          // tooltip, and aria-disabled is what tells assistive tech the control is unavailable.
-          aria-label="Senden"
-        >
-          {busy === 'send' ? <Spinner className="size-4" /> : <Send />}
-          Senden
-        </Button>
-        {/* A disabled button cannot be hovered for its title, and a tooltip is not read by a screen
-            reader on a disabled control - so the reason is written out where it applies */}
-        {sendBlocked && !busy && !locked ? (
-          <span className="text-xs text-muted-foreground" data-testid="send-blocked">
-            {sendBlocked}
-          </span>
-        ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={busy !== null || locked}
-          onClick={() => void saveNow()}
-        >
-          {busy === 'save' && <Spinner className="size-4" />}
-          Entwurf speichern
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy !== null || locked}
-          onClick={() => fileInput.current?.click()}
-        >
-          <Paperclip />
-          Anhängen
-        </Button>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          hidden
-          onChange={(e) => {
-            void addFiles(e.target.files)
-            e.target.value = ''
-          }}
-        />
-        <Select
-          value={followUpChoice}
-          onValueChange={(value) => setFollowUpChoice(value as FollowUpChoice)}
-          disabled={busy !== null || locked}
-        >
-          <SelectTrigger
-            className="ml-1 h-8 w-auto gap-1 text-xs"
-            aria-label="Wiedervorlage ohne Antwort"
-            title="Wiedervorlage ohne Antwort: erledigt sich, wenn eine Antwort kommt"
-          >
-            <span className="text-muted-foreground">Wiedervorlage:</span>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FOLLOW_UP_CHOICES.map((choice) => (
-              <SelectItem key={choice.value} value={choice.value}>
-                {choice.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {savedAt && (
-          <span className="ml-2 text-xs text-muted-foreground">
-            Gespeichert{' '}
-            {savedAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="ml-auto"
-          disabled={busy !== null || locked}
-          onClick={() => void discard()}
-          title="Verwerfen"
-        >
-          <Trash2 />
-        </Button>
-      </div>
+      <ComposeToolbar
+        busy={busy}
+        sendBlocked={sendBlocked}
+        locked={locked}
+        savedAt={savedAt}
+        followUpChoice={followUpChoice}
+        setFollowUpChoice={setFollowUpChoice}
+        send={send}
+        saveNow={saveNow}
+        addFiles={addFiles}
+        discard={discard}
+      />
 
       {phase === 'unclear' && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-2 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-          data-testid="send-unclear"
-        >
-          <span className="mr-auto">
-            Versand unklar: Die E-Mail ist vielleicht schon beim Server angekommen. Bitte prüfen,
-            bevor sie noch einmal gesendet wird.
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy !== null}
-            onClick={() => void checkUnclear()}
-          >
-            {busy === 'send' && <Spinner className="size-4" />}
-            Im Ordner Gesendet prüfen
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy !== null}
-            onClick={() => void sendAsNew()}
-          >
-            Als neue Mail senden
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy !== null}
-            onClick={() => {
-              closed.current = true
-              onClose()
-            }}
-          >
-            Schließen
-          </Button>
-        </div>
+        <ComposeUnclearBanner
+          busy={busy}
+          checkUnclear={checkUnclear}
+          sendAsNew={sendAsNew}
+          close={() => {
+            closed.current = true
+            onClose()
+          }}
+        />
       )}
 
       {/* I2: while sending, and after an unclear send, the mail cannot be changed - an edit
           would never reach the mail that went out, and a draft of it would be an orphan */}
       <fieldset disabled={locked} className="contents">
-        <RecipientField
-          label="An"
+        <ComposeHeaderFields
           accountId={accountId}
-          value={mail.to}
-          onChange={(to) => update({ to })}
-          autoFocus={mail.to.length === 0}
+          mail={mail}
+          update={update}
+          showCopies={showCopies}
+          setShowCopies={setShowCopies}
         />
-        {showCopies ? (
-          <>
-            <RecipientField
-              label="Cc"
-              accountId={accountId}
-              value={mail.cc}
-              onChange={(cc) => update({ cc })}
-            />
-            <RecipientField
-              label="Bcc"
-              accountId={accountId}
-              value={mail.bcc}
-              onChange={(bcc) => update({ bcc })}
-            />
-          </>
-        ) : (
-          <button
-            type="button"
-            className="self-start px-4 py-1 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setShowCopies(true)}
-          >
-            Cc/Bcc
-          </button>
-        )}
-        <div className="flex items-center gap-2 border-b px-4 py-1.5 text-sm">
-          <span className="w-12 shrink-0 text-muted-foreground">Betreff</span>
-          <Input
-            className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
-            value={mail.subject}
-            onChange={(e) => update({ subject: e.target.value })}
-            aria-label="Betreff"
-            autoFocus={mail.to.length > 0 && !mail.subject}
-          />
-        </div>
 
-        {(mail.attachments.length > 0 ||
-          mail.forwardedNames.length > 0 ||
-          invoice?.attachmentName) && (
-          <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label="Anhänge">
-            {invoice?.attachmentName && (
-              <li
-                className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
-                title="Wird beim Senden angehängt"
-              >
-                <Paperclip className="size-3" />
-                <span className="max-w-56 truncate">{invoice.attachmentName}</span>
-              </li>
-            )}
-            {mail.attachments.map((a, i) => (
-              <li key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
-                <Paperclip className="size-3" />
-                <span className="max-w-56 truncate">{a.filename}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatSize(Math.floor((a.base64.length * 3) / 4))}
-                </span>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    update({ attachments: mail.attachments.filter((_, j) => j !== i) })
-                  }
-                  aria-label={`${a.filename} entfernen`}
-                >
-                  <X className="size-3" />
-                </button>
-              </li>
-            ))}
-            {mail.forwardedNames.map((name, i) => (
-              <li
-                key={`fwd-${i}`}
-                className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
-                title="Aus der weitergeleiteten E-Mail"
-              >
-                <Paperclip className="size-3" />
-                <span className="max-w-56 truncate">{name}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ComposeAttachmentList mail={mail} invoice={invoice} update={update} />
 
-        {/* F3: lightweight formatting. The body is HTML, but the plain text stays
-          the source of truth: composeBody derives it on every edit, so search and
-          snippets keep reading the text. */}
-        <div className="flex shrink-0 gap-1 border-b px-2 py-1">
-          {FORMAT_BUTTONS.map(({ format, label, Icon }) => (
-            <Button
-              key={format}
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              title={label}
-              aria-label={label}
-              // The selection must survive the click: the button is not inside the
-              // editable, so the browser would move the caret and the command would
-              // have nothing to format
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                body.current?.focus()
-                document.execCommand(format)
-                onBodyInput()
-              }}
-            >
-              <Icon />
-            </Button>
-          ))}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            disabled={locked}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={openTemplates}
-          >
-            <FileText />
-            Vorlage einfügen
-          </Button>
-        </div>
+        <ComposeFormatBar
+          body={body}
+          onBodyInput={onBodyInput}
+          locked={locked}
+          openTemplates={openTemplates}
+        />
       </fieldset>
       <div
         className="mail-editor min-h-0 flex-1 overflow-auto px-4 py-3 text-sm outline-none"
