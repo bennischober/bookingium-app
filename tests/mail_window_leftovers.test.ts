@@ -9,7 +9,7 @@ import { join } from 'path'
 
 const source = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8')
 const WINDOW = 'src/renderer/src/pages/MailWindowPage.tsx'
-const READER = 'src/renderer/src/components/mail/MessageView.tsx'
+const READER = 'src/renderer/src/components/mail/MessageAttachments.tsx'
 
 describe('I16 item 15: dead plumbing removed', () => {
   it('no longer threads pdfName through the window URL', () => {
