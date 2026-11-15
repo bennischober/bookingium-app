@@ -117,7 +117,7 @@ events and invoices), not a general mail client.
   A rule names parts of the sender, To/Cc and subject (comma for alternatives; every named condition must
   hold) and what happens to a matching INBOX mail: mark read, flag, move to a folder on the server, link to
   a record (source `rule`). They run after each INBOX sync (`MailRuleService.applyRules`, started from
-  `index.ts` through `mailLinkRunner`); the worker matches (`matchInboxSince`), so the subject and the
+  `app/mailServices.ts` through `mailLinkRunner`); the worker matches (`matchInboxSince`), so the subject and the
   addresses never cross IPC for it. Rules act only on mail received since they were created or switched
   on (less 10 minutes for the server's clock), each mail once per rule (`mail_rule_hit`), the first rule
   with a folder moves it. On a "Nur lesen" account rules only link; marking and moving are skipped and
@@ -186,8 +186,10 @@ account whose login was rejected is left alone.
 
 ```
 src/main/
-  index.ts                        startup (enabled check, startIfConfigured), pop-out mail windows,
-                                  invoice:email, contract:email, mail:copyLink
+  app/mailServices.ts             startup (startIfConfigured, system wake), tray counts, linking, rules
+  app/windows.ts                  pop-out mail windows (openMailWindow)
+  ipc/documentMail.ts             invoice:email, contract:email (the compose window on a document)
+  ipc/mail.ts                     mail:openWindow, mail:copyLink
   notifications/                  the app's tray icon and notices (#142): appTray.ts, noticeText.ts
                                   (tooltip, dot, new-mail text), followUpSummary.ts
   mailclient/
