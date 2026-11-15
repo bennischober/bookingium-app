@@ -28,7 +28,7 @@ bookingum-app/
 | Print / PDF output | `src/renderer/src/components/print/`, `contract/`, `invoice/` | `_print` layout is chrome-free |
 | E-invoice (ZUGFeRD/XRechnung) | `src/main/einvoice/` | check-first, then XML |
 | IMAP mail client | `src/main/mailclient/`, `docs/mail-client.md` | host service + utility-process worker; experimental switch |
-| German UI wording | `docs/UI_LANGUAGE.md` | label maps, never translate stored values |
+| German UI wording | `docs/UI_LANGUAGE.md`, `src/main/api/terms.ts` | label maps, never translate stored values; nouns and avoided words in `TERMS` |
 
 ## CODE MAP
 Refs = files referencing the symbol, measured with grep -rl (module importers for `db`/`schema`, test suites for `setupTestDb`).

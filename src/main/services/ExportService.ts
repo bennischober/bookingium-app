@@ -1,4 +1,7 @@
 import { injectable, inject } from 'tsyringe'
+import { TERMS } from '../api/terms'
+
+const VENUE_HEADER = `${TERMS.club.singular} / ${TERMS.festival.singular}`
 import { BandService } from './BandService'
 import { BankService } from './BankService'
 import { CompanyService } from './CompanyService'
@@ -119,8 +122,8 @@ export class ExportService {
     const name =
       input.list === 'venues' && input.kind
         ? input.kind === 'festival'
-          ? 'Festivals'
-          : 'Clubs'
+          ? TERMS.festival.plural
+          : TERMS.club.plural
         : EXPORT_LIST_LABELS[input.list]
 
     switch (input.list) {
@@ -131,10 +134,10 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Band' },
+            { header: TERMS.band.singular },
             { header: 'Genre' },
             { header: 'Gründung' },
-            { header: 'Firma' },
+            { header: TERMS.company.singular },
             { header: 'Management' },
             { header: 'Technischer Leiter' },
             { header: 'Anmerkungen' }
@@ -177,12 +180,12 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Firma' },
+            { header: TERMS.company.singular },
             { header: 'USt-IdNr.' },
             { header: 'Steuernummer' },
             ...CONTACT_COLUMNS,
             ...ADDRESS_COLUMNS,
-            { header: 'Bank' },
+            { header: TERMS.bank.singular },
             { header: 'IBAN' },
             { header: 'Anmerkungen' }
           ],
@@ -203,7 +206,7 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Club / Festival' },
+            { header: VENUE_HEADER },
             { header: 'Art' },
             { header: 'Kapazität', kind: 'number' },
             { header: 'Genres' },
@@ -229,7 +232,7 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Hotel' },
+            { header: TERMS.hotel.singular },
             ...CONTACT_COLUMNS,
             ...ADDRESS_COLUMNS,
             { header: 'Anmerkungen' }
@@ -248,9 +251,9 @@ export class ExportService {
           name,
           columns: [
             { header: 'Datum', kind: 'date' },
-            { header: 'Event' },
-            { header: 'Band' },
-            { header: 'Club / Festival' },
+            { header: TERMS.event.singular },
+            { header: TERMS.band.singular },
+            { header: VENUE_HEADER },
             { header: 'Status' },
             { header: 'Deal' }
           ],
@@ -274,7 +277,7 @@ export class ExportService {
             { header: 'Fällig', kind: 'date' },
             { header: 'Rechnungssteller' },
             { header: 'Empfänger' },
-            { header: 'Event' },
+            { header: TERMS.event.singular },
             { header: 'Zeitraum' },
             { header: 'Status' },
             { header: 'Netto', kind: 'money' },
@@ -305,7 +308,7 @@ export class ExportService {
         return {
           name,
           columns: [
-            { header: 'Bank' },
+            { header: TERMS.bank.singular },
             { header: 'Kontoinhaber' },
             { header: 'IBAN' },
             { header: 'BIC' }

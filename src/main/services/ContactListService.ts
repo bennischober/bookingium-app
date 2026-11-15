@@ -1,4 +1,5 @@
 import { injectable, inject } from 'tsyringe'
+import { TERMS } from '../api/terms'
 import {
   ContactListRepository,
   type ListMember,
@@ -285,8 +286,8 @@ const CSV_HEADERS = [
   'E-Mail',
   'Vorname',
   'Nachname',
-  'Firma',
-  'Club/Festival/Medium',
+  TERMS.company.singular,
+  `${TERMS.club.singular}/${TERMS.festival.singular}/Medium`,
   'Ort',
   'Land',
   'Art'

@@ -18,7 +18,7 @@ import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { VenueKind, VenueDto } from '../../../main/api/schemas/venue.schema'
-import { VENUE_KIND_COPY, venueDetailPath } from '@/components/venue/constants'
+import { VENUE_KIND_TERMS, venueDetailPath } from '@/components/venue/constants'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
@@ -26,7 +26,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 /** The Clubs list or the Festivals list: the same venue table, one kind each */
 export default function VenuePage({ kind }: { kind: VenueKind }) {
-  const copy = VENUE_KIND_COPY[kind]
+  const copy = VENUE_KIND_TERMS[kind]
   const { sorting, setSorting, sortInput } = useListSorting('venues', { id: 'name', desc: false })
   const [search, setSearch] = useState('')
   const [membersEntity, setMembersEntity] = useState<{
@@ -156,7 +156,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         onRetry={() => void venues.refetch()}
         total={listTotal(venues.data)}
         actionButton={
-          <ListToolbar createLabel={`+ ${copy.newOne} anlegen`} onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel={`+ ${copy.Neuen} anlegen`} onCreate={formSheet.openCreate}>
             <ExportButton list="venues" sort={sortInput} search={search} kind={kind} />
             <ImportButton target="venues" kind={kind} />
           </ListToolbar>
@@ -180,11 +180,11 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         title={
           formSheet.mode === 'create'
             ? `${copy.singular} anlegen`
-            : `${VENUE_KIND_COPY[formSheet.selectedItem?.kind ?? kind].singular} bearbeiten`
+            : `${VENUE_KIND_TERMS[formSheet.selectedItem?.kind ?? kind].singular} bearbeiten`
         }
         description={
           formSheet.mode === 'create'
-            ? `${copy.newOne} im Verzeichnis anlegen.`
+            ? `${copy.Neuen} im Verzeichnis anlegen.`
             : 'Angaben aktualisieren.'
         }
       >

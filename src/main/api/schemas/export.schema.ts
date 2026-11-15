@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TERMS } from '../terms'
 import { VenueKind } from './venue.schema'
 import { SortDirection } from './base.schema'
 
@@ -20,14 +21,14 @@ export type ExportList = z.infer<typeof ExportList>
 
 /** Default file names */
 export const EXPORT_LIST_LABELS: Record<ExportList, string> = {
-  bands: 'Bands',
-  persons: 'Personen',
-  companies: 'Firmen',
-  venues: 'Clubs und Festivals',
-  hotels: 'Hotels',
-  events: 'Events',
-  invoices: 'Rechnungen',
-  banks: 'Banken'
+  bands: TERMS.band.plural,
+  persons: TERMS.person.plural,
+  companies: TERMS.company.plural,
+  venues: `${TERMS.club.plural} und ${TERMS.festival.plural}`,
+  hotels: TERMS.hotel.plural,
+  events: TERMS.event.plural,
+  invoices: TERMS.invoice.plural,
+  banks: TERMS.bank.plural
 }
 
 /** One list as the grid shows it: same search and filter, all pages */

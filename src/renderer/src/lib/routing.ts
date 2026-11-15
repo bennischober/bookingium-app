@@ -16,6 +16,7 @@ import {
   Users,
   type LucideIcon
 } from 'lucide-react'
+import { TERMS } from '../../../main/api/terms'
 
 /**
  * A route information object containing the path, title, group and icon.
@@ -43,21 +44,31 @@ export type GroupedRoute = {
 export const ROUTES = {
   dashboard: { path: '/', title: 'Dashboard', group: 'Planung', icon: LayoutDashboard },
   calendar: { path: '/calendar', title: 'Kalender', group: 'Planung', icon: CalendarDays },
-  events: { path: '/events', title: 'Events', group: 'Planung', icon: Music2 },
-  invoices: { path: '/invoices', title: 'Rechnungen', group: 'Planung', icon: FileText },
-  bands: { path: '/band', title: 'Bands', group: 'Kontakte', icon: Guitar },
-  persons: { path: '/persons', title: 'Personen', group: 'Kontakte', icon: Users },
-  companies: { path: '/companies', title: 'Firmen', group: 'Kontakte', icon: Building2 },
+  events: { path: '/events', title: TERMS.event.plural, group: 'Planung', icon: Music2 },
+  invoices: { path: '/invoices', title: TERMS.invoice.plural, group: 'Planung', icon: FileText },
+  bands: { path: '/band', title: TERMS.band.plural, group: 'Kontakte', icon: Guitar },
+  persons: { path: '/persons', title: TERMS.person.plural, group: 'Kontakte', icon: Users },
+  companies: {
+    path: '/companies',
+    title: TERMS.company.plural,
+    group: 'Kontakte',
+    icon: Building2
+  },
   // Both are venues in the database (venue.kind); the detail page lives under the list of its kind
-  clubs: { path: '/clubs', title: 'Clubs', group: 'Kontakte', icon: MapPin },
-  festivals: { path: '/festivals', title: 'Festivals', group: 'Kontakte', icon: Tent },
-  hotels: { path: '/hotels', title: 'Hotels', group: 'Kontakte', icon: Hotel },
-  contactLists: { path: '/contact-lists', title: 'Verteiler', group: 'Kontakte', icon: Mails },
+  clubs: { path: '/clubs', title: TERMS.club.plural, group: 'Kontakte', icon: MapPin },
+  festivals: { path: '/festivals', title: TERMS.festival.plural, group: 'Kontakte', icon: Tent },
+  hotels: { path: '/hotels', title: TERMS.hotel.plural, group: 'Kontakte', icon: Hotel },
+  contactLists: {
+    path: '/contact-lists',
+    title: TERMS.contactList.plural,
+    group: 'Kontakte',
+    icon: Mails
+  },
   // The menu groups it under Planung; listed here, after the first ten, so the experimental
   // page takes no Alt+number shortcut away from the pages before it (#102)
   map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
-  banks: { path: '/banks', title: 'Banken', group: 'Verwaltung', icon: Landmark },
+  banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
 } as const satisfies Record<string, RouteInfo>
 

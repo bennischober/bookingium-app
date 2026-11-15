@@ -20,7 +20,7 @@ import { MembersPanel } from '@/components/MembersSheet'
 import {
   isMisplacedVenuePath,
   isVenueTab,
-  VENUE_KIND_COPY,
+  VENUE_KIND_TERMS,
   venueDetailPath,
   venueListPath
 } from '@/components/venue/constants'
@@ -118,7 +118,7 @@ export default function VenueDetailPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.venue,
     utils: utils.venue,
-    noun: venue ? VENUE_KIND_COPY[venue.kind].singular : 'Eintrag',
+    noun: venue ? VENUE_KIND_TERMS[venue.kind].singular : 'Eintrag',
     label: (venue: VenueDto) => venue.name,
     deleteInput: (venue) => ({ id: venue.id }),
     onSaved: sheet.close,
@@ -151,7 +151,7 @@ export default function VenueDetailPage() {
       }}
     >
       {(venue) => {
-        const copy = VENUE_KIND_COPY[venue.kind]
+        const copy = VENUE_KIND_TERMS[venue.kind]
         const ofVenue = venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'
         return (
           <RecordDetail

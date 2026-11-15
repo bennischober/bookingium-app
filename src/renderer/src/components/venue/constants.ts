@@ -1,4 +1,5 @@
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { TERMS, type Term } from '../../../../main/api/terms'
 
 // Venue page tabs; the active one is kept in the URL (?tab=...)
 export const VENUE_TABS = ['overview', 'contacts', 'events', 'documents', 'mails'] as const
@@ -9,20 +10,13 @@ export function isVenueTab(value: unknown): value is VenueTab {
 }
 
 /**
- * Clubs and festivals are both venues in the database, but two lists in the app. German copy
- * per kind: the plural is the list, `article` and `newOne` decline the singular.
+ * Clubs and festivals are both venues in the database, but two lists in the app. The noun of
+ * each kind, with its forms from TERMS (#105): the plural is the list, `Neuen` starts
+ * "Neuen Club anlegen".
  */
-export const VENUE_KIND_COPY: Record<
-  VenueKind,
-  { singular: string; plural: string; article: string; newOne: string }
-> = {
-  venue: { singular: 'Club', plural: 'Clubs', article: 'Der Club', newOne: 'Neuen Club' },
-  festival: {
-    singular: 'Festival',
-    plural: 'Festivals',
-    article: 'Das Festival',
-    newOne: 'Neues Festival'
-  }
+export const VENUE_KIND_TERMS: Record<VenueKind, Term> = {
+  venue: TERMS.club,
+  festival: TERMS.festival
 }
 
 /** The list a venue belongs to; its detail page lives below it */

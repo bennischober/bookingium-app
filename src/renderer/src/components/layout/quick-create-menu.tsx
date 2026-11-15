@@ -3,19 +3,20 @@ import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ROUTES } from '@/lib/routing'
+import { TERMS } from '../../../../main/api/terms'
 
 // What can be created from anywhere, in menu order; each opens the "new"
 // form on its list page (?create=true, see useListSearchActions)
 const CREATE_ITEMS = [
-  { label: 'Event', route: ROUTES.events },
-  { label: 'Rechnung', route: ROUTES.invoices },
-  { label: 'Band', route: ROUTES.bands },
-  { label: 'Person', route: ROUTES.persons },
-  { label: 'Firma', route: ROUTES.companies },
-  { label: 'Club', route: ROUTES.clubs },
-  { label: 'Festival', route: ROUTES.festivals },
-  { label: 'Hotel', route: ROUTES.hotels },
-  { label: 'Bank', route: ROUTES.banks }
+  { label: TERMS.event.singular, route: ROUTES.events },
+  { label: TERMS.invoice.singular, route: ROUTES.invoices },
+  { label: TERMS.band.singular, route: ROUTES.bands },
+  { label: TERMS.person.singular, route: ROUTES.persons },
+  { label: TERMS.company.singular, route: ROUTES.companies },
+  { label: TERMS.club.singular, route: ROUTES.clubs },
+  { label: TERMS.festival.singular, route: ROUTES.festivals },
+  { label: TERMS.hotel.singular, route: ROUTES.hotels },
+  { label: TERMS.bank.singular, route: ROUTES.banks }
 ]
 
 /** Alt + „+“ (main keyboard or numpad) or Ctrl+N */

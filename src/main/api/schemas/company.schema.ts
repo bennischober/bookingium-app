@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TERMS } from '../terms'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
 import { AddressDto, AddressInput } from './address.schema'
 import { ContactDto, ContactInput } from './contact.schema'
@@ -11,7 +12,7 @@ export const CompanyKind = z.enum(['company', 'media'])
 export type CompanyKind = z.infer<typeof CompanyKind>
 
 export const COMPANY_KIND_LABELS: Record<CompanyKind, string> = {
-  company: 'Firma',
+  company: TERMS.company.singular,
   media: 'Radio/Medien'
 }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TERMS } from '../terms'
 import { CompanyKind } from './company.schema'
 import { VenueKind } from './venue.schema'
 
@@ -14,10 +15,10 @@ export const ImportTarget = z.enum(['venues', 'bands', 'companies', 'persons'])
 export type ImportTarget = z.infer<typeof ImportTarget>
 
 export const IMPORT_TARGET_LABELS: Record<ImportTarget, string> = {
-  venues: 'Clubs / Festivals',
-  bands: 'Bands',
-  companies: 'Firmen',
-  persons: 'Personen'
+  venues: `${TERMS.club.plural} / ${TERMS.festival.plural}`,
+  bands: TERMS.band.plural,
+  companies: TERMS.company.plural,
+  persons: TERMS.person.plural
 }
 
 export const IMPORT_TARGET_DESCRIPTIONS: Record<ImportTarget, string> = {
@@ -63,22 +64,22 @@ export type ImportField = z.infer<typeof ImportField>
 
 const FIELD_LABELS: Record<ImportField, string> = {
   ignore: 'Nicht importieren',
-  venueName: 'Club / Festival',
-  venueCity: 'Ort des Clubs / Festivals',
+  venueName: `${TERMS.club.singular} / ${TERMS.festival.singular}`,
+  venueCity: `Ort ${TERMS.club.des} / ${TERMS.festival.genitive}`,
   region: 'Land / Bundesland',
   capacity: 'Kapazität / Zuschauer',
-  bandName: 'Band',
+  bandName: TERMS.band.singular,
   genre: 'Genre',
   founded: 'Gründung',
   members: 'Mitglieder',
   responsiblePerson: 'Technischer Leiter',
-  managementCompany: 'Management (Firma)',
-  companyName: 'Firma',
+  managementCompany: `Management (${TERMS.company.singular})`,
+  companyName: TERMS.company.singular,
   contactPerson: 'Ansprechpartner',
   personName: 'Name (Vor- und Nachname)',
   firstName: 'Vorname',
   lastName: 'Nachname',
-  role: 'Rolle in der Firma',
+  role: `Rolle in ${TERMS.company.dem}`,
   birthday: 'Geburtstag',
   email: 'E-Mail',
   phone: 'Telefon',
@@ -95,9 +96,9 @@ const FIELD_LABELS: Record<ImportField, string> = {
 
 // Labels that read differently for a target
 const TARGET_FIELD_LABELS: Partial<Record<ImportTarget, Partial<Record<ImportField, string>>>> = {
-  venues: { companyName: 'Veranstalter (Firma)' },
+  venues: { companyName: `Veranstalter (${TERMS.company.singular})` },
   bands: {
-    companyName: 'Firma der Band (muss existieren)',
+    companyName: `${TERMS.company.singular} ${TERMS.band.des} (muss existieren)`,
     email: 'E-Mail (Technischer Leiter)',
     phone: 'Telefon (Technischer Leiter)',
     mobile: 'Mobil (Technischer Leiter)'
