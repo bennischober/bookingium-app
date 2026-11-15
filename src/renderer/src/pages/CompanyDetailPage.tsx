@@ -3,8 +3,7 @@ import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
-import { toast } from '@/lib/toast'
-import type { z } from 'zod'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -30,11 +29,7 @@ import {
   RowTable,
   TabCount
 } from '@/components/detail/DetailParts'
-import type {
-  CompanyDto,
-  CreateCompanyInput,
-  UpdateCompanyInput
-} from '../../../main/api/schemas/company.schema'
+import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
 import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 
@@ -267,26 +262,14 @@ export default function CompanyDetailPage() {
   } = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list
-  const deleteCompany = trpcReact.company.delete.useMutation({
-    onSuccess: async () => {
-      await navigate({ to: '/companies' })
-      void utils.company.invalidate()
-      toast.success('Firma gelöscht', { description: 'Die Firma wurde erfolgreich gelöscht.' })
-    },
-    onError: (error) => {
-      toast.error('Firma konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  const updateCompany = trpcReact.company.update.useMutation({
-    onSuccess: (data) => {
-      void utils.company.invalidate()
-      sheet.close()
-      toast.success('Firma aktualisiert', { description: `${data.name} wurde aktualisiert.` })
-    },
-    onError: (error) => {
-      toast.error('Firma konnte nicht aktualisiert werden', { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.company,
+    utils: utils.company,
+    noun: 'Firma',
+    label: (company: CompanyDto) => company.name,
+    deleteInput: (company) => ({ id: company.id }),
+    onSaved: sheet.close,
+    onDeleted: () => navigate({ to: '/companies' })
   })
 
   // A bad id never loads (the query stays disabled), it is not found
@@ -352,8 +335,8 @@ export default function CompanyDetailPage() {
             </Button>
             <DeleteRecordButton
               confirmTitle={`„${company.name}“ löschen?`}
-              pending={deleteCompany.isPending}
-              onDelete={() => deleteCompany.mutate({ id: company.id })}
+              pending={mutations.isDeleting}
+              onDelete={() => mutations.deleteNow(company)}
             />
           </div>
         </div>
@@ -441,11 +424,9 @@ export default function CompanyDetailPage() {
       >
         <CompanyForm
           company={sheet.selectedItem || undefined}
-          onSubmit={(data: z.infer<typeof CreateCompanyInput> & { id?: number }) =>
-            updateCompany.mutate(data as UpdateCompanyInput)
-          }
+          onSubmit={mutations.submit}
           onCancel={sheet.close}
-          isSubmitting={updateCompany.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

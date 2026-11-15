@@ -12,17 +12,16 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2, Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
 import { ImportButton } from '@/components/import/ImportButton'
-import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { VenueKind, VenueDto } from '../../../main/api/schemas/venue.schema'
 import { VENUE_KIND_COPY, venueDetailPath } from '@/components/venue/constants'
-import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 /** The Clubs list or the Festivals list: the same venue table, one kind each */
@@ -57,58 +56,14 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
     infiniteListOptions
   )
 
-  const createMutation = trpcReact.venue.create.useMutation({
-    onSuccess: (venue) => {
-      utils.venue.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success(`${copy.singular} erstellt`, {
-        description: `${venue.name} wurde erfolgreich erstellt.`
-      })
-    },
-    onError: (error) => {
-      toast.error(`${copy.singular} konnte nicht erstellt werden`, { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.venue,
+    utils: utils.venue,
+    noun: copy.singular,
+    label: (venue: VenueDto) => venue.name,
+    deleteInput: (venue) => ({ id: venue.id }),
+    onSaved: formSheet.close
   })
-
-  const updateMutation = trpcReact.venue.update.useMutation({
-    onSuccess: (venue) => {
-      utils.venue.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success(`${copy.singular} aktualisiert`, {
-        description: `${venue.name} wurde erfolgreich aktualisiert.`
-      })
-    },
-    onError: (error) => {
-      toast.error(`${copy.singular} konnte nicht aktualisiert werden`, {
-        description: error.message
-      })
-    }
-  })
-
-  const deleteMutation = trpcReact.venue.delete.useMutation({
-    onSuccess: () => {
-      utils.venue.getAllPaginated.invalidate()
-      toast.success(`${copy.singular} gelöscht`, {
-        description: `${copy.article} wurde erfolgreich gelöscht.`
-      })
-    },
-    onError: (error) => {
-      toast.error(`${copy.singular} konnte nicht gelöscht werden`, { description: error.message })
-    }
-  })
-
-  const handleDelete = async (venue: VenueDto) => {
-    if (
-      await confirmAction({
-        title: `„${venue.name}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteMutation.mutate({ id: venue.id })
-    }
-  }
 
   const columns: ColumnDef<VenueDto>[] = [
     {
@@ -161,7 +116,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
             icon={Trash2}
             label="Löschen"
             destructive
-            onClick={() => handleDelete(row.original)}
+            onClick={() => void mutations.remove(row.original)}
           />
         </RowActions>
       )
@@ -170,14 +125,14 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">{copy.plural}</h1>
-        <p className="text-sm text-muted-foreground">
-          {kind === 'festival'
+      <ListPageHeader
+        title={copy.plural}
+        description={
+          kind === 'festival'
             ? 'Verwalten Sie alle Festivals und ihre Kapazitäten.'
-            : 'Verwalten Sie alle Clubs, Hallen und ihre Kapazitäten.'}
-        </p>
-      </div>
+            : 'Verwalten Sie alle Clubs, Hallen und ihre Kapazitäten.'
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -201,11 +156,10 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         onRetry={() => void venues.refetch()}
         total={listTotal(venues.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel={`+ ${copy.newOne} anlegen`} onCreate={formSheet.openCreate}>
             <ExportButton list="venues" sort={sortInput} search={search} kind={kind} />
             <ImportButton target="venues" kind={kind} />
-            <Button onClick={() => formSheet.openCreate()}>+ {copy.newOne} anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 
@@ -238,15 +192,9 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
           mode={formSheet.mode}
           initialData={formSheet.selectedItem}
           defaultKind={kind}
-          onSubmit={(data) => {
-            if ('id' in data) {
-              updateMutation.mutate(data)
-            } else {
-              createMutation.mutate(data)
-            }
-          }}
+          onSubmit={mutations.submit}
           onCancel={formSheet.close}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

@@ -9,16 +9,15 @@ import {
 import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2 } from 'lucide-react'
-import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { HotelForm } from '@/components/forms/HotelForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { HotelDto } from '../../../main/api/schemas/hotel.schema'
-import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function HotelPage() {
@@ -44,60 +43,14 @@ export default function HotelPage() {
     infiniteListOptions
   )
 
-  const createMutation = trpcReact.hotel.create.useMutation({
-    onSuccess: (hotel) => {
-      utils.hotel.getAllPaginated.invalidate()
-      utils.hotel.getListItems.invalidate()
-      formSheet.close()
-      toast.success('Hotel angelegt', { description: `${hotel.name} wurde erfolgreich angelegt.` })
-    },
-    onError: (error) => {
-      toast.error('Hotel konnte nicht angelegt werden', { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.hotel,
+    utils: utils.hotel,
+    noun: 'Hotel',
+    label: (hotel: HotelDto) => hotel.name,
+    deleteInput: (hotel) => hotel.id,
+    onSaved: formSheet.close
   })
-
-  const updateMutation = trpcReact.hotel.update.useMutation({
-    onSuccess: (hotel) => {
-      utils.hotel.getAllPaginated.invalidate()
-      utils.hotel.getListItems.invalidate()
-      formSheet.close()
-      toast.success('Hotel aktualisiert', {
-        description: `${hotel.name} wurde erfolgreich aktualisiert.`
-      })
-    },
-    onError: (error) => {
-      toast.error('Hotel konnte nicht aktualisiert werden', { description: error.message })
-    }
-  })
-
-  const deleteMutation = trpcReact.hotel.delete.useMutation({
-    onSuccess: () => {
-      utils.hotel.getAllPaginated.invalidate()
-      utils.hotel.getListItems.invalidate()
-    },
-    onError: (error) => {
-      toast.error('Hotel konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  const handleDelete = async (hotel: HotelDto) => {
-    if (
-      await confirmAction({
-        title: `„${hotel.name}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteMutation.mutate(hotel.id, {
-        onSuccess: () => {
-          toast.success('Hotel gelöscht', {
-            description: `${hotel.name} wurde erfolgreich gelöscht.`
-          })
-        }
-      })
-    }
-  }
 
   const columns: ColumnDef<HotelDto>[] = [
     {
@@ -137,7 +90,7 @@ export default function HotelPage() {
             icon={Trash2}
             label="Löschen"
             destructive
-            onClick={() => handleDelete(row.original)}
+            onClick={() => void mutations.remove(row.original)}
           />
         </RowActions>
       )
@@ -146,10 +99,7 @@ export default function HotelPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Hotels</h1>
-        <p className="text-sm text-muted-foreground">Unterkünfte für Tours und Events verwalten.</p>
-      </div>
+      <ListPageHeader title="Hotels" description="Unterkünfte für Tours und Events verwalten." />
 
       <DataTable
         columns={columns}
@@ -169,10 +119,9 @@ export default function HotelPage() {
         onRetry={() => void hotels.refetch()}
         total={listTotal(hotels.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel="+ Neues Hotel anlegen" onCreate={formSheet.openCreate}>
             <ExportButton list="hotels" sort={sortInput} search={search} />
-            <Button onClick={() => formSheet.openCreate()}>+ Neues Hotel anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 
@@ -190,15 +139,9 @@ export default function HotelPage() {
         <HotelForm
           mode={formSheet.mode}
           initialData={formSheet.selectedItem}
-          onSubmit={(data) => {
-            if ('id' in data) {
-              updateMutation.mutate(data)
-            } else {
-              createMutation.mutate(data)
-            }
-          }}
+          onSubmit={mutations.submit}
           onCancel={formSheet.close}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

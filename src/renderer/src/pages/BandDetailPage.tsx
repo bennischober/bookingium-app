@@ -3,7 +3,7 @@ import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
-import { toast } from '@/lib/toast'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -23,7 +23,7 @@ import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { Empty, EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
-import type { BandDto, UpdateBandInput } from '../../../main/api/schemas/band.schema'
+import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 /** Overview: who the band is, who bills and represents it */
 function OverviewTab({ band }: { band: BandDto }) {
@@ -129,26 +129,14 @@ export default function BandDetailPage() {
   })
 
   // #162: delete from the detail page, then back to the list
-  const deleteBand = trpcReact.band.delete.useMutation({
-    onSuccess: async () => {
-      await navigate({ to: '/band' })
-      void utils.band.invalidate()
-      toast.success('Band gelöscht', { description: 'Die Band wurde erfolgreich gelöscht.' })
-    },
-    onError: (error) => {
-      toast.error('Band konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  const updateBand = trpcReact.band.update.useMutation({
-    onSuccess: (data) => {
-      void utils.band.invalidate()
-      sheet.close()
-      toast.success('Band aktualisiert', { description: `${data.name} wurde aktualisiert.` })
-    },
-    onError: (error) => {
-      toast.error('Band konnte nicht aktualisiert werden', { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.band,
+    utils: utils.band,
+    noun: 'Band',
+    label: (band: BandDto) => band.name,
+    deleteInput: (band) => band.id,
+    onSaved: sheet.close,
+    onDeleted: () => navigate({ to: '/band' })
   })
 
   // A bad id never loads (the query stays disabled), it is not found
@@ -206,8 +194,8 @@ export default function BandDetailPage() {
             </Button>
             <DeleteRecordButton
               confirmTitle={`„${band.name}“ löschen?`}
-              pending={deleteBand.isPending}
-              onDelete={() => deleteBand.mutate(band.id)}
+              pending={mutations.isDeleting}
+              onDelete={() => mutations.deleteNow(band)}
             />
           </div>
         </div>
@@ -292,9 +280,9 @@ export default function BandDetailPage() {
         <BandForm
           mode="edit"
           initialData={sheet.selectedItem}
-          onSubmit={(data) => updateBand.mutate(data as UpdateBandInput)}
+          onSubmit={mutations.submit}
           onCancel={sheet.close}
-          isSubmitting={updateBand.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

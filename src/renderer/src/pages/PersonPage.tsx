@@ -9,20 +9,17 @@ import {
 import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
-import type { CreatePersonInput, UpdatePersonInput } from '../../../main/api/schemas/person.schema'
+import type { PersonDto } from '../../../main/api/schemas/person.schema'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from '@/lib/toast'
 import { Pencil, Trash2 } from 'lucide-react'
-import { PersonDto } from 'src/main/api/schemas/person.schema'
-import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export function PersonPage() {
@@ -53,62 +50,14 @@ export function PersonPage() {
     infiniteListOptions
   )
 
-  // Mutations
-  const createMutation = trpcReact.person.create.useMutation({
-    onSuccess: () => {
-      utils.person.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success('Person angelegt', { description: 'Die Person wurde erfolgreich angelegt.' })
-    },
-    onError: (error) => {
-      toast.error('Person konnte nicht angelegt werden', { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.person,
+    utils: utils.person,
+    noun: 'Person',
+    label: (person: PersonDto) => `${person.firstName} ${person.lastName}`,
+    deleteInput: (person) => ({ id: person.id }),
+    onSaved: formSheet.close
   })
-
-  const updateMutation = trpcReact.person.update.useMutation({
-    onSuccess: () => {
-      utils.person.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success('Person aktualisiert', {
-        description: 'Die Person wurde erfolgreich aktualisiert.'
-      })
-    },
-    onError: (error) => {
-      toast.error('Person konnte nicht aktualisiert werden', { description: error.message })
-    }
-  })
-
-  const deleteMutation = trpcReact.person.delete.useMutation({
-    onSuccess: () => {
-      utils.person.getAllPaginated.invalidate()
-      toast.success('Person gelöscht', { description: 'Die Person wurde erfolgreich gelöscht.' })
-    },
-    onError: (error) => {
-      toast.error('Person konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  // Handlers
-  const handleCreate = (data: z.infer<typeof CreatePersonInput>) => {
-    createMutation.mutate(data)
-  }
-
-  const handleUpdate = (data: z.infer<typeof CreatePersonInput> & { id?: number }) => {
-    updateMutation.mutate(data as z.infer<typeof UpdatePersonInput>)
-  }
-
-  const handleDelete = async (person: PersonDto) => {
-    if (
-      await confirmAction({
-        title: `„${person.firstName} ${person.lastName}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteMutation.mutate({ id: person.id })
-    }
-  }
 
   // Table columns
   const columns: ColumnDef<PersonDto>[] = [
@@ -144,7 +93,7 @@ export function PersonPage() {
             icon={Trash2}
             label="Löschen"
             destructive
-            onClick={() => handleDelete(row.original)}
+            onClick={() => void mutations.remove(row.original)}
           />
         </RowActions>
       )
@@ -153,12 +102,10 @@ export function PersonPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Personen</h1>
-        <p className="text-sm text-muted-foreground">
-          Stammdaten der Personen verwalten, einschließlich Kontaktinformationen und Adressen.
-        </p>
-      </div>
+      <ListPageHeader
+        title="Personen"
+        description="Stammdaten der Personen verwalten, einschließlich Kontaktinformationen und Adressen."
+      />
 
       <DataTable
         columns={columns}
@@ -182,11 +129,10 @@ export function PersonPage() {
         onRetry={() => void persons.refetch()}
         total={listTotal(persons.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel="+ Neue Person anlegen" onCreate={formSheet.openCreate}>
             <ExportButton list="persons" sort={sortInput} search={search} />
             <ImportButton target="persons" />
-            <Button onClick={() => formSheet.openCreate()}>+ Neue Person anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 
@@ -203,7 +149,7 @@ export function PersonPage() {
       >
         <PersonForm
           person={formSheet.selectedItem || undefined}
-          onSubmit={formSheet.mode === 'create' ? handleCreate : handleUpdate}
+          onSubmit={mutations.submit}
           onCancel={formSheet.close}
         />
       </FormSheet>

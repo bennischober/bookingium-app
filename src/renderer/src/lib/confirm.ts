@@ -44,3 +44,13 @@ export function settleConfirm(confirmed: boolean): void {
   emit()
   current?.resolve(confirmed)
 }
+
+/** #170: the one delete question: irreversible, red "Löschen" button */
+export function confirmDelete(title: string): Promise<boolean> {
+  return confirmAction({
+    title,
+    description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+    confirmLabel: 'Löschen',
+    destructive: true
+  })
+}

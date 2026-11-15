@@ -10,22 +10,19 @@ import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import type { z } from 'zod'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/data-table'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { FileSignature, Pencil, Trash2 } from 'lucide-react'
-import { toast } from '@/lib/toast'
 import { Users } from 'lucide-react'
 import { MembersSheet } from '@/components/MembersSheet'
 import { ManagementContractSheet } from '@/components/band/ManagementContractSheet'
-import type { CreateBandInput, UpdateBandInput } from '../../../main/api/schemas/band.schema'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
-import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BandPage() {
@@ -58,70 +55,14 @@ export default function BandPage() {
     onOpen: (id) => void utils.band.getById.fetch(id).then((band) => band && sheet.openEdit(band))
   })
 
-  const createBand = trpcReact.band.create.useMutation({
-    onSuccess: (data) => {
-      utils.band.getAllPaginated.invalidate()
-      sheet.close()
-      toast.success('Band erfolgreich erstellt', {
-        description: `${data.name} wurde zu Ihren Bands hinzugefügt.`
-      })
-    },
-    onError: (error) => {
-      toast.error('Band konnte nicht erstellt werden', {
-        description: error.message
-      })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.band,
+    utils: utils.band,
+    noun: 'Band',
+    label: (band: BandDto) => band.name,
+    deleteInput: (band) => band.id,
+    onSaved: sheet.close
   })
-
-  const updateBand = trpcReact.band.update.useMutation({
-    onSuccess: (data) => {
-      utils.band.getAllPaginated.invalidate()
-      sheet.close()
-      toast.success('Band erfolgreich aktualisiert', {
-        description: `${data.name} wurde aktualisiert.`
-      })
-    },
-    onError: (error) => {
-      toast.error('Band konnte nicht aktualisiert werden', {
-        description: error.message
-      })
-    }
-  })
-
-  const deleteBand = trpcReact.band.delete.useMutation({
-    onSuccess: (data) => {
-      utils.band.getAllPaginated.invalidate()
-      toast.success('Band gelöscht', {
-        description: `${data.name} wurde entfernt.`
-      })
-    },
-    onError: (error) => {
-      toast.error('Band konnte nicht gelöscht werden', {
-        description: error.message
-      })
-    }
-  })
-
-  const handleDelete = async (id: number, name: string) => {
-    if (
-      await confirmAction({
-        title: `„${name}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteBand.mutate(id)
-    }
-  }
-
-  const handleFormSubmit = (data: CreateBandInput | UpdateBandInput) => {
-    if (sheet.mode === 'edit') {
-      updateBand.mutate(data as z.infer<typeof UpdateBandInput>)
-    } else {
-      createBand.mutate(data as z.infer<typeof CreateBandInput>)
-    }
-  }
 
   // Define table columns
   const columns: ColumnDef<BandDto>[] = [
@@ -174,7 +115,7 @@ export default function BandPage() {
               icon={Trash2}
               label="Löschen"
               destructive
-              onClick={() => handleDelete(band.id, band.name)}
+              onClick={() => void mutations.remove(band)}
             />
           </RowActions>
         )
@@ -184,10 +125,7 @@ export default function BandPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Bands</h1>
-        <p className="text-sm text-muted-foreground">Verwalten Sie Ihre Künstler und Kontakte.</p>
-      </div>
+      <ListPageHeader title="Bands" description="Verwalten Sie Ihre Künstler und Kontakte." />
 
       <DataTable
         columns={columns}
@@ -211,11 +149,10 @@ export default function BandPage() {
         onRetry={() => void bands.refetch()}
         total={listTotal(bands.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel="+ Neue Band anlegen" onCreate={sheet.openCreate}>
             <ExportButton list="bands" sort={sortInput} search={search} />
             <ImportButton target="bands" />
-            <Button onClick={() => sheet.openCreate()}>+ Neue Band anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 
@@ -245,9 +182,9 @@ export default function BandPage() {
         <BandForm
           mode={sheet.mode}
           initialData={sheet.selectedItem}
-          onSubmit={handleFormSubmit}
+          onSubmit={mutations.submit}
           onCancel={sheet.close}
-          isSubmitting={createBand.isPending || updateBand.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

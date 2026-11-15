@@ -19,8 +19,9 @@ import { AgencyBookingsView } from '@/components/agency/AgencyBookingsView'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
-import { confirmAction } from '@/lib/confirm'
+import { confirmAction, confirmDelete } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
@@ -103,16 +104,7 @@ export function EventPage() {
   }
 
   const handleDelete = async (id: number, name: string) => {
-    if (
-      await confirmAction({
-        title: `Event „${name}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteMutation.mutate(id)
-    }
+    if (await confirmDelete(`Event „${name}“ löschen?`)) deleteMutation.mutate(id)
   }
 
   const columns: ColumnDef<DealMemoListItemDto>[] = [
@@ -182,31 +174,23 @@ export function EventPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Events</h1>
-          <p className="text-sm text-muted-foreground">
-            Verwalten Sie Ihre Shows, Tours und Deal Memos.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* #103: shows other agencies booked - read-only, imported from their export */}
-          <Button
-            variant="outline"
-            onClick={() => setView((current) => (current === 'agency' ? 'list' : 'agency'))}
-          >
-            <Building2 className="h-4 w-4" />{' '}
-            {view === 'agency' ? 'Agenturbuchungen schließen' : 'Agenturbuchungen'}
-          </Button>
-          {/* D3: archived events are out of every working view, and findable here */}
-          <Button
-            variant="outline"
-            onClick={() => setView((current) => (current === 'archive' ? 'list' : 'archive'))}
-          >
-            <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
-          </Button>
-        </div>
-      </div>
+      <ListPageHeader title="Events" description="Verwalten Sie Ihre Shows, Tours und Deal Memos.">
+        {/* #103: shows other agencies booked - read-only, imported from their export */}
+        <Button
+          variant="outline"
+          onClick={() => setView((current) => (current === 'agency' ? 'list' : 'agency'))}
+        >
+          <Building2 className="h-4 w-4" />{' '}
+          {view === 'agency' ? 'Agenturbuchungen schließen' : 'Agenturbuchungen'}
+        </Button>
+        {/* D3: archived events are out of every working view, and findable here */}
+        <Button
+          variant="outline"
+          onClick={() => setView((current) => (current === 'archive' ? 'list' : 'archive'))}
+        >
+          <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
+        </Button>
+      </ListPageHeader>
 
       {view === 'agency' ? (
         <AgencyBookingsView />
@@ -270,10 +254,9 @@ export function EventPage() {
           onRetry={() => void events.refetch()}
           total={listTotal(events.data)}
           actionButton={
-            <div className="flex flex-wrap items-center gap-2">
+            <ListToolbar createLabel="+ Neues Event" onCreate={() => setWizardOpen(true)}>
               <ExportButton list="events" sort={sortInput} search={search} />
-              <Button onClick={() => setWizardOpen(true)}>+ Neues Event</Button>
-            </div>
+            </ListToolbar>
           }
           onRowClick={(event) =>
             navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })

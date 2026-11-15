@@ -7,23 +7,17 @@ import {
   useListSorting
 } from '@/hooks/useListQuery'
 import { useState } from 'react'
-import type { z } from 'zod'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { BankForm } from '@/components/forms/BankForm'
-import type {
-  BankDto,
-  CreateBankInput,
-  UpdateBankInput
-} from '../../../main/api/schemas/bank.schema'
+import type { BankDto } from '../../../main/api/schemas/bank.schema'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from '@/lib/toast'
 import { Pencil, Trash2 } from 'lucide-react'
-import { confirmAction } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BankPage() {
@@ -53,62 +47,14 @@ export default function BankPage() {
       void utils.bank.getById.fetch({ id }).then((bank) => bank && formSheet.openEdit(bank))
   })
 
-  // Mutations
-  const createMutation = trpcReact.bank.create.useMutation({
-    onSuccess: () => {
-      utils.bank.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success('Bank angelegt', { description: 'Die Bank wurde erfolgreich angelegt.' })
-    },
-    onError: (error) => {
-      toast.error('Bank konnte nicht angelegt werden', { description: error.message })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.bank,
+    utils: utils.bank,
+    noun: 'Bank',
+    label: (bank: BankDto) => bank.bankName,
+    deleteInput: (bank) => ({ id: bank.id }),
+    onSaved: formSheet.close
   })
-
-  const updateMutation = trpcReact.bank.update.useMutation({
-    onSuccess: () => {
-      utils.bank.getAllPaginated.invalidate()
-      formSheet.close()
-      toast.success('Bank aktualisiert', {
-        description: 'Die Bank wurde erfolgreich aktualisiert.'
-      })
-    },
-    onError: (error) => {
-      toast.error('Bank konnte nicht aktualisiert werden', { description: error.message })
-    }
-  })
-
-  const deleteMutation = trpcReact.bank.delete.useMutation({
-    onSuccess: () => {
-      utils.bank.getAllPaginated.invalidate()
-      toast.success('Bank gelöscht', { description: 'Die Bank wurde erfolgreich gelöscht.' })
-    },
-    onError: (error) => {
-      toast.error('Bank konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  // Handlers
-  const handleCreate = (data: z.infer<typeof CreateBankInput>) => {
-    createMutation.mutate(data)
-  }
-
-  const handleUpdate = (data: z.infer<typeof CreateBankInput> & { id?: number }) => {
-    updateMutation.mutate(data as z.infer<typeof UpdateBankInput>)
-  }
-
-  const handleDelete = async (bank: BankDto) => {
-    if (
-      await confirmAction({
-        title: `„${bank.bankName}“ löschen?`,
-        description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
-        destructive: true
-      })
-    ) {
-      deleteMutation.mutate({ id: bank.id })
-    }
-  }
 
   // Table columns
   const columns: ColumnDef<BankDto>[] = [
@@ -142,7 +88,7 @@ export default function BankPage() {
             icon={Trash2}
             label="Löschen"
             destructive
-            onClick={() => handleDelete(row.original)}
+            onClick={() => void mutations.remove(row.original)}
           />
         </RowActions>
       )
@@ -151,10 +97,10 @@ export default function BankPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Bankkontoinformationen</h1>
-        <p className="text-sm text-muted-foreground">Bankkontodaten von Kundschaft verwalten.</p>
-      </div>
+      <ListPageHeader
+        title="Bankkontoinformationen"
+        description="Bankkontodaten von Kundschaft verwalten."
+      />
 
       <DataTable
         columns={columns}
@@ -174,10 +120,9 @@ export default function BankPage() {
         onRetry={() => void banks.refetch()}
         total={listTotal(banks.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel="+ Neue Bank anlegen" onCreate={formSheet.openCreate}>
             <ExportButton list="banks" sort={sortInput} search={search} />
-            <Button onClick={() => formSheet.openCreate()}>+ Neue Bank anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 
@@ -194,7 +139,7 @@ export default function BankPage() {
       >
         <BankForm
           bank={formSheet.selectedItem || undefined}
-          onSubmit={formSheet.mode === 'create' ? handleCreate : handleUpdate}
+          onSubmit={mutations.submit}
           onCancel={formSheet.close}
         />
       </FormSheet>

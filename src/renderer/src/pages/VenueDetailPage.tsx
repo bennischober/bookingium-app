@@ -11,7 +11,7 @@ import { useDetailTab } from '@/hooks/useDetailTab'
 import { useEffect } from 'react'
 import { useParams, useNavigate, useRouterState, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
-import { toast } from '@/lib/toast'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -41,11 +41,7 @@ import {
   InfoCard,
   TabCount
 } from '@/components/detail/DetailParts'
-import {
-  VENUE_KIND_LABELS,
-  type UpdateVenueInput,
-  type VenueDto
-} from '../../../main/api/schemas/venue.schema'
+import { VENUE_KIND_LABELS, type VenueDto } from '../../../main/api/schemas/venue.schema'
 
 /** Overview: kind, capacity, genres, address, contact, promoter company, notes */
 function OverviewTab({ venue }: { venue: VenueDto }) {
@@ -141,20 +137,14 @@ export default function VenueDetailPage() {
   } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list of its kind
-  const deleteCopy = venue ? VENUE_KIND_COPY[venue.kind] : null
-  const deleteVenue = trpcReact.venue.delete.useMutation({
-    onSuccess: async () => {
-      if (venue) await navigate({ to: venueListPath(venue.kind) })
-      void utils.venue.invalidate()
-      toast.success(`${deleteCopy?.singular ?? 'Eintrag'} gelöscht`, {
-        description: `${deleteCopy?.article ?? 'Der Eintrag'} wurde erfolgreich gelöscht.`
-      })
-    },
-    onError: (error) => {
-      toast.error(`${deleteCopy?.singular ?? 'Eintrag'} konnte nicht gelöscht werden`, {
-        description: error.message
-      })
-    }
+  const mutations = useRecordMutations({
+    procedures: trpcReact.venue,
+    utils: utils.venue,
+    noun: venue ? VENUE_KIND_COPY[venue.kind].singular : 'Eintrag',
+    label: (venue: VenueDto) => venue.name,
+    deleteInput: (venue) => ({ id: venue.id }),
+    onSaved: sheet.close,
+    onDeleted: (venue) => navigate({ to: venueListPath(venue.kind) })
   })
 
   // Links that do not know the kind, older /venues links, or the kind changed in the sheet:
@@ -170,19 +160,6 @@ export default function VenueDetailPage() {
       replace: true
     })
   }, [misplaced, venueKind, id, activeTab, navigate])
-
-  const updateVenue = trpcReact.venue.update.useMutation({
-    onSuccess: (data) => {
-      void utils.venue.invalidate()
-      sheet.close()
-      toast.success(`${VENUE_KIND_COPY[data.kind].singular} aktualisiert`, {
-        description: `${data.name} wurde aktualisiert.`
-      })
-    },
-    onError: (error) => {
-      toast.error('Änderungen konnten nicht gespeichert werden', { description: error.message })
-    }
-  })
 
   // A bad id never loads (the query stays disabled), it is not found
   if (id !== null && isLoading) {
@@ -241,8 +218,8 @@ export default function VenueDetailPage() {
             </Button>
             <DeleteRecordButton
               confirmTitle={`„${venue.name}“ löschen?`}
-              pending={deleteVenue.isPending}
-              onDelete={() => deleteVenue.mutate({ id: venue.id })}
+              pending={mutations.isDeleting}
+              onDelete={() => mutations.deleteNow(venue)}
             />
           </div>
         </div>
@@ -314,9 +291,9 @@ export default function VenueDetailPage() {
         <VenueForm
           mode="edit"
           initialData={sheet.selectedItem}
-          onSubmit={(data) => updateVenue.mutate(data as UpdateVenueInput)}
+          onSubmit={mutations.submit}
           onCancel={sheet.close}
-          isSubmitting={updateVenue.isPending}
+          isSubmitting={mutations.isSubmitting}
         />
       </FormSheet>
     </div>

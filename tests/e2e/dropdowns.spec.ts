@@ -36,7 +36,7 @@ test('picks a technical lead by searching', async () => {
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Änderungen speichern' }).click()
-  await expect(page.getByText('Band erfolgreich aktualisiert')).toBeVisible()
+  await expect(page.getByText('Band aktualisiert')).toBeVisible()
   await page.locator('tr', { hasText: 'The Electric Waves' }).click()
   await expect(page.getByText('Sarah Drummer')).toBeVisible()
 })
