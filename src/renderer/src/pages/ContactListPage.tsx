@@ -1,99 +1,43 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
-import { Ban, Copy, FileDown, Mail, SlidersHorizontal, Undo2, UserMinus } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { MultiSelect } from '@/components/ui/multi-select'
-import { SearchableSelect } from '@/components/ui/searchable-select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { RowActionButton, RowActions } from '@/components/row-action-button'
-import { useExportToast } from '@/components/export/useExportToast'
 import { confirmAction } from '@/lib/confirm'
-import { requestBccCompose } from '@/components/mail/pendingCompose'
-import { readingActions } from '@/components/mail/readingActions'
 import {
-  BookedFilter,
+  EMPTY_FILTERS,
+  LARGE_LIST,
+  activeFilterCount,
+  addresses,
+  filtersChanged,
+  sameFilters
+} from '@/components/contact-list/contactListState'
+import { ContactListFilterPanel } from '@/components/contact-list/ContactListFilterPanel'
+import { SavedListControls } from '@/components/contact-list/SavedListControls'
+import { ContactListSendActions } from '@/components/contact-list/ContactListSendActions'
+import { contactListColumns } from '@/components/contact-list/contactListColumns'
+import {
+  ContactListNameDialog,
+  type ContactListNameDraft
+} from '@/components/contact-list/ContactListNameDialog'
+import { ExcludedContactsDialog } from '@/components/contact-list/ExcludedContactsDialog'
+import type {
   ContactListFilters,
-  LIST_KIND_LABELS,
-  ListKind,
-  RECIPIENT_TYPE_LABELS,
-  RecipientType,
-  type ContactListRecipientDto,
-  type ContactListSource
+  ContactListRecipientDto,
+  ContactListSource
 } from '../../../main/api/schemas/contactList.schema'
-
-const EMPTY_FILTERS: ContactListFilters = ContactListFilters.parse({})
-
-// Above this, mail providers start to refuse or flag a BCC email
-const LARGE_LIST = 50
-
-const countryNames = new Intl.DisplayNames(['de'], { type: 'region' })
-function countryLabel(code: string): string {
-  try {
-    return countryNames.of(code) ?? code
-  } catch {
-    return code
-  }
-}
-
-const sameFilters = (a: ContactListFilters, b: ContactListFilters) =>
-  JSON.stringify(a) === JSON.stringify(b)
-
-function parseCapacity(value: string): number | null {
-  const number = Number.parseInt(value.replace(/\D/g, ''), 10)
-  return Number.isNaN(number) ? null : number
-}
-
-/** How many filters narrow the list (the Filter button's count) */
-function activeFilterCount(filters: ContactListFilters): number {
-  return [
-    filters.kinds.length > 0,
-    filters.recipientTypes.length > 0,
-    filters.countryCodes.length > 0,
-    filters.states.length > 0,
-    filters.zipPrefixes.trim() !== '',
-    filters.capacityMin !== null || filters.capacityMax !== null,
-    filters.genres.length > 0,
-    filters.booked !== 'all'
-  ].filter(Boolean).length
-}
-
-const addresses = (count: number) => `${count} ${count === 1 ? 'Adresse' : 'Adressen'}`
 
 export default function ContactListPage() {
   const [filters, setFilters] = useState<ContactListFilters>(EMPTY_FILTERS)
   const [savedId, setSavedId] = useState<number | null>(null)
-  const [nameDialog, setNameDialog] = useState<{ id?: number; name: string } | null>(null)
+  const [nameDialog, setNameDialog] = useState<ContactListNameDraft | null>(null)
   const [showExcluded, setShowExcluded] = useState(false)
   // Beside the table on wide windows; on narrow ones the table gets the room
   const [filtersOpen, setFiltersOpen] = useState(
     () => window.matchMedia('(min-width: 1280px)').matches
   )
-  const activeFilters = activeFilterCount(filters)
 
   const utils = trpcReact.useUtils()
-  const navigate = useNavigate()
-  const exportToast = useExportToast()
   // Genres and states change on other pages: fresh each time the page opens
   const options = trpcReact.contactList.filterOptions.useQuery(undefined, {
     refetchOnMount: 'always'
@@ -107,11 +51,7 @@ export default function ContactListPage() {
 
   const recipients = useMemo(() => list.data?.recipients ?? [], [list.data])
   const excluded = list.data?.excluded ?? []
-  const changed = memberList
-    ? false
-    : saved
-      ? !sameFilters(saved.filters, filters)
-      : !sameFilters(EMPTY_FILTERS, filters)
+  const changed = filtersChanged(saved, filters)
 
   const update = (patch: Partial<ContactListFilters>) =>
     setFilters((current) => ({ ...current, ...patch }))
@@ -179,41 +119,6 @@ export default function ContactListPage() {
       }
     )
 
-  // #136: a new mail in bookingum's own editor, the list in BCC (components/mail/pendingCompose.ts)
-  const writeEmail = trpcReact.contactList.writeEmail.useMutation({
-    onSuccess: async ({ emails }) => {
-      if (emails.length === 0) {
-        toast.info('Der Verteiler hat keine Adressen.')
-        return
-      }
-      const accounts = await utils.mail.accounts.list.fetch()
-      if (!accounts.some((account) => readingActions(account).canWrite)) {
-        toast.error('Zum Senden zuerst ein E-Mail-Konto hinzufügen.', {
-          action: {
-            label: 'Einstellungen öffnen',
-            onClick: () => void navigate({ to: '/settings', search: { tab: 'email' } })
-          }
-        })
-        return
-      }
-      requestBccCompose(emails)
-      await navigate({ to: '/mail' })
-      toast.success(`E-Mail mit ${addresses(emails.length)} in BCC geöffnet`)
-    },
-    onError: (error) =>
-      toast.error('E-Mail konnte nicht geöffnet werden', { description: error.message })
-  })
-
-  const copyAddresses = trpcReact.contactList.copyAddresses.useMutation({
-    onSuccess: ({ count }) => toast.success(`${addresses(count)} kopiert`),
-    onError: (error) => toast.error('Kopieren fehlgeschlagen', { description: error.message })
-  })
-
-  const exportCsv = trpcReact.dataExport.exportContactList.useMutation({
-    onSuccess: exportToast,
-    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
-  })
-
   const chooseSaved = (value: string) => {
     if (value === 'new') {
       setSavedId(null)
@@ -232,6 +137,12 @@ export default function ContactListPage() {
     else setNameDialog({ name: '' })
   }
 
+  const handleNamed = (draft: ContactListNameDraft) => {
+    // Renaming keeps the saved filters; unsaved changes stay unsaved
+    const named = draft.id !== undefined && saved ? saved.filters : filters
+    saveMutation.mutate({ id: draft.id, name: draft.name, filters: named })
+  }
+
   const handleDelete = async () => {
     if (
       saved &&
@@ -248,65 +159,10 @@ export default function ContactListPage() {
     }
   }
 
-  const columns: ColumnDef<ContactListRecipientDto>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Name',
-      cell: ({ row }) => <span className="font-medium">{row.original.name || '-'}</span>
-    },
-    { accessorKey: 'email', header: 'E-Mail' },
-    {
-      id: 'types',
-      header: 'Art',
-      cell: ({ row }) => row.original.types.map((type) => RECIPIENT_TYPE_LABELS[type]).join(', ')
-    },
-    {
-      id: 'sources',
-      header: 'Clubs, Festivals, Medien',
-      cell: ({ row }) => {
-        const names = row.original.sources.map((source) =>
-          source.role ? `${source.name} (${source.role})` : source.name
-        )
-        const text = names.join(', ')
-        return <span title={text}>{text.length > 60 ? `${text.slice(0, 60)}...` : text}</span>
-      }
-    },
-    {
-      id: 'place',
-      header: 'Ort',
-      cell: ({ row }) => [row.original.city, row.original.country].filter(Boolean).join(', ') || '-'
-    },
-    {
-      accessorKey: 'capacity',
-      header: 'Kapazität',
-      cell: ({ row }) =>
-        row.original.capacity ? row.original.capacity.toLocaleString('de-DE') : '-'
-    },
-    {
-      id: 'actions',
-      header: 'Aktionen',
-      cell: ({ row }) => (
-        <RowActions>
-          {memberList && (
-            <RowActionButton
-              icon={UserMinus}
-              label="Aus Verteiler entfernen"
-              onClick={() => void removeMember(row.original)}
-            />
-          )}
-          <RowActionButton
-            icon={Ban}
-            label="Keine Werbung"
-            destructive
-            onClick={() => setNoAdvertising(row.original.email, true)}
-          />
-        </RowActions>
-      )
-    }
-  ]
-
-  const busy = writeEmail.isLoading || copyAddresses.isLoading || exportCsv.isLoading
-  const empty = recipients.length === 0
+  const columns = contactListColumns({
+    onRemoveMember: memberList ? (row) => void removeMember(row) : undefined,
+    onNoAdvertising: (email) => setNoAdvertising(email, true)
+  })
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
@@ -319,246 +175,33 @@ export default function ContactListPage() {
               : 'Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe und Buchungen zusammenstellen.'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!memberList && (
-            <Button
-              variant={filtersOpen ? 'secondary' : 'outline'}
-              aria-pressed={filtersOpen}
-              onClick={() => setFiltersOpen((open) => !open)}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filter
-              {activeFilters > 0 && (
-                <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground">
-                  {activeFilters}
-                </span>
-              )}
-            </Button>
-          )}
-          <Select value={savedId === null ? 'new' : String(savedId)} onValueChange={chooseSaved}>
-            <SelectTrigger className="w-56" aria-label="Gespeicherter Verteiler">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="new">Neuer Verteiler</SelectItem>
-              {savedLists.data?.map((entry) => (
-                <SelectItem key={entry.id} value={String(entry.id)}>
-                  {entry.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {!memberList && (
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              disabled={!changed || saveMutation.isLoading}
-            >
-              Speichern
-            </Button>
-          )}
-          {saved && (
-            <>
-              {!memberList && (
-                <Button
-                  variant="outline"
-                  onClick={() => setNameDialog({ name: `${saved.name} (Kopie)` })}
-                >
-                  Speichern unter…
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => setNameDialog({ id: saved.id, name: saved.name })}
-              >
-                Umbenennen
-              </Button>
-              <Button variant="outline" onClick={handleDelete}>
-                Löschen
-              </Button>
-            </>
-          )}
-        </div>
+        <SavedListControls
+          savedLists={savedLists.data}
+          savedId={savedId}
+          saved={saved}
+          onChoose={chooseSaved}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((open) => !open)}
+          activeFilters={activeFilterCount(filters)}
+          changed={changed}
+          saving={saveMutation.isLoading}
+          onSave={handleSave}
+          onSaveAs={() => saved && setNameDialog({ name: `${saved.name} (Kopie)` })}
+          onRename={() => saved && setNameDialog({ id: saved.id, name: saved.name })}
+          onDelete={handleDelete}
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 gap-6">
         {filtersOpen && !memberList && (
-          <aside
-            className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
-            aria-label="Filter"
-          >
-            <div className="space-y-2">
-              <Label>Art</Label>
-              <ToggleGroup
-                type="multiple"
-                variant="outline"
-                size="sm"
-                className="flex-wrap justify-start"
-                value={filters.kinds}
-                onValueChange={(value) => update({ kinds: value as ListKind[] })}
-              >
-                {ListKind.options.map((kind) => (
-                  <ToggleGroupItem key={kind} value={kind}>
-                    {LIST_KIND_LABELS[kind]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <p className="text-xs text-muted-foreground">
-                Radio/Medien sind Firmen mit der Art „Radio/Medien“.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Empfänger</Label>
-              <ToggleGroup
-                type="multiple"
-                variant="outline"
-                size="sm"
-                className="flex-wrap justify-start"
-                value={filters.recipientTypes}
-                onValueChange={(value) => update({ recipientTypes: value as RecipientType[] })}
-              >
-                {RecipientType.options.map((type) => (
-                  <ToggleGroupItem key={type} value={type}>
-                    {RECIPIENT_TYPE_LABELS[type]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <p className="text-xs text-muted-foreground">
-                Keine Auswahl: alle. Hauptadresse ist die E-Mail des Clubs, Festivals oder Senders;
-                LoPros sind die der Events dort.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-country">Land</Label>
-              <MultiSelect
-                id="contact-list-country"
-                value={filters.countryCodes}
-                onChange={(value) => update({ countryCodes: value })}
-                options={(options.data?.countryCodes ?? []).map((code) => ({
-                  value: code,
-                  label: countryLabel(code)
-                }))}
-                placeholder="Alle Länder"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-state">Bundesland / Region</Label>
-              <MultiSelect
-                id="contact-list-state"
-                value={filters.states}
-                onChange={(value) => update({ states: value })}
-                options={(options.data?.states ?? []).map((state) => ({
-                  value: state,
-                  label: state
-                }))}
-                placeholder="Alle Regionen"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-zip">PLZ beginnt mit</Label>
-              <Input
-                id="contact-list-zip"
-                value={filters.zipPrefixes}
-                onChange={(event) => update({ zipPrefixes: event.target.value })}
-                placeholder="z. B. 7, 80"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-capacity-min">Kapazität</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="contact-list-capacity-min"
-                  inputMode="numeric"
-                  aria-label="Kapazität ab"
-                  placeholder="ab"
-                  value={filters.capacityMin ?? ''}
-                  onChange={(event) => update({ capacityMin: parseCapacity(event.target.value) })}
-                />
-                <span className="text-muted-foreground">–</span>
-                <Input
-                  inputMode="numeric"
-                  aria-label="Kapazität bis"
-                  placeholder="bis"
-                  value={filters.capacityMax ?? ''}
-                  onChange={(event) => update({ capacityMax: parseCapacity(event.target.value) })}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-genre">Genre</Label>
-              <MultiSelect
-                id="contact-list-genre"
-                value={filters.genres}
-                onChange={(value) => update({ genres: value })}
-                options={(options.data?.genres ?? []).map((genre) => ({
-                  value: genre,
-                  label: genre
-                }))}
-                placeholder="Alle Genres"
-                emptyText="Keine Genres. Bei Clubs, Festivals, Radio/Medien und Bands eintragen."
-              />
-              <p className="text-xs text-muted-foreground">
-                Genres des Clubs, Festivals oder Senders und der Bands, die dort gespielt haben.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contact-list-booked">Buchungen</Label>
-              <Select
-                value={filters.booked}
-                onValueChange={(value) => update({ booked: value as BookedFilter })}
-              >
-                <SelectTrigger id="contact-list-booked">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="booked">Schon gebucht</SelectItem>
-                  <SelectItem value="never">Noch nie gebucht</SelectItem>
-                </SelectContent>
-              </Select>
-              {filters.booked !== 'all' && (
-                <SearchableSelect
-                  aria-label="Band"
-                  value={filters.bandId}
-                  onChange={(value) => update({ bandId: value })}
-                  options={(options.data?.bands ?? []).map((band) => ({
-                    value: band.id,
-                    label: band.name
-                  }))}
-                  noneLabel="Alle Bands"
-                  searchPlaceholder="Band suchen…"
-                />
-              )}
-              {filters.booked !== 'all' && (
-                <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
-              )}
-            </div>
-
-            {changed && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="self-start"
-                onClick={() => setFilters(saved?.filters ?? EMPTY_FILTERS)}
-              >
-                <Undo2 className="h-4 w-4" />
-                {saved ? 'Änderungen verwerfen' : 'Filter zurücksetzen'}
-              </Button>
-            )}
-
-            <p className="mt-auto border-t pt-4 text-xs text-muted-foreground">
-              Werbe-E-Mails nur an Empfänger, die eingewilligt haben oder mit denen Sie schon
-              zusammenarbeiten (§ 7 UWG). Wer widerspricht, wird als „Keine Werbung“ markiert.
-            </p>
-          </aside>
+          <ContactListFilterPanel
+            filters={filters}
+            onChange={update}
+            options={options.data}
+            changed={changed}
+            hasSaved={saved !== null}
+            onReset={() => setFilters(saved?.filters ?? EMPTY_FILTERS)}
+          />
         )}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -572,28 +215,11 @@ export default function ContactListPage() {
             onRetry={() => void list.refetch()}
             filtered={!memberList && !sameFilters(EMPTY_FILTERS, filters)}
             actionButton={
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  disabled={empty || busy}
-                  onClick={() => copyAddresses.mutate(source)}
-                >
-                  <Copy className="h-4 w-4" />
-                  Adressen kopieren
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={empty || busy}
-                  onClick={() => exportCsv.mutate({ source, name: saved?.name ?? '' })}
-                >
-                  <FileDown className="h-4 w-4" />
-                  CSV exportieren
-                </Button>
-                <Button disabled={empty || busy} onClick={() => writeEmail.mutate(source)}>
-                  <Mail className="h-4 w-4" />
-                  E-Mail schreiben
-                </Button>
-              </div>
+              <ContactListSendActions
+                source={source}
+                name={saved?.name ?? ''}
+                empty={recipients.length === 0}
+              />
             }
           />
           {(recipients.length > LARGE_LIST || excluded.length > 0) && (
@@ -612,84 +238,22 @@ export default function ContactListPage() {
         </div>
       </div>
 
-      <Dialog open={nameDialog !== null} onOpenChange={(open) => !open && setNameDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!nameDialog) return
-              // Renaming keeps the saved filters; unsaved changes stay unsaved
-              const renamed = nameDialog.id !== undefined && saved ? saved.filters : filters
-              saveMutation.mutate({ id: nameDialog.id, name: nameDialog.name, filters: renamed })
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>
-                {nameDialog?.id !== undefined ? 'Verteiler umbenennen' : 'Verteiler speichern'}
-              </DialogTitle>
-              <DialogDescription>
-                {nameDialog?.id !== undefined && memberList
-                  ? 'Die Kontakte des Verteilers bleiben gleich.'
-                  : 'Gespeichert werden die Filter, nicht die Adressen.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="my-4 space-y-2">
-              <Label htmlFor="contact-list-name">Name</Label>
-              <Input
-                id="contact-list-name"
-                autoFocus
-                value={nameDialog?.name ?? ''}
-                onChange={(event) =>
-                  setNameDialog((current) => current && { ...current, name: event.target.value })
-                }
-                placeholder="z. B. Clubs Süddeutschland"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setNameDialog(null)}>
-                Abbrechen
-              </Button>
-              <Button type="submit" disabled={!nameDialog?.name.trim() || saveMutation.isLoading}>
-                Speichern
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ContactListNameDialog
+        draft={nameDialog}
+        onDraftChange={setNameDialog}
+        onSubmit={handleNamed}
+        saving={saveMutation.isLoading}
+        memberList={memberList !== null}
+      />
 
-      <Dialog open={showExcluded} onOpenChange={setShowExcluded}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Keine Werbung</DialogTitle>
-            <DialogDescription>
-              {memberList
-                ? 'Diese Adressen stehen im Verteiler, bekommen aber keine Rundmails.'
-                : 'Diese Adressen passen zu den Filtern, bekommen aber keine Rundmails.'}
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="max-h-80 divide-y overflow-y-auto">
-            {excluded.map((row) => (
-              <li key={row.email} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{row.name || row.email}</div>
-                  <div className="truncate text-sm text-muted-foreground">{row.email}</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={noAdvertisingMutation.isLoading}
-                  onClick={() => setNoAdvertising(row.email, false)}
-                >
-                  Wieder aufnehmen
-                </Button>
-              </li>
-            ))}
-            {excluded.length === 0 && (
-              <li className="py-2 text-sm text-muted-foreground">Keine mehr.</li>
-            )}
-          </ul>
-        </DialogContent>
-      </Dialog>
+      <ExcludedContactsDialog
+        open={showExcluded}
+        onOpenChange={setShowExcluded}
+        excluded={excluded}
+        memberList={memberList !== null}
+        restoring={noAdvertisingMutation.isLoading}
+        onRestore={(email) => setNoAdvertising(email, false)}
+      />
     </div>
   )
 }
