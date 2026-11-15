@@ -1,5 +1,3 @@
-import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useMapPreview } from '@/hooks/useMapPreview'
 import {
   defaultClause,
@@ -10,22 +8,15 @@ import {
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useEffect } from 'react'
 import { useParams, useNavigate, useRouterState, Link } from '@tanstack/react-router'
-import { ArrowLeft, Pencil } from 'lucide-react'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
-import { PageErrorState } from '@/components/load-states'
-import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useVenueTabCounts } from '@/hooks/useTabCounts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
-import { Button } from '@/components/ui/button'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
+import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
 import { FormSheet } from '@/components/form-sheet'
 import { VenueForm } from '@/components/forms/VenueForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
-import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import {
   isMisplacedVenuePath,
   isVenueTab,
@@ -33,14 +24,7 @@ import {
   venueDetailPath,
   venueListPath
 } from '@/components/venue/constants'
-import {
-  AddressLines,
-  Empty,
-  EventsTable,
-  Fields,
-  InfoCard,
-  TabCount
-} from '@/components/detail/DetailParts'
+import { AddressLines, Empty, EventsTable, Fields, InfoCard } from '@/components/detail/DetailParts'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../main/api/schemas/venue.schema'
 
 /** Overview: kind, capacity, genres, address, contact, promoter company, notes */
@@ -122,19 +106,13 @@ export default function VenueDetailPage() {
   const id = parseRecordId(venueId)
   const counts = useVenueTabCounts(id)
   const navigate = useNavigate()
-  const hasMailAccount = useHasMailAccount()
+  // The shell reads the tab too; the redirect below keeps it
   const activeTab = useDetailTab(isVenueTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<VenueDto>()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-
-  const {
-    data: venue,
-    isLoading,
-    isError,
-    error,
-    refetch
-  } = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
+  const query = trpcReact.venue.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
+  const venue = query.data
 
   // #162: delete from the detail page, then back to the list of its kind
   const mutations = useRecordMutations({
@@ -161,141 +139,70 @@ export default function VenueDetailPage() {
     })
   }, [misplaced, venueKind, id, activeTab, navigate])
 
-  // A bad id never loads (the query stays disabled), it is not found
-  if (id !== null && isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Wird geladen…</p>
-      </div>
-    )
-  }
-
-  if (isError && !isNotFound(error)) {
-    return <PageErrorState error={error} onRetry={() => void refetch()} />
-  }
-
-  if (!venue) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Club oder Festival nicht gefunden.</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/clubs' })}>
-          Zurück zu den Clubs
-        </Button>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex h-full w-full min-w-0 flex-col p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 -ml-2 gap-1.5 text-muted-foreground"
-          onClick={() => navigate({ to: venueListPath(venue.kind) })}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Alle {VENUE_KIND_COPY[venue.kind].plural}
-        </Button>
-
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{venue.name}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {[VENUE_KIND_LABELS[venue.kind], venue.address?.city].filter(Boolean).join(' · ')}
-            </p>
-          </div>
-          <div className="mt-1 flex shrink-0 items-center gap-2">
-            <FollowUpButton record={{ type: 'venue', id: venue.id, name: venue.name }} />
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => sheet.openEdit(venue)}
+    <RecordDetailPage
+      id={id}
+      query={query}
+      loading="Wird geladen…"
+      notFound={{
+        text: 'Club oder Festival nicht gefunden.',
+        backLabel: 'Zurück zu den Clubs',
+        onBack: () => navigate({ to: '/clubs' })
+      }}
+    >
+      {(venue) => {
+        const copy = VENUE_KIND_COPY[venue.kind]
+        const ofVenue = venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'
+        return (
+          <RecordDetail
+            record={{ type: 'venue', id: venue.id, name: venue.name }}
+            back={{
+              label: `Alle ${copy.plural}`,
+              onBack: () => navigate({ to: venueListPath(venue.kind) })
+            }}
+            subtitle={[VENUE_KIND_LABELS[venue.kind], venue.address?.city]
+              .filter(Boolean)
+              .join(' · ')}
+            onEdit={() => sheet.openEdit(venue)}
+            onDelete={() => mutations.deleteNow(venue)}
+            deleting={mutations.isDeleting}
+            isTab={isVenueTab}
+            tabs={[
+              { id: 'overview', label: 'Übersicht', content: <OverviewTab venue={venue} /> },
+              {
+                id: 'contacts',
+                label: 'Ansprechpartner',
+                count: counts.contacts,
+                className: 'max-w-2xl',
+                content: <MembersPanel entityType="venue" entityId={venue.id} />
+              },
+              {
+                id: 'events',
+                label: 'Events',
+                count: counts.events,
+                content: <EventsTab venue={venue} />
+              }
+            ]}
+            documents={{ count: counts.documents, title: `Dokumente ${ofVenue}` }}
+          >
+            <FormSheet
+              isOpen={sheet.isOpen}
+              onClose={sheet.close}
+              mode="edit"
+              title={`${copy.singular} bearbeiten`}
+              description="Angaben aktualisieren."
             >
-              <Pencil className="h-3.5 w-3.5" />
-              Bearbeiten
-            </Button>
-            <DeleteRecordButton
-              confirmTitle={`„${venue.name}“ löschen?`}
-              pending={mutations.isDeleting}
-              onDelete={() => mutations.deleteNow(venue)}
-            />
-          </div>
-        </div>
-      </div>
-
-      <RecordFollowUps record={{ type: 'venue', id: venue.id, name: venue.name }} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) =>
-          // replace: switching tabs should not pile up history entries
-          navigate({
-            to: venueDetailPath(venue.kind),
-            params: { venueId: String(venue.id) },
-            search: { tab: isVenueTab(tab) && tab !== 'overview' ? tab : undefined },
-            replace: true
-          })
-        }
-        className="flex-1"
-      >
-        {/* Tabs wrap onto a second row in narrow windows */}
-        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="contacts">
-            Ansprechpartner
-            <TabCount count={counts.contacts} />
-          </TabsTrigger>
-          <TabsTrigger value="events">
-            Events
-            <TabCount count={counts.events} />
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Dokumente
-            <TabCount count={counts.documents} />
-          </TabsTrigger>
-          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab venue={venue} />
-        </TabsContent>
-        <TabsContent value="contacts" className="max-w-2xl">
-          <MembersPanel entityType="venue" entityId={venue.id} />
-        </TabsContent>
-        <TabsContent value="events">
-          <EventsTab venue={venue} />
-        </TabsContent>
-        <TabsContent value="documents">
-          <DocumentsPanel
-            ownerType="venue"
-            ownerId={venue.id}
-            title={`Dokumente ${venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'}`}
-          />
-        </TabsContent>
-        {hasMailAccount && (
-          <TabsContent value="mails">
-            <MailHistoryPanel entityType="venue" entityId={venue.id} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <FormSheet
-        isOpen={sheet.isOpen}
-        onClose={sheet.close}
-        mode="edit"
-        title={`${VENUE_KIND_COPY[venue.kind].singular} bearbeiten`}
-        description="Angaben aktualisieren."
-      >
-        <VenueForm
-          mode="edit"
-          initialData={sheet.selectedItem}
-          onSubmit={mutations.submit}
-          onCancel={sheet.close}
-          isSubmitting={mutations.isSubmitting}
-        />
-      </FormSheet>
-    </div>
+              <VenueForm
+                mode="edit"
+                initialData={sheet.selectedItem}
+                onSubmit={mutations.submit}
+                onCancel={sheet.close}
+                isSubmitting={mutations.isSubmitting}
+              />
+            </FormSheet>
+          </RecordDetail>
+        )
+      }}
+    </RecordDetailPage>
   )
 }

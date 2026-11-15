@@ -1,28 +1,18 @@
-import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useHasMailAccount } from '@/hooks/useHasMailAccount'
-import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
-import { ArrowLeft, Pencil } from 'lucide-react'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
-import { PageErrorState } from '@/components/load-states'
-import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useBandTabCounts } from '@/hooks/useTabCounts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
-import { Button } from '@/components/ui/button'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
+import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { ManagementContractPanel } from '@/components/band/ManagementContractSheet'
-import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
-import { Empty, EventsTable, InfoCard, TabCount } from '@/components/detail/DetailParts'
+import { Empty, EventsTable, InfoCard } from '@/components/detail/DetailParts'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 /** Overview: who the band is, who bills and represents it */
@@ -80,18 +70,6 @@ function OverviewTab({ band }: { band: BandDto }) {
 }
 
 /** The band's events, newest first; a click opens the event */
-/** Invoices for the band's events or addressed to the band; a click opens the print view */
-function InvoicesTab({ bandId }: { bandId: number }) {
-  const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
-  return (
-    <RecordInvoicesTable
-      label="Rechnungen der Band"
-      query={invoices}
-      empty="Keine Rechnungen zu Events der Band oder an die Band."
-    />
-  )
-}
-
 function EventsTab({ bandId }: { bandId: number }) {
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId)
   return (
@@ -100,6 +78,18 @@ function EventsTab({ bandId }: { bandId: number }) {
       query={events}
       empty="Noch keine Events für diese Band."
       columns={[{ header: 'Club / Festival', cell: (event) => event.venueName ?? '–' }]}
+    />
+  )
+}
+
+/** Invoices for the band's events or addressed to the band; a click opens the print view */
+function InvoicesTab({ bandId }: { bandId: number }) {
+  const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
+  return (
+    <RecordInvoicesTable
+      label="Rechnungen der Band"
+      query={invoices}
+      empty="Keine Rechnungen zu Events der Band oder an die Band."
     />
   )
 }
@@ -113,20 +103,9 @@ export default function BandDetailPage() {
   const id = parseRecordId(bandId)
   const counts = useBandTabCounts(id)
   const navigate = useNavigate()
-  const hasMailAccount = useHasMailAccount()
-  const activeTab = useDetailTab(isBandTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<BandDto>()
-
-  const {
-    data: band,
-    isLoading,
-    isError,
-    error,
-    refetch
-  } = trpcReact.band.getById.useQuery(id ?? 0, {
-    enabled: id !== null
-  })
+  const band = trpcReact.band.getById.useQuery(id ?? 0, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list
   const mutations = useRecordMutations({
@@ -139,152 +118,78 @@ export default function BandDetailPage() {
     onDeleted: () => navigate({ to: '/band' })
   })
 
-  // A bad id never loads (the query stays disabled), it is not found
-  if (id !== null && isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Band wird geladen…</p>
-      </div>
-    )
-  }
-
-  if (isError && !isNotFound(error)) {
-    return <PageErrorState error={error} onRetry={() => void refetch()} />
-  }
-
-  if (!band) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Band nicht gefunden.</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/band' })}>
-          Zurück zu den Bands
-        </Button>
-      </div>
-    )
-  }
+  const toList = () => navigate({ to: '/band' })
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 -ml-2 gap-1.5 text-muted-foreground"
-          onClick={() => navigate({ to: '/band' })}
+    <RecordDetailPage
+      id={id}
+      query={band}
+      loading="Band wird geladen…"
+      notFound={{ text: 'Band nicht gefunden.', backLabel: 'Zurück zu den Bands', onBack: toList }}
+    >
+      {(band) => (
+        <RecordDetail
+          record={{ type: 'band', id: band.id, name: band.name }}
+          back={{ label: 'Alle Bands', onBack: toList }}
+          subtitle={band.genre}
+          onEdit={() => sheet.openEdit(band)}
+          onDelete={() => mutations.deleteNow(band)}
+          deleting={mutations.isDeleting}
+          isTab={isBandTab}
+          tabs={[
+            { id: 'overview', label: 'Übersicht', content: <OverviewTab band={band} /> },
+            {
+              id: 'members',
+              label: 'Mitglieder',
+              count: counts.members,
+              className: 'max-w-2xl',
+              content: <MembersPanel entityType="band" entityId={band.id} />
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              count: counts.events,
+              content: <EventsTab bandId={band.id} />
+            },
+            {
+              id: 'contracts',
+              label: 'Managementverträge',
+              count: counts.contracts,
+              className: 'max-w-3xl',
+              content: <ManagementContractPanel bandId={band.id} />
+            },
+            {
+              id: 'invoices',
+              label: 'Rechnungen',
+              count: counts.invoices,
+              content: <InvoicesTab bandId={band.id} />
+            }
+          ]}
+          documents={{
+            count: counts.documents,
+            title: 'Dokumente der Band',
+            // The band's own documents above (editable), its events' documents below,
+            // filtered by category and event
+            extra: <BandDocumentsView bandId={band.id} />
+          }}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Alle Bands
-        </Button>
-
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{band.name}</h1>
-            {band.genre && <p className="mt-1 text-sm text-muted-foreground">{band.genre}</p>}
-          </div>
-          <div className="mt-1 flex shrink-0 items-center gap-2">
-            <FollowUpButton record={{ type: 'band', id: band.id, name: band.name }} />
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => sheet.openEdit(band)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Bearbeiten
-            </Button>
-            <DeleteRecordButton
-              confirmTitle={`„${band.name}“ löschen?`}
-              pending={mutations.isDeleting}
-              onDelete={() => mutations.deleteNow(band)}
+          <FormSheet
+            isOpen={sheet.isOpen}
+            onClose={sheet.close}
+            mode="edit"
+            title="Band bearbeiten"
+            description="Bandinformationen aktualisieren."
+          >
+            <BandForm
+              mode="edit"
+              initialData={sheet.selectedItem}
+              onSubmit={mutations.submit}
+              onCancel={sheet.close}
+              isSubmitting={mutations.isSubmitting}
             />
-          </div>
-        </div>
-      </div>
-
-      <RecordFollowUps record={{ type: 'band', id: band.id, name: band.name }} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) =>
-          // replace: switching tabs should not pile up history entries
-          navigate({
-            to: '/band/$bandId',
-            params: { bandId: String(band.id) },
-            search: { tab: isBandTab(tab) && tab !== 'overview' ? tab : undefined },
-            replace: true
-          })
-        }
-        className="flex-1"
-      >
-        {/* Tabs wrap onto a second row in narrow windows */}
-        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="members">
-            Mitglieder
-            <TabCount count={counts.members} />
-          </TabsTrigger>
-          <TabsTrigger value="events">
-            Events
-            <TabCount count={counts.events} />
-          </TabsTrigger>
-          <TabsTrigger value="contracts">
-            Managementverträge
-            <TabCount count={counts.contracts} />
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            Rechnungen
-            <TabCount count={counts.invoices} />
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Dokumente
-            <TabCount count={counts.documents} />
-          </TabsTrigger>
-          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab band={band} />
-        </TabsContent>
-        <TabsContent value="members" className="max-w-2xl">
-          <MembersPanel entityType="band" entityId={band.id} />
-        </TabsContent>
-        <TabsContent value="events">
-          <EventsTab bandId={band.id} />
-        </TabsContent>
-        <TabsContent value="contracts" className="max-w-3xl">
-          <ManagementContractPanel bandId={band.id} />
-        </TabsContent>
-        <TabsContent value="invoices">
-          <InvoicesTab bandId={band.id} />
-        </TabsContent>
-        <TabsContent value="documents" className="space-y-8">
-          <DocumentsPanel ownerType="band" ownerId={band.id} title="Dokumente der Band" />
-          {/* The band's own documents above (editable), its events' documents below,
-              filtered by category and event */}
-          <BandDocumentsView bandId={band.id} />
-        </TabsContent>
-        {hasMailAccount && (
-          <TabsContent value="mails">
-            <MailHistoryPanel entityType="band" entityId={band.id} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <FormSheet
-        isOpen={sheet.isOpen}
-        onClose={sheet.close}
-        mode="edit"
-        title="Band bearbeiten"
-        description="Bandinformationen aktualisieren."
-      >
-        <BandForm
-          mode="edit"
-          initialData={sheet.selectedItem}
-          onSubmit={mutations.submit}
-          onCancel={sheet.close}
-          isSubmitting={mutations.isSubmitting}
-        />
-      </FormSheet>
-    </div>
+          </FormSheet>
+        </RecordDetail>
+      )}
+    </RecordDetailPage>
   )
 }
