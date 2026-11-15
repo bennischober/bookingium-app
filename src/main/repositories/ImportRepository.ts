@@ -10,7 +10,7 @@ import type {
   ExistingRecords,
   ImportPlan,
   ListMemberDraft
-} from '../import/buildImportPlan'
+} from '../import/plan/drafts'
 import { contactAddressEvents, normalizeEmail } from './contactEmails'
 import { genresByOwner, writeGenres, type GenreOwner } from './genres'
 
