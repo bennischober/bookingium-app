@@ -1,33 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Archive,
-  CalendarCheck,
-  CalendarPlus,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Download,
-  Flag,
-  Forward,
-  ImageOff,
-  Link2,
-  Mail,
-  Paperclip,
-  Reply,
-  ReplyAll,
-  FilePlus,
-  Tags,
-  Trash2,
-  UserPlus
-} from 'lucide-react'
+import { ImageOff } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { mailApi } from '@/lib/mailApi'
 import { trpcReact, trpcVanilla } from '@/lib/trpc'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { AttachmentToDocumentDialog } from '@/components/mail/AttachmentToDocumentDialog'
 import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
@@ -36,82 +13,13 @@ import { InvitationFromMail, type InvitationToTake } from '@/components/mail/Inv
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { parseInvitation } from '../../../../main/calendar/invitation'
-import { NOT_LOADED_NOTE, withWholeMessage } from './completion'
-import { ReplyStateIcons } from './ReplyStateIcons'
+import { withWholeMessage } from './completion'
 import { calendarText, invitationPart, withTitle } from './invitationPrefill'
-import {
-  formatAddresses,
-  formatFullDate,
-  formatSize,
-  messageKey,
-  safeFileName,
-  saveBytes
-} from './format'
-/** Every link of the mail with its real address; unsafe ones cannot be opened */
-function LinkList({ message }: { message: MessageDetail }) {
-  const [open, setOpen] = useState(false)
-  // Copying is silent otherwise; a toast is the only feedback that it happened
-  const copyLink = async (url: string): Promise<void> => {
-    const result = await window.api.copyMailLink(url)
-    if (result.success) toast.success('Link-Adresse kopiert')
-    else toast.error('Kopieren fehlgeschlagen', { description: result.error })
-  }
-  if (message.links.length === 0) return null
-  return (
-    <footer className="max-h-[40%] shrink-0 overflow-auto border-t px-4 py-2 text-sm">
-      <button
-        type="button"
-        className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        <Link2 className="size-4" />
-        {message.links.length} {message.links.length === 1 ? 'Link' : 'Links'}
-      </button>
-      {open && (
-        <ul className="mt-2 space-y-1">
-          {message.links.map((link) => (
-            <li key={link.index} className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="truncate">{link.text || '(ohne Text)'}</p>
-                <p className="truncate font-mono text-xs text-muted-foreground" title={link.url}>
-                  {link.url}
-                </p>
-              </div>
-              {link.openable ? (
-                <ButtonGroup className="shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    // The main process opens it in the default browser
-                    onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
-                  >
-                    Öffnen
-                  </Button>
-                  {/* F16: copy instead of open - for pasting into another browser or an incognito
-                      window, which opening in the default browser cannot do. The clipboard lives in
-                      the main process, so this goes through window.api. */}
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    title="Link-Adresse kopieren"
-                    aria-label={`Link-Adresse kopieren: ${link.url}`}
-                    onClick={() => void copyLink(link.url)}
-                  >
-                    <Copy className="size-3.5" />
-                  </Button>
-                </ButtonGroup>
-              ) : (
-                <span className="text-xs text-destructive">Gesperrt ({link.scheme || '?'})</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </footer>
-  )
-}
+import { formatSize, messageKey, safeFileName, saveBytes } from './format'
+import { MessageActions } from './MessageActions'
+import { MessageAttachments } from './MessageAttachments'
+import { MessageBody } from './MessageBody'
+import { MessageHeaderFields } from './MessageHeaderFields'
 
 /**
  * Reading pane. HTML mail is already sanitized by the core and shown in a
@@ -335,278 +243,35 @@ export function MessageView({
           <h2 className="min-w-0 flex-1 text-lg font-semibold break-words">
             {message.subject || '(Kein Betreff)'}
           </h2>
-          <div className="-ml-2 flex flex-wrap items-center gap-1 @xl:ml-0 @xl:shrink-0 @xl:flex-nowrap">
-            {canWrite && (
-              <>
-                {onCompose && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onCompose(message, 'reply')}
-                      title="Antworten"
-                      aria-label="Antworten"
-                    >
-                      <Reply />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onCompose(message, 'replyAll')}
-                      title="Allen antworten"
-                      aria-label="Allen antworten"
-                    >
-                      <ReplyAll />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => void forward(onCompose)}
-                      disabled={downloading}
-                      title="Weiterleiten"
-                      aria-label="Weiterleiten"
-                    >
-                      <Forward />
-                    </Button>
-                  </>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onToggleFlag(message.id, !message.isFlagged)}
-                  title={message.isFlagged ? 'Markierung entfernen' : 'Markieren'}
-                  aria-pressed={message.isFlagged}
-                >
-                  <Flag className={cn(message.isFlagged && 'fill-orange-500 text-orange-500')} />
-                </Button>
-                {onMarkUnread && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => onMarkUnread(message.id)}
-                    title="Als ungelesen markieren"
-                  >
-                    <Mail />
-                  </Button>
-                )}
-                {onArchive && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => onArchive(message.id)}
-                    title="Archivieren"
-                  >
-                    <Archive />
-                  </Button>
-                )}
-                {!inTrash && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => onDelete(message.id)}
-                    title="In den Papierkorb (Entf)"
-                  >
-                    <Trash2 />
-                  </Button>
-                )}
-              </>
-            )}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setLinking(true)}
-              disabled={!message.messageId}
-              title={
-                message.messageId
-                  ? 'Zuordnen…'
-                  : 'Zuordnen geht nicht: die Mail hat keine Message-ID'
-              }
-              aria-label="Zuordnen…"
-            >
-              <Tags />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setCreatingEvent(true)}
-              disabled={!message.messageId}
-              title={
-                message.messageId
-                  ? 'Event aus dieser Mail anlegen'
-                  : 'Event anlegen geht nicht: die Mail hat keine Message-ID'
-              }
-              aria-label="Event aus dieser Mail anlegen"
-            >
-              <CalendarPlus />
-            </Button>
-            {invitation && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => void takeInvitation(invitation.partId)}
-                disabled={downloading}
-                title="Einladung als Termin übernehmen"
-                aria-label="Einladung als Termin übernehmen"
-              >
-                <CalendarCheck />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setCreatingContact(true)}
-              disabled={!message.fromEmail}
-              title="Absender als Kontakt anlegen"
-              aria-label="Absender als Kontakt anlegen"
-            >
-              <UserPlus />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => void saveEml()}
-              disabled={downloading}
-              title="Original speichern (.eml)"
-            >
-              <Download />
-            </Button>
-          </div>
+          <MessageActions
+            message={message}
+            canWrite={canWrite}
+            inTrash={inTrash}
+            downloading={downloading}
+            onCompose={onCompose}
+            forward={forward}
+            onToggleFlag={onToggleFlag}
+            onMarkUnread={onMarkUnread}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onLink={() => setLinking(true)}
+            onCreateEvent={() => setCreatingEvent(true)}
+            takeInvitation={invitation ? () => takeInvitation(invitation.partId) : undefined}
+            onCreateContact={() => setCreatingContact(true)}
+            saveEml={saveEml}
+          />
         </div>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm">
-          <dt className="text-muted-foreground">Von</dt>
-          <dd className="truncate">
-            <HeaderAddress
-              address={{ name: message.fromName, email: message.fromEmail }}
-              onWriteTo={onWriteTo}
-            />
-          </dd>
-          <dt className="text-muted-foreground">An</dt>
-          <dd className="truncate" title={formatAddresses(message.to)}>
-            <HeaderAddressList addresses={message.to} onWriteTo={onWriteTo} />
-          </dd>
-          {message.cc.length > 0 && (
-            <>
-              <dt className="text-muted-foreground">Cc</dt>
-              <dd className="truncate" title={formatAddresses(message.cc)}>
-                <HeaderAddressList addresses={message.cc} onWriteTo={onWriteTo} />
-              </dd>
-            </>
-          )}
-          <dt className="text-muted-foreground">Datum</dt>
-          <dd className="flex flex-wrap items-center gap-x-3">
-            {formatFullDate(message.date ?? message.internalDate)}
-            <ReplyStateIcons
-              answered={message.isAnswered}
-              forwarded={message.isForwarded}
-              withLabel
-            />
-          </dd>
-        </dl>
+        <MessageHeaderFields message={message} onWriteTo={onWriteTo} />
 
-        {message.attachments.filter((a) => !a.isInline).length > 1 && (
-          // F10: "save all" belongs to the whole set, not to one attachment's menu
-          // I16 item 22: aria-label on a plain div is ignored; a role makes the name reach assistive tech
-          <div role="group" className="flex flex-wrap items-center gap-2" aria-label="Alle Anhänge">
-            <span className="text-xs text-muted-foreground">
-              {message.attachments.filter((a) => !a.isInline).length} Anhänge
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void saveAllAttachments()}
-              disabled={downloading}
-            >
-              <Download />
-              Alle speichern…
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                void toDocuments((done) => done.attachments.filter((a) => !a.isInline))
-              }
-              disabled={downloading}
-            >
-              <FilePlus />
-              Alle als Dokument…
-            </Button>
-          </div>
-        )}
-
-        {message.attachments.length > 0 && (
-          <ul className="flex flex-wrap gap-2" aria-label="Anhänge">
-            {message.attachments
-              .filter((a) => !a.isInline)
-              .map((a) => (
-                <li key={a.partId}>
-                  {/* F10: a click opens the file; the chevron holds the rest, so the
-                      three actions do not clutter the chip */}
-                  <Popover>
-                    <PopoverAnchor asChild>
-                      <ButtonGroup aria-label={a.filename || 'Anhang'}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void openAttachment(a.partId)}
-                          disabled={downloading}
-                          title={`${a.contentType} · ${message.complete ? 'öffnen' : NOT_LOADED_NOTE}`}
-                        >
-                          <Paperclip />
-                          <span className="max-w-56 truncate">{a.filename || 'Anhang'}</span>
-                          {/* S1: until the download, the size is BODYSTRUCTURE's estimate */}
-                          <span className="text-muted-foreground">
-                            {message.complete ? '' : '≈ '}
-                            {formatSize(a.sizeBytes)}
-                          </span>
-                          {!message.complete && (
-                            <span className="text-xs text-muted-foreground">
-                              · {NOT_LOADED_NOTE}
-                            </span>
-                          )}
-                        </Button>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="px-1.5"
-                            aria-label={`${a.filename || 'Anhang'}: weitere Aktionen`}
-                            disabled={downloading}
-                            title="Weitere Aktionen"
-                          >
-                            <ChevronDown />
-                          </Button>
-                        </PopoverTrigger>
-                      </ButtonGroup>
-                    </PopoverAnchor>
-                    {/* Under the chevron that opens it; Radix shifts it back in when there is no room */}
-                    <PopoverContent className="w-56 p-1" align="end">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() => void saveAttachmentAs(a.partId)}
-                      >
-                        <Download className="size-4 shrink-0 text-muted-foreground" />
-                        Speichern unter…
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        onClick={() =>
-                          void toDocuments((done) =>
-                            done.attachments.filter((x) => x.partId === a.partId)
-                          )
-                        }
-                      >
-                        <FilePlus className="size-4 shrink-0 text-muted-foreground" />
-                        Als Dokument speichern…
-                      </button>
-                    </PopoverContent>
-                  </Popover>
-                </li>
-              ))}
-          </ul>
-        )}
+        <MessageAttachments
+          message={message}
+          downloading={downloading}
+          openAttachment={openAttachment}
+          saveAttachmentAs={saveAttachmentAs}
+          saveAllAttachments={saveAllAttachments}
+          toDocuments={toDocuments}
+        />
 
         {downloading && (
           <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm">
@@ -639,23 +304,7 @@ export function MessageView({
         )}
       </header>
 
-      {message.bodyKind === 'html' && message.html ? (
-        <iframe
-          // No allow-scripts, no allow-same-origin: the mail cannot run code
-          // or reach the app. Links open as popups, which the main process
-          // hands to the default browser.
-          sandbox="allow-popups allow-popups-to-escape-sandbox"
-          srcDoc={message.html}
-          title="Inhalt der E-Mail"
-          className="min-h-0 w-full flex-1 bg-white"
-        />
-      ) : (
-        <pre className="min-h-0 flex-1 overflow-auto px-4 py-3 font-sans text-sm whitespace-pre-wrap">
-          {message.text}
-        </pre>
-      )}
-
-      <LinkList message={message} />
+      <MessageBody message={message} />
 
       {toDocument && (
         <AttachmentToDocumentDialog
@@ -697,51 +346,5 @@ export function MessageView({
         <InvitationFromMail taking={takingInvitation} onClose={() => setTakingInvitation(null)} />
       )}
     </article>
-  )
-}
-
-/**
- * F2: one address in a mail header. A button when the account may write, so a
- * click starts a NEW mail to that person - not a reply to this one.
- */
-function HeaderAddress({
-  address,
-  onWriteTo
-}: {
-  address: { name: string; email: string }
-  onWriteTo?: (address: { name: string; email: string }) => void
-}) {
-  const label = formatAddresses([address])
-  if (!onWriteTo || !address.email) return <span title={label}>{label}</span>
-  return (
-    <button
-      type="button"
-      className="hover:underline"
-      title={`Neue E-Mail an ${label}`}
-      onClick={() => onWriteTo(address)}
-    >
-      {label}
-    </button>
-  )
-}
-
-/** The same for a list (An, Cc): every address is its own button */
-function HeaderAddressList({
-  addresses,
-  onWriteTo
-}: {
-  addresses: { name: string; email: string }[]
-  onWriteTo?: (address: { name: string; email: string }) => void
-}) {
-  if (addresses.length === 0) return <span>–</span>
-  return (
-    <>
-      {addresses.map((address, index) => (
-        <span key={`${address.email}-${index}`}>
-          {index > 0 && ', '}
-          <HeaderAddress address={address} onWriteTo={onWriteTo} />
-        </span>
-      ))}
-    </>
   )
 }
