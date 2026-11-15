@@ -7,6 +7,8 @@ import { join } from 'path'
 
 const source = (p: string): string => readFileSync(join(process.cwd(), p), 'utf8')
 const MAIL_PAGE = 'src/renderer/src/pages/MailPage.tsx'
+// #61: the account picker is in the page's top bar
+const MAIL_HEADER = 'src/renderer/src/components/mail/MailHeader.tsx'
 const COMPOSE = 'src/renderer/src/components/mail/ComposeView.tsx'
 const READER = 'src/renderer/src/components/mail/MessageActions.tsx'
 
@@ -19,7 +21,7 @@ describe('I10 Low: renderer fixes', () => {
     const start = src.indexOf('const switchAccount = ')
     const handler = src.slice(start, src.indexOf('\n  }\n', start))
     expect(handler).toContain('setHiddenIds([])')
-    expect(src).toContain('onValueChange={(id) => switchAccount(id as string)}')
+    expect(source(MAIL_HEADER)).toContain('onValueChange={(id) => switchAccount(id as string)}')
   })
 
   it('marks the mail edited when an attachment is added', () => {

@@ -49,20 +49,26 @@ describe('MR-35: which reading-pane actions an account may offer', () => {
   it('the two pages pass the write callbacks only when the account may write', () => {
     // The pages cannot be rendered here, so the wiring itself is pinned: the unconditional props
     // this card removed must not come back, and both pages must use the shared rule.
-    for (const page of [
-      'src/renderer/src/pages/MailPage.tsx',
-      'src/renderer/src/pages/MailWindowPage.tsx'
+    // #61: MailPage hands the rule's answer to its reading pane, which wires the MessageView
+    for (const [page, wiring] of [
+      ['src/renderer/src/pages/MailPage.tsx', 'src/renderer/src/components/mail/ReadingPane.tsx'],
+      ['src/renderer/src/pages/MailWindowPage.tsx', 'src/renderer/src/pages/MailWindowPage.tsx']
     ]) {
-      const src = source(page)
-      expect(src.indexOf('readingActions('), `${page} must use readingActions()`).toBeGreaterThan(
-        -1
-      )
-      // the exact unconditional forms MR-35 removed
-      expect(src, `${page} passes onCompose unconditionally`).not.toContain(
-        'onCompose={composeFrom}'
-      )
-      expect(src, `${page} passes onWriteTo unconditionally`).not.toContain('onWriteTo={(address)')
+      expect(
+        source(page).indexOf('readingActions('),
+        `${page} must use readingActions()`
+      ).toBeGreaterThan(-1)
+      for (const src of [source(page), source(wiring)]) {
+        // the exact unconditional forms MR-35 removed
+        expect(src, `${wiring} passes onCompose unconditionally`).not.toContain(
+          'onCompose={composeFrom}'
+        )
+        expect(src, `${wiring} passes onWriteTo unconditionally`).not.toContain(
+          'onWriteTo={(address)'
+        )
+      }
       // and both are gated by the rule's own answer
+      const src = source(wiring)
       expect(src).toContain('reading.canCompose ?')
       expect(src).toContain('reading.canWriteTo')
     }
