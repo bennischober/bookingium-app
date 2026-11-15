@@ -1,8 +1,6 @@
-import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormFooter } from './FormActions'
+import { FormBody } from './FormFields'
+import { useAppForm } from './appForm'
 import type { z } from 'zod'
 import type { BankDto, CreateBankInput } from '../../../../main/api/schemas/bank.schema'
 
@@ -13,7 +11,7 @@ interface BankFormProps {
 }
 
 export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       bankName: bank?.bankName || '',
       accountHolder: bank?.accountHolder || '',
@@ -26,90 +24,21 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-4"
-    >
-      <form.Field name="bankName">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="bankName">Bankname *</Label>
-            <Input
-              id="bankName"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+    <FormBody form={form} className="space-y-4">
+      <form.AppField name="bankName">
+        {(field) => <field.TextField label="Bankname" required />}
+      </form.AppField>
+      <form.AppField name="accountHolder">
+        {(field) => <field.TextField label="Kontoinhaber" required />}
+      </form.AppField>
+      <form.AppField name="iban">
+        {(field) => <field.TextField label="IBAN" required placeholder="DE89370400440532013000" />}
+      </form.AppField>
+      <form.AppField name="bic">
+        {(field) => <field.TextField label="BIC/SWIFT" required placeholder="COBADEFFXXX" />}
+      </form.AppField>
 
-      <form.Field name="accountHolder">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="accountHolder">Kontoinhaber *</Label>
-            <Input
-              id="accountHolder"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
-
-      <form.Field name="iban">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="iban">IBAN *</Label>
-            <Input
-              id="iban"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="DE89370400440532013000"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
-
-      <form.Field name="bic">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="bic">BIC/SWIFT *</Label>
-            <Input
-              id="bic"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="COBADEFFXXX"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
-
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Abbrechen
-        </Button>
-        <Button type="submit">Bank speichern</Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel}>Bank speichern</FormFooter>
+    </FormBody>
   )
 }

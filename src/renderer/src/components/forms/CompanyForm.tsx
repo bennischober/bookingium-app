@@ -1,22 +1,15 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { useForm } from '@tanstack/react-form'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { GenreField } from './GenreField'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { FormFooter } from './FormActions'
+import { FieldShell, FormBody } from './FormFields'
+import { useAppForm } from './appForm'
+import { GenreField } from './GenreField'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
+import { addressDefaults, contactDefaults } from './formDefaults'
 import { trpcReact } from '@/lib/trpc'
 import { InfoLabel } from '@/components/InfoLabel'
 
@@ -27,6 +20,11 @@ import {
   type CompanyDto,
   type CreateCompanyInput
 } from '../../../../main/api/schemas/company.schema'
+
+const KIND_OPTIONS = CompanyKind.options.map((kind) => ({
+  value: kind,
+  label: COMPANY_KIND_LABELS[kind]
+}))
 
 interface CompanyFormProps {
   company?: CompanyDto
@@ -103,7 +101,7 @@ export function CompanyForm({
     const path = await pickImage('signature')
     if (path) setSignaturePreview(path)
   }
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       name: company?.name || '',
       kind: company?.kind ?? ('company' as CompanyKind),
@@ -117,24 +115,8 @@ export function CompanyForm({
       signaturePath: company?.signaturePath || '',
       bankId: company?.bank?.id || null,
       invoiceContactPersonId: company?.invoiceContactPersonId ?? null,
-      address: {
-        street: company?.address?.street || '',
-        streetNumber: company?.address?.streetNumber || '',
-        addressSuffix: company?.address?.addressSuffix || '',
-        zipCode: company?.address?.zipCode || '',
-        city: company?.address?.city || '',
-        state: company?.address?.state || '',
-        country: company?.address?.country || '',
-        countryCode: company?.address?.countryCode || ''
-      },
-      contact: {
-        email: company?.contact?.email || '',
-        otherEmails: company?.contact?.otherEmails ?? [],
-        phone: company?.contact?.phone || '',
-        mobilePhone: company?.contact?.mobilePhone || '',
-        homepage: company?.contact?.homepage || '',
-        noAdvertising: company?.contact?.noAdvertising ?? false
-      }
+      address: addressDefaults(company?.address),
+      contact: contactDefaults(company?.contact)
     },
     onSubmit: async ({ value }) => {
       // The form leaves out a few input fields (kskNumber, isDefaultForInvoicing); zod defaults them
@@ -146,144 +128,63 @@ export function CompanyForm({
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-6"
-    >
+    <FormBody form={form} disabled={isSubmitting}>
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Firmeninformationen</h3>
 
-        <form.Field name="name">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="name">Firmenname *</Label>
-              <Input
-                id="name"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="name">
+          {(field) => <field.TextField label="Firmenname" required />}
+        </form.AppField>
 
-        <form.Field name="kind">
+        <form.AppField name="kind">
           {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="kind">Art</Label>
-              <Select
-                value={field.state.value}
-                onValueChange={(value) => field.handleChange(value as CompanyKind)}
-              >
-                <SelectTrigger id="kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CompanyKind.options.map((kind) => (
-                    <SelectItem key={kind} value={kind}>
-                      {COMPANY_KIND_LABELS[kind]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Radio/Medien stehen mit ihren Ansprechpartnern in den Verteilern.
-              </p>
-            </div>
+            <field.SelectField
+              label="Art"
+              options={KIND_OPTIONS}
+              hint="Radio/Medien stehen mit ihren Ansprechpartnern in den Verteilern."
+            />
           )}
-        </form.Field>
+        </form.AppField>
 
         {/* Genres only matter for the Verteiler, so only media companies get them */}
         <form.Subscribe selector={(state) => state.values.kind}>
           {(kind) =>
             kind === 'media' && (
-              <form.Field name="genres">
+              <form.AppField name="genres">
                 {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="genres">Genres</Label>
+                  <field.FieldRow
+                    label="Genres"
+                    hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
+                  >
                     <GenreField
-                      id="genres"
+                      id={field.name}
                       value={field.state.value}
                       onChange={field.handleChange}
                       onBlur={field.handleBlur}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die
-                      Verteiler genutzt.
-                    </p>
-                  </div>
+                  </field.FieldRow>
                 )}
-              </form.Field>
+              </form.AppField>
             )
           }
         </form.Subscribe>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="vatId">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="vatId">USt-IdNr.</Label>
-                <Input
-                  id="vatId"
-                  placeholder="z. B. DE123456789"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="taxNumber">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="taxNumber">Steuernummer</Label>
-                <Input
-                  id="taxNumber"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
+          <form.AppField name="vatId">
+            {(field) => <field.TextField label="USt-IdNr." placeholder="z. B. DE123456789" />}
+          </form.AppField>
+          <form.AppField name="taxNumber">
+            {(field) => <field.TextField label="Steuernummer" />}
+          </form.AppField>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="commercialRegisterNo">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="commercialRegisterNo">Registernummer (HR-Nr.)</Label>
-                <Input
-                  id="commercialRegisterNo"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="registerCourt">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="registerCourt">Registergericht (Amtsgericht)</Label>
-                <Input
-                  id="registerCourt"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
+          <form.AppField name="commercialRegisterNo">
+            {(field) => <field.TextField label="Registernummer (HR-Nr.)" />}
+          </form.AppField>
+          <form.AppField name="registerCourt">
+            {(field) => <field.TextField label="Registergericht (Amtsgericht)" />}
+          </form.AppField>
         </div>
 
         {isMainCompany ? (
@@ -392,15 +293,14 @@ export function CompanyForm({
           </p>
         )}
 
-        <form.Field name="bankId">
+        <form.AppField name="bankId">
           {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="bankId">Bank (optional)</Label>
+            <field.FieldRow label="Bank (optional)">
               {banks.isLoading ? (
                 <p className="text-sm text-muted-foreground">Banken werden geladen…</p>
               ) : banks.data && banks.data.length > 0 ? (
                 <SearchableSelect
-                  id="bankId"
+                  id={field.name}
                   value={field.state.value}
                   onChange={field.handleChange}
                   options={banks.data.map((bank) => ({
@@ -410,19 +310,20 @@ export function CompanyForm({
                   }))}
                   noneLabel="Keine"
                   searchPlaceholder="Bank suchen…"
+                  disabled={isSubmitting}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Keine Banken vorhanden. Legen Sie zuerst eine Bank auf der Banken-Seite an.
                 </p>
               )}
-            </div>
+            </field.FieldRow>
           )}
-        </form.Field>
+        </form.AppField>
 
         <form.Field name="invoiceContactPersonId">
           {(field) => (
-            <div className="space-y-2">
+            <FieldShell>
               <InfoLabel
                 htmlFor="invoiceContactPersonId"
                 text="Ansprechpartner für Rechnungen (optional)"
@@ -438,25 +339,15 @@ export function CompanyForm({
                 }))}
                 noneLabel="Keiner"
                 searchPlaceholder="Person suchen…"
+                disabled={isSubmitting}
               />
-            </div>
+            </FieldShell>
           )}
         </form.Field>
 
-        <form.Field name="notes">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="notes">Anmerkungen</Label>
-              <Textarea
-                id="notes"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                rows={3}
-              />
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="notes">
+          {(field) => <field.TextareaField label="Anmerkungen" rows={3} />}
+        </form.AppField>
       </div>
 
       <Separator />
@@ -467,14 +358,9 @@ export function CompanyForm({
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Abbrechen
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Speichert…' : 'Firma speichern'}
-        </Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+        Firma speichern
+      </FormFooter>
+    </FormBody>
   )
 }

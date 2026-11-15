@@ -1,12 +1,15 @@
-import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { FormFooter } from './FormActions'
+import { FormBody } from './FormFields'
+import { required, useAppForm } from './appForm'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
+import {
+  addressDefaults,
+  basicContactDefaults,
+  optionalAddress,
+  optionalContact
+} from './formDefaults'
 import type { FormMode } from '@/hooks/useFormSheet'
 import type {
   CreateHotelInput,
@@ -29,35 +32,19 @@ export function HotelForm({
   onCancel,
   isSubmitting = false
 }: HotelFormProps) {
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       name: initialData?.name ?? '',
       notes: initialData?.notes ?? '',
-      address: {
-        street: initialData?.address?.street ?? '',
-        streetNumber: initialData?.address?.streetNumber ?? '',
-        addressSuffix: initialData?.address?.addressSuffix ?? '',
-        zipCode: initialData?.address?.zipCode ?? '',
-        city: initialData?.address?.city ?? '',
-        state: initialData?.address?.state ?? '',
-        country: initialData?.address?.country ?? '',
-        countryCode: initialData?.address?.countryCode ?? ''
-      },
-      contact: {
-        email: initialData?.contact?.email ?? '',
-        phone: initialData?.contact?.phone ?? '',
-        mobilePhone: initialData?.contact?.mobilePhone ?? '',
-        homepage: initialData?.contact?.homepage ?? ''
-      }
+      address: addressDefaults(initialData?.address),
+      contact: basicContactDefaults(initialData?.contact)
     },
     onSubmit: async ({ value }) => {
-      const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
-      const hasContact = Object.values(value.contact).some((entry) => entry.trim().length > 0)
       const basePayload = {
         name: value.name.trim(),
         notes: value.notes.trim(),
-        ...(hasAddress ? { address: value.address } : {}),
-        ...(hasContact ? { contact: value.contact } : {})
+        ...optionalAddress(value.address),
+        ...optionalContact(value.contact)
       }
 
       if (mode === 'edit' && initialData) {
@@ -70,61 +57,20 @@ export function HotelForm({
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-6"
-    >
-      <form.Field
-        name="name"
-        validators={{
-          onChange: ({ value }) => {
-            if (!value || value.trim().length === 0) {
-              return 'Name ist erforderlich'
-            }
-            return undefined
-          }
-        }}
-      >
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Hotelnamen eingeben"
-              disabled={isSubmitting}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+    <FormBody form={form} disabled={isSubmitting}>
+      <form.AppField name="name" validators={{ onChange: required('Name') }}>
+        {(field) => <field.TextField label="Name" required placeholder="Hotelnamen eingeben" />}
+      </form.AppField>
 
-      <form.Field name="notes">
+      <form.AppField name="notes">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Anmerkungen</Label>
-            <Textarea
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Weitere Details zu diesem Hotel"
-              rows={4}
-              disabled={isSubmitting}
-            />
-          </div>
+          <field.TextareaField
+            label="Anmerkungen"
+            placeholder="Weitere Details zu diesem Hotel"
+            rows={4}
+          />
         )}
-      </form.Field>
+      </form.AppField>
 
       <Separator />
       <AddressFormFields form={form} />
@@ -132,18 +78,9 @@ export function HotelForm({
       <Separator />
       <ContactFormFields form={form} showOtherEmails={false} />
 
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Abbrechen
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting
-            ? 'Speichert…'
-            : mode === 'create'
-              ? 'Hotel anlegen'
-              : 'Änderungen speichern'}
-        </Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+        {mode === 'create' ? 'Hotel anlegen' : 'Änderungen speichern'}
+      </FormFooter>
+    </FormBody>
   )
 }

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,5 +16,31 @@ export function FormActions({ className, ...props }: React.HTMLAttributes<HTMLDi
       )}
       {...props}
     />
+  )
+}
+
+/**
+ * #171: the usual action row, "Abbrechen" and the submit button. While saving both are
+ * disabled and the submit button says "Speichert…".
+ */
+export function FormFooter({
+  onCancel,
+  submitting = false,
+  children
+}: {
+  onCancel: () => void
+  submitting?: boolean
+  /** The submit button's label */
+  children: ReactNode
+}) {
+  return (
+    <FormActions>
+      <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+        Abbrechen
+      </Button>
+      <Button type="submit" disabled={submitting}>
+        {submitting ? 'Speichert…' : children}
+      </Button>
+    </FormActions>
   )
 }

@@ -266,8 +266,17 @@ At startup (`app/migrateDatabase.ts`):
 6. **Mapper** — static `toDto`/`toDtoList`; snake → camel only here.
 7. **Router** — procedures calling the service and mapping; register in
    `src/main/api/router.ts`.
-8. **Form** — `components/forms/XForm.tsx` (TanStack Form; BankForm is the
-   minimal example). Pick related records with `SearchableSelect`.
+8. **Form** — `components/forms/XForm.tsx` with `useAppForm` (`appForm.ts`;
+   BankForm is the minimal example). Fields are one line each:
+   `<form.AppField name="x">{(field) => <field.TextField label="X" />}</form.AppField>`
+   (`TextField`, `TextareaField`, `SelectField`, `SwitchField`; `FieldRow` puts
+   label, hint and error around a custom control). Wrap them in `FormBody`
+   (submit, disabled while saving) and end with `FormFooter`. `required('X')`
+   is the blank check, the `required` prop only the `*`. Address and contact
+   parts take `addressDefaults`/`contactDefaults` and are sent through
+   `optionalAddress`/`optionalContact` (`formDefaults.ts`). Forms on
+   `useState` use `FieldShell` for the same look. Pick related records with
+   `SearchableSelect`.
 9. **List page** — `pages/XPage.tsx`: one continuous list. Query with
    `trpcReact.x.getAllPaginated.useInfiniteQuery({ pageSize: LIST_CHUNK_SIZE,
 search, ...sortInput }, infiniteListOptions)` and `useListSorting` (order

@@ -1,11 +1,7 @@
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-
-// The parent form instance (TanStack Form). Typed loosely on purpose: these
-// shared fields are embedded in several forms with different value shapes,
-// and TanStack Form's FormApi generic needs 11 type parameters that would
-// couple this component to one parent's exact shape. The Field calls below
-// are string-path fields with string values.
+// The parent form instance (`useAppForm`). Typed loosely on purpose: these shared fields
+// are embedded in several forms with different value shapes, and TanStack Form's FormApi
+// generic needs a dozen type parameters that would couple this component to one parent's
+// exact shape. The parent's defaultValues take `addressDefaults()` (`formDefaults.ts`).
 interface AddressFormFieldsProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any
@@ -17,139 +13,40 @@ export function AddressFormFields({ form }: AddressFormFieldsProps) {
       <h3 className="text-lg font-semibold">Adresse</h3>
 
       <div className="grid grid-cols-2 gap-4">
-        <form.Field name="address.street">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.street">Straße</Label>
-              <Input
-                id="address.street"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
-          )}
-        </form.Field>
-
-        <form.Field name="address.streetNumber">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.streetNumber">Hausnummer</Label>
-              <Input
-                id="address.streetNumber"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="address.street">
+          {(field) => <field.TextField label="Straße" />}
+        </form.AppField>
+        <form.AppField name="address.streetNumber">
+          {(field) => <field.TextField label="Hausnummer" />}
+        </form.AppField>
       </div>
 
-      <form.Field name="address.addressSuffix">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="address.addressSuffix">Adresszusatz</Label>
-            <Input
-              id="address.addressSuffix"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Wohnung, Etage, etc."
-            />
-          </div>
-        )}
-      </form.Field>
+      <form.AppField name="address.addressSuffix">
+        {(field) => <field.TextField label="Adresszusatz" placeholder="Wohnung, Etage, etc." />}
+      </form.AppField>
 
       <div className="grid grid-cols-2 gap-4">
-        <form.Field name="address.zipCode">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.zipCode">PLZ</Label>
-              <Input
-                id="address.zipCode"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
-          )}
-        </form.Field>
-
-        <form.Field name="address.city">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.city">Stadt</Label>
-              <Input
-                id="address.city"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="address.zipCode">
+          {(field) => <field.TextField label="PLZ" />}
+        </form.AppField>
+        <form.AppField name="address.city">
+          {(field) => <field.TextField label="Stadt" />}
+        </form.AppField>
       </div>
 
-      <form.Field name="address.state">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="address.state">Bundesland</Label>
-            <Input
-              id="address.state"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-          </div>
-        )}
-      </form.Field>
+      <form.AppField name="address.state">
+        {(field) => <field.TextField label="Bundesland" />}
+      </form.AppField>
 
       <div className="grid grid-cols-2 gap-4">
-        <form.Field name="address.country">
+        <form.AppField name="address.country">
+          {(field) => <field.TextField label="Land" />}
+        </form.AppField>
+        <form.AppField name="address.countryCode">
           {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.country">Land</Label>
-              <Input
-                id="address.country"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
+            <field.TextField label="Ländercode" maxLength={2} placeholder="US, DE, etc." />
           )}
-        </form.Field>
-
-        <form.Field name="address.countryCode">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="address.countryCode">Ländercode</Label>
-              <Input
-                id="address.countryCode"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                maxLength={2}
-                placeholder="US, DE, etc."
-              />
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-              )}
-            </div>
-          )}
-        </form.Field>
+        </form.AppField>
       </div>
     </div>
   )

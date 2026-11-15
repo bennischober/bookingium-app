@@ -1,10 +1,7 @@
-import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormFooter } from './FormActions'
+import { FormBody } from './FormFields'
+import { required, useAppForm } from './appForm'
 import { GenreField } from './GenreField'
-import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { trpcReact } from '@/lib/trpc'
 import type {
@@ -38,7 +35,7 @@ export function BandForm({
   const persons = trpcReact.person.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
 
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       name: initialData?.name || '',
       genre: initialData?.genre || '',
@@ -75,48 +72,12 @@ export function BandForm({
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-6"
-    >
-      {/* Name Field */}
-      <form.Field
-        name="name"
-        validators={{
-          onChange: ({ value }) => {
-            if (!value || value.trim().length === 0) {
-              return 'Name ist erforderlich'
-            }
-            return undefined
-          }
-        }}
-      >
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Bandnamen eingeben"
-              disabled={isSubmitting}
-            />
-            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+    <FormBody form={form} disabled={isSubmitting}>
+      <form.AppField name="name" validators={{ onChange: required('Name') }}>
+        {(field) => <field.TextField label="Name" required placeholder="Bandnamen eingeben" />}
+      </form.AppField>
 
-      {/* Company Field */}
-      <form.Field
+      <form.AppField
         name="companyId"
         validators={{
           onChange: ({ value }) => {
@@ -128,10 +89,7 @@ export function BandForm({
         }}
       >
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>
-              Firma <span className="text-destructive">*</span>
-            </Label>
+          <field.FieldRow label="Firma" required>
             {companies.isLoading ? (
               <div className="text-sm text-muted-foreground">Firmen werden geladen…</div>
             ) : companies.data && companies.data.length > 0 ? (
@@ -149,18 +107,16 @@ export function BandForm({
                 Keine Firmen vorhanden. Bitte legen Sie zuerst eine Firma an.
               </div>
             )}
-            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
-      {/* Technischer Leiter (TL) Field */}
-      <form.Field name="responsiblePersonId">
+      <form.AppField name="responsiblePersonId">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Technischer Leiter (TL)</Label>
+          <field.FieldRow
+            label="Technischer Leiter (TL)"
+            hint="Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1."
+          >
             {persons.isLoading ? (
               <div className="text-sm text-muted-foreground">Personen werden geladen…</div>
             ) : persons.data && persons.data.length > 0 ? (
@@ -179,18 +135,17 @@ export function BandForm({
             ) : (
               <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1.
-            </p>
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
       {/* Management company: "vertreten durch" in contracts */}
-      <form.Field name="managementCompanyId">
+      <form.AppField name="managementCompanyId">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Management (vertreten durch)</Label>
+          <field.FieldRow
+            label="Management (vertreten durch)"
+            hint="Vertritt die Band in Konzertverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
+          >
             <SearchableSelect
               id={field.name}
               value={field.state.value}
@@ -200,19 +155,13 @@ export function BandForm({
               searchPlaceholder="Firma suchen…"
               disabled={isSubmitting || companies.isLoading}
             />
-            <p className="text-xs text-muted-foreground">
-              Vertritt die Band in Konzertverträgen (Briefkopf, „vertreten durch“, Unterschrift
-              VP1). Einzelne Events können das überschreiben.
-            </p>
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
-      {/* Genre Field */}
-      <form.Field name="genre">
+      <form.AppField name="genre">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Genre</Label>
+          <field.FieldRow label="Genre">
             <GenreField
               id={field.name}
               value={field.state.value}
@@ -221,58 +170,27 @@ export function BandForm({
               placeholder="z. B. Rock, Metal, Pop"
               disabled={isSubmitting}
             />
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
-      {/* Founded Field */}
-      <form.Field name="founded">
+      <form.AppField name="founded">
+        {(field) => <field.TextField label="Gründung" placeholder="z. B. 1965" />}
+      </form.AppField>
+
+      <form.AppField name="notes">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Gründung</Label>
-            <Input
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="z. B. 1965"
-              disabled={isSubmitting}
-            />
-          </div>
+          <field.TextareaField
+            label="Anmerkungen"
+            placeholder="Weitere Anmerkungen hinzufügen…"
+            rows={4}
+          />
         )}
-      </form.Field>
+      </form.AppField>
 
-      {/* Notes Field */}
-      <form.Field name="notes">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Anmerkungen</Label>
-            <Textarea
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Weitere Anmerkungen hinzufügen…"
-              rows={4}
-              disabled={isSubmitting}
-            />
-          </div>
-        )}
-      </form.Field>
-
-      {/* Form Actions */}
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Abbrechen
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting
-            ? 'Speichert…'
-            : mode === 'create'
-              ? 'Band anlegen'
-              : 'Änderungen speichern'}
-        </Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+        {mode === 'create' ? 'Band anlegen' : 'Änderungen speichern'}
+      </FormFooter>
+    </FormBody>
   )
 }
