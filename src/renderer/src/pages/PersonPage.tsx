@@ -129,7 +129,7 @@ export function PersonPage() {
         onRetry={() => void persons.refetch()}
         total={listTotal(persons.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Person anlegen" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel="+ Neue Person" onCreate={formSheet.openCreate}>
             <ExportButton list="persons" sort={sortInput} search={search} />
             <ImportButton target="persons" />
           </ListToolbar>
@@ -140,7 +140,7 @@ export function PersonPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Person anlegen' : 'Person bearbeiten'}
+        title={formSheet.mode === 'create' ? 'Neue Person anlegen' : 'Person bearbeiten'}
         description={
           formSheet.mode === 'create'
             ? 'Eine neue Person im System anlegen.'

@@ -79,7 +79,7 @@ export function HotelForm({
       <ContactFormFields form={form} showOtherEmails={false} />
 
       <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {mode === 'create' ? 'Hotel anlegen' : 'Änderungen speichern'}
+        {mode === 'create' ? 'Anlegen' : 'Speichern'}
       </FormFooter>
     </FormBody>
   )

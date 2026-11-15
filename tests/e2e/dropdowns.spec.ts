@@ -32,10 +32,14 @@ test('picks a technical lead by searching', async () => {
   // Nothing matches
   await page.getByRole('combobox', { name: 'Management (vertreten durch)' }).click()
   await page.keyboard.type('gibt es nicht')
-  await expect(page.getByText('Keine Treffer.')).toBeVisible()
+  await expect(page.getByText('Keine Firma gefunden.')).toBeVisible()
+  // ...but a new one can be created from here
+  await expect(
+    page.getByRole('option', { name: 'Neue Firma anlegen: „gibt es nicht“' })
+  ).toBeVisible()
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click()
   await expect(page.getByText('Band aktualisiert')).toBeVisible()
   await page.locator('tr', { hasText: 'The Electric Waves' }).click()
   await expect(page.getByText('Sarah Drummer')).toBeVisible()

@@ -44,7 +44,7 @@ test('keeps the calendar file up to date', async () => {
     .getByRole('button', { name: 'Bearbeiten' })
     .click()
   await page.getByLabel('Name').fill('Berghain Halle')
-  await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click()
   await expect.poll(ics, { timeout: 10_000 }).toContain('LOCATION:Berghain Halle')
 
   // Off: the setting is cleared, the file stays

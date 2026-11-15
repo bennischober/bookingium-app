@@ -67,7 +67,7 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <FormFooter onCancel={onCancel}>Person speichern</FormFooter>
+      <FormFooter onCancel={onCancel}>{person ? 'Speichern' : 'Anlegen'}</FormFooter>
     </FormBody>
   )
 }

@@ -39,6 +39,13 @@ English.
    „Künstler“, „Konzertvertrag“, …) and what to write instead.
    `tests/terms_guard.test.ts` fails on them in UI strings. The legal text of
    the contract documents is exempt.
+8. **Creating and saving read the same everywhere.** The list button is
+   „+ Neue Band“ (`Neuer`), the panel or dialog that opens is titled
+   „Neue Band anlegen“ (`Neuen` + anlegen), editing is „Band bearbeiten“. The
+   submit button says „Anlegen“ when creating and „Speichern“ when editing.
+   Steps with their own meaning keep their verb („Rechnung stellen“,
+   „Entwurf speichern“). A picker for a required record offers
+   „Neue Firma anlegen“ instead of asking to create one elsewhere first.
 
 ## Glossary
 

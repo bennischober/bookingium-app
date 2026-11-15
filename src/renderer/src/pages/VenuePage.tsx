@@ -156,7 +156,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         onRetry={() => void venues.refetch()}
         total={listTotal(venues.data)}
         actionButton={
-          <ListToolbar createLabel={`+ ${copy.Neuen} anlegen`} onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel={`+ ${copy.Neuer}`} onCreate={formSheet.openCreate}>
             <ExportButton list="venues" sort={sortInput} search={search} kind={kind} />
             <ImportButton target="venues" kind={kind} />
           </ListToolbar>
@@ -179,7 +179,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         mode={formSheet.mode}
         title={
           formSheet.mode === 'create'
-            ? `${copy.singular} anlegen`
+            ? `${copy.Neuen} anlegen`
             : `${VENUE_KIND_TERMS[formSheet.selectedItem?.kind ?? kind].singular} bearbeiten`
         }
         description={

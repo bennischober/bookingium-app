@@ -27,7 +27,7 @@ interface EntityComboboxProps {
   searchPlaceholder?: string
   emptyText?: string
   isLoading?: boolean
-  /** Fired when user clicks "+ Create new…" — receives the current search query */
+  /** Fired when user clicks "Neu anlegen" — receives the current search query */
   onCreateNew?: (query: string) => void
   createNewLabel?: string
   disabled?: boolean
@@ -38,12 +38,12 @@ export function EntityCombobox({
   items,
   value,
   onChange,
-  placeholder = 'Select…',
-  searchPlaceholder = 'Search…',
-  emptyText = 'No results found.',
+  placeholder = 'Auswählen…',
+  searchPlaceholder = 'Suchen…',
+  emptyText = 'Keine Treffer.',
   isLoading = false,
   onCreateNew,
-  createNewLabel = 'Create new',
+  createNewLabel = 'Neu anlegen',
   disabled = false,
   className
 }: EntityComboboxProps) {
@@ -75,7 +75,7 @@ export function EntityCombobox({
         className={cn('w-full justify-between font-normal', className)}
       >
         <span className={cn(!selectedItem && 'text-muted-foreground')}>
-          {isLoading ? 'Loading…' : selectedItem ? selectedItem.label : placeholder}
+          {isLoading ? 'Wird geladen…' : selectedItem ? selectedItem.label : placeholder}
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>

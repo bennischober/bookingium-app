@@ -359,7 +359,7 @@ export function CompanyForm({
       <ContactFormFields form={form} showNoAdvertising />
 
       <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        Firma speichern
+        {company ? 'Speichern' : 'Anlegen'}
       </FormFooter>
     </FormBody>
   )

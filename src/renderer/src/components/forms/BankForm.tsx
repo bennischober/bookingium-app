@@ -38,7 +38,7 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
         {(field) => <field.TextField label="BIC/SWIFT" required placeholder="COBADEFFXXX" />}
       </form.AppField>
 
-      <FormFooter onCancel={onCancel}>Bank speichern</FormFooter>
+      <FormFooter onCancel={onCancel}>{bank ? 'Speichern' : 'Anlegen'}</FormFooter>
     </FormBody>
   )
 }

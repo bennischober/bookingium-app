@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -8,7 +8,8 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList
+  CommandList,
+  CommandSeparator
 } from '@/components/ui/command'
 
 export interface SearchableSelectOption<T extends string | number = number> {
@@ -33,6 +34,12 @@ interface SearchableSelectProps<T extends string | number> {
   disabled?: boolean
   className?: string
   'aria-label'?: string
+  /**
+   * Adds a last entry that creates a new record (e.g. "Neue Firma anlegen"),
+   * so an empty list is no dead end. Receives what was typed into the search.
+   */
+  onCreateNew?: (query: string) => void
+  createNewLabel?: string
 }
 
 /**
@@ -50,9 +57,12 @@ export function SearchableSelect<T extends string | number = number>({
   emptyText = 'Keine Treffer.',
   disabled = false,
   className,
-  'aria-label': ariaLabel
+  'aria-label': ariaLabel,
+  onCreateNew,
+  createNewLabel = 'Neu anlegen'
 }: SearchableSelectProps<T>) {
   const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState('')
   const selected = options.find((option) => option.value === value)
   const triggerText = selected?.label ?? (value == null && noneLabel ? noneLabel : placeholder)
 
@@ -61,8 +71,18 @@ export function SearchableSelect<T extends string | number = number>({
     setOpen(false)
   }
 
+  const createNew = () => {
+    setOpen(false)
+    onCreateNew?.(query.trim())
+  }
+
+  const toggle = (next: boolean) => {
+    setOpen(next)
+    if (next) setQuery('')
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={toggle}>
       <PopoverTrigger asChild>
         <button
           id={id}
@@ -91,7 +111,7 @@ export function SearchableSelect<T extends string | number = number>({
       >
         <Command>
           {/* Focused on open (first focusable element): type to filter */}
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput placeholder={searchPlaceholder} value={query} onValueChange={setQuery} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
@@ -123,6 +143,25 @@ export function SearchableSelect<T extends string | number = number>({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {onCreateNew && (
+              <>
+                <CommandSeparator alwaysRender />
+                {/* Always listed, whatever the search says: cmdk hides a group without matches */}
+                <CommandGroup forceMount>
+                  <CommandItem
+                    forceMount
+                    value={`__create ${query}`}
+                    onSelect={createNew}
+                    className="text-primary"
+                  >
+                    <Plus className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">
+                      {query.trim() ? `${createNewLabel}: „${query.trim()}“` : createNewLabel}
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

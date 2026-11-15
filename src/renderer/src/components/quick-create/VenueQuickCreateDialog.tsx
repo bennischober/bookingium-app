@@ -42,7 +42,7 @@ export function VenueQuickCreateDialog({
   return (
     <QuickCreateDialog
       isOpen={isOpen}
-      title="Club / Festival schnell anlegen"
+      title="Neuen Club / Festival anlegen"
       submitLabel="Anlegen"
       submitDisabled={!name.trim() || createVenue.isPending}
       onSubmit={handleSubmit}
