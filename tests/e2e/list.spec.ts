@@ -38,7 +38,7 @@ test.beforeAll(async () => {
   await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await dialog.getByRole('button', { name: '150 Zeilen importieren' }).click()
-  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
 })
 
 test.afterAll(async () => {

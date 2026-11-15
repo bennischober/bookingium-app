@@ -17,7 +17,7 @@ import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
 import { Archive, Building2, Trash2 } from 'lucide-react'
 import { AgencyBookingsView } from '@/components/agency/AgencyBookingsView'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { cn, formatShortDate } from '@/lib/utils'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
 import { confirmAction, confirmDelete } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
@@ -211,7 +211,9 @@ export function EventPage() {
                   key={event.id}
                   className="flex items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0"
                 >
-                  <span className="w-24 shrink-0 text-muted-foreground">{event.date}</span>
+                  <span className="w-24 shrink-0 text-muted-foreground">
+                    {formatShortDate(event.date)}
+                  </span>
                   <button
                     type="button"
                     onClick={() =>

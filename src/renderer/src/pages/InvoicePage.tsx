@@ -7,6 +7,8 @@ import {
   useListSorting
 } from '@/hooks/useListQuery'
 import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { formatShortDate } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
@@ -25,7 +27,11 @@ import {
   invoiceNumberLabel
 } from '@/lib/invoiceLabels'
 import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
-import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
+import {
+  isInvoiceLocked,
+  type InvoiceDto,
+  type InvoiceListItemDto
+} from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 
@@ -56,6 +62,13 @@ export default function InvoicePage() {
     },
     infiniteListOptions
   )
+
+  // Like the row's first action: drafts open in the edit sheet, the others on their page
+  const navigate = useNavigate()
+  const openInvoice = (invoice: InvoiceListItemDto) =>
+    isInvoiceLocked(invoice.status)
+      ? void navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(invoice.id) } })
+      : setOpenInvoiceId(invoice.id)
 
   const nudgeFollowUp = useFollowUpNudge()
   const createMutation = trpcReact.invoice.create.useMutation({
@@ -105,7 +118,8 @@ export default function InvoicePage() {
     },
     {
       accessorKey: 'issueDate',
-      header: 'Datum'
+      header: 'Datum',
+      cell: ({ row }) => formatShortDate(row.original.issueDate)
     },
     {
       accessorKey: 'status',
@@ -165,6 +179,7 @@ export default function InvoicePage() {
         error={invoices.error}
         onRetry={() => void invoices.refetch()}
         total={listTotal(invoices.data)}
+        onRowClick={openInvoice}
         actionButton={
           <ListToolbar createLabel="+ Rechnung anlegen" onCreate={sheet.openCreate}>
             <ExportButton list="invoices" sort={sortInput} search={search} />

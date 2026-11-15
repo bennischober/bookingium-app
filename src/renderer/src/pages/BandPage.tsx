@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/data-table'
+import { formatLooseDate } from '@/lib/utils'
 import { FormSheet } from '@/components/form-sheet'
 import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -79,7 +80,7 @@ export default function BandPage() {
     {
       accessorKey: 'founded',
       header: 'Gründung',
-      cell: (info) => info.getValue() || '-'
+      cell: (info) => formatLooseDate((info.getValue() as string | null) ?? '') || '-'
     },
     {
       accessorKey: 'notes',

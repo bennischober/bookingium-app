@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
+import { formatLooseDate } from '@/lib/utils'
 import { useBandTabCounts } from '@/hooks/useTabCounts'
 import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
 import { FormSheet } from '@/components/form-sheet'
@@ -58,7 +59,9 @@ function OverviewTab({ band }: { band: BandDto }) {
         )}
       </InfoCard>
       <InfoCard label="Genre / Gründung">
-        {[band.genre, band.founded].filter(Boolean).join(' · ') || <Empty />}
+        {[band.genre, band.founded && formatLooseDate(band.founded)]
+          .filter(Boolean)
+          .join(' · ') || <Empty />}
       </InfoCard>
       <div className="md:col-span-2">
         <InfoCard label="Anmerkungen">

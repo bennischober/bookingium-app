@@ -92,7 +92,7 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await dialog.getByRole('button', { name: '3 Zeilen importieren' }).click()
   await expect(dialog.getByText('2 Festivals angelegt')).toBeVisible()
   await expect(dialog.getByText('4 Ansprechpartner angelegt')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
   await expect(dialog).toBeHidden()
 
   // Listed as festivals, with the promoter linked
@@ -161,7 +161,7 @@ test('saves an imported contact list as Verteiler', async () => {
   await expect(
     dialog.getByText('2 Kontakte in den Verteiler „Presse aus Datei“ aufgenommen')
   ).toBeVisible()
-  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
 
   await page.getByRole('link', { name: 'Verteiler' }).first().click()
   const savedSelect = page.getByRole('combobox', { name: 'Gespeicherter Verteiler' })

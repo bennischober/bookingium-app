@@ -49,7 +49,7 @@ test('settings page saves defaults and creates a backup', async () => {
   await page.getByRole('button', { name: 'Daten importieren…' }).click()
   const importDialog = page.getByRole('dialog', { name: 'Daten importieren' })
   await expect(importDialog).toBeVisible()
-  await importDialog.getByRole('button', { name: 'Close' }).click()
+  await importDialog.getByRole('button', { name: 'Dialog schließen' }).click()
 
   // Backup into the chosen folder
   await h.app.evaluate(({ dialog }, path) => {

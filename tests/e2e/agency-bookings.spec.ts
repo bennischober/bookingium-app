@@ -66,7 +66,7 @@ test('lists, imports and removes agency bookings', async () => {
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await expect(dialog.getByText('Band ist nicht angelegt')).toBeVisible()
   await dialog.getByRole('button', { name: 'Importieren' }).click()
-  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
 
   await expect(view.getByText('Halle Muster')).toBeVisible()
   await expect(view.getByText('Club Beispiel')).toBeVisible()
