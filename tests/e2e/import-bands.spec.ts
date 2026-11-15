@@ -65,7 +65,7 @@ test('imports a band list with members from the settings page', async () => {
   await dialog.getByRole('button', { name: '2 Zeilen importieren' }).click()
   await expect(dialog.getByText('1 Band angelegt')).toBeVisible()
   await expect(dialog.getByText('4 Personen angelegt')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
 
   // The band and its members
   await page.getByRole('link', { name: 'Bands' }).first().click()

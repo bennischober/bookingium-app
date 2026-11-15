@@ -1,6 +1,7 @@
 // Editable rows of the contract's prepayments ("Vorkasse") in the Finanzen tab (pure, unit-tested).
 import type { DealMemoDeposit } from '../../../../main/api/schemas/deal_memo.schema'
 import { formatShortDate } from '@/lib/utils'
+import { formatMoney } from '../../../../main/invoice/money'
 
 /** One row as typed: the raw input values, '' for empty */
 export interface DepositDraft {
@@ -40,7 +41,7 @@ export function depositSummary(deposits: DealMemoDeposit[]): string {
   return deposits
     .map(
       (deposit, index) =>
-        `${index + 1}. € ${deposit.amount.toFixed(2)}, fällig ${
+        `${index + 1}. ${formatMoney(deposit.amount, 'EUR')}, fällig ${
           deposit.dueDate ? `am ${formatShortDate(deposit.dueDate)}` : 'bei Vertragsabschluss'
         }`
     )

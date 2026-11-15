@@ -13,6 +13,7 @@ import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Euro, FileText, FileSignature, Plus, Trash2 } from 'lucide-react'
+import { formatShortDate } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
@@ -265,12 +266,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           <div className="space-y-4">
             <ReadOnlyField
               label="Vorverkauf (VVK)"
-              value={vvk ? `€ ${parseFloat(vvk).toFixed(2)}` : null}
+              value={vvk ? formatMoney(parseFloat(vvk), 'EUR') : null}
               placeholder="Nicht festgelegt"
             />
             <ReadOnlyField
               label="Abendkasse (AK)"
-              value={ak ? `€ ${parseFloat(ak).toFixed(2)}` : null}
+              value={ak ? formatMoney(parseFloat(ak), 'EUR') : null}
               placeholder="Nicht festgelegt"
             />
           </div>
@@ -414,7 +415,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
               <ReadOnlyField
                 label="Garantiezahlung (netto)"
-                value={guaranteeAmount ? `€ ${parseFloat(guaranteeAmount).toFixed(2)}` : null}
+                value={guaranteeAmount ? formatMoney(parseFloat(guaranteeAmount), 'EUR') : null}
                 placeholder="Nicht festgelegt"
               />
               <ReadOnlyField
@@ -525,8 +526,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                           {invoiceNumberLabel(invoice.invoiceNumber)} · {invoice.companyName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {invoice.issueDate}{' '}
-                          {invoice.dueDate ? `· fällig am ${invoice.dueDate}` : ''}
+                          {formatShortDate(invoice.issueDate)}{' '}
+                          {invoice.dueDate ? `· fällig am ${formatShortDate(invoice.dueDate)}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

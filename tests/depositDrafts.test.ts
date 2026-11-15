@@ -43,7 +43,7 @@ describe('depositDrafts', () => {
 
   it('summarises one line per deposit', () => {
     expect(depositSummary(stored)).toBe(
-      '1. € 1500.00, fällig bei Vertragsabschluss\n2. € 1000.50, fällig am 01.12.2026'
+      '1. 1.500,00 €, fällig bei Vertragsabschluss\n2. 1.000,50 €, fällig am 01.12.2026'
     )
     expect(depositSummary([])).toBe('')
   })

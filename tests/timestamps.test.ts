@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseSqlTimestamp, sqlTimestamp } from '../src/main/db/timestamps'
-import { formatShortDate, parseTimestamp } from '../src/renderer/src/lib/utils'
+import { formatLooseDate, formatShortDate, parseTimestamp } from '../src/renderer/src/lib/utils'
 
 describe('database timestamps (#153)', () => {
   it('writes UTC without zone and milliseconds, like datetime("now")', () => {
@@ -18,5 +18,11 @@ describe('database timestamps (#153)', () => {
 
   it('keeps a plain date a date', () => {
     expect(formatShortDate('2026-06-11')).toBe('11.06.2026')
+  })
+
+  it('formats a free-text date only when it is a full date', () => {
+    expect(formatLooseDate('2018-09-15')).toBe('15.09.2018')
+    expect(formatLooseDate('1965')).toBe('1965')
+    expect(formatLooseDate('')).toBe('')
   })
 })
