@@ -213,8 +213,8 @@ src/renderer/src/
   hooks/useMail*.ts, useMessageActions.ts, useFolderActions.ts   the mail page's logic
   pages/MailPage.tsx, MailWindowPage.tsx
   components/mail/                panes, compose, dialogs; pure logic in *.ts with a vitest each
-  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx, MailTemplatesCard.tsx,
-                                  MailRulesCard.tsx
+  components/settings/MailClientSwitchCard.tsx, MailAccountsCard.tsx (+ MailAccountDialog.tsx),
+                                  MailTemplatesCard.tsx, MailRulesCard.tsx
 tests/mail_*.test.ts              vitest (sandbox-backed suites fail locally without the sandbox)
 tests/e2e/mail-client.spec.ts     Playwright against the loopback sandbox
 ```

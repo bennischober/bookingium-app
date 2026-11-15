@@ -75,7 +75,7 @@ src/renderer/src/
   gitignored `sample_data/`.
 - Mail content never becomes HTML in the app's own DOM: no `dangerouslySetInnerHTML` (there is
   none in the renderer). Search hits are split into text parts by `snippetParts()`.
-- Stored mail passwords are never shown again (`settings/MailAccountsCard.tsx`); no reveal path.
+- Stored mail passwords are never shown again (`settings/MailAccountDialog.tsx`); no reveal path.
 - `mail/FolderTree.tsx` drop handlers must tolerate foreign drags (files).
 - Signature blocks in `contract/*Document.tsx` must never split across pages or stand alone.
 - `print/PagedDocument.tsx` prints the real `printToPDF` output; content flows across pages by
