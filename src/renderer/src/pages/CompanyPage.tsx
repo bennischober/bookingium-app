@@ -4,7 +4,8 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
 import { useState } from 'react'
@@ -28,7 +29,7 @@ export function CompanyPage() {
     id: 'name',
     desc: false
   })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('companies')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'company'
     id: number

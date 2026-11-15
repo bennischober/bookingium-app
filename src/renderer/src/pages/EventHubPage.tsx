@@ -4,6 +4,7 @@ import { useDetailTab } from '@/hooks/useDetailTab'
 import { useState } from 'react'
 import { useParams, useNavigate, useBlocker } from '@tanstack/react-router'
 import { confirmAction } from '@/lib/confirm'
+import { useRecentRecordVisit } from '@/hooks/useRecentRecords'
 import { parseRecordId } from '@/lib/recordId'
 import { useEventTabCounts } from '@/hooks/useTabCounts'
 import { TabCount } from '@/components/detail/DetailParts'
@@ -86,6 +87,11 @@ export function EventHubPage() {
       })),
     enableBeforeUnload: false
   })
+
+  useRecentRecordVisit(
+    event ? { kind: 'event', label: event.name } : null,
+    !isLoading && !(isError && !isNotFound(error)) && !event
+  )
 
   if (isLoading) {
     return (

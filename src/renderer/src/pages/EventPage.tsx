@@ -4,7 +4,9 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch,
+  useListSessionState
 } from '@/hooks/useListQuery'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -37,12 +39,16 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Storniert'
 }
 
+type EventView = 'list' | 'archive' | 'agency'
+const isEventView = (value: string): value is EventView =>
+  value === 'list' || value === 'archive' || value === 'agency'
+
 export function EventPage() {
   const { sorting, setSorting, sortInput } = useListSorting('events', { id: 'date', desc: false })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('events')
   const [wizardOpen, setWizardOpen] = useState(false)
   // D3: the archive view replaces the list while it is open; so do the agency bookings (#103)
-  const [view, setView] = useState<'list' | 'archive' | 'agency'>('list')
+  const [view, setView] = useListSessionState<EventView>('events:view', 'list', isEventView)
   const showArchive = view === 'archive'
   const navigate = useNavigate()
 
@@ -176,18 +182,12 @@ export function EventPage() {
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader title="Events" description="Shows, Tours und Deal Memos verwalten.">
         {/* #103: shows other agencies booked - read-only, imported from their export */}
-        <Button
-          variant="outline"
-          onClick={() => setView((current) => (current === 'agency' ? 'list' : 'agency'))}
-        >
+        <Button variant="outline" onClick={() => setView(view === 'agency' ? 'list' : 'agency')}>
           <Building2 className="h-4 w-4" />{' '}
           {view === 'agency' ? 'Agenturbuchungen schließen' : 'Agenturbuchungen'}
         </Button>
         {/* D3: archived events are out of every working view, and findable here */}
-        <Button
-          variant="outline"
-          onClick={() => setView((current) => (current === 'archive' ? 'list' : 'archive'))}
-        >
+        <Button variant="outline" onClick={() => setView(view === 'archive' ? 'list' : 'archive')}>
           <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
         </Button>
       </ListPageHeader>

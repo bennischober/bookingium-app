@@ -1,3 +1,4 @@
+import { useRecentRecordVisit } from '@/hooks/useRecentRecords'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { ArrowLeft, Ban, BellRing, Lock, Mail, Printer } from 'lucide-react'
@@ -64,6 +65,14 @@ export default function InvoiceDetailPage() {
     if (draft && id !== null)
       void navigate({ to: '/invoices', search: { open: id }, replace: true })
   }, [draft, id, navigate])
+
+  // An issued invoice is a page to come back to; a draft opens in the sheet instead
+  useRecentRecordVisit(
+    invoice && !draft ? { kind: 'invoice', label: invoiceFollowUpName(invoice) } : null,
+    !(id !== null && invoiceQuery.isLoading) &&
+      !(invoiceQuery.isError && !isNotFound(invoiceQuery.error)) &&
+      !invoice
+  )
 
   // A bad id never loads (the query stays disabled), it is not found
   if ((id !== null && invoiceQuery.isLoading) || draft) {

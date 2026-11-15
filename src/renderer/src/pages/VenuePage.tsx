@@ -4,7 +4,8 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -28,7 +29,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 export default function VenuePage({ kind }: { kind: VenueKind }) {
   const copy = VENUE_KIND_TERMS[kind]
   const { sorting, setSorting, sortInput } = useListSorting('venues', { id: 'name', desc: false })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch(`venues-${kind}`)
   const [membersEntity, setMembersEntity] = useState<{
     type: 'venue'
     id: number

@@ -4,9 +4,9 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
-import { useState } from 'react'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { FormSheet } from '@/components/form-sheet'
@@ -25,7 +25,7 @@ export default function BankPage() {
     id: 'bankName',
     desc: false
   })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('banks')
 
   const formSheet = useFormSheet<BankDto>()
 

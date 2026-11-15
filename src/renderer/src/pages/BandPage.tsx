@@ -4,7 +4,8 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
 import { trpcReact } from '@/lib/trpc'
@@ -28,7 +29,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function BandPage() {
   const { sorting, setSorting, sortInput } = useListSorting('bands', { id: 'name', desc: false })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('bands')
   const [membersEntity, setMembersEntity] = useState<{
     type: 'band'
     id: number

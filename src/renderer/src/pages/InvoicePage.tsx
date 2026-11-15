@@ -4,7 +4,8 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -40,7 +41,7 @@ export default function InvoicePage() {
     id: 'issueDate',
     desc: true
   })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('invoices')
 
   // Create uses the form sheet; existing invoices open in the edit sheet
   // (drafts editable, issued invoices locked)
