@@ -16,7 +16,8 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { confirmAction } from '@/lib/confirm'
-import { CARD_GRID, TabHeader } from '@/components/detail/DetailParts'
+import { TabHeader } from '@/components/detail/DetailParts'
+import { CARD_GRID } from '@/components/detail/tabStyles'
 import { countLabel } from '@/components/detail/tableSort'
 
 type MembershipType = 'band' | 'company' | 'venue'
