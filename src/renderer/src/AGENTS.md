@@ -32,6 +32,7 @@ src/renderer/src/
 | Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column |
 | Create/update/delete of a record | `hooks/useRecordMutations.ts` | toasts (`lib/recordCopy.ts`), delete confirm, invalidation; `submit`/`remove`/`deleteNow` |
 | List page title and toolbar | `components/ListPageHeader.tsx` | `ListPageHeader`, `ListToolbar` (the DataTable's `actionButton`) |
+| Quick-create a band/venue/person from a form | `components/quick-create/` | `QuickCreateDialog` shell + `Band`/`Venue`/`PersonQuickCreateDialog` |
 | Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise; `confirmDelete()` for deletes |
 | A record's detail page | `components/detail/RecordDetailPage.tsx` | `RecordDetailPage` (load states) + `RecordDetail` (header, `tabs` list, Dokumente/E-Mails appended) |
 | Detail-page building blocks | `components/detail/DetailParts.tsx`, `RelatedTables.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable`; `RelatedBandsTable`/`VenuesTable`/`EventsTable` |
@@ -75,7 +76,10 @@ src/renderer/src/
 - Never put app chrome on a `_print` route - printToPDF captures the window.
 - Modal sheets/dialogs must call `keepOpenOnToast` on outside-interaction handlers, or clicking
   a toast ("Rückgängig") closes them.
-- Do not split a working page preemptively; split per concern when you touch it.
+- Do not grow a page or form past one concern per file: keep state and orchestration in it,
+  move steps, sections, dialogs and columns into a feature dir and pure rules into a tested
+  `.ts` (`components/event-wizard/`, `components/contact-list/`). Steps shown one at a time
+  unmount, so their state stays in the parent.
 - No real master data (names, IBANs, addresses, signatures) in code, seeds or tests - only the
   gitignored `sample_data/`.
 - Mail content never becomes HTML in the app's own DOM: no `dangerouslySetInnerHTML` (there is
