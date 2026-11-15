@@ -129,8 +129,8 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         title={copy.plural}
         description={
           kind === 'festival'
-            ? 'Verwalten Sie alle Festivals und ihre Kapazitäten.'
-            : 'Verwalten Sie alle Clubs, Hallen und ihre Kapazitäten.'
+            ? 'Alle Festivals und ihre Kapazitäten verwalten.'
+            : 'Alle Clubs, Hallen und ihre Kapazitäten verwalten.'
         }
       />
 

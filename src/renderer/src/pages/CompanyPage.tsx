@@ -122,10 +122,7 @@ export function CompanyPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader
-        title="Firmen"
-        description="Verwalten Sie die Firmen Ihrer Geschäftspartner."
-      />
+      <ListPageHeader title="Firmen" description="Firmen der Geschäftspartner verwalten." />
 
       <DataTable
         columns={columns}

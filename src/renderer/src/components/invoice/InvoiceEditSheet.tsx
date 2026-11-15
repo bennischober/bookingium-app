@@ -66,7 +66,7 @@ export function InvoiceEditSheet({
       onClose={onClose}
       mode="edit"
       title="Entwurf bearbeiten"
-      description="Bearbeiten Sie Details, Empfänger, Verknüpfung und Positionen des Entwurfs."
+      description="Details, Empfänger, Verknüpfung und Positionen des Entwurfs bearbeiten."
     >
       {!invoice || locked ? (
         <p className="text-sm text-muted-foreground">

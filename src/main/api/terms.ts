@@ -179,6 +179,7 @@ export const AVOIDED_WORDS: Readonly<Record<string, string>> = {
   Veranstaltung: TERMS.event.singular,
   Veranstaltungen: TERMS.event.plural,
   Künstler: TERMS.band.singular,
+  Künstlers: TERMS.band.genitive,
   Unternehmen: TERMS.company.singular,
   Kontaktliste: TERMS.contactList.singular,
   Kontaktlisten: TERMS.contactList.plural,

@@ -283,7 +283,7 @@ export function CompanyForm({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Erscheint über der Unterschriftszeile des Künstlers im Auftrittsvertrag.
+                Erscheint über der Unterschriftszeile der Band im Auftrittsvertrag.
               </p>
             </div>
           </>

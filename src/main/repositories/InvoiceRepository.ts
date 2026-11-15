@@ -90,7 +90,7 @@ export class InvoiceRepository {
   private loadInvoiceWithRelationsTx(tx: Tx, invoiceId: number) {
     const row = invoicesWithParties(tx).where(eq(schema.invoice.id, invoiceId)).limit(1).all()[0]
     if (!row) {
-      throw new Error('Invoice not found')
+      throw new Error('Rechnung nicht gefunden')
     }
 
     return withCancellationLinks(tx, [
@@ -293,7 +293,7 @@ export class InvoiceRepository {
         .limit(1)
         .all()[0]
       if (!existing) {
-        throw new Error('Invoice not found')
+        throw new Error('Rechnung nicht gefunden')
       }
 
       if ('dealMemoId' in input) {
@@ -357,7 +357,7 @@ export class InvoiceRepository {
         .all()
 
       if (updated.length === 0) {
-        throw new Error('Invoice not found')
+        throw new Error('Rechnung nicht gefunden')
       }
       if (values.status !== undefined && values.status !== existing.status) {
         logStatusTx(tx, input.id, values.status as InvoiceStatus)
@@ -383,7 +383,7 @@ export class InvoiceRepository {
         .where(eq(schema.invoice.id, id))
         .limit(1)
         .all()[0]
-      if (!existing) throw new Error('Invoice not found')
+      if (!existing) throw new Error('Rechnung nicht gefunden')
 
       const values: Record<string, unknown> = { status, updated_at: sql`datetime('now')` }
       if (status !== 'draft' && existing.invoice_number === null) {

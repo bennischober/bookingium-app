@@ -154,7 +154,7 @@ export function CreateEventWizard({
             <DialogTitle>Neues Event anlegen</DialogTitle>
             <DialogDescription>
               {description ??
-                'Füllen Sie die erforderlichen Felder aus. Optionale Schritte können später ergänzt werden.'}
+                'Erforderliche Felder ausfüllen. Optionale Schritte können später ergänzt werden.'}
             </DialogDescription>
           </DialogHeader>
 

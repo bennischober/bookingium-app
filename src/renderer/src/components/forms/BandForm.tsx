@@ -144,7 +144,7 @@ export function BandForm({
         {(field) => (
           <field.FieldRow
             label="Management (vertreten durch)"
-            hint="Vertritt die Band in Konzertverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
+            hint="Vertritt die Band in Auftrittsverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
           >
             <SearchableSelect
               id={field.name}

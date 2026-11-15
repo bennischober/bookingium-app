@@ -16,25 +16,6 @@ const LEGAL_TEXT = new Set([
   'src/renderer/src/components/contract/ManagementContractDocument.tsx'
 ])
 
-/**
- * Uses that are still there, file -> word -> count. Rewording one is a visible
- * change, so each goes in its own PR; the test then asks to lower the count
- * here. Never add to this list: write the term instead.
- */
-const KNOWN: Record<string, Record<string, number>> = {
-  'src/main/mail/contractEmail.ts': { Konzertvertrag: 1 },
-  'src/main/repositories/VenueRepository.ts': { Venue: 1 },
-  'src/renderer/src/components/event-hub/ItineraryTab.tsx': { Venue: 2 },
-  'src/renderer/src/components/forms/BandForm.tsx': { Konzertverträgen: 1 },
-  'src/renderer/src/components/invoice/AgencyInvoiceTemplate.tsx': { Künstler: 1 },
-  'src/renderer/src/components/invoice/StandardInvoiceTemplate.tsx': { Künstler: 1 },
-  'src/renderer/src/components/settings/MapPreviewSwitchCard.tsx': { Veranstaltung: 2 },
-  'src/renderer/src/components/ui/search-command-button.tsx': { Gigs: 1 },
-  'src/renderer/src/pages/BandPage.tsx': { Künstler: 1 },
-  'src/renderer/src/pages/ContractPrintPage.tsx': { Konzertvertrag: 1 },
-  'src/renderer/src/pages/DashboardPage.tsx': { Gigs: 2 }
-}
-
 const WORD = new RegExp(
   String.raw`(?<![\p{L}\p{N}_])(${Object.keys(AVOIDED_WORDS).join('|')})(?![\p{L}\p{N}_])`,
   'gu'
@@ -76,24 +57,17 @@ function texts(file: string): { text: string; line: number }[] {
 }
 
 describe('terms guard', () => {
-  it('finds no avoided word in UI strings beyond the known uses', () => {
-    const counts: Record<string, Record<string, number>> = {}
-    const fresh: string[] = []
+  it('finds no avoided word in UI strings', () => {
+    const found: string[] = []
     for (const path of sourceFiles(join(ROOT, 'src'))) {
       const file = relative(ROOT, path).split(sep).join('/')
       if (file === 'src/main/api/terms.ts' || LEGAL_TEXT.has(file)) continue
       for (const { text, line } of texts(path)) {
         for (const [, word] of text.matchAll(WORD)) {
-          const perFile = (counts[file] ??= {})
-          perFile[word] = (perFile[word] ?? 0) + 1
-          if (perFile[word] > (KNOWN[file]?.[word] ?? 0)) {
-            fresh.push(`${file}:${line} "${word}" - write "${AVOIDED_WORDS[word]}"`)
-          }
+          found.push(`${file}:${line} "${word}" - write "${AVOIDED_WORDS[word]}"`)
         }
       }
     }
-    expect(fresh, 'Use the term from src/main/api/terms.ts').toEqual([])
-    // A known use was reworded: lower its count in KNOWN
-    expect(counts).toEqual(KNOWN)
+    expect(found, 'Use the term from src/main/api/terms.ts').toEqual([])
   })
 })

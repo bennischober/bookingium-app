@@ -45,7 +45,7 @@ const AGENCY_STRINGS: Record<'de' | 'en', AgencyStrings> = {
   de: {
     heading: 'RECHNUNG',
     meta: {
-      artist: 'Künstler',
+      artist: 'Band',
       place: 'Leistungsort',
       date: 'Rechnungsdatum',
       number: 'Rechnung Nr.'

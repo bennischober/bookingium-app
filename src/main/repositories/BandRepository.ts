@@ -117,7 +117,7 @@ export class BandRepository {
 
   async update(data: UpdateBandInput) {
     const existing = await db.select().from(schema.band).where(eq(schema.band.id, data.id)).limit(1)
-    if (existing.length === 0) throw new Error('Band not found')
+    if (existing.length === 0) throw new Error('Band nicht gefunden')
     const prev = existing[0]
 
     return db.transaction((tx) => {

@@ -71,7 +71,7 @@ export function contractEmailLang(country: string | null | undefined): Lang {
 }
 
 const DOCUMENT_NAMES: Record<ContractDocument, Record<Lang, string>> = {
-  concert: { de: 'Konzertvertrag', en: 'Concert Contract' },
+  concert: { de: 'Auftrittsvertrag', en: 'Concert Contract' },
   management: { de: 'Managementvertrag', en: 'Management Agreement' }
 }
 

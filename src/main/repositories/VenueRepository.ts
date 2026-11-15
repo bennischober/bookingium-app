@@ -231,7 +231,7 @@ export class VenueRepository {
   async update(input: UpdateVenueInput) {
     return await db.transaction((tx) => {
       const existing = tx.select().from(schema.venue).where(eq(schema.venue.id, input.id)).all()
-      if (existing.length === 0) throw new Error('Venue not found')
+      if (existing.length === 0) throw new Error('Club / Festival nicht gefunden')
 
       const existingVenue = existing[0]
       let addressId = input.addressId !== undefined ? input.addressId : existingVenue.address_id

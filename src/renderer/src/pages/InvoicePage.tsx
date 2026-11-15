@@ -145,7 +145,7 @@ export default function InvoicePage() {
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
         title="Rechnungen"
-        description="Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen."
+        description="Eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen erstellen."
       />
 
       <DataTable
@@ -177,7 +177,7 @@ export default function InvoicePage() {
         onClose={sheet.close}
         mode="create"
         title="Rechnung anlegen"
-        description="Erstellen Sie eine Rechnung mit Positionen – als Entwurf oder direkt gestellt."
+        description="Rechnung mit Positionen erstellen – als Entwurf oder direkt gestellt."
       >
         <InvoiceForm
           key={sheet.isOpen ? 'create-open' : 'create'}

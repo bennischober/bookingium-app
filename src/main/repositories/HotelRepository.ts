@@ -168,7 +168,7 @@ export class HotelRepository {
   async update(input: UpdateHotelInput) {
     return await db.transaction((tx) => {
       const existing = tx.select().from(schema.hotel).where(eq(schema.hotel.id, input.id)).all()
-      if (existing.length === 0) throw new Error('Hotel not found')
+      if (existing.length === 0) throw new Error('Hotel nicht gefunden')
 
       const existingHotel = existing[0]
       let addressId = input.addressId !== undefined ? input.addressId : existingHotel.address_id
