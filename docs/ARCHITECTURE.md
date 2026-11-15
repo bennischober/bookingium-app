@@ -479,7 +479,10 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
 
 `main/import/` is pure: `readImportFile` reads the sheet and suggests the
 target, the venue kind and the company kind; `detectMapping` maps headers by
-synonyms; `buildImportPlan` turns rows into drafts and the preview;
+synonyms; `buildImportPlan` turns rows into drafts and the preview (one
+shared context in `plan/context.ts`, one row loop per list kind in
+`plan/organisationRows.ts`, `bandRows.ts`, `personRows.ts`; the draft types in
+`plan/drafts.ts`);
 `ImportRepository.apply` writes the plan in one transaction. Records that
 already exist (matched by name) only get their empty fields filled.
 
