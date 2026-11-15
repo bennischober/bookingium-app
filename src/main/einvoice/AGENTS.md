@@ -27,7 +27,7 @@ same check live in the renderer.
   UN/ECE Rec 20 units, EU membership, exemption reasons). Reverse charge to a
   non-EU buyer is refused.
 - `amounts.ts` and `codes.ts` are imported by the renderer
-  (`InvoiceForm`, `InvoiceDocument`, `lib/invoiceLabels.ts`) - keep them free of
+  (`InvoiceForm`, the invoice print templates, `lib/invoiceLabels.ts`) - keep them free of
   Node and DOM APIs.
 - Drafts and cancelled invoices never get an XML; `EInvoiceService.check` reports
   `disabled`/`cancelled`/`missing` states.
