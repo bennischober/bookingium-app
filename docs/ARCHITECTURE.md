@@ -285,7 +285,8 @@ At startup (`app/migrateDatabase.ts`):
 9. **List page** — `pages/XPage.tsx`: one continuous list. Query with
    `trpcReact.x.getAllPaginated.useInfiniteQuery({ pageSize: LIST_CHUNK_SIZE,
 search, ...sortInput }, infiniteListOptions)` and `useListSorting` (order
-   remembered per list); pass `listRows`/`listTotal`, `hasNextPage`/
+   remembered per list) and `useListSearch('x')` (search kept until the app
+   closes); pass `listRows`/`listTotal`, `hasNextPage`/
    `fetchNextPage` and the sorting to `DataTable`, which pins toolbar, column
    headers and status line and loads more near the end. Column ids must be
    sort keys of the repository's `listOrder` map (else `enableSorting:

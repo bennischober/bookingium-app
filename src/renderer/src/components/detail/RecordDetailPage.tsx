@@ -11,6 +11,8 @@ import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { useDetailTab } from '@/hooks/useDetailTab'
+import { useRecentRecordVisit } from '@/hooks/useRecentRecords'
+import type { RecentRecordKind } from '@/lib/recentRecords'
 import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { deleteQuestion } from '@/lib/recordCopy'
 import { isNotFound, type QueryError } from '@/lib/queryErrors'
@@ -61,6 +63,10 @@ export function RecordDetailPage<T>({
   notFound: { text: string; backLabel: string; onBack: () => void }
   children: (record: T) => ReactNode
 }) {
+  const missing =
+    !(id !== null && query.isLoading) && !(query.isError && !isNotFound(query.error)) && !query.data
+  useRecentRecordVisit(null, missing)
+
   // A bad id never loads (the query stays disabled), it is not found
   if (id !== null && query.isLoading) {
     return (
@@ -134,6 +140,7 @@ export function RecordDetail<TTab extends string>({
   const fallback = tabs[0].id
   const activeTab = useDetailTab(isTab, fallback)
   const followUpRecord = { type: record.type, id: record.id, name: record.name }
+  useRecentRecordVisit({ kind: record.type as RecentRecordKind, label: record.name })
 
   const allTabs: DetailTab[] = [
     ...tabs,

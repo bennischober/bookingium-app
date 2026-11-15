@@ -4,10 +4,10 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
 import { ImportButton } from '@/components/import/ImportButton'
-import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
@@ -27,7 +27,7 @@ export function PersonPage() {
     id: 'lastName',
     desc: false
   })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('persons')
   const navigate = useNavigate()
 
   const formSheet = useFormSheet<PersonDto>()

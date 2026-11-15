@@ -4,9 +4,9 @@ import {
   infiniteListOptions,
   listRows,
   listTotal,
-  useListSorting
+  useListSorting,
+  useListSearch
 } from '@/hooks/useListQuery'
-import { useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Trash2 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -22,7 +22,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 
 export default function HotelPage() {
   const { sorting, setSorting, sortInput } = useListSorting('hotels', { id: 'name', desc: false })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useListSearch('hotels')
 
   const formSheet = useFormSheet<HotelDto>()
   const utils = trpcReact.useUtils()

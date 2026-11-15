@@ -25,7 +25,8 @@ src/renderer/src/
 |------|----------|-------|
 | Add/rename a route | `router.tsx` + `lib/routing.ts` | `ROUTES` order = menu order AND Alt+<n> shortcut order |
 | Call the API | `lib/trpc.ts` | `trpcReact` (hooks), `trpcVanilla` (outside React) |
-| List paging/sorting | `hooks/useListQuery.ts` | `LIST_CHUNK_SIZE`, `useListSorting`, `infiniteListOptions`, `listRows`, `listTotal` |
+| List paging/sorting | `hooks/useListQuery.ts` | `LIST_CHUNK_SIZE`, `useListSorting`, `infiniteListOptions`, `listRows`, `listTotal`; `useListSearch` / `useListSessionState` keep a list's search and view until the app closes |
+| "Zuletzt geöffnet" in Ctrl+K | `lib/recentRecords.ts` + `hooks/useRecentRecords.ts` | detail pages call `useRecentRecordVisit` before their early returns; a missing record drops out |
 | `?create=true` / `?open=<id>` | `hooks/useListSearchActions.ts` | runs once, then strips the search from the URL |
 | Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'`; asks before closing a changed form (`formGuard.ts`) |
 | A business object form | `components/forms/appForm.ts` + `FormFields.tsx` | `useAppForm`, `field.TextField` etc., `FormBody`/`FormFooter`; start values in `formDefaults.ts` |

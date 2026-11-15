@@ -32,10 +32,21 @@ import { mailApi } from '@/lib/mailApi'
 import { openDocument } from '@/components/documents/documentFiles'
 import { ROUTES } from '@/lib/routing'
 import { useRouteShown } from '@/hooks/useRouteShown'
+import { useRecentRecords } from '@/hooks/useRecentRecords'
+import { RECENT_RECORD_KIND_LABELS, type RecentRecordKind } from '@/lib/recentRecords'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
 
 type StaticRoute = (typeof ROUTES)[keyof typeof ROUTES]['path']
+
+const RECENT_RECORD_ICONS: Record<RecentRecordKind, LucideIcon> = {
+  event: Music2,
+  band: Guitar,
+  company: Building2,
+  person: User,
+  venue: MapPin,
+  invoice: FileText
+}
 
 type RecentCommand = {
   id: string
@@ -251,7 +262,12 @@ const SearchButton = () => {
   // pages behind a switched-off experimental switch, and recent jumps to them, go
   const routeShown = useRouteShown()
   const shownRoutes = ROUTE_COMMANDS.filter((route) => routeShown(route.path))
-  const shownRecents = recentCommands.filter((recent) => routeShown(recent.path))
+  // Events picked here used to be kept as commands; records opened anywhere are now
+  // "Zuletzt geöffnet", so "Letzte Befehle" holds pages and actions only
+  const shownRecents = recentCommands.filter(
+    (recent) => recent.type === 'route' && routeShown(recent.path)
+  )
+  const recentRecords = useRecentRecords()
   const [debouncedMailQuery, setDebouncedMailQuery] = useState('')
   useEffect(() => {
     if (!open || !mailAccountId) return
@@ -324,6 +340,28 @@ const SearchButton = () => {
         />
         <CommandList>
           <CommandEmpty>{emptyMessage}</CommandEmpty>
+          {recentRecords.length > 0 && (
+            <>
+              <CommandGroup heading="Zuletzt geöffnet">
+                {recentRecords.map((record) => {
+                  const Icon = RECENT_RECORD_ICONS[record.kind]
+                  const kindLabel = RECENT_RECORD_KIND_LABELS[record.kind]
+                  return (
+                    <CommandItem
+                      key={record.href}
+                      value={`${record.label} ${kindLabel} ${record.href}`}
+                      onSelect={() => runAndClose(() => navigate({ href: record.href }))}
+                    >
+                      <Icon />
+                      <span>{record.label}</span>
+                      <CommandShortcut>{kindLabel}</CommandShortcut>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
           {shownRecents.length > 0 && (
             <>
               <CommandGroup heading="Letzte Befehle">
@@ -463,18 +501,11 @@ const SearchButton = () => {
                     value={`${event.label} event gig show`}
                     keywords={['event', 'gig', 'show']}
                     onSelect={() =>
-                      runAndClose(
-                        () =>
-                          navigate({
-                            to: event.route,
-                            params: event.routeParams ?? undefined
-                          }),
-                        {
-                          id: `event:${event.id}`,
-                          label: event.label,
-                          type: 'event',
-                          eventId: event.id
-                        }
+                      runAndClose(() =>
+                        navigate({
+                          to: event.route,
+                          params: event.routeParams ?? undefined
+                        })
                       )
                     }
                   >

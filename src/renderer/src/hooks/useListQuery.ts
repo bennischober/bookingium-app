@@ -51,6 +51,42 @@ export function useListSorting(
   }
 }
 
+/**
+ * State of a list page that should still be there after opening a record and coming back
+ * (the search, the events view): kept per list until the app is closed. A new start shows
+ * every list unfiltered again, so nothing stays hidden behind a search from last week.
+ */
+export function useListSessionState<T extends string>(
+  key: string,
+  fallback: T,
+  isValid: (value: string) => value is T = (value): value is T => typeof value === 'string'
+): [T, (value: T) => void] {
+  const storageKey = `bookingium-list-state:${key}`
+  const [value, setValueState] = useState<T>(() => {
+    try {
+      const stored = sessionStorage.getItem(storageKey)
+      return stored !== null && isValid(stored) ? stored : fallback
+    } catch {
+      return fallback
+    }
+  })
+  const setValue = (next: T) => {
+    setValueState(next)
+    try {
+      if (next === fallback) sessionStorage.removeItem(storageKey)
+      else sessionStorage.setItem(storageKey, next)
+    } catch {
+      // Not remembered, still applied
+    }
+  }
+  return [value, setValue]
+}
+
+/** The search box of a list, kept while the app is open (see `useListSessionState`) */
+export function useListSearch(listKey: string): [string, (search: string) => void] {
+  return useListSessionState<string>(`${listKey}:search`, '')
+}
+
 interface ListPage<T> {
   items: T[]
   total: number
