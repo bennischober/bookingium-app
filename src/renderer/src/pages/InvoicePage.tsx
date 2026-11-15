@@ -12,7 +12,6 @@ import { Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
-import { Button } from '@/components/ui/button'
 import { FormSheet } from '@/components/form-sheet'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
@@ -28,6 +27,7 @@ import {
 import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 import type { InvoiceDto, InvoiceListItemDto } from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
+import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 
 export default function InvoicePage() {
   const { sorting, setSorting, sortInput } = useListSorting('invoices', {
@@ -142,14 +142,11 @@ export default function InvoicePage() {
   ]
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold mb-2">Rechnungen</h1>
-        <p className="text-sm text-muted-foreground">
-          Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und
-          Positionen.
-        </p>
-      </div>
+    <div className="flex h-full min-h-0 w-full flex-col p-6">
+      <ListPageHeader
+        title="Rechnungen"
+        description="Erstellen Sie eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen."
+      />
 
       <DataTable
         columns={columns}
@@ -169,10 +166,9 @@ export default function InvoicePage() {
         onRetry={() => void invoices.refetch()}
         total={listTotal(invoices.data)}
         actionButton={
-          <div className="flex flex-wrap items-center gap-2">
+          <ListToolbar createLabel="+ Rechnung anlegen" onCreate={sheet.openCreate}>
             <ExportButton list="invoices" sort={sortInput} search={search} />
-            <Button onClick={() => sheet.openCreate()}>+ Rechnung anlegen</Button>
-          </div>
+          </ListToolbar>
         }
       />
 

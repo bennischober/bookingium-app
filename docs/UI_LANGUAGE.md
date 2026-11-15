@@ -47,6 +47,17 @@ English.
 | Loading …                             | … wird geladen / Lädt …                                  |
 | No results                            | Keine Treffer / Keine Ergebnisse gefunden                |
 
+Create, update and delete of a record (`lib/recordCopy.ts`, through
+`useRecordMutations`) read the same on every page; the object is named in the
+singular of its list („Band“, „Festival“, „Firma“):
+
+| Case             | Toast title                                               | Description                                        |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------- |
+| Created / failed | Band angelegt / Band konnte nicht angelegt werden         | Musterband wurde angelegt. / the error             |
+| Updated / failed | Band aktualisiert / Band konnte nicht aktualisiert werden | Musterband wurde aktualisiert. / the error         |
+| Deleted / failed | Band gelöscht / Band konnte nicht gelöscht werden         | Musterband wurde gelöscht. / the error             |
+| Delete question  | „Musterband“ löschen?                                     | Diese Aktion kann nicht rückgängig gemacht werden. |
+
 ### People and organisations
 
 | English                                     | German                                              |

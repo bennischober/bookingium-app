@@ -30,7 +30,9 @@ src/renderer/src/
 | Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'` |
 | A business object form | `components/forms/appForm.ts` + `FormFields.tsx` | `useAppForm`, `field.TextField` etc., `FormBody`/`FormFooter`; start values in `formDefaults.ts` |
 | Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column |
-| Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise |
+| Create/update/delete of a record | `hooks/useRecordMutations.ts` | toasts (`lib/recordCopy.ts`), delete confirm, invalidation; `submit`/`remove`/`deleteNow` |
+| List page title and toolbar | `components/ListPageHeader.tsx` | `ListPageHeader`, `ListToolbar` (the DataTable's `actionButton`) |
+| Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise; `confirmDelete()` for deletes |
 | Detail-page building blocks | `components/detail/DetailParts.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable` |
 | Per-object tabs | `components/<obj>/constants.ts` | `<X>_TABS`, `is<Tab>()` - used by the route's `?tab=` guard |
 | A4 print documents | `components/print/PagedDocument.tsx` | renders the real printToPDF output via pdf.js |
@@ -51,9 +53,10 @@ src/renderer/src/
 - Tailwind 4: CSS vars in arbitrary values use `w-(--var)`; the v3 form `w-[--var]` is invalid
   (a freshly generated shadcn primitive may still carry it - convert it on the way in).
 - Pages own data fetching and pass plain props down; list pages follow the same recipe
-  (`useListSorting` + `useInfiniteQuery` + `DataTable` + `useFormSheet` + `confirmAction`).
+  (`useListSorting` + `useInfiniteQuery` + `DataTable` + `useFormSheet` + `useRecordMutations`).
   Pages use `export default`; components use named function exports (no `React.FC`).
-- Mutations surface errors as `toast.error(...)` with the German message.
+- Mutations surface errors as `toast.error(...)` with the German message; record create/update/
+  delete goes through `useRecordMutations`, so the wording is the same everywhere.
 - Pure logic that deserves tests goes in a `.ts` module next to the component, because vitest
   runs in a node environment with no DOM.
 - Shared cross-feature components belong at the `components/` root, not in a new `shared/` dir.

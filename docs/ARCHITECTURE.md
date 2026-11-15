@@ -285,15 +285,23 @@ search, ...sortInput }, infiniteListOptions)` and `useListSorting` (order
    headers and status line and loads more near the end. Column ids must be
    sort keys of the repository's `listOrder` map (else `enableSorting:
 false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
-   the remaining height. Add `FormSheet`/`useFormSheet`,
-   `useListSearchActions` (`?create`/`?open` from the search palette) and
-   `ExportButton` (and an import type if lists of it get imported). Register
+   the remaining height. Title and description go in `ListPageHeader`, the
+   create button (and `ExportButton`/`ImportButton`) in `ListToolbar` as the
+   table's `actionButton` (`components/ListPageHeader.tsx`). Create, update
+   and delete run through `useRecordMutations({ procedures: trpcReact.x,
+utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
+   `submit`/`isSubmitting`, the row's delete button `remove(row)`, and the
+   toasts and the delete question come out the same on every page. Add
+   `FormSheet`/`useFormSheet`, `useListSearchActions` (`?create`/`?open`
+   from the search palette) and an import type if lists of it get imported. Register
    the route under the `_app` layout in `router.tsx` and add it to `ROUTES`
    in `lib/routing.ts`.
 10. **Detail page** (records with relations) — `/x/$xId` with tabs kept in
     `?tab=`, built from panels (`MembersPanel`, `DocumentsPanel`, …); row
     click opens it, the pencil keeps the sheet; add the name to the
-    breadcrumbs (`layout/app-breadcrumbs.tsx`). Lists of linked records come
+    breadcrumbs (`layout/app-breadcrumbs.tsx`). The page uses the same
+    `useRecordMutations` with `onDeleted: () => navigate({ to: '/x' })`;
+    `DeleteRecordButton` asks itself and calls `deleteNow`. Lists of linked records come
     from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
     `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page
     edits memberships from the person's side (`PersonMembershipsPanel`).

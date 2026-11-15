@@ -3,8 +3,7 @@ import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { ArrowLeft, Pencil } from 'lucide-react'
-import { toast } from '@/lib/toast'
-import type { z } from 'zod'
+import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { PageErrorState, EmptyState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -33,11 +32,7 @@ import {
   RowTable,
   TabCount
 } from '@/components/detail/DetailParts'
-import type {
-  CreatePersonInput,
-  PersonDto,
-  UpdatePersonInput
-} from '../../../main/api/schemas/person.schema'
+import type { PersonDto } from '../../../main/api/schemas/person.schema'
 
 function personName(person: { firstName: string; lastName: string }) {
   return `${person.firstName} ${person.lastName}`.trim()
@@ -432,30 +427,18 @@ export default function PersonDetailPage() {
   } = trpcReact.person.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list
-  const deletePerson = trpcReact.person.delete.useMutation({
-    onSuccess: async () => {
-      await navigate({ to: '/persons' })
-      void utils.person.invalidate()
-      toast.success('Person gelöscht', { description: 'Die Person wurde erfolgreich gelöscht.' })
-    },
-    onError: (error) => {
-      toast.error('Person konnte nicht gelöscht werden', { description: error.message })
-    }
-  })
-
-  const updatePerson = trpcReact.person.update.useMutation({
-    onSuccess: (data) => {
-      void utils.person.invalidate()
+  const mutations = useRecordMutations({
+    procedures: trpcReact.person,
+    utils: utils.person,
+    noun: 'Person',
+    label: personName,
+    deleteInput: (person: PersonDto) => ({ id: person.id }),
+    onSaved: () => {
       // Member lists show the person's name
       void utils.relation.invalidate()
       sheet.close()
-      toast.success('Person aktualisiert', {
-        description: `${personName(data)} wurde aktualisiert.`
-      })
     },
-    onError: (error) => {
-      toast.error('Person konnte nicht aktualisiert werden', { description: error.message })
-    }
+    onDeleted: () => navigate({ to: '/persons' })
   })
 
   // A bad id never loads (the query stays disabled), it is not found
@@ -515,8 +498,8 @@ export default function PersonDetailPage() {
             </Button>
             <DeleteRecordButton
               confirmTitle={`„${personName(person)}“ löschen?`}
-              pending={deletePerson.isPending}
-              onDelete={() => deletePerson.mutate({ id: person.id })}
+              pending={mutations.isDeleting}
+              onDelete={() => mutations.deleteNow(person)}
             />
           </div>
         </div>
@@ -611,9 +594,7 @@ export default function PersonDetailPage() {
       >
         <PersonForm
           person={sheet.selectedItem || undefined}
-          onSubmit={(data: z.infer<typeof CreatePersonInput> & { id?: number }) =>
-            updatePerson.mutate(data as UpdatePersonInput)
-          }
+          onSubmit={mutations.submit}
           onCancel={sheet.close}
         />
       </FormSheet>

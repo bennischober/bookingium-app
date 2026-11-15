@@ -1,10 +1,10 @@
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { confirmAction } from '@/lib/confirm'
+import { confirmDelete } from '@/lib/confirm'
 
 /**
  * #162: the delete action in a detail page header. It asks first, with the same
- * dialog as the list's row action; the page runs the mutation and leaves for the list.
+ * dialog as the list's row action; the page runs the mutation (`useRecordMutations().deleteNow`) and leaves for the list.
  */
 export function DeleteRecordButton({
   confirmTitle,
@@ -17,13 +17,7 @@ export function DeleteRecordButton({
   pending?: boolean
 }) {
   const handleClick = async () => {
-    const confirmed = await confirmAction({
-      title: confirmTitle,
-      description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-      confirmLabel: 'Löschen',
-      destructive: true
-    })
-    if (confirmed) onDelete()
+    if (await confirmDelete(confirmTitle)) onDelete()
   }
 
   return (
