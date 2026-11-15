@@ -1,16 +1,14 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useMemo, useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
-import { INVOICE_STATUS_LABELS, formatMoney, parseNumber } from '@/lib/invoiceLabels'
+import { INVOICE_STATUS_LABELS } from '@/lib/invoiceLabels'
 import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { InfoLabel } from '@/components/InfoLabel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -23,101 +21,61 @@ import type {
   InvoiceDto,
   InvoiceLineItemInput,
   InvoiceRecipientKind,
-  InvoiceStatus,
-  InvoiceTaxCode
+  InvoiceStatus
 } from '../../../../main/api/schemas/invoice.schema'
 import { confirmAction } from '@/lib/confirm'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { InvoiceEInvoiceDetails } from '@/components/invoice/InvoiceEInvoiceDetails'
+import { InvoiceLineItems } from '@/components/invoice/InvoiceLineItems'
+import { InvoiceRecipientFields } from '@/components/invoice/InvoiceRecipientFields'
+import { InvoiceTotals } from '@/components/invoice/InvoiceTotals'
 import {
-  computeInvoiceAmounts,
-  fromCents,
-  lineNetCents,
-  vatCents
-} from '../../../../main/einvoice/amounts'
-import {
-  INVOICE_UNITS,
-  TAX_CODES,
-  TAX_NOTE_PRESETS,
-  TAX_CODE_LABELS,
-  unitLabelOf
-} from '../../../../main/einvoice/codes'
-import { prepareEInvoice } from '../../../../main/einvoice/prepare'
+  INVOICE_FORM_STATUSES,
+  computeTotals,
+  initialLines,
+  initialRecipient,
+  normalizeLineItems,
+  recipientError,
+  recipientPayload,
+  type InvoiceLineDraft,
+  type RecipientDraft
+} from '@/components/invoice/invoiceFormState'
+import { useInvoiceEInvoiceCheck } from '@/hooks/useInvoiceEInvoiceCheck'
+import { useInvoiceLineEditor } from '@/hooks/useInvoiceLineEditor'
+import { TAX_NOTE_PRESETS } from '../../../../main/einvoice/codes'
 import { INVOICE_CURRENCIES } from '../../../../main/invoice/money'
 
-export type InvoiceLineDraft = {
-  description: string
-  quantity: string
-  unit: string
-  unitPriceNet: string
-  taxRate: string
-  taxCode: InvoiceTaxCode
+type InvoiceFormStep = 'basics' | 'lines' | 'finalize'
+
+/** What the form saves, for a new invoice and an edited draft alike */
+type InvoiceFormPayload = {
+  dealMemoId?: number | null
+  recipientKind?: InvoiceRecipientKind
+  recipientCompanyId?: number | null
+  recipientBandId?: number | null
+  recipientPersonId?: number | null
+  recipientNameOverride?: string
+  periodStartDate?: string | null
+  periodEndDate?: string | null
+  periodLabel?: string
+  issueDate?: string
+  dueDate?: string | null
+  status?: InvoiceStatus
+  currency?: string
+  lineItems?: InvoiceLineItemInput[]
+  totalAmount?: number
+  paymentTerms?: string
+  reverseChargeNote?: string
+  buyerReference?: string
+  xrechnung?: boolean
+  notes?: string
 }
 
-// The form only handles drafts: save as draft, or issue (which assigns the
-// number and locks the invoice). Later status changes happen on the locked
-// invoice (paid, overdue, Storno).
-const INVOICE_STATUS: InvoiceStatus[] = ['draft', 'issued']
-const INVOICE_RECIPIENT_KIND: InvoiceRecipientKind[] = ['company', 'band', 'person', 'other']
-
-const RECIPIENT_KIND_LABELS: Record<InvoiceRecipientKind, string> = {
-  company: 'Firma',
-  band: 'Band',
-  person: 'Person',
-  other: 'Sonstige'
-}
-
-const EMPTY_LINE: InvoiceLineDraft = {
-  description: '',
-  quantity: '1',
-  unit: 'service',
-  unitPriceNet: '0',
-  taxRate: '19',
-  taxCode: 'standard'
-}
-
-function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemInput[] {
-  const normalized = lines
-    .map((line) => {
-      const quantity = Math.max(0.000001, parseNumber(line.quantity, 1))
-      const unitPriceNet = Math.max(0, parseNumber(line.unitPriceNet, 0))
-      const taxRate = Math.max(0, Math.min(100, parseNumber(line.taxRate, 0)))
-      const description = line.description.trim() || 'Leistungsposition'
-
-      return {
-        description,
-        quantity,
-        unit: line.unit.trim() || 'service',
-        unitPriceNet,
-        taxRate,
-        taxCode: line.taxCode
-      } as InvoiceLineItemInput
-    })
-    .filter((line) => line.description || line.unitPriceNet > 0)
-
-  return normalized.length > 0
-    ? normalized
-    : [
-        {
-          description: 'Leistungsposition',
-          quantity: 1,
-          unit: 'service',
-          unitPriceNet: 0,
-          taxRate: 0,
-          taxCode: 'other'
-        }
-      ]
-}
-
-// Same rounding as the stored totals and the e-invoice (einvoice/amounts)
-function computeTotals(lines: InvoiceLineItemInput[]) {
-  const amounts = computeInvoiceAmounts(lines)
-  return {
-    subtotalNetAmount: fromCents(amounts.netCents),
-    subtotalTaxAmount: fromCents(amounts.taxCents),
-    totalGrossAmount: fromCents(amounts.grossCents)
-  }
-}
-
+/**
+ * Create or edit an invoice draft in three steps: basics (dates, event,
+ * issuer, recipient), line items, and finalize (totals, terms, e-invoice
+ * check). Issuing from here asks first: it assigns the number and locks it.
+ */
 export function InvoiceForm({
   mode,
   invoice,
@@ -129,58 +87,11 @@ export function InvoiceForm({
   mode: 'create' | 'edit'
   invoice?: InvoiceDto
   onCancel: () => void
-  onCreate: (payload: {
-    dealMemoId?: number | null
-    companyId?: number | null
-    recipientKind?: InvoiceRecipientKind
-    recipientCompanyId?: number | null
-    recipientBandId?: number | null
-    recipientPersonId?: number | null
-    recipientNameOverride?: string
-    periodStartDate?: string | null
-    periodEndDate?: string | null
-    periodLabel?: string
-    issueDate?: string
-    dueDate?: string | null
-    status?: InvoiceStatus
-    currency?: string
-    lineItems?: InvoiceLineItemInput[]
-    totalAmount?: number
-    paymentTerms?: string
-    reverseChargeNote?: string
-    buyerReference?: string
-    xrechnung?: boolean
-    notes?: string
-  }) => void
-  onUpdate: (payload: {
-    id: number
-    dealMemoId?: number | null
-    companyId?: number
-    recipientKind?: InvoiceRecipientKind
-    recipientCompanyId?: number | null
-    recipientBandId?: number | null
-    recipientPersonId?: number | null
-    recipientNameOverride?: string
-    periodStartDate?: string | null
-    periodEndDate?: string | null
-    periodLabel?: string
-    issueDate?: string
-    dueDate?: string | null
-    status?: InvoiceStatus
-    currency?: string
-    lineItems?: InvoiceLineItemInput[]
-    totalAmount?: number
-    paymentTerms?: string
-    reverseChargeNote?: string
-    buyerReference?: string
-    xrechnung?: boolean
-    notes?: string
-  }) => void
+  onCreate: (payload: InvoiceFormPayload & { companyId?: number | null }) => void
+  onUpdate: (payload: InvoiceFormPayload & { id: number; companyId?: number }) => void
   isSubmitting: boolean
 }) {
   const companies = trpcReact.company.getListItems.useQuery()
-  const bands = trpcReact.band.getListItems.useQuery()
-  const persons = trpcReact.person.getListItems.useQuery()
   const events = trpcReact.dealMemo.getAllPaginated.useQuery({
     page: 1,
     pageSize: 100,
@@ -189,223 +100,71 @@ export function InvoiceForm({
 
   // Form state initializes once from the invoice on mount. The parent remounts
   // this component (key=mode-id) when the sheet switches mode/target, so no
-  // state-sync-in-effect is needed.
-  const [dealMemoId, setDealMemoId] = useState<number | null>(
-    mode === 'edit' ? (invoice?.dealMemoId ?? null) : null
-  )
-  const [companyId, setCompanyId] = useState<number | null | undefined>(
-    mode === 'edit' ? invoice?.companyId : undefined
-  )
-  const [recipientKind, setRecipientKind] = useState<InvoiceRecipientKind>(
-    mode === 'edit' ? (invoice?.recipientKind ?? 'company') : 'company'
-  )
-  const [recipientCompanyId, setRecipientCompanyId] = useState<number | null>(
-    mode === 'edit' ? (invoice?.recipientCompanyId ?? null) : null
-  )
-  const [recipientBandId, setRecipientBandId] = useState<number | null>(
-    mode === 'edit' ? (invoice?.recipientBandId ?? null) : null
-  )
-  const [recipientPersonId, setRecipientPersonId] = useState<number | null>(
-    mode === 'edit' ? (invoice?.recipientPersonId ?? null) : null
-  )
-  const [recipientNameOverride, setRecipientNameOverride] = useState(
-    mode === 'edit' && invoice?.recipientKind === 'other' ? invoice.recipientName : ''
-  )
-  const [periodStartDate, setPeriodStartDate] = useState(
-    mode === 'edit' ? (invoice?.periodStartDate ?? '') : ''
-  )
-  const [periodEndDate, setPeriodEndDate] = useState(
-    mode === 'edit' ? (invoice?.periodEndDate ?? '') : ''
-  )
-  const [periodLabel, setPeriodLabel] = useState(
-    mode === 'edit' ? (invoice?.periodLabel ?? '') : ''
-  )
+  // state-sync-in-effect is needed. State the steps edit lives here, not in the
+  // step components: inactive tabs unmount.
+  const edited = mode === 'edit' ? invoice : undefined
+  const [dealMemoId, setDealMemoId] = useState<number | null>(edited?.dealMemoId ?? null)
+  const [companyId, setCompanyId] = useState<number | null | undefined>(edited?.companyId)
+  const [recipient, setRecipient] = useState<RecipientDraft>(() => initialRecipient(edited))
+  const [periodStartDate, setPeriodStartDate] = useState(edited?.periodStartDate ?? '')
+  const [periodEndDate, setPeriodEndDate] = useState(edited?.periodEndDate ?? '')
+  const [periodLabel, setPeriodLabel] = useState(edited?.periodLabel ?? '')
   const [issueDate, setIssueDate] = useState(
     mode === 'edit' ? (invoice?.issueDate ?? '') : new Date().toISOString().slice(0, 10)
   )
-  const [dueDate, setDueDate] = useState(mode === 'edit' ? (invoice?.dueDate ?? '') : '')
-  const [status, setStatus] = useState<InvoiceStatus>(
-    mode === 'edit' ? (invoice?.status ?? 'draft') : 'draft'
-  )
-  const [currency, setCurrency] = useState(mode === 'edit' ? (invoice?.currency ?? 'EUR') : 'EUR')
+  const [dueDate, setDueDate] = useState(edited?.dueDate ?? '')
+  const [status, setStatus] = useState<InvoiceStatus>(edited?.status ?? 'draft')
+  const [currency, setCurrency] = useState(edited?.currency ?? 'EUR')
   // A stored code outside the list stays selectable, so editing never changes it unasked
   const offered: readonly string[] = INVOICE_CURRENCIES
   const currencies = offered.includes(currency) ? offered : [...offered, currency]
-  const [paymentTerms, setPaymentTerms] = useState(
-    mode === 'edit' ? (invoice?.paymentTerms ?? '') : ''
-  )
-  const [reverseChargeNote, setReverseChargeNote] = useState(
-    mode === 'edit' ? (invoice?.reverseChargeNote ?? '') : ''
-  )
-  const [buyerReference, setBuyerReference] = useState(
-    mode === 'edit' ? (invoice?.buyerReference ?? '') : ''
-  )
-  const [xrechnung, setXrechnung] = useState(
-    mode === 'edit' ? (invoice?.xrechnung ?? false) : false
-  )
+  const [paymentTerms, setPaymentTerms] = useState(edited?.paymentTerms ?? '')
+  const [reverseChargeNote, setReverseChargeNote] = useState(edited?.reverseChargeNote ?? '')
+  const [buyerReference, setBuyerReference] = useState(edited?.buyerReference ?? '')
+  const [xrechnung, setXrechnung] = useState(edited?.xrechnung ?? false)
   // E-invoice details are rarely needed: folded away unless in use
   const [eInvoiceDetailsOpen, setEInvoiceDetailsOpen] = useState(
     Boolean(buyerReference) || xrechnung
   )
-  const [notes, setNotes] = useState(mode === 'edit' ? (invoice?.notes ?? '') : '')
-  const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => {
-    if (mode === 'edit' && invoice) {
-      return invoice.lineItems.length > 0
-        ? invoice.lineItems.map((line) => ({
-            description: line.description,
-            quantity: String(line.quantity),
-            unit: line.unit,
-            unitPriceNet: String(line.unitPriceNet),
-            taxRate: String(line.taxRate),
-            taxCode: line.taxCode
-          }))
-        : [
-            {
-              ...EMPTY_LINE,
-              description: 'Leistungsposition',
-              unitPriceNet: String(invoice.totalAmount),
-              taxRate: '0'
-            }
-          ]
-    }
-    return [EMPTY_LINE]
-  })
-  const [step, setStep] = useState<'basics' | 'lines' | 'finalize'>('basics')
-  const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null)
-  const [lineEditor, setLineEditor] = useState<InvoiceLineDraft>({ ...EMPTY_LINE })
+  const [notes, setNotes] = useState(edited?.notes ?? '')
+  const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => initialLines(edited))
+  const lineEditor = useInvoiceLineEditor(lineItems, setLineItems)
+  const [step, setStep] = useState<InvoiceFormStep>('basics')
 
   const normalizedLines = useMemo(() => normalizeLineItems(lineItems), [lineItems])
   const totals = useMemo(() => computeTotals(normalizedLines), [normalizedLines])
 
   // E-invoice check with the parties as issuing would freeze them
-  const settings = trpcReact.settings.get.useQuery()
-  const eInvoiceEnabled = settings.data?.eInvoiceEmbed ?? false
-  const parties = trpcReact.invoice.previewParties.useQuery(
-    {
-      dealMemoId,
-      companyId: companyId ?? null,
-      recipientKind,
-      recipientCompanyId,
-      recipientBandId,
-      recipientPersonId,
-      recipientNameOverride: recipientKind === 'other' ? recipientNameOverride.trim() : undefined
-    },
-    { enabled: eInvoiceEnabled && step === 'finalize' }
-  )
-  const eInvoiceCheck = useMemo(() => {
-    if (!parties.data) return null
-    const result = prepareEInvoice(
-      {
-        invoiceNumber: null,
-        issueDate,
-        dueDate: dueDate || null,
-        currency,
-        buyerReference,
-        periodStartDate: periodStartDate || null,
-        periodEndDate: periodEndDate || null,
-        eventDate: events.data?.items.find((event) => event.id === dealMemoId)?.date ?? null,
-        paymentTerms,
-        taxNote: reverseChargeNote,
-        notes,
-        seller: parties.data.issuer,
-        buyer: parties.data.recipient,
-        lines: normalizedLines,
-        xrechnung
-      },
-      { ignoreNumber: true }
-    )
-    return {
-      state: result.complete ? ('draft' as const) : ('incomplete' as const),
-      missing: result.missing,
+  const eInvoice = useInvoiceEInvoiceCheck({
+    parties: { dealMemoId, companyId: companyId ?? null, ...recipientPayload(recipient) },
+    draft: {
+      issueDate,
+      dueDate: dueDate || null,
+      currency,
+      buyerReference,
+      periodStartDate: periodStartDate || null,
+      periodEndDate: periodEndDate || null,
+      eventDate: events.data?.items.find((event) => event.id === dealMemoId)?.date ?? null,
+      paymentTerms,
+      taxNote: reverseChargeNote,
+      notes,
+      lines: normalizedLines,
       xrechnung
-    }
-  }, [
-    parties.data,
-    issueDate,
-    dueDate,
-    currency,
-    buyerReference,
-    periodStartDate,
-    periodEndDate,
-    events.data,
-    dealMemoId,
-    paymentTerms,
-    reverseChargeNote,
-    notes,
-    normalizedLines,
-    xrechnung
-  ])
-
-  const setLine = (patch: Partial<InvoiceLineDraft>) => {
-    setLineEditor((prev) => ({ ...prev, ...patch }))
-  }
-
-  const openAddLine = () => {
-    setEditingLineIndex(null)
-    setLineEditor({ ...EMPTY_LINE })
-  }
-
-  const openEditLine = (index: number) => {
-    setEditingLineIndex(index)
-    setLineEditor({ ...lineItems[index] })
-  }
-
-  const saveLineEditor = () => {
-    if (!lineEditor.description.trim()) {
-      toast.error('Bitte eine Positionsbeschreibung eingeben')
-      return
-    }
-
-    if (editingLineIndex === null) {
-      setLineItems((prev) => [...prev, { ...lineEditor }])
-      setLineEditor({ ...EMPTY_LINE })
-      return
-    }
-
-    setLineItems((prev) =>
-      prev.map((line, idx) => (idx === editingLineIndex ? { ...lineEditor } : line))
-    )
-    setEditingLineIndex(null)
-    setLineEditor({ ...EMPTY_LINE })
-  }
-
-  const removeLine = (index: number) => {
-    setLineItems((prev) => {
-      if (prev.length === 1) {
-        return [{ ...EMPTY_LINE }]
-      }
-      return prev.filter((_, i) => i !== index)
-    })
-    if (editingLineIndex === index) {
-      setEditingLineIndex(null)
-      setLineEditor({ ...EMPTY_LINE })
-    }
-  }
+    },
+    active: step === 'finalize'
+  })
 
   const handleSubmit = async () => {
-    if (recipientKind === 'band' && !recipientBandId) {
-      toast.error('Bitte eine Empfänger-Band auswählen')
-      return
-    }
-
-    if (recipientKind === 'person' && !recipientPersonId) {
-      toast.error('Bitte eine Empfänger-Person auswählen')
-      return
-    }
-
-    if (recipientKind === 'other' && !recipientNameOverride.trim()) {
-      toast.error('Bitte einen Empfängernamen eingeben')
+    const recipientProblem = recipientError(recipient)
+    if (recipientProblem) {
+      toast.error(recipientProblem)
       return
     }
 
     const payload = {
       dealMemoId,
       companyId: companyId ?? undefined,
-      recipientKind,
-      recipientCompanyId,
-      recipientBandId,
-      recipientPersonId,
-      recipientNameOverride: recipientKind === 'other' ? recipientNameOverride.trim() : undefined,
+      ...recipientPayload(recipient),
       periodStartDate: periodStartDate || null,
       periodEndDate: periodEndDate || null,
       periodLabel,
@@ -450,10 +209,7 @@ export function InvoiceForm({
 
   return (
     <div className="space-y-4">
-      <Tabs
-        value={step}
-        onValueChange={(value) => setStep(value as 'basics' | 'lines' | 'finalize')}
-      >
+      <Tabs value={step} onValueChange={(value) => setStep(value as InvoiceFormStep)}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basics">1. Grunddaten</TabsTrigger>
           <TabsTrigger value="lines">2. Positionen</TabsTrigger>
@@ -469,7 +225,7 @@ export function InvoiceForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {INVOICE_STATUS.map((s) => (
+                  {INVOICE_FORM_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
                       {INVOICE_STATUS_LABELS[s]}
                     </SelectItem>
@@ -557,87 +313,7 @@ export function InvoiceForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <InfoLabel text="Rechnungsempfänger" info="Wer wird belastet? Zahlt diese Rechnung." />
-            <Select
-              value={recipientKind}
-              onValueChange={(value) => {
-                const nextKind = value as InvoiceRecipientKind
-                setRecipientKind(nextKind)
-                setRecipientCompanyId(null)
-                setRecipientBandId(null)
-                setRecipientPersonId(null)
-                setRecipientNameOverride('')
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INVOICE_RECIPIENT_KIND.map((kind) => (
-                  <SelectItem key={kind} value={kind}>
-                    {RECIPIENT_KIND_LABELS[kind]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {recipientKind === 'company' && (
-            <div className="space-y-2">
-              <Label htmlFor="invoice-recipient-company">Empfänger-Firma</Label>
-              <SearchableSelect
-                id="invoice-recipient-company"
-                value={recipientCompanyId}
-                onChange={setRecipientCompanyId}
-                options={(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
-                noneLabel="Automatisch"
-                searchPlaceholder="Firma suchen…"
-              />
-            </div>
-          )}
-
-          {recipientKind === 'band' && (
-            <div className="space-y-2">
-              <Label htmlFor="invoice-recipient-band">Empfänger-Band</Label>
-              <SearchableSelect
-                id="invoice-recipient-band"
-                value={recipientBandId}
-                onChange={setRecipientBandId}
-                options={(bands.data ?? []).map((b) => ({ value: b.id, label: b.name }))}
-                placeholder="Band auswählen"
-                searchPlaceholder="Band suchen…"
-              />
-            </div>
-          )}
-
-          {recipientKind === 'person' && (
-            <div className="space-y-2">
-              <Label htmlFor="invoice-recipient-person">Empfänger-Person</Label>
-              <SearchableSelect
-                id="invoice-recipient-person"
-                value={recipientPersonId}
-                onChange={setRecipientPersonId}
-                options={(persons.data ?? []).map((p) => ({
-                  value: p.id,
-                  label: `${p.firstName} ${p.lastName}`.trim()
-                }))}
-                placeholder="Person auswählen"
-                searchPlaceholder="Person suchen…"
-              />
-            </div>
-          )}
-
-          {recipientKind === 'other' && (
-            <div className="space-y-2">
-              <Label>Empfängername</Label>
-              <Input
-                value={recipientNameOverride}
-                onChange={(e) => setRecipientNameOverride(e.target.value)}
-                placeholder="Empfängername eingeben"
-              />
-            </div>
-          )}
+          <InvoiceRecipientFields recipient={recipient} onChange={setRecipient} />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -666,59 +342,14 @@ export function InvoiceForm({
             </div>
           </div>
 
-          <div className="rounded-md border">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium"
-              aria-expanded={eInvoiceDetailsOpen}
-              onClick={() => setEInvoiceDetailsOpen((open) => !open)}
-            >
-              <span>
-                E-Rechnung: Käuferreferenz, XRechnung
-                {!eInvoiceDetailsOpen && (buyerReference || xrechnung) && (
-                  <span className="ml-2 font-normal text-muted-foreground">
-                    {[buyerReference, xrechnung && 'XRechnung'].filter(Boolean).join(' · ')}
-                  </span>
-                )}
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${eInvoiceDetailsOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-            {eInvoiceDetailsOpen && (
-              <div className="space-y-4 border-t px-3 py-3">
-                <div className="space-y-2">
-                  <InfoLabel
-                    htmlFor="invoice-buyer-reference"
-                    text="Käuferreferenz / Leitweg-ID (optional)"
-                    info="Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung."
-                  />
-                  <Input
-                    id="invoice-buyer-reference"
-                    value={buyerReference}
-                    onChange={(e) => setBuyerReference(e.target.value)}
-                    placeholder="z. B. 04011000-12345-34"
-                  />
-                </div>
-                <div className="flex items-start gap-3">
-                  <Switch
-                    id="invoice-xrechnung"
-                    checked={xrechnung}
-                    onCheckedChange={setXrechnung}
-                  />
-                  <div className="space-y-1">
-                    <Label htmlFor="invoice-xrechnung">XRechnung (öffentlicher Auftraggeber)</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Für Behörden und andere öffentliche Stellen: braucht die Leitweg-ID, einen
-                      Ansprechpartner mit Telefon und E-Mail, die IBAN und die E-Mail des
-                      Empfängers. Das PDF enthält dann die XRechnung; für Portale lässt sie sich
-                      auch als XML speichern.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <InvoiceEInvoiceDetails
+            open={eInvoiceDetailsOpen}
+            onOpenChange={setEInvoiceDetailsOpen}
+            buyerReference={buyerReference}
+            onBuyerReferenceChange={setBuyerReference}
+            xrechnung={xrechnung}
+            onXrechnungChange={setXrechnung}
+          />
 
           <FormActions>
             <Button type="button" onClick={() => setStep('lines')}>
@@ -728,162 +359,7 @@ export function InvoiceForm({
         </TabsContent>
 
         <TabsContent value="lines" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
-            <Label>Positionen</Label>
-            <Button type="button" variant="outline" size="sm" onClick={openAddLine}>
-              <Plus className="h-4 w-4 mr-1" />
-              Position hinzufügen
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {lineItems.map((line, index) => {
-              const quantity = parseNumber(line.quantity, 1)
-              const unitPrice = parseNumber(line.unitPriceNet, 0)
-              const taxRate = parseNumber(line.taxRate, 0)
-              const netCents = lineNetCents(quantity, unitPrice)
-              const net = fromCents(netCents)
-              const gross = fromCents(netCents + vatCents(netCents, taxRate))
-
-              return (
-                <div
-                  key={`line-card-${index}`}
-                  className="border rounded-md p-3 flex items-start justify-between gap-3"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{line.description || 'Ohne Bezeichnung'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {quantity} {unitLabelOf(line.unit)} x {formatMoney(unitPrice, currency)} (
-                      {taxRate}% MwSt., {TAX_CODE_LABELS[line.taxCode]})
-                    </p>
-                    <p className="text-xs mt-1">
-                      Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditLine(index)}
-                    >
-                      Bearbeiten
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeLine(index)}
-                    >
-                      Entfernen
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="border rounded-md p-3 space-y-3">
-            <p className="text-sm font-medium">
-              {editingLineIndex === null
-                ? 'Position hinzufügen'
-                : `Position #${editingLineIndex + 1} bearbeiten`}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1 md:col-span-2">
-                <Label>Beschreibung</Label>
-                <Input
-                  value={lineEditor.description}
-                  onChange={(e) => setLine({ description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Menge</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={lineEditor.quantity}
-                  onChange={(e) => setLine({ quantity: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="invoice-line-unit">Einheit</Label>
-                <Select value={lineEditor.unit} onValueChange={(value) => setLine({ unit: value })}>
-                  <SelectTrigger id="invoice-line-unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INVOICE_UNITS.map((unit) => (
-                      <SelectItem key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </SelectItem>
-                    ))}
-                    {/* Free-text unit of an older invoice stays selectable */}
-                    {!INVOICE_UNITS.some((unit) => unit.value === lineEditor.unit) && (
-                      <SelectItem value={lineEditor.unit}>{lineEditor.unit}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Netto-Einzelpreis</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={lineEditor.unitPriceNet}
-                  onChange={(e) => setLine({ unitPriceNet: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>MwSt. %</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={lineEditor.taxRate}
-                  onChange={(e) => setLine({ taxRate: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Steuerschlüssel</Label>
-                <Select
-                  value={lineEditor.taxCode}
-                  onValueChange={(value) => setLine({ taxCode: value as InvoiceTaxCode })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TAX_CODES.map((code) => (
-                      <SelectItem key={code} value={code}>
-                        {TAX_CODE_LABELS[code]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditingLineIndex(null)
-                  setLineEditor({ ...EMPTY_LINE })
-                }}
-              >
-                Zurücksetzen
-              </Button>
-              <Button type="button" onClick={saveLineEditor}>
-                {editingLineIndex === null ? 'Position hinzufügen' : 'Position speichern'}
-              </Button>
-            </div>
-          </div>
+          <InvoiceLineItems lines={lineItems} editor={lineEditor} currency={currency} />
 
           <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('basics')}>
@@ -896,20 +372,7 @@ export function InvoiceForm({
         </TabsContent>
 
         <TabsContent value="finalize" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Zwischensumme netto</Label>
-              <Input value={formatMoney(totals.subtotalNetAmount, currency)} readOnly />
-            </div>
-            <div className="space-y-2">
-              <Label>Steuerbetrag</Label>
-              <Input value={formatMoney(totals.subtotalTaxAmount, currency)} readOnly />
-            </div>
-            <div className="space-y-2">
-              <Label>Gesamt brutto</Label>
-              <Input value={formatMoney(totals.totalGrossAmount, currency)} readOnly />
-            </div>
-          </div>
+          <InvoiceTotals totals={totals} currency={currency} />
 
           <div className="space-y-2">
             <Label>Zahlungsbedingungen</Label>
@@ -953,7 +416,7 @@ export function InvoiceForm({
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
 
-          {eInvoiceEnabled && eInvoiceCheck && <EInvoiceStatus check={eInvoiceCheck} />}
+          {eInvoice.enabled && eInvoice.check && <EInvoiceStatus check={eInvoice.check} />}
 
           <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('lines')}>
