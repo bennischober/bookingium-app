@@ -1,22 +1,13 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { GenreField } from './GenreField'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { FormFooter } from './FormActions'
+import { FormBody } from './FormFields'
+import { required, useAppForm } from './appForm'
+import { GenreField } from './GenreField'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
-import { contactHasValues } from './contactEmailFields'
+import { addressDefaults, contactDefaults, optionalAddress, optionalContact } from './formDefaults'
 import { trpcReact } from '@/lib/trpc'
 import type { FormMode } from '@/hooks/useFormSheet'
 import { useMapPreview } from '@/hooks/useMapPreview'
@@ -33,6 +24,11 @@ import {
   type UpdateVenueInput,
   type VenueDto
 } from '../../../../main/api/schemas/venue.schema'
+
+const KIND_OPTIONS = VenueKind.options.map((kind) => ({
+  value: kind,
+  label: VENUE_KIND_LABELS[kind]
+}))
 
 interface VenueFormProps {
   mode: FormMode
@@ -56,7 +52,7 @@ export function VenueForm({
   // Radius clause fields only with the map on; off, an edit keeps the stored values
   const mapPreview = useMapPreview()
 
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       name: initialData?.name ?? '',
       kind: initialData?.kind ?? defaultKind,
@@ -65,30 +61,12 @@ export function VenueForm({
       notes: initialData?.notes ?? '',
       companyId: initialData?.company?.id ?? null,
       radius: draftFromOverride(initialData),
-      address: {
-        street: initialData?.address?.street ?? '',
-        streetNumber: initialData?.address?.streetNumber ?? '',
-        addressSuffix: initialData?.address?.addressSuffix ?? '',
-        zipCode: initialData?.address?.zipCode ?? '',
-        city: initialData?.address?.city ?? '',
-        state: initialData?.address?.state ?? '',
-        country: initialData?.address?.country ?? '',
-        countryCode: initialData?.address?.countryCode ?? ''
-      },
-      contact: {
-        email: initialData?.contact?.email ?? '',
-        otherEmails: initialData?.contact?.otherEmails ?? [],
-        phone: initialData?.contact?.phone ?? '',
-        mobilePhone: initialData?.contact?.mobilePhone ?? '',
-        homepage: initialData?.contact?.homepage ?? '',
-        noAdvertising: initialData?.contact?.noAdvertising ?? false
-      }
+      address: addressDefaults(initialData?.address),
+      contact: contactDefaults(initialData?.contact)
     },
     onSubmit: async ({ value }) => {
       const parsedCapacity = value.capacity.trim() ? Number(value.capacity) : null
       const capacity = Number.isNaN(parsedCapacity) ? null : parsedCapacity
-      const hasAddress = Object.values(value.address).some((entry) => entry.trim().length > 0)
-      const hasContact = contactHasValues(value.contact)
       const radius = parseOverrideDraft(value.radius)
       if (mapPreview.enabled && !radius.ok) return
       const basePayload = {
@@ -98,8 +76,8 @@ export function VenueForm({
         genres: value.genres,
         notes: value.notes.trim(),
         companyId: value.companyId,
-        ...(hasAddress ? { address: value.address } : {}),
-        ...(hasContact ? { contact: value.contact } : {}),
+        ...optionalAddress(value.address),
+        ...optionalContact(value.contact),
         ...(mapPreview.enabled && radius.ok ? radius.value : {})
       }
 
@@ -113,70 +91,16 @@ export function VenueForm({
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-6"
-    >
-      <form.Field
-        name="name"
-        validators={{
-          onChange: ({ value }) => {
-            if (!value || value.trim().length === 0) {
-              return 'Name ist erforderlich'
-            }
-            return undefined
-          }
-        }}
-      >
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Namen eingeben"
-              disabled={isSubmitting}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+    <FormBody form={form} disabled={isSubmitting}>
+      <form.AppField name="name" validators={{ onChange: required('Name') }}>
+        {(field) => <field.TextField label="Name" required placeholder="Namen eingeben" />}
+      </form.AppField>
 
-      <form.Field name="kind">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Art</Label>
-            <Select
-              value={field.state.value}
-              onValueChange={(value) => field.handleChange(value as VenueKind)}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger id={field.name}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VenueKind.options.map((kind) => (
-                  <SelectItem key={kind} value={kind}>
-                    {VENUE_KIND_LABELS[kind]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </form.Field>
+      <form.AppField name="kind">
+        {(field) => <field.SelectField label="Art" options={KIND_OPTIONS} />}
+      </form.AppField>
 
-      <form.Field
+      <form.AppField
         name="capacity"
         validators={{
           onChange: ({ value }) => {
@@ -190,29 +114,16 @@ export function VenueForm({
         }}
       >
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Kapazität</Label>
-            <Input
-              id={field.name}
-              type="number"
-              min={0}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="z. B. 1200"
-              disabled={isSubmitting}
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
+          <field.TextField label="Kapazität" type="number" min={0} placeholder="z. B. 1200" />
         )}
-      </form.Field>
+      </form.AppField>
 
-      <form.Field name="genres">
+      <form.AppField name="genres">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Genres</Label>
+          <field.FieldRow
+            label="Genres"
+            hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
+          >
             <GenreField
               id={field.name}
               value={field.state.value}
@@ -220,35 +131,19 @@ export function VenueForm({
               onBlur={field.handleBlur}
               disabled={isSubmitting}
             />
-            <p className="text-xs text-muted-foreground">
-              Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler
-              genutzt.
-            </p>
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
-      <form.Field name="notes">
+      <form.AppField name="notes">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Anmerkungen</Label>
-            <Textarea
-              id={field.name}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="Weitere Details"
-              rows={4}
-              disabled={isSubmitting}
-            />
-          </div>
+          <field.TextareaField label="Anmerkungen" placeholder="Weitere Details" rows={4} />
         )}
-      </form.Field>
+      </form.AppField>
 
-      <form.Field name="companyId">
+      <form.AppField name="companyId">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor={field.name}>Verknüpfte Firma (optional)</Label>
+          <field.FieldRow label="Verknüpfte Firma (optional)">
             {companies.isLoading ? (
               <p className="text-sm text-muted-foreground">Firmen werden geladen…</p>
             ) : companies.data && companies.data.length > 0 ? (
@@ -267,9 +162,9 @@ export function VenueForm({
             ) : (
               <p className="text-sm text-muted-foreground">Keine Firmen gefunden.</p>
             )}
-          </div>
+          </field.FieldRow>
         )}
-      </form.Field>
+      </form.AppField>
 
       {mapPreview.enabled && mapPreview.defaults && (
         <form.Subscribe selector={(state) => state.values.kind}>
@@ -308,14 +203,9 @@ export function VenueForm({
       <Separator />
       <ContactFormFields form={form} showNoAdvertising />
 
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Abbrechen
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Speichert…' : mode === 'create' ? 'Anlegen' : 'Änderungen speichern'}
-        </Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+        {mode === 'create' ? 'Anlegen' : 'Änderungen speichern'}
+      </FormFooter>
+    </FormBody>
   )
 }

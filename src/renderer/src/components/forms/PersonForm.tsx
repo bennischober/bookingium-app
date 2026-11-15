@@ -1,16 +1,12 @@
-import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
-import { FormActions } from '@/components/forms/FormActions'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { FormFooter } from './FormActions'
+import { FormBody } from './FormFields'
+import { useAppForm } from './appForm'
 import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
-import { PersonDto } from 'src/main/api/schemas/person.schema'
-
+import { addressDefaults, contactDefaults } from './formDefaults'
 import type { z } from 'zod'
-import type { CreatePersonInput } from '../../../../main/api/schemas/person.schema'
+import type { CreatePersonInput, PersonDto } from '../../../../main/api/schemas/person.schema'
 
 interface PersonFormProps {
   person?: PersonDto
@@ -21,29 +17,16 @@ interface PersonFormProps {
 }
 
 export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormProps) {
-  const form = useForm({
+  const form = useAppForm({
     defaultValues: {
       firstName: person?.firstName || prefill?.firstName || '',
       lastName: person?.lastName || prefill?.lastName || '',
       birthday: person?.birthday || null,
       notes: person?.notes || '',
-      address: {
-        street: person?.address?.street || '',
-        streetNumber: person?.address?.streetNumber || '',
-        addressSuffix: person?.address?.addressSuffix || '',
-        zipCode: person?.address?.zipCode || '',
-        city: person?.address?.city || '',
-        state: person?.address?.state || '',
-        country: person?.address?.country || '',
-        countryCode: person?.address?.countryCode || ''
-      },
+      address: addressDefaults(person?.address),
       contact: {
-        email: person?.contact?.email || prefill?.email || '',
-        otherEmails: person?.contact?.otherEmails ?? [],
-        phone: person?.contact?.phone || '',
-        mobilePhone: person?.contact?.mobilePhone || '',
-        homepage: person?.contact?.homepage || '',
-        noAdvertising: person?.contact?.noAdvertising ?? false
+        ...contactDefaults(person?.contact),
+        email: person?.contact?.email || prefill?.email || ''
       }
     },
     onSubmit: async ({ value }) => {
@@ -52,84 +35,28 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
   })
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        form.handleSubmit()
-      }}
-      className="space-y-6"
-    >
+    <FormBody form={form}>
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Persönliche Angaben</h3>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="firstName">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Vorname *</Label>
-                <Input
-                  id="firstName"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-                )}
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field name="lastName">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Nachname *</Label>
-                <Input
-                  id="lastName"
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-                )}
-              </div>
-            )}
-          </form.Field>
+          <form.AppField name="firstName">
+            {(field) => <field.TextField label="Vorname" required />}
+          </form.AppField>
+          <form.AppField name="lastName">
+            {(field) => <field.TextField label="Nachname" required />}
+          </form.AppField>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="birthday">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor="birthday">Geburtstag</Label>
-                <Input
-                  id="birthday"
-                  type="date"
-                  value={field.state.value || ''}
-                  onChange={(e) => field.handleChange(e.target.value || null)}
-                  onBlur={field.handleBlur}
-                />
-              </div>
-            )}
-          </form.Field>
+          <form.AppField name="birthday">
+            {(field) => <field.TextField label="Geburtstag" type="date" nullIfEmpty />}
+          </form.AppField>
         </div>
 
-        <form.Field name="notes">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="notes">Anmerkungen</Label>
-              <Textarea
-                id="notes"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                rows={3}
-              />
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="notes">
+          {(field) => <field.TextareaField label="Anmerkungen" rows={3} />}
+        </form.AppField>
       </div>
 
       <Separator />
@@ -140,12 +67,7 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <FormActions>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Abbrechen
-        </Button>
-        <Button type="submit">Person speichern</Button>
-      </FormActions>
-    </form>
+      <FormFooter onCancel={onCancel}>Person speichern</FormFooter>
+    </FormBody>
   )
 }

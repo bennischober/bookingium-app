@@ -1,16 +1,15 @@
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Plus, Star, X } from 'lucide-react'
 import { otherEmailProblem, promoteOtherEmail } from './contactEmailFields'
+import { useFormDisabled } from './formContext'
 
-// The parent form instance (TanStack Form). Typed loosely on purpose: these
-// shared fields are embedded in several forms with different value shapes,
-// and TanStack Form's FormApi generic needs 11 type parameters that would
-// couple this component to one parent's exact shape. The Field calls below
-// are string-path fields with string values (contact.noAdvertising is a boolean,
-// contact.otherEmails a string array; the parent's defaultValues must contain it).
+// The parent form instance (`useAppForm`). Typed loosely on purpose: these shared fields
+// are embedded in several forms with different value shapes, and TanStack Form's FormApi
+// generic needs a dozen type parameters that would couple this component to one parent's
+// exact shape. The parent's defaultValues take `contactDefaults()` (or
+// `basicContactDefaults()` without the further addresses and the switch; `formDefaults.ts`).
 interface ContactFormFieldsProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any
@@ -28,27 +27,13 @@ export function ContactFormFields({
   showNoAdvertising = false,
   showOtherEmails = true
 }: ContactFormFieldsProps) {
+  const disabled = useFormDisabled()
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Kontaktinformationen</h3>
-      <form.Field name="contact.email">
-        {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="contact.email">E-Mail</Label>
-            <Input
-              id="contact.email"
-              type="email"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="email@example.com"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
-        )}
-      </form.Field>
+      <form.AppField name="contact.email">
+        {(field) => <field.TextField label="E-Mail" type="email" placeholder="email@example.com" />}
+      </form.AppField>
 
       {showOtherEmails && (
         <form.Field name="contact.otherEmails" mode="array">
@@ -85,6 +70,7 @@ export function ContactFormFields({
                             onChange={(e) => field.handleChange(e.target.value)}
                             onBlur={field.handleBlur}
                             placeholder="email@example.com"
+                            disabled={disabled}
                           />
                           <Button
                             type="button"
@@ -92,7 +78,7 @@ export function ContactFormFields({
                             size="icon"
                             aria-label="Als Haupt-Adresse"
                             title="Als Haupt-Adresse"
-                            disabled={!(field.state.value || '').trim()}
+                            disabled={disabled || !(field.state.value || '').trim()}
                             onClick={() => {
                               const next = promoteOtherEmail(
                                 form.getFieldValue('contact.email') ?? '',
@@ -112,12 +98,13 @@ export function ContactFormFields({
                             aria-label="Adresse entfernen"
                             title="Adresse entfernen"
                             onClick={() => listField.removeValue(index)}
+                            disabled={disabled}
                           >
                             <X />
                           </Button>
                         </div>
                         {field.state.meta.errors.length > 0 && (
-                          <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
+                          <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
                         )}
                       </div>
                     )}
@@ -130,6 +117,7 @@ export function ContactFormFields({
                   className="-ml-2 h-7 px-2 text-muted-foreground hover:text-foreground"
                   title="Mails von und an weitere Adressen werden dem Kontakt ebenfalls zugeordnet"
                   onClick={() => listField.pushValue('')}
+                  disabled={disabled}
                 >
                   <Plus />
                   Weitere Adresse
@@ -147,76 +135,29 @@ export function ContactFormFields({
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <form.Field name="contact.phone">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="contact.phone">Telefon</Label>
-              <Input
-                id="contact.phone"
-                type="tel"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                placeholder="+1 234 567 8900"
-              />
-            </div>
-          )}
-        </form.Field>
-
-        <form.Field name="contact.mobilePhone">
-          {(field) => (
-            <div className="space-y-2">
-              <Label htmlFor="contact.mobilePhone">Mobil</Label>
-              <Input
-                id="contact.mobilePhone"
-                type="tel"
-                value={field.state.value || ''}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                placeholder="+1 234 567 8900"
-              />
-            </div>
-          )}
-        </form.Field>
+        <form.AppField name="contact.phone">
+          {(field) => <field.TextField label="Telefon" type="tel" placeholder="+1 234 567 8900" />}
+        </form.AppField>
+        <form.AppField name="contact.mobilePhone">
+          {(field) => <field.TextField label="Mobil" type="tel" placeholder="+1 234 567 8900" />}
+        </form.AppField>
       </div>
 
-      <form.Field name="contact.homepage">
+      <form.AppField name="contact.homepage">
         {(field) => (
-          <div className="space-y-2">
-            <Label htmlFor="contact.homepage">Homepage</Label>
-            <Input
-              id="contact.homepage"
-              type="url"
-              value={field.state.value || ''}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              placeholder="https://example.com"
-            />
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-500">{field.state.meta.errors[0]}</p>
-            )}
-          </div>
+          <field.TextField label="Homepage" type="url" placeholder="https://example.com" />
         )}
-      </form.Field>
+      </form.AppField>
 
       {showNoAdvertising && (
-        <form.Field name="contact.noAdvertising">
+        <form.AppField name="contact.noAdvertising">
           {(field) => (
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <Switch
-                  id="contact.noAdvertising"
-                  checked={field.state.value === true}
-                  onCheckedChange={(checked) => field.handleChange(checked)}
-                />
-                <Label htmlFor="contact.noAdvertising">Keine Werbung</Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Diese Adresse kommt in keinen Verteiler (z. B. nach einem Werbewiderspruch).
-              </p>
-            </div>
+            <field.SwitchField
+              label="Keine Werbung"
+              hint="Diese Adresse kommt in keinen Verteiler (z. B. nach einem Werbewiderspruch)."
+            />
           )}
-        </form.Field>
+        </form.AppField>
       )}
     </div>
   )

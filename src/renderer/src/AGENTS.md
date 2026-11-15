@@ -28,6 +28,7 @@ src/renderer/src/
 | List paging/sorting | `hooks/useListQuery.ts` | `LIST_CHUNK_SIZE`, `useListSorting`, `infiniteListOptions`, `listRows`, `listTotal` |
 | `?create=true` / `?open=<id>` | `hooks/useListSearchActions.ts` | runs once, then strips the search from the URL |
 | Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'` |
+| A business object form | `components/forms/appForm.ts` + `FormFields.tsx` | `useAppForm`, `field.TextField` etc., `FormBody`/`FormFooter`; start values in `formDefaults.ts` |
 | Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column |
 | Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise |
 | Detail-page building blocks | `components/detail/DetailParts.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable` |
