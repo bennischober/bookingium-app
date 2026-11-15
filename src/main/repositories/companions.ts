@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
-import { db } from '../db'
 import { schema } from '../db/schema'
+import type { Tx } from './tx'
 
 /**
  * Address and contact rows belong to the person, company, venue or hotel pointing at them;
@@ -14,8 +14,6 @@ import { schema } from '../db/schema'
  * addresses) survive until their last owner is gone. Banks are not companions: they are
  * records of their own (Banken page), picked by several companies.
  */
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 const ADDRESS_OWNERS = [schema.person, schema.company, schema.venue, schema.hotel] as const
 

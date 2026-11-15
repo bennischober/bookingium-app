@@ -1,5 +1,7 @@
 import { inject, injectable } from 'tsyringe'
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
+import { InvoiceEmailRepository } from '../repositories/InvoiceEmailRepository'
+import { InvoiceSettingsRepository } from '../repositories/InvoiceSettingsRepository'
 import { scheduleFollowUpCalendarUpdate } from './CalendarFeedService'
 import {
   canChangeInvoiceStatus,
@@ -25,7 +27,11 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
 
 @injectable()
 export class InvoiceService {
-  constructor(@inject(InvoiceRepository) private invoiceRepository: InvoiceRepository) {}
+  constructor(
+    @inject(InvoiceRepository) private invoiceRepository: InvoiceRepository,
+    @inject(InvoiceEmailRepository) private invoiceEmailRepository: InvoiceEmailRepository,
+    @inject(InvoiceSettingsRepository) private invoiceSettingsRepository: InvoiceSettingsRepository
+  ) {}
 
   async getAllInvoicesPaginated(pagination: PaginationInput) {
     return await this.invoiceRepository.getAllPaginated(pagination)
@@ -106,11 +112,11 @@ export class InvoiceService {
   }
 
   async getCompanyInvoiceSettings(companyId: number) {
-    return await this.invoiceRepository.getCompanyInvoiceSettings(companyId)
+    return await this.invoiceSettingsRepository.getCompanyInvoiceSettings(companyId)
   }
 
   async upsertCompanyInvoiceSettings(input: UpsertCompanyInvoiceSettingsInput) {
-    return await this.invoiceRepository.upsertCompanyInvoiceSettings(input)
+    return await this.invoiceSettingsRepository.upsertCompanyInvoiceSettings(input)
   }
 
   /** Overdue invoices with their payment reminders (`today`: local calendar day) */
@@ -133,7 +139,7 @@ export class InvoiceService {
     /** C1: set only when bookingum sent the mail itself */
     sent?: { messageId?: string; mailAccountId?: string }
   ) {
-    this.invoiceRepository.markEmailed(id, to, kind, sent)
+    this.invoiceEmailRepository.markEmailed(id, to, kind, sent)
   }
 
   /**
@@ -147,21 +153,21 @@ export class InvoiceService {
     mailAccountId: string
     sendKey: string
   }) {
-    this.invoiceRepository.addPendingEmail(input)
+    this.invoiceEmailRepository.addPendingEmail(input)
   }
 
   /** I7: the send was refused before the server took it */
   dropQueuedInvoiceEmail(sendKey: string) {
-    this.invoiceRepository.dropPendingEmail(sendKey)
+    this.invoiceEmailRepository.dropPendingEmail(sendKey)
   }
 
   hasQueuedInvoiceEmails(mailAccountId: string): boolean {
-    return this.invoiceRepository.hasPendingEmails(mailAccountId)
+    return this.invoiceEmailRepository.hasPendingEmails(mailAccountId)
   }
 
   /** I7: the mail with this send key is out; marks its invoice once. The invoice id, or null */
   confirmInvoiceEmail(sendKey: string, mailAccountId: string, messageId: string): number | null {
-    return this.invoiceRepository.confirmPendingEmail(sendKey, mailAccountId, messageId)
+    return this.invoiceEmailRepository.confirmPendingEmail(sendKey, mailAccountId, messageId)
   }
 
   private async requireInvoice(id: number) {

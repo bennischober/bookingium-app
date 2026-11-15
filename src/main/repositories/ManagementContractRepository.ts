@@ -2,14 +2,12 @@ import { injectable } from 'tsyringe'
 import { asc, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import type { Reader, Tx } from './tx'
 import type { UpdateManagementContractInput } from '../api/schemas/management_contract.schema'
 import type { ManagementContractPrintData } from '../api/schemas/management_contract.schema'
 import { loadCompanyParty } from './contractParties'
 import { ManagementContractMapper } from '../api/mappers/management_contract.mapper'
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-// Read helpers work on the db and inside transactions alike
-type Reader = Pick<Tx, 'select'>
 type ContractRow = typeof schema.management_contract.$inferSelect
 
 export type ManagementContractEntity = ContractRow & { memberPersonIds: number[] }

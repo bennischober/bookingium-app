@@ -1,6 +1,7 @@
 import { asc, eq, getTableName, inArray, sql, type AnyColumn } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import type { Tx } from './tx'
 import { splitGenres } from '../api/schemas/genres'
 
 /**
@@ -11,7 +12,6 @@ import { splitGenres } from '../api/schemas/genres'
  * genres the forms suggest and the Verteiler filters by.
  */
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 export type GenreOwner = 'venue' | 'company' | 'band'
 
 const LINKS = {

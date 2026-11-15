@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import type { Tx } from './tx'
 
 /**
  * A contact's further email addresses (`contact_email`). `contact.email` stays the
@@ -9,7 +10,6 @@ import { schema } from '../db/schema'
  * person, company, venue and hotel repositories through these helpers.
  */
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type ContactRow = typeof schema.contact.$inferSelect
 export type ContactWithEmails = ContactRow & { other_emails: string[] }
 

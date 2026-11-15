@@ -389,7 +389,7 @@ false`). The page root is `flex h-full min-h-0 flex-col` so the table gets
   `useOpenInvoice` picks the page or the sheet for links to an invoice.
 - **Payment reminders:** an invoice is overdue when it is marked
   überfällig, or gestellt with its due date before today (local day;
-  `overdueInvoiceWhere` in the repository, `nextReminderKind` in
+  `overdueInvoiceWhere` in `repositories/invoice/queries.ts`, `nextReminderKind` in
   `invoice.schema.ts`, Stornorechnungen never). Its next step is a
   Zahlungserinnerung, after any reminder a Mahnung. The Dashboard card
   „Überfällige Rechnungen“ (`invoice.listOverdue`, longest overdue first,

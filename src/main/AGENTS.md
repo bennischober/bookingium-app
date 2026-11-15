@@ -77,7 +77,15 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
   `listOrder(pagination, columns, fallback, tiebreak)`. The `columns` keys are
   the renderer's column ids - a column missing there cannot be sorted in the UI.
 - Transactions are synchronous: `db.transaction((tx) => { ... })`. Shared logic
-  takes a `tx` typed `Parameters<Parameters<typeof db.transaction>[0]>[0]`.
+  takes a `Tx` from `repositories/tx.ts`; read helpers that run on `db` and
+  inside a transaction alike take its `Reader`.
+- A repository that outgrows one responsibility splits into injectable classes
+  per responsibility plus tx-scoped helper functions in a folder of the same
+  name. Invoices are the example: `InvoiceRepository` (reading, create, update,
+  status lifecycle), `InvoiceEmailRepository` (Verlauf and pending sends),
+  `InvoiceSettingsRepository`, `InvoicePartyRepository` (e-invoice party
+  preview), and `invoice/` (party snapshots, numbering, line items, history,
+  cancellation, shared queries).
 - Partial updates merge against the current row (`data.name ?? prev.name`,
   `!== undefined` for nullable foreign keys).
 - Upsert (`onConflictDoUpdate`) only for 1:1 companions and value tables;
@@ -95,9 +103,9 @@ here are also imported by the renderer. `db/`, `einvoice/`, `mailclient/` and
 - Real master data (names, IBANs, addresses, signatures) in code, seeds, tests or
   commit messages - only the gitignored `sample_data/internal-seed.json`.
 - Assuming the app never sends mail: the mail client (`mailclient/`) **does** transmit over
-  SMTP for writable accounts, and so does `invoice:email` when the mail program is bookingum
-  (it opens the compose window on the chosen sending account). Only the legacy `mail/` path and the
-  other mail-program settings write files and open the user's mail program.
+  SMTP for writable accounts, and since #136 it is the only way invoices, reminders, contracts
+  and mailing lists go out (`mail/` opens the compose window on the sending account). There is
+  no mail program fallback any more.
 - Importing `electron` eagerly from `db/` or the pure modules (`db/index.ts` wraps
   it in `try { require('electron') } catch` with a temp-dir fallback).
 - Fetching a whole table into JS for a list the grid paginates; `toFixed` or a
