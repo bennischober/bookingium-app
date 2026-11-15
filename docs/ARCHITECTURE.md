@@ -55,8 +55,15 @@ src/main/              Main process
                        core/ (sync, store, write engine); docs/mail-client.md
   utils/               fileStorage (storage root, logos), documentStorage
                        (documents/<type>/<id>-<name>/ folders)
-  index.ts             Window, IPC handlers (print, invoice email, files,
-                       import picker), startup
+  index.ts             Startup only: data folder, single-instance lock,
+                       the order of what runs once Electron is ready
+  app/                 What startup sets up: windows.ts (all windows, the
+                       tRPC handler), tray, reminders, mailServices (mail
+                       client, tray counts, linking, rules), migrateDatabase,
+                       errorLogging
+  ipc/                 Native IPC channels outside tRPC: print (PDF, XML),
+                       documentMail (invoice/contract email), documents and
+                       logos, mail windows, import picker
 
 src/preload/           contextBridge API (window.api: print, documents, logos,
                        import picker, dropped file paths)
@@ -100,12 +107,12 @@ camelCase conversion happens **only** in the router layer via the mappers.
 Unit tests therefore assert snake_case field names.
 
 Native things (dialogs, files, printing) live in main: either as IPC handlers
-in `index.ts` exposed through the preload, or directly in tRPC routers that
+in `ipc/` exposed through the preload, or directly in tRPC routers that
 import `electron` (save dialogs for export/backup, `shell.openPath`).
 
 ## Data on disk
 
-`%APPDATA%\bookingum-app` (pinned in `index.ts`, the same for development
+`%APPDATA%\bookingum-app` (pinned in `src/main/index.ts`, the same for development
 and the installed app; tests pass their own folder via
 `BOOKINGIUM_USER_DATA`):
 
@@ -218,7 +225,7 @@ always a new migration at the end. `tests/migration_upgrade.test.ts` pins the
 tag, timestamp and SQL hash of each 1.0.0 migration and upgrades a 1.0.0
 database with rows in it to the current schema.
 
-At startup (`migrateDatabase` in `index.ts`):
+At startup (`app/migrateDatabase.ts`):
 
 - A database that records a migration this build does not know comes from a
   newer version. Nothing is touched; the user is told to install that version
