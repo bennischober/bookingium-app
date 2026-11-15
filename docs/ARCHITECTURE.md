@@ -353,8 +353,13 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
   renderer libraries are devDependencies (Vite bundles them).
 - **Tailwind 4:** CSS variables in arbitrary values use `w-(--var)` or
   `max-h-[min(…,var(--var))]`; the v3 form `w-[--var]` produces invalid CSS.
-- **Large components:** split per concern (columns, form, tabs) when working
-  on them; do not split working pages preemptively.
+- **Large components:** a page or form keeps its state and orchestration
+  (queries, mutations, the current step); its steps, sections, dialogs and
+  columns become components in a feature folder next to it, and its pure rules
+  go in a tested `.ts` module. Examples: `components/invoice/invoiceFormState.ts`,
+  `components/event-wizard/`, `components/contact-list/`. Steps or tabs shown
+  one at a time unmount, so their state stays in the parent. Split when a
+  change adds a concern to a component that already holds several (#61).
 
 ## Print documents (invoices, contracts)
 
