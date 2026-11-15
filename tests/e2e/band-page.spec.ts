@@ -173,3 +173,30 @@ test('a tab that does not exist is dropped, and leaving an event being edited as
   await dialog.getByRole('button', { name: 'Verwerfen' }).click()
   await expect(page.getByRole('heading', { name: EVENT })).toBeHidden()
 })
+
+test('a new band can create its company from the Firma picker', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Bands' }).first().click()
+  await page.getByRole('button', { name: '+ Neue Band' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Neue Band anlegen' })
+  await sheet.getByLabel('Name').first().fill('Die Testklänge')
+
+  // Type a company that does not exist yet and create it from the picker
+  await sheet.getByRole('combobox', { name: 'Firma' }).first().click()
+  await page.getByPlaceholder('Firma suchen…').fill('Klangwerk Testfirma')
+  await page.getByRole('option', { name: 'Neue Firma anlegen: „Klangwerk Testfirma“' }).click()
+  const quick = page.getByRole('dialog', { name: 'Neue Firma anlegen' })
+  await expect(quick.getByLabel('Firmenname *')).toHaveValue('Klangwerk Testfirma')
+  await quick.getByLabel('Stadt').fill('Leipzig')
+  await quick.getByRole('button', { name: 'Anlegen', exact: true }).click()
+  await expect(quick).toHaveCount(0)
+
+  // Chosen in the picker, and the band form is still open (its submit did not fire)
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByRole('combobox', { name: 'Firma' }).first()).toHaveText(
+    'Klangwerk Testfirma'
+  )
+  await sheet.getByRole('button', { name: 'Anlegen', exact: true }).click()
+  await expect(sheet).toHaveCount(0)
+  await expect(page.locator('tr', { hasText: 'Die Testklänge' })).toBeVisible()
+})

@@ -48,8 +48,8 @@ export function PersonQuickCreateDialog({
   return (
     <QuickCreateDialog
       isOpen={isOpen}
-      title="Person schnell anlegen"
-      submitLabel="Person anlegen"
+      title="Neue Person anlegen"
+      submitLabel="Anlegen"
       submitDisabled={!firstName.trim() || !lastName.trim() || createPerson.isPending}
       onSubmit={handleSubmit}
       onClose={onClose}

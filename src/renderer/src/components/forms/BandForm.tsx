@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { FormFooter } from './FormActions'
 import { FormBody } from './FormFields'
 import { required, useAppForm } from './appForm'
 import { GenreField } from './GenreField'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CompanyQuickCreateDialog } from '@/components/quick-create/CompanyQuickCreateDialog'
 import { trpcReact } from '@/lib/trpc'
 import type {
   BandDto,
@@ -34,6 +36,11 @@ export function BandForm({
   }))
   const persons = trpcReact.person.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
+  // "Neue Firma anlegen" from one of the two company pickers: which one gets the new company
+  const [newCompany, setNewCompany] = useState<{
+    field: 'companyId' | 'managementCompanyId'
+    name: string
+  } | null>(null)
 
   const form = useAppForm({
     defaultValues: {
@@ -72,125 +79,139 @@ export function BandForm({
   })
 
   return (
-    <FormBody form={form} disabled={isSubmitting}>
-      <form.AppField name="name" validators={{ onChange: required('Name') }}>
-        {(field) => <field.TextField label="Name" required placeholder="Bandnamen eingeben" />}
-      </form.AppField>
+    <>
+      <FormBody form={form} disabled={isSubmitting}>
+        <form.AppField name="name" validators={{ onChange: required('Name') }}>
+          {(field) => <field.TextField label="Name" required placeholder="Bandnamen eingeben" />}
+        </form.AppField>
 
-      <form.AppField
-        name="companyId"
-        validators={{
-          onChange: ({ value }) => {
-            if (!value || value === 0) {
-              return 'Firma ist erforderlich'
+        <form.AppField
+          name="companyId"
+          validators={{
+            onChange: ({ value }) => {
+              if (!value || value === 0) {
+                return 'Firma ist erforderlich'
+              }
+              return undefined
             }
-            return undefined
-          }
-        }}
-      >
-        {(field) => (
-          <field.FieldRow label="Firma" required>
-            {companies.isLoading ? (
-              <div className="text-sm text-muted-foreground">Firmen werden geladen…</div>
-            ) : companies.data && companies.data.length > 0 ? (
-              <SearchableSelect
-                id={field.name}
-                value={field.state.value || null}
-                onChange={(value) => field.handleChange(value ?? 0)}
-                options={companyOptions}
-                placeholder="Firma auswählen"
-                searchPlaceholder="Firma suchen…"
-                disabled={isSubmitting}
-              />
-            ) : (
-              <div className="text-sm text-destructive">
-                Keine Firmen vorhanden. Bitte legen Sie zuerst eine Firma an.
-              </div>
-            )}
-          </field.FieldRow>
-        )}
-      </form.AppField>
+          }}
+        >
+          {(field) => (
+            <field.FieldRow label="Firma" required>
+              {companies.isLoading ? (
+                <div className="text-sm text-muted-foreground">Firmen werden geladen…</div>
+              ) : (
+                <SearchableSelect
+                  id={field.name}
+                  value={field.state.value || null}
+                  onChange={(value) => field.handleChange(value ?? 0)}
+                  options={companyOptions}
+                  placeholder={companyOptions.length > 0 ? 'Firma auswählen' : 'Noch keine Firmen'}
+                  searchPlaceholder="Firma suchen…"
+                  emptyText="Keine Firma gefunden."
+                  onCreateNew={(name) => setNewCompany({ field: 'companyId', name })}
+                  createNewLabel="Neue Firma anlegen"
+                  disabled={isSubmitting}
+                />
+              )}
+            </field.FieldRow>
+          )}
+        </form.AppField>
 
-      <form.AppField name="responsiblePersonId">
-        {(field) => (
-          <field.FieldRow
-            label="Technischer Leiter (TL)"
-            hint="Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1."
-          >
-            {persons.isLoading ? (
-              <div className="text-sm text-muted-foreground">Personen werden geladen…</div>
-            ) : persons.data && persons.data.length > 0 ? (
+        <form.AppField name="responsiblePersonId">
+          {(field) => (
+            <field.FieldRow
+              label="Technischer Leiter (TL)"
+              hint="Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1."
+            >
+              {persons.isLoading ? (
+                <div className="text-sm text-muted-foreground">Personen werden geladen…</div>
+              ) : persons.data && persons.data.length > 0 ? (
+                <SearchableSelect
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  options={(persons.data ?? []).map((person) => ({
+                    value: person.id,
+                    label: `${person.firstName} ${person.lastName}`.trim()
+                  }))}
+                  noneLabel="Kein TL hinterlegt"
+                  searchPlaceholder="Person suchen…"
+                  disabled={isSubmitting}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
+              )}
+            </field.FieldRow>
+          )}
+        </form.AppField>
+
+        {/* Management company: "vertreten durch" in contracts */}
+        <form.AppField name="managementCompanyId">
+          {(field) => (
+            <field.FieldRow
+              label="Management (vertreten durch)"
+              hint="Vertritt die Band in Auftrittsverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
+            >
               <SearchableSelect
                 id={field.name}
                 value={field.state.value}
                 onChange={field.handleChange}
-                options={(persons.data ?? []).map((person) => ({
-                  value: person.id,
-                  label: `${person.firstName} ${person.lastName}`.trim()
-                }))}
-                noneLabel="Kein TL hinterlegt"
-                searchPlaceholder="Person suchen…"
+                options={companyOptions}
+                noneLabel={`Standard (${defaultCompany.data?.name ?? 'keine Standard-Firma'})`}
+                searchPlaceholder="Firma suchen…"
+                emptyText="Keine Firma gefunden."
+                onCreateNew={(name) => setNewCompany({ field: 'managementCompanyId', name })}
+                createNewLabel="Neue Firma anlegen"
+                disabled={isSubmitting || companies.isLoading}
+              />
+            </field.FieldRow>
+          )}
+        </form.AppField>
+
+        <form.AppField name="genre">
+          {(field) => (
+            <field.FieldRow label="Genre">
+              <GenreField
+                id={field.name}
+                value={field.state.value}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+                placeholder="z. B. Rock, Metal, Pop"
                 disabled={isSubmitting}
               />
-            ) : (
-              <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
-            )}
-          </field.FieldRow>
-        )}
-      </form.AppField>
+            </field.FieldRow>
+          )}
+        </form.AppField>
 
-      {/* Management company: "vertreten durch" in contracts */}
-      <form.AppField name="managementCompanyId">
-        {(field) => (
-          <field.FieldRow
-            label="Management (vertreten durch)"
-            hint="Vertritt die Band in Auftrittsverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
-          >
-            <SearchableSelect
-              id={field.name}
-              value={field.state.value}
-              onChange={field.handleChange}
-              options={companyOptions}
-              noneLabel={`Standard (${defaultCompany.data?.name ?? 'keine Standard-Firma'})`}
-              searchPlaceholder="Firma suchen…"
-              disabled={isSubmitting || companies.isLoading}
+        <form.AppField name="founded">
+          {(field) => <field.TextField label="Gründung" placeholder="z. B. 1965" />}
+        </form.AppField>
+
+        <form.AppField name="notes">
+          {(field) => (
+            <field.TextareaField
+              label="Anmerkungen"
+              placeholder="Weitere Anmerkungen hinzufügen…"
+              rows={4}
             />
-          </field.FieldRow>
-        )}
-      </form.AppField>
+          )}
+        </form.AppField>
 
-      <form.AppField name="genre">
-        {(field) => (
-          <field.FieldRow label="Genre">
-            <GenreField
-              id={field.name}
-              value={field.state.value}
-              onChange={field.handleChange}
-              onBlur={field.handleBlur}
-              placeholder="z. B. Rock, Metal, Pop"
-              disabled={isSubmitting}
-            />
-          </field.FieldRow>
-        )}
-      </form.AppField>
+        <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+          {mode === 'create' ? 'Anlegen' : 'Speichern'}
+        </FormFooter>
+      </FormBody>
 
-      <form.AppField name="founded">
-        {(field) => <field.TextField label="Gründung" placeholder="z. B. 1965" />}
-      </form.AppField>
-
-      <form.AppField name="notes">
-        {(field) => (
-          <field.TextareaField
-            label="Anmerkungen"
-            placeholder="Weitere Anmerkungen hinzufügen…"
-            rows={4}
-          />
-        )}
-      </form.AppField>
-
-      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {mode === 'create' ? 'Band anlegen' : 'Änderungen speichern'}
-      </FormFooter>
-    </FormBody>
+      {/* Outside the form: its submit would bubble into this one through the portal */}
+      <CompanyQuickCreateDialog
+        isOpen={newCompany !== null}
+        prefillName={newCompany?.name ?? ''}
+        onClose={() => setNewCompany(null)}
+        onCreated={(id) => {
+          if (newCompany) form.setFieldValue(newCompany.field, id)
+        }}
+      />
+    </>
   )
 }

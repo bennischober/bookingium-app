@@ -150,7 +150,7 @@ export default function BandPage() {
         onRetry={() => void bands.refetch()}
         total={listTotal(bands.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Band anlegen" onCreate={sheet.openCreate}>
+          <ListToolbar createLabel="+ Neue Band" onCreate={sheet.openCreate}>
             <ExportButton list="bands" sort={sortInput} search={search} />
             <ImportButton target="bands" />
           </ListToolbar>

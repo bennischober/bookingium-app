@@ -146,7 +146,7 @@ export function CompanyPage() {
         onRetry={() => void companies.refetch()}
         total={listTotal(companies.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Firma anlegen" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel="+ Neue Firma" onCreate={formSheet.openCreate}>
             <ExportButton list="companies" sort={sortInput} search={search} />
             <ImportButton target="companies" />
           </ListToolbar>
@@ -167,7 +167,7 @@ export function CompanyPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Firma anlegen' : 'Firma bearbeiten'}
+        title={formSheet.mode === 'create' ? 'Neue Firma anlegen' : 'Firma bearbeiten'}
         description={
           formSheet.mode === 'create'
             ? 'Eine neue Firma im System anlegen.'

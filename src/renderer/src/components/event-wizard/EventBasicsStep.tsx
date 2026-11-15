@@ -47,7 +47,7 @@ export function EventBasicsStep({
           id="event-name"
           value={form.name}
           onChange={(e) => set('name', e.target.value)}
-          placeholder="z. B. Summer Festival 2024"
+          placeholder="z. B. Sommertour 2027 – Hamburg"
           autoFocus
         />
       </div>

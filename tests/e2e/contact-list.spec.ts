@@ -137,17 +137,17 @@ test('builds, saves and exports a mailing list', async () => {
 
 test('lists a radio station entered as a company', async () => {
   const { page } = h
-  // The test before ends on a lasting error toast, which would cover "Firma speichern" (#173)
+  // The test before ends on a lasting error toast, which would cover "Anlegen" (#173)
   await dismissToasts(page)
   await menu().getByRole('link', { name: 'Firmen' }).click()
-  await page.getByRole('button', { name: '+ Neue Firma anlegen' }).click()
-  const sheet = page.getByRole('dialog', { name: 'Firma anlegen' })
+  await page.getByRole('button', { name: '+ Neue Firma' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Neue Firma anlegen' })
   await sheet.getByLabel('Firmenname *').fill('Radio Testwelle')
   await sheet.getByRole('combobox', { name: 'Art', exact: true }).click()
   await page.getByRole('option', { name: 'Radio/Medien' }).click()
   await sheet.getByLabel('Genres').fill('indie, Indie')
   await sheet.getByLabel('E-Mail', { exact: true }).fill(STATION)
-  await sheet.getByRole('button', { name: 'Firma speichern' }).click()
+  await sheet.getByRole('button', { name: 'Anlegen', exact: true }).click()
   await expect(sheet).toBeHidden()
 
   await menu().getByRole('link', { name: 'Verteiler' }).click()

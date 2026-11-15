@@ -93,7 +93,7 @@ test('Alt + „+“ / Ctrl+N creates what the list shows, elsewhere offers the +
   await page.getByRole('link', { name: 'Festivals' }).first().click()
   await expect(crumbs).toContainText('Festivals')
   await page.keyboard.press('Control+n')
-  const festival = page.getByRole('dialog', { name: 'Festival anlegen' })
+  const festival = page.getByRole('dialog', { name: 'Neues Festival anlegen' })
   await expect(festival).toBeVisible()
   await expect(festival.getByRole('combobox', { name: 'Art' })).toHaveText('Festival')
   await page.keyboard.press('Escape')

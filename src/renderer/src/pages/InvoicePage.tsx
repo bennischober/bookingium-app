@@ -181,7 +181,7 @@ export default function InvoicePage() {
         total={listTotal(invoices.data)}
         onRowClick={openInvoice}
         actionButton={
-          <ListToolbar createLabel="+ Rechnung anlegen" onCreate={sheet.openCreate}>
+          <ListToolbar createLabel="+ Neue Rechnung" onCreate={sheet.openCreate}>
             <ExportButton list="invoices" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -191,7 +191,7 @@ export default function InvoicePage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode="create"
-        title="Rechnung anlegen"
+        title="Neue Rechnung anlegen"
         description="Rechnung mit Positionen erstellen – als Entwurf oder direkt gestellt."
       >
         <InvoiceForm

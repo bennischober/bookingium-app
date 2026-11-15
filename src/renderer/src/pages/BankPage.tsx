@@ -120,7 +120,7 @@ export default function BankPage() {
         onRetry={() => void banks.refetch()}
         total={listTotal(banks.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Bank anlegen" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel="+ Neue Bank" onCreate={formSheet.openCreate}>
             <ExportButton list="banks" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -130,7 +130,7 @@ export default function BankPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Bank anlegen' : 'Bank bearbeiten'}
+        title={formSheet.mode === 'create' ? 'Neue Bank anlegen' : 'Bank bearbeiten'}
         description={
           formSheet.mode === 'create'
             ? 'Eine neue Bank im System anlegen.'

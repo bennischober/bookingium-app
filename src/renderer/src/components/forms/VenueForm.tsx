@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CompanyQuickCreateDialog } from '@/components/quick-create/CompanyQuickCreateDialog'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { FormFooter } from './FormActions'
@@ -51,6 +53,8 @@ export function VenueForm({
   const companies = trpcReact.company.getListItems.useQuery()
   // Radius clause fields only with the map on; off, an edit keeps the stored values
   const mapPreview = useMapPreview()
+  // "Neue Firma anlegen" from the company picker, with what was typed
+  const [newCompanyName, setNewCompanyName] = useState<string | null>(null)
 
   const form = useAppForm({
     defaultValues: {
@@ -91,121 +95,132 @@ export function VenueForm({
   })
 
   return (
-    <FormBody form={form} disabled={isSubmitting}>
-      <form.AppField name="name" validators={{ onChange: required('Name') }}>
-        {(field) => <field.TextField label="Name" required placeholder="Namen eingeben" />}
-      </form.AppField>
+    <>
+      <FormBody form={form} disabled={isSubmitting}>
+        <form.AppField name="name" validators={{ onChange: required('Name') }}>
+          {(field) => <field.TextField label="Name" required placeholder="Namen eingeben" />}
+        </form.AppField>
 
-      <form.AppField name="kind">
-        {(field) => <field.SelectField label="Art" options={KIND_OPTIONS} />}
-      </form.AppField>
+        <form.AppField name="kind">
+          {(field) => <field.SelectField label="Art" options={KIND_OPTIONS} />}
+        </form.AppField>
 
-      <form.AppField
-        name="capacity"
-        validators={{
-          onChange: ({ value }) => {
-            if (!value.trim()) return undefined
-            const parsed = Number(value)
-            if (Number.isNaN(parsed) || parsed < 0) {
-              return 'Kapazität muss eine positive Zahl sein'
+        <form.AppField
+          name="capacity"
+          validators={{
+            onChange: ({ value }) => {
+              if (!value.trim()) return undefined
+              const parsed = Number(value)
+              if (Number.isNaN(parsed) || parsed < 0) {
+                return 'Kapazität muss eine positive Zahl sein'
+              }
+              return undefined
             }
-            return undefined
-          }
-        }}
-      >
-        {(field) => (
-          <field.TextField label="Kapazität" type="number" min={0} placeholder="z. B. 1200" />
-        )}
-      </form.AppField>
+          }}
+        >
+          {(field) => (
+            <field.TextField label="Kapazität" type="number" min={0} placeholder="z. B. 1200" />
+          )}
+        </form.AppField>
 
-      <form.AppField name="genres">
-        {(field) => (
-          <field.FieldRow
-            label="Genres"
-            hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
-          >
-            <GenreField
-              id={field.name}
-              value={field.state.value}
-              onChange={field.handleChange}
-              onBlur={field.handleBlur}
-              disabled={isSubmitting}
-            />
-          </field.FieldRow>
-        )}
-      </form.AppField>
-
-      <form.AppField name="notes">
-        {(field) => (
-          <field.TextareaField label="Anmerkungen" placeholder="Weitere Details" rows={4} />
-        )}
-      </form.AppField>
-
-      <form.AppField name="companyId">
-        {(field) => (
-          <field.FieldRow label="Verknüpfte Firma (optional)">
-            {companies.isLoading ? (
-              <p className="text-sm text-muted-foreground">Firmen werden geladen…</p>
-            ) : companies.data && companies.data.length > 0 ? (
-              <SearchableSelect
+        <form.AppField name="genres">
+          {(field) => (
+            <field.FieldRow
+              label="Genres"
+              hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
+            >
+              <GenreField
                 id={field.name}
                 value={field.state.value}
                 onChange={field.handleChange}
-                options={companies.data.map((company) => ({
-                  value: company.id,
-                  label: company.name
-                }))}
-                noneLabel="Keine"
-                searchPlaceholder="Firma suchen…"
+                onBlur={field.handleBlur}
                 disabled={isSubmitting}
               />
-            ) : (
-              <p className="text-sm text-muted-foreground">Keine Firmen gefunden.</p>
-            )}
-          </field.FieldRow>
-        )}
-      </form.AppField>
-
-      {mapPreview.enabled && mapPreview.defaults && (
-        <form.Subscribe selector={(state) => state.values.kind}>
-          {(kind) => (
-            <form.Field
-              name="radius"
-              validators={{
-                onChange: ({ value }) => {
-                  const parsed = parseOverrideDraft(value)
-                  return parsed.ok ? undefined : parsed.error
-                }
-              }}
-            >
-              {(field) => (
-                <div className="space-y-2">
-                  <Label>Gebietsschutz</Label>
-                  <RadiusFields
-                    id="venue-radius"
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                    inherited={defaultClause(mapPreview.defaults!, kind)}
-                    inheritedFrom={`den Standard für ${kind === 'festival' ? 'Festivals' : 'Clubs'}`}
-                    error={field.state.meta.errors[0]?.toString()}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              )}
-            </form.Field>
+            </field.FieldRow>
           )}
-        </form.Subscribe>
-      )}
+        </form.AppField>
 
-      <Separator />
-      <AddressFormFields form={form} />
+        <form.AppField name="notes">
+          {(field) => (
+            <field.TextareaField label="Anmerkungen" placeholder="Weitere Details" rows={4} />
+          )}
+        </form.AppField>
 
-      <Separator />
-      <ContactFormFields form={form} showNoAdvertising />
+        <form.AppField name="companyId">
+          {(field) => (
+            <field.FieldRow label="Verknüpfte Firma (optional)">
+              {companies.isLoading ? (
+                <p className="text-sm text-muted-foreground">Firmen werden geladen…</p>
+              ) : (
+                <SearchableSelect
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  options={(companies.data ?? []).map((company) => ({
+                    value: company.id,
+                    label: company.name
+                  }))}
+                  noneLabel="Keine"
+                  searchPlaceholder="Firma suchen…"
+                  emptyText="Keine Firma gefunden."
+                  onCreateNew={setNewCompanyName}
+                  createNewLabel="Neue Firma anlegen"
+                  disabled={isSubmitting}
+                />
+              )}
+            </field.FieldRow>
+          )}
+        </form.AppField>
 
-      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {mode === 'create' ? 'Anlegen' : 'Änderungen speichern'}
-      </FormFooter>
-    </FormBody>
+        {mapPreview.enabled && mapPreview.defaults && (
+          <form.Subscribe selector={(state) => state.values.kind}>
+            {(kind) => (
+              <form.Field
+                name="radius"
+                validators={{
+                  onChange: ({ value }) => {
+                    const parsed = parseOverrideDraft(value)
+                    return parsed.ok ? undefined : parsed.error
+                  }
+                }}
+              >
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label>Gebietsschutz</Label>
+                    <RadiusFields
+                      id="venue-radius"
+                      value={field.state.value}
+                      onChange={field.handleChange}
+                      inherited={defaultClause(mapPreview.defaults!, kind)}
+                      inheritedFrom={`den Standard für ${kind === 'festival' ? 'Festivals' : 'Clubs'}`}
+                      error={field.state.meta.errors[0]?.toString()}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
+              </form.Field>
+            )}
+          </form.Subscribe>
+        )}
+
+        <Separator />
+        <AddressFormFields form={form} />
+
+        <Separator />
+        <ContactFormFields form={form} showNoAdvertising />
+
+        <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+          {mode === 'create' ? 'Anlegen' : 'Speichern'}
+        </FormFooter>
+      </FormBody>
+
+      {/* Outside the form: its submit would bubble into this one through the portal */}
+      <CompanyQuickCreateDialog
+        isOpen={newCompanyName !== null}
+        prefillName={newCompanyName ?? ''}
+        onClose={() => setNewCompanyName(null)}
+        onCreated={(id) => form.setFieldValue('companyId', id)}
+      />
+    </>
   )
 }

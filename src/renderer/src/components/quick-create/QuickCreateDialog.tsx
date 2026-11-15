@@ -34,6 +34,8 @@ export function QuickCreateDialog({
 }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Rendered in a portal, but React bubbles the submit to a form around the dialog
+    e.stopPropagation()
     onSubmit()
   }
 

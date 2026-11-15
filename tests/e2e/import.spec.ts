@@ -110,7 +110,7 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await expect(page.getByLabel('Anmerkungen')).toHaveValue(
     /Monat: JUNI\nTermin\/Zeitraum: 12\.06\.2026/
   )
-  await page.getByRole('button', { name: 'Änderungen speichern' }).click()
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click()
   await expect(page.getByText('Festival aktualisiert')).toBeVisible()
 
   // Promoter address with the ZIP code's leading zero restored

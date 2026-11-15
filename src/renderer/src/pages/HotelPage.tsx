@@ -119,7 +119,7 @@ export default function HotelPage() {
         onRetry={() => void hotels.refetch()}
         total={listTotal(hotels.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neues Hotel anlegen" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel="+ Neues Hotel" onCreate={formSheet.openCreate}>
             <ExportButton list="hotels" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -129,7 +129,7 @@ export default function HotelPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Hotel anlegen' : 'Hotel bearbeiten'}
+        title={formSheet.mode === 'create' ? 'Neues Hotel anlegen' : 'Hotel bearbeiten'}
         description={
           formSheet.mode === 'create'
             ? 'Ein neues Hotel im Verzeichnis anlegen.'
