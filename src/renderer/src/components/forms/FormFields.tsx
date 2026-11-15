@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react'
+import { useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { FormDisabledContext, useFieldContext, useFormDisabled } from './formContext'
+import { useReportUnsavedChanges } from '@/components/formGuard'
 
 /**
  * #171: the one way a form field looks. `FieldShell` is the plain layout (label with the
@@ -62,18 +63,34 @@ export function FieldShell({
   )
 }
 
-/** The form element: submits through TanStack Form and disables every field while saving */
+/** The part of a TanStack form's store that says whether a value differs from its default */
+interface FormValueStore {
+  state: { isDefaultValue: boolean }
+  subscribe: (listener: () => void) => () => void
+}
+
+/**
+ * The form element: submits through TanStack Form, disables every field while saving and
+ * tells a surrounding `FormSheet` when a value was changed, so closing it asks first
+ */
 export function FormBody({
   form,
   disabled = false,
   className,
   children
 }: {
-  form: { handleSubmit: () => unknown }
+  form: { handleSubmit: () => unknown; store?: FormValueStore }
   disabled?: boolean
   className?: string
   children: ReactNode
 }) {
+  const store = form.store
+  const changed = useSyncExternalStore(
+    (listener) => store?.subscribe(listener) ?? (() => {}),
+    () => (store ? !store.state.isDefaultValue : false)
+  )
+  useReportUnsavedChanges(changed)
+
   return (
     <form
       onSubmit={(e) => {

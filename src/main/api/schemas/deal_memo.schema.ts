@@ -110,9 +110,9 @@ export const DealMemoDetailDto = DealMemoDto.extend({
 export type DealMemoDetailDto = z.infer<typeof DealMemoDetailDto>
 
 export const CreateDealMemoInput = z.object({
-  name: z.string().min(1, 'Event name is required'),
+  name: z.string().min(1, 'Name des Events ist erforderlich'),
   deal: z.string().optional().default(''),
-  date: z.string().min(1, 'Date is required'),
+  date: z.string().min(1, 'Datum ist erforderlich'),
   bandId: z.number('Band is required'),
   venueId: z.number().nullable().optional(),
   loProPersonId: z.number().nullable().optional(),

@@ -271,11 +271,16 @@ At startup (`app/migrateDatabase.ts`):
    `<form.AppField name="x">{(field) => <field.TextField label="X" />}</form.AppField>`
    (`TextField`, `TextareaField`, `SelectField`, `SwitchField`; `FieldRow` puts
    label, hint and error around a custom control). Wrap them in `FormBody`
-   (submit, disabled while saving) and end with `FormFooter`. `required('X')`
+   (submit, disabled while saving, and it tells the `FormSheet` about changed
+   values, so Esc or a click outside asks before they are lost) and end with
+   `FormFooter`. `required('X')`
    is the blank check, the `required` prop only the `*`. Address and contact
    parts take `addressDefaults`/`contactDefaults` and are sent through
    `optionalAddress`/`optionalContact` (`formDefaults.ts`). Forms on
-   `useState` use `FieldShell` for the same look. Pick related records with
+   `useState` use `FieldShell` for the same look and report their own
+   unsaved changes with `useReportUnsavedChanges` (`components/formGuard.ts`).
+   Schema messages are German; `api/errorFormatter.ts` turns a rejected input
+   or a SQLite constraint error into the German line the error toast shows. Pick related records with
    `SearchableSelect`.
 9. **List page** — `pages/XPage.tsx`: one continuous list. Query with
    `trpcReact.x.getAllPaginated.useInfiniteQuery({ pageSize: LIST_CHUNK_SIZE,

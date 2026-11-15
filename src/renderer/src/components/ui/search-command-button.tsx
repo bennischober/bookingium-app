@@ -294,7 +294,7 @@ const SearchButton = () => {
 
   const emptyMessage = useMemo(() => {
     if (!hasTypedQuery)
-      return `Geben Sie mindestens ${MIN_SEARCH_LENGTH} Zeichen ein, um Einträge zu suchen.`
+      return `Mindestens ${MIN_SEARCH_LENGTH} Zeichen eingeben, um Einträge zu suchen.`
     if (isAnyLoading) return 'Suche läuft…'
     if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
     return 'Keine Ergebnisse gefunden.'

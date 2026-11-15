@@ -47,7 +47,7 @@ export type VenueListItemDto = z.infer<typeof VenueListItemDto>
 
 export const CreateVenueInput = z
   .object({
-    name: z.string().min(1, 'Name is required'),
+    name: z.string().min(1, 'Name ist erforderlich'),
     kind: VenueKind.default('venue'),
     capacity: z.number().nullable().optional(),
     genres: GenresInput.default(''),
@@ -65,7 +65,7 @@ export type CreateVenueInput = z.infer<typeof CreateVenueInput>
 export const UpdateVenueInput = z
   .object({
     id: z.number(),
-    name: z.string().min(1, 'Name is required'),
+    name: z.string().min(1, 'Name ist erforderlich'),
     kind: VenueKind.default('venue'),
     capacity: z.number().nullable().optional(),
     // Optional: callers that don't send it keep the stored tags

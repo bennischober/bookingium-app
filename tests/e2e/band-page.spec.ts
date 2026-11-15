@@ -200,3 +200,39 @@ test('a new band can create its company from the Firma picker', async () => {
   await expect(sheet).toHaveCount(0)
   await expect(page.locator('tr', { hasText: 'Die Testklänge' })).toBeVisible()
 })
+
+test('closing a changed form asks before the input is lost', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Bands' }).first().click()
+  const sheet = page.getByRole('dialog', { name: 'Neue Band anlegen' })
+  const ask = page.getByRole('dialog', { name: 'Änderungen verwerfen?' })
+
+  // Nothing typed: Esc closes without asking
+  await page.getByRole('button', { name: '+ Neue Band' }).click()
+  await expect(sheet).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(sheet).toHaveCount(0)
+  await expect(ask).toHaveCount(0)
+
+  // Typed: Esc asks, and "Abbrechen" keeps the form with its input
+  await page.getByRole('button', { name: '+ Neue Band' }).click()
+  await sheet.getByLabel('Name').first().fill('Die Halbfertigen')
+  await page.keyboard.press('Escape')
+  await expect(ask).toBeVisible()
+  await ask.getByRole('button', { name: 'Abbrechen' }).click()
+  await expect(ask).toHaveCount(0)
+  await expect(sheet.getByLabel('Name').first()).toHaveValue('Die Halbfertigen')
+
+  // "Verwerfen" closes it, and nothing was saved
+  await page.keyboard.press('Escape')
+  await ask.getByRole('button', { name: 'Verwerfen' }).click()
+  await expect(sheet).toHaveCount(0)
+  await expect(page.locator('tr', { hasText: 'Die Halbfertigen' })).toHaveCount(0)
+
+  // The form's own "Abbrechen" closes without asking
+  await page.getByRole('button', { name: '+ Neue Band' }).click()
+  await sheet.getByLabel('Name').first().fill('Die Halbfertigen')
+  await sheet.getByRole('button', { name: 'Abbrechen', exact: true }).click()
+  await expect(sheet).toHaveCount(0)
+  await expect(ask).toHaveCount(0)
+})

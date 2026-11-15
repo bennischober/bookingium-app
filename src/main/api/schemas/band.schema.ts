@@ -36,7 +36,7 @@ export const BandWithCompanyDto = BandDto.extend({
 
 // Input DTO - for creating/updating
 export const CreateBandInput = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name ist erforderlich'),
   genre: z.string().optional().default(''),
   founded: z.string().nullable().optional(),
   notes: z.string().optional().default(''),

@@ -1,5 +1,6 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useMemo, useState } from 'react'
+import { useReportUnsavedChanges } from '@/components/formGuard'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { INVOICE_STATUS_LABELS } from '@/lib/invoiceLabels'
@@ -154,31 +155,34 @@ export function InvoiceForm({
     active: step === 'finalize'
   })
 
+  const payload = {
+    dealMemoId,
+    companyId: companyId ?? undefined,
+    ...recipientPayload(recipient),
+    periodStartDate: periodStartDate || null,
+    periodEndDate: periodEndDate || null,
+    periodLabel,
+    issueDate: issueDate || undefined,
+    dueDate: dueDate || null,
+    status,
+    currency,
+    lineItems: normalizedLines,
+    totalAmount: totals.totalGrossAmount,
+    paymentTerms,
+    reverseChargeNote,
+    buyerReference: buyerReference.trim(),
+    xrechnung,
+    notes
+  }
+  // what was there when the form opened, to tell the surrounding sheet about unsaved changes
+  const [openedWith] = useState(() => JSON.stringify(payload))
+  useReportUnsavedChanges(JSON.stringify(payload) !== openedWith)
+
   const handleSubmit = async () => {
     const recipientProblem = recipientError(recipient)
     if (recipientProblem) {
       toast.error(recipientProblem)
       return
-    }
-
-    const payload = {
-      dealMemoId,
-      companyId: companyId ?? undefined,
-      ...recipientPayload(recipient),
-      periodStartDate: periodStartDate || null,
-      periodEndDate: periodEndDate || null,
-      periodLabel,
-      issueDate: issueDate || undefined,
-      dueDate: dueDate || null,
-      status,
-      currency,
-      lineItems: normalizedLines,
-      totalAmount: totals.totalGrossAmount,
-      paymentTerms,
-      reverseChargeNote,
-      buyerReference: buyerReference.trim(),
-      xrechnung,
-      notes
     }
 
     if (

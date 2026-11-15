@@ -364,8 +364,8 @@ function MailRuleDialog({
           {!valid && draft.name.trim() && (
             <p className="text-sm text-muted-foreground">
               {hasCondition
-                ? 'Wählen Sie mindestens eine Aktion.'
-                : 'Geben Sie mindestens eine Bedingung an.'}
+                ? 'Bitte mindestens eine Aktion wählen.'
+                : 'Bitte mindestens eine Bedingung angeben.'}
             </p>
           )}
 
@@ -447,7 +447,7 @@ export function MailRulesCard() {
       <CardContent className="space-y-4">
         {list.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {noAccount ? 'Legen Sie zuerst ein E-Mail-Konto an.' : 'Noch keine Regel angelegt.'}
+            {noAccount ? 'Zuerst ein E-Mail-Konto anlegen.' : 'Noch keine Regel angelegt.'}
           </p>
         ) : (
           accountIds.map((accountId) => {

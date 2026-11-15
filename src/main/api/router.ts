@@ -1,6 +1,7 @@
 import z from 'zod'
 import { initTRPC } from '@trpc/server'
 import { errorFormatter } from './errorFormatter'
+import './zodLocale'
 import { EventEmitter } from 'events'
 import { bandRouter } from './routers/band.router'
 import { companyRouter } from './routers/company.router'

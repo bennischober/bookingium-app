@@ -31,7 +31,7 @@ export const AddressInput = z.object({
   country: z.string().default(''),
   countryCode: z
     .string()
-    .length(2, 'Country code must be 2 characters')
+    .length(2, 'Ländercode mit 2 Buchstaben (z. B. DE)')
     .or(z.literal(''))
     .default('')
 })

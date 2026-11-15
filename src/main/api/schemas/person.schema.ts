@@ -33,7 +33,7 @@ export const PaginatedPersonResponse = createPaginatedResponse(PersonDto)
  * Create person input schema (with embedded address and contact)
  */
 export const CreatePersonInput = z.object({
-  firstName: z.string().min(1, 'First name is required'),
+  firstName: z.string().min(1, 'Vorname ist erforderlich'),
   lastName: z.string().default(''),
   birthday: z.string().nullable().default(null),
   notes: z.string().nullable(),
@@ -46,7 +46,7 @@ export const CreatePersonInput = z.object({
  */
 export const UpdatePersonInput = z.object({
   id: z.number(),
-  firstName: z.string().min(1, 'First name is required'),
+  firstName: z.string().min(1, 'Vorname ist erforderlich'),
   lastName: z.string().default(''),
   birthday: z.string().nullable().default(null),
   notes: z.string().nullable(),
