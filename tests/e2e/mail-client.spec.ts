@@ -758,8 +758,12 @@ test('several mails are selected and handled at once', async () => {
     await expect(selected).toHaveCount(2)
     await list.press('Escape')
     await expect(selected).toHaveCount(1)
-    await list.press('Control+a')
-    await expect(selected).toHaveCount(await rows.count())
+    // Ctrl+A takes the loaded mails; past PAGE_SIZE the next page can load
+    // in meanwhile (#187), so select again until it covers every row
+    await expect(async () => {
+      await list.press('Control+a')
+      expect(await selected.count()).toBe(await rows.count())
+    }).toPass({ timeout: 10_000 })
     await expect(pane.getByRole('heading', { name: /^\d+ E-Mails ausgewählt$/ })).toBeVisible()
 
     // Flags and read state for all of them
