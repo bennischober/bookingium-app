@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TERMS } from '../terms'
 import { TimestampFields } from './base.schema'
 import { AddressDto, AddressInput } from './address.schema'
 import { ContactDto, ContactInput } from './contact.schema'
@@ -11,8 +12,8 @@ export const VenueKind = z.enum(['venue', 'festival'])
 export type VenueKind = z.infer<typeof VenueKind>
 
 export const VENUE_KIND_LABELS: Record<VenueKind, string> = {
-  venue: 'Club',
-  festival: 'Festival'
+  venue: TERMS.club.singular,
+  festival: TERMS.festival.singular
 }
 
 const GenresInput = z.string().transform(normalizeGenres)

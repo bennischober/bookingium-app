@@ -22,6 +22,20 @@ English.
 5. Formal address ("Sie"), German typography: „Anführungszeichen“, `…`, `–`.
    Write the ellipsis as one character (`Suchen…`, `Lädt…`, „Zuordnen…“), never
    three dots; `...` stays only in code (spread syntax).
+6. **Nouns come from the terms module.** `src/main/api/terms.ts` holds the
+   business objects (`TERMS.band`, `TERMS.club`, `TERMS.company`, …) with
+   their plural and article forms (`der`, `einen`, `Neuen`, …). Labels that
+   are just the noun derive from it: `ROUTES` titles, quick create, kind
+   labels, export and import labels, CSV headers. So does a component that
+   renders one of several nouns (`VENUE_KIND_TERMS`: „Neuen Club“ /
+   „Neues Festival“). Sentences stay plain German literals, so a text on
+   screen can be found by searching for it.
+7. **No competing words.** `AVOIDED_WORDS` in the same module lists the words
+   that compete with a term („Spielstätte“, „Gig“, „Veranstaltung“,
+   „Künstler“, „Konzertvertrag“, …) and what to write instead.
+   `tests/terms_guard.test.ts` fails on them in UI strings; its `KNOWN` list
+   holds the uses not reworded yet and may only shrink. The legal text of the
+   contract documents is exempt.
 
 ## Glossary
 
