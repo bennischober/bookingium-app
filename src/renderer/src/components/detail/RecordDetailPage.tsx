@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageErrorState } from '@/components/load-states'
 import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
-import { TabCount } from '@/components/detail/DetailParts'
+import { TabCount, emptyTabClass } from '@/components/detail/DetailParts'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
@@ -210,7 +210,7 @@ export function RecordDetail<TTab extends string>({
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           {allTabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id}>
+            <TabsTrigger key={tab.id} value={tab.id} className={emptyTabClass(tab.count)}>
               {tab.label}
               <TabCount count={tab.count} />
             </TabsTrigger>

@@ -23,6 +23,33 @@ export function InfoCard({ label, children }: { label: string; children: React.R
   )
 }
 
+/**
+ * The row above a tab's content, the same on every tab: what the tab holds on
+ * the left ("3 Mitglieder", or why it is empty), its actions on the right
+ */
+export function TabHeader({
+  summary,
+  children
+}: {
+  summary?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <p className="text-sm text-muted-foreground">{summary}</p>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </div>
+  )
+}
+
+/** Card lists in a tab (members, memberships) use the width like the tables do */
+export const CARD_GRID = 'grid gap-3 md:grid-cols-2 xl:grid-cols-3'
+
+/** An empty tab's trigger is dimmed, so it reads as empty before it is opened */
+export function emptyTabClass(count: number | undefined): string | undefined {
+  return count === 0 ? 'data-[state=inactive]:opacity-60' : undefined
+}
+
 /** "–" for empty values */
 export function Empty({ children = '–' }: { children?: React.ReactNode }) {
   return <span className="text-muted-foreground">{children}</span>
@@ -131,9 +158,7 @@ export function RowTable<T extends { id: number }>({
   return (
     <div className="space-y-2">
       {itemLabel && (
-        <p className="text-sm text-muted-foreground">
-          {countLabel(sorted.length, itemLabel.singular, itemLabel.plural)}
-        </p>
+        <TabHeader summary={countLabel(sorted.length, itemLabel.singular, itemLabel.plural)} />
       )}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm" aria-label={label}>

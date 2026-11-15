@@ -6,7 +6,7 @@ import { useParams, useNavigate, useBlocker } from '@tanstack/react-router'
 import { confirmAction } from '@/lib/confirm'
 import { parseRecordId } from '@/lib/recordId'
 import { useEventTabCounts } from '@/hooks/useTabCounts'
-import { TabCount } from '@/components/detail/DetailParts'
+import { TabCount, emptyTabClass } from '@/components/detail/DetailParts'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -220,7 +220,7 @@ export function EventHubPage() {
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
-          <TabsTrigger value="documents">
+          <TabsTrigger value="documents" className={emptyTabClass(counts.documents)}>
             Dokumente
             <TabCount count={counts.documents} />
           </TabsTrigger>

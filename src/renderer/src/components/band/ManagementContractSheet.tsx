@@ -1,7 +1,9 @@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Printer, Trash2 } from 'lucide-react'
+import { Plus, Printer, Trash2 } from 'lucide-react'
+import { TabHeader } from '@/components/detail/DetailParts'
+import { countLabel } from '@/components/detail/tableSort'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -65,56 +67,63 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
       toast.error('Vertrag konnte nicht angelegt werden', { description: error.message })
   })
 
-  return contracts.isLoading ? (
-    <p className="text-sm text-muted-foreground">Verträge werden geladen…</p>
-  ) : !selected ? (
-    <div className="space-y-3 rounded-md border border-dashed p-6 text-center">
-      <p className="text-sm text-muted-foreground">
-        Für diese Band gibt es noch keinen Managementvertrag.
-      </p>
-      <Button onClick={() => createMutation.mutate(bandId)} disabled={createMutation.isPending}>
-        + Vertrag anlegen
-      </Button>
-    </div>
-  ) : (
+  if (contracts.isLoading) {
+    return <p className="text-sm text-muted-foreground">Verträge werden geladen…</p>
+  }
+
+  return (
     <div className="space-y-5">
-      <div className="flex items-end gap-2">
-        <div className="flex-1 space-y-2">
-          <Label>Vertrag</Label>
-          <Select
-            value={String(selected.id)}
-            onValueChange={(value) => setSelectedId(Number(value))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {list.map((contract, index) => (
-                <SelectItem key={contract.id} value={String(contract.id)}>
-                  {contractLabel(contract, index === 0)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <TabHeader
+        summary={
+          selected
+            ? countLabel(list.length, 'Vertrag', 'Verträge')
+            : 'Für diese Band gibt es noch keinen Managementvertrag.'
+        }
+      >
         <Button
-          variant="outline"
+          size="sm"
+          className="gap-1.5"
           onClick={() => createMutation.mutate(bandId)}
           disabled={createMutation.isPending}
-          title="Neuer Vertrag mit den Konditionen des aktuellen"
+          title={selected ? 'Neuer Vertrag mit den Konditionen des aktuellen' : undefined}
         >
-          + Neuer Vertrag
+          <Plus className="h-4 w-4" />
+          Neuer Vertrag
         </Button>
-      </div>
+      </TabHeader>
 
-      <Separator />
+      {selected && (
+        // The contract form reads best at a form's width
+        <div className="max-w-3xl space-y-5">
+          <div className="space-y-2">
+            <Label>Vertrag</Label>
+            <Select
+              value={String(selected.id)}
+              onValueChange={(value) => setSelectedId(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {list.map((contract, index) => (
+                  <SelectItem key={contract.id} value={String(contract.id)}>
+                    {contractLabel(contract, index === 0)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <ContractForm
-        key={selected.id}
-        bandId={bandId}
-        contract={selected}
-        onDeleted={() => setSelectedId(null)}
-      />
+          <Separator />
+
+          <ContractForm
+            key={selected.id}
+            bandId={bandId}
+            contract={selected}
+            onDeleted={() => setSelectedId(null)}
+          />
+        </div>
+      )}
     </div>
   )
 }

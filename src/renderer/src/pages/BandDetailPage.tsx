@@ -145,7 +145,6 @@ export default function BandDetailPage() {
               id: 'members',
               label: 'Mitglieder',
               count: counts.members,
-              className: 'max-w-2xl',
               content: <MembersPanel entityType="band" entityId={band.id} />
             },
             {
@@ -158,7 +157,6 @@ export default function BandDetailPage() {
               id: 'contracts',
               label: 'Managementverträge',
               count: counts.contracts,
-              className: 'max-w-3xl',
               content: <ManagementContractPanel bandId={band.id} />
             },
             {

@@ -50,7 +50,10 @@ test('band page shows members, events, contracts, invoices and documents', async
   await expect(page.getByRole('table', { name: 'Events der Band' })).toContainText(EVENT)
 
   await page.getByRole('tab', { name: 'Managementverträge' }).click()
-  await expect(page.getByRole('button', { name: '+ Vertrag anlegen' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Neuer Vertrag' })).toBeVisible()
+  await expect(
+    page.getByText('Für diese Band gibt es noch keinen Managementvertrag.')
+  ).toBeVisible()
 
   // Invoices of the band's events (the seed bills the Berlin show)
   await page.getByRole('tab', { name: 'Rechnungen' }).click()

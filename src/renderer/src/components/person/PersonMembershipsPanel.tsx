@@ -16,6 +16,8 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { confirmAction } from '@/lib/confirm'
+import { CARD_GRID, TabHeader } from '@/components/detail/DetailParts'
+import { countLabel } from '@/components/detail/tableSort'
 
 type MembershipType = 'band' | 'company' | 'venue'
 
@@ -27,15 +29,28 @@ type MembershipRow = {
   notes: string
 }
 
-const LABELS: Record<MembershipType, { entity: string; add: string; empty: string }> = {
-  band: { entity: 'Band', add: 'Zur Band hinzufügen', empty: 'Kein Mitglied einer Band.' },
+const LABELS: Record<
+  MembershipType,
+  { entity: string; one: string; many: string; add: string; empty: string }
+> = {
+  band: {
+    entity: 'Band',
+    one: 'Band',
+    many: 'Bands',
+    add: 'Zur Band hinzufügen',
+    empty: 'Kein Mitglied einer Band.'
+  },
   company: {
     entity: 'Firma',
+    one: 'Firma',
+    many: 'Firmen',
     add: 'Zur Firma hinzufügen',
     empty: 'Keiner Firma zugeordnet.'
   },
   venue: {
     entity: 'Club / Festival',
+    one: 'Club oder Festival',
+    many: 'Clubs und Festivals',
     add: 'Zu Club / Festival hinzufügen',
     empty: 'Keinem Club und keinem Festival zugeordnet.'
   }
@@ -213,49 +228,57 @@ export function PersonMembershipsPanel({
   return (
     <>
       <div className="space-y-3">
-        <Button size="sm" variant="outline" onClick={openAdd} className="w-full">
-          <Plus className="mr-2 h-4 w-4" />
-          {labels.add}
-        </Button>
+        <TabHeader
+          summary={
+            relations.isLoading
+              ? 'Zugehörigkeiten werden geladen…'
+              : rows.length === 0
+                ? labels.empty
+                : countLabel(rows.length, labels.one, labels.many)
+          }
+        >
+          <Button size="sm" onClick={openAdd} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            {labels.add}
+          </Button>
+        </TabHeader>
 
-        {relations.isLoading ? (
-          <p className="text-sm text-muted-foreground">Zugehörigkeiten werden geladen…</p>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{labels.empty}</p>
-        ) : (
-          rows.map((row) => (
-            <div key={row.id} className="flex items-center justify-between rounded border p-3">
-              <div className="flex min-w-0 flex-1 flex-col items-start">
-                <EntityLink type={type} row={row} />
-                {row.role && (
-                  <Badge variant="secondary" className="mt-1">
-                    {row.role}
-                  </Badge>
-                )}
-                {row.notes && <p className="mt-1 text-xs text-muted-foreground">{row.notes}</p>}
+        {rows.length > 0 && (
+          <div className={CARD_GRID}>
+            {rows.map((row) => (
+              <div key={row.id} className="flex items-center justify-between rounded border p-3">
+                <div className="flex min-w-0 flex-1 flex-col items-start">
+                  <EntityLink type={type} row={row} />
+                  {row.role && (
+                    <Badge variant="secondary" className="mt-1">
+                      {row.role}
+                    </Badge>
+                  )}
+                  {row.notes && <p className="mt-1 text-xs text-muted-foreground">{row.notes}</p>}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEdit(row)}
+                    title="Rolle bearbeiten"
+                    aria-label={`Rolle von ${row.entityName} bearbeiten`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemove(row)}
+                    title="Entfernen"
+                    aria-label={`${row.entityName} entfernen`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openEdit(row)}
-                  title="Rolle bearbeiten"
-                  aria-label={`Rolle von ${row.entityName} bearbeiten`}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemove(row)}
-                  title="Entfernen"
-                  aria-label={`${row.entityName} entfernen`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
