@@ -33,7 +33,8 @@ src/renderer/src/
 | Create/update/delete of a record | `hooks/useRecordMutations.ts` | toasts (`lib/recordCopy.ts`), delete confirm, invalidation; `submit`/`remove`/`deleteNow` |
 | List page title and toolbar | `components/ListPageHeader.tsx` | `ListPageHeader`, `ListToolbar` (the DataTable's `actionButton`) |
 | Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise; `confirmDelete()` for deletes |
-| Detail-page building blocks | `components/detail/DetailParts.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable` |
+| A record's detail page | `components/detail/RecordDetailPage.tsx` | `RecordDetailPage` (load states) + `RecordDetail` (header, `tabs` list, Dokumente/E-Mails appended) |
+| Detail-page building blocks | `components/detail/DetailParts.tsx`, `RelatedTables.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable`; `RelatedBandsTable`/`VenuesTable`/`EventsTable` |
 | Per-object tabs | `components/<obj>/constants.ts` | `<X>_TABS`, `is<Tab>()` - used by the route's `?tab=` guard |
 | A4 print documents | `components/print/PagedDocument.tsx` | renders the real printToPDF output via pdf.js |
 | Stored enum labels | `lib/invoiceLabels.ts`, `components/*/constants.ts` | never translate a stored value |
