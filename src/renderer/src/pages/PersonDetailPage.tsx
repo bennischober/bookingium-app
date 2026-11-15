@@ -1,37 +1,19 @@
-import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useHasMailAccount } from '@/hooks/useHasMailAccount'
-import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
-import { ArrowLeft, Pencil } from 'lucide-react'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
-import { PageErrorState, EmptyState } from '@/components/load-states'
-import { isNotFound } from '@/lib/queryErrors'
+import { EmptyState } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { usePersonTabCounts } from '@/hooks/useTabCounts'
-import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatShortDate } from '@/lib/utils'
-import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
-import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
-import { Button } from '@/components/ui/button'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
+import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
-import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { PersonMembershipsPanel } from '@/components/person/PersonMembershipsPanel'
 import { isPersonTab } from '@/components/person/constants'
-import {
-  AddressLines,
-  Empty,
-  EventsTable,
-  Fields,
-  InfoCard,
-  RowTable,
-  TabCount
-} from '@/components/detail/DetailParts'
+import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
+import { RelatedBandsTable, RelatedEventsTable } from '@/components/detail/RelatedTables'
+import { AddressLines, Empty, Fields, InfoCard, RowTable } from '@/components/detail/DetailParts'
 import type { PersonDto } from '../../../main/api/schemas/person.schema'
 
 function personName(person: { firstName: string; lastName: string }) {
@@ -128,7 +110,6 @@ function OverviewTab({ person }: { person: PersonDto }) {
 
 /** Band memberships, plus the bands the person is technical lead of */
 function BandsTab({ personId }: { personId: number }) {
-  const navigate = useNavigate()
   const ledBands = trpcReact.band.listByResponsiblePerson.useQuery(personId)
   return (
     <div className="space-y-8">
@@ -138,28 +119,10 @@ function BandsTab({ personId }: { personId: number }) {
       </section>
       <section>
         <SectionTitle>Technischer Leiter von</SectionTitle>
-        <RowTable
+        <RelatedBandsTable
           label="Bands als Technischer Leiter"
           query={ledBands}
-          loading="Bands werden geladen…"
           empty="Für keine Band als Technischer Leiter eingetragen."
-          itemLabel={{ singular: 'Band', plural: 'Bands' }}
-          columns={[
-            {
-              header: 'Band',
-              cell: (band) => band.name,
-              className: 'font-medium',
-              sortValue: (band) => band.name
-            },
-            {
-              header: 'Genre',
-              cell: (band) => band.genre || '–',
-              sortValue: (band) => band.genre || ''
-            }
-          ]}
-          onRowClick={(band) =>
-            navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
-          }
         />
       </section>
     </div>
@@ -280,30 +243,13 @@ function EventsTab({ personId }: { personId: number }) {
   const ledBands = trpcReact.band.listByResponsiblePerson.useQuery(personId)
   const ledBandIds = new Set((ledBands.data ?? []).map((band) => band.id))
   return (
-    <EventsTable
+    <RelatedEventsTable
       label="Events der Person"
       query={events}
       empty="Keine Events mit dieser Person als LoPro-Kontakt oder Technischer Leiter."
-      columns={[
-        {
-          header: 'Band / Club / Festival',
-          cell: (event) => (
-            <>
-              <div>{event.bandName}</div>
-              <div className="text-xs text-muted-foreground">{event.venueName ?? '–'}</div>
-            </>
-          )
-        },
-        {
-          header: 'Rolle',
-          cell: (event) =>
-            [
-              event.loProPersonId === personId && 'LoPro-Kontakt',
-              ledBandIds.has(event.bandId) && 'TL der Band'
-            ]
-              .filter(Boolean)
-              .join(' · ')
-        }
+      roles={(event) => [
+        event.loProPersonId === personId && 'LoPro-Kontakt',
+        ledBandIds.has(event.bandId) && 'TL der Band'
       ]}
     />
   )
@@ -358,47 +304,13 @@ function ContractsTab({ personId }: { personId: number }) {
 
 /** Invoices addressed to the person; a click opens the print view */
 function InvoicesTab({ personId }: { personId: number }) {
-  const openInvoice = useOpenInvoice()
   const invoices = trpcReact.invoice.listByPerson.useQuery(personId)
   return (
-    <RowTable
+    <RecordInvoicesTable
       label="Rechnungen an die Person"
       query={invoices}
-      loading="Rechnungen werden geladen…"
       empty="Keine Rechnungen an diese Person."
-      itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
-      columns={[
-        {
-          header: 'Nr.',
-          cell: (invoice) => invoiceNumberLabel(invoice.invoiceNumber),
-          className: 'whitespace-nowrap font-medium',
-          sortValue: (invoice) => invoice.invoiceNumber ?? ''
-        },
-        {
-          header: 'Datum',
-          cell: (invoice) => formatShortDate(invoice.issueDate),
-          className: 'whitespace-nowrap',
-          sortValue: (invoice) => invoice.issueDate
-        },
-        { header: 'Von', cell: (invoice) => invoice.companyName },
-        { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
-        {
-          header: 'Status',
-          cell: (invoice) => (
-            <InvoiceStatusBadge
-              status={invoice.status}
-              kind={invoice.kind}
-              cancelsInvoiceNumber={invoice.cancelsInvoiceNumber}
-            />
-          )
-        },
-        {
-          header: 'Betrag',
-          cell: (invoice) => formatMoney(invoice.totalAmount, invoice.currency),
-          className: 'whitespace-nowrap text-right'
-        }
-      ]}
-      onRowClick={openInvoice}
+      recipient={false}
     />
   )
 }
@@ -413,18 +325,9 @@ export default function PersonDetailPage() {
   const id = parseRecordId(personId)
   const counts = usePersonTabCounts(id)
   const navigate = useNavigate()
-  const hasMailAccount = useHasMailAccount()
-  const activeTab = useDetailTab(isPersonTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<PersonDto>()
-
-  const {
-    data: person,
-    isLoading,
-    isError,
-    error,
-    refetch
-  } = trpcReact.person.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
+  const person = trpcReact.person.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list
   const mutations = useRecordMutations({
@@ -441,163 +344,84 @@ export default function PersonDetailPage() {
     onDeleted: () => navigate({ to: '/persons' })
   })
 
-  // A bad id never loads (the query stays disabled), it is not found
-  if (id !== null && isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Person wird geladen…</p>
-      </div>
-    )
-  }
-
-  if (isError && !isNotFound(error)) {
-    return <PageErrorState error={error} onRetry={() => void refetch()} />
-  }
-
-  if (!person) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Person nicht gefunden.</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/persons' })}>
-          Zurück zu den Personen
-        </Button>
-      </div>
-    )
-  }
-
-  const subtitle = [person.address?.city, person.contact?.email].filter(Boolean).join(' · ')
+  const toList = () => navigate({ to: '/persons' })
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 -ml-2 gap-1.5 text-muted-foreground"
-          onClick={() => navigate({ to: '/persons' })}
+    <RecordDetailPage
+      id={id}
+      query={person}
+      loading="Person wird geladen…"
+      notFound={{
+        text: 'Person nicht gefunden.',
+        backLabel: 'Zurück zu den Personen',
+        onBack: toList
+      }}
+    >
+      {(person) => (
+        <RecordDetail
+          record={{ type: 'person', id: person.id, name: personName(person) }}
+          back={{ label: 'Alle Personen', onBack: toList }}
+          subtitle={[person.address?.city, person.contact?.email].filter(Boolean).join(' · ')}
+          onEdit={() => sheet.openEdit(person)}
+          onDelete={() => mutations.deleteNow(person)}
+          deleting={mutations.isDeleting}
+          isTab={isPersonTab}
+          tabs={[
+            { id: 'overview', label: 'Übersicht', content: <OverviewTab person={person} /> },
+            {
+              id: 'bands',
+              label: 'Bands',
+              count: counts.bands,
+              content: <BandsTab personId={person.id} />
+            },
+            {
+              id: 'companies',
+              label: 'Firmen',
+              count: counts.companies,
+              content: <CompaniesTab personId={person.id} />
+            },
+            {
+              id: 'venues',
+              label: 'Clubs / Festivals',
+              count: counts.venues,
+              content: <VenuesTab personId={person.id} />
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              count: counts.events,
+              content: <EventsTab personId={person.id} />
+            },
+            {
+              id: 'contracts',
+              label: 'Managementverträge',
+              count: counts.contracts,
+              content: <ContractsTab personId={person.id} />
+            },
+            {
+              id: 'invoices',
+              label: 'Rechnungen',
+              count: counts.invoices,
+              content: <InvoicesTab personId={person.id} />
+            }
+          ]}
+          documents={{ count: counts.documents, title: 'Dokumente der Person' }}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Alle Personen
-        </Button>
-
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{personName(person)}</h1>
-            {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
-          </div>
-          <div className="mt-1 flex shrink-0 items-center gap-2">
-            <FollowUpButton record={{ type: 'person', id: person.id, name: personName(person) }} />
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => sheet.openEdit(person)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Bearbeiten
-            </Button>
-            <DeleteRecordButton
-              confirmTitle={`„${personName(person)}“ löschen?`}
-              pending={mutations.isDeleting}
-              onDelete={() => mutations.deleteNow(person)}
+          <FormSheet
+            isOpen={sheet.isOpen}
+            onClose={sheet.close}
+            mode="edit"
+            title="Person bearbeiten"
+            description="Kontaktdaten der Person aktualisieren."
+          >
+            <PersonForm
+              person={sheet.selectedItem || undefined}
+              onSubmit={mutations.submit}
+              onCancel={sheet.close}
             />
-          </div>
-        </div>
-      </div>
-
-      <RecordFollowUps record={{ type: 'person', id: person.id, name: personName(person) }} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) =>
-          // replace: switching tabs should not pile up history entries
-          navigate({
-            to: '/persons/$personId',
-            params: { personId: String(person.id) },
-            search: { tab: isPersonTab(tab) && tab !== 'overview' ? tab : undefined },
-            replace: true
-          })
-        }
-        className="flex-1"
-      >
-        {/* Tabs wrap onto a second row in narrow windows */}
-        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="bands">
-            Bands
-            <TabCount count={counts.bands} />
-          </TabsTrigger>
-          <TabsTrigger value="companies">
-            Firmen
-            <TabCount count={counts.companies} />
-          </TabsTrigger>
-          <TabsTrigger value="venues">
-            Clubs / Festivals
-            <TabCount count={counts.venues} />
-          </TabsTrigger>
-          <TabsTrigger value="events">
-            Events
-            <TabCount count={counts.events} />
-          </TabsTrigger>
-          <TabsTrigger value="contracts">
-            Managementverträge
-            <TabCount count={counts.contracts} />
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            Rechnungen
-            <TabCount count={counts.invoices} />
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Dokumente
-            <TabCount count={counts.documents} />
-          </TabsTrigger>
-          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab person={person} />
-        </TabsContent>
-        <TabsContent value="bands">
-          <BandsTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="companies">
-          <CompaniesTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="venues">
-          <VenuesTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="events">
-          <EventsTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="contracts">
-          <ContractsTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="invoices">
-          <InvoicesTab personId={person.id} />
-        </TabsContent>
-        <TabsContent value="documents">
-          <DocumentsPanel ownerType="person" ownerId={person.id} title="Dokumente der Person" />
-        </TabsContent>
-        {hasMailAccount && (
-          <TabsContent value="mails">
-            <MailHistoryPanel entityType="person" entityId={person.id} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <FormSheet
-        isOpen={sheet.isOpen}
-        onClose={sheet.close}
-        mode="edit"
-        title="Person bearbeiten"
-        description="Kontaktdaten der Person aktualisieren."
-      >
-        <PersonForm
-          person={sheet.selectedItem || undefined}
-          onSubmit={mutations.submit}
-          onCancel={sheet.close}
-        />
-      </FormSheet>
-    </div>
+          </FormSheet>
+        </RecordDetail>
+      )}
+    </RecordDetailPage>
   )
 }

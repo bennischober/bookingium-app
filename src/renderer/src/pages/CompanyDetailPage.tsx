@@ -1,37 +1,23 @@
-import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
-import { useHasMailAccount } from '@/hooks/useHasMailAccount'
-import { useDetailTab } from '@/hooks/useDetailTab'
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
-import { ArrowLeft, Pencil } from 'lucide-react'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
-import { PageErrorState } from '@/components/load-states'
-import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { useCompanyTabCounts } from '@/hooks/useTabCounts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
-import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
-import { Button } from '@/components/ui/button'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
+import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
+import {
+  RelatedBandsTable,
+  RelatedEventsTable,
+  RelatedVenuesTable
+} from '@/components/detail/RelatedTables'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
-import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { isCompanyTab } from '@/components/company/constants'
-import {
-  AddressLines,
-  Empty,
-  EventsTable,
-  Fields,
-  InfoCard,
-  RowTable,
-  TabCount
-} from '@/components/detail/DetailParts'
+import { AddressLines, Empty, Fields, InfoCard } from '@/components/detail/DetailParts'
 import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
-import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 
 /** Overview: address, contact, tax and register data, bank, invoicing */
 function OverviewTab({ company }: { company: CompanyDto }) {
@@ -114,81 +100,30 @@ function OverviewTab({ company }: { company: CompanyDto }) {
   )
 }
 
-/** Bands the company owns ("Firma der Band") or manages; a click opens the band */
+/** Bands the company owns ("Firma der Band") or manages */
 function BandsTab({ companyId }: { companyId: number }) {
-  const navigate = useNavigate()
   const bands = trpcReact.band.listByCompany.useQuery(companyId)
   return (
-    <RowTable
+    <RelatedBandsTable
       label="Bands der Firma"
       query={bands}
-      loading="Bands werden geladen…"
       empty="Keine Bands gehören zu dieser Firma oder werden von ihr gemanagt."
-      itemLabel={{ singular: 'Band', plural: 'Bands' }}
-      columns={[
-        {
-          header: 'Band',
-          cell: (band) => band.name,
-          className: 'font-medium',
-          sortValue: (band) => band.name
-        },
-        {
-          header: 'Genre',
-          cell: (band) => band.genre || '–',
-          sortValue: (band) => band.genre || ''
-        },
-        {
-          header: 'Rolle',
-          cell: (band) =>
-            [
-              band.companyId === companyId && 'Firma der Band',
-              band.managementCompanyId === companyId && 'Management'
-            ]
-              .filter(Boolean)
-              .join(' · ')
-        }
+      roles={(band) => [
+        band.companyId === companyId && 'Firma der Band',
+        band.managementCompanyId === companyId && 'Management'
       ]}
-      onRowClick={(band) => navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })}
     />
   )
 }
 
-/** Venues the company runs; a click opens the venue */
+/** Venues the company runs */
 function VenuesTab({ companyId }: { companyId: number }) {
-  const navigate = useNavigate()
   const venues = trpcReact.venue.listByCompany.useQuery(companyId)
   return (
-    <RowTable
+    <RelatedVenuesTable
       label="Clubs und Festivals der Firma"
       query={venues}
-      loading="Clubs und Festivals werden geladen…"
       empty="Keine Clubs und Festivals mit dieser Firma."
-      itemLabel={{ singular: 'Club oder Festival', plural: 'Clubs und Festivals' }}
-      columns={[
-        {
-          header: 'Name',
-          cell: (venue) => venue.name,
-          className: 'font-medium',
-          sortValue: (venue) => venue.name
-        },
-        {
-          header: 'Art',
-          cell: (venue) => VENUE_KIND_LABELS[venue.kind],
-          sortValue: (venue) => VENUE_KIND_LABELS[venue.kind]
-        },
-        {
-          header: 'Stadt',
-          cell: (venue) => venue.address?.city || '–',
-          sortValue: (venue) => venue.address?.city || ''
-        },
-        {
-          header: 'Kapazität',
-          cell: (venue) => venue.capacity?.toLocaleString('de-DE') ?? '–'
-        }
-      ]}
-      onRowClick={(venue) =>
-        navigate({ to: '/venues/$venueId', params: { venueId: String(venue.id) } })
-      }
     />
   )
 }
@@ -197,31 +132,13 @@ function VenuesTab({ companyId }: { companyId: number }) {
 function EventsTab({ companyId }: { companyId: number }) {
   const events = trpcReact.dealMemo.listByCompany.useQuery(companyId)
   return (
-    <EventsTable
+    <RelatedEventsTable
       label="Events der Firma"
       query={events}
       empty="Keine Events mit dieser Firma als LoPro oder Rechnungsfirma."
-      columns={[
-        {
-          // One column for both keeps the table within narrow windows
-          header: 'Band / Club / Festival',
-          cell: (event) => (
-            <>
-              <div>{event.bandName}</div>
-              <div className="text-xs text-muted-foreground">{event.venueName ?? '–'}</div>
-            </>
-          )
-        },
-        {
-          header: 'Rolle',
-          cell: (event) =>
-            [
-              event.loProCompanyId === companyId && 'LoPro',
-              event.invoiceCompanyId === companyId && 'Rechnungsfirma'
-            ]
-              .filter(Boolean)
-              .join(' · ')
-        }
+      roles={(event) => [
+        event.loProCompanyId === companyId && 'LoPro',
+        event.invoiceCompanyId === companyId && 'Rechnungsfirma'
       ]}
     />
   )
@@ -248,18 +165,9 @@ export default function CompanyDetailPage() {
   const id = parseRecordId(companyId)
   const counts = useCompanyTabCounts(id)
   const navigate = useNavigate()
-  const hasMailAccount = useHasMailAccount()
-  const activeTab = useDetailTab(isCompanyTab, 'overview')
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<CompanyDto>()
-
-  const {
-    data: company,
-    isLoading,
-    isError,
-    error,
-    refetch
-  } = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
+  const company = trpcReact.company.getById.useQuery({ id: id ?? 0 }, { enabled: id !== null })
 
   // #162: delete from the detail page, then back to the list
   const mutations = useRecordMutations({
@@ -272,163 +180,85 @@ export default function CompanyDetailPage() {
     onDeleted: () => navigate({ to: '/companies' })
   })
 
-  // A bad id never loads (the query stays disabled), it is not found
-  if (id !== null && isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Firma wird geladen…</p>
-      </div>
-    )
-  }
-
-  if (isError && !isNotFound(error)) {
-    return <PageErrorState error={error} onRetry={() => void refetch()} />
-  }
-
-  if (!company) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Firma nicht gefunden.</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/companies' })}>
-          Zurück zu den Firmen
-        </Button>
-      </div>
-    )
-  }
-
-  const city = company.address?.city
+  const toList = () => navigate({ to: '/companies' })
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col p-6">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 -ml-2 gap-1.5 text-muted-foreground"
-          onClick={() => navigate({ to: '/companies' })}
+    <RecordDetailPage
+      id={id}
+      query={company}
+      loading="Firma wird geladen…"
+      notFound={{
+        text: 'Firma nicht gefunden.',
+        backLabel: 'Zurück zu den Firmen',
+        onBack: toList
+      }}
+    >
+      {(company) => (
+        <RecordDetail
+          record={{ type: 'company', id: company.id, name: company.name }}
+          back={{ label: 'Alle Firmen', onBack: toList }}
+          subtitle={[
+            company.address?.city,
+            company.isDefaultForInvoicing && 'Standardfirma für Rechnungen'
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          onEdit={() => sheet.openEdit(company)}
+          onDelete={() => mutations.deleteNow(company)}
+          deleting={mutations.isDeleting}
+          isTab={isCompanyTab}
+          tabs={[
+            { id: 'overview', label: 'Übersicht', content: <OverviewTab company={company} /> },
+            {
+              id: 'contacts',
+              label: 'Ansprechpartner',
+              count: counts.contacts,
+              className: 'max-w-2xl',
+              content: <MembersPanel entityType="company" entityId={company.id} />
+            },
+            {
+              id: 'bands',
+              label: 'Bands',
+              count: counts.bands,
+              content: <BandsTab companyId={company.id} />
+            },
+            {
+              id: 'venues',
+              label: 'Clubs / Festivals',
+              count: counts.venues,
+              content: <VenuesTab companyId={company.id} />
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              count: counts.events,
+              content: <EventsTab companyId={company.id} />
+            },
+            {
+              id: 'invoices',
+              label: 'Rechnungen',
+              count: counts.invoices,
+              content: <InvoicesTab companyId={company.id} />
+            }
+          ]}
+          documents={{ count: counts.documents, title: 'Dokumente der Firma' }}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Alle Firmen
-        </Button>
-
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{company.name}</h1>
-            {(city || company.isDefaultForInvoicing) && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {[city, company.isDefaultForInvoicing && 'Standardfirma für Rechnungen']
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            )}
-          </div>
-          <div className="mt-1 flex shrink-0 items-center gap-2">
-            <FollowUpButton record={{ type: 'company', id: company.id, name: company.name }} />
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => sheet.openEdit(company)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Bearbeiten
-            </Button>
-            <DeleteRecordButton
-              confirmTitle={`„${company.name}“ löschen?`}
-              pending={mutations.isDeleting}
-              onDelete={() => mutations.deleteNow(company)}
+          <FormSheet
+            isOpen={sheet.isOpen}
+            onClose={sheet.close}
+            mode="edit"
+            title="Firma bearbeiten"
+            description="Firmeninformationen aktualisieren."
+          >
+            <CompanyForm
+              company={sheet.selectedItem || undefined}
+              onSubmit={mutations.submit}
+              onCancel={sheet.close}
+              isSubmitting={mutations.isSubmitting}
             />
-          </div>
-        </div>
-      </div>
-
-      <RecordFollowUps record={{ type: 'company', id: company.id, name: company.name }} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) =>
-          // replace: switching tabs should not pile up history entries
-          navigate({
-            to: '/companies/$companyId',
-            params: { companyId: String(company.id) },
-            search: { tab: isCompanyTab(tab) && tab !== 'overview' ? tab : undefined },
-            replace: true
-          })
-        }
-        className="flex-1"
-      >
-        {/* Tabs wrap onto a second row in narrow windows */}
-        <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="contacts">
-            Ansprechpartner
-            <TabCount count={counts.contacts} />
-          </TabsTrigger>
-          <TabsTrigger value="bands">
-            Bands
-            <TabCount count={counts.bands} />
-          </TabsTrigger>
-          <TabsTrigger value="venues">
-            Clubs / Festivals
-            <TabCount count={counts.venues} />
-          </TabsTrigger>
-          <TabsTrigger value="events">
-            Events
-            <TabCount count={counts.events} />
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            Rechnungen
-            <TabCount count={counts.invoices} />
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            Dokumente
-            <TabCount count={counts.documents} />
-          </TabsTrigger>
-          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab company={company} />
-        </TabsContent>
-        <TabsContent value="contacts" className="max-w-2xl">
-          <MembersPanel entityType="company" entityId={company.id} />
-        </TabsContent>
-        <TabsContent value="bands">
-          <BandsTab companyId={company.id} />
-        </TabsContent>
-        <TabsContent value="venues">
-          <VenuesTab companyId={company.id} />
-        </TabsContent>
-        <TabsContent value="events">
-          <EventsTab companyId={company.id} />
-        </TabsContent>
-        <TabsContent value="invoices">
-          <InvoicesTab companyId={company.id} />
-        </TabsContent>
-        <TabsContent value="documents">
-          <DocumentsPanel ownerType="company" ownerId={company.id} title="Dokumente der Firma" />
-        </TabsContent>
-        {hasMailAccount && (
-          <TabsContent value="mails">
-            <MailHistoryPanel entityType="company" entityId={company.id} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <FormSheet
-        isOpen={sheet.isOpen}
-        onClose={sheet.close}
-        mode="edit"
-        title="Firma bearbeiten"
-        description="Firmeninformationen aktualisieren."
-      >
-        <CompanyForm
-          company={sheet.selectedItem || undefined}
-          onSubmit={mutations.submit}
-          onCancel={sheet.close}
-          isSubmitting={mutations.isSubmitting}
-        />
-      </FormSheet>
-    </div>
+          </FormSheet>
+        </RecordDetail>
+      )}
+    </RecordDetailPage>
   )
 }

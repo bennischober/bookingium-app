@@ -299,9 +299,18 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
 10. **Detail page** (records with relations) — `/x/$xId` with tabs kept in
     `?tab=`, built from panels (`MembersPanel`, `DocumentsPanel`, …); row
     click opens it, the pencil keeps the sheet; add the name to the
-    breadcrumbs (`layout/app-breadcrumbs.tsx`). The page uses the same
-    `useRecordMutations` with `onDeleted: () => navigate({ to: '/x' })`;
-    `DeleteRecordButton` asks itself and calls `deleteNow`. Lists of linked records come
+    breadcrumbs (`layout/app-breadcrumbs.tsx`). The page is
+    `RecordDetailPage` (loading, error, not found) around `RecordDetail`
+    (`components/detail/RecordDetailPage.tsx`): back link, header with
+    follow-up, Bearbeiten and Löschen, the follow-ups, and a `tabs` list of
+    `{ id, label, count?, className?, content }`. The first tab is the default;
+    Dokumente and, with a mail account, E-Mails are appended by the shell. Adding
+    a tab is one entry there plus its id in `components/x/constants.ts`. The
+    page itself keeps its overview, its tab components and the edit sheet (passed
+    as children). It uses the same `useRecordMutations` with
+    `onDeleted: () => navigate({ to: '/x' })`; `RecordDetail` calls `onDelete`
+    after `DeleteRecordButton` has asked. The invoice page is not built on the
+    shell: it has no tabs, no edit sheet, and its own actions. Lists of linked records come
     from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
     `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page
     edits memberships from the person's side (`PersonMembershipsPanel`).
@@ -311,7 +320,10 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
     the overview uses `InfoCard`. A `RowTable` is full width, and only a card
     list is narrowed (`max-w-2xl`). Give `RowTable` an `itemLabel` so a long tab
     says how many rows it holds, and a `sortValue` on the columns that should
-    sort - without one the table keeps the order the query delivered. Relationship
+    sort - without one the table keeps the order the query delivered. Bands, clubs
+    and festivals, events and invoices of a record use the shared tables
+    (`components/detail/RelatedTables.tsx`, `invoice/RecordInvoicesTable.tsx`);
+    `roles` adds the Rolle column naming how a row is linked. Relationship
     tabs look alike: the memberships card on top, the linked records below (the
     Bands, Companies and Spielstätten tabs of the person page).
 

@@ -6,18 +6,21 @@ import { formatShortDate } from '@/lib/utils'
 import type { InvoiceListItemDto } from '../../../../main/api/schemas/invoice.schema'
 
 /**
- * The invoices of one record (company, band) as a detail-page tab, with the
- * invoice list's columns: who issued it, who receives it. A click opens the
+ * The invoices of one record (company, band, person) as a detail-page tab, with
+ * the invoice list's columns: who issued it, who receives it. A click opens the
  * print view.
  */
 export function RecordInvoicesTable({
   label,
   query,
-  empty
+  empty,
+  recipient = true
 }: {
   label: string
   query: ListQuery<InvoiceListItemDto>
   empty: string
+  /** Off where the record is always the recipient (a person's invoices) */
+  recipient?: boolean
 }) {
   const openInvoice = useOpenInvoice()
   return (
@@ -41,7 +44,14 @@ export function RecordInvoicesTable({
           sortValue: (invoice) => invoice.issueDate
         },
         { header: 'Rechnungssteller', cell: (invoice) => invoice.companyName },
-        { header: 'Rechnungsempfänger', cell: (invoice) => invoice.recipientName },
+        ...(recipient
+          ? [
+              {
+                header: 'Rechnungsempfänger',
+                cell: (invoice: InvoiceListItemDto) => invoice.recipientName
+              }
+            ]
+          : []),
         { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
         {
           header: 'Status',
