@@ -51,7 +51,7 @@ export const PaginatedCompanyResponse = createPaginatedResponse(CompanyDto)
 
 // Input DTO - for creating/updating (with embedded relations)
 export const CreateCompanyInput = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name ist erforderlich'),
   kind: CompanyKind.optional().default('company'),
   genres: z.string().transform(normalizeGenres).optional().default(''),
   notes: z.string().optional().default(''),
@@ -71,7 +71,7 @@ export const CreateCompanyInput = z.object({
 
 export const UpdateCompanyInput = z.object({
   id: z.number(),
-  name: z.string().min(1, 'Name is required').optional(),
+  name: z.string().min(1, 'Name ist erforderlich').optional(),
   kind: CompanyKind.optional(),
   genres: z.string().transform(normalizeGenres).optional(),
   notes: z.string().optional(),

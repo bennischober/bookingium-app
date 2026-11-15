@@ -29,16 +29,16 @@ export type BankListItemDto = z.infer<typeof BankListItemDto>
  * Create bank input schema
  */
 export const CreateBankInput = z.object({
-  bankName: z.string().min(1, 'Bank name is required'),
-  accountHolder: z.string().min(1, 'Account holder is required'),
+  bankName: z.string().min(1, 'Name der Bank ist erforderlich'),
+  accountHolder: z.string().min(1, 'Kontoinhaber ist erforderlich'),
   iban: z
     .string()
-    .min(15, 'IBAN must be at least 15 characters')
-    .max(34, 'IBAN cannot exceed 34 characters'),
+    .min(15, 'Die IBAN hat mindestens 15 Zeichen')
+    .max(34, 'Die IBAN hat höchstens 34 Zeichen'),
   bic: z
     .string()
-    .min(8, 'BIC must be at least 8 characters')
-    .max(11, 'BIC cannot exceed 11 characters')
+    .min(8, 'Die BIC hat mindestens 8 Zeichen')
+    .max(11, 'Die BIC hat höchstens 11 Zeichen')
 })
 
 export type CreateBankInput = z.infer<typeof CreateBankInput>
@@ -48,16 +48,16 @@ export type CreateBankInput = z.infer<typeof CreateBankInput>
  */
 export const UpdateBankInput = z.object({
   id: z.number(),
-  bankName: z.string().min(1, 'Bank name is required'),
-  accountHolder: z.string().min(1, 'Account holder is required'),
+  bankName: z.string().min(1, 'Name der Bank ist erforderlich'),
+  accountHolder: z.string().min(1, 'Kontoinhaber ist erforderlich'),
   iban: z
     .string()
-    .min(15, 'IBAN must be at least 15 characters')
-    .max(34, 'IBAN cannot exceed 34 characters'),
+    .min(15, 'Die IBAN hat mindestens 15 Zeichen')
+    .max(34, 'Die IBAN hat höchstens 34 Zeichen'),
   bic: z
     .string()
-    .min(8, 'BIC must be at least 8 characters')
-    .max(11, 'BIC cannot exceed 11 characters')
+    .min(8, 'Die BIC hat mindestens 8 Zeichen')
+    .max(11, 'Die BIC hat höchstens 11 Zeichen')
 })
 
 export type UpdateBankInput = z.infer<typeof UpdateBankInput>

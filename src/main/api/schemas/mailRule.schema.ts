@@ -51,7 +51,7 @@ export const SaveMailRuleInput = z
     link: z.object({ entityType: MailRuleLinkType, entityId: z.number().int() }).nullable()
   })
   .refine((rule) => Boolean(rule.matchFrom || rule.matchTo || rule.matchSubject), {
-    message: 'Geben Sie mindestens eine Bedingung an.',
+    message: 'Bitte mindestens eine Bedingung angeben.',
     path: ['matchFrom']
   })
   .refine(

@@ -16,13 +16,13 @@ export const BandMemberDto = z.object({
 export const CreateBandMemberInput = z.object({
   bandId: z.number(),
   personId: z.number(),
-  role: z.string().min(1, 'Role is required'),
+  role: z.string().min(1, 'Rolle ist erforderlich'),
   notes: z.string().default('')
 })
 
 export const UpdateBandMemberInput = z.object({
   id: z.number(),
-  role: z.string().min(1, 'Role is required').optional(),
+  role: z.string().min(1, 'Rolle ist erforderlich').optional(),
   notes: z.string().optional()
 })
 
@@ -42,13 +42,13 @@ export const CompanyMemberDto = z.object({
 export const CreateCompanyMemberInput = z.object({
   companyId: z.number(),
   personId: z.number(),
-  role: z.string().min(1, 'Role is required'),
+  role: z.string().min(1, 'Rolle ist erforderlich'),
   notes: z.string().default('')
 })
 
 export const UpdateCompanyMemberInput = z.object({
   id: z.number(),
-  role: z.string().min(1, 'Role is required').optional(),
+  role: z.string().min(1, 'Rolle ist erforderlich').optional(),
   notes: z.string().optional()
 })
 
@@ -68,13 +68,13 @@ export const VenueMemberDto = z.object({
 export const CreateVenueMemberInput = z.object({
   venueId: z.number(),
   personId: z.number(),
-  role: z.string().min(1, 'Role is required'),
+  role: z.string().min(1, 'Rolle ist erforderlich'),
   notes: z.string().default('')
 })
 
 export const UpdateVenueMemberInput = z.object({
   id: z.number(),
-  role: z.string().min(1, 'Role is required').optional(),
+  role: z.string().min(1, 'Rolle ist erforderlich').optional(),
   notes: z.string().optional()
 })
 

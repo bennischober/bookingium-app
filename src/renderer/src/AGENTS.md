@@ -27,7 +27,7 @@ src/renderer/src/
 | Call the API | `lib/trpc.ts` | `trpcReact` (hooks), `trpcVanilla` (outside React) |
 | List paging/sorting | `hooks/useListQuery.ts` | `LIST_CHUNK_SIZE`, `useListSorting`, `infiniteListOptions`, `listRows`, `listTotal` |
 | `?create=true` / `?open=<id>` | `hooks/useListSearchActions.ts` | runs once, then strips the search from the URL |
-| Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'` |
+| Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'`; asks before closing a changed form (`formGuard.ts`) |
 | A business object form | `components/forms/appForm.ts` + `FormFields.tsx` | `useAppForm`, `field.TextField` etc., `FormBody`/`FormFooter`; start values in `formDefaults.ts` |
 | Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column |
 | Create/update/delete of a record | `hooks/useRecordMutations.ts` | toasts (`lib/recordCopy.ts`), delete confirm, invalidation; `submit`/`remove`/`deleteNow` |

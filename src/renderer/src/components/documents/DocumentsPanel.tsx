@@ -90,7 +90,7 @@ export function DocumentsPanel({
     if (paths.length === 0) {
       toast.error('Dateien konnten nicht gelesen werden', {
         description:
-          'Diese Drag-Quelle stellt keine lokalen Dateien bereit. Bitte verwenden Sie „Dateien auswählen“.'
+          'Diese Drag-Quelle stellt keine lokalen Dateien bereit. Bitte „Dateien auswählen“ verwenden.'
       })
       return
     }

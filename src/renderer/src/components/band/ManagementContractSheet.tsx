@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { FormSheet } from '@/components/form-sheet'
+import { useReportUnsavedChanges } from '@/components/formGuard'
 import { Button } from '@/components/ui/button'
 import { FormActions } from '@/components/forms/FormActions'
 import { Input } from '@/components/ui/input'
@@ -184,6 +185,7 @@ function ContractForm({
     specialClauses: contract.specialClauses
   })
   const [dirty, setDirty] = useState(false)
+  useReportUnsavedChanges(dirty)
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
     setDirty(true)

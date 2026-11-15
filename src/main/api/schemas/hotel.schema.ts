@@ -28,7 +28,7 @@ export const PaginatedHotelResponse = createPaginatedResponse(HotelDto)
 export type PaginatedHotelResponse = z.infer<typeof PaginatedHotelResponse>
 
 export const CreateHotelInput = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name ist erforderlich'),
   notes: z.string().default(''),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
