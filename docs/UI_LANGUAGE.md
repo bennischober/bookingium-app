@@ -17,8 +17,8 @@ English.
    `aria-label` attributes.
 3. **Keep the domain's anglicisms:** Event, Band, Booking, Deal, Deal Memo,
    Rider, Stageplot, Showtime, Local Promoter.
-4. **Exception:** the English agency invoice template (`AgencyEnTemplate` in
-   `InvoiceDocument.tsx`) stays English.
+4. **Exception:** the English agency invoice template (`AGENCY_STRINGS.en` in
+   `AgencyInvoiceTemplate.tsx`) stays English.
 5. Formal address ("Sie"), German typography: „Anführungszeichen“, `…`, `–`.
    Write the ellipsis as one character (`Suchen…`, `Lädt…`, „Zuordnen…“), never
    three dots; `...` stays only in code (spread syntax).
