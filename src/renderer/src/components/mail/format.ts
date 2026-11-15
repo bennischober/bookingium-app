@@ -112,3 +112,15 @@ export function saveBytes(bytes: Uint8Array, fileName: string, type: string): vo
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
+
+/**
+ * #95: an account's name in the folder pane and the picker. Two accounts with one address (on
+ * different servers) are told apart by the server.
+ */
+export function accountName(
+  account: { email: string; host: string; port: number },
+  all: readonly { email: string }[]
+): string {
+  const shared = all.filter((other) => other.email === account.email).length > 1
+  return shared ? `${account.email} (${account.host}:${account.port})` : account.email
+}

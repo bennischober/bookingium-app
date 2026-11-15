@@ -1,97 +1,52 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
-import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { ChevronRight, Lock, Mail, Search, SquarePen, X } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { ComposeView } from '@/components/mail/ComposeView'
 import { readingActions } from '@/components/mail/readingActions'
 import { withWholeMessage } from '@/components/mail/completion'
 import { archiveableIds } from '@/components/mail/archiveActions'
-import { OpJournalPanel } from '@/components/mail/OpJournalPanel'
-import { SyncIndicator } from '@/components/mail/SyncIndicator'
-import { folderErrorMap } from '@/components/mail/syncActivity'
 import {
   type ComposeState,
   emptyCompose,
   forwardCompose,
   fromSavedDraft,
   replyCompose,
-  withSignature,
-  composeTo
+  withSignature
 } from '@/components/mail/composeDraft'
 import { hasPendingCompose, takePendingCompose } from '@/components/mail/pendingCompose'
+import { FolderPane } from '@/components/mail/FolderPane'
 import { FolderTree } from '@/components/mail/FolderTree'
-import { MessageList } from '@/components/mail/MessageList'
-import { ThreadList } from '@/components/mail/ThreadList'
-import { type MailActions, MessageMenu } from '@/components/mail/MessageMenu'
-import { MessageView } from '@/components/mail/MessageView'
+import { MailHeader } from '@/components/mail/MailHeader'
+import { MailListPane } from '@/components/mail/MailListPane'
+import { MailStatusBanners } from '@/components/mail/MailStatusBanners'
+import type { MailActions } from '@/components/mail/MessageMenu'
 import { PaneResizer } from '@/components/mail/PaneResizer'
-import { SelectionActions } from '@/components/mail/SelectionActions'
+import { type OpenCompose, ReadingPane } from '@/components/mail/ReadingPane'
 import { EMPTY_SELECTION, type Selection, single } from '@/components/mail/selection'
 import { useStoredWidth } from '@/hooks/useStoredWidth'
+import { useMailFolders } from '@/hooks/useMailFolders'
 import { useMailSearch } from '@/hooks/useMailSearch'
 import { useMailOps } from '@/hooks/useMailOps'
+import { useMailSyncStatus } from '@/hooks/useMailSyncStatus'
 import { useMessageActions } from '@/hooks/useMessageActions'
 import { useFolderActions } from '@/hooks/useFolderActions'
 import { useMailShortcuts } from '@/hooks/useMailShortcuts'
 import { useInboxUnread } from '@/hooks/useMailUnreadCount'
-import { unreadBadgeLabel } from '@/components/mail/unreadBadge'
 import { PAGE_SIZE } from '@/components/mail/paging'
-import {
-  flattenFolders,
-  folderLabel,
-  isDrafts,
-  isInbox,
-  isTrash,
-  messageKey,
-  notDownloadedNote
-} from '@/components/mail/format'
+import { isDrafts, isInbox, isTrash, messageKey } from '@/components/mail/format'
 import type { MessageDetail, MessageListItem } from '../../../main/mailclient/core/types'
 
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
 const LIST_PANE = { initial: 352, min: 260, max: 720 }
-/** #156: how long a folder stays open before it is synced (clicking through starts no sync each) */
-const OPEN_SYNC_DELAY_MS = 300
 
 /** The mail client; #136: always part of the app, no longer behind a switch */
 export default function MailPage() {
   return <MailClient />
-}
-
-/** "· 6 ungelesen" after an account in the picker or a collapsed section; nothing when all is read */
-function UnreadCount({ unread }: { unread: number | undefined }) {
-  if (!unread) return null
-  return (
-    <span className="ml-1.5 text-xs text-muted-foreground" title="Ungelesen im Posteingang">
-      · {unreadBadgeLabel(unread)} ungelesen
-    </span>
-  )
-}
-
-/**
- * #95: an account's name in the folder pane and the picker. Two accounts with one address (on
- * different servers) are told apart by the server.
- */
-function accountName(
-  account: { email: string; host: string; port: number },
-  all: readonly { email: string }[]
-): string {
-  const shared = all.filter((other) => other.email === account.email).length > 1
-  return shared ? `${account.email} (${account.host}:${account.port})` : account.email
 }
 
 function MailClient() {
@@ -117,11 +72,8 @@ function MailClient() {
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION)
   const selectedId = selection.ids.length === 1 ? selection.ids[0] : null
   // The open editor, in place of the reading pane; `draftId` when it shows a mail from Drafts
-  const [compose, setCompose] = useState<{
-    key: number
-    state: ComposeState
-    draftId?: number
-  } | null>(null)
+  // The open editor, in place of the reading pane
+  const [compose, setCompose] = useState<OpenCompose | null>(null)
   // The mails being dragged onto a folder, if any
   const [dragged, setDragged] = useState<MessageListItem[] | null>(null)
   // The list grouped into threads instead of one row per mail
@@ -151,31 +103,11 @@ function MailClient() {
   const failed = (title: string) => (error: unknown) =>
     toast.error(title, { description: error instanceof Error ? error.message : undefined })
 
-  const folders = useQuery({
-    queryKey: ['mail', accountId, 'folders'],
-    queryFn: () => mailApi.getFolders(accountId),
-    enabled: ready
+  const { folders, allFolders, otherAccounts, otherFolders } = useMailFolders({
+    accounts: accounts.data,
+    accountId,
+    ready
   })
-  const allFolders = useMemo(() => flattenFolders(folders.data ?? []), [folders.data])
-  // #95: every other account's folders, for its section in the folder pane. The keys are the
-  // ones the account's own page uses, so switching to it shows them at once.
-  const otherAccounts = (accounts.data ?? []).filter((a) => a.id !== accountId)
-  const otherFolders = useQueries({
-    queries: otherAccounts.map((a) => ({
-      queryKey: ['mail', a.id, 'folders'],
-      queryFn: () => mailApi.getFolders(a.id),
-      enabled: ready
-    }))
-  })
-  // The account sections the user folded away
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
-  const toggleSection = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
   const folderId = chosenFolderId ?? allFolders.find(isInbox)?.id ?? allFolders[0]?.id ?? null
 
   const messages = useInfiniteQuery({
@@ -198,23 +130,8 @@ function MailClient() {
     enabled: ready && folderId !== null && threads
   })
 
-  const {
-    query,
-    setQuery,
-    filters,
-    setFilters,
-    showFilters,
-    setShowFilters,
-    facetFolderId,
-    setFacetFolderId,
-    searchRef,
-    hasFilter,
-    searching,
-    results,
-    snippets,
-    firstResult,
-    clearSearch
-  } = useMailSearch({ accountId, ready })
+  const search = useMailSearch({ accountId, ready })
+  const { searchRef, searching, results, clearSearch } = search
 
   const { setHiddenIds, listItems, markRead, markFlagged, moveAway, expunge, emptyTrash } =
     useMessageActions({
@@ -239,66 +156,10 @@ function MailClient() {
   // Selected mails that are still in the list (a sync may have taken some away)
   const selectedItems = listItems.filter((m) => selection.ids.includes(m.id))
 
-  const syncStatus = useQuery({
-    queryKey: ['mail', accountId, 'sync'],
-    queryFn: () => mailApi.getSyncStatus(accountId),
-    enabled: ready,
-    refetchInterval: (data) =>
-      data?.running ||
-      data?.connection === 'connecting' ||
-      data?.connection === 'offline' ||
-      // a full disk is a state the user can fix outside the app; keep polling so the bar clears
-      // by itself once the retry succeeds, instead of staying stuck until a reload
-      data?.diskFull
-        ? 2000
-        : 10_000
-  })
+  const sync = useMailSyncStatus({ accountId, ready, folderId, allFolders, failed })
+  const { syncStatus, loginFailed, folderSyncErrors } = sync
 
-  // #156: the folder the user opens is synced right away, on the sync connection (the core
-  // skips it while that folder is being synced anyway; a running pass takes it next). A short
-  // delay, so clicking through folders does not start a sync for each one passed over. Quiet on
-  // failure: the list shows what is stored, and the sync bar reports connection problems.
-  const refetchSyncStatus = useEffectEvent(() => void syncStatus.refetch())
-  useEffect(() => {
-    if (!ready || !accountId || folderId === null) return
-    const timer = setTimeout(() => {
-      void mailApi
-        .syncOpenedFolder(folderId, accountId)
-        .then(refetchSyncStatus)
-        .catch(() => undefined)
-    }, OPEN_SYNC_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [ready, accountId, folderId])
-  const loginFailed = syncStatus.data?.connection === 'auth-failed'
-  // #159: the folders whose last sync failed, marked in the tree
-  const folderSyncErrors = useMemo(() => folderErrorMap(syncStatus.data), [syncStatus.data])
-  const folderNameOf = (path: string) => {
-    const f = allFolders.find((x) => x.path === path)
-    return f ? folderLabel(f) : path
-  }
-  // #159: "Ordner erneut synchronisieren" in the activity panel, on the sync connection
-  const retryFolder = async (path: string) => {
-    const f = allFolders.find((x) => x.path === path)
-    if (!f) {
-      toast.error('Den Ordner gibt es nicht mehr', { description: path })
-      return
-    }
-    try {
-      const result = await mailApi.syncOpenedFolder(f.id, accountId)
-      if (result === 'synced') toast.success(`${folderLabel(f)} synchronisiert`)
-      else if (result === 'queued') toast.info(`${folderLabel(f)} wird als Nächstes synchronisiert`)
-      else if (result === 'skipped')
-        toast.warning('Gerade nicht möglich', {
-          description: 'Der Ordner wird schon abgeglichen, oder die Verbindung steht nicht.'
-        })
-      else toast.error(`${folderLabel(f)} konnte nicht synchronisiert werden`)
-    } catch (error) {
-      failed('Synchronisierung fehlgeschlagen')(error)
-    }
-    await syncStatus.refetch()
-  }
-
-  const { runningOp, opList, opNow, busyOpId, runOpAction } = useMailOps({
+  const ops = useMailOps({
     accountId,
     ready,
     canWrite,
@@ -602,203 +463,41 @@ function MailClient() {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
-        <h1 className="text-lg font-semibold">E-Mail</h1>
-        {(accounts.data?.length ?? 0) > 1 ? (
-          <Select value={account.id} onValueChange={(id) => switchAccount(id as string)}>
-            {/* #95: wide windows show every account in the folder pane; narrow ones have no
-                pane, so they keep the picker */}
-            <SelectTrigger className="w-64 lg:hidden" aria-label="Postfach">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.data?.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {accountName(a, accounts.data ?? [])}
-                  <UnreadCount unread={inboxUnread.find((entry) => entry.id === a.id)?.unread} />
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="text-sm text-muted-foreground">
-            {account.email}
-            <UnreadCount unread={inboxUnread[0]?.unread} />
-          </span>
-        )}
-        {!canWrite && (
-          <span
-            className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
-            role="note"
-            title={
-              account?.writeRefusal ??
-              'Nichts wird am Server geändert: kein Lesen-Markieren, Löschen oder Verschieben.'
-            }
-          >
-            <Lock className="size-3" />
-            Nur lesen
-          </span>
-        )}
-        {canWrite && (
-          <Button
-            size="sm"
-            onClick={() => {
-              openedId.current = null
-              startCompose(emptyCompose())
-            }}
-          >
-            <SquarePen />
-            Neue E-Mail
-          </Button>
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          {canWrite && (
-            <OpJournalPanel
-              entries={opList}
-              now={opNow}
-              busyId={busyOpId}
-              onAction={(entry, action) => void runOpAction(entry, action)}
-            />
-          )}
-          <SyncIndicator
-            status={syncStatus.data}
-            runningOp={runningOp}
-            onPause={() => void mailApi.pauseSync(accountId).then(() => syncStatus.refetch())}
-            onResume={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
-            onSync={() =>
-              // #156: the open folder goes first in the change pass
-              void mailApi
-                .triggerSync(false, accountId, folderId)
-                .then(() => syncStatus.refetch())
-                .catch(failed('Synchronisierung fehlgeschlagen'))
-            }
-            onSyncAll={() =>
-              void mailApi
-                .triggerSync(true, accountId)
-                .then(() => syncStatus.refetch())
-                .catch(failed('Synchronisierung fehlgeschlagen'))
-            }
-            folderName={folderNameOf}
-            onRetryFolder={retryFolder}
-            onDismissErrors={(keys) =>
-              void mailApi
-                .dismissSyncErrors(keys, accountId)
-                .then(() => syncStatus.refetch())
-                .catch(failed('Ausblenden fehlgeschlagen'))
-            }
-          />
-        </div>
-      </header>
-
-      {workerStatus.data?.error && (
-        <p role="alert" className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          Der E-Mail-Dienst läuft nicht: {workerStatus.data.error}
-        </p>
-      )}
-      {workerStatus.data?.starting && (
-        <p
-          role="status"
-          className="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
-        >
-          <Spinner className="size-4" />
-          Der E-Mail-Dienst startet. Nach einem Update kann das bei einem großen Postfach einige
-          Minuten dauern.
-        </p>
-      )}
-
-      {loginFailed && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive"
-          data-testid="mail-login-failed"
-        >
-          <p className="min-w-0 flex-1">
-            Anmeldung fehlgeschlagen: Der Server hat Benutzername oder Passwort abgelehnt.
-            Bookingium versucht es erst wieder, wenn das Konto neu gespeichert wird.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}
-          >
-            Zugangsdaten prüfen
-          </Button>
-        </div>
-      )}
-
-      {syncStatus.data?.spaceWarning && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 border-b bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-300"
-          data-testid="mail-space-banner"
-        >
-          <p className="min-w-0 flex-1">
-            {syncStatus.data.spaceWarning} E-Mails über 5 MB lädt Bookingium erst beim Öffnen, meist
-            wird es also weniger.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
-          >
-            Trotzdem fortsetzen
-          </Button>
-        </div>
-      )}
+      <MailHeader
+        accounts={accounts.data}
+        account={account}
+        accountId={accountId}
+        folderId={folderId}
+        inboxUnread={inboxUnread}
+        canWrite={canWrite}
+        switchAccount={switchAccount}
+        startNewMail={() => {
+          openedId.current = null
+          startCompose(emptyCompose())
+        }}
+        ops={ops}
+        sync={sync}
+        failed={failed}
+      />
+      <MailStatusBanners
+        worker={workerStatus.data}
+        loginFailed={loginFailed}
+        syncStatus={syncStatus}
+        accountId={accountId}
+      />
 
       <div className="flex min-h-0 flex-1">
-        <nav
-          className="hidden shrink-0 overflow-auto p-2 lg:block"
-          style={{ width: folderWidth }}
-          aria-label="Ordnerliste"
-        >
-          {otherAccounts.length === 0
-            ? shownTree
-            : // #95: one section per account, one under the other, as mail programs do. Only the
-              // shown account's tree can be dragged onto or edited; a folder of another account
-              // switches to it.
-              accounts.data?.map((a) => {
-                const open = !collapsed.has(a.id)
-                const name = accountName(a, accounts.data ?? [])
-                const other = otherFolders[otherAccounts.findIndex((o) => o.id === a.id)]
-                return (
-                  <section key={a.id} className="mb-2" aria-label={name}>
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      onClick={() => toggleSection(a.id)}
-                      className="flex w-full items-center gap-1 rounded-md px-1 py-1 text-left text-sm font-medium hover:bg-muted"
-                    >
-                      <ChevronRight
-                        className={cn('size-4 shrink-0 transition-transform', open && 'rotate-90')}
-                      />
-                      <span className="truncate" title={name}>
-                        {name}
-                      </span>
-                      {/* Open, the INBOX row shows the same count */}
-                      {!open && (
-                        <UnreadCount
-                          unread={inboxUnread.find((entry) => entry.id === a.id)?.unread}
-                        />
-                      )}
-                    </button>
-                    {open &&
-                      (a.id === accountId ? (
-                        shownTree
-                      ) : other?.isLoading ? (
-                        <Spinner className="m-2" />
-                      ) : (
-                        <FolderTree
-                          label={name}
-                          folders={other?.data ?? []}
-                          selectedId={null}
-                          onSelect={(folderId) => switchAccount(a.id, folderId)}
-                        />
-                      ))}
-                  </section>
-                )
-              })}
-        </nav>
+        <FolderPane
+          folderWidth={folderWidth}
+          accounts={accounts.data}
+          accountId={accountId}
+          otherAccounts={otherAccounts}
+          otherFolders={otherFolders}
+          inboxUnread={inboxUnread}
+          shownTree={shownTree}
+          switchAccount={switchAccount}
+        />
+
         <PaneResizer
           label="Breite der Ordnerliste"
           className="hidden lg:block"
@@ -809,204 +508,28 @@ function MailClient() {
           onResize={setFolderWidth}
         />
 
-        <section
-          // The reader keeps at least a third of the window
-          className="flex max-w-[45vw] shrink-0 flex-col"
-          style={{ width: listWidth }}
-          aria-label="Postfachliste"
-        >
-          <div className="space-y-2 border-b p-2">
-            {/* Narrow windows: a folder picker instead of the tree */}
-            <Select
-              value={folderId ?? undefined}
-              onValueChange={(id) => chooseFolder(id as string)}
-            >
-              <SelectTrigger className="w-full lg:hidden" aria-label="Ordner wählen">
-                <SelectValue placeholder="Ordner" />
-              </SelectTrigger>
-              <SelectContent>
-                {allFolders.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {folderLabel(f) === f.name ? f.path : folderLabel(f)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value)
-                    setFacetFolderId(null)
-                  }}
-                  onKeyDown={(e) => e.key === 'Escape' && clearSearch()}
-                  placeholder="Suchen (/)"
-                  aria-label="E-Mails durchsuchen"
-                  className="pl-8"
-                />
-              </div>
-              <Button
-                variant={showFilters || hasFilter ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setShowFilters((v) => !v)}
-                aria-expanded={showFilters}
-              >
-                Filter
-              </Button>
-              {/* Groups the list into threads; off, the list is one row per mail */}
-              {!searching && (
-                <Button
-                  variant={threads ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setThreads((v) => !v)}
-                  aria-pressed={threads}
-                  title="Mails zu Unterhaltungen gruppieren"
-                >
-                  Unterhaltungen
-                </Button>
-              )}
-              {searching && (
-                <Button variant="ghost" size="icon-sm" onClick={clearSearch} title="Suche beenden">
-                  <X />
-                </Button>
-              )}
-            </div>
-            {showFilters && (
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <Input
-                  className="col-span-2"
-                  value={filters.from}
-                  onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-                  placeholder="Von (Name oder Adresse)"
-                  aria-label="Von"
-                />
-                <label className="flex flex-col gap-1">
-                  ab
-                  <Input
-                    type="date"
-                    value={filters.after}
-                    onChange={(e) => setFilters({ ...filters, after: e.target.value })}
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  bis
-                  <Input
-                    type="date"
-                    value={filters.before}
-                    onChange={(e) => setFilters({ ...filters, before: e.target.value })}
-                  />
-                </label>
-                <label className="col-span-2 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filters.hasAttachment}
-                    onChange={(e) => setFilters({ ...filters, hasAttachment: e.target.checked })}
-                  />
-                  Nur mit Anhang
-                </label>
-              </div>
-            )}
-            {searching && firstResult && (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">
-                  {firstResult.total.toLocaleString('de-DE')} Treffer · {firstResult.elapsedMs} ms
-                </p>
-                {/* #158: a folder synced only on open has no local mail until it is opened */}
-                {(firstResult.notDownloadedFolders ?? 0) > 0 && (
-                  <p
-                    className="text-xs text-muted-foreground"
-                    data-testid="mail-search-not-downloaded"
-                  >
-                    {notDownloadedNote(firstResult.notDownloadedFolders ?? 0)}
-                  </p>
-                )}
-                {firstResult.facets && firstResult.facets.length > 1 && (
-                  <div className="flex flex-wrap gap-1" aria-label="Treffer nach Ordner">
-                    {firstResult.facets.slice(0, 8).map((facet) => {
-                      const f = allFolders.find((x) => x.id === facet.folderId)
-                      const active = facetFolderId === facet.folderId
-                      return (
-                        <button
-                          key={facet.folderId}
-                          type="button"
-                          onClick={() => setFacetFolderId(active ? null : facet.folderId)}
-                          className={cn(
-                            'rounded-full border px-2 py-0.5 text-xs',
-                            active ? 'border-primary bg-primary/10' : 'hover:bg-muted'
-                          )}
-                          aria-pressed={active}
-                        >
-                          {f ? folderLabel(f) : '?'} {facet.count}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto">
-            {listLoading ? (
-              <Spinner className="m-4" />
-            ) : threads && !searching ? (
-              // Search results are single mails; the thread switch is hidden meanwhile
-              threadList.isLoading ? (
-                <Spinner className="m-4" />
-              ) : (
-                <ThreadList
-                  threads={threadList.data?.pages.flat() ?? []}
-                  onOpen={openWindow}
-                  hasMore={Boolean(threadList.hasNextPage)}
-                  loadingMore={threadList.isFetchingNextPage}
-                  onLoadMore={() => void threadList.fetchNextPage()}
-                />
-              )
-            ) : (
-              <MessageList
-                items={listItems}
-                selection={selection}
-                onSelectionChange={changeSelection}
-                multiple={canWrite}
-                onOpen={openWindow}
-                onDelete={selectedActions.toTrash}
-                onDragMessages={
-                  canWrite
-                    ? (mails) => {
-                        // F6: a mail drag is never a folder move, whatever came before
-                        if (mails) setMovingFolder(null)
-                        setDragged(mails)
-                      }
-                    : undefined
-                }
-                menu={
-                  <MessageMenu
-                    items={selectedItems}
-                    folders={allFolders}
-                    actions={selectedActions}
-                  />
-                }
-                snippets={searching ? snippets : undefined}
-                hasMore={Boolean(searching ? results.hasNextPage : messages.hasNextPage)}
-                loadingMore={searching ? results.isFetchingNextPage : messages.isFetchingNextPage}
-                onLoadMore={() =>
-                  void (searching ? results.fetchNextPage() : messages.fetchNextPage())
-                }
-                emptyText={
-                  searching
-                    ? 'Keine Treffer.'
-                    : syncStatus.data?.running
-                      ? 'Wird synchronisiert…'
-                      : 'Dieser Ordner ist leer.'
-                }
-              />
-            )}
-          </div>
-        </section>
+        <MailListPane
+          listWidth={listWidth}
+          folderId={folderId}
+          allFolders={allFolders}
+          chooseFolder={chooseFolder}
+          search={search}
+          threads={threads}
+          setThreads={setThreads}
+          listLoading={listLoading}
+          messages={messages}
+          threadList={threadList}
+          listItems={listItems}
+          selection={selection}
+          changeSelection={changeSelection}
+          canWrite={canWrite}
+          openWindow={openWindow}
+          selectedItems={selectedItems}
+          selectedActions={selectedActions}
+          setMovingFolder={setMovingFolder}
+          setDragged={setDragged}
+          syncStatus={syncStatus}
+        />
         <PaneResizer
           label="Breite der Nachrichtenliste"
           width={listWidth}
@@ -1016,69 +539,28 @@ function MailClient() {
           onResize={setListWidth}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          {compose ? (
-            <ComposeView
-              key={compose.key}
-              accountId={accountId}
-              initial={compose.state}
-              onClose={() => {
-                setCompose(null)
-                // A sent or discarded draft is gone from Drafts
-                if (compose.draftId !== undefined) setSelection(EMPTY_SELECTION)
-              }}
-              onStored={refreshLists}
-            />
-          ) : selectedId !== null ? (
-            <MessageView
-              key={selectedId}
-              accountId={accountId}
-              messageId={selectedId}
-              canWrite={canWrite}
-              inTrash={isTrash(
-                allFolders.find(
-                  (f) => f.id === listItems.find((m) => m.id === selectedId)?.folderId
-                )
-              )}
-              onToggleFlag={(id, flagged) => markFlagged([id], flagged)}
-              onDelete={(id) => void moveAway([id], { kind: 'delete' })}
-              onArchive={
-                // MR-36: not offered for a mail already in Archive (a self-move the core refuses,
-                // which hid the row until a restart) and not from Trash
-                hasArchive &&
-                archiveableIds(
-                  [listItems.find((m) => m.id === selectedId)].filter(
-                    (m): m is MessageListItem => m !== undefined
-                  ),
-                  allFolders
-                ).length > 0
-                  ? (id) => void moveAway([id], { kind: 'archive' })
-                  : undefined
-              }
-              onMarkUnread={(id) => markRead([id], false)}
-              onCompose={reading.canCompose ? composeFrom : undefined}
-              onWriteTo={
-                reading.canWriteTo
-                  ? (address) => startCompose(composeTo(address, account?.signature))
-                  : undefined
-              }
-              onOpenEvent={(eventId) =>
-                void navigate({ to: '/events/$eventId', params: { eventId: String(eventId) } })
-              }
-            />
-          ) : selection.ids.length > 1 && selectedItems.length > 0 ? (
-            <SelectionActions
-              items={selectedItems}
-              actions={selectedActions}
-              onClear={() => setSelection(EMPTY_SELECTION)}
-            />
-          ) : (
-            <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">
-              <Mail className="size-10 stroke-1" aria-hidden />
-              <p>Keine E-Mail ausgewählt.</p>
-            </div>
-          )}
-        </div>
+        <ReadingPane
+          compose={compose}
+          setCompose={setCompose}
+          selection={selection}
+          setSelection={setSelection}
+          selectedId={selectedId}
+          selectedItems={selectedItems}
+          selectedActions={selectedActions}
+          account={account}
+          accountId={accountId}
+          canWrite={canWrite}
+          reading={reading}
+          allFolders={allFolders}
+          listItems={listItems}
+          hasArchive={hasArchive}
+          markRead={markRead}
+          markFlagged={markFlagged}
+          moveAway={moveAway}
+          composeFrom={composeFrom}
+          startCompose={startCompose}
+          refreshLists={refreshLists}
+        />
       </div>
     </div>
   )

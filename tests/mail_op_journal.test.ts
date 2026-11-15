@@ -389,8 +389,9 @@ describe('the core behind the panel', () => {
 })
 
 describe('the mail page shows the panel', () => {
-  const page = fs.readFileSync(
-    path.join(__dirname, '../src/renderer/src/pages/MailPage.tsx'),
+  // #61: the page's top bar is its own component
+  const header = fs.readFileSync(
+    path.join(__dirname, '../src/renderer/src/components/mail/MailHeader.tsx'),
     'utf8'
   )
   // R4: the open ops, their actions and the event subscription live in the page's useMailOps hook
@@ -427,6 +428,6 @@ describe('the mail page shows the panel', () => {
   })
 
   it('puts the badge in the header of a writable account only', () => {
-    expect(page).toMatch(/\{canWrite && \(\s*<OpJournalPanel/)
+    expect(header).toMatch(/\{canWrite && \(\s*<OpJournalPanel/)
   })
 })
