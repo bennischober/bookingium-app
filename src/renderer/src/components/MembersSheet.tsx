@@ -3,7 +3,10 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Plus, Pencil, Trash2, Users } from 'lucide-react'
 import { toast } from '@/lib/toast'
-import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
+import { ErrorState, LoadingRow } from '@/components/load-states'
+import { TabHeader } from '@/components/detail/DetailParts'
+import { CARD_GRID } from '@/components/detail/tabStyles'
+import { countLabel } from '@/components/detail/tableSort'
 import { trpcReact } from '@/lib/trpc'
 import {
   Sheet,
@@ -264,59 +267,69 @@ export function MembersPanel({
   return (
     <>
       <div className="space-y-3">
-        <Button size="sm" variant="outline" onClick={openAdd} className="w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          Person hinzufügen
-        </Button>
+        <TabHeader
+          summary={
+            membersOf.data
+              ? members.length === 0
+                ? `Noch keine ${nouns.many}.`
+                : countLabel(members.length, nouns.one, nouns.many)
+              : undefined
+          }
+        >
+          <Button size="sm" onClick={openAdd} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Person hinzufügen
+          </Button>
+        </TabHeader>
 
         {membersOf.isLoading ? (
           <LoadingRow>{nouns.many} werden geladen…</LoadingRow>
         ) : membersOf.isError ? (
           <ErrorState error={membersOf.error} onRetry={() => void membersOf.refetch()} />
-        ) : members.length === 0 ? (
-          <EmptyState>Noch keine {nouns.many}.</EmptyState>
-        ) : (
-          members.map((member) => (
-            <div key={member.id} className="flex items-center justify-between p-3 border rounded">
-              <div className="flex-1 min-w-0">
-                <Link
-                  to="/persons/$personId"
-                  params={{ personId: String(member.personId) }}
-                  className="block truncate font-medium hover:underline"
-                >
-                  {member.personName}
-                </Link>
-                {member.role && (
-                  <Badge variant="secondary" className="mt-1">
-                    {member.role}
-                  </Badge>
-                )}
-                {member.notes && (
-                  <p className="text-xs text-muted-foreground mt-1">{member.notes}</p>
-                )}
+        ) : members.length === 0 ? null : (
+          <div className={CARD_GRID}>
+            {members.map((member) => (
+              <div key={member.id} className="flex items-center justify-between p-3 border rounded">
+                <div className="flex-1 min-w-0">
+                  <Link
+                    to="/persons/$personId"
+                    params={{ personId: String(member.personId) }}
+                    className="block truncate font-medium hover:underline"
+                  >
+                    {member.personName}
+                  </Link>
+                  {member.role && (
+                    <Badge variant="secondary" className="mt-1">
+                      {member.role}
+                    </Badge>
+                  )}
+                  {member.notes && (
+                    <p className="text-xs text-muted-foreground mt-1">{member.notes}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEdit(member)}
+                    title="Rolle bearbeiten"
+                    aria-label={`Rolle von ${member.personName} bearbeiten`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemove(member)}
+                    title="Entfernen"
+                    aria-label={`${member.personName} entfernen`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openEdit(member)}
-                  title="Rolle bearbeiten"
-                  aria-label={`Rolle von ${member.personName} bearbeiten`}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemove(member)}
-                  title="Entfernen"
-                  aria-label={`${member.personName} entfernen`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 

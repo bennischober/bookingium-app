@@ -32,7 +32,7 @@ test('bills Q4 2025 from the contract as a draft invoice', async () => {
     .locator('tr', { hasText: BAND })
     .getByRole('button', { name: 'Managementvertrag' })
     .click()
-  await page.getByRole('button', { name: '+ Vertrag anlegen' }).click()
+  await page.getByRole('button', { name: 'Neuer Vertrag' }).click()
   await page.getByRole('button', { name: 'Quartal abrechnen' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Managementbeteiligung abrechnen' })

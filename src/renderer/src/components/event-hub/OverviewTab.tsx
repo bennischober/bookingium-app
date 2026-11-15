@@ -28,14 +28,6 @@ import {
 } from '@/components/map/radiusDisplay'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
-import { formatDate } from './constants'
-
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Ausstehend',
-  cancelled: 'Storniert'
-}
-
 export interface OverviewTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -335,30 +327,20 @@ export function OverviewTab({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <ReadOnlyField label="Eventname" value={name} />
-              <ReadOnlyField label="Datum" value={date ? formatDate(date) : null} />
+            {/* Name, date and status are in the page header; they are edited here */}
+            <ReadOnlyField label="Anmerkungen" value={notes} placeholder="Keine Anmerkungen" />
+            {mapPreview.enabled && inheritedRadius && (
               <ReadOnlyField
-                label="Status"
-                value={status ? (STATUS_LABELS[status] ?? status) : null}
+                label="Gebietsschutz"
+                value={`${formatClause(inheritClause(event, inheritedRadius))} (${
+                  hasOverride(event)
+                    ? 'für dieses Event angepasst'
+                    : hasOverride(event.venue)
+                      ? 'vom Club/Festival'
+                      : 'Standard'
+                })`}
               />
-              {mapPreview.enabled && inheritedRadius && (
-                <ReadOnlyField
-                  label="Gebietsschutz"
-                  value={`${formatClause(inheritClause(event, inheritedRadius))} (${
-                    hasOverride(event)
-                      ? 'für dieses Event angepasst'
-                      : hasOverride(event.venue)
-                        ? 'vom Club/Festival'
-                        : 'Standard'
-                  })`}
-                />
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <ReadOnlyField label="Anmerkungen" value={notes} placeholder="Keine Anmerkungen" />
-            </div>
+            )}
           </div>
         )}
       </div>

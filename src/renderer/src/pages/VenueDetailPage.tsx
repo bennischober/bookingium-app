@@ -173,7 +173,6 @@ export default function VenueDetailPage() {
                 id: 'contacts',
                 label: 'Ansprechpartner',
                 count: counts.contacts,
-                className: 'max-w-2xl',
                 content: <MembersPanel entityType="venue" entityId={venue.id} />
               },
               {

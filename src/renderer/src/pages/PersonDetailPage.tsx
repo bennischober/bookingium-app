@@ -113,7 +113,7 @@ function BandsTab({ personId }: { personId: number }) {
   const ledBands = trpcReact.band.listByResponsiblePerson.useQuery(personId)
   return (
     <div className="space-y-8">
-      <section className="max-w-2xl">
+      <section>
         <SectionTitle>Mitglied in</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="band" />
       </section>
@@ -135,7 +135,7 @@ function CompaniesTab({ personId }: { personId: number }) {
   const billed = trpcReact.company.listByInvoiceContact.useQuery(personId)
   return (
     <div className="space-y-8">
-      <section className="max-w-2xl">
+      <section>
         <SectionTitle>Zugehörig zu</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="company" />
       </section>
@@ -180,7 +180,7 @@ function VenuesTab({ personId }: { personId: number }) {
 
   return (
     <div className="space-y-8">
-      <section className="max-w-2xl">
+      <section>
         <SectionTitle>Clubs und Festivals</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="venue" />
       </section>

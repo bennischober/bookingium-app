@@ -213,7 +213,6 @@ export default function CompanyDetailPage() {
               id: 'contacts',
               label: 'Ansprechpartner',
               count: counts.contacts,
-              className: 'max-w-2xl',
               content: <MembersPanel entityType="company" entityId={company.id} />
             },
             {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Upload } from 'lucide-react'
+import { TabHeader } from '@/components/detail/DetailParts'
+import { countLabel } from '@/components/detail/tableSort'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -130,28 +132,27 @@ export function DocumentsPanel({
         </div>
       )}
 
-      {/* Toolbar row; the large box is the empty state below */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={() => void handleSelectFiles()} disabled={isUploading}>
-            <Upload className="h-4 w-4" />
-            {isUploading ? 'Wird hochgeladen…' : 'Dateien auswählen'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => openFolder.mutate(owner)}
-            disabled={openFolder.isPending}
-          >
-            <FolderOpen className="h-4 w-4" /> Ordner öffnen
-          </Button>
-          <span className="text-sm text-muted-foreground">oder hierher ziehen</span>
-        </div>
-        {documents.length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            {title} ({documents.length})
-          </span>
-        )}
-      </div>
+      {/* Header row like every tab's; the large box is the empty state below */}
+      <TabHeader
+        summary={
+          documents.length > 0
+            ? `${countLabel(documents.length, 'Dokument', 'Dokumente')} · weitere hierher ziehen`
+            : undefined
+        }
+      >
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openFolder.mutate(owner)}
+          disabled={openFolder.isPending}
+        >
+          <FolderOpen className="h-4 w-4" /> Ordner öffnen
+        </Button>
+        <Button size="sm" onClick={() => void handleSelectFiles()} disabled={isUploading}>
+          <Upload className="h-4 w-4" />
+          {isUploading ? 'Wird hochgeladen…' : 'Dateien auswählen'}
+        </Button>
+      </TabHeader>
 
       {isEmpty ? (
         <div
@@ -164,7 +165,7 @@ export function DocumentsPanel({
           <h3 className="mb-1 font-semibold">Noch keine Dokumente</h3>
           {/* The toolbar above holds the one "Dateien auswählen" button */}
           <p className="text-sm text-muted-foreground">
-            Dateien hier ablegen oder oben „Dateien auswählen“ verwenden.
+            Dateien hier ablegen oder „Dateien auswählen“ verwenden.
           </p>
         </div>
       ) : (
