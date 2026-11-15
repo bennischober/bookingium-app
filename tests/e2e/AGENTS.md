@@ -13,6 +13,7 @@ throwaway userData folder and assert on rendered German UI or written files.
 | Mail client | `mail-client.spec.ts` | sandbox-gated; turns the experimental switch on in `beforeAll` |
 | Import / export / calendar | `import`, `import-bands`, `export`, `calendar-feed`, `follow-ups` | |
 | Launch + app handle | `helpers/launch.ts` | `launchApp`, `createTestUserData`, `AppHandle` |
+| Toasts left by an earlier test | `helpers/toasts.ts` | `dismissToasts(page)`: error toasts stay until closed |
 | Mail sandbox seeding | `helpers/mailSandbox.ts` | `seedMailSandbox`, `removeSentTestMails` |
 | PDF probes | `helpers/pdf2png.mjs`, `pdf-text.mjs` | CLI, not imports |
 

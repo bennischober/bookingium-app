@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { launchApp, type AppHandle } from './helpers/launch'
+import { dismissToasts } from './helpers/toasts'
 
 let h: AppHandle
 let outDir: string
@@ -136,6 +137,8 @@ test('builds, saves and exports a mailing list', async () => {
 
 test('lists a radio station entered as a company', async () => {
   const { page } = h
+  // The test before ends on a lasting error toast, which would cover "Firma speichern" (#173)
+  await dismissToasts(page)
   await menu().getByRole('link', { name: 'Firmen' }).click()
   await page.getByRole('button', { name: '+ Neue Firma anlegen' }).click()
   const sheet = page.getByRole('dialog', { name: 'Firma anlegen' })
