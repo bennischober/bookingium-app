@@ -533,6 +533,8 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
 
 ## DATEV (Upload Mail)
 
+Going live (moving invoices and customers over from DATEV): `docs/DATEV_GO_LIVE.md`.
+
 The agency keeps its books in DATEV Unternehmen online (DUO). Every document (Beleg) has to get
 there, so an invoice is handed over from its print page: „An DATEV übergeben“ mails the PDF
 the page prints (with the embedded e-invoice when complete) to the **DATEV Upload Mail**
