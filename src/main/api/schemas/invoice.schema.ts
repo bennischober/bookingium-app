@@ -35,6 +35,13 @@ export type InvoiceKind = z.infer<typeof InvoiceKind>
 
 // What "Per E-Mail senden" created: the invoice itself, a Zahlungserinnerung
 // or a Mahnung about it
+/**
+ * How a company's invoice numbers are built: `plain` counts on (1040, 1041, ...), `year`
+ * puts the issue year in front of the running number (2026813, padded to the set digits)
+ */
+export const InvoiceNumberFormat = z.enum(['plain', 'year'])
+export type InvoiceNumberFormat = z.infer<typeof InvoiceNumberFormat>
+
 export const InvoiceEmailKind = z.enum(['invoice', 'reminder', 'dunning'])
 export type InvoiceEmailKind = z.infer<typeof InvoiceEmailKind>
 /** Zahlungserinnerung (the first) or Mahnung (every one after it) */
@@ -269,6 +276,11 @@ export const CompanyInvoiceSettingsDto = z
     id: z.number(),
     companyId: z.number(),
     nextInvoiceNumber: z.number(),
+    numberFormat: InvoiceNumberFormat,
+    numberDigits: z.number(),
+    numberYearlyReset: z.boolean(),
+    /** The issue year of the last number taken, null before the first */
+    numberYear: z.number().nullable(),
     /** DATEV Upload Mail address of the company's DATEV client, '' for none */
     datevUploadEmail: z.string()
   })
@@ -285,6 +297,15 @@ export const UpsertCompanyInvoiceSettingsInput = z.object({
 })
 
 export type UpsertCompanyInvoiceSettingsInput = z.infer<typeof UpsertCompanyInvoiceSettingsInput>
+
+/** How a company's invoice numbers are built (Einstellungen › Rechnungen) */
+export const SetInvoiceNumberingInput = z.object({
+  companyId: z.number().int().positive(),
+  format: InvoiceNumberFormat,
+  digits: z.number().int().min(1).max(9),
+  yearlyReset: z.boolean()
+})
+export type SetInvoiceNumberingInput = z.infer<typeof SetInvoiceNumberingInput>
 
 export const InvoiceLineItemInput = z.object({
   description: z.string().min(1),

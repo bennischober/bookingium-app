@@ -2,7 +2,10 @@ import { injectable } from 'tsyringe'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import type { UpsertCompanyInvoiceSettingsInput } from '../api/schemas/invoice.schema'
+import type {
+  SetInvoiceNumberingInput,
+  UpsertCompanyInvoiceSettingsInput
+} from '../api/schemas/invoice.schema'
 import type { SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
 
 /** A company's invoice settings (its next invoice number, its DATEV upload address) */
@@ -65,6 +68,24 @@ export class InvoiceSettingsRepository {
       .onConflictDoUpdate({
         target: schema.company_invoice_settings.company_id,
         set: { datev_upload_email: input.datevUploadEmail, updated_at: sql`datetime('now')` }
+      })
+      .returning()
+      .get()
+  }
+
+  /** How the company's numbers are built; a company without settings gets its row now */
+  async setNumbering(input: SetInvoiceNumberingInput) {
+    const values = {
+      invoice_number_format: input.format,
+      invoice_number_digits: input.digits,
+      invoice_number_yearly_reset: input.yearlyReset
+    }
+    return db
+      .insert(schema.company_invoice_settings)
+      .values({ company_id: input.companyId, ...values })
+      .onConflictDoUpdate({
+        target: schema.company_invoice_settings.company_id,
+        set: { ...values, updated_at: sql`datetime('now')` }
       })
       .returning()
       .get()

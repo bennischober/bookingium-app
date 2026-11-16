@@ -17,6 +17,7 @@ import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import {
   InvoiceEmailKind,
   InvoiceKind,
+  InvoiceNumberFormat,
   InvoiceRecipientKind,
   InvoiceStatus,
   InvoiceTaxCode
@@ -490,7 +491,18 @@ export const company_invoice_settings = sqliteTable(
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
+    // The next running number (with format `year`, the part after the year)
     next_invoice_number: integer('next_invoice_number').default(1).notNull(),
+    // plain | year (InvoiceNumberFormat): 1040 or 2026813
+    invoice_number_format: text('invoice_number_format').default('plain').notNull(),
+    // Format `year`: the running number is padded to this many digits (2026 + 813)
+    invoice_number_digits: integer('invoice_number_digits').default(3).notNull(),
+    // Format `year`: the running number starts at 1 again in a new year
+    invoice_number_yearly_reset: integer('invoice_number_yearly_reset', { mode: 'boolean' })
+      .default(false)
+      .notNull(),
+    // The issue year of the last number taken (for the yearly restart)
+    invoice_number_year: integer('invoice_number_year'),
     // The "DATEV Upload Mail" address of the company's DATEV client (Mandant), '' for none:
     // documents handed to DATEV are mailed there
     datev_upload_email: text('datev_upload_email').default('').notNull(),
@@ -503,7 +515,16 @@ export const company_invoice_settings = sqliteTable(
   },
   (table) => [
     uniqueIndex('company_invoice_settings_company_unique_idx').on(table.company_id),
-    index('company_invoice_settings_next_number_idx').on(table.next_invoice_number)
+    index('company_invoice_settings_next_number_idx').on(table.next_invoice_number),
+    oneOf(
+      'company_invoice_settings_number_format_check',
+      'invoice_number_format',
+      InvoiceNumberFormat.options
+    ),
+    check(
+      'company_invoice_settings_number_digits_check',
+      sql.raw('"invoice_number_digits" BETWEEN 1 AND 9')
+    )
   ]
 )
 

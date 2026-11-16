@@ -330,6 +330,13 @@
       "when": 1794819692214,
       "tag": "0046_datev_transfer",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794826452192,
+      "tag": "0047_invoice_number_format",
+      "breakpoints": true
     }
   ]
 }

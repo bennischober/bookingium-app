@@ -56,6 +56,14 @@ describe('enum columns', () => {
       'invoice_status_change_status_check'
     ],
     [
+      "insert into company_invoice_settings (company_id, invoice_number_format) values (1, 'monthly')",
+      'company_invoice_settings_number_format_check'
+    ],
+    [
+      'insert into company_invoice_settings (company_id, invoice_number_digits) values (1, 0)',
+      'company_invoice_settings_number_digits_check'
+    ],
+    [
       "insert into datev_transfer (invoice_id, status, \"to\", file_name, mail_account_id, send_key) values (1, 'failed', 'u@x', 'R.pdf', 'a', 'k')",
       'datev_transfer_status_check'
     ],

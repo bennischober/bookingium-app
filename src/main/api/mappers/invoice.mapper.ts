@@ -170,6 +170,10 @@ export class InvoiceMapper {
       id: entity.id,
       companyId: entity.company_id,
       nextInvoiceNumber: entity.next_invoice_number,
+      numberFormat: entity.invoice_number_format as CompanyInvoiceSettingsDto['numberFormat'],
+      numberDigits: entity.invoice_number_digits,
+      numberYearlyReset: entity.invoice_number_yearly_reset,
+      numberYear: entity.invoice_number_year,
       datevUploadEmail: entity.datev_upload_email,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at

@@ -12,6 +12,7 @@ import {
   PreviewInvoicePartiesInput,
   SetInvoiceStatusInput,
   UpdateInvoiceInput,
+  SetInvoiceNumberingInput,
   UpsertCompanyInvoiceSettingsInput,
   type InvoiceEmailKind,
   type InvoiceMailDto
@@ -228,5 +229,11 @@ export const invoiceRouter = t.router({
     .mutation(async ({ input }) => {
       const settings = await invoiceService.upsertCompanyInvoiceSettings(input)
       return InvoiceMapper.toSettingsDto(settings)
-    })
+    }),
+
+  /** How the company's invoice numbers are built (plain or year + running number) */
+  setNumbering: t.procedure.input(SetInvoiceNumberingInput).mutation(async ({ input }) => {
+    const settings = await invoiceService.setNumberingFormat(input)
+    return InvoiceMapper.toSettingsDto(settings)
+  })
 })
