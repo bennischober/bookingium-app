@@ -555,6 +555,9 @@ every mail carries exactly one.
 - **UI**: the print page button shows a check once handed over and asks before a second
   hand-over (it would be a second Beleg in DUO); the invoice page's Verlauf lists each
   hand-over (`invoiceHistory`).
+- **Nothing left out**: the Dashboard card „Noch nicht an DATEV übergeben“ (`DatevPendingCard`,
+  `datev.listNotHandedOver`) lists issued invoices and Stornorechnungen of companies with a
+  DATEV address that have no hand-over yet, oldest first, each leading to its print page.
 - **Numbers in step with DATEV**: one place issues a company's invoice numbers. When invoices
   move over from DATEV, Einstellungen › Rechnungen › Rechnungsnummerierung continues DATEV's
   last number; the format is plain (1040) or the issue year in front of a padded running number

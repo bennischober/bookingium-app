@@ -1,9 +1,34 @@
 import type { datev_transfer } from '../../db/schema'
-import type { DatevTransferDto, DatevTransferStatus } from '../schemas/datev.schema'
+import { fromCents } from '../../einvoice/amounts'
+import type {
+  DatevPendingInvoiceDto,
+  DatevTransferDto,
+  DatevTransferStatus
+} from '../schemas/datev.schema'
 
 type DatevTransferEntity = typeof datev_transfer.$inferSelect
 
 export class DatevMapper {
+  static toPendingInvoiceDto(row: {
+    id: number
+    invoiceNumber: number | null
+    kind: string
+    issueDate: string
+    totalGrossCents: number
+    currency: string
+    recipientName: string | null
+  }): DatevPendingInvoiceDto {
+    return {
+      id: row.id,
+      invoiceNumber: row.invoiceNumber ?? 0,
+      kind: row.kind === 'cancellation' ? 'cancellation' : 'invoice',
+      issueDate: row.issueDate,
+      totalAmount: fromCents(row.totalGrossCents),
+      currency: row.currency,
+      recipientName: row.recipientName ?? ''
+    }
+  }
+
   static toTransferDto(entity: DatevTransferEntity): DatevTransferDto {
     return {
       id: entity.id,

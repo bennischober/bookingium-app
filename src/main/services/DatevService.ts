@@ -25,6 +25,10 @@ export class DatevService implements DatevSendLedger {
     return await this.invoiceSettingsRepository.setDatevUploadEmail(input)
   }
 
+  listNotHandedOver() {
+    return this.datevTransferRepository.listNotHandedOver()
+  }
+
   listForInvoice(invoiceId: number) {
     return this.datevTransferRepository.listForInvoice(invoiceId)
   }

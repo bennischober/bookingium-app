@@ -255,6 +255,52 @@ describe('the DATEV hand-overs (DatevService)', () => {
   })
 })
 
+describe('the invoices not handed to DATEV yet', () => {
+  it('lists issued invoices of DATEV companies until a hand-over is under way', async () => {
+    const companies = container.resolve(CompanyService)
+    const invoices = container.resolve(InvoiceService)
+    const datev = container.resolve(DatevService)
+    const withDatev = await companies.createCompany({
+      name: 'Pending DATEV GmbH',
+      isDefaultForInvoicing: false
+    })
+    const without = await companies.createCompany({
+      name: 'No DATEV GmbH',
+      isDefaultForInvoicing: false
+    })
+    await datev.setUploadEmail({ companyId: withDatev.id, datevUploadEmail: 'u@duo.example.test' })
+    const line = [
+      {
+        description: 'A',
+        quantity: 1,
+        unitPriceNet: 100,
+        taxRate: 19,
+        taxCode: 'standard' as const
+      }
+    ]
+    const issued = await invoices.createInvoice({
+      companyId: withDatev.id,
+      status: 'issued',
+      issueDate: '2026-11-02',
+      lineItems: line
+    })
+    await invoices.createInvoice({ companyId: withDatev.id, lineItems: line }) // draft
+    await invoices.createInvoice({ companyId: without.id, status: 'issued', lineItems: line })
+
+    const pendingIds = () => datev.listNotHandedOver().map((row) => row.id)
+    expect(pendingIds()).toEqual([issued.id])
+
+    datev.addPending({
+      invoiceId: issued.id,
+      to: 'u@duo.example.test',
+      fileName: 'R.pdf',
+      mailAccountId: 'sandbox-1',
+      sendKey: 'key-list'
+    })
+    expect(pendingIds()).toEqual([])
+  })
+})
+
 describe('SetDatevUploadEmailInput', () => {
   it('takes an address or nothing, trimmed', () => {
     expect(

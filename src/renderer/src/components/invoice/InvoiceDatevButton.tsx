@@ -65,7 +65,7 @@ export function InvoiceDatevButton({
       }
     } finally {
       // An unclear send stays pending: the list shows it as still being confirmed
-      void utils.datev.listForInvoice.invalidate(invoiceId)
+      void utils.datev.invalidate()
       setSending(false)
     }
   }

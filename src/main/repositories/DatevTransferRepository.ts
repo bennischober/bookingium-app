@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, ne, notExists, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 
@@ -87,6 +87,48 @@ export class DatevTransferRepository {
       .from(schema.datev_transfer)
       .where(eq(schema.datev_transfer.invoice_id, invoiceId))
       .orderBy(desc(schema.datev_transfer.created_at), desc(schema.datev_transfer.id))
+      .all()
+  }
+
+  /**
+   * Issued invoices of companies with a DATEV address that have not been handed over (no sent
+   * transfer; one still being confirmed counts as handed over), oldest first
+   */
+  listNotHandedOver(limit = 50) {
+    const transfer = schema.datev_transfer
+    return db
+      .select({
+        id: schema.invoice.id,
+        invoiceNumber: schema.invoice.invoice_number,
+        kind: schema.invoice.kind,
+        issueDate: schema.invoice.issue_date,
+        totalGrossCents: schema.invoice.total_gross_cents,
+        currency: schema.invoice.currency,
+        recipientName: schema.invoice_party_snapshot.legal_name
+      })
+      .from(schema.invoice)
+      .innerJoin(
+        schema.company_invoice_settings,
+        eq(schema.company_invoice_settings.company_id, schema.invoice.company_id)
+      )
+      .leftJoin(
+        schema.invoice_party_snapshot,
+        eq(schema.invoice_party_snapshot.id, schema.invoice.recipient_snapshot_id)
+      )
+      .where(
+        and(
+          isNotNull(schema.invoice.invoice_number),
+          ne(schema.company_invoice_settings.datev_upload_email, ''),
+          notExists(
+            db
+              .select({ id: transfer.id })
+              .from(transfer)
+              .where(eq(transfer.invoice_id, schema.invoice.id))
+          )
+        )
+      )
+      .orderBy(asc(schema.invoice.issue_date), asc(schema.invoice.invoice_number))
+      .limit(limit)
       .all()
   }
 }

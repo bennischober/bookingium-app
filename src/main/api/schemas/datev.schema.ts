@@ -28,6 +28,18 @@ export const DatevTransferDto = z.object({
 })
 export type DatevTransferDto = z.infer<typeof DatevTransferDto>
 
+/** An issued invoice not yet handed to DATEV (Dashboard) */
+export const DatevPendingInvoiceDto = z.object({
+  id: z.number(),
+  invoiceNumber: z.number(),
+  kind: z.enum(['invoice', 'cancellation']),
+  issueDate: z.string(),
+  totalAmount: z.number(),
+  currency: z.string(),
+  recipientName: z.string()
+})
+export type DatevPendingInvoiceDto = z.infer<typeof DatevPendingInvoiceDto>
+
 /** '' clears the address; anything else must be a mail address */
 export const DatevUploadEmail = z.union([z.literal(''), z.email()])
 
