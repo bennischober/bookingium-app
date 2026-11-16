@@ -555,6 +555,20 @@ every mail carries exactly one.
 - **UI**: the print page button shows a check once handed over and asks before a second
   hand-over (it would be a second Beleg in DUO); the invoice page's Verlauf lists each
   hand-over (`invoiceHistory`).
+- **Numbers in step with DATEV**: one place issues a company's invoice numbers. When invoices
+  move over from DATEV, Einstellungen › Rechnungen › Rechnungsnummerierung continues DATEV's
+  last number; the format is plain (1040) or the issue year in front of a padded running number
+  (`year`, 2026813), optionally restarting at 1 each year (`invoice/numbering.ts` `takeNumber`,
+  columns on `company_invoice_settings`). `takeNextInvoiceNumber` refuses an issue date before
+  the company's last issued invoice (`assertChronological`), so numbers and dates reach DATEV in
+  one order. Corrections stay a Storno with the next number; drafts never hold a number.
+- **Kundennummern made in Bookingium**: `customer_number` on company, band and person (one
+  number space, unique per table, `repositories/customerNumbers.ts` refuses one already taken
+  elsewhere). A recipient without one gets the next free number with its first issued invoice
+  (`withCustomerNumberTx` in `invoice/partySnapshots.ts`, from `AppSettings.nextCustomerNumber`,
+  default 10000 = DATEV's first debtor account, skipping numbers already taken); the snapshot
+  freezes it and the Geschäftsbrief prints it. Numbers from DATEV are entered on the company or
+  imported at go-live, and the setting then continues after them.
 - **Neutral on purpose**: received documents (Eingangsbelege) are to take the same path; the
   table and the send are named after DATEV, not after invoices. The DATEV API
   (`accounting:documents`) can replace the mail later behind the same ledger.

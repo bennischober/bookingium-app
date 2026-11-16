@@ -127,6 +127,9 @@ export const person = sqliteTable(
     notes: text('notes'),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -134,7 +137,10 @@ export const person = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('person_name_idx').on(table.first_name, table.last_name)]
+  (table) => [
+    index('person_name_idx').on(table.first_name, table.last_name),
+    uniqueIndex('person_customer_number_idx').on(table.customer_number)
+  ]
 )
 
 // Company table
@@ -154,6 +160,9 @@ export const company = sqliteTable(
     logo_path: text('logo_path').default('').notNull(),
     signature_path: text('signature_path').default('').notNull(),
     ksk_number: text('ksk_number').default('').notNull(),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
       .default(false)
       .notNull(),
@@ -172,6 +181,7 @@ export const company = sqliteTable(
   },
   (table) => [
     index('company_name_idx').on(table.name),
+    uniqueIndex('company_customer_number_idx').on(table.customer_number),
     // One company issues invoices by default
     uniqueIndex('company_default_for_invoicing_idx')
       .on(table.is_default_for_invoicing)
@@ -209,6 +219,9 @@ export const band = sqliteTable(
     name: text('name').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id),
@@ -228,7 +241,11 @@ export const band = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('band_name_idx').on(table.name), index('band_company_idx').on(table.company_id)]
+  (table) => [
+    index('band_name_idx').on(table.name),
+    index('band_company_idx').on(table.company_id),
+    uniqueIndex('band_customer_number_idx').on(table.customer_number)
+  ]
 )
 
 // Band member junction table
@@ -542,6 +559,8 @@ export const invoice_party_snapshot = sqliteTable(
       onDelete: 'set null'
     }),
     legal_name: text('legal_name').notNull(),
+    // The recipient's Kundennummer as it was when the invoice was issued
+    customer_number: integer('customer_number'),
     street: text('street').default('').notNull(),
     street_number: text('street_number').default('').notNull(),
     zip_code: text('zip_code').default('').notNull(),

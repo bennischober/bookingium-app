@@ -24,9 +24,12 @@ import {
 import { assertIssuable, takeNextInvoiceNumber } from './invoice/numbering'
 import {
   createCompanySnapshot,
+  insertSnapshot,
   issueSnapshotIds,
   resolveInvoiceCompanyId,
-  resolveRecipientSnapshot
+  resolveRecipientSnapshot,
+  resolveRecipientValues,
+  withCustomerNumberTx
 } from './invoice/partySnapshots'
 import {
   invoiceEntity,
@@ -229,7 +232,14 @@ export class InvoiceRepository {
   createTx(tx: Tx, input: CreateInvoiceInput) {
     const companyId = resolveInvoiceCompanyId(tx, input)
     const issuerSnapshot = createCompanySnapshot(tx, companyId)
-    const recipientSnapshot = resolveRecipientSnapshot(tx, input, companyId)
+    const recipientValues = resolveRecipientValues(tx, input, companyId)
+    // An invoice issued right away gives its recipient a Kundennummer like an issued draft
+    const recipientSnapshot = insertSnapshot(
+      tx,
+      (input.status ?? 'draft') === 'draft'
+        ? recipientValues
+        : withCustomerNumberTx(tx, recipientValues)
+    )
     const { items: normalizedLineItems, totals } = normalizeLineItems(
       input.lineItems,
       input.totalAmount

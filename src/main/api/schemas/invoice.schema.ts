@@ -132,6 +132,8 @@ export const InvoicePartySnapshotDto = z.object({
   id: z.number(),
   kind: z.string(),
   legalName: z.string(),
+  /** The recipient's Kundennummer when the invoice was issued, null for none */
+  customerNumber: z.number().nullable(),
   street: z.string(),
   streetNumber: z.string(),
   zipCode: z.string(),

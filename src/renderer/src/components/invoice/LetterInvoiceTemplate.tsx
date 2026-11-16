@@ -51,6 +51,7 @@ export function LetterTemplate({
         </div>
         <div className="w-[68mm] text-[9.5pt] leading-snug">
           <div>Rechnungs-Nr.: {invoice.invoiceNumber ?? 'Entwurf'}</div>
+          {recipient?.customerNumber != null && <div>Kundennummer: {recipient.customerNumber}</div>}
           <div>Belegdatum: {formatDate(invoice.issueDate)}</div>
           <div>
             {letterServiceLabel(serviceDate.label)}: {serviceDate.value}

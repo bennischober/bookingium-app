@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { InvoiceNumberingCard } from '@/components/invoice/InvoiceNumberingCard'
 import { DatevCard } from '@/components/invoice/DatevCard'
+import { CustomerNumberCard } from '@/components/invoice/CustomerNumberCard'
 import { EInvoiceCard } from '@/components/invoice/EInvoiceCard'
 import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
@@ -447,6 +448,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="invoices" className="space-y-6">
           <InvoiceNumberingCard />
+          <CustomerNumberCard />
           <EInvoiceCard />
           <PaymentQrCard />
           <DatevCard />

@@ -166,51 +166,53 @@ singular of its list („Band“, „Festival“, „Firma“):
 
 ### Invoices
 
-| English                                            | German                                                            |
-| -------------------------------------------------- | ----------------------------------------------------------------- |
-| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                           |
-| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                             |
-| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno)    |
-| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                                |
-| Line items                                         | Positionen                                                        |
-| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                     |
-| Payment terms                                      | Zahlungsbedingungen                                               |
-| Invoice numbering                                  | Rechnungsnummerierung                                             |
-| E-invoice (ZUGFeRD)                                | E-Rechnung                                                        |
-| What the e-invoice still needs                     | Für die E-Rechnung fehlt: …                                       |
-| Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                       |
-| Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                     |
-| Invoice contact person                             | Ansprechpartner für Rechnungen                                    |
-| Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“            |
-| XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                             |
-| Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.        |
-| Hand an invoice to DATEV (Upload Mail)             | An DATEV übergeben; toast „An DATEV übergeben“                    |
-| DATEV in the Verlauf / still unconfirmed           | An DATEV übergeben / Übergabe an DATEV wird bestätigt             |
-| DATEV settings card (Einstellungen › Rechnungen)   | DATEV; Firma (DATEV-Mandant); Upload-Mail-Adresse                 |
-| Send contract by email (language of the email)     | Per E-Mail senden; Sprache der E-Mail: Deutsch / Englisch         |
-| Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / … |
-| Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}         |
-| Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                                |
-| Open an invoice (Dashboard, management share)      | Rechnung öffnen; page header „Per E-Mail senden…“ (to print page) |
-| Invoice history on its page                        | Verlauf                                                           |
-| History entries                                    | Angelegt / Gestellt / E-Mail erstellt / Als bezahlt markiert      |
-| History entries (cont.)                            | Als überfällig markiert / Wieder offen (gestellt) / Storniert     |
-| Payment reminder / dunning letter                  | Zahlungserinnerung / Mahnung (2. Mahnung, …)                      |
-| Offer the next one (page header, Dashboard)        | Zahlungserinnerung senden… / Mahnung senden…                      |
-| Its button on the print page                       | Zahlungserinnerung per E-Mail senden / Mahnung per E-Mail senden  |
-| Dashboard card / overdue since                     | Überfällige Rechnungen / Fällig seit 14.10.2026                   |
-| Payment deadline in the reminder text              | Frist ({Frist}: in 7 Tagen)                                       |
-| History entries for reminders                      | Zahlungserinnerung erstellt / Mahnung erstellt                    |
-| Stornorechnung's first entry                       | Gestellt als Storno zu Rechnung #1040                             |
-| Back to the list from a detail page                | Alle Rechnungen (Alle Firmen, …)                                  |
-| Draft sheet title                                  | Entwurf bearbeiten                                                |
-| Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                           |
-| Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar              |
-| Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)         |
-| Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                   |
-| `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                   |
-| `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                     |
-| `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig  |
+| English                                            | German                                                                   |
+| -------------------------------------------------- | ------------------------------------------------------------------------ |
+| Invoice / invoice number                           | Rechnung / Rechnungsnr.                                                  |
+| Issuer / recipient                                 | Rechnungssteller / Rechnungsempfänger                                    |
+| Status draft / issued / paid / overdue / cancelled | Entwurf / gestellt / bezahlt / überfällig / storniert (Storno)           |
+| Issue date / due date / period                     | Rechnungsdatum / Fällig / Zeitraum                                       |
+| Line items                                         | Positionen                                                               |
+| Net / VAT / gross                                  | Netto / MwSt. (USt.) / Brutto                                            |
+| Payment terms                                      | Zahlungsbedingungen                                                      |
+| Invoice numbering                                  | Rechnungsnummerierung                                                    |
+| E-invoice (ZUGFeRD)                                | E-Rechnung                                                               |
+| What the e-invoice still needs                     | Für die E-Rechnung fehlt: …                                              |
+| Buyer reference / routing id                       | Käuferreferenz / Leitweg-ID                                              |
+| Tax note (reverse charge, exemption reason)        | Steuerhinweis                                                            |
+| Invoice contact person                             | Ansprechpartner für Rechnungen                                           |
+| Payment QR code (EPC QR / GiroCode)                | QR-Code zum Bezahlen; on the invoice „Bequem bezahlen“                   |
+| XRechnung (public-sector buyer)                    | XRechnung (öffentlicher Auftraggeber)                                    |
+| Send invoice by email                              | Per E-Mail senden; toast „E-Mail in Outlook geöffnet“ etc.               |
+| Hand an invoice to DATEV (Upload Mail)             | An DATEV übergeben; toast „An DATEV übergeben“                           |
+| DATEV in the Verlauf / still unconfirmed           | An DATEV übergeben / Übergabe an DATEV wird bestätigt                    |
+| DATEV settings card (Einstellungen › Rechnungen)   | DATEV; Firma (DATEV-Mandant); Upload-Mail-Adresse                        |
+| Invoice number format                              | Fortlaufend / Jahr + laufende Nummer; Stellen; Jedes Jahr bei 1 beginnen |
+| Customer number                                    | Kundennummer; Nächste Kundennummer                                       |
+| Send contract by email (language of the email)     | Per E-Mail senden; Sprache der E-Mail: Deutsch / Englisch                |
+| Mail program (setting)                             | Mailprogramm: Automatisch / Outlook (klassisch) / Thunderbird / …        |
+| Email template placeholders                        | Platzhalter, e.g. {Rechnungsnummer}, {Betrag}, {Absender}                |
+| Invoice was emailed                                | E-Mail erstellt am 20.10.2026 an …                                       |
+| Open an invoice (Dashboard, management share)      | Rechnung öffnen; page header „Per E-Mail senden…“ (to print page)        |
+| Invoice history on its page                        | Verlauf                                                                  |
+| History entries                                    | Angelegt / Gestellt / E-Mail erstellt / Als bezahlt markiert             |
+| History entries (cont.)                            | Als überfällig markiert / Wieder offen (gestellt) / Storniert            |
+| Payment reminder / dunning letter                  | Zahlungserinnerung / Mahnung (2. Mahnung, …)                             |
+| Offer the next one (page header, Dashboard)        | Zahlungserinnerung senden… / Mahnung senden…                             |
+| Its button on the print page                       | Zahlungserinnerung per E-Mail senden / Mahnung per E-Mail senden         |
+| Dashboard card / overdue since                     | Überfällige Rechnungen / Fällig seit 14.10.2026                          |
+| Payment deadline in the reminder text              | Frist ({Frist}: in 7 Tagen)                                              |
+| History entries for reminders                      | Zahlungserinnerung erstellt / Mahnung erstellt                           |
+| Stornorechnung's first entry                       | Gestellt als Storno zu Rechnung #1040                                    |
+| Back to the list from a detail page                | Alle Rechnungen (Alle Firmen, …)                                         |
+| Draft sheet title                                  | Entwurf bearbeiten                                                       |
+| Cancellation invoice (kind `cancellation`)         | Stornorechnung; badge „Storno zu #1040“                                  |
+| Tax note presets                                   | Reverse Charge / § 4 Nr. 20 a UStG / Nicht steuerbar                     |
+| Unit (`service`, `piece`, `hour`, `day`, …)        | Einheit (Pauschale, Stück, Stunde, Tag, Monat, Kilometer)                |
+| Tax code (`TAX_CODE_LABELS`)                       | Steuerschlüssel                                                          |
+| `standard` / `reduced` / `zero_rated`              | Regelsatz / ermäßigt / Nullsatz                                          |
+| `reverse_charge` / `exempt` / `not_taxable`        | Reverse Charge / steuerfrei / nicht steuerbar                            |
+| `intra_community` / `export` / `other`             | innergemeinschaftliche Lieferung / Ausfuhr (Drittland) / sonstig         |
 
 ### Mail templates
 

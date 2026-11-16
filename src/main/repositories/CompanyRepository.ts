@@ -8,6 +8,7 @@ import { db } from '../db'
 import { company, address, contact, bank, band, invoice } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
+import { assertCustomerNumberFree } from './customerNumbers'
 
 @injectable()
 export class CompanyRepository {
@@ -144,6 +145,7 @@ export class CompanyRepository {
 
   async create(input: CreateCompanyInput) {
     return await db.transaction((tx) => {
+      assertCustomerNumberFree(tx, input.customerNumber, { kind: 'company', id: null })
       if (input.isDefaultForInvoicing) {
         tx.update(company).set({ is_default_for_invoicing: false }).run()
       }
@@ -200,6 +202,7 @@ export class CompanyRepository {
           logo_path: input.logoPath || '',
           signature_path: input.signaturePath || '',
           ksk_number: input.kskNumber || '',
+          customer_number: input.customerNumber ?? null,
           is_default_for_invoicing: input.isDefaultForInvoicing,
           invoice_contact_person_id: input.invoiceContactPersonId ?? null,
           address_id: addressId,
@@ -246,6 +249,7 @@ export class CompanyRepository {
       if (existing.length === 0) throw new Error('Firma nicht gefunden')
 
       const existingCompany = existing[0]
+      assertCustomerNumberFree(tx, input.customerNumber, { kind: 'company', id: input.id })
 
       if (input.isDefaultForInvoicing) {
         tx.update(company).set({ is_default_for_invoicing: false }).run()
@@ -337,6 +341,10 @@ export class CompanyRepository {
           logo_path: input.logoPath ?? existingCompany.logo_path,
           signature_path: input.signaturePath ?? existingCompany.signature_path,
           ksk_number: input.kskNumber ?? existingCompany.ksk_number,
+          customer_number:
+            input.customerNumber !== undefined
+              ? input.customerNumber
+              : existingCompany.customer_number,
           is_default_for_invoicing:
             input.isDefaultForInvoicing ?? existingCompany.is_default_for_invoicing,
           invoice_contact_person_id:
