@@ -152,10 +152,20 @@ test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
 
   await page.waitForURL(/invoices\/\d+\/print/)
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+  // A foreign recipient is suggested the English agency template; the checks name theirs
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option', { name: 'Standard', exact: true }).click()
+  await expect(page.locator('.paged-source')).toContainText('STORNORECHNUNG')
   const text = (await page.locator('.paged-source').textContent()) ?? ''
-  expect(text).toContain('STORNORECHNUNG')
   expect(text).toContain('zu Rechnung Nr. 1040')
   expect(text).toContain('-4.200,00')
+
+  // Geschäftsbrief: the same, with the Endbetrag of the letter's totals block
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option', { name: 'Geschäftsbrief' }).click()
+  await expect(page.locator('.paged-source')).toContainText('Stornorechnung')
+  await expect(page.locator('.paged-source')).toContainText('zu Rechnung Nr. 1040')
+  await expect(page.locator('.paged-source')).toContainText('Endbetrag:-4.200,00')
 
   // Agency template: the (negative) VAT line, not the reverse charge note
   await page.getByRole('combobox').first().click()

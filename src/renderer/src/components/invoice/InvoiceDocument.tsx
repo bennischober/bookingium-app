@@ -1,9 +1,10 @@
 import type { InvoicePrintDto } from '../../../../main/api/schemas/invoice.schema'
 import { PagedDocument } from '../print/PagedDocument'
 import { AgencyTemplate } from './AgencyInvoiceTemplate'
+import { LetterTemplate } from './LetterInvoiceTemplate'
 import { StandardTemplate } from './StandardInvoiceTemplate'
 
-// Templates: StandardInvoiceTemplate.tsx and AgencyInvoiceTemplate.tsx, built
+// Templates: LetterInvoiceTemplate.tsx, StandardInvoiceTemplate.tsx and AgencyInvoiceTemplate.tsx, built
 // from InvoiceParts.tsx and the helpers in invoiceFormat.ts
 
 // ========================================
@@ -11,6 +12,7 @@ import { StandardTemplate } from './StandardInvoiceTemplate'
 // ========================================
 
 export const INVOICE_TEMPLATES = [
+  { value: 'letter', label: 'Geschäftsbrief' },
   { value: 'standard', label: 'Standard' },
   { value: 'agency-de', label: 'Agentur (Deutsch)' },
   { value: 'agency-en', label: 'Agentur (Englisch)' }
@@ -59,6 +61,9 @@ export function InvoiceDocument({
         </div>
       )}
 
+      {template === 'letter' && (
+        <LetterTemplate data={data} logoUrl={logoUrl} paymentQr={paymentQr} />
+      )}
       {template === 'standard' && <StandardTemplate data={data} paymentQr={paymentQr} />}
       {template === 'agency-de' && (
         <AgencyTemplate data={data} lang="de" logoUrl={logoUrl} paymentQr={paymentQr} />

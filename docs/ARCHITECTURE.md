@@ -380,6 +380,15 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
   `tests/e2e/__screenshots__/` — inspect the PDF, not just the screenshot.
 - Issuing a draft re-takes both snapshots, so an invoice freezes the
   parties as they are when it gets its number.
+- **Invoice templates** (`InvoiceDocument.tsx` catalog, chosen next to the
+  print buttons): „Geschäftsbrief“ (`LetterInvoiceTemplate.tsx`, the layout
+  of an accounting-software letter: logo top right, sender line and info
+  block, items with unit price and VAT rate, „Summe / x % USt. auf EUR … /
+  Endbetrag“ from `letterFormat.ts`, legal data in four footer columns),
+  „Standard“ and „Agentur“ (DE/EN). The page suggests the Geschäftsbrief
+  for German or unknown recipients and „Agentur (Englisch)“ for foreign
+  ones, until a template is picked. Its footer flows after the content like
+  every template's (no pinned page footer, see `PagedDocument`).
 - **Concert contract sections** (`contract/contractSections.ts`): the
   numbers come from `contractSectionNumbers`, never from literals. An
   optional section is left out entirely and every later one moves up, so
