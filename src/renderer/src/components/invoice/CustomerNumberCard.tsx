@@ -13,19 +13,15 @@ import { Label } from '@/components/ui/label'
 export function CustomerNumberCard() {
   const utils = trpcReact.useUtils()
   const settings = trpcReact.settings.get.useQuery()
-  const [value, setValue] = useState('')
-
-  // Keep the input following the stored setting
+  // What was typed; until then (and after a save) the stored setting shows
+  const [typed, setTyped] = useState<string | null>(null)
   const stored = settings.data?.nextCustomerNumber
-  const [lastStored, setLastStored] = useState(stored)
-  if (stored !== lastStored) {
-    setLastStored(stored)
-    setValue(stored === undefined ? '' : String(stored))
-  }
+  const value = typed ?? (stored === undefined ? '' : String(stored))
 
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
+      setTyped(null)
       toast.success('Einstellung gespeichert')
     },
     onError: (error) =>
@@ -50,8 +46,8 @@ export function CustomerNumberCard() {
           (eingetragen oder aus DATEV übernommen) werden übersprungen.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[12rem_auto]">
-        <div className="space-y-2">
+      <CardContent className="flex flex-wrap items-end gap-4">
+        <div className="w-48 space-y-2">
           <Label htmlFor="settings-next-customer-number">Nächste Kundennummer</Label>
           <Input
             id="settings-next-customer-number"
@@ -59,7 +55,7 @@ export function CustomerNumberCard() {
             min="1"
             step="1"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => setTyped(e.target.value)}
             disabled={settings.isLoading}
           />
         </div>
