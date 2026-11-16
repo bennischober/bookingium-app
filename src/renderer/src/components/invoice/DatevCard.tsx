@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PRODUCT_NAMES } from '../../../../main/api/terms'
 
 /**
  * The DATEV Upload Mail address per issuing company (Einstellungen › Rechnungen). Each company
@@ -63,8 +64,8 @@ export function DatevCard() {
       <CardHeader>
         <CardTitle>DATEV</CardTitle>
         <CardDescription>
-          „An DATEV übergeben“ schickt das Rechnungs-PDF an die Upload-Mail-Adresse der Firma in
-          DATEV Unternehmen online. Gesendet wird vom Konto unter E-Mail › „Senden von“ – diese
+          „An DATEV übergeben“ schickt das Rechnungs-PDF an die Upload-Mail-Adresse der Firma in{' '}
+          {PRODUCT_NAMES.datevOnline}. Gesendet wird vom Konto unter E-Mail › „Senden von“ – diese
           Absenderadresse muss in DATEV Upload Mail freigegeben sein.
         </CardDescription>
       </CardHeader>
@@ -89,7 +90,7 @@ export function DatevCard() {
           <Input
             id="datev-address"
             type="email"
-            placeholder="Adresse aus DATEV Unternehmen online"
+            placeholder={`Adresse aus ${PRODUCT_NAMES.datevOnline}`}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             disabled={companyId === null || settingsQuery.isLoading}

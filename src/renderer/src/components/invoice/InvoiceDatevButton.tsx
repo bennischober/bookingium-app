@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { datevTransferLabel } from './datevTransfer'
+import { PRODUCT_NAMES } from '../../../../main/api/terms'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -74,7 +75,7 @@ export function InvoiceDatevButton({
       variant="outline"
       onClick={() => void send()}
       disabled={sending || transfers.isLoading}
-      title={latest ? datevTransferLabel(latest) : 'PDF an DATEV Unternehmen online übergeben'}
+      title={latest ? datevTransferLabel(latest) : `PDF an ${PRODUCT_NAMES.datevOnline} übergeben`}
     >
       {latest?.sentAt ? (
         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
