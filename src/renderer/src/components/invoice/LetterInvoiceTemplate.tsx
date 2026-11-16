@@ -41,7 +41,7 @@ export function LetterTemplate({
       </div>
 
       <div className="mt-[14mm] flex items-start justify-between gap-8">
-        <div className="w-[85mm]">
+        <div className="w-[95mm]">
           <LetterSenderLine issuer={issuer} />
           <AddressBlock
             party={recipient}
@@ -49,7 +49,7 @@ export function LetterTemplate({
             vatIdLabel={needsBuyerVatId(data) ? 'USt-IdNr.' : undefined}
           />
         </div>
-        <div className="w-[75mm] text-[9.5pt] leading-snug">
+        <div className="w-[68mm] text-[9.5pt] leading-snug">
           <div>Rechnungs-Nr.: {invoice.invoiceNumber ?? 'Entwurf'}</div>
           <div>Belegdatum: {formatDate(invoice.issueDate)}</div>
           <div>
@@ -135,7 +135,7 @@ function LetterSenderLine({ issuer }: { issuer: InvoicePartySnapshotDto | null }
     [issuer.street, issuer.streetNumber].filter(Boolean).join(' ').trim(),
     [issuer.zipCode, issuer.city].filter(Boolean).join(' ').trim()
   ].filter(Boolean)
-  return <div className="mb-1 text-[6.5pt]">{parts.join(', ')}</div>
+  return <div className="mb-1 truncate text-[6.5pt]">{parts.join(', ')}</div>
 }
 
 /**
