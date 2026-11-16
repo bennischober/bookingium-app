@@ -1,5 +1,6 @@
 import { net, powerMonitor } from 'electron'
 import { container } from 'tsyringe'
+import { confirmDatevSendFromOp } from '../mail/datevSend'
 import { confirmInvoiceSendFromOp, invoiceComposes } from '../mail/invoiceSend'
 import { listMailAccounts } from '../mailclient/accounts'
 import type { FolderNode, OpSummary } from '../mailclient/core/types'
@@ -10,6 +11,7 @@ import { watchSystemWake } from '../mailclient/systemWake'
 import type { AppTray } from '../notifications/appTray'
 import { newMailChannel, newMailNotice } from '../notifications/noticeText'
 import { contactAddressEvents } from '../repositories/contactEmails'
+import { DatevService } from '../services/DatevService'
 import { InvoiceService } from '../services/InvoiceService'
 import { MailLinkService, mailLinkRunner, ownMailAddresses } from '../services/MailLinkService'
 import { MailRuleService, ruleFolder } from '../services/MailRuleService'
@@ -28,6 +30,7 @@ import { getMainWindow, showMailPage, windowFocus } from './windows'
  */
 export function startMailClient(): void {
   const invoiceLedger = container.resolve(InvoiceService)
+  const datevLedger = container.resolve(DatevService)
   mailClient.events.on('event', (event) => {
     void confirmInvoiceSendFromOp(
       {
@@ -37,6 +40,14 @@ export function startMailClient(): void {
       },
       event
     ).catch((error) => console.error('Confirming an invoice mail failed:', error))
+    // The same for a DATEV hand-over whose send was unclear
+    void confirmDatevSendFromOp(
+      {
+        ledger: datevLedger,
+        listOps: (accountId) => mailClient.call('listOps', [accountId]) as Promise<OpSummary[]>
+      },
+      event
+    ).catch((error) => console.error('Confirming a DATEV hand-over failed:', error))
   })
   // Mail client (utility process): background sync for configured accounts. #136: always
   // part of the app; without an account the worker never starts.

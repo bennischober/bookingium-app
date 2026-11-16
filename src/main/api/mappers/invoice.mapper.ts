@@ -170,6 +170,7 @@ export class InvoiceMapper {
       id: entity.id,
       companyId: entity.company_id,
       nextInvoiceNumber: entity.next_invoice_number,
+      datevUploadEmail: entity.datev_upload_email,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

@@ -3,8 +3,9 @@ import { eq, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { UpsertCompanyInvoiceSettingsInput } from '../api/schemas/invoice.schema'
+import type { SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
 
-/** A company's invoice settings (its next invoice number) */
+/** A company's invoice settings (its next invoice number, its DATEV upload address) */
 @injectable()
 export class InvoiceSettingsRepository {
   async getCompanyInvoiceSettings(companyId: number) {
@@ -51,5 +52,21 @@ export class InvoiceSettingsRepository {
 
       return created[0]
     })
+  }
+
+  /**
+   * Sets the company's DATEV Upload Mail address. A company without settings gets its row
+   * now, with the next invoice number a missing row stands for (1).
+   */
+  async setDatevUploadEmail(input: SetDatevUploadEmailInput) {
+    return db
+      .insert(schema.company_invoice_settings)
+      .values({ company_id: input.companyId, datev_upload_email: input.datevUploadEmail })
+      .onConflictDoUpdate({
+        target: schema.company_invoice_settings.company_id,
+        set: { datev_upload_email: input.datevUploadEmail, updated_at: sql`datetime('now')` }
+      })
+      .returning()
+      .get()
   }
 }

@@ -20,6 +20,7 @@ import {
 } from '@/components/invoice/InvoiceDocument'
 import type { InvoicePrintDto, ReminderKind } from '../../../main/api/schemas/invoice.schema'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { InvoiceDatevButton } from '@/components/invoice/InvoiceDatevButton'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 
 // Display labels for the template dropdown (DB/template values stay untouched)
@@ -169,6 +170,9 @@ export default function InvoicePrintPage() {
               lang={template === 'agency-en' ? 'en' : 'de'}
               kind={reminder}
             />
+          )}
+          {invoice.status !== 'draft' && (
+            <InvoiceDatevButton invoiceId={invoice.id} fileName={fileName} />
           )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />
         </div>

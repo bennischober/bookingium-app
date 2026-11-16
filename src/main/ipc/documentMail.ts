@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { randomUUID } from 'crypto'
 import { basename } from 'path'
 import { container } from 'tsyringe'
 import { InvoiceMapper } from '../api/mappers/invoice.mapper'
@@ -14,10 +15,13 @@ import {
   type ContractDocument,
   type ContractEmailData
 } from '../mail/contractEmail'
+import { datevMail, datevRefusal, sendDatevMail } from '../mail/datevSend'
 import { saveEmailPdf } from '../mail/emailPdf'
 import { invoiceEmail, type Lang } from '../mail/invoiceEmail'
 import { invoiceComposes, invoiceSendAccount, type DocumentCompose } from '../mail/invoiceSend'
 import { listMailAccounts, type MailAccountDto } from '../mailclient/accounts'
+import { mailClient } from '../mailclient/MailClientService'
+import { DatevService } from '../services/DatevService'
 import { ContractService } from '../services/ContractService'
 import { InvoiceService } from '../services/InvoiceService'
 import { MailTemplateService } from '../services/MailTemplateService'
@@ -141,6 +145,59 @@ export function registerDocumentMailIpc(): void {
         return { success: true, sent: composed.sent, eInvoice }
       } catch (error) {
         console.error('Error creating invoice email:', error)
+        return failure(error)
+      }
+    }
+  )
+
+  /**
+   * "An DATEV übergeben" of the invoice print page: the window's PDF (with e-invoice) mailed to
+   * the DATEV Upload Mail address of the issuing company, from the invoice sending account.
+   * No compose window - DATEV reads the attachment, not the letter (mail/datevSend.ts).
+   */
+  ipcMain.handle(
+    'invoice:datev',
+    async (event, { invoiceId, fileName }: { invoiceId: number; fileName: string }) => {
+      try {
+        const entity = await container.resolve(InvoiceService).getInvoicePrintData(invoiceId)
+        if (!entity) return { success: false, error: 'Rechnung nicht gefunden' }
+        const data = InvoiceMapper.toPrintDto(
+          entity,
+          entity.issuerSnapshot ?? null,
+          entity.recipientSnapshot ?? null
+        )
+        const refusal = datevRefusal(data.invoice)
+        if (refusal) return { success: false, error: refusal }
+        const datev = container.resolve(DatevService)
+        const to = await datev.uploadEmailOf(data.invoice.companyId)
+        if (!to) {
+          return {
+            success: false,
+            error: `Für ${data.invoice.companyName} ist keine DATEV-Adresse hinterlegt.`,
+            setup: 'datev' as const
+          }
+        }
+        const sender = documentSender(container.resolve(SettingsService).get())
+        if ('error' in sender) return { success: false, ...sender }
+        const name = fileName.replace(/\.pdf$/i, '')
+        const { pdf, eInvoice } = await documentPdf(event.sender, name, invoiceId)
+        const sent = await sendDatevMail(
+          {
+            ledger: datev,
+            send: (mail, accountId) =>
+              mailClient.call('sendMail', [mail, null, accountId]) as Promise<{
+                messageId: string
+              }>
+          },
+          {
+            invoiceId,
+            accountId: sender.account.id,
+            mail: datevMail({ data, to, fileName: `${name}.pdf`, pdf, sendKey: randomUUID() })
+          }
+        )
+        return { success: true, to, messageId: sent.messageId, eInvoice }
+      } catch (error) {
+        console.error('Error handing an invoice to DATEV:', error)
         return failure(error)
       }
     }

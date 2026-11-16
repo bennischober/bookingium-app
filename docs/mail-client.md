@@ -92,6 +92,11 @@ events and invoices), not a general mail client.
   sent with and every reply ("Antwort erhalten"); the status never changes on its own.
 - **Contracts** (#120): "Per E-Mail senden" on a contract's print page takes the same compose path and
   account; the PDF is attached on send. Nothing is recorded, so an unclear send only shows as not sent.
+- **DATEV** ("An DATEV übergeben" on an invoice's print page): no compose window. Main mails the PDF
+  (with e-invoice) to the issuing company's DATEV Upload Mail address from the "Senden von" account, one
+  PDF per mail (`mail/datevSend.ts`). The send is recorded in `datev_transfer` with the same pending →
+  confirmed bookkeeping as an invoice mail, so an unclear send is confirmed by the startup probe or
+  "Prüfen" (`confirmDatevSendFromOp`). See `docs/ARCHITECTURE.md` › DATEV.
 - **Follow-ups** (#121): "Wiedervorlage" in the compose toolbar files one after the send, on the invoice or
   contract the window was opened for. A reply from someone else closes it when the linker sees it; replies
   filed into folders other than INBOX and Sent are not seen. Due with no reply, it shows "Keine Antwort".

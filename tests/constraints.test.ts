@@ -56,6 +56,10 @@ describe('enum columns', () => {
       'invoice_status_change_status_check'
     ],
     [
+      "insert into datev_transfer (invoice_id, status, \"to\", file_name, mail_account_id, send_key) values (1, 'failed', 'u@x', 'R.pdf', 'a', 'k')",
+      'datev_transfer_status_check'
+    ],
+    [
       "insert into mail_template (name, kind, lang) values ('X', 'offer', 'de')",
       'mail_template_kind_check'
     ],

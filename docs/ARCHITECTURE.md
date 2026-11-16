@@ -522,6 +522,36 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   purpose: there is no JS veraPDF, and a JS rebuild of KoSIT would drift
   from the official rules.
 
+## DATEV (Upload Mail)
+
+The agency keeps its books in DATEV Unternehmen online (DUO). Every document (Beleg) has to get
+there, so an invoice is handed over from its print page: „An DATEV übergeben“ mails the PDF
+the page prints (with the embedded e-invoice when complete) to the **DATEV Upload Mail**
+address of the issuing company's DATEV client. DUO files each mailed PDF as one document, so
+every mail carries exactly one.
+
+- **Address per issuing company**: `company_invoice_settings.datev_upload_email` (each
+  company is its own Mandant), set in Einstellungen › Rechnungen › DATEV (`DatevCard`,
+  `datev.setUploadEmail`). The sending address (Einstellungen › E-Mail › „Senden von“)
+  must be confirmed in DUO's Upload Mail settings once; DUO ignores mail from other senders.
+- **The send** (`ipc/documentMail.ts` `invoice:datev`, pure part `mail/datevSend.ts`): no
+  compose window - the mail is bookkeeping, not a letter. Drafts are refused (no number, not a
+  document yet); issued, paid, cancelled invoices and Stornorechnungen go.
+- **Exactly once** (`datev_transfer`): a row is written as `pending` before the send and set to
+  `sent` once the server confirmed it - by the send itself or, after an unclear send, by the
+  core's startup probe or „Prüfen“ (`confirmDatevSendFromOp` in `app/mailServices.ts`). A send
+  refused before the server took it deletes the row. The invoice's emails (`invoice_email`)
+  are untouched: a DATEV hand-over is not a mail to the customer and must not count as a
+  Zahlungserinnerung (`nextReminderKind`).
+- **UI**: the print page button shows a check once handed over and asks before a second
+  hand-over (it would be a second Beleg in DUO); the invoice page's Verlauf lists each
+  hand-over (`invoiceHistory`).
+- **Neutral on purpose**: received documents (Eingangsbelege) are to take the same path; the
+  table and the send are named after DATEV, not after invoices. The DATEV API
+  (`accounting:documents`) can replace the mail later behind the same ledger.
+- **Tests**: `tests/datev.test.ts` (mail, bookkeeping, address), `tests/e2e/invoice-email.spec.ts`
+  (no address, no account), `tests/e2e/mail-client.spec.ts` (the real send, needs the sandbox).
+
 ## Import
 
 `main/import/` is pure: `readImportFile` reads the sheet and suggests the

@@ -323,6 +323,13 @@
       "when": 1794681044603,
       "tag": "0045_external_booking_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1794819692214,
+      "tag": "0046_datev_transfer",
+      "breakpoints": true
     }
   ]
 }

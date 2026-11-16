@@ -91,3 +91,38 @@ test('without a mail account, a concert contract says so as well (#120)', async 
   await expect(toast).toContainText('E-Mail konnte nicht erstellt werden', { timeout: 30_000 })
   await expect(toast.getByRole('button', { name: 'Einstellungen öffnen' })).toBeVisible()
 })
+
+test('"An DATEV übergeben" asks for the DATEV address first, then for a mail account', async () => {
+  const { page } = h
+  // The test before ends on a print page, which has no menu
+  await page.evaluate(() => (location.hash = '#/'))
+  await openPrintPage('#1040')
+  await page.getByRole('button', { name: 'An DATEV übergeben' }).click()
+  let toast = latestToast()
+  await expect(toast).toContainText('Übergabe an DATEV fehlgeschlagen', { timeout: 30_000 })
+  await expect(toast).toContainText('keine DATEV-Adresse hinterlegt')
+  await toast.getByRole('button', { name: 'Einstellungen öffnen' }).click()
+  await page.waitForURL(/settings\?tab=invoices/)
+
+  // The address is kept per issuing company; a typo is refused
+  const address = page.getByLabel('Upload-Mail-Adresse')
+  const card = address.locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]')
+  await expect(address).toBeEnabled()
+  await address.fill('kein-mailformat')
+  await card.getByRole('button', { name: 'Speichern' }).click()
+  await expect(latestToast()).toContainText('DATEV-Adresse konnte nicht gespeichert werden')
+  await address.fill('upload@duo.example.test')
+  await card.getByRole('button', { name: 'Speichern' }).click()
+  await expect(latestToast()).toContainText('DATEV-Adresse gespeichert')
+  await page.reload()
+  await expect(page.getByLabel('Upload-Mail-Adresse')).toHaveValue('upload@duo.example.test')
+
+  // With the address, the missing sending account is what stops it - nothing is recorded
+  await openPrintPage('#1040')
+  await page.getByRole('button', { name: 'An DATEV übergeben' }).click()
+  toast = latestToast()
+  await expect(toast).toContainText('Übergabe an DATEV fehlgeschlagen', { timeout: 30_000 })
+  await expect(toast).toContainText('Zum Senden zuerst ein E-Mail-Konto hinzufügen.')
+  await toast.getByRole('button', { name: 'Einstellungen öffnen' }).click()
+  await page.waitForURL(/settings\?tab=email/)
+})

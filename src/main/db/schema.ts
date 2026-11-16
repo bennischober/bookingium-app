@@ -22,6 +22,7 @@ import {
   InvoiceTaxCode
 } from '../api/schemas/invoice.schema'
 import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplate.schema'
+import { DatevTransferStatus } from '../api/schemas/datev.schema'
 
 /**
  * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
@@ -490,6 +491,9 @@ export const company_invoice_settings = sqliteTable(
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
     next_invoice_number: integer('next_invoice_number').default(1).notNull(),
+    // The "DATEV Upload Mail" address of the company's DATEV client (Mandant), '' for none:
+    // documents handed to DATEV are mailed there
+    datev_upload_email: text('datev_upload_email').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -680,6 +684,39 @@ export const invoice_email = sqliteTable(
   (table) => [
     index('invoice_email_invoice_idx').on(table.invoice_id),
     oneOf('invoice_email_kind_check', 'kind', InvoiceEmailKind.options)
+  ]
+)
+
+/**
+ * A document handed to DATEV Unternehmen online by DATEV Upload Mail: written as `pending`
+ * before the send and set to `sent` when the send is confirmed - right away, or later, when an
+ * unclear send is found in Sent. A send refused before the server took it deletes the row.
+ */
+export const datev_transfer = sqliteTable(
+  'datev_transfer',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    status: text('status').default('pending').notNull(),
+    // The upload address it was mailed to
+    to: text('to').notNull(),
+    // The attachment's file name, as DATEV shows it
+    file_name: text('file_name').notNull(),
+    mail_account_id: text('mail_account_id').notNull(),
+    // The send key; the mail core makes it the local part of the Message-ID
+    send_key: text('send_key').notNull(),
+    message_id: text('message_id'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    sent_at: text('sent_at')
+  },
+  (table) => [
+    index('datev_transfer_invoice_idx').on(table.invoice_id),
+    uniqueIndex('datev_transfer_send_key_idx').on(table.send_key),
+    oneOf('datev_transfer_status_check', 'status', DatevTransferStatus.options)
   ]
 )
 
@@ -1290,6 +1327,7 @@ export const schema = {
   invoice_email,
   invoice_email_pending,
   invoice_status_change,
+  datev_transfer,
   management_contract,
   management_contract_member,
   management_share,

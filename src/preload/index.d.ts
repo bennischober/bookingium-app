@@ -75,6 +75,26 @@ export interface DocumentAPI {
     setup?: boolean
   }>
   /**
+   * "An DATEV übergeben": mails this window's invoice PDF (with e-invoice) to the DATEV Upload
+   * Mail address of the issuing company, from the "Senden von" account, without a compose window
+   */
+  sendInvoiceToDatev: (
+    invoiceId: number,
+    fileName: string
+  ) => Promise<{
+    success: boolean
+    /** The DATEV address it went to */
+    to?: string
+    messageId?: string
+    eInvoice?: EInvoiceCheckDto
+    error?: string
+    /**
+     * Where the error is fixed: true for Einstellungen › E-Mail (no sending account), 'datev'
+     * for Einstellungen › Rechnungen (no DATEV address for the issuing company)
+     */
+    setup?: true | 'datev'
+  }>
+  /**
    * #120: email a concert contract (by its deal memo id) or a management contract (by its
    * id) as the PDF of this window, from the "Vertrag" template
    */

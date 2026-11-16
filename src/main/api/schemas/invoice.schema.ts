@@ -268,7 +268,9 @@ export const CompanyInvoiceSettingsDto = z
   .object({
     id: z.number(),
     companyId: z.number(),
-    nextInvoiceNumber: z.number()
+    nextInvoiceNumber: z.number(),
+    /** DATEV Upload Mail address of the company's DATEV client, '' for none */
+    datevUploadEmail: z.string()
   })
   .extend(TimestampFields.shape)
 

@@ -27,6 +27,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { InvoiceNumberingCard } from '@/components/invoice/InvoiceNumberingCard'
+import { DatevCard } from '@/components/invoice/DatevCard'
 import { EInvoiceCard } from '@/components/invoice/EInvoiceCard'
 import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
@@ -448,6 +449,7 @@ export default function SettingsPage() {
           <InvoiceNumberingCard />
           <EInvoiceCard />
           <PaymentQrCard />
+          <DatevCard />
         </TabsContent>
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />

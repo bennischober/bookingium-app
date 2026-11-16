@@ -37,6 +37,9 @@ const api = {
     kind: 'invoice' | 'reminder' | 'dunning' = 'invoice'
   ) => ipcRenderer.invoke('invoice:email', { invoiceId, fileName, lang, kind }),
 
+  sendInvoiceToDatev: (invoiceId: number, fileName: string) =>
+    ipcRenderer.invoke('invoice:datev', { invoiceId, fileName }),
+
   sendContractEmail: (
     contract: 'concert' | 'management',
     id: number,
