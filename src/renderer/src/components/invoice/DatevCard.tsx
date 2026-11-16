@@ -71,7 +71,7 @@ export function DatevCard() {
       </CardHeader>
       <CardContent className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         <div className="space-y-2">
-          <Label htmlFor="datev-company">Firma</Label>
+          <Label htmlFor="datev-company">Firma (DATEV-Mandant)</Label>
           <SearchableSelect
             id="datev-company"
             value={companyId}
