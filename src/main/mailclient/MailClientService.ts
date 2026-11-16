@@ -7,6 +7,7 @@ import { utilityProcess, type UtilityProcess } from 'electron'
 import { EventEmitter } from 'events'
 import { join } from 'path'
 import { listMailAccounts, mailCredentials, mailRoot } from './accounts'
+import { initErrorText } from './hostErrors'
 import type { FromWorker, MailApiMethod, MailEvent, ToWorker, WorkerInit } from './protocol'
 import { logError } from '../utils/errorLog'
 
@@ -174,7 +175,7 @@ export class MailClientService {
             resolve()
             break
           case 'init-error':
-            fail(msg.message)
+            fail(initErrorText(msg.message))
             worker.kill()
             break
           case 'result': {
