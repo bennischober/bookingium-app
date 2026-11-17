@@ -1,9 +1,14 @@
-# A release: pushing a tag `v<version>` builds the Windows installer and publishes it as a
-# GitHub Release. README › Releasing has the steps.
+# A release: builds the Windows installer and publishes it as a GitHub Release, which the
+# installed apps then update themselves from (#49). README › Releasing has the steps.
 #
-# Order: the tag must name the version in package.json, then the full CI gate runs on the tagged
-# commit (ci.yml, called as is), and only then is the installer built on windows-latest and the
-# release created. A red gate or a version mismatch publishes nothing.
+# Two ways to start it:
+#   - The button: Actions › Release › "Run workflow", choosing patch / minor / major. The first job
+#     raises `version` in package.json, commits that to main and tags it - no PR, no local git.
+#   - Pushing a tag `v<version>` by hand, as before; the tag must name the version in package.json.
+#
+# Order: version (and tag), then the full CI gate on exactly that commit (ci.yml, called with the
+# tag), and only then is the installer built on windows-latest and the release created. A red gate
+# publishes nothing (a version commit made by the button stays on main; the next run moves on).
 #
 # What it deliberately does NOT do:
 #   - sign the installer (#48): SmartScreen warns on first start until it is signed.
@@ -16,6 +21,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Neue Version: patch = Fehlerbehebungen (1.0.0 → 1.0.1), minor = neue Funktionen (1.0.0 → 1.1.0), major = große Umstellung (1.0.0 → 2.0.0)'
+        type: choice
+        options: [patch, minor, major]
+        default: minor
 
 permissions:
   contents: read
@@ -28,28 +40,64 @@ concurrency:
 jobs:
   version:
     runs-on: ubuntu-latest
+    # the button pushes the version commit and the tag; a tag push only reads
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
+
+      # The button: next version in package.json, committed to main and tagged. Tags pushed with
+      # the workflow token start no workflow, so this run goes on with it instead of a second one.
+      - name: Raise the version
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          version=$(npm version "$BUMP" --no-git-tag-version)
+          version=${version#v}
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "Release v${version}"
+          git tag "v${version}"
+          git push origin HEAD:main
+          git push origin "v${version}"
+          echo "Raised to ${version}"
 
       - name: Tag matches package.json
+        id: tag
         shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version} (expected v${version})"
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            tag="v${version}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          if [ "${tag}" != "v${version}" ]; then
+            echo "::error::Tag ${tag} does not match package.json version ${version} (expected v${version})"
             exit 1
           fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "Releasing ${version}"
 
   gate:
     needs: version
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.version.outputs.tag }}
 
   installer:
-    needs: gate
+    needs: [version, gate]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - uses: pnpm/action-setup@v4
 
@@ -82,7 +130,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: installer
+    needs: [version, installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -95,10 +143,11 @@ jobs:
       - name: GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: >-
-          gh release create "${GITHUB_REF_NAME}" Bookingium-Setup-*.exe
+          gh release create "${TAG}" Bookingium-Setup-*.exe
           Bookingium-Setup-*.exe.blockmap latest.yml
           --repo "${GITHUB_REPOSITORY}"
-          --title "Bookingium ${GITHUB_REF_NAME#v}"
+          --title "Bookingium ${TAG#v}"
           --generate-notes
           --verify-tag

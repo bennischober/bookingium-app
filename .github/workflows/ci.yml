@@ -37,6 +37,13 @@ on:
   pull_request:
   # release.yml runs this whole gate on the tagged commit before it builds the installer
   workflow_call:
+    inputs:
+      # The commit to check; empty = the one that started the run. A release started from the
+      # Actions button creates its version commit first and passes its tag here.
+      ref:
+        type: string
+        required: false
+        default: ''
 
 # Read-only token: the jobs only check out code. Caches and artifacts use their own runtime
 # token, so they need nothing here.
@@ -58,6 +65,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       # pnpm 12 is pinned in package.json's packageManager field; this action reads it
       - uses: pnpm/action-setup@v4
@@ -123,6 +132,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: pnpm/action-setup@v4
 

@@ -139,28 +139,34 @@ Electron by `pnpm install`).
 
 ## Releasing
 
-A release is a tag. Pushing `v<version>` runs
-[`.github/workflows/release.yml`](.github/workflows/release.yml): it checks
-that the tag matches `version` in `package.json`, runs the full CI gate on
-the tagged commit, builds the Windows installer and publishes it as a GitHub
-Release with notes generated from the PRs merged since the previous tag.
+The easy way is a button: on GitHub, **Actions › Release › Run workflow**,
+choose `patch` (fixes, 1.0.0 → 1.0.1), `minor` (features, 1.0.0 → 1.1.0) or
+`major`, and run it. [`.github/workflows/release.yml`](.github/workflows/release.yml)
+then raises `version` in `package.json`, commits it to `main`, tags it, runs
+the full CI gate on that commit, builds the Windows installer and publishes it
+as a GitHub Release with notes generated from the PRs merged since the previous
+tag. The installed apps pick it up by themselves (see below).
 
-1. Bump `version` in `package.json` in a PR (`1.0.0` → `1.0.1` for fixes,
-   `1.1.0` for features) and merge it.
-2. Tag the merge commit on `main` and push the tag:
+Pushing a tag by hand still works: bump `version` in `package.json` in a PR,
+merge it, then
 
-   ```bash
-   git checkout main && git pull
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
+```bash
+git checkout main && git pull
+git tag v1.0.1
+git push origin v1.0.1
+```
 
-3. When the run is green, the release has `Bookingium-Setup-<version>.exe`.
-   Installing it over an existing installation updates it in place; the data
-   in `%APPDATA%\bookingum-app` is kept.
+When the run is green, the release has `Bookingium-Setup-<version>.exe`.
+Installing it over an existing installation updates it in place; the data in
+`%APPDATA%\bookingum-app` is kept.
 
 A red gate or a tag that does not match the version publishes nothing. Delete
-the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again.
+the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again;
+after a red run from the button, fix and run the button again (the version
+commit it made stays, the next run takes the next number). The button pushes
+to `main` with the workflow token: a branch protection rule on `main` must let
+GitHub Actions push.
+
 The installer is unsigned (#48). Installed apps update themselves (#49): they
 read `latest.yml` of the newest GitHub Release of this (public) repository,
 download the installer in the background and install it when the app closes

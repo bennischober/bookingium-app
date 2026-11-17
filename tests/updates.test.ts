@@ -75,4 +75,14 @@ describe('release contract', () => {
     expect(workflow).toContain('dist/Bookingium-Setup-*.exe.blockmap')
     expect(workflow).toMatch(/gh release create[\s\S]*latest\.yml/)
   })
+
+  it('can be started from the Actions button, which raises the version and tags it', () => {
+    const workflow = read('.github/workflows/release.yml')
+    expect(workflow).toContain('workflow_dispatch:')
+    expect(workflow).toContain('npm version "$BUMP" --no-git-tag-version')
+    expect(workflow).toContain('git push origin "v${version}"')
+    // the gate and the installer use exactly the tagged commit
+    expect(workflow).toContain('ref: ${{ needs.version.outputs.tag }}')
+    expect(read('.github/workflows/ci.yml')).toContain('ref: ${{ inputs.ref }}')
+  })
 })
