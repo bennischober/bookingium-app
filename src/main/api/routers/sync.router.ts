@@ -24,7 +24,7 @@ export const syncRouter = t.router({
   chooseFolder: t.procedure.mutation(async (): Promise<SyncFolderDto | null> => {
     const owner = BrowserWindow.getFocusedWindow()
     const options: Electron.OpenDialogOptions = {
-      title: 'Gemeinsamen Ordner für den Abgleich wählen (z. B. in Google Drive)',
+      title: 'Gemeinsamen Ordner für den Abgleich wählen (z. B. in OneDrive oder Google Drive)',
       defaultPath: app.getPath('home'),
       properties: ['openDirectory', 'createDirectory']
     }
@@ -34,6 +34,15 @@ export const syncRouter = t.router({
     if (result.canceled || result.filePaths.length === 0) return null
     try {
       return await service.inspectFolder(result.filePaths[0])
+    } catch (error) {
+      throw badRequest(error, 'Ordner kann nicht verwendet werden')
+    }
+  }),
+
+  /** The folder chosen before (the switch turned on again): set up there or join */
+  inspectFolder: t.procedure.input(Folder).mutation(async ({ input }): Promise<SyncFolderDto> => {
+    try {
+      return await service.inspectFolder(input)
     } catch (error) {
       throw badRequest(error, 'Ordner kann nicht verwendet werden')
     }

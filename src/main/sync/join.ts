@@ -61,7 +61,7 @@ export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
   const snapshot = await transport.latestSnapshot()
   if (!snapshot)
     throw new Error(
-      'Der Startstand der anderen Computer ist noch nicht in diesem Ordner angekommen. Bitte warten, bis Google Drive fertig ist, und es dann noch einmal versuchen.'
+      'Der Startstand der anderen Computer ist noch nicht in diesem Ordner angekommen. Bitte warten, bis OneDrive bzw. Google Drive fertig ist, und es dann noch einmal versuchen.'
     )
   if (snapshot.info.schema > options.schema) throw new Error(NEWER_SNAPSHOT_MESSAGE)
 

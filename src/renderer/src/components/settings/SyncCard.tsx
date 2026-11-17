@@ -3,6 +3,8 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { SyncFolderDto, SyncStatusDto } from '../../../../main/api/schemas/sync.schema'
 
@@ -71,7 +73,7 @@ function SyncState({ status }: { status: SyncStatusDto }) {
 
 /**
  * "Abgleich mit anderen Computern" (Einstellungen › Daten): several computers keep the same data
- * through a folder they share, such as one in Google Drive. Settings and status are
+ * through a folder they share, such as one in OneDrive or Google Drive. Settings and status are
  * machine-local in main (SyncService).
  */
 export function SyncCard() {
@@ -120,6 +122,9 @@ export function SyncCard() {
     },
     onError: onError('Abgleich konnte nicht beendet werden')
   })
+  const inspect = trpcReact.sync.inspectFolder.useMutation({
+    onError: onError('Ordner kann nicht verwendet werden')
+  })
   const openFolder = trpcReact.sync.openFolder.useMutation({
     onError: onError('Ordner konnte nicht geöffnet werden')
   })
@@ -161,107 +166,127 @@ export function SyncCard() {
     if (ok) leave.mutate()
   }
 
+  /** The switch: off leaves the sync, on joins the chosen folder again (or picks one) */
+  const toggle = async (checked: boolean) => {
+    if (!checked) return void confirmLeave()
+    const folder = data?.folder
+    if (!folder) return void start()
+    const inspected = await inspect.mutateAsync(folder).catch(() => null)
+    if (!inspected) return
+    if (inspected.kind === 'new') await confirmSetUp(inspected)
+    else await confirmJoin(inspected)
+  }
+
   const data = status.data
-  const busy = chooseFolder.isPending || setUp.isPending || join.isPending
+  const enabled = data?.enabled ?? false
+  const folder = data?.folder ?? ''
+  const busy = chooseFolder.isPending || inspect.isPending || setUp.isPending || join.isPending
 
   return (
-    <Card>
+    <Card id="settings-sync">
       <CardHeader>
         <CardTitle>Abgleich mit anderen Computern</CardTitle>
         <CardDescription>
           Mehrere Computer arbeiten mit denselben Daten: Jede Änderung, auch an Dokumenten, kommt
           nach wenigen Sekunden auf den anderen an. Ausgetauscht wird über einen Ordner, auf den
-          alle Zugriff haben, zum Beispiel einen geteilten Ordner in Google Drive. E-Mail-Konten und
-          E-Mails gleicht jeder Computer selbst mit dem Mailserver ab.
+          alle Zugriff haben, zum Beispiel einen geteilten Ordner in OneDrive oder Google Drive.
+          E-Mail-Konten und E-Mails gleicht jeder Computer selbst mit dem Mailserver ab.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {!data?.enabled ? (
-          <div className="space-y-3">
-            {data?.lastError && <p className="text-sm text-destructive">{data.lastError}</p>}
-            <p className="text-sm text-muted-foreground">
-              Auf dem ersten Computer einen leeren Ordner wählen, auf jedem weiteren denselben. Beim
-              Beitreten werden die Daten zusammengeführt, ohne dass etwas doppelt vorkommt.
-            </p>
-            <Button variant="outline" onClick={() => void start()} disabled={busy}>
-              {busy ? 'Bitte warten…' : 'Abgleich einrichten…'}
-            </Button>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="settings-sync-enabled"
+              checked={enabled}
+              onCheckedChange={(checked) => void toggle(checked)}
+              disabled={busy || leave.isPending}
+            />
+            <Label htmlFor="settings-sync-enabled">Mit anderen Computern abgleichen</Label>
           </div>
-        ) : (
-          <>
-            <SyncState status={data} />
+          <p className="text-xs text-muted-foreground">
+            Auf dem ersten Computer einen leeren Ordner wählen, auf jedem weiteren denselben. Beim
+            Beitreten werden die Daten zusammengeführt, ohne dass etwas doppelt vorkommt; der Stand
+            davor wird gesichert.
+          </p>
+        </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-medium">Gemeinsamer Ordner</p>
-                <p className="truncate font-mono text-xs text-muted-foreground" title={data.folder}>
-                  {data.folder}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="ghost" onClick={() => openFolder.mutate()}>
-                  <FolderOpen className="h-4 w-4" /> Öffnen
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => runNow.mutate()}
-                  disabled={data.running || runNow.isPending || !data.active}
-                >
-                  <RefreshCw className="h-4 w-4" /> Jetzt abgleichen
-                </Button>
-              </div>
-            </div>
-
-            {data.devices.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-medium">Computer im Abgleich</p>
-                <ul className="space-y-1 text-sm">
-                  {data.devices.map((device) => (
-                    <li key={device.id} className="flex items-center gap-2">
-                      <Monitor className="h-4 w-4 text-muted-foreground" />
-                      <span>{device.name}</span>
-                      {device.self && (
-                        <span className="text-muted-foreground">(dieser Computer)</span>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        Version {device.appVersion}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {data.conflicts.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-medium">Nicht übernommene Änderungen</p>
-                <ul className="space-y-1 text-sm">
-                  {data.conflicts.map((conflict) => (
-                    <li key={conflict.id} className="flex items-start gap-1.5">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                      <span>
-                        <span className="text-muted-foreground">
-                          {formatDateTime(conflict.at)}:{' '}
-                        </span>
-                        {conflict.message}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                className="text-destructive"
-                onClick={() => void confirmLeave()}
-                disabled={leave.isPending}
-              >
-                Abgleich auf diesem Computer beenden…
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium">Gemeinsamer Ordner</p>
+            <p
+              className="truncate font-mono text-xs text-muted-foreground"
+              title={folder || undefined}
+            >
+              {folder || 'Kein Ordner gewählt'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {folder && (
+              <Button variant="ghost" onClick={() => openFolder.mutate()}>
+                <FolderOpen className="h-4 w-4" /> Öffnen
               </Button>
+            )}
+            {!enabled && (
+              <Button variant="outline" onClick={() => void start()} disabled={busy}>
+                {busy ? 'Bitte warten…' : folder ? 'Anderer Ordner…' : 'Ordner wählen…'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {data && (enabled || data.lastError) && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              {enabled ? (
+                <SyncState status={data} />
+              ) : (
+                <p className="text-sm text-destructive">{data.lastError}</p>
+              )}
             </div>
-          </>
+            {enabled && (
+              <Button
+                variant="outline"
+                onClick={() => runNow.mutate()}
+                disabled={data.running || runNow.isPending || !data.active}
+              >
+                <RefreshCw className="h-4 w-4" /> Jetzt abgleichen
+              </Button>
+            )}
+          </div>
+        )}
+
+        {enabled && data && data.devices.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-medium">Computer im Abgleich</p>
+            <ul className="space-y-1 text-sm">
+              {data.devices.map((device) => (
+                <li key={device.id} className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-muted-foreground" />
+                  <span>{device.name}</span>
+                  {device.self && <span className="text-muted-foreground">(dieser Computer)</span>}
+                  <span className="text-xs text-muted-foreground">Version {device.appVersion}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {enabled && data && data.conflicts.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-medium">Nicht übernommene Änderungen</p>
+            <ul className="space-y-1 text-sm">
+              {data.conflicts.map((conflict) => (
+                <li key={conflict.id} className="flex items-start gap-1.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    <span className="text-muted-foreground">{formatDateTime(conflict.at)}: </span>
+                    {conflict.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>

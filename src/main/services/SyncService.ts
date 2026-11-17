@@ -324,7 +324,7 @@ export class SyncService {
     try {
       if (!existsSync(state.folder))
         throw new Error(
-          `Der Abgleich-Ordner ist nicht erreichbar: ${state.folder}. Läuft Google Drive?`
+          `Der Abgleich-Ordner ist nicht erreichbar: ${state.folder}. Läuft OneDrive bzw. Google Drive?`
         )
       const { changedHere, ...result } = await engine.run()
       this.update({
