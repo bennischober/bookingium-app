@@ -58,7 +58,14 @@ export type Cell = string | number | { date: number } | { zip: number } | null
 /** A workbook with one sheet named `sheetName` holding `rows` */
 export function buildXlsx(rows: Cell[][], sheetName = 'Tour'): Buffer {
   const strings: string[] = []
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // quotes too: the sheet name lands in an attribute
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
   const col = (i: number) => String.fromCharCode(65 + i)
   const sheetRows = rows
     .map((row, r) => {

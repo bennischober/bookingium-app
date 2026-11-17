@@ -79,6 +79,13 @@ describe('xlsx reader', () => {
     })
   })
 
+  it('keeps quotes and markup characters in the sheet name and in text cells', () => {
+    const name = `Tour "Herbst" & Rock'n'Roll <26>`
+    const { sheetName, records } = readXlsx(buildXlsx([['Band'], [name]], name))
+    expect(sheetName).toBe(name)
+    expect(records).toEqual([['Band'], [name]])
+  })
+
   it('refuses a file that is no workbook', () => {
     expect(() => readXlsx(Buffer.from('Datum;Band\n'))).toThrow('keine Excel-Datei')
   })
