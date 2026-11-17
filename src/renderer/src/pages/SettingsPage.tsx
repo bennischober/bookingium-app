@@ -39,6 +39,7 @@ import { MailRulesCard } from '@/components/settings/MailRulesCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { NotificationsCard } from '@/components/settings/NotificationsCard'
 import { BackupCard } from '@/components/settings/BackupCard'
+import { SyncCard } from '@/components/settings/SyncCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 
@@ -461,6 +462,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="data" className="space-y-6">
           <DataCard />
+          <SyncCard />
           <BackupCard />
         </TabsContent>
       </Tabs>

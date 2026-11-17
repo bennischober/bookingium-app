@@ -57,6 +57,9 @@ German UI.
   into a folder of your choice (a synced OneDrive/Dropbox folder works),
   keeping one per day for a week and one per week for a month; restore from
   Einstellungen › Daten
+- **Sync between computers** through a shared folder (e.g. Google Drive):
+  every change, documents included, reaches the others within seconds;
+  joining merges the joiner's data without duplicates (Einstellungen › Daten)
 - **Calendar**, **dashboard**, **search everything** (Ctrl+K), back/forward
   navigation (Alt+←/→), searchable pickers, lists that scroll as one
   table (pinned headers, sortable columns, more rows load while scrolling)

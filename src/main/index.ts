@@ -1,6 +1,7 @@
 import 'reflect-metadata'
-import { app, safeStorage, session } from 'electron'
+import { app, BrowserWindow, safeStorage, session, shell } from 'electron'
 import { join } from 'path'
+import { hostname } from 'os'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { container } from 'tsyringe'
 import { startErrorLogging } from './app/errorLogging'
@@ -27,6 +28,7 @@ import { TILE_REQUEST_URLS, tileUserAgent } from './map/tileRequests'
 import { BackupService } from './services/BackupService'
 import { CalendarFeedService } from './services/CalendarFeedService'
 import { DocumentService } from './services/DocumentService'
+import { SyncService } from './services/SyncService'
 
 /**
  * The main process's start: the data folder, the single-instance lock, the native IPC channels
@@ -112,6 +114,22 @@ app.whenReady().then(async () => {
     })
   }
 
+  // Sync with other computers (Einstellungen › Daten › Abgleich): checks the identity, switches
+  // the change triggers on and runs every few seconds; changes from elsewhere refresh the windows
+  await container
+    .resolve(SyncService)
+    .start({
+      appVersion: app.getVersion(),
+      deviceName: hostname(),
+      removeFile: (file) => shell.trashItem(file),
+      onChanged: () => {
+        for (const window of BrowserWindow.getAllWindows())
+          if (!window.isDestroyed()) window.webContents.send('app:dataChanged')
+        void container.resolve(CalendarFeedService).update()
+      }
+    })
+    .catch((error) => console.error('Starting sync failed:', error))
+
   createMainWindow()
   // Automatic backups: checked after startup, then hourly; each run copies in the background
   // #54: the key of password-encrypted backups is sealed by the system between runs
@@ -153,11 +171,15 @@ app.on('before-quit', (event) => {
   if (mailStopped) return
   event.preventDefault()
   container.resolve(BackupService).stop()
-  void mailClient
-    .stop()
-    .catch((error) => console.error('Stopping the mail client failed:', error))
-    .finally(() => {
-      mailStopped = true
-      app.quit()
-    })
+  void Promise.all([
+    mailClient.stop().catch((error) => console.error('Stopping the mail client failed:', error)),
+    // the last edits go to the other computers before the app closes (a few seconds at most)
+    container
+      .resolve(SyncService)
+      .stop()
+      .catch((error) => console.error('Stopping sync failed:', error))
+  ]).finally(() => {
+    mailStopped = true
+    app.quit()
+  })
 })

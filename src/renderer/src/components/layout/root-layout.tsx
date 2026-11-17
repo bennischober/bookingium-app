@@ -7,6 +7,7 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Bell, Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
@@ -17,6 +18,21 @@ export default function RootLayout() {
   const [collapsed, toggleSidebar] = useSidebarCollapsed(pathname)
   const navigate = useNavigate()
   const router = useRouter()
+  const queryClient = useQueryClient()
+  // Sync: another computer's changes arrived; every open list and page shows them (the mail
+  // queries are this computer's own and stay as they are)
+  useEffect(
+    () =>
+      window.api.onDataChanged(() => {
+        void queryClient.invalidateQueries({
+          predicate: (query) => {
+            const [path] = query.queryKey as unknown[]
+            return !(Array.isArray(path) && path[0] === 'mail')
+          }
+        })
+      }),
+    [queryClient]
+  )
   // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification (with its
   // account: the mail page then opens that account's newest unread mail)
   useEffect(

@@ -20,7 +20,17 @@ export function takeNextInvoiceNumber(tx: Tx, companyId: number): number {
     .limit(1)
     .all()
 
-  const assignedInvoiceNumber = existingSettings[0]?.next_invoice_number ?? 1
+  // Never below a number already used: with sync, another computer's invoices arrive without
+  // moving this computer's counter
+  const { highest } = tx
+    .select({ highest: sql<number | null>`max(${schema.invoice.invoice_number})` })
+    .from(schema.invoice)
+    .where(eq(schema.invoice.company_id, companyId))
+    .get() ?? { highest: null }
+  const assignedInvoiceNumber = Math.max(
+    existingSettings[0]?.next_invoice_number ?? 1,
+    (highest ?? 0) + 1
+  )
 
   if (existingSettings.length > 0) {
     tx.update(schema.company_invoice_settings)

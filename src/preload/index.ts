@@ -106,6 +106,15 @@ const api = {
     }
   },
 
+  /** Sync: another computer's changes arrived; the queries refresh. Returns the unsubscribe */
+  onDataChanged: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('app:dataChanged', listener)
+    return () => {
+      ipcRenderer.removeListener('app:dataChanged', listener)
+    }
+  },
+
   /** #71: a click on an appointment's reminder asks for its day in the calendar */
   onOpenCalendar: (callback: (day: string) => void) => {
     const listener = (_event: unknown, day: string): void => callback(day)
