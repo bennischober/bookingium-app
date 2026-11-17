@@ -648,7 +648,7 @@ kind's default per field; Einstellungen › Allgemein).
   checked (windows differ in size). Shows carry `conflicts`; the popup, the
   status card and the list name them.
 - **"Shows im Gebietsschutz"** below the map (`ShowTable`, pure sorting in
-  `showTable.ts`): every shown event and agency booking with band, kind,
+  `showRows.ts`): every shown event and agency booking with band, kind,
   tour, km and window, overlaps; sortable by each column, a row centres the
   map on its show.
 

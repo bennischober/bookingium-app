@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
 import { agencyLabel, germanDate } from './mapDisplay'
-import { nextSort, showRows, sortShows, type ShowSort, type ShowSortKey } from './showTable'
+import { nextSort, showRows, sortShows, type ShowSort, type ShowSortKey } from './showRows'
 
 const COLUMNS: Array<{ key: ShowSortKey; label: string; className?: string }> = [
   { key: 'date', label: 'Datum', className: 'w-28' },

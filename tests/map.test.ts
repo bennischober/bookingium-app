@@ -48,7 +48,7 @@ import {
   showRows,
   sortShows,
   type ShowSort
-} from '../src/renderer/src/components/map/showTable'
+} from '../src/renderer/src/components/map/showRows'
 import { getGroupedRoutes, getRouteShortcut, ROUTES } from '../src/renderer/src/lib/routing'
 
 const address = (
