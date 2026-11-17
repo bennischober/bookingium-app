@@ -16,8 +16,8 @@ let dataB: string
 test.beforeAll(() => {
   base = mkdtempSync(join(tmpdir(), 'bookingum-sync-'))
   shared = join(base, 'Google Drive')
-  dataA = join(base, 'vater')
-  dataB = join(base, 'sohn')
+  dataA = join(base, 'buero')
+  dataB = join(base, 'laptop')
   for (const dir of [shared, dataA, dataB]) mkdirSync(dir, { recursive: true })
 })
 
@@ -93,7 +93,7 @@ test('sets up, joins without duplicates and carries a new band across', async ()
   const companyId = (db.prepare('SELECT id FROM company LIMIT 1').get() as { id: number }).id
   db.prepare('INSERT INTO band (id, name, company_id) VALUES (?, ?, ?)').run(
     prefix * 2 ** 33 + 1,
-    'Vom Sohn angelegt',
+    'Vom Laptop angelegt',
     companyId
   )
   db.close()
@@ -111,7 +111,7 @@ test('sets up, joins without duplicates and carries a new band across', async ()
   await expect(a2.page.getByText('Abgeglichen', { exact: true })).toBeVisible({ timeout: 20_000 })
   await expect(a2.page.getByText('(dieser Computer)')).toBeVisible()
   await a2.page.getByRole('link', { name: 'Bands' }).first().click()
-  await expect(a2.page.getByText('Vom Sohn angelegt')).toBeVisible({ timeout: 10_000 })
+  await expect(a2.page.getByText('Vom Laptop angelegt')).toBeVisible({ timeout: 10_000 })
   await a2.close()
   // nothing doubled: A has its data plus the one new band
   expect(counts(dataA)).toEqual({ ...before, band: before.band + 1 })

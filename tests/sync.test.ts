@@ -45,6 +45,8 @@ type Computer = {
 let base: string
 let shared: string
 let clockMs: number
+/** Every database a test opened: closed in afterEach, so Windows can remove the folder after a failure */
+let opened: Database.Database[] = []
 
 function openComputer(name: string): Computer {
   const root = join(base, name)
@@ -52,6 +54,7 @@ function openComputer(name: string): Computer {
   mkdirSync(dataDir, { recursive: true })
   mkdirSync(join(root, 'storage'), { recursive: true })
   const sqlite = new Database(join(dataDir, 'bookingum.db'))
+  opened.push(sqlite)
   sqlite.pragma('journal_mode = WAL')
   const db = drizzle(sqlite, { schema })
   migrate(db, { migrationsFolder: MIGRATIONS })
@@ -126,6 +129,7 @@ async function join_(c: Computer): Promise<Computer> {
   })
   expect(outcome?.error).toBeNull()
   const sqlite = new Database(join(c.dataDir, 'bookingum.db'))
+  opened.push(sqlite)
   const next: Computer = { ...c, sqlite, db: drizzle(sqlite, { schema }), engine: null }
   next.engine = new SyncEngine(engineOptions(next))
   expect(next.engine.deviceId).toBe(prepared.device)
@@ -177,6 +181,8 @@ beforeEach(() => {
 
 afterEach(() => {
   configureRowIds(null)
+  for (const sqlite of opened) if (sqlite.open) sqlite.close()
+  opened = []
   rmSync(base, { recursive: true, force: true })
 })
 
@@ -227,13 +233,21 @@ describe('building blocks', () => {
 
 describe('two computers', () => {
   it('joins without duplicates and then carries edits both ways', async () => {
-    const a = openComputer('vater')
-    const b = openComputer('sohn')
+    const a = openComputer('buero')
+    const b = openComputer('laptop')
     // both already work with the app
-    const agencyA = company(a, 'Agentur Schober GmbH')
+    const agencyA = company(a, 'Agentur Muster GmbH')
     band(a, 'Pretty Wild', agencyA)
     person(a, 'Max', 'Mustermann', 'max@example.org')
-    const agencyB = company(b, 'agentur schober gmbh')
+    const agencyB = company(b, 'agentur muster gmbh')
+    // updated_at has whole seconds: pin the order, so the group's spelling is the newer one and
+    // stays (merge.ts takes the joiner's values only when its record was edited later)
+    for (const [c, id, at] of [
+      [a, agencyA, '2026-11-01 10:00:00'],
+      [b, agencyB, '2026-11-01 09:00:00']
+    ] as const) {
+      c.sqlite.prepare('UPDATE company SET updated_at = ? WHERE id = ?').run(at, id)
+    }
     band(b, 'Pretty Wild', agencyB)
     band(b, 'Neue Band', agencyB)
     person(b, 'Max', 'Mustermann', 'max@example.org')
@@ -244,7 +258,7 @@ describe('two computers', () => {
     await sync(b2, a)
 
     for (const c of [a, b2]) {
-      expect(names(c, 'company')).toEqual(['Agentur Schober GmbH'])
+      expect(names(c, 'company')).toEqual(['Agentur Muster GmbH'])
       expect(names(c, 'band')).toEqual(['Neue Band', 'Pretty Wild'])
       expect(people(c)).toEqual(['Erika Musterfrau', 'Max Mustermann'])
     }
@@ -258,7 +272,7 @@ describe('two computers', () => {
     as(a, () =>
       a.db
         .update(schema.band)
-        .set({ notes: 'vom Vater' })
+        .set({ notes: 'vom Büro' })
         .where(eq(schema.band.name, 'Neue Band'))
         .run()
     )
@@ -271,7 +285,7 @@ describe('two computers', () => {
           notes: string
         }
       ).notes
-    ).toBe('vom Vater')
+    ).toBe('vom Büro')
     // ids of the second computer come from its own range
     const { first, last } = idRange(b2.engine!.prefix)
     expect(newB).toBeGreaterThanOrEqual(first)
@@ -373,8 +387,8 @@ describe('two computers', () => {
       as(c, () =>
         c.db.insert(schema.invoice).values({ company_id: agency, invoice_number: 7, notes }).run()
       )
-    invoice(a, 'vom Vater')
-    invoice(b2, 'vom Sohn')
+    invoice(a, 'vom Büro')
+    invoice(b2, 'vom Laptop')
     await sync(a, b2, a)
     const conflicts = a.sqlite.prepare('SELECT message FROM sync_conflict').all() as Array<{
       message: string
