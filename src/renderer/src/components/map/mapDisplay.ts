@@ -253,7 +253,11 @@ export function pointPopupHtml(point: MapPoint): string {
           event.type === 'agency'
             ? `<br><small>${escapeHtml(agencyLabel(event.agency ?? ''))}</small>`
             : ''
-        }${event.ring ? `<br><small>Gebietsschutz: ${ringWindowLabel(event.ring)}</small>` : ''}`
+        }${event.ring ? `<br><small>Gebietsschutz: ${ringWindowLabel(event.ring)}</small>` : ''}${
+          event.conflicts && event.conflicts.length > 0
+            ? `<br><small>Überschneidung mit: ${event.conflicts.map(blockHtml).join(', ')}</small>`
+            : ''
+        }`
     )
     const more = point.events.length - shown.length
     if (more > 0) rows.push(`+ ${more} weitere`)
