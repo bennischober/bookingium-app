@@ -594,9 +594,63 @@ or all of an agency). They go away with their band (`ON DELETE CASCADE`).
   links to them: there is no detail page.
 - **Map.** `MapService` passes the active ones (not cancelled) to
   `buildMapData` as event rows with `agency` set and `venue_id: null`. They
-  draw as `type: 'agency'` markers (teal) with the kind's default radius
-  clause, block or endanger venues, and collide with the what-if booking
-  like own events; blocks and conflicts carry `agency`.
+  draw as `type: 'agency'` markers (teal) with the radius clause their
+  export gave (Gebietsschutz km / Wochen davor / danach columns), else the
+  kind's default; they block or endanger venues, and collide with the
+  what-if booking and with the band's own shows like own events; blocks and
+  conflicts carry `agency`.
+
+## Tour import (Tourdaten)
+
+Events › "Tourdaten importieren" (`TourImportDialog`, `tourImport` router,
+`TourImportService`, `TourImportRepository`): a tour sheet becomes own events.
+The file comes through `import:pickFile` like every list import; the pure
+`import/tourDates.ts` plans.
+
+- **Excel.** Every import reads `.xlsx` (first sheet) besides CSV:
+  `import/xlsx.ts` unpacks the parts with Node's zlib, no spreadsheet
+  library. Shared and inline strings, numbers (decimal comma, no float
+  noise), date-formatted cells as DD.MM.YYYY (built-in and custom date
+  formats, Excel's 1900 leap-year quirk), zero-padded formats ("00000",
+  postcodes) keep their zeros. Rows keep their sheet row numbers.
+- **One row, one event,** found again by band and date (a band plays one
+  show a day): the next version of the sheet updates instead of
+  duplicating, and only mapped columns with a value change an existing
+  event. Columns: date, band (must exist, like the agency import), event
+  name (else "Band – Club"), club/festival, address, kind, status, tour,
+  deal, fee, ticket prices, show time, radius clause (km, weeks
+  before/after), notes. Amounts take "1.500 €", "1500,50", "1,500.50".
+- **Venues** are matched by name, and by city when both sides know it; an
+  unknown one is created once per name and city (with its address), unless
+  the dialog's switch is off - then the place goes into the event's notes.
+- **Tour.** `deal_memo.tour` ('' for none, migration 0046): from a Tour
+  column, else the dialog's tour. Editable in the event's Übersicht, a
+  column and a filter in the event list (`getAllPaginated({ tour })`), and a
+  map filter. `tourImport.tours` lists the tours events name.
+- Columns, tour and defaults are remembered per header layout
+  (`tourImport:<sha1>` in `app_setting`). Writing schedules the calendar
+  file update.
+
+## Map: radius clauses
+
+`map/markers.ts` (pure) builds what the map page draws from `MapService`'s
+rows; `map/radius.ts` holds the clause rules (event, else venue, else the
+kind's default per field; Einstellungen › Allgemein).
+
+- **Filters:** kind, band, tour, date range; "Anfrage prüfen" is the
+  what-if booking of a venue on a date.
+- **Rings:** around each show its clause (dashed for open offers);
+  "Umkreis um alle Orte" adds a thin dotted ring of their clause around
+  every club and festival (`radiusKm` on venue markers).
+- **Overlaps** (`showConflicts`): two shows of the same band collide when
+  one lies inside the other's ring while its date falls in the other's
+  window; cancelled and unlocated shows are out. Every pair of a band is
+  checked (windows differ in size). Shows carry `conflicts`; the popup, the
+  status card and the list name them.
+- **"Shows im Gebietsschutz"** below the map (`ShowTable`, pure sorting in
+  `showTable.ts`): every shown event and agency booking with band, kind,
+  tour, km and window, overlaps; sortable by each column, a row centres the
+  map on its show.
 
 ## Mailing lists (Verteiler)
 
