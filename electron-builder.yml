@@ -55,6 +55,6 @@ npmRebuild: false
 # Nothing is published by electron-builder itself (--publish never).
 publish:
   provider: github
-  owner: Webberjoe
-  repo: bookingium_clon
+  owner: bennischober
+  repo: bookingium-app
   releaseType: release

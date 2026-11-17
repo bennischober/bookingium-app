@@ -66,7 +66,8 @@ describe('release contract', () => {
   it('builds update metadata for the GitHub releases of this repository', () => {
     const builder = read('electron-builder.yml')
     expect(builder).toMatch(/publish:\s*\n\s*provider: github/)
-    expect(builder).toContain('repo: bookingium_clon')
+    expect(builder).toContain('owner: bennischober')
+    expect(builder).toContain('repo: bookingium-app')
   })
 
   it('uploads the installer together with latest.yml and the blockmap', () => {
