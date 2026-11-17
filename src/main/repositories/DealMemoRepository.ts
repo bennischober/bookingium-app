@@ -20,10 +20,7 @@ export class DealMemoRepository {
     const whereClause = and(
       notArchived(),
       search
-        ? or(
-            like(schema.deal_memo.name, `%${search}%`),
-            like(schema.deal_memo.tour, `%${search}%`)
-          )
+        ? or(like(schema.deal_memo.name, `%${search}%`), like(schema.deal_memo.tour, `%${search}%`))
         : undefined,
       tour !== undefined ? eq(schema.deal_memo.tour, tour) : undefined
     )

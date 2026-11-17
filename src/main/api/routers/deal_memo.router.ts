@@ -13,12 +13,12 @@ export const dealMemoRouter = t.router({
   getAllPaginated: t.procedure
     .input(PaginationInput.extend({ tour: z.string().optional() }))
     .query(async ({ input }) => {
-    const result = await dealMemoService.getAllDealMemosPaginated(input)
-    return {
-      ...result,
-      items: DealMemoMapper.toListItemDtoList(result.items)
-    }
-  }),
+      const result = await dealMemoService.getAllDealMemosPaginated(input)
+      return {
+        ...result,
+        items: DealMemoMapper.toListItemDtoList(result.items)
+      }
+    }),
 
   /** A band's events, newest first (band page) */
   listByBand: t.procedure.input(z.number()).query(async ({ input }) => {
