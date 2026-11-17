@@ -35,7 +35,7 @@ test.beforeAll(async () => {
   await page.getByRole('link', { name: 'Clubs' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await dialog.getByRole('button', { name: '150 Zeilen importieren' }).click()
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()

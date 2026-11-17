@@ -62,7 +62,7 @@ interface AgencyImportDialogProps {
 
 /**
  * #103: imports the shows another agency booked for the user's bands from its
- * export (CSV; from Excel: save as „CSV UTF-8“). Pick the file, name the
+ * export (CSV or .xlsx). Pick the file, name the
  * agency and check the columns, review the rows, import. A row is found again
  * by the agency and its booking number (else band, date and place), so the
  * next export of the same agency updates instead of duplicating; bookings the
@@ -234,10 +234,10 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
               Eine Zeile pro Show, mit Spalten wie Band, Datum, Club, PLZ, Ort und Status.
               Agenturbuchungen sind schreibgeschützt: Sie zählen für Terminkonflikte und den
               Gebietsschutz, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder
-              Wiedervorlagen. Aus Excel: Speichern unter, Dateityp „CSV UTF-8“.
+              Wiedervorlagen. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt.
             </p>
             <Button onClick={() => void pickFile()} disabled={picking}>
-              {picking ? 'Datei wird gelesen…' : 'CSV-Datei auswählen…'}
+              {picking ? 'Datei wird gelesen…' : 'Datei auswählen…'}
             </Button>
           </div>
         )}

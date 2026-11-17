@@ -49,7 +49,7 @@ test('imports a band list with members from the settings page', async () => {
   await page.getByRole('button', { name: 'Daten importieren…' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await expect(dialog.getByRole('combobox', { name: 'Liste enthält' })).toHaveText('Bands')
   await expect(dialog.getByRole('combobox', { name: 'Spalte D übernehmen als' })).toHaveText(
     'Mitglieder'
@@ -81,6 +81,6 @@ test('imports a band list with members from the settings page', async () => {
   // Same columns again: the mapping is remembered
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await expect(dialog.getByText('Zuordnung vom letzten Import')).toBeVisible()
 })

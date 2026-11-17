@@ -1,0 +1,201 @@
+// ========================================
+// Reading the first sheet of an Excel workbook (.xlsx)
+// ========================================
+// An .xlsx file is a zip of XML parts. This reads exactly what an import needs - the cells of the
+// first worksheet as text, row by row - with Node's own zlib, so no spreadsheet library (and its
+// supply chain) comes into the app. Formulas give their last computed value; dates come out as
+// DD.MM.YYYY (what parseShowDate and the list import read); numbers as Excel shows them without
+// grouping ("1500", "12,5" is kept as the stored 12.5 -> "12,5" in German).
+import { inflateRawSync } from 'zlib'
+
+type ZipEntry = { name: string; method: number; compressedSize: number; offset: number }
+
+const EOCD_SIGNATURE = 0x06054b50
+const CENTRAL_SIGNATURE = 0x02014b50
+const LOCAL_SIGNATURE = 0x04034b50
+/** A sheet part bigger than this is not a list someone imports by hand */
+const MAX_PART_BYTES = 64 * 1024 * 1024
+
+function zipEntries(zip: Buffer): Map<string, ZipEntry> {
+  let eocd = -1
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 65_557); i--) {
+    if (zip.readUInt32LE(i) === EOCD_SIGNATURE) {
+      eocd = i
+      break
+    }
+  }
+  if (eocd < 0) throw new Error('Die Datei ist keine Excel-Datei (.xlsx).')
+  const count = zip.readUInt16LE(eocd + 10)
+  let pointer = zip.readUInt32LE(eocd + 16)
+  const entries = new Map<string, ZipEntry>()
+  for (let i = 0; i < count; i++) {
+    if (zip.readUInt32LE(pointer) !== CENTRAL_SIGNATURE) break
+    const method = zip.readUInt16LE(pointer + 10)
+    const compressedSize = zip.readUInt32LE(pointer + 20)
+    const nameLength = zip.readUInt16LE(pointer + 28)
+    const extraLength = zip.readUInt16LE(pointer + 30)
+    const commentLength = zip.readUInt16LE(pointer + 32)
+    const offset = zip.readUInt32LE(pointer + 42)
+    const name = zip.toString('utf-8', pointer + 46, pointer + 46 + nameLength)
+    entries.set(name, { name, method, compressedSize, offset })
+    pointer += 46 + nameLength + extraLength + commentLength
+  }
+  return entries
+}
+
+function readPart(zip: Buffer, entries: Map<string, ZipEntry>, name: string): string | null {
+  const entry = entries.get(name)
+  if (!entry) return null
+  if (zip.readUInt32LE(entry.offset) !== LOCAL_SIGNATURE)
+    throw new Error('Die Excel-Datei ist beschädigt.')
+  const nameLength = zip.readUInt16LE(entry.offset + 26)
+  const extraLength = zip.readUInt16LE(entry.offset + 28)
+  const start = entry.offset + 30 + nameLength + extraLength
+  const data = zip.subarray(start, start + entry.compressedSize)
+  if (entry.method === 0) return data.toString('utf-8')
+  if (entry.method !== 8)
+    throw new Error('Die Excel-Datei ist in einem unbekannten Format gepackt.')
+  return inflateRawSync(data, { maxOutputLength: MAX_PART_BYTES }).toString('utf-8')
+}
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+
+export function decodeXml(text: string): string {
+  return text.replace(/&(#x[0-9a-fA-F]+|#\d+|amp|lt|gt|quot|apos);/g, (_, entity: string) => {
+    if (entity.startsWith('#x')) return String.fromCodePoint(parseInt(entity.slice(2), 16))
+    if (entity.startsWith('#')) return String.fromCodePoint(parseInt(entity.slice(1), 10))
+    return ENTITIES[entity]
+  })
+}
+
+/** The text of every <t> inside a fragment (rich text runs joined, phonetic hints left out) */
+function textOf(fragment: string): string {
+  const withoutPhonetic = fragment.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '')
+  return [...withoutPhonetic.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>|<t(?:\s[^>]*)?\/>/g)]
+    .map((match) => decodeXml(match[1] ?? ''))
+    .join('')
+}
+
+function sharedStrings(xml: string | null): string[] {
+  if (!xml) return []
+  return [...xml.matchAll(/<si>([\s\S]*?)<\/si>|<si\/>/g)].map((match) => textOf(match[1] ?? ''))
+}
+
+/** Built-in number formats that are dates (ECMA-376 18.8.30) */
+const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 22, 27, 30, 36, 45, 46, 47, 50, 57])
+
+type CellStyle = { date: boolean; zeros: number }
+
+/**
+ * Per cell style index: whether the number format is a date, and how many digits a zero-padded
+ * format ("00000", a postcode like 01067 stored as a number) shows
+ */
+function cellStyles(xml: string | null): CellStyle[] {
+  if (!xml) return []
+  const custom = new Map<number, string>()
+  for (const match of xml.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)) {
+    custom.set(Number(match[1]), decodeXml(match[2]))
+  }
+  const cellXfs = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml)?.[1] ?? ''
+  return [...cellXfs.matchAll(/<xf\b([^>]*)\/?>/g)].map((match) => {
+    const id = Number(/numFmtId="(\d+)"/.exec(match[1])?.[1] ?? '0')
+    if (BUILTIN_DATE_FORMATS.has(id)) return { date: true, zeros: 0 }
+    const code = custom.get(id)
+    if (!code) return { date: false, zeros: 0 }
+    if (/^0+$/.test(code)) return { date: false, zeros: code.length }
+    // a date format names day, month or year outside quoted text and brackets ([Red], [h])
+    const bare = code.replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '')
+    return { date: /[dy]/i.test(bare) || /(^|[^h:])m{1,4}([^:s]|$)/i.test(bare), zeros: 0 }
+  })
+}
+
+/** An Excel date serial (1900 system) as DD.MM.YYYY */
+export function excelSerialToDate(serial: number): string {
+  const days = Math.floor(serial)
+  // Excel counts 1900-02-29 that never was; serials from 61 on are one day ahead
+  const epoch = Date.UTC(1899, 11, days >= 61 ? 30 : 31)
+  const date = new Date(epoch + days * 86_400_000)
+  const dd = String(date.getUTCDate()).padStart(2, '0')
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${date.getUTCFullYear()}`
+}
+
+/** "AB12" -> column index 27 */
+function columnIndex(reference: string): number {
+  const letters = /^[A-Z]+/.exec(reference)?.[0] ?? 'A'
+  let index = 0
+  for (const letter of letters) index = index * 26 + (letter.charCodeAt(0) - 64)
+  return index - 1
+}
+
+/** A number as text the way a German list shows it: no grouping, decimal comma, no float noise */
+function numberText(raw: string): string {
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return raw
+  const rounded = Math.round(value * 1e9) / 1e9
+  return String(rounded).replace('.', ',')
+}
+
+/** The path of the workbook's first sheet, as its relationships name it */
+function firstSheetPath(workbook: string | null, rels: string | null): string {
+  const fallback = 'xl/worksheets/sheet1.xml'
+  if (!workbook || !rels) return fallback
+  const sheet = /<sheet\b[^>]*r:id="([^"]+)"/.exec(workbook)
+  if (!sheet) return fallback
+  const relation = new RegExp(`<Relationship\\b[^>]*Id="${sheet[1]}"[^>]*/?>`).exec(rels)
+  const target = relation && /Target="([^"]+)"/.exec(relation[0])?.[1]
+  if (!target) return fallback
+  return target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`
+}
+
+/** The name of the first sheet ("Tour 2027"), '' when unnamed */
+function firstSheetName(workbook: string | null): string {
+  const name = workbook && /<sheet\b[^>]*name="([^"]*)"/.exec(workbook)?.[1]
+  return name ? decodeXml(name) : ''
+}
+
+/**
+ * The first worksheet of an .xlsx file as rows of cell texts (empty cells as ''), plus the
+ * sheet's name. Rows keep their position, so row numbers match what Excel shows.
+ */
+export function readXlsx(file: Buffer): { sheetName: string; records: string[][] } {
+  const entries = zipEntries(file)
+  const workbook = readPart(file, entries, 'xl/workbook.xml')
+  const rels = readPart(file, entries, 'xl/_rels/workbook.xml.rels')
+  const sheetXml = readPart(file, entries, firstSheetPath(workbook, rels))
+  if (!sheetXml) throw new Error('Die Excel-Datei enthält kein Tabellenblatt.')
+  const strings = sharedStrings(readPart(file, entries, 'xl/sharedStrings.xml'))
+  const styles = cellStyles(readPart(file, entries, 'xl/styles.xml'))
+
+  const records: string[][] = []
+  for (const row of sheetXml.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>|<row\b([^>]*)\/>/g)) {
+    const attributes = row[1] ?? row[3] ?? ''
+    const rowNumber = Number(/\br="(\d+)"/.exec(attributes)?.[1] ?? records.length + 1)
+    while (records.length < rowNumber - 1) records.push([])
+    const cells: string[] = []
+    for (const cell of (row[2] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const cellAttributes = cell[1]
+      const body = cell[2] ?? ''
+      const reference = /\br="([A-Z]+\d+)"/.exec(cellAttributes)?.[1]
+      const index = reference ? columnIndex(reference) : cells.length
+      const type = /\bt="(\w+)"/.exec(cellAttributes)?.[1] ?? 'n'
+      const style = Number(/\bs="(\d+)"/.exec(cellAttributes)?.[1] ?? '0')
+      const raw = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1]
+      let text = ''
+      if (type === 's') text = raw === undefined ? '' : (strings[Number(raw)] ?? '')
+      else if (type === 'inlineStr') text = textOf(body)
+      else if (type === 'str' || type === 'e') text = raw === undefined ? '' : decodeXml(raw)
+      else if (type === 'b') text = raw === '1' ? 'WAHR' : raw === '0' ? 'FALSCH' : ''
+      else if (raw !== undefined && raw !== '') {
+        const cellStyle = styles[style]
+        if (cellStyle?.date) text = excelSerialToDate(Number(raw))
+        else if (cellStyle?.zeros && /^\d+$/.test(raw)) text = raw.padStart(cellStyle.zeros, '0')
+        else text = numberText(raw)
+      }
+      while (cells.length < index) cells.push('')
+      cells[index] = text
+    }
+    records.push(cells)
+  }
+  return { sheetName: firstSheetName(workbook), records }
+}

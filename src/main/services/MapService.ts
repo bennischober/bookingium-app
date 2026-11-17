@@ -152,6 +152,12 @@ export class MapService {
                 country_code: booking.country
               }
             : null,
+        // the export's own clause, else the kind's default
+        radius: {
+          radius_km: booking.radius_km,
+          radius_weeks_before: booking.radius_weeks_before,
+          radius_weeks_after: booking.radius_weeks_after
+        },
         agency: booking.agency
       })
     }

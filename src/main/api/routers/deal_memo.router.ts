@@ -10,7 +10,9 @@ const t = initTRPC.create()
 const dealMemoService = container.resolve(DealMemoService)
 
 export const dealMemoRouter = t.router({
-  getAllPaginated: t.procedure.input(PaginationInput).query(async ({ input }) => {
+  getAllPaginated: t.procedure
+    .input(PaginationInput.extend({ tour: z.string().optional() }))
+    .query(async ({ input }) => {
     const result = await dealMemoService.getAllDealMemosPaginated(input)
     return {
       ...result,

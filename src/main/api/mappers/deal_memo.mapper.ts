@@ -34,7 +34,8 @@ export class DealMemoMapper {
       bandId: entity.band_id,
       bandName: entity.band?.name ?? 'Unknown',
       venueId: entity.venue_id,
-      venueName: entity.venue?.name ?? null
+      venueName: entity.venue?.name ?? null,
+      tour: entity.tour
     }
   }
 
