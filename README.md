@@ -161,8 +161,13 @@ Release with notes generated from the PRs merged since the previous tag.
 
 A red gate or a tag that does not match the version publishes nothing. Delete
 the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again.
-The installer is unsigned (#48) and there is no auto-update (#49): users
-download the new installer from the release.
+The installer is unsigned (#48). Installed apps update themselves (#49): they
+read `latest.yml` of the newest GitHub Release of this (public) repository,
+download the installer in the background and install it when the app closes
+(or at once from Einstellungen › Daten › „Version und Updates“). A release
+therefore needs the three files the workflow uploads: the installer, its
+`.blockmap` and `latest.yml`. Computers in a sync should run the same
+version; the sync looks for an update as soon as another computer is ahead.
 
 ## Architecture
 

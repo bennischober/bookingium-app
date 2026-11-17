@@ -59,6 +59,8 @@ export type SyncHost = {
   removeFile: (file: string) => Promise<void>
   /** Data changed from elsewhere: windows refresh, the calendar file is rewritten */
   onChanged: () => void
+  /** Another computer's batches wait for a newer version: the app looks for an update */
+  onNewerVersionElsewhere?: () => void
 }
 
 /**
@@ -333,6 +335,8 @@ export class SyncService {
         lastExportSeq: Math.max(state.lastExportSeq, engine.exportSeq)
       })
       if (changedHere) this.host.onChanged()
+      if (result.newerVersionElsewhere && !state.lastResult?.newerVersionElsewhere)
+        this.host.onNewerVersionElsewhere?.()
     } catch (error) {
       this.update({ lastRunAt: at, lastError: errorMessage(error) })
     }

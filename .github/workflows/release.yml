@@ -7,8 +7,9 @@
 #
 # What it deliberately does NOT do:
 #   - sign the installer (#48): SmartScreen warns on first start until it is signed.
-#   - publish update metadata for an auto-updater (#49): electron-builder runs with
-#     --publish never, the release carries only the installer.
+#   - let electron-builder publish: it runs with --publish never and the release job uploads the
+#     installer together with latest.yml and the .blockmap, which the installed apps read to
+#     update themselves (#49, src/main/app/updates.ts).
 #   - build macOS or Linux packages: the app is used on Windows.
 name: Release
 
@@ -73,7 +74,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: installer
-          path: dist/Bookingium-Setup-*.exe
+          # latest.yml and the blockmap are the auto-update metadata (#49)
+          path: |
+            dist/Bookingium-Setup-*.exe
+            dist/Bookingium-Setup-*.exe.blockmap
+            dist/latest.yml
           if-no-files-found: error
 
   release:
@@ -92,6 +97,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "${GITHUB_REF_NAME}" Bookingium-Setup-*.exe
+          Bookingium-Setup-*.exe.blockmap latest.yml
           --repo "${GITHUB_REPOSITORY}"
           --title "Bookingium ${GITHUB_REF_NAME#v}"
           --generate-notes

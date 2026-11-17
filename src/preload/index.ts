@@ -115,6 +115,15 @@ const api = {
     }
   },
 
+  /** #49: a newer version is downloaded and waits to be installed; returns the unsubscribe */
+  onUpdateReady: (callback: (update: { version: string | null }) => void) => {
+    const listener = (_event: unknown, update: { version: string | null }): void => callback(update)
+    ipcRenderer.on('app:updateReady', listener)
+    return () => {
+      ipcRenderer.removeListener('app:updateReady', listener)
+    }
+  },
+
   /** #71: a click on an appointment's reminder asks for its day in the calendar */
   onOpenCalendar: (callback: (day: string) => void) => {
     const listener = (_event: unknown, day: string): void => callback(day)

@@ -279,6 +279,20 @@ it is a folder, so a server can implement `SyncTransport` later.
 - **Mail stays local:** accounts and mail stores are per computer; each one
   syncs its mail with the server itself.
 
+## Auto-update (#49)
+
+`src/main/app/updates.ts` (electron-updater) with the pure status in
+`src/main/updates/state.ts`. Only the installed app updates itself
+(`app.isPackaged`). `electron-builder.yml` `publish` names the GitHub repository,
+which writes `app-update.yml` into the package and `latest.yml` plus the
+`.blockmap` next to the installer; `release.yml` uploads all three (electron-builder
+itself runs with `--publish never`). Checks: 30 s after start, every 4 h, on
+"Nach Updates suchen", and when the sync sees another computer on a newer
+version. A found update downloads in the background and installs silently when
+the app closes (`autoInstallOnAppQuit`); "Jetzt neu starten" installs at once
+and starts the new version. A downloaded update stays "ready" through later
+failed checks. `tests/updates.test.ts` pins the release contract.
+
 ## Migrations
 
 All migrations up to 2026-10 were merged into `0000_initial` (pre-release).

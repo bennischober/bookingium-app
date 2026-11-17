@@ -7,6 +7,7 @@ import { container } from 'tsyringe'
 import { startErrorLogging } from './app/errorLogging'
 import { setUpMailWatch, startMailClient, startMailLinking } from './app/mailServices'
 import { migrateDatabase } from './app/migrateDatabase'
+import { checkForUpdates, startUpdates } from './app/updates'
 import { setUpReminders } from './app/reminders'
 import { keepInTray, setUpTray } from './app/tray'
 import {
@@ -126,7 +127,9 @@ app.whenReady().then(async () => {
         for (const window of BrowserWindow.getAllWindows())
           if (!window.isDestroyed()) window.webContents.send('app:dataChanged')
         void container.resolve(CalendarFeedService).update()
-      }
+      },
+      // another computer runs a newer version: fetch it here too, so both match again soon
+      onNewerVersionElsewhere: () => void checkForUpdates()
     })
     .catch((error) => console.error('Starting sync failed:', error))
 
@@ -138,6 +141,8 @@ app.whenReady().then(async () => {
     seal: (plain) => safeStorage.encryptString(plain).toString('base64'),
     open: (sealed) => safeStorage.decryptString(Buffer.from(sealed, 'base64'))
   })
+  // #49: the installed app updates itself from GitHub Releases (installed when it closes)
+  startUpdates()
   startMailClient()
   // #65, #142: the tray icon, reminders, and new-mail notifications from each INBOX's unread count
   const tray = setUpTray()

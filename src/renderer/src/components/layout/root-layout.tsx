@@ -8,7 +8,8 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, Mail } from 'lucide-react'
+import { Bell, Download, Mail } from 'lucide-react'
+import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
@@ -60,6 +61,26 @@ export default function RootLayout() {
         })
       }),
     [navigate, router]
+  )
+  // #49: a newer version is downloaded; it is installed when the app closes, or right away
+  const installUpdate = trpcReact.updates.install.useMutation({
+    onError: (error) =>
+      toast.error('Update kann nicht installiert werden', { description: error.message })
+  })
+  useEffect(
+    () =>
+      window.api.onUpdateReady((update) => {
+        toast.info(`Bookingium ${update.version ?? ''} ist bereit`.replace('  ', ' '), {
+          id: 'update-ready',
+          icon: <Download className="size-4" />,
+          description: 'Das Update wird beim Schließen installiert.',
+          duration: 15000,
+          action: { label: 'Jetzt neu starten', onClick: () => installUpdate.mutate() }
+        })
+      }),
+    // the mutation object changes on every render; its mutate is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   )
   // #142: a click on a reminder notification opens the dashboard, whose card lists the follow-ups
   useEffect(() => window.api.onOpenDashboard(() => void navigate({ to: '/' })), [navigate])

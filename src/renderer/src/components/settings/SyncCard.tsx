@@ -55,7 +55,8 @@ function SyncState({ status }: { status: SyncStatusDto }) {
         <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           Ein anderer Computer hat eine neuere Version von Bookingium. Seine Änderungen kommen an,
-          sobald Bookingium auf diesem Computer aktualisiert ist.
+          sobald Bookingium auf diesem Computer aktualisiert ist; das Update wird schon gesucht
+          (siehe „Version und Updates“).
         </p>
       )}
       {status.reidentifiedAt && (
