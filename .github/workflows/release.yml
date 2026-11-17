@@ -2,13 +2,16 @@
 # installed apps then update themselves from (#49). README › Releasing has the steps.
 #
 # Two ways to start it:
-#   - The button: Actions › Release › "Run workflow", choosing patch / minor / major. The first job
-#     raises `version` in package.json, commits that to main and tags it - no PR, no local git.
+#   - The button: Actions › Release › "Run workflow" on main, choosing patch / minor / major. Once
+#     the gate is green, `version` in package.json is raised, committed to main and tagged - no PR,
+#     no local git.
 #   - Pushing a tag `v<version>` by hand, as before; the tag must name the version in package.json.
 #
-# Order: version (and tag), then the full CI gate on exactly that commit (ci.yml, called with the
-# tag), and only then is the installer built on windows-latest and the release created. A red gate
-# publishes nothing (a version commit made by the button stays on main; the next run moves on).
+# Order: check, then the full CI gate on the commit the run started on (ci.yml, called as is, so it
+# never checks out a ref handed in from outside), then the version commit and tag (button only),
+# and only then is the installer built on windows-latest and the release created. A red gate
+# changes and publishes nothing. The version commit differs from the gated one only in
+# package.json's version; if main moved on meanwhile, its push is refused and nothing is tagged.
 #
 # What it deliberately does NOT do:
 #   - sign the installer (#48): SmartScreen warns on first start until it is signed.
@@ -32,13 +35,42 @@ on:
 permissions:
   contents: read
 
-# One run per tag; a second push of the same tag waits instead of racing the first
+# One run per tag, and one button run at a time (they all start on main); a second run waits
+# instead of racing the first
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Started on main, or the tag matches package.json
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "${EVENT}" = 'workflow_dispatch' ]; then
+            if [ "${GITHUB_REF}" != 'refs/heads/main' ]; then
+              echo "::error::Run the release button on main, not on ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version} (expected v${version})"
+            exit 1
+          fi
+
+  gate:
+    needs: check
+    uses: ./.github/workflows/ci.yml
+
   version:
+    needs: gate
     runs-on: ubuntu-latest
     # the button pushes the version commit and the tag; a tag push only reads
     permissions:
@@ -46,12 +78,12 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
+      # the commit the gate just checked
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
 
       # The button: next version in package.json, committed to main and tagged. Tags pushed with
       # the workflow token start no workflow, so this run goes on with it instead of a second one.
+      # The push to main is a fast-forward of the gated commit, or it fails.
       - name: Raise the version
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -68,31 +100,16 @@ jobs:
           git push origin "v${version}"
           echo "Raised to ${version}"
 
-      - name: Tag matches package.json
+      - name: Tag
         id: tag
         shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
-          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
-            tag="v${version}"
-          else
-            tag="${GITHUB_REF_NAME}"
-          fi
-          if [ "${tag}" != "v${version}" ]; then
-            echo "::error::Tag ${tag} does not match package.json version ${version} (expected v${version})"
-            exit 1
-          fi
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
           echo "Releasing ${version}"
 
-  gate:
-    needs: version
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: ${{ needs.version.outputs.tag }}
-
   installer:
-    needs: [version, gate]
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

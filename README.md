@@ -141,9 +141,9 @@ Electron by `pnpm install`).
 
 The easy way is a button: on GitHub, **Actions › Release › Run workflow**,
 choose `patch` (fixes, 1.0.0 → 1.0.1), `minor` (features, 1.0.0 → 1.1.0) or
-`major`, and run it. [`.github/workflows/release.yml`](.github/workflows/release.yml)
-then raises `version` in `package.json`, commits it to `main`, tags it, runs
-the full CI gate on that commit, builds the Windows installer and publishes it
+`major`, and run it on `main`. [`.github/workflows/release.yml`](.github/workflows/release.yml)
+then runs the full CI gate on `main` as it is, and once that is green raises
+`version` in `package.json`, commits it to `main`, tags it, builds the Windows installer and publishes it
 as a GitHub Release with notes generated from the PRs merged since the previous
 tag. The installed apps pick it up by themselves (see below).
 
@@ -162,8 +162,9 @@ Installing it over an existing installation updates it in place; the data in
 
 A red gate or a tag that does not match the version publishes nothing. Delete
 the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again;
-after a red run from the button, fix and run the button again (the version
-commit it made stays, the next run takes the next number). The button pushes
+after a red run from the button nothing was committed or tagged: fix and run
+the button again. If `main` moved on while the gate ran, the version push is
+refused and nothing is released: run the button again. The button pushes
 to `main` with the workflow token: a branch protection rule on `main` must let
 GitHub Actions push.
 

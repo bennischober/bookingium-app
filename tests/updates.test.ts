@@ -82,8 +82,16 @@ describe('release contract', () => {
     expect(workflow).toContain('workflow_dispatch:')
     expect(workflow).toContain('npm version "$BUMP" --no-git-tag-version')
     expect(workflow).toContain('git push origin "v${version}"')
-    // the gate and the installer use exactly the tagged commit
+    // the installer builds exactly the tagged commit
     expect(workflow).toContain('ref: ${{ needs.version.outputs.tag }}')
-    expect(read('.github/workflows/ci.yml')).toContain('ref: ${{ inputs.ref }}')
+  })
+
+  it('raises the version only after the gate, and the gate checks out no ref handed in', () => {
+    const workflow = read('.github/workflows/release.yml')
+    expect(workflow).toMatch(/\n {2}version:\n {4}needs: gate\n/)
+    // a ref passed into ci.yml and checked out there is CodeQL's cache-poisoning pattern
+    const ci = read('.github/workflows/ci.yml')
+    expect(ci).not.toContain('inputs.ref')
+    expect(ci).not.toMatch(/checkout@v\d+\s*\n\s*with:\s*\n\s*ref:/)
   })
 })
