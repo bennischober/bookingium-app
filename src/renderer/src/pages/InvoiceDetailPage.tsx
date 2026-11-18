@@ -336,13 +336,14 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
   )
 }
 
-/** Verlauf: created, status changes, emails – oldest first */
+/** Verlauf: created, status changes, emails, DATEV hand-overs – oldest first */
 function History({ invoice }: { invoice: InvoiceDto }) {
+  const datevTransfers = trpcReact.datev.listForInvoice.useQuery(invoice.id)
   return (
     <section className="min-w-0">
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">Verlauf</h2>
       <ol aria-label="Verlauf" className="space-y-3 border-l pl-4">
-        {invoiceHistory(invoice).map((entry, index) => (
+        {invoiceHistory(invoice, datevTransfers.data).map((entry, index) => (
           <li key={index} className="relative text-sm">
             <span className="absolute top-1.5 -left-[21px] h-2 w-2 rounded-full bg-muted-foreground/50" />
             <div className="font-medium">

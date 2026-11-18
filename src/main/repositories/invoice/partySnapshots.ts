@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, max } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import { schema } from '../../db/schema'
 import type { InvoiceRecipientKind } from '../../api/schemas/invoice.schema'
@@ -66,6 +66,7 @@ export function companySnapshotValues(tx: Tx, companyId: number): SnapshotValues
     kind: 'company',
     source_company_id: row.company.id,
     legal_name: row.company.name,
+    customer_number: row.company.customer_number,
     street: row.address?.street ?? '',
     street_number: row.address?.street_number ?? '',
     zip_code: row.address?.zip_code ?? '',
@@ -121,6 +122,7 @@ function bandSnapshotValues(tx: Tx, bandId: number): SnapshotValues {
     kind: 'band',
     source_band_id: row.band.id,
     legal_name: row.band.name,
+    customer_number: row.band.customer_number,
     street: row.address?.street ?? '',
     street_number: row.address?.street_number ?? '',
     zip_code: row.address?.zip_code ?? '',
@@ -158,6 +160,7 @@ function personSnapshotValues(tx: Tx, personId: number): SnapshotValues {
     kind: 'person',
     source_person_id: row.person.id,
     legal_name: `${row.person.first_name} ${row.person.last_name}`.trim(),
+    customer_number: row.person.customer_number,
     street: row.address?.street ?? '',
     street_number: row.address?.street_number ?? '',
     zip_code: row.address?.zip_code ?? '',
@@ -206,6 +209,65 @@ export function currentSnapshotValues(tx: Tx, snapshot: SnapshotRow): SnapshotVa
   return values
 }
 
+const NEXT_CUSTOMER_NUMBER = 'nextCustomerNumber'
+/** Where customer numbers start when nothing is set (AppSettings.nextCustomerNumber's default) */
+export const FIRST_CUSTOMER_NUMBER = 10000
+
+/**
+ * The next free Kundennummer: the one set in the settings, but never one a company, band or
+ * person already has (numbers entered by hand or imported from DATEV)
+ */
+function nextCustomerNumberTx(tx: Tx): number {
+  const stored = tx
+    .select({ value: schema.app_setting.value })
+    .from(schema.app_setting)
+    .where(eq(schema.app_setting.key, NEXT_CUSTOMER_NUMBER))
+    .get()
+  const setting = Number(stored ? JSON.parse(stored.value) : FIRST_CUSTOMER_NUMBER)
+  const highest = [schema.company, schema.band, schema.person].map(
+    (table) =>
+      tx
+        .select({ value: max(table.customer_number) })
+        .from(table)
+        .get()?.value ?? 0
+  )
+  return Math.max(
+    Number.isInteger(setting) ? setting : FIRST_CUSTOMER_NUMBER,
+    ...highest.map((n) => n + 1)
+  )
+}
+
+/**
+ * A recipient gets its Kundennummer with its first issued invoice: a company, band or person
+ * without one takes the next free number, which is stored on the record and in the settings.
+ * Manual recipients ('other') have none.
+ */
+export function withCustomerNumberTx(tx: Tx, values: SnapshotValues): SnapshotValues {
+  if (values.customer_number != null) return values
+  const source =
+    values.kind === 'company' && values.source_company_id
+      ? { table: schema.company, id: values.source_company_id }
+      : values.kind === 'band' && values.source_band_id
+        ? { table: schema.band, id: values.source_band_id }
+        : values.kind === 'person' && values.source_person_id
+          ? { table: schema.person, id: values.source_person_id }
+          : null
+  if (!source) return values
+  const number = nextCustomerNumberTx(tx)
+  tx.update(source.table)
+    .set({ customer_number: number })
+    .where(eq(source.table.id, source.id))
+    .run()
+  tx.insert(schema.app_setting)
+    .values({ key: NEXT_CUSTOMER_NUMBER, value: JSON.stringify(number + 1) })
+    .onConflictDoUpdate({
+      target: schema.app_setting.key,
+      set: { value: JSON.stringify(number + 1) }
+    })
+    .run()
+  return { ...values, customer_number: number }
+}
+
 /** Issuing freezes both parties as they are now: fresh snapshots */
 export function issueSnapshotIds(
   tx: Tx,
@@ -215,7 +277,7 @@ export function issueSnapshotIds(
   return {
     issuer_snapshot_id: createCompanySnapshot(tx, invoiceRow.company_id).id,
     recipient_snapshot_id: recipient
-      ? insertSnapshot(tx, currentSnapshotValues(tx, recipient)).id
+      ? insertSnapshot(tx, withCustomerNumberTx(tx, currentSnapshotValues(tx, recipient))).id
       : invoiceRow.recipient_snapshot_id
   }
 }

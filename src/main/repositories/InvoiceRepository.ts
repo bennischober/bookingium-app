@@ -24,9 +24,12 @@ import {
 import { assertIssuable, takeNextInvoiceNumber } from './invoice/numbering'
 import {
   createCompanySnapshot,
+  insertSnapshot,
   issueSnapshotIds,
   resolveInvoiceCompanyId,
-  resolveRecipientSnapshot
+  resolveRecipientSnapshot,
+  resolveRecipientValues,
+  withCustomerNumberTx
 } from './invoice/partySnapshots'
 import {
   invoiceEntity,
@@ -229,16 +232,25 @@ export class InvoiceRepository {
   createTx(tx: Tx, input: CreateInvoiceInput) {
     const companyId = resolveInvoiceCompanyId(tx, input)
     const issuerSnapshot = createCompanySnapshot(tx, companyId)
-    const recipientSnapshot = resolveRecipientSnapshot(tx, input, companyId)
+    const recipientValues = resolveRecipientValues(tx, input, companyId)
+    // An invoice issued right away gives its recipient a Kundennummer like an issued draft
+    const recipientSnapshot = insertSnapshot(
+      tx,
+      (input.status ?? 'draft') === 'draft'
+        ? recipientValues
+        : withCustomerNumberTx(tx, recipientValues)
+    )
     const { items: normalizedLineItems, totals } = normalizeLineItems(
       input.lineItems,
       input.totalAmount
     )
 
     const status = input.status ?? 'draft'
+    const issueDate = input.issueDate ?? new Date().toISOString().slice(0, 10)
     // Drafts get their number when they are issued
     if (status !== 'draft') assertIssuable(totals.totalGrossCents)
-    const assignedInvoiceNumber = status === 'draft' ? null : takeNextInvoiceNumber(tx, companyId)
+    const assignedInvoiceNumber =
+      status === 'draft' ? null : takeNextInvoiceNumber(tx, companyId, issueDate)
 
     const created = tx
       .insert(schema.invoice)
@@ -251,7 +263,7 @@ export class InvoiceRepository {
         period_start_date: input.periodStartDate ?? null,
         period_end_date: input.periodEndDate ?? null,
         period_label: input.periodLabel ?? '',
-        issue_date: input.issueDate ?? new Date().toISOString().slice(0, 10),
+        issue_date: issueDate,
         due_date: input.dueDate ?? null,
         status,
         currency: input.currency ?? 'EUR',
@@ -338,7 +350,11 @@ export class InvoiceRepository {
         assertIssuable(
           (values.total_gross_cents as number | undefined) ?? existing.total_gross_cents
         )
-        values.invoice_number = takeNextInvoiceNumber(tx, nextCompanyId)
+        values.invoice_number = takeNextInvoiceNumber(
+          tx,
+          nextCompanyId,
+          (values.issue_date as string | undefined) ?? existing.issue_date
+        )
         Object.assign(
           values,
           issueSnapshotIds(tx, {
@@ -388,7 +404,7 @@ export class InvoiceRepository {
       const values: Record<string, unknown> = { status, updated_at: sql`datetime('now')` }
       if (status !== 'draft' && existing.invoice_number === null) {
         assertIssuable(existing.total_gross_cents)
-        values.invoice_number = takeNextInvoiceNumber(tx, existing.company_id)
+        values.invoice_number = takeNextInvoiceNumber(tx, existing.company_id, existing.issue_date)
         Object.assign(values, issueSnapshotIds(tx, existing))
       }
 

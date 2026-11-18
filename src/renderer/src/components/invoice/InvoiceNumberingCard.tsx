@@ -6,12 +6,38 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import type { InvoiceNumberFormat } from '../../../../main/api/schemas/invoice.schema'
+import { previewNumber } from '../../../../main/invoice/numbering'
 
-/** Next invoice number per issuing company (Einstellungen › Rechnungen) */
+const FORMAT_LABELS: Record<InvoiceNumberFormat, string> = {
+  plain: 'Fortlaufend (1040, 1041, …)',
+  year: 'Jahr + laufende Nummer (2026813, …)'
+}
+
+type Draft = { next: string; format: InvoiceNumberFormat; digits: string; yearlyReset: boolean }
+
+/**
+ * How the issuing company numbers its invoices (Einstellungen › Rechnungen): the next running
+ * number, plain or with the year in front, and whether the running number starts at 1 each
+ * year. When invoices move over from DATEV, the next number continues DATEV's last one.
+ */
 export function InvoiceNumberingCard() {
   const utils = trpcReact.useUtils()
   const [settingsCompanyId, setSettingsCompanyId] = useState<number | null>(null)
-  const [nextNumberInput, setNextNumberInput] = useState('1')
+  const [draft, setDraft] = useState<Draft>({
+    next: '1',
+    format: 'plain',
+    digits: '3',
+    yearlyReset: false
+  })
 
   const companies = trpcReact.company.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
@@ -32,79 +58,173 @@ export function InvoiceNumberingCard() {
     enabled: settingsCompanyId !== null
   })
 
-  // Keep the input following the loaded settings
-  const [lastNextInvoiceNumber, setLastNextInvoiceNumber] = useState<number | undefined>(
-    settingsQuery.data?.nextInvoiceNumber
-  )
-  if (settingsQuery.data?.nextInvoiceNumber !== lastNextInvoiceNumber) {
-    setLastNextInvoiceNumber(settingsQuery.data?.nextInvoiceNumber)
-    setNextNumberInput((settingsQuery.data?.nextInvoiceNumber ?? 1).toString())
+  // Keep the inputs following the loaded settings
+  const [lastLoaded, setLastLoaded] = useState(settingsQuery.data)
+  if (settingsQuery.data !== lastLoaded) {
+    setLastLoaded(settingsQuery.data)
+    const loaded = settingsQuery.data
+    setDraft({
+      next: String(loaded?.nextInvoiceNumber ?? 1),
+      format: loaded?.numberFormat ?? 'plain',
+      digits: String(loaded?.numberDigits ?? 3),
+      yearlyReset: loaded?.numberYearlyReset ?? false
+    })
   }
 
-  const settingsMutation = trpcReact.invoice.upsertCompanySettings.useMutation({
-    onSuccess: () => {
-      if (settingsCompanyId !== null) {
-        utils.invoice.getCompanySettings.invalidate(settingsCompanyId)
-      }
-      toast.success('Rechnungsnummerierung aktualisiert')
-    },
-    onError: (error) =>
-      toast.error('Einstellungen konnten nicht aktualisiert werden', { description: error.message })
-  })
+  const numberMutation = trpcReact.invoice.upsertCompanySettings.useMutation()
+  const formatMutation = trpcReact.invoice.setNumbering.useMutation()
+  const saving = numberMutation.isPending || formatMutation.isPending
 
-  const handleSave = () => {
+  const next = Number(draft.next)
+  const digits = Number(draft.digits)
+  const valid =
+    Number.isInteger(next) && next >= 1 && Number.isInteger(digits) && digits >= 1 && digits <= 9
+  const preview = valid
+    ? previewNumber(
+        {
+          format: draft.format,
+          digits,
+          yearlyReset: draft.yearlyReset,
+          next,
+          lastYear: settingsQuery.data?.numberYear ?? null
+        },
+        new Date().getFullYear()
+      )
+    : null
+
+  const handleSave = async () => {
     if (settingsCompanyId === null) {
       toast.error('Bitte zuerst eine Firma auswählen')
       return
     }
-    const value = Number(nextNumberInput)
-    if (!Number.isInteger(value) || value < 1) {
-      toast.error('Nächste Rechnungsnummer muss eine ganze Zahl ≥ 1 sein')
+    if (!valid) {
+      toast.error('Nächste Nummer muss eine ganze Zahl ≥ 1 sein, die Stellen 1 bis 9')
       return
     }
-    settingsMutation.mutate({ companyId: settingsCompanyId, nextInvoiceNumber: value })
+    try {
+      await formatMutation.mutateAsync({
+        companyId: settingsCompanyId,
+        format: draft.format,
+        digits,
+        yearlyReset: draft.yearlyReset
+      })
+      await numberMutation.mutateAsync({ companyId: settingsCompanyId, nextInvoiceNumber: next })
+      await utils.invoice.getCompanySettings.invalidate(settingsCompanyId)
+      toast.success('Rechnungsnummerierung aktualisiert')
+    } catch (error) {
+      toast.error('Einstellungen konnten nicht aktualisiert werden', {
+        description: error instanceof Error ? error.message : undefined
+      })
+    }
   }
+
+  const disabled = settingsCompanyId === null || settingsQuery.isLoading
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Rechnungsnummerierung</CardTitle>
         <CardDescription>
-          Nummer, die die nächste gestellte Rechnung der gewählten Firma erhält.
+          Wie die gestellten Rechnungen der gewählten Firma nummeriert werden. Beim Wechsel von
+          DATEV hier die Nummer eintragen, die auf DATEVs letzte Rechnung folgt. Das Rechnungsdatum
+          kann nicht vor dem der letzten gestellten Rechnung liegen.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
-        <div className="space-y-2">
-          <Label htmlFor="numbering-company">Firma</Label>
-          <SearchableSelect
-            id="numbering-company"
-            value={settingsCompanyId}
-            onChange={(value) => value !== null && setSettingsCompanyId(value)}
-            options={(companies.data ?? []).map((company) => ({
-              value: company.id,
-              label: company.name
-            }))}
-            placeholder="Firma auswählen"
-            searchPlaceholder="Firma suchen…"
-          />
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <Label htmlFor="numbering-company">Firma</Label>
+            <SearchableSelect
+              id="numbering-company"
+              value={settingsCompanyId}
+              onChange={(value) => value !== null && setSettingsCompanyId(value)}
+              options={(companies.data ?? []).map((company) => ({
+                value: company.id,
+                label: company.name
+              }))}
+              placeholder="Firma auswählen"
+              searchPlaceholder="Firma suchen…"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="numbering-format">Format</Label>
+            <Select
+              value={draft.format}
+              onValueChange={(value) =>
+                setDraft({ ...draft, format: value as InvoiceNumberFormat })
+              }
+              disabled={disabled}
+            >
+              <SelectTrigger id="numbering-format">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(FORMAT_LABELS) as InvoiceNumberFormat[]).map((format) => (
+                  <SelectItem key={format} value={format}>
+                    {FORMAT_LABELS[format]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="numbering-next">Nächste Rechnungsnummer</Label>
-          <Input
-            id="numbering-next"
-            type="number"
-            min="1"
-            step="1"
-            value={nextNumberInput}
-            onChange={(e) => setNextNumberInput(e.target.value)}
-            disabled={settingsQuery.isLoading}
-          />
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[12rem_8rem_minmax(0,1fr)_auto]">
+          <div className="space-y-2">
+            <Label htmlFor="numbering-next">
+              {draft.format === 'year' ? 'Nächste laufende Nummer' : 'Nächste Rechnungsnummer'}
+            </Label>
+            <Input
+              id="numbering-next"
+              type="number"
+              min="1"
+              step="1"
+              value={draft.next}
+              onChange={(e) => setDraft({ ...draft, next: e.target.value })}
+              disabled={disabled}
+            />
+          </div>
+          {draft.format === 'year' ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="numbering-digits">Stellen</Label>
+                <Input
+                  id="numbering-digits"
+                  type="number"
+                  min="1"
+                  max="9"
+                  step="1"
+                  value={draft.digits}
+                  onChange={(e) => setDraft({ ...draft, digits: e.target.value })}
+                  disabled={disabled}
+                />
+              </div>
+              <div className="flex h-9 items-center gap-2">
+                <Switch
+                  id="numbering-yearly-reset"
+                  checked={draft.yearlyReset}
+                  onCheckedChange={(checked) => setDraft({ ...draft, yearlyReset: checked })}
+                  disabled={disabled}
+                />
+                <Label htmlFor="numbering-yearly-reset">Jedes Jahr bei 1 beginnen</Label>
+              </div>
+            </>
+          ) : (
+            <>
+              <div />
+              <div />
+            </>
+          )}
+          <Button onClick={() => void handleSave()} disabled={saving || disabled}>
+            Speichern
+          </Button>
         </div>
 
-        <Button onClick={handleSave} disabled={settingsMutation.isPending}>
-          Speichern
-        </Button>
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {preview !== null
+            ? `Die nächste gestellte Rechnung erhält die Nummer ${preview}.`
+            : 'Bitte gültige Werte eintragen.'}
+        </p>
       </CardContent>
     </Card>
   )
