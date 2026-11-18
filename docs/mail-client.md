@@ -39,7 +39,7 @@ events and invoices), not a general mail client.
 **Mail client** (`/mail`, pop-out windows for single mails and the editor):
 
 - Three panes: folder tree, message list, reader. Resizable, keyboard shortcuts (`components/mail/shortcuts.ts`).
-- Local full-text search over the whole archive (SQLite FTS5) with filters, prefix search and a cost cap
+- Local full-text search over the whole archive (SQLite FTS5) with filters (sender, dates, attachment, unread and flagged, #212; they also work without a search text), prefix search and a cost cap
   for very common prefixes.
 - Flag, move (drag and drop, batch moves in one UID MOVE), delete to Trash, empty Trash, permanent delete
   from Trash only. Folder create, rename, move and delete.

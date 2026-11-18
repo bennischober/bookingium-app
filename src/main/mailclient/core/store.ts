@@ -867,7 +867,7 @@ export class Store {
 
   // search facets ------------------------------------------------------------
   /** Per-folder hit counts for a search (GROUP BY over the FTS id set). */
-  searchFacets(opts: { matchExpr: string | null; from?: string; to?: string; subject?: string; hasAttachment?: boolean; after?: string; before?: string }): { folderId: string; count: number }[] {
+  searchFacets(opts: { matchExpr: string | null; from?: string; to?: string; subject?: string; hasAttachment?: boolean; unread?: boolean; flagged?: boolean; after?: string; before?: string }): { folderId: string; count: number }[] {
     const where: string[] = [];
     const params: Record<string, unknown> = {};
     if (opts.matchExpr) { where.push('messages.id IN (SELECT rowid FROM fts WHERE fts MATCH @match)'); params.match = opts.matchExpr; }
@@ -875,6 +875,9 @@ export class Store {
     if (opts.to) { where.push('messages.to_json LIKE @to'); params.to = `%${opts.to.toLowerCase()}%`; }
     if (opts.subject) { where.push('messages.subject LIKE @subject'); params.subject = `%${opts.subject.toLowerCase()}%`; }
     if (opts.hasAttachment) where.push('messages.has_attachments = 1');
+    // #212: the same flag test as the folder unread count
+    if (opts.unread) where.push(`messages.flags_json NOT LIKE '%"seen":true%'`);
+    if (opts.flagged) where.push(`messages.flags_json LIKE '%"flagged":true%'`);
     if (opts.after) { where.push('COALESCE(messages.date, messages.internal_date) >= @after'); params.after = opts.after; }
     if (opts.before) { where.push('COALESCE(messages.date, messages.internal_date) <= @before'); params.before = opts.before; }
     where.push(NOT_STAGED);
@@ -970,7 +973,7 @@ export class Store {
     return ids.map(i => byId.get(i)!).filter(Boolean);
   }
 
-  search(opts: { matchExpr: string | null; folderId?: string; from?: string; to?: string; subject?: string; hasAttachment?: boolean; after?: string; before?: string; limit: number; offset: number; sortBy?: 'date' | 'relevance' }): { rows: MessageRow[]; total: number; elapsedMs: number } {
+  search(opts: { matchExpr: string | null; folderId?: string; from?: string; to?: string; subject?: string; hasAttachment?: boolean; unread?: boolean; flagged?: boolean; after?: string; before?: string; limit: number; offset: number; sortBy?: 'date' | 'relevance' }): { rows: MessageRow[]; total: number; elapsedMs: number } {
     const t0 = performance.now();
     // NOTE: matchExpr arrives already prefix-capped from the API layer
     // (capPathologicalPrefixes in message_views.ts) so core search, facets and snippets share it.
@@ -983,6 +986,9 @@ export class Store {
     if (opts.to) { where.push('messages.to_json LIKE @to'); params.to = `%${opts.to.toLowerCase()}%`; }
     if (opts.subject) { where.push('messages.subject LIKE @subject'); params.subject = `%${opts.subject.toLowerCase()}%`; }
     if (opts.hasAttachment) where.push('messages.has_attachments = 1');
+    // #212: the same flag test as the folder unread count
+    if (opts.unread) where.push(`messages.flags_json NOT LIKE '%"seen":true%'`);
+    if (opts.flagged) where.push(`messages.flags_json LIKE '%"flagged":true%'`);
     if (opts.after) { where.push('COALESCE(messages.date, messages.internal_date) >= @after'); params.after = opts.after; }
     if (opts.before) { where.push('COALESCE(messages.date, messages.internal_date) <= @before'); params.before = opts.before; }
     const whereSql = 'WHERE ' + where.join(' AND ');

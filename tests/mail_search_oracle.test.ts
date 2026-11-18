@@ -66,6 +66,9 @@ type Meta = {
   bodyTokens: Set<string>
   senderIdx: number
   hasAtt: boolean
+  /** #212 */
+  seen: boolean
+  flagged: boolean
   date: string
 }
 
@@ -97,6 +100,8 @@ function generate(count: number): void {
         const bodyTokens = new Set<string>([TOKENS[(j * 7 + 3) % TOKENS.length]])
         const senderIdx = j % 40
         const hasAtt = j % 9 === 0
+        const seen = j % 3 !== 0
+        const flagged = j % 7 === 0
         const date = new Date(baseMs - j * 1000).toISOString()
         const sender = `sender${senderIdx}`
         // Extra scatter tokens are recorded, because the oracle must know them
@@ -126,8 +131,13 @@ function generate(count: number): void {
           to_json: '[{"name":"","email":"oracle@example.test"}]',
           cc_json: '[]',
           bcc_json: '[]',
-          flags_json:
-            '{"seen":false,"flagged":false,"draft":false,"deleted":false,"answered":false}',
+          flags_json: JSON.stringify({
+            seen,
+            flagged,
+            draft: false,
+            deleted: false,
+            answered: false
+          }),
           modseq: String(j + 1),
           has_attachments: hasAtt ? 1 : 0,
           attachments_json: hasAtt
@@ -140,7 +150,7 @@ function generate(count: number): void {
           parsed_ok: 1,
           parse_error: null
         })
-        meta.push({ id, folderId, subjTokens, bodyTokens, senderIdx, hasAtt, date })
+        meta.push({ id, folderId, subjTokens, bodyTokens, senderIdx, hasAtt, seen, flagged, date })
       }
     })
     tx()
@@ -166,6 +176,19 @@ afterAll(() => {
 })
 
 describe(`search oracle (${N} synthetic messages)`, () => {
+  it('#212: unread and flagged work without a search text, also in the facets', () => {
+    const unread = store.search({ matchExpr: null, unread: true, limit: 50, offset: 0 })
+    expect(unread.total).toBe(meta.filter((m) => !m.seen).length)
+    expect(unread.rows.every((row) => !JSON.parse(row.flags_json).seen)).toBe(true)
+    const flagged = store.search({ matchExpr: null, flagged: true, limit: 50, offset: 0 })
+    expect(flagged.total).toBe(meta.filter((m) => m.flagged).length)
+    const facets = store.searchFacets({ matchExpr: null, unread: true })
+    for (const fid of folderIds) {
+      const expected = meta.filter((m) => m.folderId === fid && !m.seen).length
+      expect(facets.find((f) => f.folderId === fid)?.count ?? 0, `facet ${fid}`).toBe(expected)
+    }
+  })
+
   it('reports the generated corpus size', () => {
     const total = (store.db.prepare('SELECT COUNT(*) AS c FROM messages').get() as { c: number }).c
     expect(total).toBe(N)
@@ -249,6 +272,15 @@ describe(`search oracle (${N} synthetic messages)`, () => {
         offset: 0
       }).total
     ).toBe(expectedAtt)
+
+    // #212: unread, flagged, both
+    const expectedUnread = meta.filter((m) => !m.seen && match(m)).length
+    const expectedFlagged = meta.filter((m) => m.flagged && match(m)).length
+    const expectedBoth = meta.filter((m) => !m.seen && m.flagged && match(m)).length
+    const q = { matchExpr: store.ftsEscapeUserQuery(tok), limit: 50, offset: 0 }
+    expect(store.search({ ...q, unread: true }).total).toBe(expectedUnread)
+    expect(store.search({ ...q, flagged: true }).total).toBe(expectedFlagged)
+    expect(store.search({ ...q, unread: true, flagged: true }).total).toBe(expectedBoth)
 
     // date window
     const after = new Date(baseMs - 60 * 24 * 3600 * 1000).toISOString()

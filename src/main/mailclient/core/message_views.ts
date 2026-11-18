@@ -173,6 +173,7 @@ export class MessageViews {
     const { rows, total, elapsedMs } = store.search({
       matchExpr, folderId: filters.folderId, from: filters.from, to: filters.to,
       subject: filters.subject, hasAttachment: filters.hasAttachment,
+      unread: filters.unread, flagged: filters.flagged,
       after: filters.after, before: filters.before, limit,
       offset: filters.offset ?? 0,
       sortBy: filters.sortBy ?? 'date',
@@ -181,7 +182,8 @@ export class MessageViews {
     if (filters.wantFacets) {
       result.facets = store.searchFacets({
         matchExpr, from: filters.from, to: filters.to, subject: filters.subject,
-        hasAttachment: filters.hasAttachment, after: filters.after, before: filters.before,
+        hasAttachment: filters.hasAttachment, unread: filters.unread, flagged: filters.flagged,
+        after: filters.after, before: filters.before,
       });
     }
     if (filters.wantSnippets && matchExpr) {

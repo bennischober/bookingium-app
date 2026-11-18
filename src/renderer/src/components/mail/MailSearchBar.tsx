@@ -107,6 +107,22 @@ export function MailSearchBar({
               onChange={(e) => setFilters({ ...filters, before: e.target.value })}
             />
           </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filters.unread}
+              onChange={(e) => setFilters({ ...filters, unread: e.target.checked })}
+            />
+            Nur ungelesene
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filters.flagged}
+              onChange={(e) => setFilters({ ...filters, flagged: e.target.checked })}
+            />
+            Nur markierte
+          </label>
           <label className="col-span-2 flex items-center gap-2">
             <input
               type="checkbox"

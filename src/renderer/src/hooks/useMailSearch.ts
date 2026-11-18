@@ -7,8 +7,23 @@ import type { SearchFilters } from '../../../main/mailclient/core/types'
 // Shorter queries match too much to be useful (FTS prefix search)
 const MIN_QUERY_LENGTH = 3
 
-type ExtraFilters = { from: string; after: string; before: string; hasAttachment: boolean }
-const NO_FILTERS: ExtraFilters = { from: '', after: '', before: '', hasAttachment: false }
+type ExtraFilters = {
+  from: string
+  after: string
+  before: string
+  hasAttachment: boolean
+  /** #212: only unread / only flagged mail, also without a search text */
+  unread: boolean
+  flagged: boolean
+}
+const NO_FILTERS: ExtraFilters = {
+  from: '',
+  after: '',
+  before: '',
+  hasAttachment: false,
+  unread: false,
+  flagged: false
+}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -30,7 +45,12 @@ export function useMailSearch({ accountId, ready }: { accountId: string; ready: 
   // Search replaces the folder list while a query or filter is set
   const searchInput = useDebounced({ query: query.trim(), ...filters }, 180)
   const hasFilter = Boolean(
-    searchInput.from || searchInput.after || searchInput.before || searchInput.hasAttachment
+    searchInput.from ||
+      searchInput.after ||
+      searchInput.before ||
+      searchInput.hasAttachment ||
+      searchInput.unread ||
+      searchInput.flagged
   )
   const searching = searchInput.query.length >= MIN_QUERY_LENGTH || hasFilter
   const searchFilters: SearchFilters = {
@@ -39,6 +59,8 @@ export function useMailSearch({ accountId, ready }: { accountId: string; ready: 
     after: searchInput.after || undefined,
     before: searchInput.before || undefined,
     hasAttachment: searchInput.hasAttachment || undefined,
+    unread: searchInput.unread || undefined,
+    flagged: searchInput.flagged || undefined,
     folderId: facetFolderId ?? undefined,
     sortBy: searchInput.query.length >= MIN_QUERY_LENGTH ? 'relevance' : 'date'
   }
