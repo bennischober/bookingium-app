@@ -39,6 +39,7 @@ import { mailTemplateRouter } from './routers/mail_template.router'
 import { mapRouter } from './routers/map.router'
 import { einvoicePartyRouter } from './routers/einvoice_party.router'
 import { receiptRouter } from './routers/receipt.router'
+import { tripRouter } from './routers/trip.router'
 
 const ee = new EventEmitter()
 
@@ -88,7 +89,8 @@ export const router = t.router({
   mailTemplate: mailTemplateRouter,
   map: mapRouter,
   einvoiceParty: einvoicePartyRouter,
-  receipt: receiptRouter
+  receipt: receiptRouter,
+  trip: tripRouter
 })
 
 export type AppRouter = typeof router

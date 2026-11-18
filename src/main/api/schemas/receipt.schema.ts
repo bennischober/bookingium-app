@@ -62,6 +62,10 @@ export const ReceiptDto = z.object({
   fileName: z.string(),
   fileSize: z.number(),
   fromMail: z.boolean(),
+  /** #225 step 2: the trip it belongs to (it goes to DATEV inside the trip's report) */
+  tripId: z.number().nullable(),
+  /** The report of a trip itself */
+  tripReport: z.boolean(),
   datev: ReceiptDatevState,
   /** When it went to DATEV (UTC timestamp), null if not yet */
   datevSentAt: z.string().nullable(),
