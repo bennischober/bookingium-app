@@ -26,6 +26,7 @@ tests/
 | Money rounding properties | `einvoice_amounts_properties.test.ts` | fast-check; EN 16931 sum rules vs exact BigInt arithmetic |
 | DB bootstrap | `helpers/setup.ts` | `setupTestDb` / `getTestDb` |
 | E-invoice fixtures | `helpers/einvoiceFixtures.ts` | `party`, `buyer`, `invoice`, `EINVOICE_SAMPLES` |
+| Received e-invoices (#222) | `helpers/receivedEInvoices.ts` | `CII_INVOICE`, `UBL_INVOICE`; tests `einvoice_read_party`, `einvoice_party_import` |
 
 ## CONVENTIONS
 - DB suites start with `import 'reflect-metadata'`, then `setupTestDb()` at MODULE

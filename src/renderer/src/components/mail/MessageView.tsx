@@ -11,6 +11,8 @@ import { CreateContactSheet } from '@/components/mail/CreateContactSheet'
 import { EventFromMail } from '@/components/mail/EventFromMail'
 import { InvitationFromMail, type InvitationToTake } from '@/components/mail/InvitationFromMail'
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
+import { EInvoiceCompanyDialog } from '@/components/company/EInvoiceCompanyDialog'
+import type { EInvoicePartySource } from '../../../../main/api/schemas/einvoice_party.schema'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { parseInvitation } from '../../../../main/calendar/invitation'
 import { withWholeMessage } from './completion'
@@ -72,6 +74,8 @@ export function MessageView({
   // C5: the attachment the "save as document" dialog is open for
   // F10: the dialog takes one attachment or all of them
   const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
+  // #222: the attachment "Firma aus E-Rechnung" reads
+  const [toCompany, setToCompany] = useState<EInvoicePartySource | null>(null)
   // "Zuordnen…" and "Kontakt anlegen": both change the app's data, never the mailbox, so
   // they work on read-only accounts too
   const [linking, setLinking] = useState(false)
@@ -199,6 +203,12 @@ export function MessageView({
       setToDocument(pick(done).map((a) => ({ partId: a.partId, filename: a.filename })))
     ).catch(failed('Anhang konnte nicht geladen werden'))
 
+  /** #222: main reads the attachment, so the message is downloaded before the dialog opens */
+  const companyFromAttachment = (partId: string) =>
+    whole(() => setToCompany({ kind: 'attachment', ...attachmentInput(partId) })).catch(
+      failed('Anhang konnte nicht geladen werden')
+    )
+
   /** A forward carries the files: offline it stops here, never a forward without them */
   const forward = (compose: NonNullable<typeof onCompose>) =>
     whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
@@ -278,6 +288,7 @@ export function MessageView({
           saveAttachmentAs={saveAttachmentAs}
           saveAllAttachments={saveAllAttachments}
           toDocuments={toDocuments}
+          toCompany={companyFromAttachment}
         />
 
         {downloading && (
@@ -313,6 +324,15 @@ export function MessageView({
 
       <MessageBody message={message} />
 
+      {toCompany && (
+        <EInvoiceCompanyDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setToCompany(null)
+          }}
+          source={toCompany}
+        />
+      )}
       {toDocument && (
         <AttachmentToDocumentDialog
           open

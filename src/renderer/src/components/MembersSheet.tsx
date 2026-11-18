@@ -27,6 +27,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { confirmAction } from '@/lib/confirm'
+import { COMPANY_MEMBER_ROLE_SUGGESTIONS } from '../../../main/api/schemas/einvoice_party.schema'
 
 type MemberEntityType = 'band' | 'company' | 'venue'
 
@@ -363,8 +364,21 @@ export function MembersPanel({
               <Input
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                placeholder="z. B. Sänger, TL, Booker"
+                list={entityType === 'company' ? 'company-member-roles' : undefined}
+                placeholder={
+                  entityType === 'company'
+                    ? 'z. B. Kontakt, Geschäftsführer'
+                    : 'z. B. Sänger, TL, Booker'
+                }
               />
+              {/* #222: common roles of a company's people; the role stays free text */}
+              {entityType === 'company' && (
+                <datalist id="company-member-roles">
+                  {COMPANY_MEMBER_ROLE_SUGGESTIONS.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Anmerkungen</Label>

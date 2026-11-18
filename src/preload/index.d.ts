@@ -126,6 +126,8 @@ export interface DocumentAPI {
     file?: ImportFile
     error?: string
   }>
+  /** #222: open dialog for a received e-invoice (PDF or XML); its path, null if canceled */
+  pickEInvoiceFile: () => Promise<string | null>
   /** An error nothing caught, for the local error log (main scrubs it) */
   reportError: (report: { message: string; stack?: string }) => void
   /** New mail while the main window has focus: the popup's text (count and account only) */

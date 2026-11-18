@@ -12,6 +12,7 @@ throwaway userData folder and assert on rendered German UI or written files.
 | Invoices / PDF / e-invoice | `einvoice.spec.ts`, `invoice-email.spec.ts`, `payment-qr`, `payment-reminders` | writes `__screenshots__/einvoice-*` |
 | Mail client | `mail-client.spec.ts` | sandbox-gated; turns the experimental switch on in `beforeAll` |
 | Import / export / calendar | `import`, `import-bands`, `export`, `calendar-feed`, `follow-ups` | |
+| Company from a received e-invoice | `einvoice-company.spec.ts` | open dialog stubbed; writes `__screenshots__/company-einvoice-*` |
 | Launch + app handle | `helpers/launch.ts` | `launchApp`, `createTestUserData`, `AppHandle` |
 | Toasts left by an earlier test | `helpers/toasts.ts` | `dismissToasts(page)`: error toasts stay until closed |
 | Mail sandbox seeding | `helpers/mailSandbox.ts` | `seedMailSandbox`, `removeSentTestMails` |

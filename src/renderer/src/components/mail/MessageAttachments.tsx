@@ -1,4 +1,4 @@
-import { ChevronDown, Download, FilePlus, Paperclip } from 'lucide-react'
+import { Building2, ChevronDown, Download, FilePlus, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -8,6 +8,10 @@ import { formatSize } from './format'
 
 type Attachments = MessageDetail['attachments']
 
+/** #222: a PDF or XML attachment may be an e-invoice */
+const mayBeEInvoice = (a: Attachments[number]): boolean =>
+  /.(pdf|xml)$/i.test(a.filename ?? '') || /pdf|xml/i.test(a.contentType)
+
 /** "Save all" for several attachments, then one chip per attachment */
 export function MessageAttachments({
   message,
@@ -15,7 +19,8 @@ export function MessageAttachments({
   openAttachment,
   saveAttachmentAs,
   saveAllAttachments,
-  toDocuments
+  toDocuments,
+  toCompany
 }: {
   message: MessageDetail
   /** S1: the whole message is being downloaded; every file action waits for it */
@@ -25,6 +30,8 @@ export function MessageAttachments({
   saveAllAttachments: () => Promise<void>
   /** C5 / F10: opens the "save as document" dialog for the picked attachments */
   toDocuments: (pick: (done: MessageDetail) => Attachments) => Promise<void>
+  /** #222: opens "Firma aus E-Rechnung" for the attachment */
+  toCompany?: (partId: string) => Promise<void>
 }) {
   return (
     <>
@@ -121,6 +128,16 @@ export function MessageAttachments({
                       <FilePlus className="size-4 shrink-0 text-muted-foreground" />
                       Als Dokument speichern…
                     </button>
+                    {toCompany && mayBeEInvoice(a) && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void toCompany(a.partId)}
+                      >
+                        <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                        Firma aus E-Rechnung…
+                      </button>
+                    )}
                   </PopoverContent>
                 </Popover>
               </li>

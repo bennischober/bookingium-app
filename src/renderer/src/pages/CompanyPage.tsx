@@ -17,7 +17,9 @@ import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Trash2, Users } from 'lucide-react'
+import { FileText, Pencil, Trash2, Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { EInvoiceCompanyDialog } from '@/components/company/EInvoiceCompanyDialog'
 import { MembersSheet } from '@/components/MembersSheet'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
@@ -35,6 +37,8 @@ export function CompanyPage() {
     id: number
     name: string
   } | null>(null)
+
+  const [fromEInvoice, setFromEInvoice] = useState(false)
 
   const formSheet = useFormSheet<CompanyDto>()
   const navigate = useNavigate()
@@ -150,7 +154,24 @@ export function CompanyPage() {
           <ListToolbar createLabel="+ Neue Firma" onCreate={formSheet.openCreate}>
             <ExportButton list="companies" sort={sortInput} search={search} />
             <ImportButton target="companies" />
+            <Button
+              variant="outline"
+              aria-label="Aus E-Rechnung"
+              title="Firma und Personen aus einer E-Rechnung anlegen"
+              onClick={() => setFromEInvoice(true)}
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden lg:inline">Aus E-Rechnung</span>
+            </Button>
           </ListToolbar>
+        }
+      />
+
+      <EInvoiceCompanyDialog
+        open={fromEInvoice}
+        onOpenChange={setFromEInvoice}
+        onSaved={(companyId) =>
+          navigate({ to: '/companies/$companyId', params: { companyId: String(companyId) } })
         }
       />
 

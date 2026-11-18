@@ -15,6 +15,7 @@ same check live in the renderer.
 | Embed/read XML in the invoice PDF | `facturx.ts` (pdf-lib) |
 | sRGB ICC profile bytes | `srgbIcc.ts` |
 | `InvoicePrintDto` -> `EInvoiceInput` | `input.ts` (`eInvoiceInputOf`) |
+| Seller of a RECEIVED e-invoice (CII + UBL) -> company and people (#222) | `readParty.ts` (`readSellerParty`), XML reader `xmlTree.ts`, PDF side `readEmbeddedInvoiceXml` in `facturx.ts` |
 
 ## CONVENTIONS
 - Check first, write second: `prepareEInvoice` returns prepared data or the German
