@@ -10,7 +10,9 @@ import {
   ReplyAll,
   Tags,
   Trash2,
-  UserPlus
+  UserPlus,
+  ShieldAlert,
+  ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -32,6 +34,8 @@ export function MessageActions({
   onToggleFlag,
   onMarkUnread,
   onArchive,
+  onSpam,
+  onNotSpam,
   onDelete,
   onLink,
   onCreateEvent,
@@ -50,6 +54,9 @@ export function MessageActions({
   onToggleFlag: (id: number, flagged: boolean) => void
   onMarkUnread?: (id: number) => void
   onArchive?: (id: number) => void
+  /** #214: to Junk / back to the inbox; set only where it applies */
+  onSpam?: (id: number) => void
+  onNotSpam?: (id: number) => void
   onDelete: (id: number) => void
   onLink: () => void
   onCreateEvent: () => void
@@ -121,6 +128,28 @@ export function MessageActions({
               title="Archivieren"
             >
               <Archive />
+            </Button>
+          )}
+          {onSpam && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onSpam(message.id)}
+              title="Spam"
+              aria-label="Spam"
+            >
+              <ShieldAlert />
+            </Button>
+          )}
+          {onNotSpam && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onNotSpam(message.id)}
+              title="Kein Spam (zurück in den Posteingang)"
+              aria-label="Kein Spam"
+            >
+              <ShieldCheck />
             </Button>
           )}
           {!inTrash && (

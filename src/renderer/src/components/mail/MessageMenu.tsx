@@ -9,7 +9,10 @@ import {
   Reply,
   ReplyAll,
   SquareArrowOutUpRight,
-  Trash2
+  Trash2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldBan
 } from 'lucide-react'
 import {
   ContextMenuItem,
@@ -36,6 +39,12 @@ export type MailActions = {
   toTrash?: (ids: number[]) => void
   /** B5: permanent deletion - only offered inside Trash, and only for writable accounts */
   expunge?: (ids: number[]) => void
+  /** #214: to the account's Junk folder (mails not in it yet) */
+  toSpam?: (ids: number[]) => void
+  /** #214: from Junk back to the inbox */
+  notSpam?: (ids: number[]) => void
+  /** #214: a rule that moves each new mail of this sender (or its domain) to Junk; one mail only */
+  blockSender?: (id: number, scope: 'sender' | 'domain') => void
 }
 
 // Icons in the menu like in the app's buttons
@@ -60,6 +69,7 @@ export function MessageMenu({
   const anyUnread = items.some((m) => !m.isRead)
   const anyUnflagged = items.some((m) => !m.isFlagged)
   const { compose, markRead, markFlagged, move, archive, toTrash, expunge } = actions
+  const { toSpam, notSpam, blockSender } = actions
 
   // Groups between separators; empty ones are left out
   const groups: ReactNode[][] = [
@@ -145,6 +155,34 @@ export function MessageMenu({
           <Archive />
           Archivieren
         </ContextMenuItem>
+      ),
+      toSpam && (
+        <ContextMenuItem key="spam" className={ITEM} onSelect={() => toSpam(ids)}>
+          <ShieldAlert />
+          Spam
+        </ContextMenuItem>
+      ),
+      notSpam && (
+        <ContextMenuItem key="notSpam" className={ITEM} onSelect={() => notSpam(ids)}>
+          <ShieldCheck />
+          Kein Spam
+        </ContextMenuItem>
+      ),
+      one && blockSender && (
+        <ContextMenuSub key="block">
+          <ContextMenuSubTrigger className={ITEM}>
+            <ShieldBan />
+            Absender immer als Spam
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56">
+            <ContextMenuItem onSelect={() => blockSender(one.id, 'sender')}>
+              Nur diese Adresse
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => blockSender(one.id, 'domain')}>
+              Die ganze Domain
+            </ContextMenuItem>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
       ),
       toTrash && (
         <ContextMenuItem key="trash" className={ITEM} onSelect={() => toTrash(ids)}>

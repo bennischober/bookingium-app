@@ -127,6 +127,11 @@ events and invoices), not a general mail client.
   on (less 10 minutes for the server's clock), each mail once per rule (`mail_rule_hit`), the first rule
   with a folder moves it. On a "Nur lesen" account rules only link; marking and moving are skipped and
   the rule says so. Rules follow their account like links (`adoptRestoredLinks`).
+- **Spam** (#214): no filter of its own; the provider fills the account's `\Junk` folder. "Spam" and
+  "Kein Spam" (reading pane, right-click menu, several selected) are ordinary moves to Junk and back to
+  INBOX, journaled and undoable (`components/mail/spamActions.ts`). "Absender immer als Spam" (right-click,
+  one mail) saves a mail rule: sender address or "@domain" → move to Junk, mark read; it shows in the rules
+  list like any other. None of it without a Junk folder or on a "Nur lesen" account.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).

@@ -34,6 +34,8 @@ export function MessageView({
   onToggleFlag,
   onDelete,
   onArchive,
+  onSpam,
+  onNotSpam,
   onMarkUnread,
   onCompose,
   onWriteTo,
@@ -46,6 +48,9 @@ export function MessageView({
   onToggleFlag: (id: number, flagged: boolean) => void
   onDelete: (id: number) => void
   onArchive?: (id: number) => void
+  /** #214 */
+  onSpam?: (id: number) => void
+  onNotSpam?: (id: number) => void
   /** Marks the open mail unread again */
   onMarkUnread?: (id: number) => void
   /** Opens the editor with a reply or forward of this mail (writable accounts only) */
@@ -253,6 +258,8 @@ export function MessageView({
             onToggleFlag={onToggleFlag}
             onMarkUnread={onMarkUnread}
             onArchive={onArchive}
+            onSpam={onSpam}
+            onNotSpam={onNotSpam}
             onDelete={onDelete}
             onLink={() => setLinking(true)}
             onCreateEvent={() => setCreatingEvent(true)}
