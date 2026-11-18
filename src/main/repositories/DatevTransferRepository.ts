@@ -12,7 +12,9 @@ import type { DatevCategory } from '../api/schemas/datev.schema'
 export class DatevTransferRepository {
   /** Written before the send starts */
   addPending(input: {
-    invoiceId: number
+    /** The document: an issued invoice or a receipt (#225), exactly one */
+    invoiceId?: number
+    receiptId?: number
     category: DatevCategory
     to: string
     fileName: string
@@ -21,7 +23,8 @@ export class DatevTransferRepository {
   }) {
     db.insert(schema.datev_transfer)
       .values({
-        invoice_id: input.invoiceId,
+        invoice_id: input.invoiceId ?? null,
+        receipt_id: input.receiptId ?? null,
         category: input.category,
         to: input.to,
         file_name: input.fileName,

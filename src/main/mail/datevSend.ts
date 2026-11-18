@@ -13,6 +13,7 @@ import type { DraftInput, OpSummary } from '../mailclient/core/types'
 import type { InvoicePrintDto } from '../api/schemas/invoice.schema'
 import type { DatevCategory } from '../api/schemas/datev.schema'
 import { formatMoney } from '../invoice/money'
+import { fromCents } from '../einvoice/amounts'
 import { formatDate } from './invoiceEmail'
 import { bareMessageId, sendKeyOf, UNCLEAR } from './invoiceSend'
 
@@ -65,10 +66,68 @@ export function datevMail(input: {
   }
 }
 
+/** The receipt fields the DATEV mail names (#225) */
+export type DatevReceipt = {
+  categoryLabel: string
+  receiptDate: string | null
+  amountCents: number | null
+  currency: string
+  supplierName: string
+  reference: string
+}
+
+/** "Rechnungseingang – Hotel Beispiel – RE-17", the subject DATEV keeps with a receipt */
+export function receiptDatevSubject(receipt: DatevReceipt): string {
+  return [receipt.categoryLabel, receipt.supplierName, receipt.reference]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' – ')
+}
+
+/** The mail carrying one receipt (#225): its file and a short text with what is known of it */
+export function receiptDatevMail(input: {
+  receipt: DatevReceipt
+  to: string
+  fileName: string
+  contentType: string
+  bytes: Uint8Array
+  sendKey: string
+}): DraftInput {
+  const { receipt } = input
+  const subject = receiptDatevSubject(receipt)
+  const lines = [
+    subject,
+    receipt.receiptDate ? `Belegdatum: ${formatDate(receipt.receiptDate)}` : '',
+    receipt.amountCents !== null
+      ? `Betrag: ${formatMoney(fromCents(receipt.amountCents), receipt.currency, 'de-DE')}`
+      : ''
+  ].filter(Boolean)
+  return {
+    to: [{ name: '', email: input.to }],
+    cc: [],
+    bcc: [],
+    subject,
+    bodyText: `${lines.join('\n')}\n`,
+    bodyHtml: null,
+    inReplyTo: null,
+    references: [],
+    attachments: [
+      {
+        filename: input.fileName,
+        contentType: input.contentType,
+        base64: Buffer.from(input.bytes).toString('base64')
+      }
+    ],
+    sendKey: input.sendKey
+  }
+}
+
 /** The pending-transfer bookkeeping (DatevTransferRepository) */
 export type DatevSendLedger = {
   addPending(input: {
-    invoiceId: number
+    /** The document: an issued invoice or a receipt (#225), exactly one */
+    invoiceId?: number
+    receiptId?: number
     category: DatevCategory
     to: string
     fileName: string
@@ -90,12 +149,17 @@ export async function sendDatevMail(
     send: (mail: DraftInput, accountId: string) => Promise<{ messageId: string }>
   },
   input: {
-    invoiceId: number
+    /** The document: an issued invoice or a receipt (#225), exactly one */
+    invoiceId?: number
+    receiptId?: number
     category: DatevCategory
     accountId: string
     mail: DraftInput
   }
 ): Promise<{ messageId: string }> {
+  if ((input.invoiceId === undefined) === (input.receiptId === undefined)) {
+    throw new Error('Eine Mail an DATEV trägt genau einen Beleg')
+  }
   const sendKey = input.mail.sendKey
   if (!sendKey) throw new Error('Senden ohne Sendeschlüssel ist nicht möglich')
   const attachment = input.mail.attachments[0]
@@ -104,6 +168,7 @@ export async function sendDatevMail(
   }
   deps.ledger.addPending({
     invoiceId: input.invoiceId,
+    receiptId: input.receiptId,
     category: input.category,
     to: input.mail.to.map((a) => a.email).join(', '),
     fileName: attachment.filename,

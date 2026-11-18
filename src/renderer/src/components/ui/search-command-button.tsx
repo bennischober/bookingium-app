@@ -92,6 +92,18 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
     description: 'Events, Clubs und Festivals auf der Karte',
     aliases: ['karte', 'tourplanung', 'gebietsschutz', 'radius']
   },
+  '/receipts': {
+    description: 'Eingangsrechnungen, Kreditkarten- und Kassenbelege für DATEV',
+    aliases: [
+      'beleg',
+      'quittung',
+      'eingangsrechnung',
+      'kreditkarte',
+      'kasse',
+      'reisekosten',
+      'datev'
+    ]
+  },
   '/contact-lists': {
     description: 'Empfänger für Rundmails und Newsletter',
     aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']

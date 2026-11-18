@@ -11,6 +11,7 @@ import {
   Map as MapIcon,
   MapPin,
   Music2,
+  Receipt,
   Settings,
   Tent,
   Users,
@@ -67,6 +68,8 @@ export const ROUTES = {
   // The menu groups it under Planung; listed here, after the first ten, so the experimental
   // page takes no Alt+number shortcut away from the pages before it (#102)
   map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
+  // #225: after the first ten as well, so no Alt+number shortcut moves
+  receipts: { path: '/receipts', title: 'Belege', group: 'Planung', icon: Receipt },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }

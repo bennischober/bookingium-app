@@ -9,6 +9,7 @@ import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { FollowUpsCard } from '@/components/follow-ups/FollowUpsCard'
 import { OverdueInvoicesCard } from '@/components/invoice/OverdueInvoicesCard'
 import { DatevPendingCard } from '@/components/invoice/DatevPendingCard'
+import { ReceiptPendingCard } from '@/components/receipts/ReceiptPendingCard'
 import { OpenItemsCard } from '@/components/open-items/OpenItemsCard'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -121,6 +122,7 @@ export default function DashboardPage() {
 
       <OverdueInvoicesCard />
       <DatevPendingCard />
+      <ReceiptPendingCard />
 
       <FollowUpsCard />
 
