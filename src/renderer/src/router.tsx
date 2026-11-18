@@ -16,6 +16,7 @@ import PersonPage from '@/pages/PersonPage'
 import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
 import ReceiptPage from '@/pages/ReceiptPage'
+import TripPage from '@/pages/TripPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
 import BandDetailPage from '@/pages/BandDetailPage'
@@ -121,6 +122,12 @@ const receiptRoute = createRoute({
   path: ROUTES.receipts.path,
   validateSearch: validateListSearch,
   component: ReceiptPage
+})
+
+const tripRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.trips.path,
+  component: TripPage
 })
 
 const clubRoute = createRoute({
@@ -306,6 +313,7 @@ const routeTree = rootRoute.addChildren([
     companyRoute,
     bankRoute,
     receiptRoute,
+    tripRoute,
     clubRoute,
     festivalRoute,
     venueListRoute,

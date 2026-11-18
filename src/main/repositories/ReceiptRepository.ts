@@ -149,7 +149,14 @@ export class ReceiptRepository {
         schema.company_invoice_settings,
         eq(schema.company_invoice_settings.company_id, receipt.company_id)
       )
-      .where(and(sql`NOT ${hasTransfer}`, sql`${DATEV_ADDRESS} <> ''`))
+      .where(
+        and(
+          sql`NOT ${hasTransfer}`,
+          sql`${DATEV_ADDRESS} <> ''`,
+          // #225 step 2: a trip's receipts go to DATEV inside its report
+          sql`(${receipt.trip_id} IS NULL OR ${receipt.trip_report} = 1)`
+        )
+      )
       .orderBy(sql`${receipt.receipt_date} IS NULL`, receipt.receipt_date, receipt.id)
       .limit(limit)
       .all()

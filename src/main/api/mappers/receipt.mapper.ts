@@ -19,6 +19,8 @@ export class ReceiptMapper {
       fileName: r.file_name,
       fileSize: r.file_size,
       fromMail: r.source_mail_account_id !== null,
+      tripId: r.trip_id,
+      tripReport: r.trip_report,
       datev: row.datevSentAt ? 'sent' : row.datevAny ? 'pending' : 'none',
       datevSentAt: row.datevSentAt,
       createdAt: r.created_at
