@@ -112,6 +112,18 @@ describe('composeMime', () => {
     ])
   })
 
+  it('#211: puts the account display name in the From, encoded', async () => {
+    const { raw } = await composeMime(mail(), {
+      from: { name: 'Jürgen Beispiel | Agentur', email: 'me@example.test' },
+      date: DATE,
+      draft: false
+    })
+    const parsed = await simpleParser(raw)
+    expect(parsed.from?.value).toEqual([
+      { name: 'Jürgen Beispiel | Agentur', address: 'me@example.test' }
+    ])
+  })
+
   it('refuses an address that is not one', async () => {
     for (const email of [
       'anna',

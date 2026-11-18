@@ -44,7 +44,9 @@ events and invoices), not a general mail client.
 - Flag, move (drag and drop, batch moves in one UID MOVE), delete to Trash, empty Trash, permanent delete
   from Trash only. Folder create, rename, move and delete.
 - Compose, reply, reply all, forward, drafts with autosave, attachments (also pasted), light formatting
-  (bold, italic, lists, links), a signature per account, further own addresses per account (aliases).
+  (bold, italic, lists, links), a signature per account, a display name per account (#211: the From name of every mail sent from
+  it, invoices and DATEV hand-overs included; empty = the bare address), further own addresses per
+  account (aliases).
 - Attachments open (with Mark-of-the-Web) and save; "Als Dokument speichern" files one as a document of a
   linked record.
 - Remote images blocked until "Bilder laden" for that mail.
@@ -116,8 +118,8 @@ events and invoices), not a general mail client.
   (`InsertTemplateDialog`) inserts one at the caret, its placeholders filled from an event
   (`mailTemplate.ts`, pure: {Event}, {Datum}, {Beginn}, {Band}, {Veranstaltungsort}, {Ort}, {LoPro},
   {Empfänger}). The event the replied-to mail is linked to is preselected. A placeholder without a value
-  stays as typed so the gap shows; the template's subject only fills an empty subject. No {Absender}:
-  accounts have no display name. The invoice and contract mail texts stay where they are.
+  stays as typed so the gap shows; the template's subject only fills an empty subject. No {Absender}
+  placeholder yet (the account's display name, #211, only goes into the From). The invoice and contract mail texts stay where they are.
 - **Mail rules** (#124): Einstellungen › E-Mail › "E-Mail-Regeln" (`MailRulesCard`, table `mail_rule`).
   A rule names parts of the sender, To/Cc and subject (comma for alternatives; every named condition must
   hold) and what happens to a matching INBOX mail: mark read, flag, move to a folder on the server, link to

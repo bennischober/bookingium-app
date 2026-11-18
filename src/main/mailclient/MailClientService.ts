@@ -234,6 +234,7 @@ export class MailClientService {
         port: account.port,
         security: account.security,
         email: account.email,
+        displayName: account.displayName,
         smtpHost: account.smtpHost,
         smtpPort: account.smtpPort,
         smtpSecurity: account.smtpSecurity

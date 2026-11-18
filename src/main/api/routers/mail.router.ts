@@ -58,6 +58,8 @@ const SaveMailAccountInput = z.object({
   password: z.string().min(1).optional(),
   /** B8: plain-text signature, appended to new mail and above the quote */
   signature: z.string().optional(),
+  /** #211: the name in the From of sent mail; '' clears it, omitted keeps it */
+  displayName: z.string().max(100).optional(),
   /** The user's further own addresses (a forwarder); mail through them links no record */
   aliases: z
     .array(z.string().trim().toLowerCase().email('Ungültige E-Mail-Adresse').or(z.literal('')))

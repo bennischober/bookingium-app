@@ -193,7 +193,7 @@ export class DraftApi {
   private async buildMimeMessage(e: AccountEntry, mail: DraftInput, opts: { draft: boolean }): Promise<ComposedMime> {
     const extraAttachments = mail.forwardsFrom != null ? await this.attachmentsOf(e, mail.forwardsFrom) : [];
     return composeMime(mail, {
-      from: { name: '', email: e.options.email ?? e.config.user },
+      from: { name: e.options.displayName ?? '', email: e.options.email ?? e.config.user },
       date: new Date(this.clock()),
       draft: opts.draft,
       extraAttachments,
