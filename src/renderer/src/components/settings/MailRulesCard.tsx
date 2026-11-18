@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { RecordPicker } from '@/components/mail/RecordPicker'
+import { AliasFolders } from './AliasFolders'
 import {
   RECORD_LABELS,
   useRecordChoices,
@@ -532,6 +533,8 @@ export function MailRulesCard() {
         <Button variant="outline" disabled={noAccount} onClick={() => openDialog(null)}>
           <Plus className="h-4 w-4" /> Regel hinzufügen…
         </Button>
+
+        <AliasFolders rules={list} />
       </CardContent>
 
       <MailRuleDialog rule={editing} open={dialogOpen} onOpenChange={setDialogOpen} />
