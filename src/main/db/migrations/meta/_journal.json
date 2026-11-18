@@ -330,6 +330,20 @@
       "when": 1794930406029,
       "tag": "0046_tour_and_agency_radius",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794991303427,
+      "tag": "0047_datev_upload_mail",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794993422254,
+      "tag": "0048_datev_categories",
+      "breakpoints": true
     }
   ]
 }

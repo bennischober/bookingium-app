@@ -44,7 +44,11 @@ describe('invoiceHistory', () => {
       { at: '2026-10-20 09:00:00', label: 'Als überfällig markiert' },
       { at: '2026-10-20 09:05:00', label: 'Wieder offen (gestellt)' },
       { at: '2026-10-21 11:00:00', label: 'E-Mail erstellt' },
-      { at: '2026-10-21 12:00:00', label: 'Zahlungserinnerung erstellt', detail: 'an x@club.example.test' },
+      {
+        at: '2026-10-21 12:00:00',
+        label: 'Zahlungserinnerung erstellt',
+        detail: 'an x@club.example.test'
+      },
       { at: '2026-10-22 10:00:00', label: 'Als bezahlt markiert' },
       {
         at: '2026-10-23 10:00:00',
@@ -92,6 +96,36 @@ describe('invoiceHistory', () => {
       label: 'Gestellt als Storno zu',
       link: { invoiceId: 3, label: 'Rechnung #1040' }
     })
+  })
+
+  it('places DATEV hand-overs by their confirmation, a pending one by its start', () => {
+    const history = invoiceHistory(
+      { ...base, statusChanges: [{ status: 'issued', createdAt: '2026-10-01 09:00:00' }] },
+      [
+        {
+          createdAt: '2026-10-03 10:00:00',
+          sentAt: null,
+          to: 'eingang@duo.example.test',
+          category: 'incoming'
+        },
+        {
+          createdAt: '2026-10-02 10:00:00',
+          sentAt: '2026-10-02 10:00:05',
+          to: 'upload@duo.example.test',
+          category: 'outgoing'
+        }
+      ]
+    )
+    expect(history.map((entry) => [entry.label, entry.at, entry.detail])).toEqual([
+      ['Angelegt', '2026-10-01 08:00:00', undefined],
+      ['Gestellt', '2026-10-01 09:00:00', undefined],
+      ['An DATEV übergeben', '2026-10-02 10:00:05', 'Rechnungsausgang, an upload@duo.example.test'],
+      [
+        'Übergabe an DATEV wird bestätigt',
+        '2026-10-03 10:00:00',
+        'Rechnungseingang, an eingang@duo.example.test'
+      ]
+    ])
   })
 })
 

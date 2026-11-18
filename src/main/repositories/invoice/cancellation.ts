@@ -19,11 +19,12 @@ function germanDate(iso: string): string {
  */
 export function createCancellationTx(tx: Tx, original: InvoiceRow) {
   const lines = lineItemsOf(tx, original.id)
+  const today = new Date().toISOString().slice(0, 10)
 
   const [created] = tx
     .insert(schema.invoice)
     .values({
-      invoice_number: takeNextInvoiceNumber(tx, original.company_id),
+      invoice_number: takeNextInvoiceNumber(tx, original.company_id, today),
       company_id: original.company_id,
       issuer_snapshot_id: original.issuer_snapshot_id,
       recipient_snapshot_id: original.recipient_snapshot_id,
@@ -31,7 +32,7 @@ export function createCancellationTx(tx: Tx, original: InvoiceRow) {
       period_start_date: original.period_start_date,
       period_end_date: original.period_end_date,
       period_label: original.period_label,
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: today,
       due_date: null,
       status: 'issued',
       currency: original.currency,

@@ -36,8 +36,12 @@ German UI.
 - **Invoices** with per-company numbering on issue, line items, tax handling,
   Storno, print-to-PDF (German/English agency templates) with embedded
   e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps;
-  „Per E-Mail senden“ opens the email with the PDF in Outlook, Thunderbird
-  or the built-in mail client
+  „Per E-Mail senden“ opens the built-in mail client with the PDF attached
+- **DATEV**: „An DATEV übergeben“ mails an invoice's PDF (with e-invoice) to
+  the issuing company's DATEV Upload Mail address of the category picked
+  there (Rechnungsausgang by default; Rechnungseingang, Kasse, Sonstige,
+  Kreditkartenbelege), so it lands in DATEV Unternehmen online as a
+  document; the invoice's Verlauf records it
 - **Bands** with detail page: members, events, management contracts (print)
   and quarterly management-share invoices, documents
 - **Companies and venues/festivals** with detail pages (contacts, bands,
@@ -53,7 +57,7 @@ German UI.
   festivals with their radius clause (Gebietsschutz), filtered by band, tour
   and dates, a ring around every place, a sortable list of the shows and a
   warning where shows of a band lie in each other's clause
-- **Mail client** (experimental, off by default; Einstellungen › E-Mail):
+- **Mail client** (Einstellungen › E-Mail):
   IMAP/SMTP accounts to read, search, file and send mail, an „E-Mails“ tab on
   the detail pages for the mail linked to that band, company, venue, person
   or event, and an unread count in the menu

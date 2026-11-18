@@ -140,7 +140,10 @@ export const AppSettings = z.object({
   radiusFestival: RadiusClause.default(DEFAULT_FESTIVAL_RADIUS),
   // I7: the mail account bookingum's own editor sends invoices (and contracts) from, '' for none chosen.
   // Never guessed: without a choice, sending from bookingum is refused.
-  invoiceMailAccountId: z.string().default('')
+  invoiceMailAccountId: z.string().default(''),
+  // The Kundennummer the next new customer gets with its first issued invoice. Numbers a
+  // record already has are skipped. 10000 is DATEV's first debtor account.
+  nextCustomerNumber: z.number().int().min(1).default(10000)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
@@ -162,7 +165,8 @@ export const UpdateAppSettingsInput = z
     mapPreview: shape.mapPreview.unwrap(),
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),
-    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap()
+    invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
+    nextCustomerNumber: shape.nextCustomerNumber.unwrap()
   })
   .partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>

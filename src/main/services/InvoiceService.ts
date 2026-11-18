@@ -12,6 +12,7 @@ import {
   type InvoiceEmailKind,
   type InvoiceKind,
   type InvoiceStatus,
+  type SetInvoiceNumberingInput,
   type UpsertCompanyInvoiceSettingsInput,
   type UpdateInvoiceInput
 } from '../api/schemas/invoice.schema'
@@ -117,6 +118,10 @@ export class InvoiceService {
 
   async upsertCompanyInvoiceSettings(input: UpsertCompanyInvoiceSettingsInput) {
     return await this.invoiceSettingsRepository.upsertCompanyInvoiceSettings(input)
+  }
+
+  async setNumberingFormat(input: SetInvoiceNumberingInput) {
+    return await this.invoiceSettingsRepository.setNumbering(input)
   }
 
   /** Overdue invoices with their payment reminders (`today`: local calendar day) */

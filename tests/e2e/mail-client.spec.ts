@@ -1915,6 +1915,91 @@ test("an invoice mail is sent from bookingum's own editor", async () => {
   }
 })
 
+// DATEV: "An DATEV übergeben" mails the invoice PDF to the issuing company's DATEV Upload Mail
+// address, without a compose window, and the invoice's Verlauf says so. A second hand-over asks
+// first (it would be a second Beleg in DATEV). Mailpit is checked by recipient (count and
+// attachment only).
+const DATEV_SUBJECT = 'Rechnung 1040 – Soundwave Records'
+
+test('an invoice is handed to DATEV by Upload Mail', async () => {
+  test.setTimeout(240_000)
+  const { page } = h
+  const sandboxId = await ensureSandboxAccount()
+  await waitForInbox(sandboxId)
+  test.skip(!(await reachable(MAILPIT.smtpPort)), 'Mailpit is not running')
+  const datevAddress = `datev-e2e-${Date.now()}@duo.example.test`
+  const base = () => page.url().split('#')[0]
+  const invoiceId = (
+    await trpc<{ items: { id: number; invoiceNumber: number; companyId: number }[] }>(
+      'query',
+      'invoice.getAllPaginated',
+      { page: 1, pageSize: 100, search: '1040' }
+    )
+  ).items.find((i) => i.invoiceNumber === 1040)!
+
+  try {
+    await trpc('mutation', 'settings.update', { invoiceMailAccountId: sandboxId })
+    await trpc('mutation', 'datev.setUploadEmail', {
+      companyId: invoiceId.companyId,
+      datevUploadEmail: datevAddress
+    })
+
+    await page.goto(`${base()}#/invoices/${invoiceId.id}/print`)
+    await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
+    await page.getByRole('button', { name: 'An DATEV übergeben' }).click()
+    const toast = page.locator('[data-sonner-toast][data-front="true"]')
+    await expect(toast).toContainText('An DATEV übergeben', { timeout: 60_000 })
+    await expect(toast).toContainText(datevAddress)
+
+    // Mailpit has exactly one mail to that address, carrying the one PDF
+    const found = await waitFor(
+      async () => {
+        const query = encodeURIComponent(`to:${datevAddress}`)
+        const res = await fetch(
+          `http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/search?query=${query}`
+        )
+        const data = (await res.json()) as { messages?: { ID: string; Subject: string }[] }
+        return data.messages ?? []
+      },
+      (messages) => messages.length > 0,
+      60_000
+    )
+    expect(found).toHaveLength(1)
+    expect(found[0].Subject).toBe(DATEV_SUBJECT)
+    const detail = (await (
+      await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found[0].ID}`)
+    ).json()) as { Attachments?: { FileName: string; Size: number }[] }
+    expect(detail.Attachments).toHaveLength(1)
+    expect(detail.Attachments![0].FileName).toMatch(/^Rechnung_1040_.*\.pdf$/)
+    expect(detail.Attachments![0].Size).toBeGreaterThan(1000)
+
+    // A second hand-over asks first, and cancelling sends nothing
+    await page.getByRole('button', { name: 'An DATEV übergeben' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText('Erneut an DATEV übergeben?')
+    await expect(dialog).toContainText(/An DATEV übergeben am \d\d\.\d\d\.\d{4}/)
+    await dialog.getByRole('button', { name: 'Abbrechen' }).click()
+
+    // The Verlauf on the invoice page lists it, and the invoice is not marked as emailed
+    await page.goto(`${base()}#/invoices/${invoiceId.id}`)
+    const history = page.getByRole('list', { name: 'Verlauf' })
+    await expect(history).toContainText('An DATEV übergeben', { timeout: 30_000 })
+    await expect(history).toContainText(datevAddress)
+    expect(
+      (await trpc<{ status: string }[]>('query', 'datev.listForInvoice', invoiceId.id)).map(
+        (t) => t.status
+      )
+    ).toEqual(['sent'])
+  } finally {
+    await trpc('mutation', 'settings.update', { invoiceMailAccountId: '' })
+    await trpc('mutation', 'datev.setUploadEmail', {
+      companyId: invoiceId.companyId,
+      datevUploadEmail: ''
+    })
+    await removeSentTestMails(SANDBOX.host, SANDBOX.port, MAILPIT.apiPort, DATEV_SUBJECT)
+  }
+})
+
 test('C5: an attachment of a mail becomes a document', async () => {
   test.setTimeout(120_000)
   const { page } = h

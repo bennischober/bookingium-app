@@ -50,6 +50,7 @@ export const MERGE_ORDER: readonly string[] = [
   'invoice',
   'invoice_line_item',
   'invoice_email',
+  'datev_transfer',
   'invoice_status_change',
   'management_contract',
   'management_contract_member',
@@ -170,6 +171,9 @@ export function keyOf(table: string, row: Row): string | null {
       return key(row.invoice_id, row.kind, row.created_at)
     case 'invoice_status_change':
       return key(row.invoice_id, row.status, row.created_at)
+    case 'datev_transfer':
+      // the send key is unique per upload
+      return key(row.send_key)
     case 'management_contract':
       return key(row.band_id, row.start_date)
     case 'management_contract_member':

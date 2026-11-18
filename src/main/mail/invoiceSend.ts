@@ -76,7 +76,7 @@ export function sendKeyOf(messageId: string): string {
   return at > 0 ? bare.slice(0, at) : ''
 }
 
-function bareMessageId(messageId: string): string {
+export function bareMessageId(messageId: string): string {
   return messageId.trim().replace(/^</, '').replace(/>$/, '')
 }
 
@@ -140,7 +140,7 @@ export type InvoiceSendLedger = {
 }
 
 /** The core's wording for a send whose outcome it cannot know (core/index.ts sendMail) */
-const UNCLEAR = /Versand unklar/
+export const UNCLEAR = /Versand unklar/
 
 /**
  * I7: sends the invoice mail of a compose window. Main attaches the PDF it registered;

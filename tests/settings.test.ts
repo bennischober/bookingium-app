@@ -39,7 +39,9 @@ const DEFAULTS = {
   mapPreview: false,
   radiusClub: DEFAULT_CLUB_RADIUS,
   radiusFestival: DEFAULT_FESTIVAL_RADIUS,
-  invoiceMailAccountId: ''
+  invoiceMailAccountId: '',
+  // New customers start at DATEV's first debtor account
+  nextCustomerNumber: 10000
 }
 
 beforeAll(() => {
