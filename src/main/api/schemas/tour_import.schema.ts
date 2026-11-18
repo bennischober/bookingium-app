@@ -33,6 +33,10 @@ export const TourImportField = z.enum([
   'radiusKm',
   'radiusWeeksBefore',
   'radiusWeeksAfter',
+  // #228 follow-up: the local promoter (LoPro) and their contact, linked to the event
+  'promoter',
+  'promoterContact',
+  'promoterEmail',
   'notes'
 ])
 export type TourImportField = z.infer<typeof TourImportField>
@@ -58,6 +62,9 @@ export const TOUR_IMPORT_FIELD_LABELS: Record<TourImportField, string> = {
   radiusKm: 'Gebietsschutz: km',
   radiusWeeksBefore: 'Gebietsschutz: Wochen davor',
   radiusWeeksAfter: 'Gebietsschutz: Wochen danach',
+  promoter: 'Veranstalter (LoPro)',
+  promoterContact: 'Ansprechpartner',
+  promoterEmail: 'E-Mail Ansprechpartner',
   notes: 'Anmerkung'
 }
 
@@ -69,6 +76,8 @@ export const TourImportRequest = z.object({
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
   mapping: z.array(TourImportField),
+  /** The band of rows without a Band column value (a sheet of one band), '' for none */
+  band: z.string().trim().max(200).default(''),
   /** The tour of rows without a Tour column value, '' for none */
   tour: z.string().trim().max(200),
   /** Art of a new club or festival whose row says nothing about it */
@@ -95,6 +104,10 @@ export const TourImportPreviewRow = z.object({
   status: DealMemoStatus,
   /** The club or festival is created by this import */
   newVenue: z.boolean(),
+  /** The local promoter (LoPro) the event is linked to, '' for none */
+  promoterName: z.string().default(''),
+  /** The promoter is created by this import */
+  newPromoter: z.boolean().default(false),
   /** Why a row is skipped */
   reason: z.string().optional()
 })
@@ -105,7 +118,9 @@ export const TourImportCounts = z.object({
   update: z.number(),
   unchanged: z.number(),
   skipped: z.number(),
-  newVenues: z.number()
+  newVenues: z.number(),
+  newPromoters: z.number().default(0),
+  newContacts: z.number().default(0)
 })
 export type TourImportCounts = z.infer<typeof TourImportCounts>
 
@@ -122,13 +137,17 @@ export const TourImportResult = z.object({
   updated: z.number(),
   unchanged: z.number(),
   skipped: z.number(),
-  venuesCreated: z.number()
+  venuesCreated: z.number(),
+  promotersCreated: z.number().default(0),
+  contactsCreated: z.number().default(0)
 })
 export type TourImportResult = z.infer<typeof TourImportResult>
 
 /** The columns and defaults for a picked file: remembered for the same layout, else detected */
 export const TourImportSuggestion = z.object({
   mapping: z.array(TourImportField),
+  /** The band for all rows, from the title row; '' for none */
+  band: z.string(),
   tour: z.string(),
   defaultKind: VenueKind,
   defaultStatus: DealMemoStatus,

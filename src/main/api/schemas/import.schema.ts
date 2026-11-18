@@ -204,6 +204,8 @@ const TargetMappings = z.object({
 /** The rows of one CSV file; `name` is the file name without extension */
 export const ImportTable = z.object({
   name: z.string(),
+  // A title row above the table ("APRIL ART TOUR Herbst 2026"), '' for none
+  title: z.string(),
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
   suggestedTarget: ImportTarget,
