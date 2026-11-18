@@ -92,6 +92,11 @@ events and invoices), not a general mail client.
   sent with and every reply ("Antwort erhalten"); the status never changes on its own.
 - **Contracts** (#120): "Per E-Mail senden" on a contract's print page takes the same compose path and
   account; the PDF is attached on send. Nothing is recorded, so an unclear send only shows as not sent.
+- **DATEV** ("An DATEV übergeben" on an invoice's print page): no compose window. Main mails the PDF
+  (with e-invoice) to the issuing company's DATEV Upload Mail address from the "Senden von" account, one
+  PDF per mail (`mail/datevSend.ts`). The send is recorded in `datev_transfer` with the same pending →
+  confirmed bookkeeping as an invoice mail, so an unclear send is confirmed by the startup probe or
+  "Prüfen" (`confirmDatevSendFromOp`). See `docs/ARCHITECTURE.md` › DATEV.
 - **Follow-ups** (#121): "Wiedervorlage" in the compose toolbar files one after the send, on the invoice or
   contract the window was opened for. A reply from someone else closes it when the linker sees it; replies
   filed into folders other than INBOX and Sent are not seen. Due with no reply, it shows "Keine Antwort".
@@ -440,6 +445,12 @@ only. The suite turns the experimental switch on itself.
   (CONDSTORE) and `:10144` (an IONOS-like profile without it), Mailpit SMTP on `:1025`, its UI on `:8025`.
   bookingum's e2e mailbox is `E2E_MAIL_USER` in `tests/e2e/helpers/mailSandbox.ts`; never use
   `testuser@example.test`, which belongs to the prototype's fuzz harness.
+- **Linux without Docker** (cloud sessions): `scripts/linux-mail-sandbox.sh start` installs and
+  starts the same ports (Dovecot from apt, Mailpit from GitHub); `scripts/linux-mail-sandbox.sh run
+<command>` runs a command with the D-Bus session, unlocked keyring and virtual display Electron's
+  safeStorage needs there. On Linux the test-only `canvas` package ships an old `libstdc++.so.6`
+  that jsdom loads into the mail worker, after which better-sqlite3 fails to load ("account could
+  not be opened"): delete that file from `canvas/build/Release/` so the system's is used.
 - Without the sandbox the mail e2e skips and the sandbox-backed vitest suites **fail** locally
   (`tests/helpers/sandboxGate.ts`; they skip with `CI` or `BOOKINGIUM_NO_SANDBOX=1`). A skip is not a pass.
 - `node scripts/mail-sandbox-counts.mjs` prints per-folder counts of the e2e mailbox: compare before and

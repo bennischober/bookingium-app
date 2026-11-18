@@ -1,5 +1,6 @@
 import type { ImportFile } from '../main/api/schemas/import.schema'
 import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
+import type { DatevCategory } from '../main/api/schemas/datev.schema'
 
 export interface DocumentAPI {
   /** Local path of a file dropped from the file manager ('' if it has none) */
@@ -73,6 +74,29 @@ export interface DocumentAPI {
     error?: string
     /** The error is fixed in Einstellungen › E-Mail (no account, or none that can send) */
     setup?: boolean
+  }>
+  /**
+   * "An DATEV übergeben": mails this window's invoice PDF (with e-invoice) to the issuing
+   * company's DATEV Upload Mail address of the chosen category (Rechnungsausgang by default),
+   * from the "Senden von" account, without a compose window
+   */
+  sendInvoiceToDatev: (
+    invoiceId: number,
+    fileName: string,
+    category?: DatevCategory
+  ) => Promise<{
+    success: boolean
+    /** The DATEV address it went to */
+    to?: string
+    category?: DatevCategory
+    messageId?: string
+    eInvoice?: EInvoiceCheckDto
+    error?: string
+    /**
+     * Where the error is fixed: true for Einstellungen › E-Mail (no sending account), 'datev'
+     * for Einstellungen › Rechnungen (no DATEV address for the issuing company)
+     */
+    setup?: true | 'datev'
   }>
   /**
    * #120: email a concert contract (by its deal memo id) or a management contract (by its

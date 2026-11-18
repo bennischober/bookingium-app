@@ -1,4 +1,8 @@
 import type { InvoiceDto } from '../../../main/api/schemas/invoice.schema'
+import {
+  DATEV_CATEGORY_LABELS,
+  type DatevTransferDto
+} from '../../../main/api/schemas/datev.schema'
 import { INVOICE_EMAIL_LABELS, invoiceNumberLabel } from './invoiceLabels'
 
 /** One line of an invoice's Verlauf */
@@ -26,12 +30,15 @@ type HistorySource = Pick<
 
 /**
  * The invoice's Verlauf, oldest first: created, each email (the invoice's,
- * Zahlungserinnerungen, Mahnungen), each status it moved to. Same-moment
+ * Zahlungserinnerungen, Mahnungen), each hand-over to DATEV, each status it moved to. Same-moment
  * entries keep that order, as a Zahlungserinnerung is recorded before the
  * „überfällig“ it causes (a plain date counts as the start of its day; older
  * rows have whole seconds, newer ones milliseconds).
  */
-export function invoiceHistory(invoice: HistorySource): InvoiceHistoryEntry[] {
+export function invoiceHistory(
+  invoice: HistorySource,
+  datevTransfers: readonly Pick<DatevTransferDto, 'createdAt' | 'sentAt' | 'to' | 'category'>[] = []
+): InvoiceHistoryEntry[] {
   let issuedBefore = false
   const statuses = invoice.statusChanges.map((change): InvoiceHistoryEntry => {
     switch (change.status) {
@@ -76,6 +83,16 @@ export function invoiceHistory(invoice: HistorySource): InvoiceHistoryEntry[] {
       ...(email.to && { detail: `an ${email.to}` })
     })
   )
-  const later = [...emails, ...statuses].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+  // A hand-over still waiting for its send to be confirmed shows when it started
+  const datev = datevTransfers.map(
+    (transfer): InvoiceHistoryEntry => ({
+      at: transfer.sentAt ?? transfer.createdAt,
+      label: transfer.sentAt ? 'An DATEV übergeben' : 'Übergabe an DATEV wird bestätigt',
+      detail: `${DATEV_CATEGORY_LABELS[transfer.category]}, an ${transfer.to}`
+    })
+  )
+  const later = [...emails, ...datev, ...statuses].sort((a, b) =>
+    a.at < b.at ? -1 : a.at > b.at ? 1 : 0
+  )
   return [{ at: invoice.createdAt, label: 'Angelegt' }, ...later]
 }

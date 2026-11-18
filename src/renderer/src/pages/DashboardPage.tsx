@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { FollowUpsCard } from '@/components/follow-ups/FollowUpsCard'
 import { OverdueInvoicesCard } from '@/components/invoice/OverdueInvoicesCard'
+import { DatevPendingCard } from '@/components/invoice/DatevPendingCard'
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -116,6 +117,7 @@ export default function DashboardPage() {
       </div>
 
       <OverdueInvoicesCard />
+      <DatevPendingCard />
 
       <FollowUpsCard />
 

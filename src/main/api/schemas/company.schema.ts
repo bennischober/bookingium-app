@@ -31,6 +31,8 @@ export const CompanyDto = z
     logoPath: z.string(),
     signaturePath: z.string(),
     kskNumber: z.string(),
+    /** Kundennummer (given with the first issued invoice, or entered), null for none */
+    customerNumber: z.number().nullable(),
     isDefaultForInvoicing: z.boolean(),
     // Contact person printed into e-invoices (seller contact)
     invoiceContactPersonId: z.number().nullable(),
@@ -50,6 +52,12 @@ export const CompanyListItemDto = z.object({
 export const PaginatedCompanyResponse = createPaginatedResponse(CompanyDto)
 
 // Input DTO - for creating/updating (with embedded relations)
+/** A Kundennummer as typed: '' or nothing for none, else a whole number from 1 */
+export const CustomerNumberInput = z.preprocess(
+  (value) => (value === '' || value === null || value === undefined ? null : Number(value)),
+  z.number().int('Kundennummer muss eine ganze Zahl sein').positive().nullable()
+)
+
 export const CreateCompanyInput = z.object({
   name: z.string().min(1, 'Name ist erforderlich'),
   kind: CompanyKind.optional().default('company'),
@@ -62,6 +70,7 @@ export const CreateCompanyInput = z.object({
   logoPath: z.string().optional().default(''),
   signaturePath: z.string().optional().default(''),
   kskNumber: z.string().optional().default(''),
+  customerNumber: CustomerNumberInput.optional(),
   isDefaultForInvoicing: z.boolean().optional().default(false),
   invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),
@@ -82,6 +91,7 @@ export const UpdateCompanyInput = z.object({
   logoPath: z.string().optional(),
   signaturePath: z.string().optional(),
   kskNumber: z.string().optional(),
+  customerNumber: CustomerNumberInput.optional(),
   isDefaultForInvoicing: z.boolean().optional(),
   invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),

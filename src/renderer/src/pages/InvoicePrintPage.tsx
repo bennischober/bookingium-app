@@ -20,23 +20,25 @@ import {
 } from '@/components/invoice/InvoiceDocument'
 import type { InvoicePrintDto, ReminderKind } from '../../../main/api/schemas/invoice.schema'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
+import { InvoiceDatevButton } from '@/components/invoice/InvoiceDatevButton'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 
 // Display labels for the template dropdown (DB/template values stay untouched)
 const TEMPLATE_LABELS: Record<InvoiceTemplate, string> = {
+  letter: 'Geschäftsbrief',
   standard: 'Standard',
   'agency-de': 'Agentur (Deutsch)',
   'agency-en': 'Agentur (Englisch)'
 }
 
-// Suggests a template from the recipient's country snapshot
+// Suggests a template from the recipient's country snapshot: the Geschäftsbrief for German
+// (and unknown) recipients, the English agency template for foreign ones
 function suggestTemplate(data: InvoicePrintDto | undefined): InvoiceTemplate {
-  if (!data) return 'standard'
-  if (data.recipient?.country?.toLowerCase().includes('germany')) return 'agency-de'
-  if (data.recipient?.country && !data.recipient.country.toLowerCase().includes('germany')) {
+  const country = data?.recipient?.country?.toLowerCase()
+  if (country && !country.includes('germany') && !country.includes('deutschland')) {
     return 'agency-en'
   }
-  return 'standard'
+  return 'letter'
 }
 
 /** Saves the bare XRechnung XML (upload portals of public-sector buyers) */
@@ -71,13 +73,16 @@ export default function InvoicePrintPage() {
   // Default template once data arrives; the user can override afterwards via
   // the dropdown (state adjustment during render, per "You Might Not Need an
   // Effect")
-  const [suggestedTemplate, setSuggestedTemplate] = useState<InvoiceTemplate>('standard')
+  const [suggestedTemplate, setSuggestedTemplate] = useState<InvoiceTemplate>('letter')
   const [suggestedFor, setSuggestedFor] = useState<InvoicePrintDto | undefined>(undefined)
   if (data && suggestedFor !== data) {
     setSuggestedFor(data)
     setSuggestedTemplate(suggestTemplate(data))
   }
-  const [template, setTemplate] = useState<InvoiceTemplate>(suggestedTemplate)
+  // The suggestion follows the data until a template is picked in the dropdown (it used to be
+  // read once, before the data had arrived, so every invoice opened as "Standard")
+  const [pickedTemplate, setTemplate] = useState<InvoiceTemplate | null>(null)
+  const template = pickedTemplate ?? suggestedTemplate
 
   // Logo resolution is async IPC, so clearing on path change happens during
   // render, loading stays in an effect
@@ -168,6 +173,13 @@ export default function InvoicePrintPage() {
               fileName={fileName}
               lang={template === 'agency-en' ? 'en' : 'de'}
               kind={reminder}
+            />
+          )}
+          {invoice.status !== 'draft' && (
+            <InvoiceDatevButton
+              invoiceId={invoice.id}
+              companyId={invoice.companyId}
+              fileName={fileName}
             />
           )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />

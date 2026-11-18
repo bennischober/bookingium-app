@@ -111,6 +111,7 @@ export function CompanyForm({
       taxNumber: company?.taxNumber || '',
       commercialRegisterNo: company?.commercialRegisterNo || '',
       registerCourt: company?.registerCourt || '',
+      customerNumber: company?.customerNumber == null ? '' : String(company.customerNumber),
       logoPath: company?.logoPath || '',
       signaturePath: company?.signaturePath || '',
       bankId: company?.bank?.id || null,
@@ -120,9 +121,18 @@ export function CompanyForm({
     },
     onSubmit: async ({ value }) => {
       // The form leaves out a few input fields (kskNumber, isDefaultForInvoicing); zod defaults them
+      // The Kundennummer is typed as text; empty means none
+      const customerNumber =
+        value.customerNumber.trim() === '' ? null : Number(value.customerNumber.trim())
       const payload = company
-        ? { ...value, id: company.id, logoPath: logoPreview, signaturePath: signaturePreview }
-        : value
+        ? {
+            ...value,
+            customerNumber,
+            id: company.id,
+            logoPath: logoPreview,
+            signaturePath: signaturePreview
+          }
+        : { ...value, customerNumber }
       onSubmit(payload as z.infer<typeof CreateCompanyInput> & { id?: number })
     }
   })
@@ -134,6 +144,16 @@ export function CompanyForm({
 
         <form.AppField name="name">
           {(field) => <field.TextField label="Firmenname" required />}
+        </form.AppField>
+
+        <form.AppField name="customerNumber">
+          {(field) => (
+            <field.TextField
+              label="Kundennummer"
+              inputMode="numeric"
+              hint="Leer lassen: Die Firma erhält ihre Nummer mit der ersten gestellten Rechnung."
+            />
+          )}
         </form.AppField>
 
         <form.AppField name="kind">

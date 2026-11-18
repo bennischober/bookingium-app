@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Drizzle schema for 41 tables, the append-only migration chain, a lazy/overridable
+Drizzle schema for 42 tables, the append-only migration chain, a lazy/overridable
 database handle, and the demo seed.
 
 ## WHERE TO LOOK

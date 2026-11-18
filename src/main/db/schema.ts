@@ -17,11 +17,13 @@ import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import {
   InvoiceEmailKind,
   InvoiceKind,
+  InvoiceNumberFormat,
   InvoiceRecipientKind,
   InvoiceStatus,
   InvoiceTaxCode
 } from '../api/schemas/invoice.schema'
 import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplate.schema'
+import { DatevCategory, DatevTransferStatus } from '../api/schemas/datev.schema'
 // Sync (src/main/sync): ids from this computer's range while sync is on, SQLite's otherwise
 import { nextRowId } from '../sync/ids'
 
@@ -127,6 +129,9 @@ export const person = sqliteTable(
     notes: text('notes'),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
     address_id: integer('address_id').references(() => address.id, { onDelete: 'set null' }),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -134,7 +139,10 @@ export const person = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('person_name_idx').on(table.first_name, table.last_name)]
+  (table) => [
+    index('person_name_idx').on(table.first_name, table.last_name),
+    uniqueIndex('person_customer_number_idx').on(table.customer_number)
+  ]
 )
 
 // Company table
@@ -154,6 +162,9 @@ export const company = sqliteTable(
     logo_path: text('logo_path').default('').notNull(),
     signature_path: text('signature_path').default('').notNull(),
     ksk_number: text('ksk_number').default('').notNull(),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     is_default_for_invoicing: integer('is_default_for_invoicing', { mode: 'boolean' })
       .default(false)
       .notNull(),
@@ -172,6 +183,7 @@ export const company = sqliteTable(
   },
   (table) => [
     index('company_name_idx').on(table.name),
+    uniqueIndex('company_customer_number_idx').on(table.customer_number),
     // One company issues invoices by default
     uniqueIndex('company_default_for_invoicing_idx')
       .on(table.is_default_for_invoicing)
@@ -209,6 +221,9 @@ export const band = sqliteTable(
     name: text('name').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
+    // Kundennummer, given on the first issued invoice to this customer (or entered, e.g. from
+    // DATEV); one number space across companies, bands and persons
+    customer_number: integer('customer_number'),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id),
@@ -228,7 +243,11 @@ export const band = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull()
   },
-  (table) => [index('band_name_idx').on(table.name), index('band_company_idx').on(table.company_id)]
+  (table) => [
+    index('band_name_idx').on(table.name),
+    index('band_company_idx').on(table.company_id),
+    uniqueIndex('band_customer_number_idx').on(table.customer_number)
+  ]
 )
 
 // Band member junction table
@@ -495,7 +514,25 @@ export const company_invoice_settings = sqliteTable(
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
+    // The next running number (with format `year`, the part after the year)
     next_invoice_number: integer('next_invoice_number').default(1).notNull(),
+    // plain | year (InvoiceNumberFormat): 1040 or 2026813
+    invoice_number_format: text('invoice_number_format').default('plain').notNull(),
+    // Format `year`: the running number is padded to this many digits (2026 + 813)
+    invoice_number_digits: integer('invoice_number_digits').default(3).notNull(),
+    // Format `year`: the running number starts at 1 again in a new year
+    invoice_number_yearly_reset: integer('invoice_number_yearly_reset', { mode: 'boolean' })
+      .default(false)
+      .notNull(),
+    // The issue year of the last number taken (for the yearly restart)
+    invoice_number_year: integer('invoice_number_year'),
+    // The "DATEV Upload Mail" addresses of the company's DATEV client (Mandant), one per document
+    // category, '' for none. datev_upload_email is Rechnungsausgang, where invoices go by default
+    datev_upload_email: text('datev_upload_email').default('').notNull(),
+    datev_upload_email_incoming: text('datev_upload_email_incoming').default('').notNull(),
+    datev_upload_email_cash: text('datev_upload_email_cash').default('').notNull(),
+    datev_upload_email_other: text('datev_upload_email_other').default('').notNull(),
+    datev_upload_email_credit_card: text('datev_upload_email_credit_card').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -505,7 +542,16 @@ export const company_invoice_settings = sqliteTable(
   },
   (table) => [
     uniqueIndex('company_invoice_settings_company_unique_idx').on(table.company_id),
-    index('company_invoice_settings_next_number_idx').on(table.next_invoice_number)
+    index('company_invoice_settings_next_number_idx').on(table.next_invoice_number),
+    oneOf(
+      'company_invoice_settings_number_format_check',
+      'invoice_number_format',
+      InvoiceNumberFormat.options
+    ),
+    check(
+      'company_invoice_settings_number_digits_check',
+      sql.raw('"invoice_number_digits" BETWEEN 1 AND 9')
+    )
   ]
 )
 
@@ -523,6 +569,8 @@ export const invoice_party_snapshot = sqliteTable(
       onDelete: 'set null'
     }),
     legal_name: text('legal_name').notNull(),
+    // The recipient's Kundennummer as it was when the invoice was issued
+    customer_number: integer('customer_number'),
     street: text('street').default('').notNull(),
     street_number: text('street_number').default('').notNull(),
     zip_code: text('zip_code').default('').notNull(),
@@ -686,6 +734,42 @@ export const invoice_email = sqliteTable(
   (table) => [
     index('invoice_email_invoice_idx').on(table.invoice_id),
     oneOf('invoice_email_kind_check', 'kind', InvoiceEmailKind.options)
+  ]
+)
+
+/**
+ * A document handed to DATEV Unternehmen online by DATEV Upload Mail: written as `pending`
+ * before the send and set to `sent` when the send is confirmed - right away, or later, when an
+ * unclear send is found in Sent. A send refused before the server took it deletes the row.
+ */
+export const datev_transfer = sqliteTable(
+  'datev_transfer',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    invoice_id: integer('invoice_id')
+      .notNull()
+      .references(() => invoice.id, { onDelete: 'cascade' }),
+    status: text('status').default('pending').notNull(),
+    // The document category, by the upload address it was mailed to
+    category: text('category').default('outgoing').notNull(),
+    // The upload address it was mailed to
+    to: text('to').notNull(),
+    // The attachment's file name, as DATEV shows it
+    file_name: text('file_name').notNull(),
+    mail_account_id: text('mail_account_id').notNull(),
+    // The send key; the mail core makes it the local part of the Message-ID
+    send_key: text('send_key').notNull(),
+    message_id: text('message_id'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    sent_at: text('sent_at')
+  },
+  (table) => [
+    index('datev_transfer_invoice_idx').on(table.invoice_id),
+    uniqueIndex('datev_transfer_send_key_idx').on(table.send_key),
+    oneOf('datev_transfer_status_check', 'status', DatevTransferStatus.options),
+    oneOf('datev_transfer_category_check', 'category', DatevCategory.options)
   ]
 )
 
@@ -1300,6 +1384,7 @@ export const schema = {
   invoice_email,
   invoice_email_pending,
   invoice_status_change,
+  datev_transfer,
   management_contract,
   management_contract_member,
   management_share,

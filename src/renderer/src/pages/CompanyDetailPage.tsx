@@ -60,7 +60,8 @@ function OverviewTab({ company }: { company: CompanyDto }) {
             ['Steuernummer', company.taxNumber],
             ['Registernummer', company.commercialRegisterNo],
             ['Registergericht', company.registerCourt],
-            ['KSK-Nr.', company.kskNumber]
+            ['KSK-Nr.', company.kskNumber],
+            ['Kundennummer', company.customerNumber == null ? null : String(company.customerNumber)]
           ]}
         />
       </InfoCard>

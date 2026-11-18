@@ -461,6 +461,15 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
   `tests/e2e/__screenshots__/` — inspect the PDF, not just the screenshot.
 - Issuing a draft re-takes both snapshots, so an invoice freezes the
   parties as they are when it gets its number.
+- **Invoice templates** (`InvoiceDocument.tsx` catalog, chosen next to the
+  print buttons): „Geschäftsbrief“ (`LetterInvoiceTemplate.tsx`, the layout
+  of an accounting-software letter: logo top right, sender line and info
+  block, items with unit price and VAT rate, „Summe / x % USt. auf EUR … /
+  Endbetrag“ from `letterFormat.ts`, legal data in four footer columns),
+  „Standard“ and „Agentur“ (DE/EN). The page suggests the Geschäftsbrief
+  for German or unknown recipients and „Agentur (Englisch)“ for foreign
+  ones, until a template is picked. Its footer flows after the content like
+  every template's (no pinned page footer, see `PagedDocument`).
 - **Concert contract sections** (`contract/contractSections.ts`): the
   numbers come from `contractSectionNumbers`, never from literals. An
   optional section is left out entirely and every later one moves up, so
@@ -602,6 +611,60 @@ Otherwise the PDF is saved as printed and the toast says what is missing.
   of the package. We stay with these Java reference implementations on
   purpose: there is no JS veraPDF, and a JS rebuild of KoSIT would drift
   from the official rules.
+
+## DATEV (Upload Mail)
+
+Going live (moving invoices and customers over from DATEV): `docs/DATEV_GO_LIVE.md`.
+
+The agency keeps its books in DATEV Unternehmen online (DUO). Every document (Beleg) has to get
+there, so an invoice is handed over from its print page: „An DATEV übergeben“ mails the PDF
+the page prints (with the embedded e-invoice when complete) to the **DATEV Upload Mail**
+address of the issuing company's DATEV client. DUO files each mailed PDF as one document, so
+every mail carries exactly one.
+
+- **Addresses per issuing company and category**: DUO gives each client (Mandant) one upload
+  address per document category and files a document by the address it arrives at. The
+  categories (`DatevCategory`, labels `DATEV_CATEGORY_LABELS`) are Rechnungsausgang
+  (`company_invoice_settings.datev_upload_email`), Rechnungseingang, Kasse, Sonstige and
+  Kreditkartenbelege (`datev_upload_email_<category>`, mapped in `DATEV_EMAIL_COLUMNS`), set
+  in Einstellungen › Rechnungen › DATEV (`DatevCard`, `datev.setUploadEmail`). The print page
+  picks the category next to the button, Rechnungsausgang by default; only categories with an
+  address can be picked, and `datev_transfer.category` records where each hand-over went. The sending address (Einstellungen › E-Mail › „Senden von“)
+  must be confirmed in DUO's Upload Mail settings once; DUO ignores mail from other senders.
+- **The send** (`ipc/documentMail.ts` `invoice:datev`, pure part `mail/datevSend.ts`): no
+  compose window - the mail is bookkeeping, not a letter. Drafts are refused (no number, not a
+  document yet); issued, paid, cancelled invoices and Stornorechnungen go.
+- **Exactly once** (`datev_transfer`): a row is written as `pending` before the send and set to
+  `sent` once the server confirmed it - by the send itself or, after an unclear send, by the
+  core's startup probe or „Prüfen“ (`confirmDatevSendFromOp` in `app/mailServices.ts`). A send
+  refused before the server took it deletes the row. The invoice's emails (`invoice_email`)
+  are untouched: a DATEV hand-over is not a mail to the customer and must not count as a
+  Zahlungserinnerung (`nextReminderKind`).
+- **UI**: the print page button shows a check once handed over and asks before a second
+  hand-over (it would be a second Beleg in DUO); the invoice page's Verlauf lists each
+  hand-over (`invoiceHistory`).
+- **Nothing left out**: the Dashboard card „Noch nicht an DATEV übergeben“ (`DatevPendingCard`,
+  `datev.listNotHandedOver`) lists issued invoices and Stornorechnungen of companies with a
+  DATEV address that have no hand-over yet, oldest first, each leading to its print page.
+- **Numbers in step with DATEV**: one place issues a company's invoice numbers. When invoices
+  move over from DATEV, Einstellungen › Rechnungen › Rechnungsnummerierung continues DATEV's
+  last number; the format is plain (1040) or the issue year in front of a padded running number
+  (`year`, 2026813), optionally restarting at 1 each year (`invoice/numbering.ts` `takeNumber`,
+  columns on `company_invoice_settings`). `takeNextInvoiceNumber` refuses an issue date before
+  the company's last issued invoice (`assertChronological`), so numbers and dates reach DATEV in
+  one order. Corrections stay a Storno with the next number; drafts never hold a number.
+- **Kundennummern made in Bookingium**: `customer_number` on company, band and person (one
+  number space, unique per table, `repositories/customerNumbers.ts` refuses one already taken
+  elsewhere). A recipient without one gets the next free number with its first issued invoice
+  (`withCustomerNumberTx` in `invoice/partySnapshots.ts`, from `AppSettings.nextCustomerNumber`,
+  default 10000 = DATEV's first debtor account, skipping numbers already taken); the snapshot
+  freezes it and the Geschäftsbrief prints it. Numbers from DATEV are entered on the company or
+  imported at go-live, and the setting then continues after them.
+- **Neutral on purpose**: received documents (Eingangsbelege) are to take the same path; the
+  table and the send are named after DATEV, not after invoices. The DATEV API
+  (`accounting:documents`) can replace the mail later behind the same ledger.
+- **Tests**: `tests/datev.test.ts` (mail, bookkeeping, address), `tests/e2e/invoice-email.spec.ts`
+  (no address, no account), `tests/e2e/mail-client.spec.ts` (the real send, needs the sandbox).
 
 ## Import
 

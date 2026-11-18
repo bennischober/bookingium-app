@@ -70,6 +70,10 @@ test.afterAll(async () => {
 test('an issued invoice carries a scannable payment QR code', async () => {
   const { page } = h
   await openPrintPage('#1040')
+  // The template most invoices get (the recipient here is foreign, so it is picked). The
+  // agency templates' hatched shading crashes node-canvas on Linux when the PDF is scanned.
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option', { name: 'Geschäftsbrief' }).click()
   await expect(page.getByTestId('payment-qr')).toHaveCount(1)
 
   const file = await saveTo('Rechnung_1040.pdf')

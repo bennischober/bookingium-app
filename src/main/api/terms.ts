@@ -192,6 +192,14 @@ export const AVOIDED_WORDS: Readonly<Record<string, string>> = {
   Konzertverträgen: `${TERMS.contract.pluralDative} (Auftrittsverträgen)`
 }
 
+/**
+ * Names of other products, written as their makers write them. They may contain an avoided
+ * word (DATEV's "Unternehmen online"), which is why they live here and not inline.
+ */
+export const PRODUCT_NAMES = {
+  datevOnline: 'DATEV Unternehmen online'
+} as const
+
 /** Starts a sentence with an article form: capitalize(TERMS.club.der) -> "Der Club" */
 export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
