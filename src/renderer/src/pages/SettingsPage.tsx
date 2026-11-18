@@ -1,4 +1,3 @@
-import { SearchableSelect } from '@/components/ui/searchable-select'
 import { useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
@@ -35,6 +34,7 @@ import { PaymentQrCard } from '@/components/invoice/PaymentQrCard'
 import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
+import { OwnCompanySettings } from '@/components/settings/OwnCompanySettings'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
@@ -52,18 +52,7 @@ const NONE = 'none'
 /** Default own company and default country */
 function GeneralCard() {
   const utils = trpcReact.useUtils()
-  const companies = trpcReact.company.getListItems.useQuery()
-  const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
   const settings = trpcReact.settings.get.useQuery()
-
-  const setDefaultCompany = trpcReact.company.setDefaultForInvoicing.useMutation({
-    onSuccess: () => {
-      void utils.company.invalidate()
-      toast.success('Eigene Firma gespeichert')
-    },
-    onError: (error) =>
-      toast.error('Eigene Firma konnte nicht gespeichert werden', { description: error.message })
-  })
 
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
@@ -83,24 +72,7 @@ function GeneralCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="settings-own-company">Eigene Firma</Label>
-          <SearchableSelect
-            id="settings-own-company"
-            value={defaultCompany.data?.id ?? null}
-            onChange={(value) => setDefaultCompany.mutate(value)}
-            options={(companies.data ?? []).map((company) => ({
-              value: company.id,
-              label: company.name
-            }))}
-            noneLabel="Keine"
-            searchPlaceholder="Firma suchen…"
-            disabled={defaultCompany.isLoading || setDefaultCompany.isPending}
-          />
-          <p className="text-xs text-muted-foreground">
-            Stellt Rechnungen aus und vertritt Bands ohne eigenes Management in Verträgen.
-          </p>
-        </div>
+        <OwnCompanySettings />
 
         <div className="space-y-2">
           <Label htmlFor="settings-country">Standardland</Label>
