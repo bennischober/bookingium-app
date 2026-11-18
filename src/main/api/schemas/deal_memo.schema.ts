@@ -34,7 +34,9 @@ export type PaginatedDealMemoResponse = z.infer<typeof PaginatedDealMemoResponse
 /** One prepayment ("Vorkasse") on the fee: net euros, a null due date = on signing */
 export const DealMemoDeposit = z.object({
   amount: z.number().positive(),
-  dueDate: z.iso.date().nullable()
+  dueDate: z.iso.date().nullable(),
+  // #201: when it was paid; null or absent = still open
+  paidAt: z.iso.date().nullable().optional()
 })
 export type DealMemoDeposit = z.infer<typeof DealMemoDeposit>
 
@@ -54,6 +56,9 @@ export const DealMemoDto = DealMemoListItemDto.extend({
   // the list procedures leave it empty
   deposits: z.array(DealMemoDeposit),
   contractNotes: z.string(),
+  // #201: contract sent / back signed (dates), null = not yet
+  contractSentAt: z.string().nullable(),
+  contractReturnedAt: z.string().nullable(),
   loProPersonId: z.number().nullable(),
   loProCompanyId: z.number().nullable(),
   invoiceCompanyId: z.number().nullable(),
@@ -149,7 +154,9 @@ export const UpdateDealMemoInput = CreateDealMemoInput.partial()
     guaranteeVatRate: z.number().nullable().optional(),
     // Replaces all prepayments of the event; [] clears them, absent keeps them
     deposits: z.array(DealMemoDeposit).optional(),
-    contractNotes: z.string().optional()
+    contractNotes: z.string().optional(),
+    contractSentAt: z.iso.date().nullable().optional(),
+    contractReturnedAt: z.iso.date().nullable().optional()
   })
   .extend(RadiusOverrideInput.shape)
 

@@ -24,6 +24,8 @@ import { listMailAccounts, type MailAccountDto } from '../mailclient/accounts'
 import { mailClient } from '../mailclient/MailClientService'
 import { DatevService } from '../services/DatevService'
 import { ContractService } from '../services/ContractService'
+import { DealMemoService } from '../services/DealMemoService'
+import { localIsoDate } from '../services/OpenItemsService'
 import { InvoiceService } from '../services/InvoiceService'
 import { MailTemplateService } from '../services/MailTemplateService'
 import { ManagementContractService } from '../services/ManagementContractService'
@@ -218,7 +220,8 @@ export function registerDocumentMailIpc(): void {
   /**
    * #120: a contract print page's mail, from the "Vertrag" template, opened in the compose
    * window like an invoice's. The recipient comes from the stored contract, not the renderer.
-   * Nothing is recorded on the contract: it has no email history.
+   * The contract has no email history; a sent concert contract only sets its event's
+   * contract_sent_at (#201).
    */
   ipcMain.handle(
     'contract:email',
@@ -262,6 +265,12 @@ export function registerDocumentMailIpc(): void {
           },
           record
         })
+        // #201: a concert contract that really went out waits to come back signed
+        if (composed.sent && contract === 'concert') {
+          await container
+            .resolve(DealMemoService)
+            .updateDealMemo({ id, contractSentAt: localIsoDate() })
+        }
         return { success: true, sent: composed.sent }
       } catch (error) {
         console.error('Error creating contract email:', error)

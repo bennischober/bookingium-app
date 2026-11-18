@@ -231,6 +231,9 @@ export class DealMemoRepository {
       values.guarantee_cents = toNullableCents(input.guaranteeAmount ?? null)
     if ('guaranteeVatRate' in input) values.guarantee_vat_rate = input.guaranteeVatRate ?? null
     if ('contractNotes' in input) values.contract_notes = input.contractNotes ?? ''
+    if ('contractSentAt' in input) values.contract_sent_at = input.contractSentAt ?? null
+    if ('contractReturnedAt' in input)
+      values.contract_returned_at = input.contractReturnedAt ?? null
     if ('tour' in input) values.tour = input.tour ?? ''
     if ('radiusKm' in input) values.radius_km = input.radiusKm ?? null
     if ('radiusWeeksBefore' in input) values.radius_weeks_before = input.radiusWeeksBefore ?? null
@@ -257,7 +260,8 @@ export class DealMemoRepository {
                 deal_memo_id: input.id,
                 position: index + 1,
                 amount_cents: toCents(deposit.amount),
-                due_date: deposit.dueDate
+                due_date: deposit.dueDate,
+                paid_at: deposit.paidAt ?? null
               }))
             )
             .run()

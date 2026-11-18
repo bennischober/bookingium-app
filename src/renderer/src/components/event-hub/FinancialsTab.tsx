@@ -73,6 +73,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const updateDeposit = (index: number, change: Partial<DepositDraft>) =>
     setDeposits((rows) => rows.map((row, i) => (i === index ? { ...row, ...change } : row)))
   const [contractNotes, setContractNotes] = useSyncedState(event.contractNotes ?? '')
+  // #201: contract sent / back signed; a contract sent but not back is an open point
+  const [contractSentAt, setContractSentAt] = useSyncedState(event.contractSentAt ?? '')
+  const [contractReturnedAt, setContractReturnedAt] = useSyncedState(event.contractReturnedAt ?? '')
   // Contract "vertreten durch" override; null = band management / default
   const [representingCompanyId, setRepresentingCompanyId] = useSyncedState<number | null>(
     event.representingCompanyId ?? null
@@ -82,6 +85,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
     (parseFloat(guaranteeVatRate) || null) !== event.guaranteeVatRate ||
     depositsChanged(deposits, event.deposits) ||
     contractNotes !== (event.contractNotes ?? '') ||
+    contractSentAt !== (event.contractSentAt ?? '') ||
+    contractReturnedAt !== (event.contractReturnedAt ?? '') ||
     representingCompanyId !== (event.representingCompanyId ?? null)
   const isDirty =
     isDealDirty || isPricesDirty || isPostersDirty || isInvoiceCompanyDirty || isContractDirty
@@ -98,6 +103,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       setGuaranteeVatRate(event.guaranteeVatRate?.toString() ?? '')
       setDeposits(toDepositDrafts(event.deposits))
       setContractNotes(event.contractNotes ?? '')
+      setContractSentAt(event.contractSentAt ?? '')
+      setContractReturnedAt(event.contractReturnedAt ?? '')
       setRepresentingCompanyId(event.representingCompanyId ?? null)
     }
   }, [cancelSignal]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -105,6 +112,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
   const updateMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
+      utils.dashboard.openItems.invalidate()
       toast.success('Gespeichert')
     },
     onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
@@ -123,6 +131,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       guaranteeVatRate: guaranteeVatRate ? parseFloat(guaranteeVatRate) : null,
       deposits: fromDepositDrafts(deposits),
       contractNotes: contractNotes,
+      contractSentAt: contractSentAt || null,
+      contractReturnedAt: contractReturnedAt || null,
       representingCompanyId
     })
   }
@@ -354,6 +364,20 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         onChange={(e) => updateDeposit(index, { dueDate: e.target.value })}
                       />
                     </div>
+                    <div className="flex-1 space-y-1">
+                      <Label
+                        htmlFor={`deposit-${index}-paid`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Bezahlt am (leer = offen)
+                      </Label>
+                      <Input
+                        id={`deposit-${index}-paid`}
+                        type="date"
+                        value={deposit.paidAt}
+                        onChange={(e) => updateDeposit(index, { paidAt: e.target.value })}
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
@@ -370,7 +394,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => setDeposits((rows) => [...rows, { amount: '', dueDate: '' }])}
+                  onClick={() =>
+                    setDeposits((rows) => [...rows, { amount: '', dueDate: '', paidAt: '' }])
+                  }
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   Vorkasse hinzufügen
@@ -379,6 +405,30 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   Mit einer Vorkasse erhält der Vertrag den Abschnitt „Vorkasse“ nach der
                   Abrechnung; ohne entfällt er und die folgenden Punkte rücken auf. Zeilen ohne
                   Betrag werden nicht gespeichert.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-sent-at">Vertrag verschickt am</Label>
+                <Input
+                  id="contract-sent-at"
+                  type="date"
+                  value={contractSentAt}
+                  onChange={(e) => setContractSentAt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Wird gesetzt, wenn der Vertrag aus Bookingium verschickt wird
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-returned-at">Unterschrieben zurück am</Label>
+                <Input
+                  id="contract-returned-at"
+                  type="date"
+                  value={contractReturnedAt}
+                  onChange={(e) => setContractReturnedAt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Bis dahin steht der Vertrag unter „Offene Punkte“
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -422,6 +472,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                 label="MwSt.-Satz der Gage"
                 value={guaranteeVatRate ? `${guaranteeVatRate} %` : null}
                 placeholder="Keine MwSt. ausgewiesen"
+              />
+              <ReadOnlyField
+                label="Vertrag verschickt"
+                value={event.contractSentAt ? formatShortDate(event.contractSentAt) : null}
+                placeholder="Noch nicht verschickt"
+              />
+              <ReadOnlyField
+                label="Unterschrieben zurück"
+                value={event.contractReturnedAt ? formatShortDate(event.contractReturnedAt) : null}
+                placeholder="Noch nicht zurück"
               />
               <ReadOnlyField
                 label="Vorkasse (netto)"

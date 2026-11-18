@@ -15,6 +15,7 @@ import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -77,7 +78,9 @@ function GeneralCard() {
     <Card>
       <CardHeader>
         <CardTitle>Voreinstellungen</CardTitle>
-        <CardDescription>Gelten für Rechnungen, Verträge und Importe.</CardDescription>
+        <CardDescription>
+          Gelten für Rechnungen, Verträge, Importe und die offenen Punkte.
+        </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="space-y-2">
@@ -122,6 +125,35 @@ function GeneralCard() {
           </Select>
           <p className="text-xs text-muted-foreground">
             Für importierte Einträge ohne Land (außer bei Tabellen namens „international“).
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="settings-hotel-days">Hotel spätestens (Tage vor der Show)</Label>
+          <Input
+            // Remounted with the stored value, so a refused entry springs back
+            key={settings.data?.openItemsHotelDays}
+            id="settings-hotel-days"
+            type="number"
+            min={1}
+            max={365}
+            className="max-w-32"
+            defaultValue={settings.data?.openItemsHotelDays ?? 30}
+            disabled={settings.isLoading || updateSettings.isPending}
+            onBlur={(e) => {
+              const days = Number(e.target.value)
+              if (!Number.isInteger(days) || days < 1 || days > 365) {
+                e.target.value = String(settings.data?.openItemsHotelDays ?? 30)
+                return
+              }
+              if (days !== settings.data?.openItemsHotelDays) {
+                updateSettings.mutate({ openItemsHotelDays: days })
+              }
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Eine bestätigte Show, die näher liegt und noch kein Hotel hat, steht unter „Offene
+            Punkte“ auf dem Dashboard.
           </p>
         </div>
       </CardContent>

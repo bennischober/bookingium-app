@@ -41,7 +41,8 @@ const DEFAULTS = {
   radiusFestival: DEFAULT_FESTIVAL_RADIUS,
   invoiceMailAccountId: '',
   // New customers start at DATEV's first debtor account
-  nextCustomerNumber: 10000
+  nextCustomerNumber: 10000,
+  openItemsHotelDays: 30
 }
 
 beforeAll(() => {

@@ -2,9 +2,12 @@ import { initTRPC } from '@trpc/server'
 import { z } from 'zod'
 import { container } from 'tsyringe'
 import { DashboardService } from '../../services/DashboardService'
+import { OpenItemsService } from '../../services/OpenItemsService'
+import { ListOpenItemsInput } from '../schemas/open_items.schema'
 
 const t = initTRPC.create()
 const dashboardService = container.resolve(DashboardService)
+const openItemsService = container.resolve(OpenItemsService)
 
 export const DashboardStatsDto = z.object({
   upcomingNext7Days: z.array(
@@ -33,5 +36,10 @@ export const DashboardStatsDto = z.object({
 export type DashboardStatsDto = z.infer<typeof DashboardStatsDto>
 
 export const dashboardRouter = t.router({
-  getStats: t.procedure.query(async () => dashboardService.getStats())
+  getStats: t.procedure.query(async () => dashboardService.getStats()),
+
+  // #201: "Offene Punkte", all of them or one event's
+  openItems: t.procedure
+    .input(ListOpenItemsInput)
+    .query(({ input }) => openItemsService.list(input.eventId))
 })

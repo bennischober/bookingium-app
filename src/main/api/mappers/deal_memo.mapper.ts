@@ -59,9 +59,12 @@ export class DealMemoMapper {
       guaranteeVatRate: entity.guarantee_vat_rate,
       deposits: (entity.deposits ?? []).map((d) => ({
         amount: fromCents(d.amount_cents),
-        dueDate: d.due_date
+        dueDate: d.due_date,
+        paidAt: d.paid_at
       })),
       contractNotes: entity.contract_notes ?? '',
+      contractSentAt: entity.contract_sent_at,
+      contractReturnedAt: entity.contract_returned_at,
       loProPersonId: entity.lopro_person_id,
       loProCompanyId: entity.lopro_company_id,
       invoiceCompanyId: entity.invoice_company_id,
