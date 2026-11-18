@@ -1,6 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Search,
+  Trash2
+} from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { mailApi } from '@/lib/mailApi'
@@ -28,6 +37,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { RecordPicker } from '@/components/mail/RecordPicker'
 import { AliasFolders } from './AliasFolders'
+import { filterRules } from './mailRuleSearch'
 import {
   RECORD_LABELS,
   useRecordChoices,
@@ -394,6 +404,9 @@ export function MailRulesCard() {
   const accounts = trpcReact.mail.accounts.list.useQuery()
   const [editing, setEditing] = useState<MailRuleDto | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  // The list starts folded: it can grow long, and the settings page has more below it
+  const [expanded, setExpanded] = useState(false)
+  const [query, setQuery] = useState('')
 
   const refresh = () => void utils.mailRule.list.invalidate()
   const failed = (title: string) => (error: { message: string }) =>
@@ -415,6 +428,8 @@ export function MailRulesCard() {
   })
 
   const openDialog = (rule: MailRuleDto | null) => {
+    // A new rule shows up in the list, so the list opens
+    if (!rule) setExpanded(true)
     setEditing(rule)
     setDialogOpen(true)
   }
@@ -430,6 +445,8 @@ export function MailRulesCard() {
   }
 
   const list = rules.data ?? []
+  const searching = query.trim() !== ''
+  const shown = filterRules(list, query, ruleSummary)
   const accountIds = [...new Set(list.map((rule) => rule.accountId))]
   const emailOf = (id: string) =>
     accounts.data?.find((a) => a.id === id)?.email ?? 'Entferntes Konto'
@@ -451,83 +468,126 @@ export function MailRulesCard() {
             {noAccount ? 'Zuerst ein E-Mail-Konto anlegen.' : 'Noch keine Regel angelegt.'}
           </p>
         ) : (
-          accountIds.map((accountId) => {
-            const ofAccount = list.filter((rule) => rule.accountId === accountId)
-            return (
-              <section key={accountId} className="space-y-2" aria-label={emailOf(accountId)}>
-                {accountIds.length > 1 && (
-                  <h3 className="text-sm font-medium">{emailOf(accountId)}</h3>
-                )}
-                <ul className="divide-y rounded-md border" aria-label="E-Mail-Regeln">
-                  {ofAccount.map((rule, index) => (
-                    <li key={rule.id} className="flex items-start gap-3 px-3 py-2">
-                      <Switch
-                        className="mt-0.5"
-                        checked={rule.enabled}
-                        onCheckedChange={(enabled) => setEnabled.mutate({ id: rule.id, enabled })}
-                        aria-label={`${rule.name} ${rule.enabled ? 'ausschalten' : 'einschalten'}`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{rule.name}</p>
-                        <p className="text-xs text-muted-foreground">{ruleSummary(rule)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {rule.hitCount === 0
-                            ? 'Noch nicht angewendet'
-                            : `${rule.hitCount} ${rule.hitCount === 1 ? 'E-Mail' : 'E-Mails'}, zuletzt ${parseTimestamp(
-                                rule.lastAppliedAt ?? ''
-                              ).toLocaleString('de-DE', {
-                                dateStyle: 'short',
-                                timeStyle: 'short'
-                              })}`}
-                        </p>
-                        {rule.lastError && (
-                          <p className="text-xs text-destructive">{rule.lastError}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={index === 0 || move.isLoading}
-                        onClick={() => move.mutate({ id: rule.id, direction: 'up' })}
-                        title="Nach oben"
-                        aria-label={`${rule.name} nach oben`}
-                      >
-                        <ArrowUp />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={index === ofAccount.length - 1 || move.isLoading}
-                        onClick={() => move.mutate({ id: rule.id, direction: 'down' })}
-                        title="Nach unten"
-                        aria-label={`${rule.name} nach unten`}
-                      >
-                        <ArrowDown />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => openDialog(rule)}
-                        title="Bearbeiten"
-                        aria-label={`${rule.name} bearbeiten`}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => void confirmRemove(rule)}
-                        title="Löschen"
-                        aria-label={`${rule.name} löschen`}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium hover:bg-muted"
+            aria-expanded={expanded}
+            aria-controls="mail-rules-list"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            {list.length} {list.length === 1 ? 'Regel' : 'Regeln'}
+            <span className="font-normal text-muted-foreground">
+              · {list.filter((rule) => rule.enabled).length} eingeschaltet
+            </span>
+          </button>
+        )}
+
+        {list.length > 0 && expanded && (
+          <div id="mail-rules-list" className="space-y-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                className="pl-8"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Regeln durchsuchen…"
+                aria-label="Regeln durchsuchen"
+              />
+            </div>
+            {shown.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Keine Regel passt zu „{query.trim()}“.
+              </p>
+            )}
+            {accountIds.map((accountId) => {
+              const ofAccount = list.filter((rule) => rule.accountId === accountId)
+              const visible = shown.filter((rule) => rule.accountId === accountId)
+              if (visible.length === 0) return null
+              return (
+                <section key={accountId} className="space-y-2" aria-label={emailOf(accountId)}>
+                  {accountIds.length > 1 && (
+                    <h3 className="text-sm font-medium">{emailOf(accountId)}</h3>
+                  )}
+                  <ul className="divide-y rounded-md border" aria-label="E-Mail-Regeln">
+                    {visible.map((rule) => {
+                      // Order is the account's whole list; while searching it is not moved
+                      const index = ofAccount.indexOf(rule)
+                      const moveHint = searching ? 'Zum Sortieren die Suche leeren' : undefined
+                      return (
+                        <li key={rule.id} className="flex items-start gap-3 px-3 py-2">
+                          <Switch
+                            className="mt-0.5"
+                            checked={rule.enabled}
+                            onCheckedChange={(enabled) =>
+                              setEnabled.mutate({ id: rule.id, enabled })
+                            }
+                            aria-label={`${rule.name} ${rule.enabled ? 'ausschalten' : 'einschalten'}`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{rule.name}</p>
+                            <p className="text-xs text-muted-foreground">{ruleSummary(rule)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {rule.hitCount === 0
+                                ? 'Noch nicht angewendet'
+                                : `${rule.hitCount} ${rule.hitCount === 1 ? 'E-Mail' : 'E-Mails'}, zuletzt ${parseTimestamp(
+                                    rule.lastAppliedAt ?? ''
+                                  ).toLocaleString('de-DE', {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short'
+                                  })}`}
+                            </p>
+                            {rule.lastError && (
+                              <p className="text-xs text-destructive">{rule.lastError}</p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={searching || index === 0 || move.isLoading}
+                            onClick={() => move.mutate({ id: rule.id, direction: 'up' })}
+                            title={moveHint ?? 'Nach oben'}
+                            aria-label={`${rule.name} nach oben`}
+                          >
+                            <ArrowUp />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={searching || index === ofAccount.length - 1 || move.isLoading}
+                            onClick={() => move.mutate({ id: rule.id, direction: 'down' })}
+                            title={moveHint ?? 'Nach unten'}
+                            aria-label={`${rule.name} nach unten`}
+                          >
+                            <ArrowDown />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => openDialog(rule)}
+                            title="Bearbeiten"
+                            aria-label={`${rule.name} bearbeiten`}
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => void confirmRemove(rule)}
+                            title="Löschen"
+                            aria-label={`${rule.name} löschen`}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              )
+            })}
+          </div>
         )}
 
         <Button variant="outline" disabled={noAccount} onClick={() => openDialog(null)}>
