@@ -156,6 +156,8 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
   const dealMemoMutation = trpcReact.dealMemo.update.useMutation({
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
+      // #201: a hotel resolves the event's open point
+      utils.dashboard.openItems.invalidate()
       toast.success('Gespeichert')
     },
     onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })

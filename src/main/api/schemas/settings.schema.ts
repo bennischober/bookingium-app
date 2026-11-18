@@ -143,7 +143,9 @@ export const AppSettings = z.object({
   invoiceMailAccountId: z.string().default(''),
   // The Kundennummer the next new customer gets with its first issued invoice. Numbers a
   // record already has are skipped. 10000 is DATEV's first debtor account.
-  nextCustomerNumber: z.number().int().min(1).default(10000)
+  nextCustomerNumber: z.number().int().min(1).default(10000),
+  // #201: a show this many days ahead without a hotel is an open point on the dashboard
+  openItemsHotelDays: z.number().int().min(1).max(365).default(30)
 })
 export type AppSettings = z.infer<typeof AppSettings>
 
@@ -166,7 +168,8 @@ export const UpdateAppSettingsInput = z
     radiusClub: shape.radiusClub.unwrap(),
     radiusFestival: shape.radiusFestival.unwrap(),
     invoiceMailAccountId: shape.invoiceMailAccountId.unwrap(),
-    nextCustomerNumber: shape.nextCustomerNumber.unwrap()
+    nextCustomerNumber: shape.nextCustomerNumber.unwrap(),
+    openItemsHotelDays: shape.openItemsHotelDays.unwrap()
   })
   .partial()
 export type UpdateAppSettingsInput = z.infer<typeof UpdateAppSettingsInput>

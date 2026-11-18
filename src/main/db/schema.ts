@@ -469,6 +469,10 @@ export const deal_memo = sqliteTable(
     // The tour the event belongs to ("Frühjahr 2027"), '' for none; the map and the event list
     // filter by it, the tour import sets it
     tour: text('tour').default('').notNull(),
+    // #201: when the contract went out (set when bookingum sent its mail, or by hand) and when
+    // it came back signed; a contract sent but not back is an open point
+    contract_sent_at: text('contract_sent_at'), // YYYY-MM-DD
+    contract_returned_at: text('contract_returned_at'), // YYYY-MM-DD
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -501,7 +505,9 @@ export const deal_memo_deposit = sqliteTable(
       .references(() => deal_memo.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     amount_cents: integer('amount_cents').default(0).notNull(),
-    due_date: text('due_date') // ISO 8601 date
+    due_date: text('due_date'), // ISO 8601 date
+    // #201: when it was paid, null = open; an open one past its due date is an open point
+    paid_at: text('paid_at') // YYYY-MM-DD
   },
   (table) => [index('deal_memo_deposit_deal_memo_idx').on(table.deal_memo_id, table.position)]
 )

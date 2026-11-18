@@ -27,6 +27,7 @@ import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
 import { isEventTab } from '@/components/event-hub/constants'
+import { EventOpenItems } from '@/components/open-items/EventOpenItems'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
@@ -220,6 +221,7 @@ export function EventHubPage() {
       </div>
 
       <RecordFollowUps record={{ type: 'event', id: event.id, name: event.name }} />
+      <EventOpenItems eventId={event.id} />
 
       <DuplicateEventWizard
         sourceId={duplicating ? event.id : null}
