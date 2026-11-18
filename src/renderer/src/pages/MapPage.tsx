@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMapPreview } from '@/hooks/useMapPreview'
 import { useNavigate } from '@tanstack/react-router'
-import { Map as MapIcon, MapPinOff, Navigation, X } from 'lucide-react'
+import { AlertTriangle, Map as MapIcon, MapPinOff, Navigation, X } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { localIsoDate } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import {
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { LeafletMap } from '@/components/map/LeafletMap'
+import { ShowTable } from '@/components/map/ShowTable'
 import {
   agencyLabel,
   CONFLICT_KIND_LABELS,
@@ -58,7 +59,12 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   const [dateFrom, setDateFrom] = useState(() => localIsoDate())
   const [dateTo, setDateTo] = useState('')
   const [focusVenueId, setFocusVenueId] = useState<number | null>(null)
+  const [focusShow, setFocusShow] = useState<{ type: 'event' | 'agency'; id: number } | null>(null)
   const [showRings, setShowRings] = useState(true)
+  // "Umkreis um alle Orte": every club and festival with the ring of its clause
+  const [showVenueRings, setShowVenueRings] = useState(false)
+  const [tour, setTour] = useState<string | null>(null)
+  const tours = trpcReact.tourImport.tours.useQuery()
   // What if: a venue and a date to check before booking it
   const [candidateVenueId, setCandidateVenueId] = useState<number | null>(null)
   const [candidateDate, setCandidateDate] = useState('')
@@ -69,12 +75,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
       bandId: bandId ?? undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      tour: tour ?? undefined,
       candidate:
         candidateVenueId !== null && candidateDate
           ? { venueId: candidateVenueId, date: candidateDate }
           : undefined
     }),
-    [kinds, bandId, dateFrom, dateTo, candidateVenueId, candidateDate]
+    [kinds, bandId, dateFrom, dateTo, tour, candidateVenueId, candidateDate]
   )
 
   const map = trpcReact.map.getData.useQuery(filter, { keepPreviousData: true })
@@ -87,6 +94,14 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   const eventCount = located.filter((marker) => marker.type === 'event').length
   const agencyCount = located.filter((marker) => marker.type === 'agency').length
   const unlocated = map.data?.unlocated ?? []
+  const bandNames = useMemo(
+    () => new Map((bands.data ?? []).map((band) => [band.id, band.name])),
+    [bands.data]
+  )
+  // Shows of a band that lie in each other's radius clause
+  const conflicting = (map.data?.markers ?? []).filter(
+    (marker) => marker.type !== 'venue' && (marker.conflicts?.length ?? 0) > 0
+  ).length
   const candidate = map.data?.candidate ?? null
   // With a band chosen: how many venues are free, at risk or blocked
   const availability = useMemo(() => {
@@ -110,7 +125,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
       </div>
 
       {/* Filters above the map; the map takes the remaining height */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="space-y-1">
           <Label htmlFor="map-kind">Art</Label>
           <MultiSelect
@@ -135,6 +150,25 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             searchPlaceholder="Band suchen…"
             emptyText="Keine Bands angelegt."
           />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="map-tour">Tour</Label>
+          <Select
+            value={tour ?? SHOW_ALL}
+            onValueChange={(value) => setTour(value === SHOW_ALL ? null : value)}
+          >
+            <SelectTrigger id="map-tour">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SHOW_ALL}>Alle Touren</SelectItem>
+              {(tours.data ?? []).map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label htmlFor="map-date-from">Von</Label>
@@ -214,7 +248,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
         </Button>
       </div>
 
-      <div className="flex min-h-[360px] flex-1 flex-col gap-4 lg:flex-row">
+      <div className="flex min-h-[560px] flex-1 flex-col gap-4 lg:flex-row">
         {/* The map: one fixed frame, no scrolling of its own content. `isolate`
             contains Leaflet's internal z-indexes (panes go up to 700) so the
             portaled dropdowns (body level, z-50) always paint above the map. */}
@@ -223,7 +257,9 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             markers={located}
             candidate={candidate}
             focusVenueId={focusVenueId}
+            focusShow={focusShow}
             showRings={showRings}
+            showVenueRings={showVenueRings}
           />
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
               Leaflet leaves free: zoom sits top left, attribution bottom right */}
@@ -312,6 +348,14 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               />
               Ringe zeigen
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showVenueRings}
+                onChange={(event) => setShowVenueRings(event.target.checked)}
+              />
+              Umkreis um alle Orte
+            </label>
           </div>
           {/* Entries without a location, bottom left (the free corner), at every window width:
               each says why and links to where it is fixed */}
@@ -369,7 +413,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
         </div>
 
         {/* Status beside the map on wide windows, below it on narrow ones */}
-        <div className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
+        <div className="flex w-full shrink-0 flex-col gap-4 lg:w-80 lg:overflow-y-auto">
           {candidate ? (
             <CandidateCard candidate={candidate} bandChosen={bandId !== null} />
           ) : (
@@ -393,6 +437,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
+              {conflicting > 0 && (
+                <p className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {conflicting} {conflicting === 1 ? 'Show liegt' : 'Shows liegen'} im Gebietsschutz
+                  einer anderen Show derselben Band (siehe Liste unter der Karte).
+                </p>
+              )}
               {bandId !== null ? (
                 <p>
                   Für die Band: {availability.free} frei · {availability.risk} mit Risiko ·{' '}
@@ -428,6 +479,16 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* The shows on the map, sortable: by date, band, tour, radius clause, overlaps */}
+      <div className="mt-4 space-y-2">
+        <h2 className="text-base font-semibold">Shows im Gebietsschutz</h2>
+        <ShowTable
+          markers={map.data?.markers ?? []}
+          bandNames={bandNames}
+          onSelect={setFocusShow}
+        />
       </div>
     </div>
   )

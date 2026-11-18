@@ -7,7 +7,9 @@ import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { Bell, Mail } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Bell, Download, Mail } from 'lucide-react'
+import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
@@ -17,6 +19,21 @@ export default function RootLayout() {
   const [collapsed, toggleSidebar] = useSidebarCollapsed(pathname)
   const navigate = useNavigate()
   const router = useRouter()
+  const queryClient = useQueryClient()
+  // Sync: another computer's changes arrived; every open list and page shows them (the mail
+  // queries are this computer's own and stay as they are)
+  useEffect(
+    () =>
+      window.api.onDataChanged(() => {
+        void queryClient.invalidateQueries({
+          predicate: (query) => {
+            const [path] = query.queryKey as unknown[]
+            return !(Array.isArray(path) && path[0] === 'mail')
+          }
+        })
+      }),
+    [queryClient]
+  )
   // #65: "E-Mail öffnen" in the tray menu, a click on a new-mail notification (with its
   // account: the mail page then opens that account's newest unread mail)
   useEffect(
@@ -44,6 +61,26 @@ export default function RootLayout() {
         })
       }),
     [navigate, router]
+  )
+  // #49: a newer version is downloaded; it is installed when the app closes, or right away
+  const installUpdate = trpcReact.updates.install.useMutation({
+    onError: (error) =>
+      toast.error('Update kann nicht installiert werden', { description: error.message })
+  })
+  useEffect(
+    () =>
+      window.api.onUpdateReady((update) => {
+        toast.info(`Bookingium ${update.version ?? ''} ist bereit`.replace('  ', ' '), {
+          id: 'update-ready',
+          icon: <Download className="size-4" />,
+          description: 'Das Update wird beim Schließen installiert.',
+          duration: 15000,
+          action: { label: 'Jetzt neu starten', onClick: () => installUpdate.mutate() }
+        })
+      }),
+    // the mutation object changes on every render; its mutate is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   )
   // #142: a click on a reminder notification opens the dashboard, whose card lists the follow-ups
   useEffect(() => window.api.onOpenDashboard(() => void navigate({ to: '/' })), [navigate])

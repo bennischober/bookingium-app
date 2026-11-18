@@ -14,10 +14,10 @@ export function ImportFileStep({ picking, onPick }: ImportFileStepProps) {
       <p className="max-w-md text-sm text-muted-foreground">
         Eine Zeile pro Eintrag, mit Spaltenüberschriften wie Name, Firma, Ansprechpartner, E-Mail,
         Telefon und Anschrift. Im nächsten Schritt wählen Sie, was die Liste enthält, und prüfen die
-        Zuordnung der Spalten. Aus Excel: Speichern unter, Dateityp „CSV UTF-8“.
+        Zuordnung der Spalten. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt.
       </p>
       <Button onClick={() => void onPick()} disabled={picking}>
-        {picking ? 'Datei wird gelesen…' : 'CSV-Datei auswählen…'}
+        {picking ? 'Datei wird gelesen…' : 'Datei auswählen…'}
       </Button>
     </div>
   )

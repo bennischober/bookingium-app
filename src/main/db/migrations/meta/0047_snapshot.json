@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d27a1a2d-32c2-4791-8ba7-19a94ad013c0",
-  "prevId": "eed6e54f-23ba-4d2c-b6a2-9c4f0c0094b7",
+  "id": "4c5c5787-4fe0-4ae1-afce-1c7d0853b093",
+  "prevId": "d1f782b0-9387-4080-859e-1076984f788c",
   "tables": {
     "address": {
       "name": "address",
@@ -425,6 +425,13 @@
           "autoincrement": false,
           "default": "''"
         },
+        "customer_number": {
+          "name": "customer_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "company_id": {
           "name": "company_id",
           "type": "integer",
@@ -477,6 +484,13 @@
             "company_id"
           ],
           "isUnique": false
+        },
+        "band_customer_number_idx": {
+          "name": "band_customer_number_idx",
+          "columns": [
+            "customer_number"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -853,6 +867,13 @@
           "autoincrement": false,
           "default": "''"
         },
+        "customer_number": {
+          "name": "customer_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "is_default_for_invoicing": {
           "name": "is_default_for_invoicing",
           "type": "integer",
@@ -906,6 +927,13 @@
             "name"
           ],
           "isUnique": false
+        },
+        "company_customer_number_idx": {
+          "name": "company_customer_number_idx",
+          "columns": [
+            "customer_number"
+          ],
+          "isUnique": true
         },
         "company_default_for_invoicing_idx": {
           "name": "company_default_for_invoicing_idx",
@@ -1950,6 +1978,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "tour": {
+          "name": "tour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2014,6 +2050,13 @@
           "name": "deal_memo_archived_idx",
           "columns": [
             "archived_at"
+          ],
+          "isUnique": false
+        },
+        "deal_memo_tour_idx": {
+          "name": "deal_memo_tour_idx",
+          "columns": [
+            "tour"
           ],
           "isUnique": false
         }
@@ -2446,6 +2489,27 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "radius_km": {
+          "name": "radius_km",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "radius_weeks_before": {
+          "name": "radius_weeks_before",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "radius_weeks_after": {
+          "name": "radius_weeks_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -3632,6 +3696,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "customer_number": {
+          "name": "customer_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "street": {
@@ -5045,6 +5116,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "customer_number": {
+          "name": "customer_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -5070,6 +5148,13 @@
             "last_name"
           ],
           "isUnique": false
+        },
+        "person_customer_number_idx": {
+          "name": "person_customer_number_idx",
+          "columns": [
+            "customer_number"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {

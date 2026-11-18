@@ -17,6 +17,8 @@ export const MapDataInput = z.object({
   bandId: z.number().optional(),
   dateFrom: IsoDate.optional(),
   dateTo: IsoDate.optional(),
+  /** Only the events of this tour */
+  tour: z.string().max(200).optional(),
   /** What-if: booking this venue on this date - what would it block, what collides? */
   candidate: z.object({ venueId: z.number(), date: IsoDate }).optional()
 })
@@ -60,6 +62,12 @@ export const MapMarkerDto = z.object({
   ring: MapRingDto.optional(),
   /** Agency bookings: the agency that booked it */
   agency: z.string().optional(),
+  /** Events: the tour it belongs to, '' for none */
+  tour: z.string().optional(),
+  /** Shows: the same band's other shows it collides with (one in the other's radius clause) */
+  conflicts: z.array(MapBlockDto).optional(),
+  /** Venues: km of their clause (own, else the kind's default), for "Umkreis aller Orte" */
+  radiusKm: z.number().optional(),
   /** Bands of the event / bands that played at the venue (per the filters) */
   bandIds: z.array(z.number()),
   /** Venues, with a band chosen: the band's confirmed events whose ring covers it */

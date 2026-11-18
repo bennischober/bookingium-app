@@ -28,6 +28,8 @@ export type MapDataFilter = {
   bandId?: number
   dateFrom?: string
   dateTo?: string
+  /** Only the events of this tour (agency bookings have none, so they drop out) */
+  tour?: string
   /** What-if: booking this venue on this date - what would it block, what collides? */
   candidate?: { venueId: number; date: string }
 }
@@ -60,6 +62,16 @@ export type MapMarker = {
   ring?: RadiusWindow
   /** Agency bookings: who booked it */
   agency?: string
+  /** Events: the tour it belongs to, '' for none */
+  tour?: string
+  /**
+   * Shows: the band's other shows (events and agency bookings) it collides with - one lies in
+   * the other's radius clause, in distance and time. The clause binds a band, so only the
+   * same band's shows count.
+   */
+  conflicts?: MapBlock[]
+  /** Venues: the km of their own clause, else their kind's default - the ring "Umkreis aller Orte" */
+  radiusKm?: number
   /** Bands of the event / bands that played at the venue (per the filters) */
   bandIds: number[]
   /** Venues, with a band chosen: the band's confirmed events whose ring covers it */
@@ -104,6 +116,8 @@ export type MapEventRow = {
   venue_radius?: RadiusRow | null
   /** Set for an agency booking: the agency that booked it */
   agency?: string
+  /** The event's tour, '' for none; agency bookings have none */
+  tour?: string
 }
 
 /** A venue with its address, as queried */
@@ -307,6 +321,7 @@ export function buildMapData(
   const bandEventsInRange = activeEvents.filter(
     (event) =>
       (filter.bandId === undefined || event.row.band_id === filter.bandId) &&
+      (filter.tour === undefined || (event.row.tour ?? '') === filter.tour) &&
       windowOverlaps(event.ring, filter.dateFrom, filter.dateTo)
   )
   const shownEvents = bandEventsInRange.filter((event) => kindShown(filter.kinds, event.kind))
@@ -322,7 +337,9 @@ export function buildMapData(
   const markers: MapMarker[] = []
   const unlocated: MapData['unlocated'] = []
 
-  for (const { row, kind, status, ring, coordinates } of shownEvents) {
+  const conflictsOf = showConflicts(activeEvents)
+  for (const event of shownEvents) {
+    const { row, kind, status, ring, coordinates } = event
     const type = row.agency !== undefined ? 'agency' : 'event'
     markers.push({
       type,
@@ -332,7 +349,8 @@ export function buildMapData(
       date: row.date,
       status,
       ring,
-      ...(row.agency !== undefined ? { agency: row.agency } : {}),
+      ...(row.agency !== undefined ? { agency: row.agency } : { tour: row.tour ?? '' }),
+      conflicts: conflictsOf.get(event) ?? [],
       bandIds: [row.band_id],
       located: coordinates !== null,
       addressLabel: row.address ? formatAddressLabel(row.address) : '',
@@ -359,6 +377,7 @@ export function buildMapData(
     const kind = venueKind(row.venue_kind)
     if (!kindShown(filter.kinds, kind)) continue
     if (filter.bandId !== undefined && row.band_id !== filter.bandId) continue
+    if (filter.tour !== undefined && (row.tour ?? '') !== filter.tour) continue
     unlocated.push({
       type: row.agency !== undefined ? 'agency' : 'event',
       id: row.id,
@@ -378,6 +397,7 @@ export function buildMapData(
 
   for (const { row: venueRow, kind, coordinates } of placedVenues) {
     if (!kindShown(filter.kinds, kind)) continue
+    const venueClause = effectiveClause(null, venueRow.radius, defaultClause(defaults, kind))
     const blockedBy: MapBlock[] = []
     const riskBy: MapBlock[] = []
     if (coordinates) {
@@ -394,6 +414,7 @@ export function buildMapData(
       kind,
       name: venueRow.name,
       bandIds: bandsByVenue.get(venueRow.id) ?? [],
+      radiusKm: venueClause.km,
       ...(filter.bandId !== undefined ? { blockedBy, riskBy } : {}),
       located: coordinates !== null,
       addressLabel: venueRow.address ? formatAddressLabel(venueRow.address) : '',
@@ -417,6 +438,38 @@ export function buildMapData(
       ? buildCandidate(filter.candidate, activeEvents, placedVenues, filter, defaults)
       : null
   }
+}
+
+/**
+ * For each show, the same band's other shows it collides with: one lies inside the other's
+ * ring (distance) while its date falls in the other's window. Cancelled shows are already out;
+ * shows without a location cannot be checked. Every pair of a band is checked once (windows differ
+ * in size, so no early stop), in date order.
+ */
+export function showConflicts(events: PlacedEvent[]): Map<PlacedEvent, MapBlock[]> {
+  const conflicts = new Map<PlacedEvent, MapBlock[]>()
+  const byBand = new Map<number, PlacedEvent[]>()
+  for (const event of events) {
+    if (!event.coordinates) continue
+    byBand.set(event.row.band_id, [...(byBand.get(event.row.band_id) ?? []), event])
+  }
+  for (const shows of byBand.values()) {
+    shows.sort((a, b) => a.row.date.localeCompare(b.row.date))
+    for (let i = 0; i < shows.length; i++) {
+      for (let j = i + 1; j < shows.length; j++) {
+        const a = shows[i]
+        const b = shows[j]
+        const distance = distanceKm(a.coordinates!, b.coordinates!)
+        const aCovers = inWindow(a.ring, b.row.date) && distance <= a.ring.km
+        const bCovers = inWindow(b.ring, a.row.date) && distance <= b.ring.km
+        if (!aCovers && !bCovers) continue
+        conflicts.set(a, [...(conflicts.get(a) ?? []), blockOf(b.row)])
+        conflicts.set(b, [...(conflicts.get(b) ?? []), blockOf(a.row)])
+      }
+    }
+  }
+  for (const list of conflicts.values()) list.sort((a, b) => a.date.localeCompare(b.date))
+  return conflicts
 }
 
 /**

@@ -23,12 +23,15 @@ import { managementContractRouter } from './routers/management_contract.router'
 import { importRouter } from './routers/import.router'
 import { settingsRouter } from './routers/settings.router'
 import { backupRouter } from './routers/backup.router'
+import { syncRouter } from './routers/sync.router'
+import { updatesRouter } from './routers/updates.router'
 import { exportRouter } from './routers/export.router'
 import { calendarRouter } from './routers/calendar.router'
 import { contactListRouter } from './routers/contact_list.router'
 import { followUpRouter } from './routers/follow_up.router'
 import { appointmentRouter } from './routers/appointment.router'
 import { externalBookingRouter } from './routers/external_booking.router'
+import { tourImportRouter } from './routers/tour_import.router'
 import { mailRouter } from './routers/mail.router'
 import { mailLinkRouter } from './routers/mail_link.router'
 import { mailRuleRouter } from './routers/mail_rule.router'
@@ -68,12 +71,15 @@ export const router = t.router({
   dataImport: importRouter,
   settings: settingsRouter,
   backup: backupRouter,
+  sync: syncRouter,
+  updates: updatesRouter,
   dataExport: exportRouter,
   calendar: calendarRouter,
   contactList: contactListRouter,
   followUp: followUpRouter,
   appointment: appointmentRouter,
   externalBooking: externalBookingRouter,
+  tourImport: tourImportRouter,
   mail: mailRouter,
   mailLink: mailLinkRouter,
   mailRule: mailRuleRouter,

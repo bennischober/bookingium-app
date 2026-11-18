@@ -38,6 +38,7 @@
     "dompurify": "3.4.17",
     "drizzle-orm": "^0.45.1",
     "electron-trpc": "^0.7.1",
+    "electron-updater": "6.8.12",
     "imapflow": "2.9.0",
     "jsdom": "29.1.1",
     "leaflet": "^1.9.4",

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "eed6e54f-23ba-4d2c-b6a2-9c4f0c0094b7",
+  "id": "d1f782b0-9387-4080-859e-1076984f788c",
   "prevId": "8f749224-bdd3-42dd-806c-640523458e16",
   "tables": {
     "address": {
@@ -1086,14 +1086,6 @@
           "autoincrement": false,
           "default": 1
         },
-        "datev_upload_email": {
-          "name": "datev_upload_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1585,122 +1577,6 @@
         }
       }
     },
-    "datev_transfer": {
-      "name": "datev_transfer",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'pending'"
-        },
-        "to": {
-          "name": "to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "mail_account_id": {
-          "name": "mail_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "send_key": {
-          "name": "send_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        },
-        "sent_at": {
-          "name": "sent_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "datev_transfer_invoice_idx": {
-          "name": "datev_transfer_invoice_idx",
-          "columns": [
-            "invoice_id"
-          ],
-          "isUnique": false
-        },
-        "datev_transfer_send_key_idx": {
-          "name": "datev_transfer_send_key_idx",
-          "columns": [
-            "send_key"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "datev_transfer_invoice_id_invoice_id_fk": {
-          "name": "datev_transfer_invoice_id_invoice_id_fk",
-          "tableFrom": "datev_transfer",
-          "tableTo": "invoice",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "datev_transfer_status_check": {
-          "name": "datev_transfer_status_check",
-          "value": "\"status\" IN ('pending', 'sent')"
-        }
-      }
-    },
     "deal_memo": {
       "name": "deal_memo",
       "columns": {
@@ -1910,6 +1786,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "tour": {
+          "name": "tour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1974,6 +1858,13 @@
           "name": "deal_memo_archived_idx",
           "columns": [
             "archived_at"
+          ],
+          "isUnique": false
+        },
+        "deal_memo_tour_idx": {
+          "name": "deal_memo_tour_idx",
+          "columns": [
+            "tour"
           ],
           "isUnique": false
         }
@@ -2406,6 +2297,27 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "radius_km": {
+          "name": "radius_km",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "radius_weeks_before": {
+          "name": "radius_weeks_before",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "radius_weeks_after": {
+          "name": "radius_weeks_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {

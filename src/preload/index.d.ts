@@ -144,6 +144,10 @@ export interface DocumentAPI {
   onOpenDashboard: (callback: () => void) => () => void
   /** #71: a click on an appointment's reminder asks for its day (YYYY-MM-DD) in the calendar */
   onOpenCalendar: (callback: (day: string) => void) => () => void
+  /** #49: a newer version is downloaded and waits to be installed; returns the unsubscribe */
+  onUpdateReady: (callback: (update: { version: string | null }) => void) => () => void
+  /** Sync: another computer's changes arrived; returns the unsubscribe */
+  onDataChanged: (callback: () => void) => () => void
 }
 
 declare global {

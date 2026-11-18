@@ -27,14 +27,20 @@ export function LeafletMap({
   markers,
   candidate,
   focusVenueId,
-  showRings
+  focusShow,
+  showRings,
+  showVenueRings = false
 }: {
   markers: MapMarkerDto[]
   /** The what-if booking: a dashed ring and its own dot */
   candidate?: MapCandidateDto | null
   /** Centre the map on this venue marker when it changes (the venue picker) */
   focusVenueId?: number | null
+  /** Centre on this show (a row of the list below the map) */
+  focusShow?: { type: 'event' | 'agency'; id: number } | null
   showRings: boolean
+  /** "Umkreis um alle Orte": a thin ring of its clause around every club and festival */
+  showVenueRings?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMapType | null>(null)
@@ -96,6 +102,23 @@ export function LeafletMap({
         const layers: Layer[] = []
         // Rings under every dot (their own pane), in the venue kind's colour. They are only a
         // backdrop: not interactive, so the mouse always reaches the dots inside them.
+        if (showVenueRings) {
+          for (const venue of point.venues) {
+            if (!venue.radiusKm) continue
+            layers.push(
+              L.circle([point.lat, point.lng], {
+                pane: RING_PANE,
+                interactive: false,
+                radius: venue.radiusKm * 1000,
+                color: venue.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue,
+                dashArray: '2 6',
+                weight: 1,
+                opacity: 0.6,
+                fill: false
+              })
+            )
+          }
+        }
         if (showRings) {
           for (const ring of pointRings(point)) {
             layers.push(
@@ -193,7 +216,7 @@ export function LeafletMap({
     return () => {
       cancelled = true
     }
-  }, [markers, candidate, showRings, mapReady])
+  }, [markers, candidate, showRings, showVenueRings, mapReady])
 
   // A new what-if booking: fit its ring into view
   const candidateKey = candidate ? `${candidate.venueId}:${candidate.ring.km}` : null
@@ -217,6 +240,17 @@ export function LeafletMap({
     if (!marker || marker.lat === undefined || marker.lng === undefined) return
     map.flyTo([marker.lat, marker.lng], 11, { duration: 0.8 })
   }, [focusVenueId, markers, mapReady])
+
+  // A row of the show list: centre on that show
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !focusShow) return
+    const marker = markers.find(
+      (candidate) => candidate.type === focusShow.type && candidate.id === focusShow.id
+    )
+    if (!marker || marker.lat === undefined || marker.lng === undefined) return
+    map.flyTo([marker.lat, marker.lng], 10, { duration: 0.8 })
+  }, [focusShow, markers, mapReady])
 
   // A window resize (sidebar toggle) leaves Leaflet with a stale size
   useEffect(() => {

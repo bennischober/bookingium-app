@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, like, sql } from 'drizzle-orm'
 import { schema } from '../../db/schema'
 import type { InvoiceNumberFormat } from '../../api/schemas/invoice.schema'
 import { takeNumber, type NumberingSettings } from '../../invoice/numbering'
@@ -56,6 +56,18 @@ export function assertChronological(tx: Tx, companyId: number, issueDate: string
   }
 }
 
+/** The company's highest invoice number, of invoices issued in `year` when given */
+function highestNumber(tx: Tx, companyId: number, year: number | null): number | null {
+  const conditions = [eq(schema.invoice.company_id, companyId)]
+  if (year !== null) conditions.push(like(schema.invoice.issue_date, `${year}-%`))
+  const row = tx
+    .select({ highest: sql<number | null>`max(${schema.invoice.invoice_number})` })
+    .from(schema.invoice)
+    .where(and(...conditions))
+    .get()
+  return row?.highest ?? null
+}
+
 /**
  * Takes the company's next invoice number for an invoice issued on `issueDate` and advances
  * its counter. Refuses a date before the last issued invoice (assertChronological).
@@ -69,7 +81,16 @@ export function takeNextInvoiceNumber(tx: Tx, companyId: number, issueDate: stri
     .limit(1)
     .all()[0]
 
-  const taken = takeNumber(numberingOf(existing), Number(issueDate.slice(0, 4)))
+  const year = Number(issueDate.slice(0, 4))
+  let settings = numberingOf(existing)
+  let taken = takeNumber(settings, year)
+  // Never below a number already used: with sync, another computer's invoices arrive without
+  // moving this computer's counter. Numbers of format `year` only compare within their year.
+  const highest = highestNumber(tx, companyId, settings.format === 'year' ? year : null)
+  while (highest !== null && taken.number <= highest) {
+    settings = { ...settings, next: taken.next, lastYear: taken.year }
+    taken = takeNumber(settings, year)
+  }
   const values = {
     next_invoice_number: taken.next,
     invoice_number_year: taken.year,

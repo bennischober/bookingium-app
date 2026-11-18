@@ -24,6 +24,8 @@ import {
 } from '../api/schemas/invoice.schema'
 import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplate.schema'
 import { DatevTransferStatus } from '../api/schemas/datev.schema'
+// Sync (src/main/sync): ids from this computer's range while sync is on, SQLite's otherwise
+import { nextRowId } from '../sync/ids'
 
 /**
  * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
@@ -48,7 +50,7 @@ function atMostOne(name: string, columns: readonly string[]) {
 export const address = sqliteTable(
   'address',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     street: text('street').default('').notNull(),
     street_number: text('street_number').default('').notNull(),
     address_suffix: text('address_suffix').default(''),
@@ -68,7 +70,7 @@ export const address = sqliteTable(
 export const contact = sqliteTable(
   'contact',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     email: text('email').default('').notNull(),
     phone: text('phone'),
     mobile_phone: text('mobile_phone'),
@@ -84,7 +86,7 @@ export const contact = sqliteTable(
 export const contact_email = sqliteTable(
   'contact_email',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     contact_id: integer('contact_id')
       .notNull()
       .references(() => contact.id, { onDelete: 'cascade' }),
@@ -103,7 +105,7 @@ export const contact_email = sqliteTable(
 export const bank = sqliteTable(
   'bank',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     bank_name: text('bank_name').default('').notNull(),
     account_holder: text('account_holder').default('').notNull(),
     iban: text('iban', { length: 34 }).default('').notNull(), // Max IBAN length
@@ -120,7 +122,7 @@ export const bank = sqliteTable(
 export const person = sqliteTable(
   'person',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     first_name: text('first_name').notNull(),
     last_name: text('last_name').notNull(),
     birthday: text('birthday'), // ISO 8601 format: YYYY-MM-DD
@@ -147,7 +149,7 @@ export const person = sqliteTable(
 export const company = sqliteTable(
   'company',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     // 'company' or 'media' (radio stations and the like, a Verteiler source, #80)
     kind: text('kind').default('company').notNull(),
@@ -194,7 +196,7 @@ export const company = sqliteTable(
 export const company_member = sqliteTable(
   'company_member',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
@@ -215,7 +217,7 @@ export const company_member = sqliteTable(
 export const band = sqliteTable(
   'band',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     founded: text('founded'), // ISO 8601 format: YYYY-MM-DD
     notes: text('notes').default('').notNull(),
@@ -252,7 +254,7 @@ export const band = sqliteTable(
 export const band_member = sqliteTable(
   'band_member',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     band_id: integer('band_id')
       .notNull()
       .references(() => band.id, { onDelete: 'cascade' }),
@@ -273,7 +275,7 @@ export const band_member = sqliteTable(
 export const venue = sqliteTable(
   'venue',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
@@ -306,7 +308,7 @@ export const venue = sqliteTable(
 export const venue_member = sqliteTable(
   'venue_member',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     venue_id: integer('venue_id')
       .notNull()
       .references(() => venue.id, { onDelete: 'cascade' }),
@@ -329,7 +331,7 @@ export const venue_member = sqliteTable(
 export const genre = sqliteTable(
   'genre',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
@@ -343,7 +345,7 @@ export const genre = sqliteTable(
 export const venue_genre = sqliteTable(
   'venue_genre',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     venue_id: integer('venue_id')
       .notNull()
       .references(() => venue.id, { onDelete: 'cascade' }),
@@ -361,7 +363,7 @@ export const venue_genre = sqliteTable(
 export const company_genre = sqliteTable(
   'company_genre',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
@@ -379,7 +381,7 @@ export const company_genre = sqliteTable(
 export const band_genre = sqliteTable(
   'band_genre',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     band_id: integer('band_id')
       .notNull()
       .references(() => band.id, { onDelete: 'cascade' }),
@@ -398,7 +400,7 @@ export const band_genre = sqliteTable(
 export const hotel = sqliteTable(
   'hotel',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     notes: text('notes'),
     contact_id: integer('contact_id').references(() => contact.id, { onDelete: 'set null' }),
@@ -417,7 +419,7 @@ export const hotel = sqliteTable(
 export const deal_memo = sqliteTable(
   'deal_memo',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     deal: text('deal').notNull().default(''), // financial deal terms, e.g. "70/30"
     date: text('date').notNull(), // ISO 8601 format: YYYY-MM-DD
@@ -464,6 +466,9 @@ export const deal_memo = sqliteTable(
      * active. A timestamp rather than a boolean, so "when" stays answerable.
      */
     archived_at: text('archived_at'),
+    // The tour the event belongs to ("Frühjahr 2027"), '' for none; the map and the event list
+    // filter by it, the tour import sets it
+    tour: text('tour').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -479,6 +484,7 @@ export const deal_memo = sqliteTable(
     index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
     index('deal_memo_status_idx').on(table.status),
     index('deal_memo_archived_idx').on(table.archived_at),
+    index('deal_memo_tour_idx').on(table.tour),
     oneOf('deal_memo_status_check', 'status', DealMemoStatus.options)
   ]
 )
@@ -489,7 +495,7 @@ export const deal_memo = sqliteTable(
 export const deal_memo_deposit = sqliteTable(
   'deal_memo_deposit',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     deal_memo_id: integer('deal_memo_id')
       .notNull()
       .references(() => deal_memo.id, { onDelete: 'cascade' }),
@@ -504,7 +510,7 @@ export const deal_memo_deposit = sqliteTable(
 export const company_invoice_settings = sqliteTable(
   'company_invoice_settings',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     company_id: integer('company_id')
       .notNull()
       .references(() => company.id, { onDelete: 'cascade' }),
@@ -549,7 +555,7 @@ export const company_invoice_settings = sqliteTable(
 export const invoice_party_snapshot = sqliteTable(
   'invoice_party_snapshot',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     kind: text('kind').notNull(), // company | band | person | other
     source_company_id: integer('source_company_id').references(() => company.id, {
       onDelete: 'set null'
@@ -598,7 +604,7 @@ export const invoice_party_snapshot = sqliteTable(
 export const invoice = sqliteTable(
   'invoice',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     // Assigned from the company's counter when the invoice is issued; drafts
     // have none, so deleting a draft never leaves a gap in the sequence
     invoice_number: integer('invoice_number'),
@@ -673,7 +679,7 @@ export const invoice = sqliteTable(
 export const invoice_line_item = sqliteTable(
   'invoice_line_item',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -704,7 +710,7 @@ export const invoice_line_item = sqliteTable(
 export const invoice_email = sqliteTable(
   'invoice_email',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -735,7 +741,7 @@ export const invoice_email = sqliteTable(
 export const datev_transfer = sqliteTable(
   'datev_transfer',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -768,7 +774,7 @@ export const datev_transfer = sqliteTable(
 export const invoice_email_pending = sqliteTable(
   'invoice_email_pending',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -792,7 +798,7 @@ export const invoice_email_pending = sqliteTable(
 export const invoice_status_change = sqliteTable(
   'invoice_status_change',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -811,7 +817,7 @@ export const invoice_status_change = sqliteTable(
 export const itinerary = sqliteTable(
   'itinerary',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     notes: text('notes').default('').notNull(),
     deal_memo_id: integer('deal_memo_id')
       .notNull()
@@ -848,7 +854,7 @@ export const itinerary = sqliteTable(
 export const document = sqliteTable(
   'document',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     owner_type: text('owner_type', { enum: DOCUMENT_OWNER_TYPES }).notNull(),
     owner_id: integer('owner_id').notNull(),
     file_name: text('file_name').notNull(),
@@ -902,7 +908,7 @@ export type MailLinkSource = (typeof MAIL_LINK_SOURCES)[number]
 export const mail_link = sqliteTable(
   'mail_link',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     mail_account_id: text('mail_account_id').notNull(),
     // Without the angle brackets, as in the mail store's message_id
     message_id: text('message_id'),
@@ -943,7 +949,7 @@ export const app_setting = sqliteTable('app_setting', {
 // imported CSV list; filters stays '{}'. Both are dynamic: recipients are
 // computed from the current data on every load.
 export const contact_list = sqliteTable('contact_list', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+  id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
   name: text('name').notNull(),
   kind: text('kind', { enum: ['filter', 'members'] })
     .default('filter')
@@ -962,7 +968,7 @@ export const contact_list = sqliteTable('contact_list', {
 export const contact_list_member = sqliteTable(
   'contact_list_member',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     contact_list_id: integer('contact_list_id')
       .notNull()
       .references(() => contact_list.id, { onDelete: 'cascade' }),
@@ -998,7 +1004,7 @@ export const contact_list_member = sqliteTable(
 export const mail_template = sqliteTable(
   'mail_template',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     name: text('name').notNull(),
     subject: text('subject').default('').notNull(),
     body: text('body').default('').notNull(),
@@ -1028,7 +1034,7 @@ export const mail_template = sqliteTable(
 export const mail_rule = sqliteTable(
   'mail_rule',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     mail_account_id: text('mail_account_id').notNull(),
     name: text('name').notNull(),
     enabled: integer('enabled', { mode: 'boolean' }).default(true).notNull(),
@@ -1062,7 +1068,7 @@ export const mail_rule = sqliteTable(
 export const mail_rule_hit = sqliteTable(
   'mail_rule_hit',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     rule_id: integer('rule_id')
       .notNull()
       .references(() => mail_rule.id, { onDelete: 'cascade' }),
@@ -1082,7 +1088,7 @@ export const mail_rule_hit = sqliteTable(
 export const follow_up = sqliteTable(
   'follow_up',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     due_date: text('due_date').notNull(), // YYYY-MM-DD
     note: text('note').notNull(),
     done_at: text('done_at'),
@@ -1133,7 +1139,7 @@ export const follow_up = sqliteTable(
 export const appointment = sqliteTable(
   'appointment',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     title: text('title').notNull(),
     start_date: text('start_date').notNull(), // YYYY-MM-DD
     start_time: text('start_time'), // HH:MM, NULL for all-day
@@ -1185,7 +1191,7 @@ export const appointment = sqliteTable(
 export const external_booking = sqliteTable(
   'external_booking',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     band_id: integer('band_id')
       .notNull()
       .references(() => band.id, { onDelete: 'cascade' }),
@@ -1206,6 +1212,10 @@ export const external_booking = sqliteTable(
     // The file the row last came from, and when
     source_file: text('source_file').notNull().default(''),
     imported_at: text('imported_at').notNull(),
+    // The export's own radius clause (Gebietsschutz); null fields take the kind's default
+    radius_km: integer('radius_km'),
+    radius_weeks_before: integer('radius_weeks_before'),
+    radius_weeks_after: integer('radius_weeks_after'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -1231,7 +1241,7 @@ export const external_booking = sqliteTable(
 export const management_contract = sqliteTable(
   'management_contract',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     band_id: integer('band_id')
       .notNull()
       .references(() => band.id, { onDelete: 'cascade' }),
@@ -1274,7 +1284,7 @@ export const management_contract = sqliteTable(
 export const management_contract_member = sqliteTable(
   'management_contract_member',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     contract_id: integer('contract_id')
       .notNull()
       .references(() => management_contract.id, { onDelete: 'cascade' }),
@@ -1293,7 +1303,7 @@ export const management_contract_member = sqliteTable(
 export const management_share = sqliteTable(
   'management_share',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     invoice_id: integer('invoice_id')
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
@@ -1322,7 +1332,7 @@ export const management_share = sqliteTable(
 export const management_share_income = sqliteTable(
   'management_share_income',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
     share_id: integer('share_id')
       .notNull()
       .references(() => management_share.id, { onDelete: 'cascade' }),

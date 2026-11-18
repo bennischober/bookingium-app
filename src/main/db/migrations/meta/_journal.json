@@ -327,22 +327,15 @@
     {
       "idx": 46,
       "version": "6",
-      "when": 1794819692214,
-      "tag": "0046_datev_transfer",
+      "when": 1794930406029,
+      "tag": "0046_tour_and_agency_radius",
       "breakpoints": true
     },
     {
       "idx": 47,
       "version": "6",
-      "when": 1794826452192,
-      "tag": "0047_invoice_number_format",
-      "breakpoints": true
-    },
-    {
-      "idx": 48,
-      "version": "6",
-      "when": 1794826755863,
-      "tag": "0048_customer_number",
+      "when": 1794991303427,
+      "tag": "0047_datev_upload_mail",
       "breakpoints": true
     }
   ]

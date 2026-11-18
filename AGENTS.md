@@ -56,6 +56,7 @@ Only the symbols that cross a subtree boundary are listed here; per-area tables 
 - Real master data (names, IBANs, addresses, signatures) in code, seeds, tests or commit messages - only the gitignored `sample_data/internal-seed.json`.
 - Assuming the app never sends mail: the mail client (`src/main/mailclient/`) **does** transmit over SMTP for writable accounts, and since #136 it is the only way invoices, reminders, contracts and mailing lists go out (the compose window opens on the sending account). There is no mail program fallback any more.
 - Translating stored enum values. Render them through label maps.
+- Writing an id yourself or inserting with raw SQL outside drizzle while sync is on: ids must come from `nextRowId()` (the schema default), or two computers hand out the same id. A new table of machine-local data goes into `LOCAL_TABLES` (`src/main/sync/tables.ts`), a new natural key into `keyOf` (`merge.ts`).
 - A second tRPC client in the renderer - electron-trpc keys responses by operation id.
 
 ## UNIQUE STYLES

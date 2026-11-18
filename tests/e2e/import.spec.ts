@@ -71,7 +71,7 @@ test('imports festivals, promoters and contacts from a spreadsheet', async () =>
   await page.getByRole('button', { name: 'Importieren' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
 
   // Mapping detected from the headers; festivals because the Festivals list was open
   await expect(dialog.getByRole('combobox', { name: 'Importieren als' })).toHaveText('Festival')
@@ -148,7 +148,7 @@ test('saves an imported contact list as Verteiler', async () => {
   await page.getByRole('link', { name: 'Personen' }).first().click()
   await page.getByRole('button', { name: 'Importieren' }).click()
   const dialog = page.getByRole('dialog', { name: 'Daten importieren' })
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
 
   await dialog.getByLabel('Als Verteiler speichern').check()

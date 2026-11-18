@@ -116,6 +116,33 @@ describe('issuing in step with DATEV', () => {
     expect(sameDay.invoice_number).toBe(2)
   })
 
+  it('never takes a number already used, as when sync brings another computer`s invoices', async () => {
+    const issuer = await company('Two Computers GmbH')
+    const invoices = container.resolve(InvoiceService)
+    await invoices.upsertCompanyInvoiceSettings({ companyId: issuer.id, nextInvoiceNumber: 813 })
+    await invoices.setNumberingFormat({
+      companyId: issuer.id,
+      format: 'year',
+      digits: 3,
+      yearlyReset: true
+    })
+    const issue = async (issueDate: string) =>
+      (
+        await invoices.createInvoice({
+          companyId: issuer.id,
+          status: 'issued',
+          issueDate,
+          lineItems: line
+        })
+      ).invoice_number
+    expect([await issue('2026-11-20'), await issue('2026-11-21')]).toEqual([2026813, 2026814])
+    // The other computer's two invoices arrived, this counter still stands at 813
+    await invoices.upsertCompanyInvoiceSettings({ companyId: issuer.id, nextInvoiceNumber: 813 })
+    expect(await issue('2026-11-22')).toBe(2026815)
+    // A yearly restart only compares with numbers of its own year
+    expect(await issue('2027-01-04')).toBe(2027001)
+  })
+
   it('keeps each company in its own order', async () => {
     const a = await company('Order A GmbH')
     const b = await company('Order B GmbH')

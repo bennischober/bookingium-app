@@ -12,14 +12,18 @@ import type { PaginationInput } from '../api/schemas/base.schema'
 
 @injectable()
 export class DealMemoRepository {
-  async getAllPaginated(pagination: PaginationInput) {
-    const { search } = pagination
+  async getAllPaginated(pagination: PaginationInput & { tour?: string }) {
+    const { search, tour } = pagination
     const { page, pageSize, offset } = listPage(pagination)
 
     // D3: an archived event is out of the working list; the archive view asks for it
-    const whereClause = search
-      ? and(notArchived(), like(schema.deal_memo.name, `%${search}%`))
-      : notArchived()
+    const whereClause = and(
+      notArchived(),
+      search
+        ? or(like(schema.deal_memo.name, `%${search}%`), like(schema.deal_memo.tour, `%${search}%`))
+        : undefined,
+      tour !== undefined ? eq(schema.deal_memo.tour, tour) : undefined
+    )
 
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
@@ -42,7 +46,8 @@ export class DealMemoRepository {
             date: [schema.deal_memo.date],
             bandName: [schema.band.name],
             venueName: [schema.venue.name],
-            status: [schema.deal_memo.status]
+            status: [schema.deal_memo.status],
+            tour: [schema.deal_memo.tour, schema.deal_memo.date]
           },
           { key: 'date', dir: 'asc' },
           schema.deal_memo.id
@@ -159,6 +164,7 @@ export class DealMemoRepository {
         ticket_price_vvk_cents: toNullableCents(input.ticketPriceVvk ?? null),
         ticket_price_ak_cents: toNullableCents(input.ticketPriceAk ?? null),
         notes: input.notes ?? '',
+        tour: input.tour ?? '',
         posters: '',
         amount_of_people: 0,
         room_information: '',
@@ -208,6 +214,7 @@ export class DealMemoRepository {
       values.guarantee_cents = toNullableCents(input.guaranteeAmount ?? null)
     if ('guaranteeVatRate' in input) values.guarantee_vat_rate = input.guaranteeVatRate ?? null
     if ('contractNotes' in input) values.contract_notes = input.contractNotes ?? ''
+    if ('tour' in input) values.tour = input.tour ?? ''
     if ('radiusKm' in input) values.radius_km = input.radiusKm ?? null
     if ('radiusWeeksBefore' in input) values.radius_weeks_before = input.radiusWeeksBefore ?? null
     if ('radiusWeeksAfter' in input) values.radius_weeks_after = input.radiusWeeksAfter ?? null
