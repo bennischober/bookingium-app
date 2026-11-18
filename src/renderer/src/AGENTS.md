@@ -30,7 +30,7 @@ src/renderer/src/
 | `?create=true` / `?open=<id>` | `hooks/useListSearchActions.ts` | runs once, then strips the search from the URL |
 | Create/edit sheet | `hooks/useFormSheet.ts` + `components/form-sheet.tsx` | `FormMode` = `'create' | 'edit'`; asks before closing a changed form (`formGuard.ts`) |
 | A business object form | `components/forms/appForm.ts` + `FormFields.tsx` | `useAppForm`, `field.TextField` etc., `FormBody`/`FormFooter`; start values in `formDefaults.ts` |
-| Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column |
+| Any list page's table | `components/data-table.tsx` | sorting, infinite scroll, pinned actions column; `selection` (#200) adds row checkboxes and a bar with actions for the picked rows (`lib/rowSelection.ts`) |
 | Create/update/delete of a record | `hooks/useRecordMutations.ts` | toasts (`lib/recordCopy.ts`), delete confirm, invalidation; `submit`/`remove`/`deleteNow` |
 | List page title and toolbar | `components/ListPageHeader.tsx` | `ListPageHeader`, `ListToolbar` (the DataTable's `actionButton`) |
 | Quick-create a band/venue/person from a form | `components/quick-create/` | `QuickCreateDialog` shell + `Band`/`Venue`/`PersonQuickCreateDialog` |
