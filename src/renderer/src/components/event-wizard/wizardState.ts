@@ -19,10 +19,21 @@ export interface WizardFormData {
   notes: string
 }
 
-/** What the wizard can open with, e.g. read from a mail (#122) */
-export type WizardPrefill = Partial<
-  Pick<WizardFormData, 'name' | 'date' | 'venueId' | 'loProPersonId' | 'loProCompanyId'>
->
+/** What the wizard can open with, e.g. read from a mail (#122) or an event to duplicate (#199) */
+export type WizardPrefill = Partial<WizardFormData>
+
+/**
+ * #199: fields of a duplicated event the wizard does not show; they go into the new event as
+ * they are and can be changed on its page afterwards
+ */
+export interface WizardCarry {
+  invoiceCompanyId: number | null
+  representingCompanyId: number | null
+  guaranteeAmount: number | null
+  guaranteeVatRate: number | null
+  contractNotes: string
+  tour: string
+}
 
 export const WIZARD_STEPS = [
   { label: 'Event & Band', required: true },
@@ -64,7 +75,8 @@ export const isEventBasicsValid = (form: WizardFormData): boolean =>
 export const isIsoDate = (date: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(date)
 
 /** The `dealMemo.create` input; call only once `isEventBasicsValid` holds */
-export const wizardPayload = (form: WizardFormData) => ({
+export const wizardPayload = (form: WizardFormData, carry?: WizardCarry) => ({
+  ...carry,
   name: form.name.trim(),
   deal: form.deal.trim() || undefined,
   date: form.date,
