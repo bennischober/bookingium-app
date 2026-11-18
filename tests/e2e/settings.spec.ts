@@ -70,6 +70,33 @@ test('settings page saves defaults and creates a backup', async () => {
   await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText('Soundwave Records')
 })
 
+test('the own company is created and edited in settings, with what an invoice lacks', async () => {
+  const { page } = h
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click()
+  await page.getByRole('tab', { name: 'Allgemein' }).click()
+
+  await page.getByRole('button', { name: 'Eigene Firma neu anlegen' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Eigene Firma anlegen' })
+  await sheet.getByLabel('Firmenname').fill('Beispiel Agentur GmbH')
+  await sheet.getByRole('button', { name: 'Anlegen' }).click()
+  await expect(sheet).toBeHidden()
+  await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText(
+    'Beispiel Agentur GmbH'
+  )
+  // A name alone is not enough for an invoice
+  await expect(page.getByText(/Für Rechnungen fehlt noch: Adresse/)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Eigene Firma bearbeiten' }).click()
+  const edit = page.getByRole('dialog', { name: 'Eigene Firma bearbeiten' })
+  await expect(edit.getByLabel('Firmenname')).toHaveValue('Beispiel Agentur GmbH')
+  await edit.getByLabel('Firmenname').fill('Beispiel Agentur GmbH & Co. KG')
+  await edit.getByRole('button', { name: 'Speichern' }).click()
+  await expect(edit).toBeHidden()
+  await expect(page.getByRole('combobox', { name: 'Eigene Firma' })).toHaveText(
+    'Beispiel Agentur GmbH & Co. KG'
+  )
+})
+
 test('backups with a password: set, backed up encrypted, restore asks for it (#54)', async () => {
   const { page } = h
   const target = mkdtempSync(join(tmpdir(), 'bookingum-backup-enc-'))
