@@ -66,6 +66,8 @@ export type WorkerAccount = {
   port: number
   security: ImapSecurity
   email?: string
+  /** #211: the name in the From of mail sent from this account; missing = the bare address */
+  displayName?: string
   /** A7: this account's own SMTP endpoint; missing in older settings, see the core */
   smtpHost?: string
   smtpPort?: number

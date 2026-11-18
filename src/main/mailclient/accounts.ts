@@ -28,6 +28,8 @@ type StoredAccount = {
   password: string
   /** B8: plain-text signature, appended to new mail and above the quote; not secret */
   signature?: string
+  /** #211: the name in the From of mail sent from this account ("Max Muster | Agentur") */
+  displayName?: string
   /**
    * The user's further own addresses that reach this mailbox (a forwarder such as info@).
    * Lower-cased; the mail linker never links a record through them. Never a sender.
@@ -168,6 +170,7 @@ const toDto = (account: StoredAccount): MailAccountDto => {
     // MR-13: the renderer reads this to put a signature on a new mail. It was stored and
     // never handed back, so every account looked like it had none.
     signature: account.signature,
+    displayName: account.displayName,
     aliases: account.aliases ?? [],
     ...smtp,
     // the same check the core's write guard makes, so the UI and the core agree
@@ -263,6 +266,11 @@ function resolveMailAccount(input: SaveMailAccountInput): {
     // form and saving would wipe a signature the user never edited.
     signature:
       input.signature === undefined ? existing?.signature : input.signature.trim() || undefined,
+    // #211: the same rule; line breaks would break the From header
+    displayName:
+      input.displayName === undefined
+        ? existing?.displayName
+        : input.displayName.replace(/[\r\n]+/g, ' ').trim() || undefined,
     aliases:
       input.aliases === undefined
         ? existing?.aliases

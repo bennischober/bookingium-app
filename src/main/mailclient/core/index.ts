@@ -59,6 +59,8 @@ export interface MailCoreOptions {
     /** static display identity (shown in the UI), typically the same address the
      * credentials return */
     email?: string;
+    /** #211: the name in the From of mail sent from this account; missing = the bare address */
+    displayName?: string;
   }>;
   /** Sandbox write target (IMAP+SMTP). REQUIRED if any account is writable;
    * the write guard validates both hosts against the loopback/docker allowlist. */

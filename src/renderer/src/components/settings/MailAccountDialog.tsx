@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleAlert, CircleCheck, Lock } from 'lucide-react'
+import { CircleAlert, CircleCheck, Eye, EyeOff, Lock } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,8 @@ type Draft = {
   user: string
   password: string
   signature: string
+  /** #211: the sender name; '' = the bare address */
+  displayName: string
   /** The user's further own addresses, as typed (comma or line separated) */
   aliases: string
   /** A7: this account's own SMTP endpoint; empty = the IMAP host on 1025 */
@@ -62,6 +64,7 @@ const EMPTY_DRAFT: Draft = {
   user: '',
   password: '',
   signature: '',
+  displayName: '',
   aliases: '',
   smtpHost: '',
   smtpPort: '',
@@ -124,6 +127,8 @@ export function MailAccountDialog({
   const utils = trpcReact.useUtils()
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [result, setResult] = useState<ConnectionTestResult | null>(null)
+  // #210: what is typed into the password field can be shown; hidden again on every open
+  const [showPassword, setShowPassword] = useState(false)
   const [lastOpen, setLastOpen] = useState(false)
   // Reset the form each time the dialog opens (state adjustment during render)
   if (open !== lastOpen) {
@@ -136,6 +141,7 @@ export function MailAccountDialog({
               port: String(account.port),
               password: '',
               signature: account.signature ?? '',
+              displayName: account.displayName ?? '',
               aliases: account.aliases.join(', '),
               smtpHost: account.smtpHost,
               smtpPort: String(account.smtpPort),
@@ -144,6 +150,7 @@ export function MailAccountDialog({
           : EMPTY_DRAFT
       )
       setResult(null)
+      setShowPassword(false)
     }
   }
 
@@ -231,6 +238,8 @@ export function MailAccountDialog({
       ...connection(),
       email: draft.email.trim(),
       signature: draft.signature.trim() || undefined,
+      // '' clears a stored name (unlike undefined, which keeps it)
+      displayName: draft.displayName.trim(),
       aliases: aliases.aliases
     })
   }
@@ -265,6 +274,21 @@ export function MailAccountDialog({
               }
               autoFocus
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mail-account-display-name">Anzeigename</Label>
+            <Input
+              id="mail-account-display-name"
+              value={draft.displayName}
+              onChange={(e) => set({ displayName: e.target.value })}
+              placeholder="z. B. Max Muster | Agentur"
+              maxLength={100}
+            />
+            <p className="text-xs text-muted-foreground">
+              Steht als Absender vor der Adresse in jeder Mail aus diesem Postfach (auch Rechnungen,
+              Verträge und DATEV). Leer: nur die Adresse.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -386,14 +410,34 @@ export function MailAccountDialog({
 
           <div className="space-y-2">
             <Label htmlFor="mail-account-password">Passwort</Label>
-            <Input
-              id="mail-account-password"
-              type="password"
-              value={draft.password}
-              onChange={(e) => set({ password: e.target.value })}
-              placeholder={account ? 'Unverändert lassen' : undefined}
-              autoComplete="off"
-            />
+            <div className="relative">
+              <Input
+                id="mail-account-password"
+                type={showPassword ? 'text' : 'password'}
+                value={draft.password}
+                onChange={(e) => set({ password: e.target.value })}
+                placeholder={account ? 'Unverändert lassen' : undefined}
+                autoComplete="off"
+                spellCheck={false}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:bg-transparent"
+                aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                aria-pressed={showPassword}
+                title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                onClick={() => setShowPassword((shown) => !shown)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Zeigt nur, was hier eingetippt wird; das gespeicherte Passwort wird nie wieder
+              angezeigt.
+            </p>
           </div>
 
           <div className="space-y-2">
