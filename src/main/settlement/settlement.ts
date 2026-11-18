@@ -90,7 +90,6 @@ export interface SettlementResult {
   totalOpenGrossCents: number
 }
 
-
 // The sheet keeps every intermediate value unrounded (net = gross / 1,07, the split, the VAT) and
 // rounds only what it shows; so does this module, so the cents match the promoter's invoice
 // (4.517,00 €, not 4.517,01 €). `Exact` values are euros as floating point numbers.

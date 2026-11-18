@@ -34,6 +34,16 @@ export function registerImportIpc(): void {
     }
   })
 
+  /** #228: picks a promoter's settlement (.xlsx); reading it goes through tRPC */
+  ipcMain.handle('settlement:pickFile', async (event): Promise<string | null> => {
+    const result = await showOpenDialogFor(event.sender, {
+      title: 'Abrechnung des Veranstalters wählen',
+      properties: ['openFile'],
+      filters: [{ name: 'Excel-Datei', extensions: ['xlsx'] }]
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+
   /** #222: picks a received e-invoice; reading it goes through tRPC (einvoiceParty.read) */
   ipcMain.handle('einvoice:pickFile', async (event): Promise<string | null> => {
     const result = await showOpenDialogFor(event.sender, {

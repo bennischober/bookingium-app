@@ -154,10 +154,11 @@ export function readSettlementSheet(records: string[][]): SettlementSheet | null
   }
   return {
     input,
-    artist: field('Künstler/Artist:', 1),
+    // The sheet's own labels, compared normalized (lower case)
+    artist: field('künstler/artist:', 1),
     date: parseShowDate(field('Datum:', 1)),
     city: field('Stadt:', 1),
-    venue: field('Venue:', 1),
+    venue: field('venue:', 1),
     promoter: field('Veranstalter:', 1),
     sheet: {
       gageNetCents: total('Summe Netto'),

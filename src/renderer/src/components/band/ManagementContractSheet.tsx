@@ -173,6 +173,7 @@ function ContractForm({
     renewalYears: String(contract.renewalYears),
     noticeMonths: String(contract.noticeMonths),
     commissionPercent: String(contract.commissionPercent),
+    agencyPercent: String(contract.agencyPercent),
     excludedIncome: contract.excludedIncome,
     statementEmail: contract.statementEmail,
     settlementDays: String(contract.settlementDays),
@@ -240,6 +241,7 @@ function ContractForm({
         renewalYears: whole('Verlängerung', form.renewalYears),
         noticeMonths: whole('Kündigungsfrist', form.noticeMonths),
         commissionPercent: percent('Vergütung', form.commissionPercent),
+        agencyPercent: percent('Agenturprovision', form.agencyPercent),
         excludedIncome: form.excludedIncome.trim(),
         statementEmail: form.statementEmail.trim(),
         settlementDays: whole('Abrechnungsfrist', form.settlementDays),
@@ -326,6 +328,7 @@ function ContractForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {numberField('commissionPercent', 'Vergütung', '% zzgl. USt.')}
+        {numberField('agencyPercent', 'Agenturprovision (vor der Vergütung)', '% der Gage')}
         <div className="space-y-2">
           <Label htmlFor="mc-excluded">Ausgenommene Einnahmen</Label>
           <Input

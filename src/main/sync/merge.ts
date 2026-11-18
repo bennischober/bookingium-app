@@ -56,6 +56,8 @@ export const MERGE_ORDER: readonly string[] = [
   'management_contract_member',
   'management_share',
   'management_share_income',
+  // #228: one per event; its fee invoice is merged before it
+  'event_settlement',
   'document',
   'contact_list',
   'contact_list_member',
