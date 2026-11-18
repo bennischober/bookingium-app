@@ -2,12 +2,13 @@
 // share a folder. Joining merges the joiner's data without duplicates, edits travel both ways,
 // concurrent edits merge per field, deletes win, unique clashes alias or become conflicts, files
 // follow, and a restored backup takes a new identity.
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -47,17 +48,21 @@ let shared: string
 let clockMs: number
 /** Every database a test opened: closed in afterEach, so Windows can remove the folder after a failure */
 let opened: Database.Database[] = []
+/** A migrated database, made once: every computer starts from a copy, so the slow Windows runner
+ * does not run the whole migration chain for each of them */
+let template: string
+let templateDir: string
 
 function openComputer(name: string): Computer {
   const root = join(base, name)
   const dataDir = join(root, 'data')
   mkdirSync(dataDir, { recursive: true })
   mkdirSync(join(root, 'storage'), { recursive: true })
+  copyFileSync(template, join(dataDir, 'bookingum.db'))
   const sqlite = new Database(join(dataDir, 'bookingum.db'))
   opened.push(sqlite)
   sqlite.pragma('journal_mode = WAL')
   const db = drizzle(sqlite, { schema })
-  migrate(db, { migrationsFolder: MIGRATIONS })
   return {
     name,
     root,
@@ -172,6 +177,18 @@ const people = (c: Computer) =>
       .all() as Array<{ n: string }>
   ).map((r) => r.n)
 
+beforeAll(() => {
+  templateDir = mkdtempSync(join(tmpdir(), 'bookingium-sync-template-'))
+  template = join(templateDir, 'bookingum.db')
+  const sqlite = new Database(template)
+  migrate(drizzle(sqlite, { schema }), { migrationsFolder: MIGRATIONS })
+  sqlite.close()
+})
+
+afterAll(() => {
+  rmSync(templateDir, { recursive: true, force: true })
+})
+
 beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), 'bookingium-sync-'))
   shared = join(base, 'Google Drive', 'Bookingium')
@@ -231,7 +248,9 @@ describe('building blocks', () => {
   })
 })
 
-describe('two computers', () => {
+// Real files on both sides: databases, backups, the shared folder. Windows runners take 5-20 s per
+// test here (under 1 s locally), so the suite gets more than the default 15 s
+describe('two computers', { timeout: 60_000 }, () => {
   it('joins without duplicates and then carries edits both ways', async () => {
     const a = openComputer('buero')
     const b = openComputer('laptop')
