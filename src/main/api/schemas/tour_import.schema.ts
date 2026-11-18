@@ -69,6 +69,8 @@ export const TourImportRequest = z.object({
   headers: z.array(z.string()),
   rows: z.array(ImportRow),
   mapping: z.array(TourImportField),
+  /** The band of rows without a Band column value (a sheet of one band), '' for none */
+  band: z.string().trim().max(200).default(''),
   /** The tour of rows without a Tour column value, '' for none */
   tour: z.string().trim().max(200),
   /** Art of a new club or festival whose row says nothing about it */
@@ -129,6 +131,8 @@ export type TourImportResult = z.infer<typeof TourImportResult>
 /** The columns and defaults for a picked file: remembered for the same layout, else detected */
 export const TourImportSuggestion = z.object({
   mapping: z.array(TourImportField),
+  /** The band for all rows, from the title row; '' for none */
+  band: z.string(),
   tour: z.string(),
   defaultKind: VenueKind,
   defaultStatus: DealMemoStatus,

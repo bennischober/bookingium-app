@@ -12,10 +12,11 @@ import { join } from 'path'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { excelSerialToDate, readXlsx } from '../src/main/import/xlsx'
-import { readImportFile } from '../src/main/import/readImportFile'
+import { importTable, readImportFile } from '../src/main/import/readImportFile'
 import {
   buildTourImportPlan,
   detectTourMapping,
+  tourTitleHints,
   parseAmountCents,
   parseEventStatus,
   parseShowTime,
@@ -152,6 +153,7 @@ function request(rows: string[][], extra: Partial<TourImportRequest> = {}): Tour
     headers: HEADERS,
     rows: rows.map((cells, index) => ({ rowNumber: index + 2, cells })),
     mapping: MAPPING,
+    band: '',
     tour: 'Frühjahr 2027',
     defaultKind: 'venue',
     defaultStatus: 'confirmed',
@@ -306,5 +308,103 @@ describe('tour import service', () => {
     expect(remembered).toMatchObject({ remembered: true, tour: 'Frühjahr 2027' })
     expect(tourImportKey(HEADERS)).toMatch(/^tourImport:/)
     expect(service.tours()).toContain('Frühjahr 2027')
+  })
+})
+
+// A promoter list as tours arrive: a title row naming band and tour, no header row, weekday,
+// date (an Excel date), city, club, promoter, contact, e-mail (all made up)
+describe('tour sheet without a header row', () => {
+  const records = [
+    ['Pretty Wild TOUR Herbst 2027'],
+    [],
+    [
+      'FR',
+      '29.10.2027',
+      'Lindau',
+      'Club Beispiel',
+      'Beispiel Konzerte',
+      'Florian',
+      'florian@example.com'
+    ],
+    ['SA', '30.10.2027', 'Köln', 'Halle Probe', 'Probe GmbH', 'Lisa', 'lisa@example.com']
+  ]
+
+  it('skips the title row and names the columns when the next row is data', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    expect(table.title).toBe('Pretty Wild TOUR Herbst 2027')
+    expect(table.headers.slice(0, 3)).toEqual(['Spalte A', 'Spalte B', 'Spalte C'])
+    expect(table.rows.map((row) => row.rowNumber)).toEqual([3, 4])
+  })
+
+  it('keeps a header row below a title row', () => {
+    const table = importTable(
+      'Tour',
+      [['Tour 2027'], ['Datum', 'Band', 'Club'], ['01.05.2027', 'X', 'Y']],
+      'DE'
+    )!
+    expect(table).toMatchObject({ title: 'Tour 2027', headers: ['Datum', 'Band', 'Club'] })
+    expect(table.rows).toHaveLength(1)
+  })
+
+  it('maps the columns by their cells: date, then city and club, the rest as notes', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    expect(detectTourMapping(table.headers, table.rows)).toEqual([
+      'ignore',
+      'date',
+      'city',
+      'venueName',
+      'notes',
+      'notes',
+      'notes'
+    ])
+  })
+
+  it('reads band and tour from the title', () => {
+    const bands = [{ name: 'Pretty Wild' }, { name: 'Wild' }]
+    expect(tourTitleHints('Pretty Wild TOUR Herbst 2027', bands)).toEqual({
+      band: 'Pretty Wild',
+      tour: 'Herbst 2027'
+    })
+    expect(tourTitleHints('Tourdaten: PRETTY WILD – Frühjahr', bands)).toEqual({
+      band: 'Pretty Wild',
+      tour: 'Frühjahr'
+    })
+    expect(tourTitleHints('Unbekannte Band Tour', bands)).toEqual({ band: '', tour: '' })
+  })
+
+  it('imports every row for the band chosen for the sheet, notes without column names', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    const plan = buildTourImportPlan(
+      {
+        fileName: 'promoter.xlsx',
+        headers: table.headers,
+        rows: table.rows,
+        mapping: detectTourMapping(table.headers, table.rows),
+        band: 'Pretty Wild',
+        tour: 'Herbst 2027',
+        defaultKind: 'venue',
+        defaultStatus: 'confirmed',
+        createVenues: true
+      },
+      { bands: [{ id: 1, name: 'Pretty Wild' }], venues: [], events: [] }
+    )
+    expect(plan.preview.errors).toEqual([])
+    expect(plan.preview.counts).toMatchObject({ new: 2, skipped: 0, newVenues: 2 })
+    expect(plan.create[0].fields.notes).toBe(
+      ['Beispiel Konzerte', 'Florian', 'florian@example.com'].join('\n')
+    )
+    expect(plan.create[0].fields.tour).toBe('Herbst 2027')
+  })
+
+  it('asks for a band when the sheet has neither a band column nor a chosen band', () => {
+    const plan = buildTourImportPlan(
+      request([['01.05.2027', 'X', 'Y']], { mapping: ['date', 'ignore', 'venueName'] }),
+      {
+        bands: [],
+        venues: [],
+        events: []
+      }
+    )
+    expect(plan.preview.errors[0]).toMatch(/Band für alle Zeilen/)
   })
 })

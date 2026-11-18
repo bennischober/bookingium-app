@@ -3,7 +3,8 @@ import { createHash } from 'crypto'
 import { z } from 'zod'
 import { TourImportRepository } from '../repositories/TourImportRepository'
 import { SettingsRepository } from '../repositories/SettingsRepository'
-import { buildTourImportPlan, detectTourMapping } from '../import/tourDates'
+import { buildTourImportPlan, detectTourMapping, tourTitleHints } from '../import/tourDates'
+import { hasGeneratedHeaders } from '../import/generatedHeaders'
 import { normalizeKey } from '../import/normalize'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
@@ -22,6 +23,7 @@ import {
 
 const RememberedImport = z.object({
   mapping: z.array(TourImportField),
+  band: z.string().default(''),
   tour: z.string(),
   defaultKind: VenueKind,
   defaultStatus: DealMemoStatus
@@ -42,19 +44,39 @@ export class TourImportService {
     @inject(SettingsRepository) private settingsRepository: SettingsRepository
   ) {}
 
-  suggest(headers: string[]): TourImportSuggestion {
-    const raw = this.settingsRepository.getAll()[tourImportKey(headers)]
+  /**
+   * The columns, band, tour and defaults for a picked sheet: remembered for its column layout,
+   * else detected. A title row above the sheet names the band and the tour. A sheet without a
+   * header row is never remembered: "Spalte A, Spalte B, …" would match any other such sheet.
+   */
+  suggest(
+    headers: string[],
+    title = '',
+    rows: Array<{ cells: string[] }> = []
+  ): TourImportSuggestion {
+    const hints = tourTitleHints(title, this.repository.loadForImport().bands)
+    const raw = hasGeneratedHeaders(headers)
+      ? undefined
+      : this.settingsRepository.getAll()[tourImportKey(headers)]
     if (raw) {
       try {
         const remembered = RememberedImport.parse(JSON.parse(raw))
-        if (remembered.mapping.length === headers.length) return { ...remembered, remembered: true }
+        if (remembered.mapping.length === headers.length) {
+          return {
+            ...remembered,
+            band: hints.band || remembered.band,
+            tour: hints.tour || remembered.tour,
+            remembered: true
+          }
+        }
       } catch {
         // A broken entry falls back to detection
       }
     }
     return {
-      mapping: detectTourMapping(headers),
-      tour: '',
+      mapping: detectTourMapping(headers, rows),
+      band: hints.band,
+      tour: hints.tour,
       defaultKind: 'venue',
       defaultStatus: 'confirmed',
       remembered: false
@@ -70,14 +92,17 @@ export class TourImportService {
     const plan = buildTourImportPlan(request, this.repository.loadForImport())
     if (plan.preview.errors.length > 0) throw new Error(plan.preview.errors.join(' '))
     const written = this.repository.applyImport(plan)
-    this.settingsRepository.setMany({
-      [tourImportKey(request.headers)]: JSON.stringify({
-        mapping: request.mapping,
-        tour: request.tour,
-        defaultKind: request.defaultKind,
-        defaultStatus: request.defaultStatus
+    if (!hasGeneratedHeaders(request.headers)) {
+      this.settingsRepository.setMany({
+        [tourImportKey(request.headers)]: JSON.stringify({
+          mapping: request.mapping,
+          band: request.band,
+          tour: request.tour,
+          defaultKind: request.defaultKind,
+          defaultStatus: request.defaultStatus
+        })
       })
-    })
+    }
     if (written.created + written.updated > 0) scheduleCalendarUpdate()
     return {
       ...written,

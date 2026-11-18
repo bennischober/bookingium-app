@@ -26,6 +26,7 @@ import {
   parseShowDate
 } from './agencyBookings'
 import { cleanText, findCountry, normalizeKey, normalizeZip } from './normalize'
+import { hasGeneratedHeaders } from './generatedHeaders'
 
 // Header spellings (compared with normalizeKey: lower case, punctuation as spaces)
 const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
@@ -118,8 +119,15 @@ const FIELD_BY_HEADER = new Map<string, TourImportField>(
   HEADER_SYNONYMS.flatMap(([field, names]) => names.map((name) => [normalizeKey(name), field]))
 )
 
-/** The column mapping for a tour sheet's headers. Each field takes its first column; notes several */
-export function detectTourMapping(headers: string[]): TourImportField[] {
+/**
+ * The column mapping for a tour sheet's headers. Each field takes its first column; notes several.
+ * A sheet without a header row ("Spalte A", …) is mapped by what its cells hold instead.
+ */
+export function detectTourMapping(
+  headers: string[],
+  rows: Array<{ cells: string[] }> = []
+): TourImportField[] {
+  if (hasGeneratedHeaders(headers)) return detectTourMappingByContent(headers.length, rows)
   const taken = new Set<TourImportField>()
   return headers.map((header) => {
     const field = FIELD_BY_HEADER.get(normalizeKey(header))
@@ -128,6 +136,100 @@ export function detectTourMapping(headers: string[]): TourImportField[] {
     return field
   })
 }
+
+const WEEKDAYS = new Set(
+  [
+    'mo',
+    'di',
+    'mi',
+    'do',
+    'fr',
+    'sa',
+    'so',
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat',
+    'sun',
+    'montag',
+    'dienstag',
+    'mittwoch',
+    'donnerstag',
+    'freitag',
+    'samstag',
+    'sonntag'
+  ].map((day) => normalizeKey(day))
+)
+
+/**
+ * A tour sheet without headers, by its cells: the column of dates is the date, weekday columns
+ * ("FR", "Samstag") are left out, the first two text columns after the date are city and club
+ * (the usual order: date, city, club), and every other filled column - promoter, contact,
+ * e-mail - goes into the notes. The dialog shows the guess; anything can be changed there.
+ */
+function detectTourMappingByContent(
+  width: number,
+  rows: Array<{ cells: string[] }>
+): TourImportField[] {
+  const columns = Array.from({ length: width }, (_, index) =>
+    rows.map((row) => cleanText(row.cells[index] ?? '')).filter(Boolean)
+  )
+  const share = (values: string[], test: (value: string) => boolean): number =>
+    values.length === 0 ? 0 : values.filter(test).length / values.length
+  const mapping: TourImportField[] = columns.map(() => 'ignore')
+  const dateColumn = columns.findIndex(
+    (values) => share(values, (value) => parseShowDate(value) !== '') >= 0.8
+  )
+  if (dateColumn < 0) return mapping
+  mapping[dateColumn] = 'date'
+  const textFields: TourImportField[] = ['city', 'venueName']
+  columns.forEach((values, index) => {
+    if (index === dateColumn || values.length === 0) return
+    if (share(values, (value) => WEEKDAYS.has(normalizeKey(value).replace(/\s/g, ''))) >= 0.8) {
+      return
+    }
+    const isText = share(values, (value) => !value.includes('@') && /\p{L}/u.test(value)) >= 0.8
+    if (index > dateColumn && isText && textFields.length > 0) mapping[index] = textFields.shift()!
+    else mapping[index] = 'notes'
+  })
+  return mapping
+}
+
+/**
+ * What a title row above a tour sheet says ("APRIL ART TOUR Herbst 2026"): the band it names (the
+ * longest known band name in it) and the tour (what is left, without a leading "Tour")
+ */
+export function tourTitleHints(
+  title: string,
+  bands: Array<{ name: string }>
+): { band: string; tour: string } {
+  const text = cleanText(title)
+  if (!text) return { band: '', tour: '' }
+  const padded = ` ${normalizeKey(text)} `
+  const band = [...bands]
+    .filter((candidate) => normalizeKey(candidate.name))
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((candidate) => padded.includes(` ${normalizeKey(candidate.name)} `))
+  if (!band) return { band: '', tour: '' }
+  // The band's words are dropped wherever they stand, case-insensitively
+  const words = normalizeKey(band.name).split(' ')
+  let rest = text
+  for (const word of words) {
+    rest = rest.replace(
+      new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(word)}(?=$|[^\\p{L}\\p{N}])`, 'iu'),
+      '$1'
+    )
+  }
+  const tour = cleanText(rest)
+    .replace(/^[-–:|]+\s*/, '')
+    .replace(/^(tourdaten|tournee|tour)\b[\s:–-]*/i, '')
+    .trim()
+  return { band: band.name, tour }
+}
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * An amount in a cell as cents: "1.500 €", "1500,00", "1,500.00", "EUR 800"; null when the cell
@@ -281,7 +383,11 @@ export function buildTourImportPlan(
   const columnsOf = (field: TourImportField) =>
     request.mapping.flatMap((mapped, index) => (mapped === field ? [index] : []))
   const has = (field: TourImportField) => columnsOf(field).length > 0
-  if (!has('band')) errors.push('Keine Spalte ist der Band zugeordnet.')
+  const sheetBand = request.band.trim()
+  if (!has('band') && !sheetBand) {
+    errors.push('Bitte eine Band für alle Zeilen wählen oder eine Spalte der Band zuordnen.')
+  }
+  const generated = hasGeneratedHeaders(request.headers)
   if (!has('date')) errors.push('Keine Spalte ist dem Datum zugeordnet.')
 
   const bandsByName = new Map(existing.bands.map((band) => [normalizeKey(band.name), band]))
@@ -326,7 +432,8 @@ export function buildTourImportPlan(
       )
       if (mappedCells.every((value) => value === '')) continue
 
-      const bandName = cell(row.cells, 'band')
+      // A Band column wins; the band chosen for the sheet fills rows without one
+      const bandName = cell(row.cells, 'band') || sheetBand
       const date = parseShowDate(cell(row.cells, 'date'))
       const venueName = cell(row.cells, 'venueName')
       let city = cell(row.cells, 'city')
@@ -439,7 +546,8 @@ export function buildTourImportPlan(
       const notes = columnsOf('notes')
         .map((index) => {
           const value = cleanText(row.cells[index] ?? '')
-          const header = cleanText(request.headers[index] ?? '')
+          // "Spalte E: …" says nothing, so a headerless sheet's notes are the values alone
+          const header = generated ? '' : cleanText(request.headers[index] ?? '')
           return value ? (header ? `${header}: ${value}` : value) : ''
         })
         .filter(Boolean)
