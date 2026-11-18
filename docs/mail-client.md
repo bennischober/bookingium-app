@@ -136,6 +136,11 @@ events and invoices), not a general mail client.
   list like any other. None of it without a Junk folder or on a "Nur lesen" account.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
+- **A folder per forwarded address** (#213): under the rules, "Weitergeleitete Adressen" lists each writable
+  account's aliases. "Ordner und Regel anlegen" creates a top-level folder named after the address (the
+  server's delimiter replaced, `settings/aliasFolderRules.ts`) and a rule "An/Cc enthält die Adresse → in
+  den Ordner"; an alias that already has such a rule shows its folder. Only new mail moves, like every rule.
+  Forwarders that rewrite To (original address only in Delivered-To / X-Original-To) are not matched yet.
 - **Search palette:** a mail group next to the app's records (only with the client on).
 
 ## Architecture
