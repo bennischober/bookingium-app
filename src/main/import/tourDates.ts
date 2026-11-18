@@ -26,6 +26,7 @@ import {
   parseShowDate
 } from './agencyBookings'
 import { cleanText, findCountry, normalizeKey, normalizeZip } from './normalize'
+import { hasGeneratedHeaders } from './generatedHeaders'
 
 // Header spellings (compared with normalizeKey: lower case, punctuation as spaces)
 const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
@@ -107,10 +108,34 @@ const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
       'notes',
       'note',
       'comment',
-      'info',
-      'veranstalter',
-      'promoter'
+      'info'
     ]
+  ],
+  [
+    'promoter',
+    [
+      'veranstalter',
+      'promoter',
+      'lopro',
+      'local promoter',
+      'örtlicher veranstalter',
+      'oertlicher veranstalter'
+    ]
+  ],
+  [
+    'promoterContact',
+    [
+      'ansprechpartner',
+      'kontakt',
+      'contact',
+      'kontaktperson',
+      'promoter kontakt',
+      'ansprechpartner veranstalter'
+    ]
+  ],
+  [
+    'promoterEmail',
+    ['email', 'e mail', 'mail', 'kontakt email', 'kontakt e mail', 'email ansprechpartner']
   ]
 ]
 
@@ -118,8 +143,15 @@ const FIELD_BY_HEADER = new Map<string, TourImportField>(
   HEADER_SYNONYMS.flatMap(([field, names]) => names.map((name) => [normalizeKey(name), field]))
 )
 
-/** The column mapping for a tour sheet's headers. Each field takes its first column; notes several */
-export function detectTourMapping(headers: string[]): TourImportField[] {
+/**
+ * The column mapping for a tour sheet's headers. Each field takes its first column; notes several.
+ * A sheet without a header row ("Spalte A", …) is mapped by what its cells hold instead.
+ */
+export function detectTourMapping(
+  headers: string[],
+  rows: Array<{ cells: string[] }> = []
+): TourImportField[] {
+  if (hasGeneratedHeaders(headers)) return detectTourMappingByContent(headers.length, rows)
   const taken = new Set<TourImportField>()
   return headers.map((header) => {
     const field = FIELD_BY_HEADER.get(normalizeKey(header))
@@ -128,6 +160,106 @@ export function detectTourMapping(headers: string[]): TourImportField[] {
     return field
   })
 }
+
+const WEEKDAYS = new Set(
+  [
+    'mo',
+    'di',
+    'mi',
+    'do',
+    'fr',
+    'sa',
+    'so',
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat',
+    'sun',
+    'montag',
+    'dienstag',
+    'mittwoch',
+    'donnerstag',
+    'freitag',
+    'samstag',
+    'sonntag'
+  ].map((day) => normalizeKey(day))
+)
+
+/**
+ * A tour sheet without headers, by its cells: the column of dates is the date, weekday columns
+ * ("FR", "Samstag") are left out, the first two text columns after the date are city and club
+ * (the usual order: date, city, club), and every other filled column - promoter, contact,
+ * e-mail - goes into the notes. The dialog shows the guess; anything can be changed there.
+ */
+function detectTourMappingByContent(
+  width: number,
+  rows: Array<{ cells: string[] }>
+): TourImportField[] {
+  const columns = Array.from({ length: width }, (_, index) =>
+    rows.map((row) => cleanText(row.cells[index] ?? '')).filter(Boolean)
+  )
+  const share = (values: string[], test: (value: string) => boolean): number =>
+    values.length === 0 ? 0 : values.filter(test).length / values.length
+  const mapping: TourImportField[] = columns.map(() => 'ignore')
+  const dateColumn = columns.findIndex(
+    (values) => share(values, (value) => parseShowDate(value) !== '') >= 0.8
+  )
+  if (dateColumn < 0) return mapping
+  mapping[dateColumn] = 'date'
+  const textFields: TourImportField[] = ['city', 'venueName', 'promoter', 'promoterContact']
+  let emailTaken = false
+  columns.forEach((values, index) => {
+    if (index === dateColumn || values.length === 0) return
+    if (share(values, (value) => WEEKDAYS.has(normalizeKey(value).replace(/\s/g, ''))) >= 0.8) {
+      return
+    }
+    if (!emailTaken && share(values, (value) => emailOf(value) !== '') >= 0.6) {
+      mapping[index] = 'promoterEmail'
+      emailTaken = true
+      return
+    }
+    const isText = share(values, (value) => !value.includes('@') && /\p{L}/u.test(value)) >= 0.8
+    if (index > dateColumn && isText && textFields.length > 0) mapping[index] = textFields.shift()!
+    else mapping[index] = 'notes'
+  })
+  return mapping
+}
+
+/**
+ * What a title row above a tour sheet says ("APRIL ART TOUR Herbst 2026"): the band it names (the
+ * longest known band name in it) and the tour (what is left, without a leading "Tour")
+ */
+export function tourTitleHints(
+  title: string,
+  bands: Array<{ name: string }>
+): { band: string; tour: string } {
+  const text = cleanText(title)
+  if (!text) return { band: '', tour: '' }
+  const padded = ` ${normalizeKey(text)} `
+  const band = [...bands]
+    .filter((candidate) => normalizeKey(candidate.name))
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((candidate) => padded.includes(` ${normalizeKey(candidate.name)} `))
+  if (!band) return { band: '', tour: '' }
+  // The band's words are dropped wherever they stand, case-insensitively
+  const words = normalizeKey(band.name).split(' ')
+  let rest = text
+  for (const word of words) {
+    rest = rest.replace(
+      new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(word)}(?=$|[^\\p{L}\\p{N}])`, 'iu'),
+      '$1'
+    )
+  }
+  const tour = cleanText(rest)
+    .replace(/^[-–:|]+\s*/, '')
+    .replace(/^(tourdaten|tournee|tour)\b[\s:–-]*/i, '')
+    .trim()
+  return { band: band.name, tour }
+}
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * An amount in a cell as cents: "1.500 €", "1500,00", "1,500.00", "EUR 800"; null when the cell
@@ -221,12 +353,35 @@ export type TourEvent = {
   radius_weeks_before: number | null
   radius_weeks_after: number | null
   notes: string
+  lopro_company_id?: number | null
+  lopro_person_id?: number | null
 }
 
 export type TourImportExisting = {
   bands: Array<{ id: number; name: string }>
   venues: TourVenue[]
   events: TourEvent[]
+  /** Companies and persons a promoter or contact is matched against (#228 follow-up) */
+  companies?: Array<{ id: number; name: string }>
+  persons?: Array<{ id: number; firstName: string; lastName: string; email: string }>
+}
+
+/** A promoter company the import creates */
+export type NewPromoterDraft = { key: string; name: string; email: string }
+
+/** A contact person the import creates, member of the promoter (role "Kontakt") */
+export type NewContactDraft = {
+  key: string
+  firstName: string
+  lastName: string
+  email: string
+  company: { id: number } | { key: string } | null
+}
+
+/** The LoPro links of an event: existing records or drafts of this import */
+export type TourLoPro = {
+  company: { id: number } | { key: string } | null
+  person: { id: number } | { key: string } | null
 }
 
 /** A club or festival the import creates; `key` ties the events to it */
@@ -252,13 +407,21 @@ export type TourEventDraft = {
   /** An existing venue, or the key of a NewVenueDraft, or none */
   venue: { id: number } | { key: string } | null
   fields: TourEventFields & { name: string; status: DealMemoStatus }
+  lopro?: TourLoPro
 }
 
 export type TourImportPlan = {
   preview: TourImportPreview
   venues: NewVenueDraft[]
   create: TourEventDraft[]
-  update: Array<{ id: number; venue: TourEventDraft['venue']; fields: TourEventFields }>
+  update: Array<{
+    id: number
+    venue: TourEventDraft['venue']
+    fields: TourEventFields
+    lopro?: TourLoPro
+  }>
+  promoters: NewPromoterDraft[]
+  contacts: NewContactDraft[]
 }
 
 /** "10115 Berlin" in one Ort column: the postcode and the place */
@@ -268,6 +431,33 @@ function splitPlace(city: string): { zip: string; city: string } | null {
 }
 
 const sameValue = (a: unknown, b: unknown) => (a ?? null) === (b ?? null)
+
+/** The first e-mail address in a cell (' lp@x.de', 'bs@x.de>'), '' when there is none */
+export function emailOf(raw: string): string {
+  const match = raw.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/)
+  return match ? match[0].toLowerCase() : ''
+}
+
+/**
+ * A promoter cell without the contact's first name tacked on, as hand-kept lists write it
+ * ('Batschkapp / Anna', 'Hellraiser katrin' with contact Anna or Katrin → 'Batschkapp',
+ * 'Hellraiser'); any other name stays as written
+ */
+export function promoterNameOf(raw: string, contactName: string): string {
+  const name = cleanText(raw)
+  const first = normalizeKey(cleanText(contactName).split(' ')[0] ?? '')
+  if (!first) return name
+  const match = name.match(/^(.*?)[\s/,–-]+([\p{L}-]+)$/u)
+  if (!match || normalizeKey(match[2]) !== first || !match[1].trim()) return name
+  return match[1].trim()
+}
+
+/** 'Lisa-Marie Junger' → first and last name; one word is a first name */
+function splitName(raw: string): { firstName: string; lastName: string } {
+  const words = cleanText(raw).split(' ').filter(Boolean)
+  if (words.length <= 1) return { firstName: words[0] ?? '', lastName: '' }
+  return { firstName: words.slice(0, -1).join(' '), lastName: words[words.length - 1] }
+}
 
 /**
  * The plan for one tour sheet. Rows without a known band or a date are skipped (a band is never
@@ -281,7 +471,11 @@ export function buildTourImportPlan(
   const columnsOf = (field: TourImportField) =>
     request.mapping.flatMap((mapped, index) => (mapped === field ? [index] : []))
   const has = (field: TourImportField) => columnsOf(field).length > 0
-  if (!has('band')) errors.push('Keine Spalte ist der Band zugeordnet.')
+  const sheetBand = request.band.trim()
+  if (!has('band') && !sheetBand) {
+    errors.push('Bitte eine Band für alle Zeilen wählen oder eine Spalte der Band zuordnen.')
+  }
+  const generated = hasGeneratedHeaders(request.headers)
   if (!has('date')) errors.push('Keine Spalte ist dem Datum zugeordnet.')
 
   const bandsByName = new Map(existing.bands.map((band) => [normalizeKey(band.name), band]))
@@ -301,6 +495,67 @@ export function buildTourImportPlan(
   const update: TourImportPlan['update'] = []
   const seen = new Map<string, number>()
   let unchanged = 0
+
+  // ---- promoters and their contacts (LoPro) ----
+  const promoters: NewPromoterDraft[] = []
+  const contacts: NewContactDraft[] = []
+  const companiesByName = new Map(
+    (existing.companies ?? []).map((company) => [normalizeKey(company.name), company])
+  )
+  const personsByEmail = new Map(
+    (existing.persons ?? []).filter((p) => p.email).map((p) => [p.email.toLowerCase(), p])
+  )
+  const personsByName = new Map(
+    (existing.persons ?? [])
+      .filter((p) => p.lastName)
+      .map((p) => [normalizeKey(`${p.firstName} ${p.lastName}`), p])
+  )
+  const newPromoterByKey = new Map<string, NewPromoterDraft>()
+  const newContactByKey = new Map<string, NewContactDraft>()
+  /** The promoter company of a row: an existing one by name, else created once per name */
+  const promoterOf = (
+    name: string,
+    email: string,
+    contactName: string
+  ): { ref: TourLoPro['company']; isNew: boolean } => {
+    if (!name) return { ref: null, isNew: false }
+    const known = companiesByName.get(normalizeKey(name))
+    if (known) return { ref: { id: known.id }, isNew: false }
+    const key = normalizeKey(name)
+    if (!newPromoterByKey.has(key)) {
+      // Without a contact person the address belongs to the company
+      const draft = { key, name, email: contactName ? '' : email }
+      newPromoterByKey.set(key, draft)
+      promoters.push(draft)
+    }
+    return { ref: { key }, isNew: true }
+  }
+  /** The contact of a row: an existing person by e-mail, else by full name, else created */
+  const contactOf = (
+    name: string,
+    email: string,
+    company: TourLoPro['company']
+  ): TourLoPro['person'] => {
+    if (!name) {
+      const byEmail = email ? personsByEmail.get(email) : undefined
+      return byEmail ? { id: byEmail.id } : null
+    }
+    const byEmail = email ? personsByEmail.get(email) : undefined
+    if (byEmail) return { id: byEmail.id }
+    const { firstName, lastName } = splitName(name)
+    const byName = lastName
+      ? personsByName.get(normalizeKey(`${firstName} ${lastName}`))
+      : undefined
+    if (byName) return { id: byName.id }
+    const companyKey = company ? ('id' in company ? `c${company.id}` : company.key) : ''
+    const key = email || `${normalizeKey(name)}|${companyKey}`
+    if (!newContactByKey.has(key)) {
+      const draft = { key, firstName, lastName, email, company }
+      newContactByKey.set(key, draft)
+      contacts.push(draft)
+    }
+    return { key }
+  }
 
   const cell = (cells: string[], field: TourImportField) => {
     const index = columnsOf(field)[0]
@@ -326,7 +581,8 @@ export function buildTourImportPlan(
       )
       if (mappedCells.every((value) => value === '')) continue
 
-      const bandName = cell(row.cells, 'band')
+      // A Band column wins; the band chosen for the sheet fills rows without one
+      const bandName = cell(row.cells, 'band') || sheetBand
       const date = parseShowDate(cell(row.cells, 'date'))
       const venueName = cell(row.cells, 'venueName')
       let city = cell(row.cells, 'city')
@@ -344,7 +600,9 @@ export function buildTourImportPlan(
         city,
         tour,
         status,
-        newVenue: false
+        newVenue: false,
+        promoterName: '',
+        newPromoter: false
       }
       const skip = (reason: string) => rows.push({ ...base, action: 'skipped', reason })
 
@@ -439,7 +697,8 @@ export function buildTourImportPlan(
       const notes = columnsOf('notes')
         .map((index) => {
           const value = cleanText(row.cells[index] ?? '')
-          const header = cleanText(request.headers[index] ?? '')
+          // "Spalte E: …" says nothing, so a headerless sheet's notes are the values alone
+          const header = generated ? '' : cleanText(request.headers[index] ?? '')
           return value ? (header ? `${header}: ${value}` : value) : ''
         })
         .filter(Boolean)
@@ -455,14 +714,30 @@ export function buildTourImportPlan(
         stored?.name ||
         [band.name, venueName || city].filter(Boolean).join(' – ')
       if (cell(row.cells, 'eventName')) fields.name = eventName
-      const preview = { ...base, bandName: band.name, eventName, newVenue }
+      // ---- LoPro: promoter and contact ----
+      const contactName = cell(row.cells, 'promoterContact')
+      const promoterName = promoterNameOf(cell(row.cells, 'promoter'), contactName)
+      const contactEmail = emailOf(cell(row.cells, 'promoterEmail'))
+      const promoter = promoterOf(promoterName, contactEmail, contactName)
+      const person = contactOf(contactName, contactEmail, promoter.ref)
+      const lopro: TourLoPro | undefined =
+        promoter.ref || person ? { company: promoter.ref, person } : undefined
+      const preview = {
+        ...base,
+        bandName: band.name,
+        eventName,
+        newVenue,
+        promoterName,
+        newPromoter: promoter.isNew
+      }
 
       if (!stored) {
         create.push({
           band_id: band.id,
           date,
           venue,
-          fields: { ...fields, name: eventName, status: fields.status ?? request.defaultStatus }
+          fields: { ...fields, name: eventName, status: fields.status ?? request.defaultStatus },
+          lopro
         })
         rows.push({ ...preview, action: 'new' })
         continue
@@ -472,7 +747,13 @@ export function buildTourImportPlan(
       const fieldChanges = (Object.keys(fields) as Array<keyof TourEventFields>).filter(
         (key) => !sameValue(stored[key], fields[key])
       )
-      if (!venueChanges && fieldChanges.length === 0) {
+      const loproChanges =
+        lopro !== undefined &&
+        ((lopro.company !== null &&
+          !('id' in lopro.company && lopro.company.id === stored.lopro_company_id)) ||
+          (lopro.person !== null &&
+            !('id' in lopro.person && lopro.person.id === stored.lopro_person_id)))
+      if (!venueChanges && !loproChanges && fieldChanges.length === 0) {
         unchanged++
         rows.push({ ...preview, status: stored.status as DealMemoStatus, action: 'unchanged' })
         continue
@@ -480,7 +761,10 @@ export function buildTourImportPlan(
       update.push({
         id: stored.id,
         venue: venueChanges ? venue : null,
-        fields: Object.fromEntries(fieldChanges.map((key) => [key, fields[key]])) as TourEventFields
+        fields: Object.fromEntries(
+          fieldChanges.map((key) => [key, fields[key]])
+        ) as TourEventFields,
+        lopro: loproChanges ? lopro : undefined
       })
       rows.push({ ...preview, action: 'update' })
     }
@@ -494,12 +778,16 @@ export function buildTourImportPlan(
         update: update.length,
         unchanged,
         skipped: rows.filter((row) => row.action === 'skipped').length,
-        newVenues: venues.length
+        newVenues: venues.length,
+        newPromoters: promoters.length,
+        newContacts: contacts.length
       },
       errors
     },
     venues,
     create,
-    update
+    update,
+    promoters,
+    contacts
   }
 }

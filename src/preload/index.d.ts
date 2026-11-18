@@ -130,6 +130,8 @@ export interface DocumentAPI {
   pickEInvoiceFile: () => Promise<string | null>
   /** #228: open dialog for a promoter settlement (.xlsx); its path, null if canceled */
   pickSettlementFile: () => Promise<string | null>
+  /** #225: open dialog for receipts (PDF, XML, JPG, PNG), several at once; [] if canceled */
+  pickReceiptFiles: () => Promise<string[]>
   /** An error nothing caught, for the local error log (main scrubs it) */
   reportError: (report: { message: string; stack?: string }) => void
   /** New mail while the main window has focus: the popup's text (count and account only) */

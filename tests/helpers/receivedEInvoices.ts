@@ -35,6 +35,7 @@ export const CII_INVOICE = `<?xml version="1.0" encoding="UTF-8"?>
       <ram:BuyerTradeParty><ram:Name>Käufer GmbH</ram:Name></ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
     <ram:ApplicableHeaderTradeSettlement>
+      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
       <ram:SpecifiedTradeSettlementPaymentMeans>
         <ram:TypeCode>58</ram:TypeCode>
         <ram:PayeePartyCreditorFinancialAccount>
@@ -43,6 +44,11 @@ export const CII_INVOICE = `<?xml version="1.0" encoding="UTF-8"?>
         </ram:PayeePartyCreditorFinancialAccount>
         <ram:PayeeSpecifiedCreditorFinancialInstitution><ram:BICID>BYLADEM0001</ram:BICID></ram:PayeeSpecifiedCreditorFinancialInstitution>
       </ram:SpecifiedTradeSettlementPaymentMeans>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:TaxBasisTotalAmount>1000.00</ram:TaxBasisTotalAmount>
+        <ram:GrandTotalAmount>1190.00</ram:GrandTotalAmount>
+        <ram:DuePayableAmount>1190.00</ram:DuePayableAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>
   </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>`
@@ -53,6 +59,7 @@ export const UBL_INVOICE = `<?xml version="1.0" encoding="UTF-8"?>
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:ID>4711</cbc:ID>
   <cbc:IssueDate>2026-10-01</cbc:IssueDate>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
   <cbc:Note>#REG#GF: Hans Muster; Sitz Beispielburg</cbc:Note>
   <cac:AccountingSupplierParty>
     <cac:Party>
@@ -86,4 +93,9 @@ export const UBL_INVOICE = `<?xml version="1.0" encoding="UTF-8"?>
       <cac:FinancialInstitutionBranch><cbc:ID>BKAUATW0</cbc:ID></cac:FinancialInstitutionBranch>
     </cac:PayeeFinancialAccount>
   </cac:PaymentMeans>
+  <cac:LegalMonetaryTotal>
+    <cbc:TaxExclusiveAmount currencyID="EUR">200.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">240.00</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="EUR">240.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
 </ubl:Invoice>`

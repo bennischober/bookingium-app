@@ -36,6 +36,9 @@ import {
 } from '../../../../main/api/schemas/tour_import.schema'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
+
+/** The band Select's value for "take it from the Band column"; Radix refuses an empty value */
+const NO_BAND = '__column__'
 type Table = NonNullable<ImportFile['table']>
 
 const ACTION_LABELS: Record<TourImportAction, string> = {
@@ -81,6 +84,8 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   const [table, setTable] = useState<Table | null>(null)
   const [mapping, setMapping] = useState<TourImportField[]>([])
   const [tour, setTour] = useState('')
+  // The band of rows without a Band column (a sheet of one band)
+  const [band, setBand] = useState('')
   const [defaultKind, setDefaultKind] = useState<VenueKind>('venue')
   const [defaultStatus, setDefaultStatus] = useState<DealMemoStatus>('confirmed')
   const [createVenues, setCreateVenues] = useState(true)
@@ -88,6 +93,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   const [result, setResult] = useState<TourImportResult | null>(null)
 
   const tours = trpcReact.tourImport.tours.useQuery(undefined, { enabled: open })
+  const bands = trpcReact.band.getListItems.useQuery(undefined, { enabled: open })
 
   const reset = (): void => {
     setStep('file')
@@ -95,6 +101,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
     setTable(null)
     setMapping([])
     setTour('')
+    setBand('')
     setDefaultKind('venue')
     setDefaultStatus('confirmed')
     setCreateVenues(true)
@@ -123,11 +130,16 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         })
         return
       }
-      const suggestion = await utils.tourImport.suggest.fetch({ headers: picked.headers })
+      const suggestion = await utils.tourImport.suggest.fetch({
+        headers: picked.headers,
+        title: picked.title,
+        rows: picked.rows.map((row) => ({ cells: row.cells }))
+      })
       setFileName(response.file.fileName)
       setTable(picked)
       setMapping(suggestion.mapping)
       setTour(suggestion.tour)
+      setBand(suggestion.band)
       setDefaultKind(suggestion.defaultKind)
       setDefaultStatus(suggestion.defaultStatus)
       setRemembered(suggestion.remembered)
@@ -147,6 +159,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         headers: table.headers,
         rows: table.rows,
         mapping,
+        band,
         tour,
         defaultKind,
         defaultStatus,
@@ -197,7 +210,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   )
 
   const missingColumns = [
-    !mapping.includes('band') && 'Band',
+    !mapping.includes('band') && !band && 'Band',
     !mapping.includes('date') && 'Datum'
   ].filter(Boolean)
   const previewData = preview.data
@@ -243,7 +256,32 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         {/* ---- Step 2: tour, defaults + column mapping ---- */}
         {step === 'mapping' && table && (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            {table.title && (
+              <p className="text-sm text-muted-foreground">
+                Titel der Tabelle:{' '}
+                <span className="font-medium text-foreground">{table.title}</span>
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="tour-import-band">Band (für Zeilen ohne Band-Spalte)</Label>
+                <Select
+                  value={band || NO_BAND}
+                  onValueChange={(value) => setBand(value === NO_BAND ? '' : value)}
+                >
+                  <SelectTrigger id="tour-import-band">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_BAND}>Aus der Band-Spalte</SelectItem>
+                    {(bands.data ?? []).map((option) => (
+                      <SelectItem key={option.id} value={option.name}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="tour-import-tour">Tour</Label>
                 <Input
@@ -399,14 +437,15 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
               </p>
             )}
             {previewData && (
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-6">
                 {(
                   [
                     ['new', 'Neu'],
                     ['update', 'Geändert'],
                     ['unchanged', 'Unverändert'],
                     ['skipped', 'Übersprungen'],
-                    ['newVenues', 'Neue Clubs/Festivals']
+                    ['newVenues', 'Neue Clubs/Festivals'],
+                    ['newPromoters', 'Neue Veranstalter']
                   ] as const
                 ).map(([key, label]) => (
                   <div key={key} className="rounded-lg border px-3 py-2">
@@ -431,6 +470,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                       <th className="px-3 py-2 font-medium">Band</th>
                       <th className="px-3 py-2 font-medium">Club / Festival</th>
                       <th className="px-3 py-2 font-medium">Ort</th>
+                      <th className="px-3 py-2 font-medium">Veranstalter</th>
                       <th className="px-3 py-2 font-medium">Tour</th>
                       <th className="px-3 py-2 font-medium">Status</th>
                       <th className="px-3 py-2 font-medium">Import</th>
@@ -461,6 +501,14 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                           )}
                         </td>
                         <td className="px-3 py-2 align-top">{row.city || '–'}</td>
+                        <td className="px-3 py-2 align-top">
+                          {row.promoterName || '–'}
+                          {row.newPromoter && (
+                            <span className="block text-xs text-muted-foreground">
+                              wird angelegt
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 align-top">{row.tour || '–'}</td>
                         <td className="px-3 py-2 align-top">
                           {row.action === 'skipped' ? '–' : STATUS_LABELS[row.status]}
@@ -494,6 +542,8 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
             <p className="text-sm">
               {result.created} neu · {result.updated} aktualisiert · {result.unchanged} unverändert
               {result.skipped > 0 && ` · ${result.skipped} übersprungen`}
+              {result.promotersCreated + result.contactsCreated > 0 &&
+                ` · ${result.promotersCreated} Veranstalter und ${result.contactsCreated} Ansprechpartner angelegt`}
               {result.venuesCreated > 0 &&
                 ` · ${result.venuesCreated} ${result.venuesCreated === 1 ? 'Club/Festival' : 'Clubs/Festivals'} angelegt`}
             </p>

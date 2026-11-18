@@ -5,6 +5,7 @@
 
 import { cleanText, countryByCode, parsePersons } from '../import/normalize'
 import { at, childrenNamed, parseXml, textAt, type XmlElement } from './xmlTree'
+import { toCents } from './amounts'
 
 export interface EInvoicePartyPerson {
   firstName: string
@@ -21,6 +22,10 @@ export interface EInvoiceParty {
   invoiceNumber: string
   /** ISO date or '' */
   issueDate: string
+  /** Amount due incl. VAT in cents, null if the XML has none (#225) */
+  totalCents: number | null
+  /** ISO 4217 code of the invoice, '' if none */
+  currency: string
   name: string
   vatId: string
   taxNumber: string
@@ -120,11 +125,25 @@ function isoDate(raw: string): string {
   return ''
 }
 
+/** "1234.50" (XML decimal) in cents, null if there is no number */
+function centsOf(raw: string): number | null {
+  const value = raw.trim()
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return null
+  return toCents(Number(value))
+}
+
+const currencyOf = (raw: string): string => {
+  const code = raw.trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(code) ? code : ''
+}
+
 function emptyParty(syntax: EInvoiceParty['syntax']): EInvoiceParty {
   return {
     syntax,
     invoiceNumber: '',
     issueDate: '',
+    totalCents: null,
+    currency: '',
     name: '',
     vatId: '',
     taxNumber: '',
@@ -205,6 +224,16 @@ function readCii(root: XmlElement): EInvoiceParty {
 
   const transaction = at(root, 'SupplyChainTradeTransaction')
   const seller = at(transaction, 'ApplicableHeaderTradeAgreement', 'SellerTradeParty')
+  const summation = at(
+    transaction,
+    'ApplicableHeaderTradeSettlement',
+    'SpecifiedTradeSettlementHeaderMonetarySummation'
+  )
+  party.totalCents =
+    centsOf(textAt(summation, 'GrandTotalAmount')) ?? centsOf(textAt(summation, 'DuePayableAmount'))
+  party.currency = currencyOf(
+    textAt(transaction, 'ApplicableHeaderTradeSettlement', 'InvoiceCurrencyCode')
+  )
   party.name =
     cleanText(textAt(seller, 'Name')) ||
     cleanText(textAt(seller, 'SpecifiedLegalOrganization', 'TradingBusinessName'))
@@ -269,6 +298,10 @@ function readUbl(root: XmlElement): EInvoiceParty {
   const party = emptyParty('ubl')
   party.invoiceNumber = textAt(root, 'ID')
   party.issueDate = isoDate(textAt(root, 'IssueDate'))
+  const total = at(root, 'LegalMonetaryTotal')
+  party.totalCents =
+    centsOf(textAt(total, 'TaxInclusiveAmount')) ?? centsOf(textAt(total, 'PayableAmount'))
+  party.currency = currencyOf(textAt(root, 'DocumentCurrencyCode'))
 
   const seller = at(root, 'AccountingSupplierParty', 'Party')
   const legal = at(seller, 'PartyLegalEntity')

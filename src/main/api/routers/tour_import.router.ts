@@ -11,8 +11,15 @@ const service = container.resolve(TourImportService)
 export const tourImportRouter = t.router({
   /** The columns, tour and defaults for a picked file: remembered for its layout, else detected */
   suggest: t.procedure
-    .input(z.object({ headers: z.array(z.string()) }))
-    .query(({ input }) => service.suggest(input.headers)),
+    .input(
+      z.object({
+        headers: z.array(z.string()),
+        // The title row above the sheet and its rows: for sheets without a header row
+        title: z.string().default(''),
+        rows: z.array(z.object({ cells: z.array(z.string()) })).default([])
+      })
+    )
+    .query(({ input }) => service.suggest(input.headers, input.title, input.rows)),
 
   preview: t.procedure.input(TourImportRequest).query(({ input }) => service.preview(input)),
 

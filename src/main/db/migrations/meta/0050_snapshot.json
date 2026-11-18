@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d444fe59-b814-427a-b4fb-57cf8e3432ab",
+  "id": "bc6dca54-fcaf-4d63-8ae8-bb1e93fe2b47",
   "prevId": "cae3d31d-cce1-4b88-b3d4-404a0277f35f",
   "tables": {
     "address": {
@@ -1699,7 +1699,14 @@
           "name": "invoice_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "receipt_id": {
+          "name": "receipt_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "status": {
@@ -1777,6 +1784,13 @@
           ],
           "isUnique": false
         },
+        "datev_transfer_receipt_idx": {
+          "name": "datev_transfer_receipt_idx",
+          "columns": [
+            "receipt_id"
+          ],
+          "isUnique": false
+        },
         "datev_transfer_send_key_idx": {
           "name": "datev_transfer_send_key_idx",
           "columns": [
@@ -1798,11 +1812,28 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "datev_transfer_receipt_id_receipt_id_fk": {
+          "name": "datev_transfer_receipt_id_receipt_id_fk",
+          "tableFrom": "datev_transfer",
+          "tableTo": "receipt",
+          "columnsFrom": [
+            "receipt_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "datev_transfer_document_check": {
+          "name": "datev_transfer_document_check",
+          "value": "(\"invoice_id\" IS NULL) <> (\"receipt_id\" IS NULL)"
+        },
         "datev_transfer_status_check": {
           "name": "datev_transfer_status_check",
           "value": "\"status\" IN ('pending', 'sent')"
@@ -2435,103 +2466,6 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "event_settlement": {
-      "name": "event_settlement",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "deal_memo_id": {
-          "name": "deal_memo_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "data": {
-          "name": "data",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_file_name": {
-          "name": "source_file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "fee_invoice_id": {
-          "name": "fee_invoice_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "event_settlement_event_idx": {
-          "name": "event_settlement_event_idx",
-          "columns": [
-            "deal_memo_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "event_settlement_deal_memo_id_deal_memo_id_fk": {
-          "name": "event_settlement_deal_memo_id_deal_memo_id_fk",
-          "tableFrom": "event_settlement",
-          "tableTo": "deal_memo",
-          "columnsFrom": [
-            "deal_memo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "event_settlement_fee_invoice_id_invoice_id_fk": {
-          "name": "event_settlement_fee_invoice_id_invoice_id_fk",
-          "tableFrom": "event_settlement",
-          "tableTo": "invoice",
-          "columnsFrom": [
-            "fee_invoice_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -4820,14 +4754,6 @@
           "autoincrement": false,
           "default": 20
         },
-        "agency_percent": {
-          "name": "agency_percent",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 15
-        },
         "excluded_income": {
           "name": "excluded_income",
           "type": "text",
@@ -5358,6 +5284,196 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "receipt": {
+      "name": "receipt",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'incoming'"
+        },
+        "receipt_date": {
+          "name": "receipt_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'EUR'"
+        },
+        "supplier_company_id": {
+          "name": "supplier_company_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "supplier_name": {
+          "name": "supplier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_path": {
+          "name": "file_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_message_id": {
+          "name": "source_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_mail_account_id": {
+          "name": "source_mail_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "receipt_company_idx": {
+          "name": "receipt_company_idx",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        },
+        "receipt_date_idx": {
+          "name": "receipt_date_idx",
+          "columns": [
+            "receipt_date"
+          ],
+          "isUnique": false
+        },
+        "receipt_supplier_idx": {
+          "name": "receipt_supplier_idx",
+          "columns": [
+            "supplier_company_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "receipt_company_id_company_id_fk": {
+          "name": "receipt_company_id_company_id_fk",
+          "tableFrom": "receipt",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "receipt_supplier_company_id_company_id_fk": {
+          "name": "receipt_supplier_company_id_company_id_fk",
+          "tableFrom": "receipt",
+          "tableTo": "company",
+          "columnsFrom": [
+            "supplier_company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "receipt_category_check": {
+          "name": "receipt_category_check",
+          "value": "\"category\" IN ('outgoing', 'incoming', 'cash', 'other', 'credit_card')"
+        }
+      }
     },
     "venue": {
       "name": "venue",

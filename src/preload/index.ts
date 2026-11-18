@@ -63,6 +63,7 @@ const api = {
   pickImportFile: () => ipcRenderer.invoke('import:pickFile'),
   pickEInvoiceFile: () => ipcRenderer.invoke('einvoice:pickFile'),
   pickSettlementFile: () => ipcRenderer.invoke('settlement:pickFile'),
+  pickReceiptFiles: () => ipcRenderer.invoke('receipt:pickFiles'),
 
   /** An error nothing caught, for the local error log */
   reportError: (report: { message: string; stack?: string }) =>

@@ -744,6 +744,54 @@ export const invoice_email = sqliteTable(
 )
 
 /**
+ * A received document (Beleg, #225): an incoming invoice, a credit card or cash receipt, a
+ * travel expense. Stored as one PDF (photos are converted on the way in) and handed to DATEV
+ * under its category, like an issued invoice. `file_name` is the name DATEV shows; renaming
+ * it never touches the stored file.
+ */
+export const receipt = sqliteTable(
+  'receipt',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    // The own company whose DATEV client gets it; the default company unless another is picked
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    category: text('category').default('incoming').notNull(),
+    // ISO date of the receipt, null when unknown
+    receipt_date: text('receipt_date'),
+    // Gross amount in cents, null when unknown
+    amount_cents: integer('amount_cents'),
+    currency: text('currency').default('EUR').notNull(),
+    // Who issued it: a company of the app, or only a name
+    supplier_company_id: integer('supplier_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
+    supplier_name: text('supplier_name').default('').notNull(),
+    // The supplier's invoice or receipt number
+    reference: text('reference').default('').notNull(),
+    notes: text('notes').default('').notNull(),
+    file_name: text('file_name').notNull(),
+    // Relative to the storage folder, e.g. receipts/2026-11/1234-hotel.pdf
+    file_path: text('file_path').notNull(),
+    file_size: integer('file_size').notNull(),
+    // Set when it came from a mail attachment
+    source_message_id: text('source_message_id'),
+    source_mail_account_id: text('source_mail_account_id'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('receipt_company_idx').on(table.company_id),
+    index('receipt_date_idx').on(table.receipt_date),
+    index('receipt_supplier_idx').on(table.supplier_company_id),
+    oneOf('receipt_category_check', 'category', DatevCategory.options)
+  ]
+)
+
+/**
  * A document handed to DATEV Unternehmen online by DATEV Upload Mail: written as `pending`
  * before the send and set to `sent` when the send is confirmed - right away, or later, when an
  * unclear send is found in Sent. A send refused before the server took it deletes the row.
@@ -752,9 +800,9 @@ export const datev_transfer = sqliteTable(
   'datev_transfer',
   {
     id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
-    invoice_id: integer('invoice_id')
-      .notNull()
-      .references(() => invoice.id, { onDelete: 'cascade' }),
+    // The document: an issued invoice or a receipt (#225), exactly one of them
+    invoice_id: integer('invoice_id').references(() => invoice.id, { onDelete: 'cascade' }),
+    receipt_id: integer('receipt_id').references(() => receipt.id, { onDelete: 'cascade' }),
     status: text('status').default('pending').notNull(),
     // The document category, by the upload address it was mailed to
     category: text('category').default('outgoing').notNull(),
@@ -773,7 +821,12 @@ export const datev_transfer = sqliteTable(
   },
   (table) => [
     index('datev_transfer_invoice_idx').on(table.invoice_id),
+    index('datev_transfer_receipt_idx').on(table.receipt_id),
     uniqueIndex('datev_transfer_send_key_idx').on(table.send_key),
+    check(
+      'datev_transfer_document_check',
+      sql.raw('("invoice_id" IS NULL) <> ("receipt_id" IS NULL)')
+    ),
     oneOf('datev_transfer_status_check', 'status', DatevTransferStatus.options),
     oneOf('datev_transfer_category_check', 'category', DatevCategory.options)
   ]
@@ -1420,6 +1473,7 @@ export const schema = {
   invoice_email,
   invoice_email_pending,
   invoice_status_change,
+  receipt,
   datev_transfer,
   management_contract,
   management_contract_member,

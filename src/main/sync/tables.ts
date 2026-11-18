@@ -88,6 +88,7 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
  */
 export const STORAGE_PATH_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   document: ['file_path'],
+  receipt: ['file_path'],
   company: ['logo_path', 'signature_path'],
   invoice_party_snapshot: ['logo_path']
 }

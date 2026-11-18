@@ -12,10 +12,13 @@ import { join } from 'path'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { excelSerialToDate, readXlsx } from '../src/main/import/xlsx'
-import { readImportFile } from '../src/main/import/readImportFile'
+import { importTable, readImportFile } from '../src/main/import/readImportFile'
 import {
   buildTourImportPlan,
   detectTourMapping,
+  emailOf,
+  promoterNameOf,
+  tourTitleHints,
   parseAmountCents,
   parseEventStatus,
   parseShowTime,
@@ -152,6 +155,7 @@ function request(rows: string[][], extra: Partial<TourImportRequest> = {}): Tour
     headers: HEADERS,
     rows: rows.map((cells, index) => ({ rowNumber: index + 2, cells })),
     mapping: MAPPING,
+    band: '',
     tour: 'Frühjahr 2027',
     defaultKind: 'venue',
     defaultStatus: 'confirmed',
@@ -208,7 +212,9 @@ describe('tour import plan', () => {
       update: 1,
       unchanged: 0,
       skipped: 3,
-      newVenues: 1
+      newVenues: 1,
+      newPromoters: 0,
+      newContacts: 0
     })
     expect(plan.update).toEqual([
       {
@@ -306,5 +312,213 @@ describe('tour import service', () => {
     expect(remembered).toMatchObject({ remembered: true, tour: 'Frühjahr 2027' })
     expect(tourImportKey(HEADERS)).toMatch(/^tourImport:/)
     expect(service.tours()).toContain('Frühjahr 2027')
+  })
+})
+
+// A promoter list as tours arrive: a title row naming band and tour, no header row, weekday,
+// date (an Excel date), city, club, promoter, contact, e-mail (all made up)
+describe('tour sheet without a header row', () => {
+  const records = [
+    ['Pretty Wild TOUR Herbst 2027'],
+    [],
+    [
+      'FR',
+      '29.10.2027',
+      'Lindau',
+      'Club Beispiel',
+      'Beispiel Konzerte',
+      'Florian',
+      'florian@example.com'
+    ],
+    ['SA', '30.10.2027', 'Köln', 'Halle Probe', 'Probe GmbH', 'Lisa', 'lisa@example.com']
+  ]
+
+  it('skips the title row and names the columns when the next row is data', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    expect(table.title).toBe('Pretty Wild TOUR Herbst 2027')
+    expect(table.headers.slice(0, 3)).toEqual(['Spalte A', 'Spalte B', 'Spalte C'])
+    expect(table.rows.map((row) => row.rowNumber)).toEqual([3, 4])
+  })
+
+  it('keeps a header row below a title row', () => {
+    const table = importTable(
+      'Tour',
+      [['Tour 2027'], ['Datum', 'Band', 'Club'], ['01.05.2027', 'X', 'Y']],
+      'DE'
+    )!
+    expect(table).toMatchObject({ title: 'Tour 2027', headers: ['Datum', 'Band', 'Club'] })
+    expect(table.rows).toHaveLength(1)
+  })
+
+  it('maps the columns by their cells: date, then city and club, the rest as notes', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    expect(detectTourMapping(table.headers, table.rows)).toEqual([
+      'ignore',
+      'date',
+      'city',
+      'venueName',
+      'promoter',
+      'promoterContact',
+      'promoterEmail'
+    ])
+  })
+
+  it('reads band and tour from the title', () => {
+    const bands = [{ name: 'Pretty Wild' }, { name: 'Wild' }]
+    expect(tourTitleHints('Pretty Wild TOUR Herbst 2027', bands)).toEqual({
+      band: 'Pretty Wild',
+      tour: 'Herbst 2027'
+    })
+    expect(tourTitleHints('Tourdaten: PRETTY WILD – Frühjahr', bands)).toEqual({
+      band: 'Pretty Wild',
+      tour: 'Frühjahr'
+    })
+    expect(tourTitleHints('Unbekannte Band Tour', bands)).toEqual({ band: '', tour: '' })
+  })
+
+  it('imports every row for the band chosen for the sheet, with promoter and contact', () => {
+    const table = importTable('Promoter Kontakte', records, 'DE')!
+    const plan = buildTourImportPlan(
+      {
+        fileName: 'promoter.xlsx',
+        headers: table.headers,
+        rows: table.rows,
+        mapping: detectTourMapping(table.headers, table.rows),
+        band: 'Pretty Wild',
+        tour: 'Herbst 2027',
+        defaultKind: 'venue',
+        defaultStatus: 'confirmed',
+        createVenues: true
+      },
+      { bands: [{ id: 1, name: 'Pretty Wild' }], venues: [], events: [] }
+    )
+    expect(plan.preview.errors).toEqual([])
+    expect(plan.preview.counts).toMatchObject({ new: 2, skipped: 0, newVenues: 2 })
+    // Promoter and contact are linked to the event, not written into its notes
+    expect(plan.create[0].fields.notes).toBeUndefined()
+    expect(plan.create[0].lopro).toEqual({
+      company: { key: 'beispiel konzerte' },
+      person: { key: 'florian@example.com' }
+    })
+    expect(plan.promoters.map((p) => p.name)).toEqual(['Beispiel Konzerte', 'Probe GmbH'])
+    expect(plan.contacts[0]).toMatchObject({
+      firstName: 'Florian',
+      lastName: '',
+      email: 'florian@example.com'
+    })
+    expect(plan.preview.counts).toMatchObject({ newPromoters: 2, newContacts: 2 })
+    expect(plan.create[0].fields.tour).toBe('Herbst 2027')
+  })
+
+  it('asks for a band when the sheet has neither a band column nor a chosen band', () => {
+    const plan = buildTourImportPlan(
+      request([['01.05.2027', 'X', 'Y']], { mapping: ['date', 'ignore', 'venueName'] }),
+      {
+        bands: [],
+        venues: [],
+        events: []
+      }
+    )
+    expect(plan.preview.errors[0]).toMatch(/Band für alle Zeilen/)
+  })
+})
+
+describe('promoter and contact (LoPro)', () => {
+  it('cleans e-mail addresses out of their cells', () => {
+    expect(emailOf(' LP@Example.com')).toBe('lp@example.com')
+    expect(emailOf('bs-extern@example.com>')).toBe('bs-extern@example.com')
+    expect(emailOf('daniel@backstage.')).toBe('')
+  })
+
+  it('links known companies and creates the others once, in the database', () => {
+    const service = container.resolve(TourImportService)
+    const owner = db.insert(schema.company).values({ name: 'Lopro Band GbR' }).returning().get()
+    const band = db
+      .insert(schema.band)
+      .values({ name: 'Lopro Band', company_id: owner.id })
+      .returning()
+      .get()
+    const known = db
+      .insert(schema.company)
+      .values({ name: 'Bekannte Konzerte GmbH' })
+      .returning()
+      .get()
+    const headers = ['Datum', 'Club', 'Ort', 'Veranstalter', 'Ansprechpartner', 'E-Mail']
+    const rows = [
+      [
+        '01.09.2027',
+        'Halle Eins',
+        'Köln',
+        'Bekannte Konzerte GmbH',
+        'Eva Muster',
+        'eva@example.com'
+      ],
+      ['02.09.2027', 'Halle Zwei', 'Bonn', 'Neue Konzerte', 'Tim', 'tim@example.com>'],
+      ['03.09.2027', 'Halle Drei', 'Aachen', 'Neue Konzerte', 'Tim', 'tim@example.com']
+    ]
+    const sheet: TourImportRequest = {
+      fileName: 'lopro.xlsx',
+      headers,
+      rows: rows.map((cells, index) => ({ rowNumber: index + 2, cells })),
+      mapping: detectTourMapping(headers),
+      band: band.name,
+      tour: '',
+      defaultKind: 'venue',
+      defaultStatus: 'confirmed',
+      createVenues: true
+    }
+    expect(sheet.mapping).toEqual([
+      'date',
+      'venueName',
+      'city',
+      'promoter',
+      'promoterContact',
+      'promoterEmail'
+    ])
+    expect(service.commit(sheet)).toMatchObject({
+      created: 3,
+      promotersCreated: 1,
+      contactsCreated: 2
+    })
+
+    const events = db
+      .select()
+      .from(schema.deal_memo)
+      .where(eq(schema.deal_memo.band_id, band.id))
+      .all()
+      .sort((a, b) => a.date.localeCompare(b.date))
+    expect(events[0].lopro_company_id).toBe(known.id)
+    expect(events[1].lopro_company_id).toBe(events[2].lopro_company_id)
+    expect(events[1].lopro_person_id).toBe(events[2].lopro_person_id)
+    const tim = db
+      .select()
+      .from(schema.person)
+      .where(eq(schema.person.id, events[1].lopro_person_id!))
+      .get()
+    expect(tim).toMatchObject({ first_name: 'Tim', last_name: '' })
+    const member = db
+      .select()
+      .from(schema.company_member)
+      .where(eq(schema.company_member.person_id, tim!.id))
+      .get()
+    expect(member).toMatchObject({ company_id: events[1].lopro_company_id, role: 'Kontakt' })
+
+    // The next version of the sheet finds them again: nothing new
+    expect(service.commit(sheet)).toMatchObject({
+      created: 0,
+      unchanged: 3,
+      promotersCreated: 0,
+      contactsCreated: 0
+    })
+  })
+})
+
+describe('promoter names', () => {
+  it('drops the contact first name a list tacked onto the promoter', () => {
+    expect(promoterNameOf('Batschkapp / Anna', 'Anna ')).toBe('Batschkapp')
+    expect(promoterNameOf('Hellraiser katrin', 'Katrin')).toBe('Hellraiser')
+    expect(promoterNameOf('Concertbüro Franken / Guido', 'Guido')).toBe('Concertbüro Franken')
+    expect(promoterNameOf('Living Concerts', 'Erik')).toBe('Living Concerts')
+    expect(promoterNameOf('Anna', 'Anna')).toBe('Anna')
   })
 })

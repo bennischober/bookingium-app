@@ -121,6 +121,7 @@ data/bookingum.db                         SQLite database (WAL)
 storage/documents/<type>/<id>-<name>/     Documents of events, bands,
                                           companies, venues, persons
 storage/logos/<companyId>/                Company logos and signatures
+storage/receipts/<YYYY-MM>/               Receipts (Belege, #225), by receipt date
 logs/errors.log (+ errors.1/2.log)        Local error log, JSONL, ~1 MB each
 mail/accounts.json                        Mail accounts (passwords via safeStorage)
 mail/data/<accountId>/                    Mail store (SQLite + FTS5) and .eml files
@@ -660,8 +661,19 @@ every mail carries exactly one.
   default 10000 = DATEV's first debtor account, skipping numbers already taken); the snapshot
   freezes it and the Geschäftsbrief prints it. Numbers from DATEV are entered on the company or
   imported at go-live, and the setting then continues after them.
-- **Neutral on purpose**: received documents (Eingangsbelege) are to take the same path; the
-  table and the send are named after DATEV, not after invoices. The DATEV API
+- **Receipts (Belege, #225)**: incoming invoices, credit card, cash and other receipts are
+  rows of `receipt` (page Belege, `receipt.router.ts`, `ReceiptService`). Files come from
+  drag & drop, the picker (several at once, taken one after another) or „Als Beleg
+  speichern…“ on a mail attachment; main reads them (`api/sourceFiles.ts`), the renderer
+  only names the source. Photos (JPG, PNG) become a one-page PDF (`receipts/receiptFiles.ts`),
+  e-invoice XML is kept as XML; an e-invoice fills date, amount, number and supplier
+  (`readSellerParty`). `file_name` is the name DATEV is shown and can be changed; the stored
+  file never moves. A receipt belongs to the default company unless another is picked, stored
+  at creation. „An DATEV übergeben“ mails it to the company's address for its category with the
+  same ledger: `datev_transfer` holds exactly one of `invoice_id` / `receipt_id`. The Dashboard
+  card „Belege noch nicht an DATEV übergeben“ lists receipts of companies with an address for
+  their category and no hand-over. The Reisekostenabrechnung is a second step of #225.
+- **Neutral on purpose**: the table and the send are named after DATEV, not after invoices. The DATEV API
   (`accounting:documents`) can replace the mail later behind the same ledger.
 - **Tests**: `tests/datev.test.ts` (mail, bookkeeping, address), `tests/e2e/invoice-email.spec.ts`
   (no address, no account), `tests/e2e/mail-client.spec.ts` (the real send, needs the sandbox).

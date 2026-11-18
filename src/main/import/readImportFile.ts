@@ -10,32 +10,60 @@ import {
   suggestTarget
 } from './detectMapping'
 import { readXlsx } from './xlsx'
+import { generatedHeader } from './generatedHeaders'
+
+const DATA_CELL = /@|^\d{1,2}\.\d{1,2}\.\d{2,4}$|^\d{4}-\d{2}-\d{2}$|^-?\d+([.,]\d+)?$/
+
+/** A row that holds data, not column names: an e-mail address, a date or a number in it */
+function looksLikeData(cells: string[]): boolean {
+  return cells.some((cell) => DATA_CELL.test(cell))
+}
 
 /**
- * The first non-empty record is the header row, every later non-empty one a
- * data row (numbered as Excel numbers the line). Null without data rows.
- * Double-encoded umlauts are repaired cell by cell.
+ * The header row is the first non-empty record, every later non-empty one a data row (numbered
+ * as Excel numbers the line). Null without data rows. Double-encoded umlauts are repaired cell
+ * by cell. Tour sheets often start differently (#225 follow-up): a title row with one filled
+ * cell ("APRIL ART TOUR Herbst 2026") is skipped and kept as `title`, and when the row after it
+ * already holds data (a date, an address), the sheet has no header row: the columns are named
+ * "Spalte A", "Spalte B", … and that row is data too.
  */
 export function importTable(
   name: string,
   records: string[][],
   defaultCountry: string
 ): ImportTable | null {
-  const rows: ImportRow[] = []
-  let headers: string[] | null = null
+  const filled: Array<{ rowNumber: number; cells: string[] }> = []
   let width = 0
-
   records.forEach((record, index) => {
     const cells = record.map((cell) => repairMojibake(cell).trim())
     while (cells.length > 0 && cells[cells.length - 1] === '') cells.pop()
     if (cells.length === 0) return
     width = Math.max(width, cells.length)
-    // Outlook quotes its first header twice: "Anrede" arrives with the quotes
-    if (headers === null) headers = cells.map((cell) => cell.replace(/^"([^"]*)"$/, '$1'))
-    else rows.push({ rowNumber: index + 1, cells })
+    filled.push({ rowNumber: index + 1, cells })
   })
 
-  if (headers === null || rows.length === 0) return null
+  const nonEmpty = (cells: string[]): number => cells.filter((cell) => cell !== '').length
+  let start = 0
+  let title = ''
+  // Title rows: one filled cell above rows with several
+  while (
+    start < filled.length - 1 &&
+    nonEmpty(filled[start].cells) === 1 &&
+    filled.slice(start + 1).some((row) => nonEmpty(row.cells) >= 3)
+  ) {
+    title ||= filled[start].cells.find((cell) => cell !== '') ?? ''
+    start++
+  }
+  const first = filled[start]
+  if (!first) return null
+  const headerless = title !== '' && looksLikeData(first.cells)
+  // Outlook quotes its first header twice: "Anrede" arrives with the quotes
+  const headers: string[] = headerless
+    ? Array.from({ length: width }, (_, index) => generatedHeader(index))
+    : first.cells.map((cell) => cell.replace(/^"([^"]*)"$/, '$1'))
+  const rows: ImportRow[] = filled.slice(headerless ? start : start + 1)
+
+  if (rows.length === 0) return null
   const headerRow: string[] = headers
   const pad = (cells: string[]): string[] =>
     Array.from({ length: width }, (_, index) => cells[index] ?? '')
@@ -44,6 +72,7 @@ export function importTable(
 
   return {
     name,
+    title,
     headers: paddedHeaders,
     rows: paddedRows,
     suggestedTarget: suggestTarget(name, paddedHeaders),
