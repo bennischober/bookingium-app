@@ -108,10 +108,34 @@ const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
       'notes',
       'note',
       'comment',
-      'info',
-      'veranstalter',
-      'promoter'
+      'info'
     ]
+  ],
+  [
+    'promoter',
+    [
+      'veranstalter',
+      'promoter',
+      'lopro',
+      'local promoter',
+      'örtlicher veranstalter',
+      'oertlicher veranstalter'
+    ]
+  ],
+  [
+    'promoterContact',
+    [
+      'ansprechpartner',
+      'kontakt',
+      'contact',
+      'kontaktperson',
+      'promoter kontakt',
+      'ansprechpartner veranstalter'
+    ]
+  ],
+  [
+    'promoterEmail',
+    ['email', 'e mail', 'mail', 'kontakt email', 'kontakt e mail', 'email ansprechpartner']
   ]
 ]
 
@@ -184,10 +208,16 @@ function detectTourMappingByContent(
   )
   if (dateColumn < 0) return mapping
   mapping[dateColumn] = 'date'
-  const textFields: TourImportField[] = ['city', 'venueName']
+  const textFields: TourImportField[] = ['city', 'venueName', 'promoter', 'promoterContact']
+  let emailTaken = false
   columns.forEach((values, index) => {
     if (index === dateColumn || values.length === 0) return
     if (share(values, (value) => WEEKDAYS.has(normalizeKey(value).replace(/\s/g, ''))) >= 0.8) {
+      return
+    }
+    if (!emailTaken && share(values, (value) => emailOf(value) !== '') >= 0.6) {
+      mapping[index] = 'promoterEmail'
+      emailTaken = true
       return
     }
     const isText = share(values, (value) => !value.includes('@') && /\p{L}/u.test(value)) >= 0.8
@@ -323,12 +353,35 @@ export type TourEvent = {
   radius_weeks_before: number | null
   radius_weeks_after: number | null
   notes: string
+  lopro_company_id?: number | null
+  lopro_person_id?: number | null
 }
 
 export type TourImportExisting = {
   bands: Array<{ id: number; name: string }>
   venues: TourVenue[]
   events: TourEvent[]
+  /** Companies and persons a promoter or contact is matched against (#228 follow-up) */
+  companies?: Array<{ id: number; name: string }>
+  persons?: Array<{ id: number; firstName: string; lastName: string; email: string }>
+}
+
+/** A promoter company the import creates */
+export type NewPromoterDraft = { key: string; name: string; email: string }
+
+/** A contact person the import creates, member of the promoter (role "Kontakt") */
+export type NewContactDraft = {
+  key: string
+  firstName: string
+  lastName: string
+  email: string
+  company: { id: number } | { key: string } | null
+}
+
+/** The LoPro links of an event: existing records or drafts of this import */
+export type TourLoPro = {
+  company: { id: number } | { key: string } | null
+  person: { id: number } | { key: string } | null
 }
 
 /** A club or festival the import creates; `key` ties the events to it */
@@ -354,13 +407,21 @@ export type TourEventDraft = {
   /** An existing venue, or the key of a NewVenueDraft, or none */
   venue: { id: number } | { key: string } | null
   fields: TourEventFields & { name: string; status: DealMemoStatus }
+  lopro?: TourLoPro
 }
 
 export type TourImportPlan = {
   preview: TourImportPreview
   venues: NewVenueDraft[]
   create: TourEventDraft[]
-  update: Array<{ id: number; venue: TourEventDraft['venue']; fields: TourEventFields }>
+  update: Array<{
+    id: number
+    venue: TourEventDraft['venue']
+    fields: TourEventFields
+    lopro?: TourLoPro
+  }>
+  promoters: NewPromoterDraft[]
+  contacts: NewContactDraft[]
 }
 
 /** "10115 Berlin" in one Ort column: the postcode and the place */
@@ -370,6 +431,33 @@ function splitPlace(city: string): { zip: string; city: string } | null {
 }
 
 const sameValue = (a: unknown, b: unknown) => (a ?? null) === (b ?? null)
+
+/** The first e-mail address in a cell (' lp@x.de', 'bs@x.de>'), '' when there is none */
+export function emailOf(raw: string): string {
+  const match = raw.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/)
+  return match ? match[0].toLowerCase() : ''
+}
+
+/**
+ * A promoter cell without the contact's first name tacked on, as hand-kept lists write it
+ * ('Batschkapp / Anna', 'Hellraiser katrin' with contact Anna or Katrin → 'Batschkapp',
+ * 'Hellraiser'); any other name stays as written
+ */
+export function promoterNameOf(raw: string, contactName: string): string {
+  const name = cleanText(raw)
+  const first = normalizeKey(cleanText(contactName).split(' ')[0] ?? '')
+  if (!first) return name
+  const match = name.match(/^(.*?)[\s/,–-]+([\p{L}-]+)$/u)
+  if (!match || normalizeKey(match[2]) !== first || !match[1].trim()) return name
+  return match[1].trim()
+}
+
+/** 'Lisa-Marie Junger' → first and last name; one word is a first name */
+function splitName(raw: string): { firstName: string; lastName: string } {
+  const words = cleanText(raw).split(' ').filter(Boolean)
+  if (words.length <= 1) return { firstName: words[0] ?? '', lastName: '' }
+  return { firstName: words.slice(0, -1).join(' '), lastName: words[words.length - 1] }
+}
 
 /**
  * The plan for one tour sheet. Rows without a known band or a date are skipped (a band is never
@@ -407,6 +495,67 @@ export function buildTourImportPlan(
   const update: TourImportPlan['update'] = []
   const seen = new Map<string, number>()
   let unchanged = 0
+
+  // ---- promoters and their contacts (LoPro) ----
+  const promoters: NewPromoterDraft[] = []
+  const contacts: NewContactDraft[] = []
+  const companiesByName = new Map(
+    (existing.companies ?? []).map((company) => [normalizeKey(company.name), company])
+  )
+  const personsByEmail = new Map(
+    (existing.persons ?? []).filter((p) => p.email).map((p) => [p.email.toLowerCase(), p])
+  )
+  const personsByName = new Map(
+    (existing.persons ?? [])
+      .filter((p) => p.lastName)
+      .map((p) => [normalizeKey(`${p.firstName} ${p.lastName}`), p])
+  )
+  const newPromoterByKey = new Map<string, NewPromoterDraft>()
+  const newContactByKey = new Map<string, NewContactDraft>()
+  /** The promoter company of a row: an existing one by name, else created once per name */
+  const promoterOf = (
+    name: string,
+    email: string,
+    contactName: string
+  ): { ref: TourLoPro['company']; isNew: boolean } => {
+    if (!name) return { ref: null, isNew: false }
+    const known = companiesByName.get(normalizeKey(name))
+    if (known) return { ref: { id: known.id }, isNew: false }
+    const key = normalizeKey(name)
+    if (!newPromoterByKey.has(key)) {
+      // Without a contact person the address belongs to the company
+      const draft = { key, name, email: contactName ? '' : email }
+      newPromoterByKey.set(key, draft)
+      promoters.push(draft)
+    }
+    return { ref: { key }, isNew: true }
+  }
+  /** The contact of a row: an existing person by e-mail, else by full name, else created */
+  const contactOf = (
+    name: string,
+    email: string,
+    company: TourLoPro['company']
+  ): TourLoPro['person'] => {
+    if (!name) {
+      const byEmail = email ? personsByEmail.get(email) : undefined
+      return byEmail ? { id: byEmail.id } : null
+    }
+    const byEmail = email ? personsByEmail.get(email) : undefined
+    if (byEmail) return { id: byEmail.id }
+    const { firstName, lastName } = splitName(name)
+    const byName = lastName
+      ? personsByName.get(normalizeKey(`${firstName} ${lastName}`))
+      : undefined
+    if (byName) return { id: byName.id }
+    const companyKey = company ? ('id' in company ? `c${company.id}` : company.key) : ''
+    const key = email || `${normalizeKey(name)}|${companyKey}`
+    if (!newContactByKey.has(key)) {
+      const draft = { key, firstName, lastName, email, company }
+      newContactByKey.set(key, draft)
+      contacts.push(draft)
+    }
+    return { key }
+  }
 
   const cell = (cells: string[], field: TourImportField) => {
     const index = columnsOf(field)[0]
@@ -451,7 +600,9 @@ export function buildTourImportPlan(
         city,
         tour,
         status,
-        newVenue: false
+        newVenue: false,
+        promoterName: '',
+        newPromoter: false
       }
       const skip = (reason: string) => rows.push({ ...base, action: 'skipped', reason })
 
@@ -563,14 +714,30 @@ export function buildTourImportPlan(
         stored?.name ||
         [band.name, venueName || city].filter(Boolean).join(' – ')
       if (cell(row.cells, 'eventName')) fields.name = eventName
-      const preview = { ...base, bandName: band.name, eventName, newVenue }
+      // ---- LoPro: promoter and contact ----
+      const contactName = cell(row.cells, 'promoterContact')
+      const promoterName = promoterNameOf(cell(row.cells, 'promoter'), contactName)
+      const contactEmail = emailOf(cell(row.cells, 'promoterEmail'))
+      const promoter = promoterOf(promoterName, contactEmail, contactName)
+      const person = contactOf(contactName, contactEmail, promoter.ref)
+      const lopro: TourLoPro | undefined =
+        promoter.ref || person ? { company: promoter.ref, person } : undefined
+      const preview = {
+        ...base,
+        bandName: band.name,
+        eventName,
+        newVenue,
+        promoterName,
+        newPromoter: promoter.isNew
+      }
 
       if (!stored) {
         create.push({
           band_id: band.id,
           date,
           venue,
-          fields: { ...fields, name: eventName, status: fields.status ?? request.defaultStatus }
+          fields: { ...fields, name: eventName, status: fields.status ?? request.defaultStatus },
+          lopro
         })
         rows.push({ ...preview, action: 'new' })
         continue
@@ -580,7 +747,13 @@ export function buildTourImportPlan(
       const fieldChanges = (Object.keys(fields) as Array<keyof TourEventFields>).filter(
         (key) => !sameValue(stored[key], fields[key])
       )
-      if (!venueChanges && fieldChanges.length === 0) {
+      const loproChanges =
+        lopro !== undefined &&
+        ((lopro.company !== null &&
+          !('id' in lopro.company && lopro.company.id === stored.lopro_company_id)) ||
+          (lopro.person !== null &&
+            !('id' in lopro.person && lopro.person.id === stored.lopro_person_id)))
+      if (!venueChanges && !loproChanges && fieldChanges.length === 0) {
         unchanged++
         rows.push({ ...preview, status: stored.status as DealMemoStatus, action: 'unchanged' })
         continue
@@ -588,7 +761,10 @@ export function buildTourImportPlan(
       update.push({
         id: stored.id,
         venue: venueChanges ? venue : null,
-        fields: Object.fromEntries(fieldChanges.map((key) => [key, fields[key]])) as TourEventFields
+        fields: Object.fromEntries(
+          fieldChanges.map((key) => [key, fields[key]])
+        ) as TourEventFields,
+        lopro: loproChanges ? lopro : undefined
       })
       rows.push({ ...preview, action: 'update' })
     }
@@ -602,12 +778,16 @@ export function buildTourImportPlan(
         update: update.length,
         unchanged,
         skipped: rows.filter((row) => row.action === 'skipped').length,
-        newVenues: venues.length
+        newVenues: venues.length,
+        newPromoters: promoters.length,
+        newContacts: contacts.length
       },
       errors
     },
     venues,
     create,
-    update
+    update,
+    promoters,
+    contacts
   }
 }

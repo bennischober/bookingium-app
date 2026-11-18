@@ -39,12 +39,29 @@ export class TourImportRepository {
         radius_km: schema.deal_memo.radius_km,
         radius_weeks_before: schema.deal_memo.radius_weeks_before,
         radius_weeks_after: schema.deal_memo.radius_weeks_after,
-        notes: schema.deal_memo.notes
+        notes: schema.deal_memo.notes,
+        lopro_company_id: schema.deal_memo.lopro_company_id,
+        lopro_person_id: schema.deal_memo.lopro_person_id
       })
       .from(schema.deal_memo)
       .where(notArchived())
       .all()
-    return { bands, venues, events }
+    const companies = db
+      .select({ id: schema.company.id, name: schema.company.name })
+      .from(schema.company)
+      .all()
+    const persons = db
+      .select({
+        id: schema.person.id,
+        firstName: schema.person.first_name,
+        lastName: schema.person.last_name,
+        email: schema.contact.email
+      })
+      .from(schema.person)
+      .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
+      .all()
+      .map((person) => ({ ...person, email: (person.email ?? '').trim().toLowerCase() }))
+    return { bands, venues, events, companies, persons }
   }
 
   /** The tours events name (not archived), alphabetically */
@@ -59,8 +76,66 @@ export class TourImportRepository {
   }
 
   /** Writes the plan in one transaction (synchronous: better-sqlite3) */
-  applyImport(plan: TourImportPlan): { created: number; updated: number; venuesCreated: number } {
+  applyImport(plan: TourImportPlan): {
+    created: number
+    updated: number
+    venuesCreated: number
+    promotersCreated: number
+    contactsCreated: number
+  } {
     return db.transaction((tx) => {
+      // ---- promoters (companies) and their contacts (persons, role "Kontakt") ----
+      const companyIds = new Map<string, number>()
+      for (const draft of plan.promoters) {
+        const contact = draft.email
+          ? tx
+              .insert(schema.contact)
+              .values({ email: draft.email })
+              .returning({ id: schema.contact.id })
+              .get().id
+          : null
+        const company = tx
+          .insert(schema.company)
+          .values({ name: draft.name, contact_id: contact })
+          .returning({ id: schema.company.id })
+          .get()
+        companyIds.set(draft.key, company.id)
+      }
+      const companyId = (ref: { id: number } | { key: string } | null): number | null =>
+        ref === null ? null : 'id' in ref ? ref.id : (companyIds.get(ref.key) ?? null)
+      const personIds = new Map<string, number>()
+      for (const draft of plan.contacts) {
+        const contact = draft.email
+          ? tx
+              .insert(schema.contact)
+              .values({ email: draft.email })
+              .returning({ id: schema.contact.id })
+              .get().id
+          : null
+        const person = tx
+          .insert(schema.person)
+          .values({ first_name: draft.firstName, last_name: draft.lastName, contact_id: contact })
+          .returning({ id: schema.person.id })
+          .get()
+        personIds.set(draft.key, person.id)
+        const company = companyId(draft.company)
+        if (company !== null) {
+          tx.insert(schema.company_member)
+            .values({ company_id: company, person_id: person.id, role: 'Kontakt' })
+            .onConflictDoNothing()
+            .run()
+        }
+      }
+      const personId = (ref: { id: number } | { key: string } | null): number | null =>
+        ref === null ? null : 'id' in ref ? ref.id : (personIds.get(ref.key) ?? null)
+      /** The LoPro columns of an event; a link the row does not name stays as it is */
+      const loproValues = (lopro: TourImportPlan['create'][number]['lopro']) => {
+        const values: { lopro_company_id?: number | null; lopro_person_id?: number | null } = {}
+        if (lopro?.company) values.lopro_company_id = companyId(lopro.company)
+        if (lopro?.person) values.lopro_person_id = personId(lopro.person)
+        return values
+      }
+
       const venueIds = new Map<string, number>()
       for (const draft of plan.venues) {
         const address = tx
@@ -91,6 +166,7 @@ export class TourImportRepository {
         tx.insert(schema.deal_memo)
           .values({
             ...draft.fields,
+            ...loproValues(draft.lopro),
             band_id: draft.band_id,
             date: draft.date,
             venue_id: venueId(draft.venue)
@@ -98,7 +174,7 @@ export class TourImportRepository {
           .run()
       }
       for (const change of plan.update) {
-        const values: Record<string, unknown> = { ...change.fields }
+        const values: Record<string, unknown> = { ...change.fields, ...loproValues(change.lopro) }
         if (change.venue) values.venue_id = venueId(change.venue)
         tx.update(schema.deal_memo)
           .set({ ...values, updated_at: sql`(datetime('now'))` })
@@ -108,7 +184,9 @@ export class TourImportRepository {
       return {
         created: plan.create.length,
         updated: plan.update.length,
-        venuesCreated: plan.venues.length
+        venuesCreated: plan.venues.length,
+        promotersCreated: plan.promoters.length,
+        contactsCreated: plan.contacts.length
       }
     })
   }

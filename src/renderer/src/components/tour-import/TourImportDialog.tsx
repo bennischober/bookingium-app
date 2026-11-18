@@ -437,14 +437,15 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
               </p>
             )}
             {previewData && (
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-6">
                 {(
                   [
                     ['new', 'Neu'],
                     ['update', 'Geändert'],
                     ['unchanged', 'Unverändert'],
                     ['skipped', 'Übersprungen'],
-                    ['newVenues', 'Neue Clubs/Festivals']
+                    ['newVenues', 'Neue Clubs/Festivals'],
+                    ['newPromoters', 'Neue Veranstalter']
                   ] as const
                 ).map(([key, label]) => (
                   <div key={key} className="rounded-lg border px-3 py-2">
@@ -469,6 +470,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                       <th className="px-3 py-2 font-medium">Band</th>
                       <th className="px-3 py-2 font-medium">Club / Festival</th>
                       <th className="px-3 py-2 font-medium">Ort</th>
+                      <th className="px-3 py-2 font-medium">Veranstalter</th>
                       <th className="px-3 py-2 font-medium">Tour</th>
                       <th className="px-3 py-2 font-medium">Status</th>
                       <th className="px-3 py-2 font-medium">Import</th>
@@ -499,6 +501,14 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                           )}
                         </td>
                         <td className="px-3 py-2 align-top">{row.city || '–'}</td>
+                        <td className="px-3 py-2 align-top">
+                          {row.promoterName || '–'}
+                          {row.newPromoter && (
+                            <span className="block text-xs text-muted-foreground">
+                              wird angelegt
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 align-top">{row.tour || '–'}</td>
                         <td className="px-3 py-2 align-top">
                           {row.action === 'skipped' ? '–' : STATUS_LABELS[row.status]}
@@ -532,6 +542,8 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
             <p className="text-sm">
               {result.created} neu · {result.updated} aktualisiert · {result.unchanged} unverändert
               {result.skipped > 0 && ` · ${result.skipped} übersprungen`}
+              {result.promotersCreated + result.contactsCreated > 0 &&
+                ` · ${result.promotersCreated} Veranstalter und ${result.contactsCreated} Ansprechpartner angelegt`}
               {result.venuesCreated > 0 &&
                 ` · ${result.venuesCreated} ${result.venuesCreated === 1 ? 'Club/Festival' : 'Clubs/Festivals'} angelegt`}
             </p>

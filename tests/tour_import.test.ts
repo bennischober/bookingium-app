@@ -16,6 +16,8 @@ import { importTable, readImportFile } from '../src/main/import/readImportFile'
 import {
   buildTourImportPlan,
   detectTourMapping,
+  emailOf,
+  promoterNameOf,
   tourTitleHints,
   parseAmountCents,
   parseEventStatus,
@@ -210,7 +212,9 @@ describe('tour import plan', () => {
       update: 1,
       unchanged: 0,
       skipped: 3,
-      newVenues: 1
+      newVenues: 1,
+      newPromoters: 0,
+      newContacts: 0
     })
     expect(plan.update).toEqual([
       {
@@ -353,9 +357,9 @@ describe('tour sheet without a header row', () => {
       'date',
       'city',
       'venueName',
-      'notes',
-      'notes',
-      'notes'
+      'promoter',
+      'promoterContact',
+      'promoterEmail'
     ])
   })
 
@@ -372,7 +376,7 @@ describe('tour sheet without a header row', () => {
     expect(tourTitleHints('Unbekannte Band Tour', bands)).toEqual({ band: '', tour: '' })
   })
 
-  it('imports every row for the band chosen for the sheet, notes without column names', () => {
+  it('imports every row for the band chosen for the sheet, with promoter and contact', () => {
     const table = importTable('Promoter Kontakte', records, 'DE')!
     const plan = buildTourImportPlan(
       {
@@ -390,9 +394,19 @@ describe('tour sheet without a header row', () => {
     )
     expect(plan.preview.errors).toEqual([])
     expect(plan.preview.counts).toMatchObject({ new: 2, skipped: 0, newVenues: 2 })
-    expect(plan.create[0].fields.notes).toBe(
-      ['Beispiel Konzerte', 'Florian', 'florian@example.com'].join('\n')
-    )
+    // Promoter and contact are linked to the event, not written into its notes
+    expect(plan.create[0].fields.notes).toBeUndefined()
+    expect(plan.create[0].lopro).toEqual({
+      company: { key: 'beispiel konzerte' },
+      person: { key: 'florian@example.com' }
+    })
+    expect(plan.promoters.map((p) => p.name)).toEqual(['Beispiel Konzerte', 'Probe GmbH'])
+    expect(plan.contacts[0]).toMatchObject({
+      firstName: 'Florian',
+      lastName: '',
+      email: 'florian@example.com'
+    })
+    expect(plan.preview.counts).toMatchObject({ newPromoters: 2, newContacts: 2 })
     expect(plan.create[0].fields.tour).toBe('Herbst 2027')
   })
 
@@ -406,5 +420,105 @@ describe('tour sheet without a header row', () => {
       }
     )
     expect(plan.preview.errors[0]).toMatch(/Band für alle Zeilen/)
+  })
+})
+
+describe('promoter and contact (LoPro)', () => {
+  it('cleans e-mail addresses out of their cells', () => {
+    expect(emailOf(' LP@Example.com')).toBe('lp@example.com')
+    expect(emailOf('bs-extern@example.com>')).toBe('bs-extern@example.com')
+    expect(emailOf('daniel@backstage.')).toBe('')
+  })
+
+  it('links known companies and creates the others once, in the database', () => {
+    const service = container.resolve(TourImportService)
+    const owner = db.insert(schema.company).values({ name: 'Lopro Band GbR' }).returning().get()
+    const band = db
+      .insert(schema.band)
+      .values({ name: 'Lopro Band', company_id: owner.id })
+      .returning()
+      .get()
+    const known = db
+      .insert(schema.company)
+      .values({ name: 'Bekannte Konzerte GmbH' })
+      .returning()
+      .get()
+    const headers = ['Datum', 'Club', 'Ort', 'Veranstalter', 'Ansprechpartner', 'E-Mail']
+    const rows = [
+      [
+        '01.09.2027',
+        'Halle Eins',
+        'Köln',
+        'Bekannte Konzerte GmbH',
+        'Eva Muster',
+        'eva@example.com'
+      ],
+      ['02.09.2027', 'Halle Zwei', 'Bonn', 'Neue Konzerte', 'Tim', 'tim@example.com>'],
+      ['03.09.2027', 'Halle Drei', 'Aachen', 'Neue Konzerte', 'Tim', 'tim@example.com']
+    ]
+    const sheet: TourImportRequest = {
+      fileName: 'lopro.xlsx',
+      headers,
+      rows: rows.map((cells, index) => ({ rowNumber: index + 2, cells })),
+      mapping: detectTourMapping(headers),
+      band: band.name,
+      tour: '',
+      defaultKind: 'venue',
+      defaultStatus: 'confirmed',
+      createVenues: true
+    }
+    expect(sheet.mapping).toEqual([
+      'date',
+      'venueName',
+      'city',
+      'promoter',
+      'promoterContact',
+      'promoterEmail'
+    ])
+    expect(service.commit(sheet)).toMatchObject({
+      created: 3,
+      promotersCreated: 1,
+      contactsCreated: 2
+    })
+
+    const events = db
+      .select()
+      .from(schema.deal_memo)
+      .where(eq(schema.deal_memo.band_id, band.id))
+      .all()
+      .sort((a, b) => a.date.localeCompare(b.date))
+    expect(events[0].lopro_company_id).toBe(known.id)
+    expect(events[1].lopro_company_id).toBe(events[2].lopro_company_id)
+    expect(events[1].lopro_person_id).toBe(events[2].lopro_person_id)
+    const tim = db
+      .select()
+      .from(schema.person)
+      .where(eq(schema.person.id, events[1].lopro_person_id!))
+      .get()
+    expect(tim).toMatchObject({ first_name: 'Tim', last_name: '' })
+    const member = db
+      .select()
+      .from(schema.company_member)
+      .where(eq(schema.company_member.person_id, tim!.id))
+      .get()
+    expect(member).toMatchObject({ company_id: events[1].lopro_company_id, role: 'Kontakt' })
+
+    // The next version of the sheet finds them again: nothing new
+    expect(service.commit(sheet)).toMatchObject({
+      created: 0,
+      unchanged: 3,
+      promotersCreated: 0,
+      contactsCreated: 0
+    })
+  })
+})
+
+describe('promoter names', () => {
+  it('drops the contact first name a list tacked onto the promoter', () => {
+    expect(promoterNameOf('Batschkapp / Anna', 'Anna ')).toBe('Batschkapp')
+    expect(promoterNameOf('Hellraiser katrin', 'Katrin')).toBe('Hellraiser')
+    expect(promoterNameOf('Concertbüro Franken / Guido', 'Guido')).toBe('Concertbüro Franken')
+    expect(promoterNameOf('Living Concerts', 'Erik')).toBe('Living Concerts')
+    expect(promoterNameOf('Anna', 'Anna')).toBe('Anna')
   })
 })
