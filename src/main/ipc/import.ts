@@ -33,4 +33,14 @@ export function registerImportIpc(): void {
       return failure(error)
     }
   })
+
+  /** #222: picks a received e-invoice; reading it goes through tRPC (einvoiceParty.read) */
+  ipcMain.handle('einvoice:pickFile', async (event): Promise<string | null> => {
+    const result = await showOpenDialogFor(event.sender, {
+      title: 'E-Rechnung wählen',
+      properties: ['openFile'],
+      filters: [{ name: 'E-Rechnung (PDF oder XML)', extensions: ['pdf', 'xml'] }]
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
 }

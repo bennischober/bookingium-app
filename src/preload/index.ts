@@ -61,6 +61,7 @@ const api = {
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
   pickImportFile: () => ipcRenderer.invoke('import:pickFile'),
+  pickEInvoiceFile: () => ipcRenderer.invoke('einvoice:pickFile'),
 
   /** An error nothing caught, for the local error log */
   reportError: (report: { message: string; stack?: string }) =>

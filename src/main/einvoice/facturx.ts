@@ -138,6 +138,50 @@ export async function embedFacturX(
   return doc.save()
 }
 
+// File names other programs embed the XML under (ZUGFeRD 2.0 used its own name)
+const RECEIVED_XML_NAMES = [FACTURX_FILE_NAME, XRECHNUNG_FILE_NAME, 'zugferd-invoice.xml']
+
+/**
+ * The e-invoice XML of a received PDF (#222), null if it has none. More lenient than
+ * readFacturX: walks a nested name tree, takes the known names in any case and, failing
+ * those, a single embedded .xml file. Encrypted PDFs are read as far as pdf-lib can.
+ */
+export async function readEmbeddedInvoiceXml(pdf: Uint8Array): Promise<string | null> {
+  const doc = await PDFDocument.load(pdf, { updateMetadata: false, ignoreEncryption: true })
+  const names = doc.catalog.lookupMaybe(PDFName.of('Names'), PDFDict)
+  const tree = names?.lookupMaybe(PDFName.of('EmbeddedFiles'), PDFDict)
+  const files: Array<{ name: string; spec: PDFDict }> = []
+
+  const walk = (node: PDFDict | undefined, depth: number): void => {
+    if (!node || depth > 8) return
+    const entries = node.lookupMaybe(PDFName.of('Names'), PDFArray)
+    for (let index = 0; entries && index + 1 < entries.size(); index += 2) {
+      const name = entries.lookup(index)
+      const spec = entries.lookup(index + 1)
+      if (!(spec instanceof PDFDict)) continue
+      const text =
+        name instanceof PDFHexString || name instanceof PDFString ? name.decodeText() : ''
+      files.push({ name: text.toLowerCase(), spec })
+    }
+    const kids = node.lookupMaybe(PDFName.of('Kids'), PDFArray)
+    for (let index = 0; kids && index < kids.size(); index++) {
+      const kid = kids.lookup(index)
+      if (kid instanceof PDFDict) walk(kid, depth + 1)
+    }
+  }
+  walk(tree, 0)
+
+  const xmlFiles = files.filter((file) => file.name.endsWith('.xml'))
+  const chosen =
+    xmlFiles.find((file) => RECEIVED_XML_NAMES.includes(file.name)) ??
+    (xmlFiles.length === 1 ? xmlFiles[0] : undefined)
+  if (!chosen) return null
+  const streams = chosen.spec.lookupMaybe(PDFName.of('EF'), PDFDict)
+  const stream = streams?.lookup(PDFName.of('F')) ?? streams?.lookup(PDFName.of('UF')) ?? undefined
+  if (!(stream instanceof PDFRawStream)) return null
+  return new TextDecoder().decode(decodePDFRawStream(stream).decode())
+}
+
 /** The embedded e-invoice XML of a PDF, null if it has none (tests, checks) */
 export async function readFacturX(pdf: Uint8Array): Promise<string | null> {
   const doc = await PDFDocument.load(pdf, { updateMetadata: false })
