@@ -118,6 +118,11 @@ events and invoices), not a general mail client.
   {Empfänger}). The event the replied-to mail is linked to is preselected. A placeholder without a value
   stays as typed so the gap shows; the template's subject only fills an empty subject. No {Absender}:
   accounts have no display name. The invoice and contract mail texts stay where they are.
+- **A folder per forwarded address** (#213): under the rules, "Weitergeleitete Adressen" lists each writable
+  account's aliases. "Ordner und Regel anlegen" creates a top-level folder named after the address (the
+  server's delimiter replaced, `settings/aliasFolderRules.ts`) and a rule "An/Cc enthält die Adresse → in
+  den Ordner"; an alias that already has such a rule shows its folder. Only new mail moves, like every rule.
+  Forwarders that rewrite To (original address only in Delivered-To / X-Original-To) are not matched yet.
 - **Mail rules** (#124): Einstellungen › E-Mail › "E-Mail-Regeln" (`MailRulesCard`, table `mail_rule`).
   A rule names parts of the sender, To/Cc and subject (comma for alternatives; every named condition must
   hold) and what happens to a matching INBOX mail: mark read, flag, move to a folder on the server, link to
@@ -127,11 +132,6 @@ events and invoices), not a general mail client.
   on (less 10 minutes for the server's clock), each mail once per rule (`mail_rule_hit`), the first rule
   with a folder moves it. On a "Nur lesen" account rules only link; marking and moving are skipped and
   the rule says so. Rules follow their account like links (`adoptRestoredLinks`).
-- **A folder per forwarded address** (#213): under the rules, "Weitergeleitete Adressen" lists each writable
-  account's aliases. "Ordner und Regel anlegen" creates a top-level folder named after the address (the
-  server's delimiter replaced, `settings/aliasFolderRules.ts`) and a rule "An/Cc enthält die Adresse → in
-  den Ordner"; an alias that already has such a rule shows its folder. Only new mail moves, like every rule.
-  Forwarders that rewrite To (original address only in Delivered-To / X-Original-To) are not matched yet.
 - **Contacts:** a sender can be saved as a person from the reader (`CreateContactSheet`). Mail never
   creates contacts on its own. A person can have several email addresses.
 - **Search palette:** a mail group next to the app's records (only with the client on).
