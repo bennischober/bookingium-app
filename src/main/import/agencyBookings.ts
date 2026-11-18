@@ -19,6 +19,51 @@ import type {
   ExternalBookingStatus
 } from '../api/schemas/external_booking.schema'
 import { cleanText, findCountry, normalizeKey, normalizeZip } from './normalize'
+import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../map/radius'
+
+// Radius clause columns (Gebietsschutz), shared with the tour import
+export const RADIUS_KM_HEADERS = [
+  'gebietsschutz',
+  'gebietsschutz km',
+  'radius',
+  'radius km',
+  'radius in km',
+  'umkreis',
+  'umkreis km',
+  'sperrradius',
+  'km'
+]
+export const RADIUS_BEFORE_HEADERS = [
+  'wochen davor',
+  'wochen vorher',
+  'wochen vor',
+  'sperrfrist davor',
+  'sperrfrist vorher',
+  'radius wochen davor',
+  'gebietsschutz wochen davor',
+  'weeks before'
+]
+export const RADIUS_AFTER_HEADERS = [
+  'wochen danach',
+  'wochen nachher',
+  'wochen nach',
+  'sperrfrist danach',
+  'sperrfrist nachher',
+  'radius wochen danach',
+  'gebietsschutz wochen danach',
+  'weeks after'
+]
+
+/**
+ * A clause number (km or weeks) from a cell: "100", "100 km", "4 Wochen", "±4"; null for an
+ * empty or unreadable cell or one above `max`, so the kind's default applies
+ */
+export function parseClauseNumber(raw: string, max: number): number | null {
+  const match = cleanText(raw).match(/(\d+)/)
+  if (!match) return null
+  const value = Number(match[1])
+  return Number.isInteger(value) && value >= 0 && value <= max ? value : null
+}
 
 // Header spellings (compared with normalizeKey: lower case, punctuation as spaces)
 const HEADER_SYNONYMS: Array<[ExternalBookingField, string[]]> = [
@@ -79,6 +124,9 @@ const HEADER_SYNONYMS: Array<[ExternalBookingField, string[]]> = [
       'key'
     ]
   ],
+  ['radiusKm', RADIUS_KM_HEADERS],
+  ['radiusWeeksBefore', RADIUS_BEFORE_HEADERS],
+  ['radiusWeeksAfter', RADIUS_AFTER_HEADERS],
   [
     'notes',
     [
@@ -194,6 +242,9 @@ export type AgencyBookingFields = {
   country: string
   notes: string
   source_key: string
+  radius_km: number | null
+  radius_weeks_before: number | null
+  radius_weeks_after: number | null
 }
 
 /** A stored booking of the agency being imported, as the repository loads it */
@@ -230,7 +281,10 @@ const COMPARED: Array<keyof AgencyBookingFields> = [
   'zip_code',
   'city',
   'country',
-  'notes'
+  'notes',
+  'radius_km',
+  'radius_weeks_before',
+  'radius_weeks_after'
 ]
 
 /** "10115 Berlin" in one Ort column: the postcode and the place */
@@ -340,7 +394,13 @@ export function buildAgencyImportPlan(
         city,
         country: countryCode || countryCell,
         notes,
-        source_key: sourceKey
+        source_key: sourceKey,
+        radius_km: parseClauseNumber(cell(row.cells, 'radiusKm'), RADIUS_KM_MAX),
+        radius_weeks_before: parseClauseNumber(
+          cell(row.cells, 'radiusWeeksBefore'),
+          RADIUS_WEEKS_MAX
+        ),
+        radius_weeks_after: parseClauseNumber(cell(row.cells, 'radiusWeeksAfter'), RADIUS_WEEKS_MAX)
       }
       const preview = { ...base, bandName: band.name }
 
@@ -348,7 +408,7 @@ export function buildAgencyImportPlan(
       if (!stored) {
         create.push(fields)
         rows.push({ ...preview, action: 'new' })
-      } else if (COMPARED.every((key) => stored[key] === fields[key])) {
+      } else if (COMPARED.every((key) => (stored[key] ?? null) === (fields[key] ?? null))) {
         unchanged.push(stored.id)
         rows.push({ ...preview, action: 'unchanged' })
       } else {

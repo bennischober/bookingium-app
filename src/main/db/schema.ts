@@ -447,6 +447,9 @@ export const deal_memo = sqliteTable(
      * active. A timestamp rather than a boolean, so "when" stays answerable.
      */
     archived_at: text('archived_at'),
+    // The tour the event belongs to ("Frühjahr 2027"), '' for none; the map and the event list
+    // filter by it, the tour import sets it
+    tour: text('tour').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -462,6 +465,7 @@ export const deal_memo = sqliteTable(
     index('deal_memo_invoice_company_idx').on(table.invoice_company_id),
     index('deal_memo_status_idx').on(table.status),
     index('deal_memo_archived_idx').on(table.archived_at),
+    index('deal_memo_tour_idx').on(table.tour),
     oneOf('deal_memo_status_check', 'status', DealMemoStatus.options)
   ]
 )
@@ -1131,6 +1135,10 @@ export const external_booking = sqliteTable(
     // The file the row last came from, and when
     source_file: text('source_file').notNull().default(''),
     imported_at: text('imported_at').notNull(),
+    // The export's own radius clause (Gebietsschutz); null fields take the kind's default
+    radius_km: integer('radius_km'),
+    radius_weeks_before: integer('radius_weeks_before'),
+    radius_weeks_after: integer('radius_weeks_after'),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

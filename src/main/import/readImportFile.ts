@@ -9,6 +9,7 @@ import {
   suggestKind,
   suggestTarget
 } from './detectMapping'
+import { readXlsx } from './xlsx'
 
 /**
  * The first non-empty record is the header row, every later non-empty one a
@@ -55,8 +56,8 @@ export function importTable(
 }
 
 /**
- * Reads a CSV file for the import dialog. The separator is detected; on a
- * tie the one of `locale` wins. `defaultCountry` is suggested unless the file
+ * Reads a CSV or Excel file (.xlsx, its first sheet) for the import dialog. A CSV's separator is
+ * detected; on a tie the one of `locale` wins. `defaultCountry` is suggested unless the file
  * name says the list is international.
  */
 export async function readImportFile(
@@ -64,9 +65,14 @@ export async function readImportFile(
   defaultCountry = 'DE',
   locale = 'de-DE'
 ): Promise<ImportFile> {
-  const text = decodeCsv(await readFile(filePath))
   const fileName = basename(filePath)
   const name = basename(fileName, extname(fileName))
+  const content = await readFile(filePath)
+  if (extname(fileName).toLowerCase() === '.xlsx') {
+    const { records } = readXlsx(content)
+    return { fileName, table: importTable(name, records, defaultCountry) }
+  }
+  const text = decodeCsv(content)
   return {
     fileName,
     table: importTable(name, parseCsv(text, csvSeparator(locale)), defaultCountry)

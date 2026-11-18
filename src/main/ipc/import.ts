@@ -7,13 +7,17 @@ import { failure, showOpenDialogFor } from './handlerUtils'
 
 /** The CSV import's file picker; planning and running the import go through tRPC */
 export function registerImportIpc(): void {
-  /** Picks a CSV file and returns its rows (as text, plus a suggested column mapping) */
+  /** Picks a CSV or Excel file and returns its rows (as text, plus a suggested column mapping) */
   ipcMain.handle('import:pickFile', async (event) => {
     try {
       const result = await showOpenDialogFor(event.sender, {
-        title: 'CSV-Datei importieren',
+        title: 'Liste importieren',
         properties: ['openFile'],
-        filters: [{ name: 'CSV-Datei', extensions: ['csv', 'txt'] }]
+        filters: [
+          { name: 'Excel- oder CSV-Datei', extensions: ['xlsx', 'csv', 'txt'] },
+          { name: 'Excel-Datei', extensions: ['xlsx'] },
+          { name: 'CSV-Datei', extensions: ['csv', 'txt'] }
+        ]
       })
       if (result.canceled || result.filePaths.length === 0) return { success: true, canceled: true }
       const { defaultCountry } = container.resolve(SettingsService).get()

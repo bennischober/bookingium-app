@@ -9,7 +9,7 @@ import type { PaginationInput } from '../api/schemas/base.schema'
 export class DealMemoService {
   constructor(@inject(DealMemoRepository) private dealMemoRepository: DealMemoRepository) {}
 
-  async getAllDealMemosPaginated(pagination: PaginationInput) {
+  async getAllDealMemosPaginated(pagination: PaginationInput & { tour?: string }) {
     return await this.dealMemoRepository.getAllPaginated(pagination)
   }
 

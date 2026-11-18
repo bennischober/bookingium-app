@@ -25,8 +25,8 @@ export class MapService {
    * (the marker builder leaves it out). Events carry their venue's address,
    * venues their own; both carry their radius clause overrides, and the
    * settings give the defaults per kind. Agency bookings (#103) come along as
-   * events with `agency` set: their own address, no overrides - the kind's
-   * default clause - and cancelled ones are already left out.
+   * events with `agency` set: their own address, the clause their export gave
+   * (else the kind's default), and cancelled ones are already left out.
    */
   async getData(filter: MapDataFilter): Promise<MapData> {
     // One event row per event; its venue's kind and address ride along.
@@ -38,6 +38,7 @@ export class MapService {
         name: schema.deal_memo.name,
         date: schema.deal_memo.date,
         status: schema.deal_memo.status,
+        tour: schema.deal_memo.tour,
         band_id: schema.deal_memo.band_id,
         venue_id: schema.deal_memo.venue_id,
         venue_kind: schema.venue.kind,
@@ -101,6 +102,7 @@ export class MapService {
       name: row.name,
       date: row.date,
       status: row.status,
+      tour: row.tour,
       band_id: row.band_id,
       venue_id: row.venue_id,
       venue_kind: row.venue_kind,
@@ -152,6 +154,12 @@ export class MapService {
                 country_code: booking.country
               }
             : null,
+        // the export's own clause, else the kind's default
+        radius: {
+          radius_km: booking.radius_km,
+          radius_weeks_before: booking.radius_weeks_before,
+          radius_weeks_after: booking.radius_weeks_after
+        },
         agency: booking.agency
       })
     }

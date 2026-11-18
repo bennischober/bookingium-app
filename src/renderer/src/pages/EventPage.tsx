@@ -16,7 +16,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/data-table'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
-import { Archive, Building2, Trash2 } from 'lucide-react'
+import { Archive, Building2, FileSpreadsheet, Trash2 } from 'lucide-react'
+import { TourImportDialog } from '@/components/tour-import/TourImportDialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { AgencyBookingsView } from '@/components/agency/AgencyBookingsView'
 import { toast } from '@/lib/toast'
 import { cn, formatShortDate } from '@/lib/utils'
@@ -39,6 +47,8 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Storniert'
 }
 
+const ALL_TOURS = '__all__'
+
 type EventView = 'list' | 'archive' | 'agency'
 const isEventView = (value: string): value is EventView =>
   value === 'list' || value === 'archive' || value === 'agency'
@@ -57,10 +67,17 @@ export function EventPage() {
   // ?create=true from the search palette and the "+ Neu" menu
   useListSearchActions({ onCreate: () => setWizardOpen(true) })
 
+  // Tour filter: kept for the session like the search; a tour no event names any more is ignored
+  const [tour, setTour] = useListSessionState<string>('events:tour', ALL_TOURS)
+  const tours = trpcReact.tourImport.tours.useQuery()
+  const tourKnown = tour !== ALL_TOURS && (tours.data ?? []).includes(tour)
+  const [tourImportOpen, setTourImportOpen] = useState(false)
+
   const events = trpcReact.dealMemo.getAllPaginated.useInfiniteQuery(
     {
       pageSize: LIST_CHUNK_SIZE,
       search: search || undefined,
+      tour: tourKnown ? tour : undefined,
       ...sortInput
     },
     infiniteListOptions
@@ -141,6 +158,11 @@ export function EventPage() {
       accessorKey: 'venueName',
       header: 'Club / Festival',
       cell: (info) => (info.getValue() as string | null) ?? '-'
+    },
+    {
+      accessorKey: 'tour',
+      header: 'Tour',
+      cell: (info) => (info.getValue() as string) || '-'
     },
     {
       accessorKey: 'status',
@@ -247,7 +269,7 @@ export function EventPage() {
           onLoadMore={() => void events.fetchNextPage()}
           sorting={sorting}
           onSortingChange={setSorting}
-          filtered={Boolean(search)}
+          filtered={Boolean(search) || tourKnown}
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Events filtern…"
@@ -257,6 +279,24 @@ export function EventPage() {
           total={listTotal(events.data)}
           actionButton={
             <ListToolbar createLabel="+ Neues Event" onCreate={() => setWizardOpen(true)}>
+              {(tours.data ?? []).length > 0 && (
+                <Select value={tourKnown ? tour : ALL_TOURS} onValueChange={setTour}>
+                  <SelectTrigger className="w-48" aria-label="Tour">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_TOURS}>Alle Touren</SelectItem>
+                    {(tours.data ?? []).map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button variant="outline" onClick={() => setTourImportOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4" /> Tourdaten importieren
+              </Button>
               <ExportButton list="events" sort={sortInput} search={search} />
             </ListToolbar>
           }
@@ -265,6 +305,8 @@ export function EventPage() {
           }
         />
       )}
+
+      <TourImportDialog open={tourImportOpen} onOpenChange={setTourImportOpen} />
 
       <CreateEventWizard
         isOpen={wizardOpen}

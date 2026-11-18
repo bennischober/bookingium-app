@@ -43,6 +43,12 @@ import {
 } from '../src/renderer/src/components/map/radiusDisplay'
 import type { MapMarkerDto } from '../src/main/api/schemas/map.schema'
 import { TILE_REQUEST_URLS, tileUserAgent } from '../src/main/map/tileRequests'
+import {
+  nextSort,
+  showRows,
+  sortShows,
+  type ShowSort
+} from '../src/renderer/src/components/map/showRows'
 import { getGroupedRoutes, getRouteShortcut, ROUTES } from '../src/renderer/src/lib/routing'
 
 const address = (
@@ -734,5 +740,129 @@ describe('map points', () => {
       'no_venue',
       'unknown_postcode'
     ])
+  })
+})
+
+describe('tours, venue rings and conflicts between shows', () => {
+  // Berlin and Potsdam lie about 27 km apart, Munich about 500 km from both
+  const potsdam = address({ zip_code: '14467', city: 'Potsdam' })
+  const munich = address({ zip_code: '80331', city: 'München' })
+
+  it('filters the events by tour; agency bookings have none and drop out', () => {
+    const data = buildMapData(
+      [
+        event({ id: 1, tour: 'Frühjahr 2027' }),
+        event({ id: 2, tour: 'Herbst 2027' }),
+        event({ id: 3, agency: 'Agentur X' })
+      ],
+      [],
+      { tour: 'Frühjahr 2027' }
+    )
+    expect(data.markers.map((marker) => marker.id)).toEqual([1])
+    expect(data.markers[0].tour).toBe('Frühjahr 2027')
+  })
+
+  it('gives every venue the km of its clause, own or the kind default', () => {
+    const data = buildMapData(
+      [],
+      [
+        venue({ id: 10 }),
+        venue({ id: 11, kind: 'festival' }),
+        venue({
+          id: 12,
+          radius: { radius_km: 42, radius_weeks_before: null, radius_weeks_after: null }
+        })
+      ],
+      {}
+    )
+    expect(data.markers.map((marker) => [marker.id, marker.radiusKm])).toEqual([
+      [10, 100],
+      [11, 300],
+      [12, 42]
+    ])
+  })
+
+  it('flags shows of the same band that lie in each other’s clause', () => {
+    const data = buildMapData(
+      [
+        event({ id: 1, name: 'Berlin', date: '2027-03-01' }),
+        // 27 km and two weeks later: inside Berlin's 100 km, 4 weeks
+        event({ id: 2, name: 'Potsdam', date: '2027-03-15', address: potsdam }),
+        // far away: free
+        event({ id: 3, name: 'München', date: '2027-03-08', address: munich }),
+        // another band in Potsdam: the clause binds a band, so no conflict
+        event({ id: 4, name: 'Andere Band', band_id: 2, date: '2027-03-02', address: potsdam }),
+        // an agency booking of the band in Berlin, a week later: collides too
+        event({ id: 5, name: 'Agentur', date: '2027-03-08', agency: 'Agentur X' }),
+        // cancelled: never happens
+        event({ id: 6, name: 'Abgesagt', date: '2027-03-03', status: 'cancelled' })
+      ],
+      [],
+      {}
+    )
+    const conflicts = Object.fromEntries(
+      data.markers.map((marker) => [marker.name, (marker.conflicts ?? []).map((c) => c.name)])
+    )
+    expect(conflicts).toEqual({
+      Berlin: ['Agentur', 'Potsdam'],
+      Potsdam: ['Berlin', 'Agentur'],
+      München: [],
+      'Andere Band': [],
+      Agentur: ['Berlin', 'Potsdam']
+    })
+  })
+})
+
+describe('show list', () => {
+  const show = (parts: Partial<MapMarkerDto> & Pick<MapMarkerDto, 'id'>): MapMarkerDto => ({
+    type: 'event',
+    kind: 'venue',
+    name: `Show ${parts.id}`,
+    date: '2027-03-01',
+    status: 'confirmed',
+    bandIds: [1],
+    located: true,
+    addressLabel: '',
+    ...parts
+  })
+  const markers = [
+    show({
+      id: 1,
+      date: '2027-03-10',
+      tour: 'B-Tour',
+      ring: { km: 100, from: '2027-02-10', to: '2027-04-07' }
+    }),
+    show({
+      id: 2,
+      date: '2027-03-01',
+      tour: '',
+      kind: 'festival',
+      ring: { km: 300, from: '2027-01-04', to: '2027-04-26' }
+    }),
+    show({
+      id: 3,
+      date: '2027-03-05',
+      tour: 'A-Tour',
+      conflicts: [{ eventId: 1, name: 'Show 1', date: '2027-03-10' }]
+    }),
+    { ...show({ id: 9 }), type: 'venue' as const }
+  ]
+  const bands = new Map([[1, 'Pretty Wild']])
+  const order = (sort: ShowSort) => sortShows(showRows(markers, bands), sort).map((row) => row.id)
+
+  it('lists the shows only, with band names', () => {
+    const rows = showRows(markers, bands)
+    expect(rows.map((row) => row.id)).toEqual([1, 2, 3])
+    expect(rows[0]).toMatchObject({ band: 'Pretty Wild', km: 100, tour: 'B-Tour' })
+  })
+
+  it('sorts by any column; shows without a tour come last', () => {
+    expect(order({ key: 'date', desc: false })).toEqual([2, 3, 1])
+    expect(order({ key: 'tour', desc: false })).toEqual([3, 1, 2])
+    expect(order({ key: 'tour', desc: true })).toEqual([1, 3, 2])
+    expect(order({ key: 'km', desc: true })).toEqual([2, 1, 3])
+    expect(order({ key: 'conflicts', desc: true })).toEqual([3, 2, 1])
+    expect(nextSort({ key: 'date', desc: false }, 'date')).toEqual({ key: 'date', desc: true })
+    expect(nextSort({ key: 'date', desc: true }, 'tour')).toEqual({ key: 'tour', desc: false })
   })
 })
