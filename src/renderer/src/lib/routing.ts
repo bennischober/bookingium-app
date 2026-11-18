@@ -11,6 +11,7 @@ import {
   Map as MapIcon,
   MapPin,
   Music2,
+  Plane,
   Receipt,
   Settings,
   Tent,
@@ -70,6 +71,7 @@ export const ROUTES = {
   map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
   // #225: after the first ten as well, so no Alt+number shortcut moves
   receipts: { path: '/receipts', title: 'Belege', group: 'Planung', icon: Receipt },
+  trips: { path: '/trips', title: 'Reisekosten', group: 'Planung', icon: Plane },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
