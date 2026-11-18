@@ -22,6 +22,8 @@ import { managementContractRouter } from './routers/management_contract.router'
 import { importRouter } from './routers/import.router'
 import { settingsRouter } from './routers/settings.router'
 import { backupRouter } from './routers/backup.router'
+import { syncRouter } from './routers/sync.router'
+import { updatesRouter } from './routers/updates.router'
 import { exportRouter } from './routers/export.router'
 import { calendarRouter } from './routers/calendar.router'
 import { contactListRouter } from './routers/contact_list.router'
@@ -67,6 +69,8 @@ export const router = t.router({
   dataImport: importRouter,
   settings: settingsRouter,
   backup: backupRouter,
+  sync: syncRouter,
+  updates: updatesRouter,
   dataExport: exportRouter,
   calendar: calendarRouter,
   contactList: contactListRouter,

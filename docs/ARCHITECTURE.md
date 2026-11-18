@@ -126,6 +126,7 @@ mail/accounts.json                        Mail accounts (passwords via safeStora
 mail/data/<accountId>/                    Mail store (SQLite + FTS5) and .eml files
 backup/state.json                         Automatic backup settings and status
 backup/before-restore/                    The data as it was before each restore
+sync/state.json                           Sync settings and status (folder, device id)
 backup/before-update/                     The database before each update's migrations
                                           (the newest 3) and last-version.txt
 ```
@@ -211,6 +212,86 @@ encrypted?}`).
   whose replay on another computer could send mail twice. `mail/accounts.json`
   holds DPAPI-encrypted passwords that only work for this Windows user. See
   issue #55 for the account ids on a new computer.
+
+## Sync between computers
+
+`src/main/sync/` (no Electron) and `SyncService` (timers, `sync/state.json`).
+Einstellungen › Daten › "Abgleich mit anderen Computern" sets it up. Several
+installations keep the same data through a folder they all see (Google Drive,
+OneDrive, Dropbox, a network share); `transport.ts` is the only part that knows
+it is a folder, so a server can implement `SyncTransport` later.
+
+- **Shared folder:** `bookingium-abgleich.json` marks it; `geraete/<device>/`
+  holds each computer's `geraet.json` (name, id prefix) and its numbered batches
+  `aenderungen/0000000001.json`; `dateien/<sha[0:2]>/<sha256>` holds file
+  contents; `startstand/<device>-<time>/` the starting point a new computer
+  joins from. A computer only creates files, in its own folder, under new
+  names, written as `.tmp-*` and renamed, so a sync client never has two
+  versions of a file to reconcile.
+- **Change capture:** while sync is set up, generated triggers
+  (`sync_trg_{ins,upd,del}_<table>`, `store.ts`) log every row change of every
+  table into `sync_change` (old and new row as JSON). They are rebuilt from the
+  live columns at every start and dropped before migrations run
+  (`runMigrations`), so a migration's own data changes do not travel. Local-only
+  data is left out: `mail_link`, `mail_rule`, `mail_rule_hit`,
+  `invoice_email_pending` and the machine settings in `LOCAL_SETTING_KEYS`
+  (`tables.ts`). The `sync_*` tables are created by the sync, not by a
+  migration; a database without sync has none.
+- **Ids:** every integer id column defaults to `nextRowId()` (`ids.ts`): while
+  sync is on, ids come from the computer's own range `prefix * 2^33 + n` (the
+  prefix is random and unique in the group), otherwise it returns null and
+  SQLite counts as before. Rows from before the sync keep their small ids.
+- **A run** (every 20 s, 5 s after start, and on quit with a 5 s limit):
+  scan `storage/` for changed files (content to `dateien/` first), apply the
+  others' batches, copy in their files, pack local changes into the next batch
+  (`sync_outbox`), write it out. Batches of a device are applied in order and
+  only once the batches they build on (`seen`) are applied (causal order); a
+  batch from a newer schema waits until this app is updated.
+- **Merging:** each change carries a hybrid logical timestamp (`hlc.ts`).
+  Per field the newer change wins (`sync_clock`, column `*` for a whole row's
+  insert); a delete wins over edits from elsewhere (`sync_tomb`). A row created
+  on two computers that is the same thing (`ALIAS_KEYS`: a genre typed on both,
+  the same member, itinerary or invoice settings) becomes an alias of the local
+  one (`sync_alias`), and foreign keys of later changes follow it. The default
+  invoicing company: the newer mark wins. Anything else that cannot be applied
+  (an invoice number issued on both computers, a delete of a record still used
+  here) goes to `sync_conflict` and is listed on the settings card.
+  `takeNextInvoiceNumber` never hands out a number below one already used, so
+  numbers only collide when both computers issue invoices for the same company
+  before they synced.
+- **Setting up** (`createGroup`): the first computer writes the starting point
+  (`VACUUM INTO`, storage copy). **Joining** (`join.ts`, `merge.ts`): the
+  starting point is fetched, migrated if older, given the new computer's
+  identity, and the joiner's own data is merged into it: records found on both
+  sides (`keyOf`: name, band + date, company + invoice number, ...; same id and
+  same `created_at` means a common past) are merged field by field (empty
+  fields filled, the more recently edited side wins), the rest is inserted
+  with new ids; addresses, contact data, bank accounts and invoice party
+  snapshots follow their owner. Colliding storage paths get a `-2` suffix and
+  the path columns follow. The merge's writes are the joiner's first batch.
+  The result is staged like a restore (`restore-incoming`, then
+  `BackupService.confirmRestore`, which backs up the current state) and the app
+  restarts.
+- **Identity:** `sync/state.json` keeps the device id and the highest batch
+  written. If the database says otherwise at start (a backup was restored), the
+  computer takes a new identity and imports its old identity's later batches
+  like another computer's, so a restore never loses the others' newer changes.
+- **Mail stays local:** accounts and mail stores are per computer; each one
+  syncs its mail with the server itself.
+
+## Auto-update (#49)
+
+`src/main/app/updates.ts` (electron-updater) with the pure status in
+`src/main/updates/state.ts`. Only the installed app updates itself
+(`app.isPackaged`). `electron-builder.yml` `publish` names the GitHub repository,
+which writes `app-update.yml` into the package and `latest.yml` plus the
+`.blockmap` next to the installer; `release.yml` uploads all three (electron-builder
+itself runs with `--publish never`). Checks: 30 s after start, every 4 h, on
+"Nach Updates suchen", and when the sync sees another computer on a newer
+version. A found update downloads in the background and installs silently when
+the app closes (`autoInstallOnAppQuit`); "Jetzt neu starten" installs at once
+and starts the new version. A downloaded update stays "ready" through later
+failed checks. `tests/updates.test.ts` pins the release contract.
 
 ## Migrations
 

@@ -3,6 +3,9 @@ import { readMigrationFiles } from 'drizzle-orm/migrator'
 import type Database from 'better-sqlite3'
 import { getDb, getSqlite } from './index'
 import { join } from 'path'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { schema } from './schema'
+import { dropSyncTriggers } from '../sync/store'
 
 let migrationsFolderOverride: string | null = null
 
@@ -158,8 +161,29 @@ export function runMigrations(options: RunMigrationsOptions = {}): void {
   // the transaction instead, and verify integrity before re-enabling it.
   sqlite.pragma('foreign_keys = OFF')
   try {
+    // Sync's change triggers are rebuilt after the migrations (SyncService): a migration's own
+    // data changes happen on every computer and must not travel as edits
+    dropSyncTriggers(sqlite)
     upgradeLegacyDatabase(sqlite, migrationsFolder)
     migrate(getDb(), { migrationsFolder })
+    const violations = sqlite.pragma('foreign_key_check') as unknown[]
+    if (violations.length > 0) {
+      throw new Error(`Migration left ${violations.length} foreign key violation(s)`)
+    }
+  } finally {
+    sqlite.pragma('foreign_keys = ON')
+  }
+}
+
+/**
+ * Brings another database (a sync starting point from an older version) to this app's schema,
+ * with the same foreign key handling as runMigrations.
+ */
+export function migrateOtherDatabase(sqlite: Database.Database): void {
+  const migrationsFolder = resolveMigrationsFolder()
+  sqlite.pragma('foreign_keys = OFF')
+  try {
+    migrate(drizzle(sqlite, { schema }), { migrationsFolder })
     const violations = sqlite.pragma('foreign_key_check') as unknown[]
     if (violations.length > 0) {
       throw new Error(`Migration left ${violations.length} foreign key violation(s)`)

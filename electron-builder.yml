@@ -49,3 +49,12 @@ linux:
 appImage:
   artifactName: Bookingium-${version}.${ext}
 npmRebuild: false
+# Auto-update (#49): the installed app asks GitHub Releases of this public repository for a newer
+# version (electron-updater, src/main/app/updates.ts). This writes app-update.yml into the package
+# and latest.yml + the .blockmap next to the installer; the release workflow uploads all three.
+# Nothing is published by electron-builder itself (--publish never).
+publish:
+  provider: github
+  owner: bennischober
+  repo: bookingium-app
+  releaseType: release

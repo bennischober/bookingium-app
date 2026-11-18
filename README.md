@@ -63,6 +63,9 @@ German UI.
   into a folder of your choice (a synced OneDrive/Dropbox folder works),
   keeping one per day for a week and one per week for a month; restore from
   Einstellungen › Daten
+- **Sync between computers** through a shared folder (e.g. Google Drive):
+  every change, documents included, reaches the others within seconds;
+  joining merges the joiner's data without duplicates (Einstellungen › Daten)
 - **Calendar**, **dashboard**, **search everything** (Ctrl+K), back/forward
   navigation (Alt+←/→), searchable pickers, lists that scroll as one
   table (pinned headers, sortable columns, more rows load while scrolling)
@@ -142,30 +145,42 @@ Electron by `pnpm install`).
 
 ## Releasing
 
-A release is a tag. Pushing `v<version>` runs
-[`.github/workflows/release.yml`](.github/workflows/release.yml): it checks
-that the tag matches `version` in `package.json`, runs the full CI gate on
-the tagged commit, builds the Windows installer and publishes it as a GitHub
-Release with notes generated from the PRs merged since the previous tag.
+The easy way is a button: on GitHub, **Actions › Release › Run workflow**,
+choose `patch` (fixes, 1.0.0 → 1.0.1), `minor` (features, 1.0.0 → 1.1.0) or
+`major`, and run it on `main`. [`.github/workflows/release.yml`](.github/workflows/release.yml)
+then runs the full CI gate on `main` as it is, and once that is green raises
+`version` in `package.json`, commits it to `main`, tags it, builds the Windows installer and publishes it
+as a GitHub Release with notes generated from the PRs merged since the previous
+tag. The installed apps pick it up by themselves (see below).
 
-1. Bump `version` in `package.json` in a PR (`1.0.0` → `1.0.1` for fixes,
-   `1.1.0` for features) and merge it.
-2. Tag the merge commit on `main` and push the tag:
+Pushing a tag by hand still works: bump `version` in `package.json` in a PR,
+merge it, then
 
-   ```bash
-   git checkout main && git pull
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
+```bash
+git checkout main && git pull
+git tag v1.0.1
+git push origin v1.0.1
+```
 
-3. When the run is green, the release has `Bookingium-Setup-<version>.exe`.
-   Installing it over an existing installation updates it in place; the data
-   in `%APPDATA%\bookingum-app` is kept.
+When the run is green, the release has `Bookingium-Setup-<version>.exe`.
+Installing it over an existing installation updates it in place; the data in
+`%APPDATA%\bookingum-app` is kept.
 
 A red gate or a tag that does not match the version publishes nothing. Delete
-the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again.
-The installer is unsigned (#48) and there is no auto-update (#49): users
-download the new installer from the release.
+the tag (`git push origin :v1.0.1`, `git tag -d v1.0.1`), fix, and tag again;
+after a red run from the button nothing was committed or tagged: fix and run
+the button again. If `main` moved on while the gate ran, the version push is
+refused and nothing is released: run the button again. The button pushes
+to `main` with the workflow token: a branch protection rule on `main` must let
+GitHub Actions push.
+
+The installer is unsigned (#48). Installed apps update themselves (#49): they
+read `latest.yml` of the newest GitHub Release of this (public) repository,
+download the installer in the background and install it when the app closes
+(or at once from Einstellungen › Daten › „Version und Updates“). A release
+therefore needs the three files the workflow uploads: the installer, its
+`.blockmap` and `latest.yml`. Computers in a sync should run the same
+version; the sync looks for an update as soon as another computer is ahead.
 
 ## Architecture
 
