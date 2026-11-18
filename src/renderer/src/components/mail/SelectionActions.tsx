@@ -1,4 +1,13 @@
-import { Archive, Flag, Mail, MailOpen, Mails, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  Flag,
+  Mail,
+  MailOpen,
+  Mails,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { MessageListItem } from '../../../../main/mailclient/core/types'
 import type { MailActions } from './MessageMenu'
@@ -16,7 +25,7 @@ export function SelectionActions({
   const ids = items.map((m) => m.id)
   const anyUnread = items.some((m) => !m.isRead)
   const anyUnflagged = items.some((m) => !m.isFlagged)
-  const { markRead, markFlagged, archive, toTrash, expunge } = actions
+  const { markRead, markFlagged, archive, toTrash, expunge, toSpam, notSpam } = actions
 
   return (
     <section
@@ -36,6 +45,18 @@ export function SelectionActions({
           <Button variant="outline" size="sm" onClick={() => archive(ids)}>
             <Archive />
             Archivieren
+          </Button>
+        )}
+        {toSpam && (
+          <Button variant="outline" size="sm" onClick={() => toSpam(ids)}>
+            <ShieldAlert />
+            Spam
+          </Button>
+        )}
+        {notSpam && (
+          <Button variant="outline" size="sm" onClick={() => notSpam(ids)}>
+            <ShieldCheck />
+            Kein Spam
           </Button>
         )}
         {markRead && (

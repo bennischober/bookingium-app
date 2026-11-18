@@ -7,6 +7,7 @@ import { MessageView } from './MessageView'
 import { SelectionActions } from './SelectionActions'
 import type { MailActions } from './MessageMenu'
 import { archiveableIds } from './archiveActions'
+import { inboxOf, junkFolderOf, spamTargets } from './spamActions'
 import { type ComposeState, composeTo } from './composeDraft'
 import type { ReadingActions } from './readingActions'
 import { EMPTY_SELECTION, type Selection } from './selection'
@@ -71,6 +72,30 @@ export function ReadingPane({
   refreshLists: () => void
 }) {
   const navigate = useNavigate()
+
+  // #214: "Spam" for an open mail outside Junk, "Kein Spam" inside it; neither without a Junk
+  // folder or on a read-only account
+  const spamHandlers = (): {
+    onSpam?: (id: number) => void
+    onNotSpam?: (id: number) => void
+  } => {
+    const open = listItems.find((m) => m.id === selectedId)
+    const junk = junkFolderOf(allFolders)
+    const inbox = inboxOf(allFolders)
+    if (!canWrite || !open || !junk) return {}
+    const { toSpam, notSpam } = spamTargets([open], allFolders)
+    return {
+      onSpam:
+        toSpam.length > 0
+          ? (id) => void moveAway([id], { kind: 'folder', folder: junk })
+          : undefined,
+      onNotSpam:
+        notSpam.length > 0 && inbox
+          ? (id) => void moveAway([id], { kind: 'folder', folder: inbox })
+          : undefined
+    }
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {compose ? (
@@ -109,6 +134,7 @@ export function ReadingPane({
               ? (id) => void moveAway([id], { kind: 'archive' })
               : undefined
           }
+          {...spamHandlers()}
           onMarkUnread={(id) => markRead([id], false)}
           onCompose={reading.canCompose ? composeFrom : undefined}
           onWriteTo={

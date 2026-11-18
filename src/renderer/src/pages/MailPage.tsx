@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { readingActions } from '@/components/mail/readingActions'
 import { withWholeMessage } from '@/components/mail/completion'
 import { archiveableIds } from '@/components/mail/archiveActions'
+import { blockRule, inboxOf, junkFolderOf, spamTargets } from '@/components/mail/spamActions'
 import {
   type ComposeState,
   emptyCompose,
@@ -52,6 +53,12 @@ export default function MailPage() {
 function MailClient() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const utils = trpcReact.useUtils()
+  // #214: "Absender immer als Spam" is an ordinary mail rule
+  const saveRule = trpcReact.mailRule.save.useMutation({
+    onError: (error) =>
+      toast.error('Regel konnte nicht angelegt werden', { description: error.message })
+  })
   const accounts = trpcReact.mail.accounts.list.useQuery()
   // Each account's INBOX unread in the picker, the menu badge's numbers (#88)
   const inboxUnread = useInboxUnread().accounts
@@ -253,6 +260,29 @@ function MailClient() {
   const archiveable = archiveableIds(selectedItems, allFolders)
   // B5: permanent deletion is offered only for mails that are in Trash
   const inTrashItems = selectedItems.filter((m) => isTrash(folderOf(m)))
+  // #214: Spam / Kein Spam need the account's Junk folder; "Kein Spam" goes back to the inbox
+  const junk = junkFolderOf(allFolders)
+  const inbox = inboxOf(allFolders)
+  const spam = spamTargets(selectedItems, allFolders)
+  const blockSender = (id: number, scope: 'sender' | 'domain') => {
+    const item = listItems.find((m) => m.id === id)
+    const rule = item && junk ? blockRule(accountId, item.fromEmail, scope, junk) : null
+    if (!item || !rule) {
+      toast.error('Für diesen Absender lässt sich keine Regel anlegen')
+      return
+    }
+    saveRule.mutate(rule, {
+      onSuccess: () => {
+        void utils.mailRule.list.invalidate()
+        toast.success('Regel angelegt', {
+          description:
+            'Neue Mails dieses Absenders landen ab jetzt im Spam-Ordner. Ändern oder löschen unter Einstellungen › E-Mail › E-Mail-Regeln.'
+        })
+        if (item.folderId !== junk?.id && junk)
+          void moveAway([id], { kind: 'folder', folder: junk })
+      }
+    })
+  }
   const selectedActions: MailActions = canWrite
     ? {
         openWindow,
@@ -280,7 +310,24 @@ function MailClient() {
         expunge:
           inTrashItems.length > 0
             ? (ids) => void expunge(ids.filter((id) => inTrashItems.some((m) => m.id === id)))
-            : undefined
+            : undefined,
+        toSpam:
+          junk && spam.toSpam.length > 0
+            ? (ids) =>
+                void moveAway(
+                  ids.filter((id) => spam.toSpam.includes(id)),
+                  { kind: 'folder', folder: junk }
+                )
+            : undefined,
+        notSpam:
+          inbox && spam.notSpam.length > 0
+            ? (ids) =>
+                void moveAway(
+                  ids.filter((id) => spam.notSpam.includes(id)),
+                  { kind: 'folder', folder: inbox }
+                )
+            : undefined,
+        blockSender: junk ? blockSender : undefined
       }
     : { openWindow }
 
