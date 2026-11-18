@@ -191,7 +191,9 @@ export default function ReceiptPage() {
             <Clock className="h-3 w-3" /> wird bestätigt
           </Badge>
         ) : (
-          <span className="text-muted-foreground">offen</span>
+          <span className="text-muted-foreground">
+            {row.original.tripId !== null && !row.original.tripReport ? 'mit der Reise' : 'offen'}
+          </span>
         )
     },
     {

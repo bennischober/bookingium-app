@@ -744,6 +744,53 @@ export const invoice_email = sqliteTable(
 )
 
 /**
+ * A business trip (Reisekostenabrechnung, #225 step 2): who travelled where and when, the meals
+ * provided per day and the kilometres driven. travel/allowances.ts computes the per diem and
+ * mileage allowances; the trip's receipts point to it (receipt.trip_id), and the report PDF is
+ * stored as a receipt of its own (receipt.trip_report) and handed to DATEV like any receipt.
+ */
+export const trip = sqliteTable(
+  'trip',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    // The own company that reimburses it; the default company unless another is picked
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'set null' }),
+    // Who travelled, as printed (kept when the person is deleted)
+    traveller_name: text('traveller_name').default('').notNull(),
+    purpose: text('purpose').default('').notNull(),
+    destination: text('destination').default('').notNull(),
+    country_code: text('country_code', { length: 2 }).default('DE').notNull(),
+    // Local date and time, "YYYY-MM-DDTHH:MM"
+    start_at: text('start_at').notNull(),
+    end_at: text('end_at').notNull(),
+    // false: over midnight without an overnight stay
+    overnight: integer('overnight', { mode: 'boolean' }).default(true).notNull(),
+    // Per diem rates abroad (BMF table) in cents; null = the domestic rates
+    rate_partial_cents: integer('rate_partial_cents'),
+    rate_full_cents: integer('rate_full_cents'),
+    kilometres: integer('kilometres').default(0).notNull(),
+    vehicle: text('vehicle').default('car').notNull(),
+    // Provided meals by ISO date: {"2026-11-04": {"breakfast": true, ...}}
+    meals: text('meals').default('{}').notNull(),
+    // The DATEV category the report goes to
+    category: text('category').default('other').notNull(),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('trip_start_idx').on(table.start_at),
+    oneOf('trip_vehicle_check', 'vehicle', ['car', 'other']),
+    oneOf('trip_category_check', 'category', DatevCategory.options)
+  ]
+)
+
+/**
  * A received document (Beleg, #225): an incoming invoice, a credit card or cash receipt, a
  * travel expense. Stored as one PDF (photos are converted on the way in) and handed to DATEV
  * under its category, like an issued invoice. `file_name` is the name DATEV shows; renaming
@@ -776,6 +823,10 @@ export const receipt = sqliteTable(
     // Set when it came from a mail attachment
     source_message_id: text('source_message_id'),
     source_mail_account_id: text('source_mail_account_id'),
+    // #225 step 2: the trip it belongs to; it then goes to DATEV inside the trip's report
+    trip_id: integer('trip_id').references(() => trip.id, { onDelete: 'set null' }),
+    // The trip's report itself (generated PDF), not a receipt of the trip
+    trip_report: integer('trip_report', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -785,6 +836,7 @@ export const receipt = sqliteTable(
   },
   (table) => [
     index('receipt_company_idx').on(table.company_id),
+    index('receipt_trip_idx').on(table.trip_id),
     index('receipt_date_idx').on(table.receipt_date),
     index('receipt_supplier_idx').on(table.supplier_company_id),
     oneOf('receipt_category_check', 'category', DatevCategory.options)
@@ -1443,6 +1495,7 @@ export const schema = {
   invoice_email,
   invoice_email_pending,
   invoice_status_change,
+  trip,
   receipt,
   datev_transfer,
   management_contract,
