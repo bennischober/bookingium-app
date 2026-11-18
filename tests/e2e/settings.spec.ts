@@ -117,7 +117,8 @@ test('backups with a password: set, backed up encrypted, restore asks for it (#5
     await unlock.getByLabel('Passwort der Sicherung').fill('e2e-passwort-1')
     await unlock.getByRole('button', { name: 'Weiter' }).click()
     const confirm = page.getByRole('dialog', { name: 'Sicherung wiederherstellen?' })
-    await expect(confirm.getByText(/ersetzt alle aktuellen Daten und Dokumente/)).toBeVisible()
+    // "und Dokumente" only when the backup holds documents (the internal seed adds logos)
+    await expect(confirm.getByText(/ersetzt alle aktuellen Daten/)).toBeVisible()
     await confirm.getByRole('button', { name: 'Abbrechen' }).click()
     await expect(confirm).toBeHidden()
 
