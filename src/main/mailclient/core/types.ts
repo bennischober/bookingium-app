@@ -99,6 +99,8 @@ export type SearchFilters = {
   to?: string;
   subject?: string;
   hasAttachment?: boolean;
+  unread?: boolean;                 // #212: only mail without \Seen
+  flagged?: boolean;                // #212: only mail with \Flagged
   after?: string;                   // ISO date
   before?: string;
   folderId?: string;
