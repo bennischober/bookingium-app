@@ -34,6 +34,8 @@ import { confirmAction, confirmDelete } from '@/lib/confirm'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { EventSelectionActions } from '@/components/event-list/EventSelectionActions'
+import { keepShownRows } from '@/lib/rowSelection'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -75,6 +77,9 @@ export function EventPage() {
   const tours = trpcReact.tourImport.tours.useQuery()
   const tourKnown = tour !== ALL_TOURS && (tours.data ?? []).includes(tour)
   const [tourImportOpen, setTourImportOpen] = useState(false)
+
+  // #200: events picked for a status change or archiving
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
 
   const events = trpcReact.dealMemo.getAllPaginated.useInfiniteQuery(
     {
@@ -132,6 +137,14 @@ export function EventPage() {
   const handleDelete = async (id: number, name: string) => {
     if (await confirmDelete(`Event „${name}“ löschen?`)) deleteMutation.mutate(id)
   }
+
+  // Only events the list still shows stay picked (after a search, a filter, an archive)
+  const rows = listRows(events.data)
+  const shown = keepShownRows(
+    selected,
+    rows.map((row) => row.id)
+  )
+  if (shown !== selected) setSelected(shown)
 
   const columns: ColumnDef<DealMemoListItemDto>[] = [
     {
@@ -270,8 +283,16 @@ export function EventPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={listRows(events.data)}
+          data={rows}
           itemLabel={{ singular: 'Event', plural: 'Events' }}
+          selection={{
+            selected,
+            onChange: setSelected,
+            getId: (event) => event.id,
+            actions: (
+              <EventSelectionActions ids={[...selected]} onDone={() => setSelected(new Set())} />
+            )
+          }}
           hasMore={events.hasNextPage ?? false}
           isLoadingMore={events.isFetchingNextPage}
           onLoadMore={() => void events.fetchNextPage()}

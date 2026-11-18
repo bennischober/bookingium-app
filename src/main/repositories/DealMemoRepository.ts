@@ -1,5 +1,17 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  isNotNull,
+  like,
+  or,
+  sql,
+  type SQL
+} from 'drizzle-orm'
 import { listOrder, listPage } from './listQuery'
 import { notArchived, onlyArchived } from './archiveFilter'
 import { withGenres } from './genres'
@@ -7,7 +19,12 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { sqlTimestamp } from '../db/timestamps'
 import { toCents, toNullableCents } from '../einvoice/amounts'
-import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
+import type {
+  CreateDealMemoInput,
+  DealMemoStatus,
+  SetDealMemoStatusesInput,
+  UpdateDealMemoInput
+} from '../api/schemas/deal_memo.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
 
 @injectable()
@@ -262,6 +279,52 @@ export class DealMemoRepository {
       .where(eq(schema.deal_memo.id, id))
       .returning()
     return result[0] ?? null
+  }
+
+  /**
+   * #200: sets each event's status in one transaction and returns the statuses they had, for
+   * the events that exist and actually change (so undoing touches nothing else)
+   */
+  setStatuses(changes: SetDealMemoStatusesInput['changes']) {
+    return db.transaction((tx) => {
+      const before: Array<{ id: number; status: DealMemoStatus }> = []
+      for (const change of changes) {
+        const row = tx
+          .select({ status: schema.deal_memo.status })
+          .from(schema.deal_memo)
+          .where(eq(schema.deal_memo.id, change.id))
+          .get()
+        if (!row || row.status === change.status) continue
+        tx.update(schema.deal_memo)
+          .set({ status: change.status, updated_at: sqlTimestamp() })
+          .where(eq(schema.deal_memo.id, change.id))
+          .run()
+        before.push({ id: change.id, status: row.status as DealMemoStatus })
+      }
+      return before
+    })
+  }
+
+  /** #200: archives the events not archived yet; returns their ids, for undoing */
+  archiveMany(ids: number[]) {
+    return db
+      .update(schema.deal_memo)
+      .set({ archived_at: sqlTimestamp() })
+      .where(and(inArray(schema.deal_memo.id, ids), isNull(schema.deal_memo.archived_at)))
+      .returning({ id: schema.deal_memo.id })
+      .all()
+      .map((row) => row.id)
+  }
+
+  /** #200: brings the archived ones of these events back; returns their ids */
+  restoreMany(ids: number[]) {
+    return db
+      .update(schema.deal_memo)
+      .set({ archived_at: null })
+      .where(and(inArray(schema.deal_memo.id, ids), isNotNull(schema.deal_memo.archived_at)))
+      .returning({ id: schema.deal_memo.id })
+      .all()
+      .map((row) => row.id)
   }
 
   /** D3: brings an archived event back into the working view */

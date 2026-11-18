@@ -31,7 +31,8 @@ test('keeps the calendar file up to date', async () => {
   await page.getByRole('tab', { name: 'Kalender' }).click()
   await page.getByRole('button', { name: 'Datei festlegen…' }).click()
   await expect(page.getByText('Kalender-Datei wird jetzt aktuell gehalten')).toBeVisible()
-  await expect(page.getByText(/Zuletzt geschrieben .* · 3 Events/)).toBeVisible()
+  // 2 demo events, 3 when sample_data/internal-seed.json adds the internal one
+  await expect(page.getByText(/Zuletzt geschrieben .* · [23] Events/)).toBeVisible()
 
   const ics = () => (existsSync(file) ? readFileSync(file, 'utf-8').replace(/\r\n /g, '') : '')
   expect(ics()).toContain('SUMMARY:The Electric Waves - Berlin Tour')

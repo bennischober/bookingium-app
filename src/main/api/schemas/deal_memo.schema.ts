@@ -154,3 +154,22 @@ export const UpdateDealMemoInput = CreateDealMemoInput.partial()
   .extend(RadiusOverrideInput.shape)
 
 export type UpdateDealMemoInput = z.infer<typeof UpdateDealMemoInput>
+
+/** #200: events picked in the list, at most what a list can hold */
+const EventIds = z.array(z.number().int().positive()).min(1).max(5000)
+
+/**
+ * #200: a status per event, in one go. The answer has the same shape with the statuses they had,
+ * so passing it back undoes the change ("Rückgängig")
+ */
+export const SetDealMemoStatusesInput = z.object({
+  changes: z
+    .array(z.object({ id: z.number().int().positive(), status: DealMemoStatus }))
+    .min(1)
+    .max(5000)
+})
+export type SetDealMemoStatusesInput = z.infer<typeof SetDealMemoStatusesInput>
+
+/** #200: several events archived or restored at once */
+export const DealMemoIdsInput = z.object({ ids: EventIds })
+export type DealMemoIdsInput = z.infer<typeof DealMemoIdsInput>

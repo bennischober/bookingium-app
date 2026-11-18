@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 import { CLICKABLE_ROW_FOCUS, clickableRowProps } from '@/lib/clickableRow'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import type { QueryError } from '@/lib/queryErrors'
+import { selectionLabel, selectionState, toggleAllRows, toggleRow } from '@/lib/rowSelection'
+import { Button } from '@/components/ui/button'
 
 // The 'actions' column hugs its buttons at the right edge of the table
 // (w-px shrinks it to its content); any spare width goes to the data
@@ -20,6 +22,8 @@ import type { QueryError } from '@/lib/queryErrors'
 // wide table scrolls horizontally in a narrow window; pinned cells need an
 // opaque background, so body cells mirror the row hover color.
 const ACTIONS_COLUMN_ID = 'actions'
+// #200: the checkbox column of a list whose rows can be picked
+const SELECT_COLUMN_ID = 'select'
 const ACTIONS_CELL_CLASS = 'sticky right-0 w-px whitespace-nowrap text-right'
 const ACTIONS_HEAD_BG = 'bg-muted'
 const ACTIONS_BODY_BG =
@@ -72,6 +76,42 @@ interface DataTableProps<TData> {
   searchPlaceholder?: string
   actionButton?: React.ReactNode
   onRowClick?: (row: TData) => void
+  /**
+   * #200: rows can be picked (a checkbox column first). The page keeps the picked ids; while
+   * rows are picked the toolbar shows how many, `actions` for them and "Auswahl aufheben"
+   */
+  selection?: RowSelection<TData>
+}
+
+export interface RowSelection<TData> {
+  selected: ReadonlySet<number>
+  onChange: (next: Set<number>) => void
+  getId: (row: TData) => number
+  actions: React.ReactNode
+}
+
+/** The header checkbox: shows "some picked" as indeterminate */
+function SelectAllCheckbox({
+  state,
+  onToggle
+}: {
+  state: 'none' | 'some' | 'all'
+  onToggle: () => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = state === 'some'
+  }, [state])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      className="h-4 w-4 accent-primary"
+      aria-label="Alle geladenen auswählen"
+      checked={state === 'all'}
+      onChange={onToggle}
+    />
+  )
 }
 
 /**
@@ -97,11 +137,44 @@ export function DataTable<TData>({
   onSearchChange,
   searchPlaceholder = 'Suchen…',
   actionButton,
-  onRowClick
+  onRowClick,
+  selection
 }: DataTableProps<TData>) {
+  const loadedIds = useMemo(
+    () => (selection ? data.map((row) => selection.getId(row)) : []),
+    [data, selection]
+  )
+  const allColumns = useMemo<ColumnDef<TData>[]>(() => {
+    if (!selection) return columns
+    const select: ColumnDef<TData> = {
+      id: SELECT_COLUMN_ID,
+      enableSorting: false,
+      header: () => (
+        <SelectAllCheckbox
+          state={selectionState(selection.selected, loadedIds)}
+          onToggle={() => selection.onChange(toggleAllRows(selection.selected, loadedIds))}
+        />
+      ),
+      cell: ({ row }) => {
+        const id = selection.getId(row.original)
+        return (
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-primary"
+            aria-label="Auswählen"
+            checked={selection.selected.has(id)}
+            onChange={() => selection.onChange(toggleRow(selection.selected, id))}
+          />
+        )
+      }
+    }
+    return [select, ...columns]
+  }, [columns, selection, loadedIds])
+  const picked = selection?.selected.size ?? 0
+
   const table = useReactTable({
     data,
-    columns,
+    columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     enableSorting: Boolean(onSortingChange),
@@ -137,20 +210,38 @@ export function DataTable<TData>({
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {/* Search and actions — wrap at narrow widths */}
-      {(onSearchChange || actionButton) && (
-        <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          {onSearchChange ? (
-            <Input
-              placeholder={searchPlaceholder}
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full max-w-sm sm:w-auto"
-            />
-          ) : (
-            <div />
-          )}
-          {actionButton}
+      {selection && picked > 0 ? (
+        <div
+          className="mb-4 flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-1.5"
+          role="toolbar"
+          aria-label="Auswahl"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium" role="status">
+              {selectionLabel(picked, itemLabel)}
+            </span>
+            {selection.actions}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => selection.onChange(new Set())}>
+            Auswahl aufheben
+          </Button>
         </div>
+      ) : (
+        (onSearchChange || actionButton) && (
+          <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2">
+            {onSearchChange ? (
+              <Input
+                placeholder={searchPlaceholder}
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="w-full max-w-sm sm:w-auto"
+              />
+            ) : (
+              <div />
+            )}
+            {actionButton}
+          </div>
+        )
       )}
 
       {/* The only part that scrolls (both ways): headers stay pinned on top,
@@ -183,6 +274,7 @@ export function DataTable<TData>({
                       }
                       className={cn(
                         'sticky top-0 z-10 bg-muted px-4 py-3 text-left text-sm font-medium whitespace-nowrap shadow-[inset_0_-1px_0_var(--border)]',
+                        header.column.id === SELECT_COLUMN_ID && 'w-px pr-0',
                         isActions && [
                           ACTIONS_CELL_CLASS,
                           ACTIONS_HEAD_BG,
@@ -219,13 +311,13 @@ export function DataTable<TData>({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center">
+                <td colSpan={allColumns.length} className="px-4 py-8 text-center">
                   <LoadingRow />
                 </td>
               </tr>
             ) : error && data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8">
+                <td colSpan={allColumns.length} className="px-4 py-8">
                   <ErrorState
                     error={error}
                     onRetry={() => onRetry?.()}
@@ -235,7 +327,7 @@ export function DataTable<TData>({
               </tr>
             ) : table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center">
+                <td colSpan={allColumns.length} className="px-4 py-8 text-center">
                   <EmptyState>Keine Ergebnisse gefunden.</EmptyState>
                 </td>
               </tr>
@@ -252,8 +344,13 @@ export function DataTable<TData>({
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
+                      {...(cell.column.id === SELECT_COLUMN_ID && {
+                        onClick: (event: React.MouseEvent) => event.stopPropagation(),
+                        onKeyDown: (event: React.KeyboardEvent) => event.stopPropagation()
+                      })}
                       className={cn(
                         'px-4 py-3 text-sm',
+                        cell.column.id === SELECT_COLUMN_ID && 'w-px pr-0',
                         cell.column.id === ACTIONS_COLUMN_ID && [
                           ACTIONS_CELL_CLASS,
                           ACTIONS_BODY_BG,
@@ -270,7 +367,7 @@ export function DataTable<TData>({
             {hasMore && !isLoading && (
               <tr ref={sentinelRef}>
                 <td
-                  colSpan={columns.length}
+                  colSpan={allColumns.length}
                   className="px-4 py-3 text-center text-sm text-muted-foreground"
                 >
                   {isLoadingMore ? 'Weitere werden geladen…' : ''}

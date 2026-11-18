@@ -3,7 +3,12 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { DealMemoService } from '../../services/DealMemoService'
 import { DealMemoMapper } from '../mappers/deal_memo.mapper'
-import { CreateDealMemoInput, UpdateDealMemoInput } from '../schemas/deal_memo.schema'
+import {
+  CreateDealMemoInput,
+  DealMemoIdsInput,
+  SetDealMemoStatusesInput,
+  UpdateDealMemoInput
+} from '../schemas/deal_memo.schema'
 import { PaginationInput } from '../schemas/base.schema'
 
 const t = initTRPC.create()
@@ -74,6 +79,21 @@ export const dealMemoRouter = t.router({
   archive: t.procedure.input(z.number()).mutation(async ({ input }) => {
     await dealMemoService.archiveDealMemo(input)
   }),
+
+  /** #200: a status per event at once; answers with the statuses they had, to undo it */
+  setStatuses: t.procedure
+    .input(SetDealMemoStatusesInput)
+    .mutation(({ input }) => dealMemoService.setDealMemoStatuses(input)),
+
+  /** #200: archive several events; answers with the ones archived now */
+  archiveMany: t.procedure
+    .input(DealMemoIdsInput)
+    .mutation(({ input }) => dealMemoService.archiveDealMemos(input.ids)),
+
+  /** #200: restore several archived events (undoing archiveMany) */
+  restoreMany: t.procedure
+    .input(DealMemoIdsInput)
+    .mutation(({ input }) => dealMemoService.restoreDealMemos(input.ids)),
 
   /** D3: bring an archived event back */
   restore: t.procedure.input(z.number()).mutation(async ({ input }) => {
