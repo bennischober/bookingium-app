@@ -10,8 +10,10 @@ export async function dismissToasts(page: Page): Promise<void> {
     .getByRole('region', { name: /^Notifications/ })
     .getByRole('button', { name: 'Schließen' })
   await expect(async () => {
-    // The first one is the front toast; a closing toast animates out, so retry
-    if ((await close.count()) > 0) await close.first().click({ timeout: 1_000 })
+    // A stacked toast behind the front one is collapsed: its button is never visible, so a real
+    // click waits for it forever (contact-list.spec timed out on it). The click event closes it
+    // all the same; a closing toast animates out, so retry until none is left.
+    if ((await close.count()) > 0) await close.first().dispatchEvent('click')
     expect(await close.count()).toBe(0)
   }).toPass({ timeout: 10_000 })
 }
