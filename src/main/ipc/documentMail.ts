@@ -5,7 +5,7 @@ import { container } from 'tsyringe'
 import { InvoiceMapper } from '../api/mappers/invoice.mapper'
 import type { FollowUpRecord } from '../api/schemas/followUp.schema'
 import type { InvoiceEmailKind } from '../api/schemas/invoice.schema'
-import type { AppSettings, EmailTemplate, EmailTemplateKind } from '../api/schemas/settings.schema'
+import type { EmailTemplate, EmailTemplateKind } from '../api/schemas/settings.schema'
 import { createAppWindow } from '../app/windows'
 import type { ComposeDraft, ComposeResult } from '../mail/composeWindow'
 import {
@@ -19,8 +19,7 @@ import { datevMail, datevRefusal, sendDatevMail } from '../mail/datevSend'
 import { DATEV_CATEGORY_LABELS, DatevCategory } from '../api/schemas/datev.schema'
 import { saveEmailPdf } from '../mail/emailPdf'
 import { invoiceEmail, type Lang } from '../mail/invoiceEmail'
-import { invoiceComposes, invoiceSendAccount, type DocumentCompose } from '../mail/invoiceSend'
-import { listMailAccounts, type MailAccountDto } from '../mailclient/accounts'
+import { invoiceComposes, type DocumentCompose } from '../mail/invoiceSend'
 import { mailClient } from '../mailclient/MailClientService'
 import { DatevService } from '../services/DatevService'
 import { ContractService } from '../services/ContractService'
@@ -31,6 +30,7 @@ import { MailTemplateService } from '../services/MailTemplateService'
 import { ManagementContractService } from '../services/ManagementContractService'
 import { SettingsService } from '../services/SettingsService'
 import { failure } from './handlerUtils'
+import { documentSender } from '../mail/documentSender'
 import { documentPdf } from './print'
 
 /**
@@ -79,23 +79,6 @@ function openComposeWindow(input: {
 /** #136: the fixed text of Einstellungen › E-Mail › E-Mail-Vorlagen, edited or default */
 function mailTemplateText(kind: EmailTemplateKind, lang: 'de' | 'en'): EmailTemplate {
   return container.resolve(MailTemplateService).documentTemplate(kind, lang)
-}
-
-/**
- * I7 (MR-12): the account invoices and contracts go out from, chosen in the settings; checked
- * before anything is written or opened. #136: bookingum's own editor is the only way they
- * are sent, so without an account there is nothing to open. `setup`: the renderer offers
- * Einstellungen › E-Mail.
- */
-function documentSender(
-  settings: AppSettings
-): { account: MailAccountDto } | { error: string; setup: true } {
-  const accounts = listMailAccounts()
-  if (accounts.length === 0) {
-    return { error: 'Zum Senden zuerst ein E-Mail-Konto hinzufügen.', setup: true }
-  }
-  const sender = invoiceSendAccount(settings.invoiceMailAccountId, accounts)
-  return 'error' in sender ? { ...sender, setup: true } : sender
 }
 
 export function registerDocumentMailIpc(): void {

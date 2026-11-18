@@ -43,4 +43,16 @@ export function registerImportIpc(): void {
     })
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
+
+  /** #225: picks receipts, several at once; storing them goes through tRPC (receipt.create) */
+  ipcMain.handle('receipt:pickFiles', async (event): Promise<string[]> => {
+    const result = await showOpenDialogFor(event.sender, {
+      title: 'Belege wählen',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Belege (PDF, XML, JPG, PNG)', extensions: ['pdf', 'xml', 'jpg', 'jpeg', 'png'] }
+      ]
+    })
+    return result.canceled ? [] : result.filePaths
+  })
 }

@@ -50,6 +50,8 @@ export const MERGE_ORDER: readonly string[] = [
   'invoice',
   'invoice_line_item',
   'invoice_email',
+  // #225: received documents; datev_transfer points to them as well as to invoices
+  'receipt',
   'datev_transfer',
   'invoice_status_change',
   'management_contract',

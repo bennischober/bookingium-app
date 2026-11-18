@@ -42,7 +42,9 @@ export type DatevUploadEmails = z.infer<typeof DatevUploadEmails>
 
 export const DatevTransferDto = z.object({
   id: z.number(),
-  invoiceId: z.number(),
+  /** The document: an issued invoice or a receipt (#225) */
+  invoiceId: z.number().nullable(),
+  receiptId: z.number().nullable(),
   status: DatevTransferStatus,
   /** The category it was filed under, by the address it went to */
   category: DatevCategory,

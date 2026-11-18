@@ -13,6 +13,8 @@ import { InvitationFromMail, type InvitationToTake } from '@/components/mail/Inv
 import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import { EInvoiceCompanyDialog } from '@/components/company/EInvoiceCompanyDialog'
 import type { EInvoicePartySource } from '../../../../main/api/schemas/einvoice_party.schema'
+import { ReceiptDialog } from '@/components/receipts/ReceiptDialog'
+import type { ReceiptSource } from '../../../../main/api/schemas/receipt.schema'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { parseInvitation } from '../../../../main/calendar/invitation'
 import { withWholeMessage } from './completion'
@@ -76,6 +78,8 @@ export function MessageView({
   const [toDocument, setToDocument] = useState<{ partId: string; filename: string }[] | null>(null)
   // #222: the attachment "Firma aus E-Rechnung" reads
   const [toCompany, setToCompany] = useState<EInvoicePartySource | null>(null)
+  // #225: the attachment "Als Beleg speichern" stores
+  const [toReceipt, setToReceipt] = useState<ReceiptSource | null>(null)
   // "Zuordnen…" and "Kontakt anlegen": both change the app's data, never the mailbox, so
   // they work on read-only accounts too
   const [linking, setLinking] = useState(false)
@@ -209,6 +213,16 @@ export function MessageView({
       failed('Anhang konnte nicht geladen werden')
     )
 
+  /** #225: the same for "Als Beleg speichern"; the receipt keeps the mail's Message-ID */
+  const receiptFromAttachment = (partId: string) =>
+    whole(() =>
+      setToReceipt({
+        kind: 'attachment',
+        ...attachmentInput(partId),
+        storeMessageId: message.messageId ?? null
+      })
+    ).catch(failed('Anhang konnte nicht geladen werden'))
+
   /** A forward carries the files: offline it stops here, never a forward without them */
   const forward = (compose: NonNullable<typeof onCompose>) =>
     whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
@@ -289,6 +303,7 @@ export function MessageView({
           saveAllAttachments={saveAllAttachments}
           toDocuments={toDocuments}
           toCompany={companyFromAttachment}
+          toReceipt={receiptFromAttachment}
         />
 
         {downloading && (
@@ -331,6 +346,15 @@ export function MessageView({
             if (!open) setToCompany(null)
           }}
           source={toCompany}
+        />
+      )}
+      {toReceipt && (
+        <ReceiptDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setToReceipt(null)
+          }}
+          source={toReceipt}
         />
       )}
       {toDocument && (

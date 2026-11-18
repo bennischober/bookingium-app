@@ -1,4 +1,4 @@
-import { Building2, ChevronDown, Download, FilePlus, Paperclip } from 'lucide-react'
+import { Building2, ChevronDown, Download, FilePlus, Paperclip, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -10,7 +10,13 @@ type Attachments = MessageDetail['attachments']
 
 /** #222: a PDF or XML attachment may be an e-invoice */
 const mayBeEInvoice = (a: Attachments[number]): boolean =>
-  /.(pdf|xml)$/i.test(a.filename ?? '') || /pdf|xml/i.test(a.contentType)
+  /\.(pdf|xml)$/i.test(a.filename ?? '') || /pdf|xml/i.test(a.contentType)
+
+/** #225: what can become a receipt: PDF, e-invoice XML, or a photo */
+const mayBeReceipt = (a: Attachments[number]): boolean =>
+  mayBeEInvoice(a) ||
+  /\.(jpe?g|png)$/i.test(a.filename ?? '') ||
+  /image\/(jpeg|png)/i.test(a.contentType)
 
 /** "Save all" for several attachments, then one chip per attachment */
 export function MessageAttachments({
@@ -20,7 +26,8 @@ export function MessageAttachments({
   saveAttachmentAs,
   saveAllAttachments,
   toDocuments,
-  toCompany
+  toCompany,
+  toReceipt
 }: {
   message: MessageDetail
   /** S1: the whole message is being downloaded; every file action waits for it */
@@ -32,6 +39,8 @@ export function MessageAttachments({
   toDocuments: (pick: (done: MessageDetail) => Attachments) => Promise<void>
   /** #222: opens "Firma aus E-Rechnung" for the attachment */
   toCompany?: (partId: string) => Promise<void>
+  /** #225: opens "Beleg speichern" for the attachment */
+  toReceipt?: (partId: string) => Promise<void>
 }) {
   return (
     <>
@@ -136,6 +145,16 @@ export function MessageAttachments({
                       >
                         <Building2 className="size-4 shrink-0 text-muted-foreground" />
                         Firma aus E-Rechnung…
+                      </button>
+                    )}
+                    {toReceipt && mayBeReceipt(a) && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void toReceipt(a.partId)}
+                      >
+                        <Receipt className="size-4 shrink-0 text-muted-foreground" />
+                        Als Beleg speichern…
                       </button>
                     )}
                   </PopoverContent>

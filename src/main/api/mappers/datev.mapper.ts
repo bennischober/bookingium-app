@@ -34,6 +34,7 @@ export class DatevMapper {
     return {
       id: entity.id,
       invoiceId: entity.invoice_id,
+      receiptId: entity.receipt_id,
       status: entity.status as DatevTransferStatus,
       category: entity.category as DatevCategory,
       to: entity.to,
