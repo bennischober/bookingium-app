@@ -25,7 +25,10 @@ const withBand = {
   agency: booking.agency,
   source_key: booking.source_key,
   source_file: booking.source_file,
-  imported_at: booking.imported_at
+  imported_at: booking.imported_at,
+  radius_km: booking.radius_km,
+  radius_weeks_before: booking.radius_weeks_before,
+  radius_weeks_after: booking.radius_weeks_after
 }
 
 /** A booking with its band's name, as every list query returns it */

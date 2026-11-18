@@ -61,7 +61,7 @@ test('lists, imports and removes agency bookings', async () => {
 
   await view.getByRole('button', { name: 'Importieren' }).click()
   const dialog = page.getByRole('dialog', { name: 'Agenturbuchungen importieren' })
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await dialog.getByLabel('Agentur', { exact: true }).fill('Zweite Agentur')
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await expect(dialog.getByText('Band ist nicht angelegt')).toBeVisible()
@@ -75,7 +75,7 @@ test('lists, imports and removes agency bookings', async () => {
 
   // The same file again: nothing new, the column choice and agency are remembered
   await view.getByRole('button', { name: 'Importieren' }).click()
-  await dialog.getByRole('button', { name: 'CSV-Datei auswählen…' }).click()
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
   await expect(dialog.getByLabel('Agentur', { exact: true })).toHaveValue('Zweite Agentur')
   await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
   await expect(dialog.getByText('Band ist nicht angelegt')).toBeVisible()

@@ -18,7 +18,9 @@ export const DealMemoListItemDto = z.object({
   bandId: z.number(),
   bandName: z.string(),
   venueId: z.number().nullable(),
-  venueName: z.string().nullable()
+  venueName: z.string().nullable(),
+  // The tour it belongs to, '' for none
+  tour: z.string()
 })
 
 export type DealMemoListItemDto = z.infer<typeof DealMemoListItemDto>
@@ -125,7 +127,8 @@ export const CreateDealMemoInput = z.object({
   guaranteeAmount: z.number().nullable().optional(),
   guaranteeVatRate: z.number().nullable().optional(),
   contractNotes: z.string().optional(),
-  notes: z.string().optional().default('')
+  notes: z.string().optional().default(''),
+  tour: z.string().trim().max(200).optional()
 })
 
 export type CreateDealMemoInput = z.infer<typeof CreateDealMemoInput>

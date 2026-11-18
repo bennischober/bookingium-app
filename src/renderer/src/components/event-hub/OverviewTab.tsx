@@ -51,6 +51,7 @@ export function OverviewTab({
   const [date, setDate] = useSyncedState(event.date)
   const [status, setStatus] = useSyncedState(event.status)
   const [notes, setNotes] = useSyncedState(event.notes)
+  const [tour, setTour] = useSyncedState(event.tour)
   // Radius clause override: text drafts, '' = inherit from the venue or the default
   const [radiusKm, setRadiusKm] = useSyncedState(event.radiusKm?.toString() ?? '')
   const [weeksBefore, setWeeksBefore] = useSyncedState(event.radiusWeeksBefore?.toString() ?? '')
@@ -67,6 +68,7 @@ export function OverviewTab({
     date !== event.date ||
     status !== event.status ||
     notes !== event.notes ||
+    tour !== event.tour ||
     radiusDirty
 
   // What the event inherits: its venue's clause, else the default for the venue kind
@@ -82,6 +84,7 @@ export function OverviewTab({
       setDate(event.date)
       setStatus(event.status)
       setNotes(event.notes)
+      setTour(event.tour)
       setRadiusKm(event.radiusKm?.toString() ?? '')
       setWeeksBefore(event.radiusWeeksBefore?.toString() ?? '')
       setWeeksAfter(event.radiusWeeksAfter?.toString() ?? '')
@@ -93,6 +96,8 @@ export function OverviewTab({
   const venues = trpcReact.venue.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
   const companies = trpcReact.company.getListItems.useQuery()
+  // the tours other events name, offered while typing
+  const tours = trpcReact.tourImport.tours.useQuery(undefined, { enabled: isEditing })
 
   const bandItems: InlineComboboxItem[] = (bands.data ?? []).map((b) => ({
     id: b.id,
@@ -117,6 +122,7 @@ export function OverviewTab({
     onSuccess: (updated) => {
       utils.dealMemo.getById.invalidate(event.id)
       utils.dealMemo.getAllPaginated.invalidate()
+      void utils.tourImport.tours.invalidate()
       if (updated.status === 'pending') {
         void nudgeFollowUp('Event aktualisiert', {
           record: { type: 'event', id: updated.id, name: updated.name },
@@ -144,6 +150,7 @@ export function OverviewTab({
       date,
       status,
       notes,
+      tour: tour.trim(),
       ...(radiusDirty && radiusParsed.ok ? radiusParsed.value : {})
     })
   }
@@ -292,6 +299,23 @@ export function OverviewTab({
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="eventTour">Tour</Label>
+                <Input
+                  id="eventTour"
+                  list="event-tours"
+                  value={tour}
+                  onChange={(e) => setTour(e.target.value)}
+                  placeholder="z. B. Frühjahr 2027"
+                  maxLength={200}
+                />
+                <datalist id="event-tours">
+                  {(tours.data ?? []).map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+
               {mapPreview.enabled && inheritedRadius && (
                 <div className="space-y-2">
                   <Label>Gebietsschutz</Label>
@@ -329,6 +353,7 @@ export function OverviewTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name, date and status are in the page header; they are edited here */}
             <ReadOnlyField label="Anmerkungen" value={notes} placeholder="Keine Anmerkungen" />
+            <ReadOnlyField label="Tour" value={tour} placeholder="Keiner Tour zugeordnet" />
             {mapPreview.enabled && inheritedRadius && (
               <ReadOnlyField
                 label="Gebietsschutz"

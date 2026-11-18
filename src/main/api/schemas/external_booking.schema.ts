@@ -86,6 +86,9 @@ export const ExternalBookingField = z.enum([
   'kind',
   'status',
   'sourceKey',
+  'radiusKm',
+  'radiusWeeksBefore',
+  'radiusWeeksAfter',
   'notes'
 ])
 export type ExternalBookingField = z.infer<typeof ExternalBookingField>
@@ -102,6 +105,9 @@ export const EXTERNAL_BOOKING_FIELD_LABELS: Record<ExternalBookingField, string>
   kind: 'Art (Club / Festival)',
   status: 'Status',
   sourceKey: 'Buchungs-Nr. / ID',
+  radiusKm: 'Gebietsschutz: km',
+  radiusWeeksBefore: 'Gebietsschutz: Wochen davor',
+  radiusWeeksAfter: 'Gebietsschutz: Wochen danach',
   notes: 'Anmerkung'
 }
 

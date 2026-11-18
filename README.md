@@ -44,9 +44,15 @@ German UI.
   events, invoices, documents); **persons** with their relations
 - **Documents** for events, bands, companies and venues in readable folders
   (`documents/bands/3-pretty-wild/…`), drag and drop
-- **Import** of Excel lists (venues/festivals, bands, companies, media and
-  radio lists, persons) with detected column mapping, preview and duplicate
-  matching
+- **Import** of Excel (.xlsx) and CSV lists (venues/festivals, bands,
+  companies, media and radio lists, persons) with detected column mapping,
+  preview and duplicate matching; **tour sheets** become events (with their
+  tour, fee, deal and radius clause; unknown clubs are created), and a
+  second import of the same sheet updates them
+- **Map** (Einstellungen › Allgemein): events, agency bookings, clubs and
+  festivals with their radius clause (Gebietsschutz), filtered by band, tour
+  and dates, a ring around every place, a sortable list of the shows and a
+  warning where shows of a band lie in each other's clause
 - **Mail client** (experimental, off by default; Einstellungen › E-Mail):
   IMAP/SMTP accounts to read, search, file and send mail, an „E-Mails“ tab on
   the detail pages for the mail linked to that band, company, venue, person
