@@ -3,6 +3,9 @@ import { readMigrationFiles } from 'drizzle-orm/migrator'
 import type Database from 'better-sqlite3'
 import { getDb, getSqlite } from './index'
 import { join } from 'path'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { schema } from './schema'
+import { dropSyncTriggers } from '../sync/store'
 
 let migrationsFolderOverride: string | null = null
 
@@ -107,6 +110,53 @@ export function upgradeLegacyDatabase(sqlite: Database.Database, migrationsFolde
   })()
 }
 
+/**
+ * Created-at of the three DATEV migrations of the preview build (release v1.0.0 of the fork,
+ * 16.11.2026), which ran them as 0046-0048 before the tour import's 0046 existed. Here they are
+ * one migration, 0047_datev_upload_mail, with the same SQL.
+ */
+export const DATEV_PREVIEW_MIGRATION_MILLIS: readonly number[] = [
+  1794819692214, 1794826452192, 1794826755863
+]
+
+/** Created-at of 0047_datev_upload_mail */
+export const DATEV_MIGRATION_MILLIS = 1794991303427
+
+/**
+ * Databases of the DATEV preview build already have the DATEV schema but not the migrations
+ * merged before it (0046_tour_and_agency_radius). Those run here, and 0047_datev_upload_mail is
+ * recorded as applied instead of running it a second time. Later migrations then run as usual.
+ */
+export function upgradeDatevPreviewDatabase(
+  sqlite: Database.Database,
+  migrationsFolder: string
+): void {
+  const lastMillis = lastAppliedMillis(sqlite)
+  if (lastMillis === null || !DATEV_PREVIEW_MIGRATION_MILLIS.includes(lastMillis)) return
+  if (lastMillis !== DATEV_PREVIEW_MIGRATION_MILLIS[DATEV_PREVIEW_MIGRATION_MILLIS.length - 1]) {
+    throw new Error(
+      'Die Datenbank stammt aus einer unfertigen Vorabversion mit DATEV und kann nicht ' +
+        'automatisch übernommen werden.'
+    )
+  }
+
+  const migrations = readMigrationFiles({ migrationsFolder })
+  const datev = migrations.find((m) => m.folderMillis === DATEV_MIGRATION_MILLIS)
+  if (!datev) throw new Error('Migration 0047_datev_upload_mail is missing')
+  const missed = migrations.filter(
+    (m) => m.folderMillis > lastMillis && m.folderMillis < DATEV_MIGRATION_MILLIS
+  )
+
+  const record = sqlite.prepare('insert into __drizzle_migrations (hash, created_at) values (?, ?)')
+  sqlite.transaction(() => {
+    for (const migration of missed) {
+      for (const statement of migration.sql) sqlite.exec(statement)
+      record.run(migration.hash, migration.folderMillis)
+    }
+    record.run(datev.hash, datev.folderMillis)
+  })()
+}
+
 /** Created-at of the newest migration; a database recording a later one is from a newer version */
 export function latestMigrationMillis(): number {
   const migrations = readMigrationFiles({ migrationsFolder: resolveMigrationsFolder() })
@@ -158,8 +208,30 @@ export function runMigrations(options: RunMigrationsOptions = {}): void {
   // the transaction instead, and verify integrity before re-enabling it.
   sqlite.pragma('foreign_keys = OFF')
   try {
+    // Sync's change triggers are rebuilt after the migrations (SyncService): a migration's own
+    // data changes happen on every computer and must not travel as edits
+    dropSyncTriggers(sqlite)
     upgradeLegacyDatabase(sqlite, migrationsFolder)
+    upgradeDatevPreviewDatabase(sqlite, migrationsFolder)
     migrate(getDb(), { migrationsFolder })
+    const violations = sqlite.pragma('foreign_key_check') as unknown[]
+    if (violations.length > 0) {
+      throw new Error(`Migration left ${violations.length} foreign key violation(s)`)
+    }
+  } finally {
+    sqlite.pragma('foreign_keys = ON')
+  }
+}
+
+/**
+ * Brings another database (a sync starting point from an older version) to this app's schema,
+ * with the same foreign key handling as runMigrations.
+ */
+export function migrateOtherDatabase(sqlite: Database.Database): void {
+  const migrationsFolder = resolveMigrationsFolder()
+  sqlite.pragma('foreign_keys = OFF')
+  try {
+    migrate(drizzle(sqlite, { schema }), { migrationsFolder })
     const violations = sqlite.pragma('foreign_key_check') as unknown[]
     if (violations.length > 0) {
       throw new Error(`Migration left ${violations.length} foreign key violation(s)`)

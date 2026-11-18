@@ -10,7 +10,12 @@ import { join, resolve } from 'path'
 import { schema } from '../src/main/db/schema'
 // Not a React hook (just named use…)
 import { useTestDb as swapInTestDb, type Db } from '../src/main/db/index'
-import { runMigrations, setMigrationsFolder } from '../src/main/db/migrate'
+import {
+  DATEV_MIGRATION_MILLIS,
+  DATEV_PREVIEW_MIGRATION_MILLIS,
+  runMigrations,
+  setMigrationsFolder
+} from '../src/main/db/migrate'
 import {
   BEFORE_UPDATE_KEEP,
   beforeUpdateFolder,
@@ -218,6 +223,79 @@ describe('the migration history of 1.0.0', () => {
     expect(sqlite.prepare('select name, responsible_person_id from band').all()).toEqual([
       { name: 'Pretty Wild', responsible_person_id: 1 }
     ])
+  })
+})
+
+/** Tables with their columns and the index names: what the migrations built */
+function schemaOf(sqlite: Database.Database): string[] {
+  const objects = sqlite
+    .prepare(
+      "select type, name from sqlite_master where name not like 'sqlite_%' and name != '__drizzle_migrations' and type in ('table', 'index', 'trigger') order by type, name"
+    )
+    .all() as { type: string; name: string }[]
+  return objects.map(({ type, name }) =>
+    type !== 'table'
+      ? `${type} ${name}`
+      : `table ${name}(${(sqlite.pragma(`table_info('${name}')`) as Array<Record<string, unknown>>)
+          .map((c) => `${c.name} ${c.type} ${c.notnull} ${c.dflt_value} ${c.pk}`)
+          .join(', ')})`
+  )
+}
+
+describe('a database of the DATEV preview build', () => {
+  const datevIndex = migrations.findIndex((m) => m.folderMillis === DATEV_MIGRATION_MILLIS)
+  const tourIndex = journal.entries.findIndex((e) => e.tag === '0046_tour_and_agency_radius')
+
+  /** As the preview build left it: everything before the tour import, then its DATEV migrations */
+  function previewDatabase(lastPreviewMillis = DATEV_PREVIEW_MIGRATION_MILLIS[2]) {
+    const sqlite = databaseAt(tourIndex)
+    sqlite.transaction(() => {
+      for (const statement of migrations[datevIndex].sql) sqlite.exec(statement)
+      for (const millis of DATEV_PREVIEW_MIGRATION_MILLIS.filter((m) => m <= lastPreviewMillis)) {
+        sqlite
+          .prepare('insert into __drizzle_migrations (hash, created_at) values (?, ?)')
+          .run(`preview-${millis}`, millis)
+      }
+    })()
+    return sqlite
+  }
+
+  it('is the migration 0047_datev_upload_mail, after the tour import', () => {
+    expect(journal.entries[datevIndex].tag).toBe('0047_datev_upload_mail')
+    expect(datevIndex).toBeGreaterThan(tourIndex)
+    expect(Math.max(...DATEV_PREVIEW_MIGRATION_MILLIS)).toBeLessThan(
+      migrations[tourIndex].folderMillis
+    )
+  })
+
+  it('gets the tour import without running DATEV again, every row kept', () => {
+    const sqlite = withRows(previewDatabase())
+    sqlite.exec(
+      "INSERT INTO datev_transfer (invoice_id, \"to\", file_name, mail_account_id, send_key) VALUES (1, 'upload@duo.example.test', 'RE-1.pdf', 'acc', 'key-1')"
+    )
+    const before = rowCounts(sqlite)
+    const calls: number[] = []
+
+    runMigrations({ beforeApply: (pending) => calls.push(pending) })
+
+    expect(calls).toEqual([2]) // copied first, like any update
+    const after = rowCounts(sqlite)
+    for (const [table, count] of Object.entries(before)) expect(after[table], table).toBe(count)
+    expect(sqlite.pragma('foreign_key_check')).toEqual([])
+    const fresh = openDb()
+    runMigrations()
+    expect(schemaOf(sqlite)).toEqual(schemaOf(fresh))
+
+    runMigrations({ beforeApply: (pending) => calls.push(pending) })
+    expect(calls).toEqual([2]) // up to date now
+  })
+
+  it('refuses one that stopped between its DATEV migrations', () => {
+    const sqlite = previewDatabase(DATEV_PREVIEW_MIGRATION_MILLIS[0])
+    expect(() => runMigrations()).toThrow('unfertigen Vorabversion mit DATEV')
+    expect(sqlite.prepare('select count(*) as n from __drizzle_migrations').get()).toEqual({
+      n: tourIndex + 1
+    })
   })
 })
 
