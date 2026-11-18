@@ -78,7 +78,8 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
   appointment: [{ columns: ['ical_uid'] }],
   external_booking: [{ columns: ['agency', 'source_key'] }],
   management_contract_member: [{ columns: ['contract_id', 'person_id'] }],
-  management_share: [{ columns: ['invoice_id'] }]
+  management_share: [{ columns: ['invoice_id'] }],
+  event_settlement: [{ columns: ['deal_memo_id'] }]
 }
 
 /**

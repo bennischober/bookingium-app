@@ -1375,6 +1375,8 @@ export const management_contract = sqliteTable(
     renewal_years: integer('renewal_years').default(1).notNull(),
     notice_months: integer('notice_months').default(6).notNull(),
     commission_percent: real('commission_percent').default(20).notNull(),
+    // #228: the booking agency's commission, taken off the gage before the management fee
+    agency_percent: real('agency_percent').default(15).notNull(),
     excluded_income: text('excluded_income').default('GVL und GEMA Einnahmen').notNull(),
     statement_email: text('statement_email').default('').notNull(),
     settlement_days: integer('settlement_days').default(30).notNull(),
@@ -1446,6 +1448,34 @@ export const management_share = sqliteTable(
   ]
 )
 
+/**
+ * #228: the promoter's settlement of one show (Konzertabrechnung), as `SettlementInput` JSON
+ * (settlement/settlement.ts computes the rest), and the management fee invoice made from it.
+ * One per event.
+ */
+export const event_settlement = sqliteTable(
+  'event_settlement',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    data: text('data').notNull(),
+    // The promoter's file it was read from, '' when typed in
+    source_file_name: text('source_file_name').default('').notNull(),
+    fee_invoice_id: integer('fee_invoice_id').references(() => invoice.id, {
+      onDelete: 'set null'
+    }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('event_settlement_event_idx').on(table.deal_memo_id)]
+)
+
 // The band's net income lines for a quarter (e.g. Konzerte, Merchandise)
 export const management_share_income = sqliteTable(
   'management_share_income',
@@ -1502,6 +1532,7 @@ export const schema = {
   management_contract_member,
   management_share,
   management_share_income,
+  event_settlement,
   app_setting,
   contact_list,
   contact_list_member,

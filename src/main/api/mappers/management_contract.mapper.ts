@@ -13,6 +13,7 @@ export class ManagementContractMapper {
       renewalYears: entity.renewal_years,
       noticeMonths: entity.notice_months,
       commissionPercent: entity.commission_percent,
+      agencyPercent: entity.agency_percent,
       excludedIncome: entity.excluded_income,
       statementEmail: entity.statement_email,
       settlementDays: entity.settlement_days,

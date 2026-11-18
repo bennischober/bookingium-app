@@ -23,6 +23,7 @@ import { DuplicateEventWizard } from '@/components/event-wizard/DuplicateEventWi
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
+import { SettlementTab } from '@/components/event-hub/SettlementTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
@@ -247,6 +248,7 @@ export function EventHubPage() {
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
+          <TabsTrigger value="settlement">Abrechnung</TabsTrigger>
           <TabsTrigger value="documents" className={emptyTabClass(counts.documents)}>
             Dokumente
             <TabCount count={counts.documents} />
@@ -280,6 +282,10 @@ export function EventHubPage() {
             saveSignal={saveSignal}
             cancelSignal={cancelSignal}
           />
+        </TabsContent>
+
+        <TabsContent value="settlement">
+          <SettlementTab eventId={event.id} />
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-8">

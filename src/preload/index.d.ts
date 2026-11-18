@@ -128,6 +128,8 @@ export interface DocumentAPI {
   }>
   /** #222: open dialog for a received e-invoice (PDF or XML); its path, null if canceled */
   pickEInvoiceFile: () => Promise<string | null>
+  /** #228: open dialog for a promoter settlement (.xlsx); its path, null if canceled */
+  pickSettlementFile: () => Promise<string | null>
   /** #225: open dialog for receipts (PDF, XML, JPG, PNG), several at once; [] if canceled */
   pickReceiptFiles: () => Promise<string[]>
   /** An error nothing caught, for the local error log (main scrubs it) */

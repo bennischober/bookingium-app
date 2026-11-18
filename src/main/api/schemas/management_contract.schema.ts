@@ -17,6 +17,8 @@ export const ManagementContractDto = z
     renewalYears: z.number(),
     noticeMonths: z.number(),
     commissionPercent: z.number(),
+    // #228: the booking agency's commission, taken off a show's gage before the fee
+    agencyPercent: z.number(),
     excludedIncome: z.string(),
     statementEmail: z.string(),
     settlementDays: z.number(),
@@ -45,6 +47,7 @@ export const UpdateManagementContractInput = z.object({
   renewalYears: wholeNumber.optional(),
   noticeMonths: wholeNumber.optional(),
   commissionPercent: percent.optional(),
+  agencyPercent: percent.optional(),
   excludedIncome: z.string().optional(),
   statementEmail: z.string().optional(),
   settlementDays: wholeNumber.optional(),
