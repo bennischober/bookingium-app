@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/data-table'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
-import { Archive, Building2, FileSpreadsheet, Trash2 } from 'lucide-react'
+import { Archive, Building2, Copy, FileSpreadsheet, Trash2 } from 'lucide-react'
+import { DuplicateEventWizard } from '@/components/event-wizard/DuplicateEventWizard'
 import { TourImportDialog } from '@/components/tour-import/TourImportDialog'
 import {
   Select,
@@ -57,6 +58,8 @@ export function EventPage() {
   const { sorting, setSorting, sortInput } = useListSorting('events', { id: 'date', desc: false })
   const [search, setSearch] = useListSearch('events')
   const [wizardOpen, setWizardOpen] = useState(false)
+  // #199: the event a new date is made from
+  const [duplicateId, setDuplicateId] = useState<number | null>(null)
   // D3: the archive view replaces the list while it is open; so do the agency bookings (#103)
   const [view, setView] = useListSessionState<EventView>('events:view', 'list', isEventView)
   const showArchive = view === 'archive'
@@ -184,6 +187,11 @@ export function EventPage() {
         return (
           <RowActions>
             <RowActionButton
+              icon={Copy}
+              label="Duplizieren"
+              onClick={() => setDuplicateId(event.id)}
+            />
+            <RowActionButton
               icon={Archive}
               label="Archivieren"
               onClick={() => handleArchive(event.id, event.name)}
@@ -307,6 +315,8 @@ export function EventPage() {
       )}
 
       <TourImportDialog open={tourImportOpen} onOpenChange={setTourImportOpen} />
+
+      <DuplicateEventWizard sourceId={duplicateId} onClose={() => setDuplicateId(null)} />
 
       <CreateEventWizard
         isOpen={wizardOpen}

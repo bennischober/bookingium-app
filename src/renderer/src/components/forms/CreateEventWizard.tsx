@@ -21,6 +21,7 @@ import {
   isEventBasicsValid,
   openedForm,
   wizardPayload,
+  type WizardCarry,
   withCreatedItem,
   type SetWizardField,
   type WizardFormData,
@@ -44,6 +45,10 @@ interface CreateEventWizardProps {
   newPersonPrefill?: PersonPrefill
   /** Replaces the dialog's description */
   description?: string
+  /** Replaces the dialog's title */
+  title?: string
+  /** #199: fields of a duplicated event the steps do not show, created as they are */
+  carry?: WizardCarry
 }
 
 /**
@@ -58,7 +63,9 @@ export function CreateEventWizard({
   initialDate,
   prefill,
   newPersonPrefill,
-  description
+  description,
+  title = 'Neues Event anlegen',
+  carry
 }: CreateEventWizardProps) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<WizardFormData>(EMPTY_WIZARD_FORM)
@@ -126,7 +133,7 @@ export function CreateEventWizard({
 
   const handleSubmit = () => {
     if (!step1Valid) return
-    createMemo.mutate(wizardPayload(form))
+    createMemo.mutate(wizardPayload(form, carry))
   }
 
   const bandItems = withCreatedItem(
@@ -151,7 +158,7 @@ export function CreateEventWizard({
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Neues Event anlegen</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               {description ??
                 'Erforderliche Felder ausfüllen. Optionale Schritte können später ergänzt werden.'}

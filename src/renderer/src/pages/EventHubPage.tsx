@@ -18,7 +18,8 @@ import { Badge } from '@/components/ui/badge'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
 import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
-import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature, Copy } from 'lucide-react'
+import { DuplicateEventWizard } from '@/components/event-wizard/DuplicateEventWizard'
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
@@ -57,6 +58,8 @@ export function EventHubPage() {
 
   // ── Edit-mode state ──
   const [isEditing, setIsEditing] = useState(false)
+  // #199: the wizard for a new date of this event
+  const [duplicating, setDuplicating] = useState(false)
   // Incrementing these signals tells all tabs to either save or reset their local state
   const [saveSignal, setSaveSignal] = useState(0)
   const [cancelSignal, setCancelSignal] = useState(0)
@@ -183,6 +186,16 @@ export function EventHubPage() {
                   <FileSignature className="h-3.5 w-3.5" />
                   Vertrag
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setDuplicating(true)}
+                  title="Neues Datum mit Band, Deal und LoPro dieses Events"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Duplizieren
+                </Button>
                 <FollowUpButton record={{ type: 'event', id: event.id, name: event.name }} />
                 <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />
@@ -207,6 +220,11 @@ export function EventHubPage() {
       </div>
 
       <RecordFollowUps record={{ type: 'event', id: event.id, name: event.name }} />
+
+      <DuplicateEventWizard
+        sourceId={duplicating ? event.id : null}
+        onClose={() => setDuplicating(false)}
+      />
 
       {/* ── Tabs ── */}
       <Tabs
