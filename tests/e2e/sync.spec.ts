@@ -60,7 +60,10 @@ test('sets up, joins without duplicates and carries a new band across', async ()
   await openSync(a)
   await a.page.locator('#settings-sync').getByRole('button', { name: 'Ordner wählen…' }).click()
   await a.page.getByRole('button', { name: 'Einrichten', exact: true }).click()
-  await expect(a.page.getByText('Gemeinsamer Ordner')).toBeVisible({ timeout: 20_000 })
+  // The toast: the card shows „Gemeinsamer Ordner“ before anything is set up too
+  await expect(
+    a.page.locator('[data-sonner-toast]').filter({ hasText: 'Abgleich eingerichtet' })
+  ).toBeVisible({ timeout: 60_000 })
   await a.close()
 
   // the second computer, with the same demo data of its own, joins (the app restarts)
@@ -73,7 +76,11 @@ test('sets up, joins without duplicates and carries a new band across', async ()
   })
   await b.page.locator('#settings-sync').getByRole('button', { name: 'Ordner wählen…' }).click()
   await b.page.getByRole('button', { name: 'Zusammenführen und neu starten' }).click()
-  await expect(b.page.getByText('Daten zusammengeführt')).toBeVisible({ timeout: 30_000 })
+  // The toast, not the card: its text says „Beim Beitreten werden die Daten zusammengeführt“ all
+  // the time, which passed before the join was staged; the app was then closed in the middle of it
+  await expect(
+    b.page.locator('[data-sonner-toast]').filter({ hasText: 'Daten zusammengeführt' })
+  ).toBeVisible({ timeout: 60_000 })
   await b.app.waitForEvent('close', { timeout: 30_000 }).catch(() => {})
   await b.close().catch(() => {})
   expect(counts(dataB)).toEqual(before)
