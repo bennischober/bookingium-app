@@ -2,7 +2,11 @@ import { injectable, inject } from 'tsyringe'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { removeOwnerFolder } from '../utils/documentStorage'
 import { DealMemoRepository } from '../repositories/DealMemoRepository'
-import type { CreateDealMemoInput, UpdateDealMemoInput } from '../api/schemas/deal_memo.schema'
+import type {
+  CreateDealMemoInput,
+  SetDealMemoStatusesInput,
+  UpdateDealMemoInput
+} from '../api/schemas/deal_memo.schema'
 import type { PaginationInput } from '../api/schemas/base.schema'
 
 @injectable()
@@ -67,6 +71,27 @@ export class DealMemoService {
     const result = await this.dealMemoRepository.restore(id)
     scheduleCalendarUpdate()
     return result
+  }
+
+  /** #200: statuses of several events; returns the statuses they had (for "Rückgängig") */
+  setDealMemoStatuses(input: SetDealMemoStatusesInput) {
+    const before = this.dealMemoRepository.setStatuses(input.changes)
+    if (before.length > 0) scheduleCalendarUpdate()
+    return { changes: before }
+  }
+
+  /** #200: archives several events (D3: nothing is lost); returns the ones archived now */
+  archiveDealMemos(ids: number[]) {
+    const archived = this.dealMemoRepository.archiveMany(ids)
+    if (archived.length > 0) scheduleCalendarUpdate()
+    return { ids: archived }
+  }
+
+  /** #200: restores several archived events; returns the ones restored now */
+  restoreDealMemos(ids: number[]) {
+    const restored = this.dealMemoRepository.restoreMany(ids)
+    if (restored.length > 0) scheduleCalendarUpdate()
+    return { ids: restored }
   }
 
   async listArchivedDealMemos() {
