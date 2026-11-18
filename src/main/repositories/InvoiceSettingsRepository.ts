@@ -6,7 +6,19 @@ import type {
   SetInvoiceNumberingInput,
   UpsertCompanyInvoiceSettingsInput
 } from '../api/schemas/invoice.schema'
-import type { SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
+import type { DatevCategory, SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
+
+/** The settings column holding each DATEV category's upload address */
+export const DATEV_EMAIL_COLUMNS = {
+  outgoing: 'datev_upload_email',
+  incoming: 'datev_upload_email_incoming',
+  cash: 'datev_upload_email_cash',
+  other: 'datev_upload_email_other',
+  credit_card: 'datev_upload_email_credit_card'
+} as const satisfies Record<
+  DatevCategory,
+  keyof typeof schema.company_invoice_settings.$inferSelect
+>
 
 /** A company's invoice settings (its next invoice number, its DATEV upload address) */
 @injectable()
@@ -62,12 +74,13 @@ export class InvoiceSettingsRepository {
    * now, with the next invoice number a missing row stands for (1).
    */
   async setDatevUploadEmail(input: SetDatevUploadEmailInput) {
+    const column = DATEV_EMAIL_COLUMNS[input.category ?? 'outgoing']
     return db
       .insert(schema.company_invoice_settings)
-      .values({ company_id: input.companyId, datev_upload_email: input.datevUploadEmail })
+      .values({ company_id: input.companyId, [column]: input.datevUploadEmail })
       .onConflictDoUpdate({
         target: schema.company_invoice_settings.company_id,
-        set: { datev_upload_email: input.datevUploadEmail, updated_at: sql`datetime('now')` }
+        set: { [column]: input.datevUploadEmail, updated_at: sql`datetime('now')` }
       })
       .returning()
       .get()

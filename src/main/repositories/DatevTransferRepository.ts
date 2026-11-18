@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe'
 import { and, asc, desc, eq, isNotNull, ne, notExists, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import type { DatevCategory } from '../api/schemas/datev.schema'
 
 /**
  * Documents handed to DATEV by DATEV Upload Mail: written as pending before the send, set to
@@ -12,6 +13,7 @@ export class DatevTransferRepository {
   /** Written before the send starts */
   addPending(input: {
     invoiceId: number
+    category: DatevCategory
     to: string
     fileName: string
     mailAccountId: string
@@ -20,6 +22,7 @@ export class DatevTransferRepository {
     db.insert(schema.datev_transfer)
       .values({
         invoice_id: input.invoiceId,
+        category: input.category,
         to: input.to,
         file_name: input.fileName,
         mail_account_id: input.mailAccountId,

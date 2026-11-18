@@ -1,7 +1,10 @@
 import { inject, injectable } from 'tsyringe'
 import { DatevTransferRepository } from '../repositories/DatevTransferRepository'
-import { InvoiceSettingsRepository } from '../repositories/InvoiceSettingsRepository'
-import type { SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
+import {
+  DATEV_EMAIL_COLUMNS,
+  InvoiceSettingsRepository
+} from '../repositories/InvoiceSettingsRepository'
+import type { DatevCategory, SetDatevUploadEmailInput } from '../api/schemas/datev.schema'
 import type { DatevSendLedger } from '../mail/datevSend'
 
 /**
@@ -15,10 +18,10 @@ export class DatevService implements DatevSendLedger {
     @inject(InvoiceSettingsRepository) private invoiceSettingsRepository: InvoiceSettingsRepository
   ) {}
 
-  /** The DATEV upload address of an issuing company, '' for none */
-  async uploadEmailOf(companyId: number): Promise<string> {
+  /** An issuing company's DATEV upload address for a category, '' for none */
+  async uploadEmailOf(companyId: number, category: DatevCategory = 'outgoing'): Promise<string> {
     const settings = await this.invoiceSettingsRepository.getCompanyInvoiceSettings(companyId)
-    return settings?.datev_upload_email ?? ''
+    return settings?.[DATEV_EMAIL_COLUMNS[category]] ?? ''
   }
 
   async setUploadEmail(input: SetDatevUploadEmailInput) {

@@ -38,8 +38,10 @@ German UI.
   e-invoice (ZUGFeRD/XRechnung) and a payment QR code for banking apps;
   „Per E-Mail senden“ opens the built-in mail client with the PDF attached
 - **DATEV**: „An DATEV übergeben“ mails an invoice's PDF (with e-invoice) to
-  the DATEV Upload Mail address of the issuing company, so it lands in
-  DATEV Unternehmen online as a document; the invoice's Verlauf records it
+  the issuing company's DATEV Upload Mail address of the category picked
+  there (Rechnungsausgang by default; Rechnungseingang, Kasse, Sonstige,
+  Kreditkartenbelege), so it lands in DATEV Unternehmen online as a
+  document; the invoice's Verlauf records it
 - **Bands** with detail page: members, events, management contracts (print)
   and quarterly management-share invoices, documents
 - **Companies and venues/festivals** with detail pages (contacts, bands,

@@ -15,7 +15,9 @@ import {
   sendDatevMail,
   type DatevSendLedger
 } from '../src/main/mail/datevSend'
-import { SetDatevUploadEmailInput } from '../src/main/api/schemas/datev.schema'
+import { SetDatevUploadEmailInput, type DatevCategory } from '../src/main/api/schemas/datev.schema'
+import { DatevMapper } from '../src/main/api/mappers/datev.mapper'
+import { InvoiceMapper } from '../src/main/api/mappers/invoice.mapper'
 import type { InvoicePrintDto } from '../src/main/api/schemas/invoice.schema'
 import type { DraftInput, OpSummary } from '../src/main/mailclient/core/types'
 import { setupTestDb } from './helpers/setup'
@@ -88,7 +90,8 @@ describe('sendDatevMail', () => {
   function setup(send: (mail: DraftInput, accountId: string) => Promise<{ messageId: string }>) {
     const calls: string[] = []
     const ledger: DatevSendLedger = {
-      addPending: (input) => calls.push(`pending ${input.sendKey} ${input.to} ${input.fileName}`),
+      addPending: (input) =>
+        calls.push(`pending ${input.sendKey} ${input.category} ${input.to} ${input.fileName}`),
       dropPending: (key) => calls.push(`drop ${key}`),
       hasPending: () => true,
       confirm: (key, accountId, messageId) => {
@@ -107,7 +110,12 @@ describe('sendDatevMail', () => {
     const run = (overrides: Partial<DraftInput> = {}) =>
       sendDatevMail(
         { ledger, send: sendSpy },
-        { invoiceId: 7, accountId: 'sandbox-1', mail: { ...mail, ...overrides } }
+        {
+          invoiceId: 7,
+          category: 'outgoing',
+          accountId: 'sandbox-1',
+          mail: { ...mail, ...overrides }
+        }
       )
     return { calls, sendSpy, run }
   }
@@ -116,7 +124,7 @@ describe('sendDatevMail', () => {
     const { calls, run } = setup(async () => ({ messageId: '<key-1@example.test>' }))
     await expect(run()).resolves.toEqual({ messageId: '<key-1@example.test>' })
     expect(calls).toEqual([
-      'pending key-1 upload@duo.example.test R.pdf',
+      'pending key-1 outgoing upload@duo.example.test R.pdf',
       'confirm key-1 sandbox-1 key-1@example.test'
     ])
   })
@@ -148,7 +156,7 @@ describe('sendDatevMail', () => {
       throw new Error('Versand unklar, bitte im Ordner Gesendet prüfen')
     })
     await expect(run()).rejects.toThrow(/Versand unklar/)
-    expect(calls).toEqual(['pending key-1 upload@duo.example.test R.pdf'])
+    expect(calls).toEqual(['pending key-1 outgoing upload@duo.example.test R.pdf'])
   })
 })
 
@@ -168,9 +176,15 @@ describe('the DATEV hand-overs (DatevService)', () => {
     return { company, invoice, datev: container.resolve(DatevService) }
   }
 
-  const pending = (datev: DatevService, invoiceId: number, sendKey: string) =>
+  const pending = (
+    datev: DatevService,
+    invoiceId: number,
+    sendKey: string,
+    category: DatevCategory = 'outgoing'
+  ) =>
     datev.addPending({
       invoiceId,
+      category,
       to: 'upload@duo.example.test',
       fileName: 'R.pdf',
       mailAccountId: 'sandbox-1',
@@ -182,7 +196,13 @@ describe('the DATEV hand-overs (DatevService)', () => {
     pending(datev, invoice.id, 'key-a')
     expect(datev.hasPending('sandbox-1')).toBe(true)
     expect(datev.listForInvoice(invoice.id)).toMatchObject([
-      { status: 'pending', sent_at: null, to: 'upload@duo.example.test', file_name: 'R.pdf' }
+      {
+        status: 'pending',
+        category: 'outgoing',
+        sent_at: null,
+        to: 'upload@duo.example.test',
+        file_name: 'R.pdf'
+      }
     ])
 
     expect(datev.confirm('key-a', 'sandbox-1', 'key-a@example.test')).toBe(invoice.id)
@@ -235,6 +255,40 @@ describe('the DATEV hand-overs (DatevService)', () => {
 
     await datev.setUploadEmail({ companyId: company.id, datevUploadEmail: '' })
     expect(await datev.uploadEmailOf(company.id)).toBe('')
+  })
+
+  it('keeps one upload address per DATEV category, Rechnungsausgang by default', async () => {
+    const { company, datev } = await issuedInvoice()
+    await datev.setUploadEmail({
+      companyId: company.id,
+      datevUploadEmail: 'ausgang@duo.example.test'
+    })
+    await datev.setUploadEmail({
+      companyId: company.id,
+      category: 'incoming',
+      datevUploadEmail: 'eingang@duo.example.test'
+    })
+    expect(await datev.uploadEmailOf(company.id)).toBe('ausgang@duo.example.test')
+    expect(await datev.uploadEmailOf(company.id, 'outgoing')).toBe('ausgang@duo.example.test')
+    expect(await datev.uploadEmailOf(company.id, 'incoming')).toBe('eingang@duo.example.test')
+    expect(await datev.uploadEmailOf(company.id, 'cash')).toBe('')
+    const settings = await container.resolve(InvoiceService).getCompanyInvoiceSettings(company.id)
+    expect(InvoiceMapper.toSettingsDto(settings!).datevUploadEmails).toEqual({
+      outgoing: 'ausgang@duo.example.test',
+      incoming: 'eingang@duo.example.test',
+      cash: '',
+      other: '',
+      credit_card: ''
+    })
+    // Out of the "not handed over" list of the next tests (they share the database)
+    await datev.setUploadEmail({ companyId: company.id, datevUploadEmail: '' })
+  })
+
+  it('records which category a hand-over went to', async () => {
+    const { invoice, datev } = await issuedInvoice()
+    pending(datev, invoice.id, 'key-cat', 'incoming')
+    expect(datev.listForInvoice(invoice.id)).toMatchObject([{ category: 'incoming' }])
+    expect(DatevMapper.toTransferDto(datev.listForInvoice(invoice.id)[0]).category).toBe('incoming')
   })
 
   it('gives a company without settings its row, starting the numbering at 1', async () => {
@@ -292,6 +346,7 @@ describe('the invoices not handed to DATEV yet', () => {
 
     datev.addPending({
       invoiceId: issued.id,
+      category: 'outgoing',
       to: 'u@duo.example.test',
       fileName: 'R.pdf',
       mailAccountId: 'sandbox-1',
@@ -308,11 +363,22 @@ describe('SetDatevUploadEmailInput', () => {
         companyId: 1,
         datevUploadEmail: ' upload@duo.example.test '
       })
-    ).toEqual({ companyId: 1, datevUploadEmail: 'upload@duo.example.test' })
+    ).toEqual({ companyId: 1, category: 'outgoing', datevUploadEmail: 'upload@duo.example.test' })
     expect(SetDatevUploadEmailInput.parse({ companyId: 1, datevUploadEmail: '' })).toEqual({
       companyId: 1,
+      category: 'outgoing',
       datevUploadEmail: ''
     })
+    expect(
+      SetDatevUploadEmailInput.parse({
+        companyId: 1,
+        category: 'credit_card',
+        datevUploadEmail: 'karte@duo.example.test'
+      }).category
+    ).toBe('credit_card')
+    expect(() =>
+      SetDatevUploadEmailInput.parse({ companyId: 1, category: 'bank', datevUploadEmail: '' })
+    ).toThrow()
     expect(() =>
       SetDatevUploadEmailInput.parse({ companyId: 1, datevUploadEmail: 'kein' })
     ).toThrow()

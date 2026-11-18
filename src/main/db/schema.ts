@@ -23,7 +23,7 @@ import {
   InvoiceTaxCode
 } from '../api/schemas/invoice.schema'
 import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplate.schema'
-import { DatevTransferStatus } from '../api/schemas/datev.schema'
+import { DatevCategory, DatevTransferStatus } from '../api/schemas/datev.schema'
 // Sync (src/main/sync): ids from this computer's range while sync is on, SQLite's otherwise
 import { nextRowId } from '../sync/ids'
 
@@ -526,9 +526,13 @@ export const company_invoice_settings = sqliteTable(
       .notNull(),
     // The issue year of the last number taken (for the yearly restart)
     invoice_number_year: integer('invoice_number_year'),
-    // The "DATEV Upload Mail" address of the company's DATEV client (Mandant), '' for none:
-    // documents handed to DATEV are mailed there
+    // The "DATEV Upload Mail" addresses of the company's DATEV client (Mandant), one per document
+    // category, '' for none. datev_upload_email is Rechnungsausgang, where invoices go by default
     datev_upload_email: text('datev_upload_email').default('').notNull(),
+    datev_upload_email_incoming: text('datev_upload_email_incoming').default('').notNull(),
+    datev_upload_email_cash: text('datev_upload_email_cash').default('').notNull(),
+    datev_upload_email_other: text('datev_upload_email_other').default('').notNull(),
+    datev_upload_email_credit_card: text('datev_upload_email_credit_card').default('').notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -746,6 +750,8 @@ export const datev_transfer = sqliteTable(
       .notNull()
       .references(() => invoice.id, { onDelete: 'cascade' }),
     status: text('status').default('pending').notNull(),
+    // The document category, by the upload address it was mailed to
+    category: text('category').default('outgoing').notNull(),
     // The upload address it was mailed to
     to: text('to').notNull(),
     // The attachment's file name, as DATEV shows it
@@ -762,7 +768,8 @@ export const datev_transfer = sqliteTable(
   (table) => [
     index('datev_transfer_invoice_idx').on(table.invoice_id),
     uniqueIndex('datev_transfer_send_key_idx').on(table.send_key),
-    oneOf('datev_transfer_status_check', 'status', DatevTransferStatus.options)
+    oneOf('datev_transfer_status_check', 'status', DatevTransferStatus.options),
+    oneOf('datev_transfer_category_check', 'category', DatevCategory.options)
   ]
 )
 

@@ -1,5 +1,8 @@
 import type { InvoiceDto } from '../../../main/api/schemas/invoice.schema'
-import type { DatevTransferDto } from '../../../main/api/schemas/datev.schema'
+import {
+  DATEV_CATEGORY_LABELS,
+  type DatevTransferDto
+} from '../../../main/api/schemas/datev.schema'
 import { INVOICE_EMAIL_LABELS, invoiceNumberLabel } from './invoiceLabels'
 
 /** One line of an invoice's Verlauf */
@@ -34,7 +37,7 @@ type HistorySource = Pick<
  */
 export function invoiceHistory(
   invoice: HistorySource,
-  datevTransfers: readonly Pick<DatevTransferDto, 'createdAt' | 'sentAt' | 'to'>[] = []
+  datevTransfers: readonly Pick<DatevTransferDto, 'createdAt' | 'sentAt' | 'to' | 'category'>[] = []
 ): InvoiceHistoryEntry[] {
   let issuedBefore = false
   const statuses = invoice.statusChanges.map((change): InvoiceHistoryEntry => {
@@ -85,7 +88,7 @@ export function invoiceHistory(
     (transfer): InvoiceHistoryEntry => ({
       at: transfer.sentAt ?? transfer.createdAt,
       label: transfer.sentAt ? 'An DATEV übergeben' : 'Übergabe an DATEV wird bestätigt',
-      detail: `an ${transfer.to}`
+      detail: `${DATEV_CATEGORY_LABELS[transfer.category]}, an ${transfer.to}`
     })
   )
   const later = [...emails, ...datev, ...statuses].sort((a, b) =>

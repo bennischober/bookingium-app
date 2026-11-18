@@ -622,9 +622,14 @@ the page prints (with the embedded e-invoice when complete) to the **DATEV Uploa
 address of the issuing company's DATEV client. DUO files each mailed PDF as one document, so
 every mail carries exactly one.
 
-- **Address per issuing company**: `company_invoice_settings.datev_upload_email` (each
-  company is its own Mandant), set in Einstellungen › Rechnungen › DATEV (`DatevCard`,
-  `datev.setUploadEmail`). The sending address (Einstellungen › E-Mail › „Senden von“)
+- **Addresses per issuing company and category**: DUO gives each client (Mandant) one upload
+  address per document category and files a document by the address it arrives at. The
+  categories (`DatevCategory`, labels `DATEV_CATEGORY_LABELS`) are Rechnungsausgang
+  (`company_invoice_settings.datev_upload_email`), Rechnungseingang, Kasse, Sonstige and
+  Kreditkartenbelege (`datev_upload_email_<category>`, mapped in `DATEV_EMAIL_COLUMNS`), set
+  in Einstellungen › Rechnungen › DATEV (`DatevCard`, `datev.setUploadEmail`). The print page
+  picks the category next to the button, Rechnungsausgang by default; only categories with an
+  address can be picked, and `datev_transfer.category` records where each hand-over went. The sending address (Einstellungen › E-Mail › „Senden von“)
   must be confirmed in DUO's Upload Mail settings once; DUO ignores mail from other senders.
 - **The send** (`ipc/documentMail.ts` `invoice:datev`, pure part `mail/datevSend.ts`): no
   compose window - the mail is bookkeeping, not a letter. Drafts are refused (no number, not a

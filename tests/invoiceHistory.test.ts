@@ -102,19 +102,29 @@ describe('invoiceHistory', () => {
     const history = invoiceHistory(
       { ...base, statusChanges: [{ status: 'issued', createdAt: '2026-10-01 09:00:00' }] },
       [
-        { createdAt: '2026-10-03 10:00:00', sentAt: null, to: 'upload@duo.example.test' },
+        {
+          createdAt: '2026-10-03 10:00:00',
+          sentAt: null,
+          to: 'eingang@duo.example.test',
+          category: 'incoming'
+        },
         {
           createdAt: '2026-10-02 10:00:00',
           sentAt: '2026-10-02 10:00:05',
-          to: 'upload@duo.example.test'
+          to: 'upload@duo.example.test',
+          category: 'outgoing'
         }
       ]
     )
     expect(history.map((entry) => [entry.label, entry.at, entry.detail])).toEqual([
       ['Angelegt', '2026-10-01 08:00:00', undefined],
       ['Gestellt', '2026-10-01 09:00:00', undefined],
-      ['An DATEV übergeben', '2026-10-02 10:00:05', 'an upload@duo.example.test'],
-      ['Übergabe an DATEV wird bestätigt', '2026-10-03 10:00:00', 'an upload@duo.example.test']
+      ['An DATEV übergeben', '2026-10-02 10:00:05', 'Rechnungsausgang, an upload@duo.example.test'],
+      [
+        'Übergabe an DATEV wird bestätigt',
+        '2026-10-03 10:00:00',
+        'Rechnungseingang, an eingang@duo.example.test'
+      ]
     ])
   })
 })

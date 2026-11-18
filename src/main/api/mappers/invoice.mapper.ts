@@ -176,6 +176,13 @@ export class InvoiceMapper {
       numberYearlyReset: entity.invoice_number_yearly_reset,
       numberYear: entity.invoice_number_year,
       datevUploadEmail: entity.datev_upload_email,
+      datevUploadEmails: {
+        outgoing: entity.datev_upload_email,
+        incoming: entity.datev_upload_email_incoming,
+        cash: entity.datev_upload_email_cash,
+        other: entity.datev_upload_email_other,
+        credit_card: entity.datev_upload_email_credit_card
+      },
       createdAt: entity.created_at,
       updatedAt: entity.updated_at
     }

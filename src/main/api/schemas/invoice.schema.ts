@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { TimestampFields, createPaginatedResponse } from './base.schema'
 import { CURRENCY_CODE_PATTERN } from '../../invoice/money'
+import { DatevUploadEmails } from './datev.schema'
 
 /** ISO 4217 code ("EUR"); a typed "eur " is taken as EUR */
 export const CurrencyCode = z
@@ -283,8 +284,10 @@ export const CompanyInvoiceSettingsDto = z
     numberYearlyReset: z.boolean(),
     /** The issue year of the last number taken, null before the first */
     numberYear: z.number().nullable(),
-    /** DATEV Upload Mail address of the company's DATEV client, '' for none */
-    datevUploadEmail: z.string()
+    /** DATEV Upload Mail address of the company's DATEV client for Rechnungsausgang, '' for none */
+    datevUploadEmail: z.string(),
+    /** Its upload address per DATEV category, '' for none */
+    datevUploadEmails: DatevUploadEmails
   })
   .extend(TimestampFields.shape)
 

@@ -1,6 +1,7 @@
 import type { datev_transfer } from '../../db/schema'
 import { fromCents } from '../../einvoice/amounts'
 import type {
+  DatevCategory,
   DatevPendingInvoiceDto,
   DatevTransferDto,
   DatevTransferStatus
@@ -34,6 +35,7 @@ export class DatevMapper {
       id: entity.id,
       invoiceId: entity.invoice_id,
       status: entity.status as DatevTransferStatus,
+      category: entity.category as DatevCategory,
       to: entity.to,
       fileName: entity.file_name,
       createdAt: entity.created_at,

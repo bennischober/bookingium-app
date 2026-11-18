@@ -11,8 +11,9 @@ from DATEV once and then made by Bookingium.
 
 ## Before the switch date
 
-- [ ] DUO › Upload Mail: note the upload address of the client (Mandant) and check which document
-      category (Rechnungsausgang / Rechnungseingang) the mails land in.
+- [ ] DUO › Upload Mail: note the client's (Mandant) upload addresses. DATEV gives one per
+      document category (Rechnungsausgang, Rechnungseingang, Kasse, Sonstige,
+      Kreditkartenbelege); invoices from Bookingium go to Rechnungsausgang.
 - [ ] DUO › Upload Mail: confirm the sending address of Einstellungen › E-Mail › „Senden von“
       (one-time, with SmartLogin).
 - [ ] Find out whether the running part of the invoice number restarts at 1 each year or
@@ -26,7 +27,8 @@ from DATEV once and then made by Bookingium.
       last + 1, and the yearly restart as found out above. The preview shows the next number.
 - [ ] Einstellungen › Rechnungen › Kundennummern: the next number after the highest imported one
       (numbers already taken are skipped anyway).
-- [ ] Einstellungen › Rechnungen › DATEV: the upload address per issuing company.
+- [ ] Einstellungen › Rechnungen › DATEV: per issuing company at least the Rechnungsausgang
+      address, the other categories when documents of those kinds will go there.
 - [ ] The issuing company: logo uploaded, legal data complete (register, tax numbers, bank); the
       Geschäftsbrief footer prints them.
 - [ ] Stop writing outgoing invoices in DATEV.

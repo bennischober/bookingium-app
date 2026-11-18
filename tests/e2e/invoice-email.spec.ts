@@ -100,22 +100,22 @@ test('"An DATEV übergeben" asks for the DATEV address first, then for a mail ac
   await page.getByRole('button', { name: 'An DATEV übergeben' }).click()
   let toast = latestToast()
   await expect(toast).toContainText('Übergabe an DATEV fehlgeschlagen', { timeout: 30_000 })
-  await expect(toast).toContainText('keine DATEV-Adresse hinterlegt')
+  await expect(toast).toContainText('keine DATEV-Adresse für „Rechnungsausgang“ hinterlegt')
   await toast.getByRole('button', { name: 'Einstellungen öffnen' }).click()
   await page.waitForURL(/settings\?tab=invoices/)
 
-  // The address is kept per issuing company; a typo is refused
-  const address = page.getByLabel('Upload-Mail-Adresse')
+  // One address per DATEV category and issuing company; a typo is refused
+  const address = page.getByLabel('Rechnungsausgang')
   const card = address.locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]')
   await expect(address).toBeEnabled()
   await address.fill('kein-mailformat')
   await card.getByRole('button', { name: 'Speichern' }).click()
-  await expect(latestToast()).toContainText('DATEV-Adresse konnte nicht gespeichert werden')
+  await expect(latestToast()).toContainText('DATEV-Adressen konnten nicht gespeichert werden')
   await address.fill('upload@duo.example.test')
   await card.getByRole('button', { name: 'Speichern' }).click()
-  await expect(latestToast()).toContainText('DATEV-Adresse gespeichert')
+  await expect(latestToast()).toContainText('DATEV-Adressen gespeichert')
   await page.reload()
-  await expect(page.getByLabel('Upload-Mail-Adresse')).toHaveValue('upload@duo.example.test')
+  await expect(page.getByLabel('Rechnungsausgang')).toHaveValue('upload@duo.example.test')
 
   // With the address, the missing sending account is what stops it - nothing is recorded
   await openPrintPage('#1040')

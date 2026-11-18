@@ -11,6 +11,7 @@
 // Pure apart from the injected deps (no Electron), so it can be unit tested.
 import type { DraftInput, OpSummary } from '../mailclient/core/types'
 import type { InvoicePrintDto } from '../api/schemas/invoice.schema'
+import type { DatevCategory } from '../api/schemas/datev.schema'
 import { formatMoney } from '../invoice/money'
 import { formatDate } from './invoiceEmail'
 import { bareMessageId, sendKeyOf, UNCLEAR } from './invoiceSend'
@@ -68,6 +69,7 @@ export function datevMail(input: {
 export type DatevSendLedger = {
   addPending(input: {
     invoiceId: number
+    category: DatevCategory
     to: string
     fileName: string
     mailAccountId: string
@@ -89,6 +91,7 @@ export async function sendDatevMail(
   },
   input: {
     invoiceId: number
+    category: DatevCategory
     accountId: string
     mail: DraftInput
   }
@@ -101,6 +104,7 @@ export async function sendDatevMail(
   }
   deps.ledger.addPending({
     invoiceId: input.invoiceId,
+    category: input.category,
     to: input.mail.to.map((a) => a.email).join(', '),
     fileName: attachment.filename,
     mailAccountId: input.accountId,

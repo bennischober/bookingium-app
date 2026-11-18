@@ -14,10 +14,38 @@ import { z } from 'zod'
 export const DatevTransferStatus = z.enum(['pending', 'sent'])
 export type DatevTransferStatus = z.infer<typeof DatevTransferStatus>
 
+/**
+ * The document category (Belegkategorie) of DATEV Upload Mail. DATEV gives each client one
+ * upload address per category, and files a document by the address it arrived at.
+ */
+export const DatevCategory = z.enum(['outgoing', 'incoming', 'cash', 'other', 'credit_card'])
+export type DatevCategory = z.infer<typeof DatevCategory>
+
+/** The categories as DATEV names them */
+export const DATEV_CATEGORY_LABELS: Record<DatevCategory, string> = {
+  outgoing: 'Rechnungsausgang',
+  incoming: 'Rechnungseingang',
+  cash: 'Kasse',
+  other: 'Sonstige',
+  credit_card: 'Kreditkartenbelege'
+}
+
+/** Upload address per category, '' for none */
+export const DatevUploadEmails = z.object({
+  outgoing: z.string(),
+  incoming: z.string(),
+  cash: z.string(),
+  other: z.string(),
+  credit_card: z.string()
+})
+export type DatevUploadEmails = z.infer<typeof DatevUploadEmails>
+
 export const DatevTransferDto = z.object({
   id: z.number(),
   invoiceId: z.number(),
   status: DatevTransferStatus,
+  /** The category it was filed under, by the address it went to */
+  category: DatevCategory,
   /** The DATEV upload address it went to */
   to: z.string(),
   fileName: z.string(),
@@ -45,6 +73,9 @@ export const DatevUploadEmail = z.union([z.literal(''), z.email()])
 
 export const SetDatevUploadEmailInput = z.object({
   companyId: z.number().int().positive(),
+  /** Rechnungsausgang when not given */
+  category: DatevCategory.default('outgoing'),
   datevUploadEmail: z.string().trim().pipe(DatevUploadEmail)
 })
-export type SetDatevUploadEmailInput = z.infer<typeof SetDatevUploadEmailInput>
+/** As callers pass it: the category may be left out */
+export type SetDatevUploadEmailInput = z.input<typeof SetDatevUploadEmailInput>

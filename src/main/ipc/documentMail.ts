@@ -16,6 +16,7 @@ import {
   type ContractEmailData
 } from '../mail/contractEmail'
 import { datevMail, datevRefusal, sendDatevMail } from '../mail/datevSend'
+import { DATEV_CATEGORY_LABELS, DatevCategory } from '../api/schemas/datev.schema'
 import { saveEmailPdf } from '../mail/emailPdf'
 import { invoiceEmail, type Lang } from '../mail/invoiceEmail'
 import { invoiceComposes, invoiceSendAccount, type DocumentCompose } from '../mail/invoiceSend'
@@ -157,8 +158,18 @@ export function registerDocumentMailIpc(): void {
    */
   ipcMain.handle(
     'invoice:datev',
-    async (event, { invoiceId, fileName }: { invoiceId: number; fileName: string }) => {
+    async (
+      event,
+      {
+        invoiceId,
+        fileName,
+        category = 'outgoing'
+      }: { invoiceId: number; fileName: string; category?: DatevCategory }
+    ) => {
       try {
+        if (!DatevCategory.safeParse(category).success) {
+          return { success: false, error: 'Unbekannte DATEV-Belegkategorie' }
+        }
         const entity = await container.resolve(InvoiceService).getInvoicePrintData(invoiceId)
         if (!entity) return { success: false, error: 'Rechnung nicht gefunden' }
         const data = InvoiceMapper.toPrintDto(
@@ -169,11 +180,11 @@ export function registerDocumentMailIpc(): void {
         const refusal = datevRefusal(data.invoice)
         if (refusal) return { success: false, error: refusal }
         const datev = container.resolve(DatevService)
-        const to = await datev.uploadEmailOf(data.invoice.companyId)
+        const to = await datev.uploadEmailOf(data.invoice.companyId, category)
         if (!to) {
           return {
             success: false,
-            error: `Für ${data.invoice.companyName} ist keine DATEV-Adresse hinterlegt.`,
+            error: `Für ${data.invoice.companyName} ist keine DATEV-Adresse für „${DATEV_CATEGORY_LABELS[category]}“ hinterlegt.`,
             setup: 'datev' as const
           }
         }
@@ -191,11 +202,12 @@ export function registerDocumentMailIpc(): void {
           },
           {
             invoiceId,
+            category,
             accountId: sender.account.id,
             mail: datevMail({ data, to, fileName: `${name}.pdf`, pdf, sendKey: randomUUID() })
           }
         )
-        return { success: true, to, messageId: sent.messageId, eInvoice }
+        return { success: true, to, category, messageId: sent.messageId, eInvoice }
       } catch (error) {
         console.error('Error handing an invoice to DATEV:', error)
         return failure(error)

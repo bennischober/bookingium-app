@@ -176,7 +176,11 @@ export default function InvoicePrintPage() {
             />
           )}
           {invoice.status !== 'draft' && (
-            <InvoiceDatevButton invoiceId={invoice.id} fileName={fileName} />
+            <InvoiceDatevButton
+              invoiceId={invoice.id}
+              companyId={invoice.companyId}
+              fileName={fileName}
+            />
           )}
           <PrintActions fileName={fileName} invoiceId={invoice.id} />
         </div>

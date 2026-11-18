@@ -7,16 +7,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PRODUCT_NAMES } from '../../../../main/api/terms'
+import {
+  DATEV_CATEGORY_LABELS,
+  DatevCategory,
+  type DatevUploadEmails
+} from '../../../../main/api/schemas/datev.schema'
+
+const EMPTY: DatevUploadEmails = {
+  outgoing: '',
+  incoming: '',
+  cash: '',
+  other: '',
+  credit_card: ''
+}
 
 /**
- * The DATEV Upload Mail address per issuing company (Einstellungen › Rechnungen). Each company
- * is its own client (Mandant) in DATEV Unternehmen online, with its own upload address;
- * "An DATEV übergeben" on an invoice mails its PDF there.
+ * The DATEV Upload Mail addresses per issuing company (Einstellungen › Rechnungen). Each company
+ * is its own client (Mandant) in DATEV Unternehmen online, and DATEV gives it one upload address
+ * per document category; a document is filed by the address it arrives at. "An DATEV übergeben"
+ * on an invoice mails its PDF to the category picked there, Rechnungsausgang by default.
  */
 export function DatevCard() {
   const utils = trpcReact.useUtils()
   const [companyId, setCompanyId] = useState<number | null>(null)
-  const [address, setAddress] = useState('')
+  const [addresses, setAddresses] = useState<DatevUploadEmails>(EMPTY)
+  const [saving, setSaving] = useState(false)
 
   const companies = trpcReact.company.getListItems.useQuery()
   const defaultCompany = trpcReact.company.getDefaultForInvoicing.useQuery()
@@ -34,29 +49,48 @@ export function DatevCard() {
     enabled: companyId !== null
   })
 
-  // Keep the input following the loaded address (per company)
-  const loaded = settingsQuery.isSuccess ? (settingsQuery.data?.datevUploadEmail ?? '') : undefined
-  const [lastLoaded, setLastLoaded] = useState<string | undefined>(loaded)
+  // Keep the inputs following the loaded addresses (per company)
+  const loaded = settingsQuery.isSuccess
+    ? (settingsQuery.data?.datevUploadEmails ?? EMPTY)
+    : undefined
+  const [lastLoaded, setLastLoaded] = useState<DatevUploadEmails | undefined>(loaded)
   if (loaded !== lastLoaded) {
     setLastLoaded(loaded)
-    setAddress(loaded ?? '')
+    setAddresses(loaded ?? EMPTY)
   }
 
-  const save = trpcReact.datev.setUploadEmail.useMutation({
-    onSuccess: () => {
-      if (companyId !== null) void utils.invoice.getCompanySettings.invalidate(companyId)
-      toast.success('DATEV-Adresse gespeichert')
-    },
-    onError: (error) =>
-      toast.error('DATEV-Adresse konnte nicht gespeichert werden', { description: error.message })
-  })
+  const save = trpcReact.datev.setUploadEmail.useMutation()
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (companyId === null) {
       toast.error('Bitte zuerst eine Firma auswählen')
       return
     }
-    save.mutate({ companyId, datevUploadEmail: address.trim() })
+    const changed = DatevCategory.options.filter(
+      (category) => addresses[category].trim() !== (loaded ?? EMPTY)[category]
+    )
+    if (changed.length === 0) {
+      toast.success('DATEV-Adressen gespeichert')
+      return
+    }
+    setSaving(true)
+    try {
+      for (const category of changed) {
+        await save.mutateAsync({
+          companyId,
+          category,
+          datevUploadEmail: addresses[category].trim()
+        })
+      }
+      toast.success('DATEV-Adressen gespeichert')
+    } catch (error) {
+      toast.error('DATEV-Adressen konnten nicht gespeichert werden', {
+        description: error instanceof Error ? error.message : String(error)
+      })
+    } finally {
+      void utils.invoice.getCompanySettings.invalidate(companyId)
+      setSaving(false)
+    }
   }
 
   return (
@@ -64,13 +98,15 @@ export function DatevCard() {
       <CardHeader>
         <CardTitle>DATEV</CardTitle>
         <CardDescription>
-          „An DATEV übergeben“ schickt das Rechnungs-PDF an die Upload-Mail-Adresse der Firma in{' '}
-          {PRODUCT_NAMES.datevOnline}. Gesendet wird vom Konto unter E-Mail › „Senden von“ – diese
-          Absenderadresse muss in DATEV Upload Mail freigegeben sein.
+          {PRODUCT_NAMES.datevOnline} gibt jeder Firma eine Upload-Mail-Adresse pro Belegkategorie
+          und legt einen Beleg nach der Adresse ab, an die er geht. „An DATEV übergeben“ schickt das
+          Rechnungs-PDF an die dort gewählte Kategorie, sonst an Rechnungsausgang. Gesendet wird vom
+          Konto unter E-Mail › „Senden von“ – diese Absenderadresse muss in DATEV Upload Mail
+          freigegeben sein.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <div className="space-y-2">
+      <CardContent className="space-y-4">
+        <div className="space-y-2 sm:max-w-md">
           <Label htmlFor="datev-company">Firma (DATEV-Mandant)</Label>
           <SearchableSelect
             id="datev-company"
@@ -85,19 +121,23 @@ export function DatevCard() {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="datev-address">Upload-Mail-Adresse</Label>
-          <Input
-            id="datev-address"
-            type="email"
-            placeholder={`Adresse aus ${PRODUCT_NAMES.datevOnline}`}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            disabled={companyId === null || settingsQuery.isLoading}
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {DatevCategory.options.map((category) => (
+            <div key={category} className="space-y-2">
+              <Label htmlFor={`datev-address-${category}`}>{DATEV_CATEGORY_LABELS[category]}</Label>
+              <Input
+                id={`datev-address-${category}`}
+                type="email"
+                placeholder={`Adresse aus ${PRODUCT_NAMES.datevOnline}`}
+                value={addresses[category]}
+                onChange={(e) => setAddresses({ ...addresses, [category]: e.target.value })}
+                disabled={companyId === null || settingsQuery.isLoading}
+              />
+            </div>
+          ))}
         </div>
 
-        <Button onClick={handleSave} disabled={save.isPending || companyId === null}>
+        <Button onClick={() => void handleSave()} disabled={saving || companyId === null}>
           Speichern
         </Button>
       </CardContent>

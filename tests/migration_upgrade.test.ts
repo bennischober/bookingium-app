@@ -278,7 +278,11 @@ describe('a database of the DATEV preview build', () => {
 
     runMigrations({ beforeApply: (pending) => calls.push(pending) })
 
-    expect(calls).toEqual([2]) // copied first, like any update
+    // copied first, like any update: the missed tour import, 0047 and everything after it
+    const pending = migrations.filter(
+      (m) => m.folderMillis > DATEV_PREVIEW_MIGRATION_MILLIS[2]
+    ).length
+    expect(calls).toEqual([pending])
     const after = rowCounts(sqlite)
     for (const [table, count] of Object.entries(before)) expect(after[table], table).toBe(count)
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
@@ -287,7 +291,7 @@ describe('a database of the DATEV preview build', () => {
     expect(schemaOf(sqlite)).toEqual(schemaOf(fresh))
 
     runMigrations({ beforeApply: (pending) => calls.push(pending) })
-    expect(calls).toEqual([2]) // up to date now
+    expect(calls).toEqual([pending]) // up to date now
   })
 
   it('refuses one that stopped between its DATEV migrations', () => {
