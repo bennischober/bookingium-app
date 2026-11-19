@@ -22,6 +22,7 @@ import { dashboardRouter } from './routers/dashboard.router'
 import { managementContractRouter } from './routers/management_contract.router'
 import { importRouter } from './routers/import.router'
 import { settingsRouter } from './routers/settings.router'
+import { mergeRouter } from './routers/merge.router'
 import { backupRouter } from './routers/backup.router'
 import { syncRouter } from './routers/sync.router'
 import { updatesRouter } from './routers/updates.router'
@@ -76,6 +77,7 @@ export const router = t.router({
   managementContract: managementContractRouter,
   dataImport: importRouter,
   settings: settingsRouter,
+  merge: mergeRouter,
   backup: backupRouter,
   sync: syncRouter,
   updates: updatesRouter,
