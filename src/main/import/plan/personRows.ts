@@ -67,7 +67,7 @@ export function buildPersonRows(ctx: PlanContext): ImportPreviewRow[] {
     if (company && ctx.mediaList) ctx.listGenres(company)
     // A row with a company but no person holds the company's own data
     const person = parsed[0]
-      ? ctx.personFor(parsed[0], company?.key ?? `row:${row.rowNumber}`, row.rowNumber)
+      ? ctx.personFor(parsed[0], company?.key ?? `row:${row.rowNumber}`, row.rowNumber, emails)
       : null
     const holder: PersonDraft | CompanyDraft = (person ?? company)!
 

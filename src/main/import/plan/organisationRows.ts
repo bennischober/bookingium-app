@@ -208,8 +208,13 @@ export function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
 
     // ---- Persons ----
     const scopeKey = company?.key ?? venue?.key ?? ''
-    const personDrafts = parsedPersons.map((parsed) =>
-      ctx.personFor(parsed, scopeKey, row.rowNumber)
+    const personDrafts = parsedPersons.map((parsed, index) =>
+      ctx.personFor(
+        parsed,
+        scopeKey,
+        row.rowNumber,
+        personEmails[index] ? [personEmails[index]] : []
+      )
     )
     const personRefs = parsedPersons.map((parsed, index) => {
       const person = personDrafts[index]

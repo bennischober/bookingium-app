@@ -69,6 +69,22 @@ export class ImportRepository {
       .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
       .all()
       .map((venue) => ({ ...venue, city: venue.city ?? '' }))
+    // #248: every address of a contact (main one and further ones), for matching by email
+    const emailsByContact = new Map<number, string[]>()
+    const addEmail = (contactId: number | null, email: string | null) => {
+      if (contactId === null || !email?.trim()) return
+      emailsByContact.set(contactId, [...(emailsByContact.get(contactId) ?? []), email])
+    }
+    for (const row of db
+      .select({ id: schema.contact.id, email: schema.contact.email })
+      .from(schema.contact)
+      .all())
+      addEmail(row.id, row.email)
+    for (const row of db
+      .select({ id: schema.contact_email.contact_id, email: schema.contact_email.email })
+      .from(schema.contact_email)
+      .all())
+      addEmail(row.id, row.email)
     const companies = db
       .select({ id: schema.company.id, name: schema.company.name })
       .from(schema.company)
@@ -77,10 +93,15 @@ export class ImportRepository {
       .select({
         id: schema.person.id,
         firstName: schema.person.first_name,
-        lastName: schema.person.last_name
+        lastName: schema.person.last_name,
+        contactId: schema.person.contact_id
       })
       .from(schema.person)
       .all()
+      .map(({ contactId, ...person }) => ({
+        ...person,
+        emails: contactId === null ? [] : (emailsByContact.get(contactId) ?? [])
+      }))
     const bands = db.select({ id: schema.band.id, name: schema.band.name }).from(schema.band).all()
     return { venues, bands, companies, persons }
   }
