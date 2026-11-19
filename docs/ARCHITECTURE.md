@@ -391,13 +391,17 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
     `RecordDetailPage` (loading, error, not found) around `RecordDetail`
     (`components/detail/RecordDetailPage.tsx`): back link, header with
     follow-up, Bearbeiten and Löschen, the follow-ups, and a `tabs` list of
-    `{ id, label, count?, className?, content }`. The first tab is the default;
-    Dokumente and, with a mail account, E-Mails are appended by the shell. Adding
-    a tab is one entry there plus its id in `components/x/constants.ts`. The
-    page itself keeps its overview, its tab components and the edit sheet (passed
-    as children). It uses the same `useRecordMutations` with
-    `onDeleted: () => navigate({ to: '/x' })`; `RecordDetail` calls `onDelete`
-    after `DeleteRecordButton` has asked. The invoice page is not built on the
+    `{ id, label, count?, className?, hideWhenEmpty?, content }`. The first tab is the
+    default; a list tab with `hideWhenEmpty` is left out while it has no rows. Dokumente
+    (with a mail account "Dokumente & E-Mails": the mails below the documents) is
+    appended by the shell. Keep the tabs few: the overview holds the master data
+    (`FactSheet`), short relation lists (`LinkList`) and member panels
+    (`components/detail/CompactParts.tsx`); a former tab id goes into the page's
+    `aliases` so old links open the tab that holds it now. Adding a tab is one entry
+    there plus its id in `components/x/constants.ts`. The page itself keeps its
+    overview, its tab components and the edit sheet (passed as children). It uses the
+    same `useRecordMutations` with `onDeleted: () => navigate({ to: '/x' })`;
+    `RecordDetail` calls `onDelete` after the "…" menu's Löschen has asked. The invoice page is not built on the
     shell: it has no tabs, no edit sheet, and its own actions. Lists of linked records come
     from `listBy*` procedures taking the id (e.g. `dealMemo.listByPerson`,
     `invoice.listByPerson`, `band.listByResponsiblePerson`); the person page

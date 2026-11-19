@@ -8,7 +8,6 @@ import { useRecentRecordVisit } from '@/hooks/useRecentRecords'
 import { parseRecordId } from '@/lib/recordId'
 import { useEventTabCounts } from '@/hooks/useTabCounts'
 import { TabCount } from '@/components/detail/DetailParts'
-import { emptyTabClass } from '@/components/detail/tabStyles'
 import { PageErrorState } from '@/components/load-states'
 import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
@@ -17,8 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { Button } from '@/components/ui/button'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
-import { ArrowLeft, Calendar, MapPin, Pencil, X, Check, FileSignature, Copy } from 'lucide-react'
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Pencil,
+  X,
+  Check,
+  FileSignature,
+  Copy,
+  Trash2
+} from 'lucide-react'
 import { DuplicateEventWizard } from '@/components/event-wizard/DuplicateEventWizard'
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
@@ -29,7 +37,10 @@ import { TicketsTab } from '@/components/event-hub/TicketsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
-import { isEventTab } from '@/components/event-hub/constants'
+import { EVENT_TAB_ALIASES, isEventTab } from '@/components/event-hub/constants'
+import { MoreActions } from '@/components/detail/MoreActions'
+import { TabSection } from '@/components/detail/CompactParts'
+import { confirmDelete } from '@/lib/confirm'
 import { EventOpenItems } from '@/components/open-items/EventOpenItems'
 
 export function EventHubPage() {
@@ -37,7 +48,7 @@ export function EventHubPage() {
   const counts = useEventTabCounts(parseRecordId(eventId))
   const navigate = useNavigate()
   const hasMailAccount = useHasMailAccount()
-  const activeTab = useDetailTab(isEventTab, 'overview')
+  const activeTab = useDetailTab(isEventTab, 'overview', EVENT_TAB_ALIASES)
 
   const {
     data: event,
@@ -190,25 +201,30 @@ export function EventHubPage() {
                   <FileSignature className="h-3.5 w-3.5" />
                   Vertrag
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={() => setDuplicating(true)}
-                  title="Neues Datum mit Band, Deal und LoPro dieses Events"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  Duplizieren
-                </Button>
                 <FollowUpButton record={{ type: 'event', id: event.id, name: event.name }} />
                 <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />
                   Bearbeiten
                 </Button>
-                <DeleteRecordButton
-                  confirmTitle={`Event „${event.name}“ löschen?`}
-                  pending={deleteEvent.isPending}
-                  onDelete={() => deleteEvent.mutate(event.id)}
+                <MoreActions
+                  actions={[
+                    {
+                      label: 'Duplizieren…',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      title: 'Neues Datum mit Band, Deal und LoPro dieses Events',
+                      onSelect: () => setDuplicating(true)
+                    },
+                    {
+                      label: 'Löschen…',
+                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                      destructive: true,
+                      disabled: deleteEvent.isPending,
+                      onSelect: () =>
+                        void confirmDelete(`Event „${event.name}“ löschen?`).then(
+                          (ok) => ok && deleteEvent.mutate(event.id)
+                        )
+                    }
+                  ]}
                 />
               </>
             )}
@@ -248,16 +264,12 @@ export function EventHubPage() {
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
-          <TabsTrigger value="financials">Finanzen</TabsTrigger>
-          <TabsTrigger value="advancing">Advancing</TabsTrigger>
-          <TabsTrigger value="tickets">Tickets</TabsTrigger>
-          <TabsTrigger value="settlement">Abrechnung</TabsTrigger>
-          <TabsTrigger value="documents" className={emptyTabClass(counts.documents)}>
-            Dokumente
+          <TabsTrigger value="itinerary">Ablauf</TabsTrigger>
+          <TabsTrigger value="financials">Geld</TabsTrigger>
+          <TabsTrigger value="documents">
+            {hasMailAccount ? 'Dokumente & E-Mails' : 'Dokumente'}
             <TabCount count={counts.documents} />
           </TabsTrigger>
-          {hasMailAccount && <TabsTrigger value="mails">E-Mails</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -270,34 +282,37 @@ export function EventHubPage() {
           />
         </TabsContent>
 
-        <TabsContent value="itinerary">
-          <ItineraryTab
-            event={event}
-            isEditing={isEditing}
-            saveSignal={saveSignal}
-            cancelSignal={cancelSignal}
-          />
+        {/* Ablauf: the day itself and its preparation with the local promoter */}
+        <TabsContent value="itinerary" className="space-y-10">
+          <TabSection title="Tagesablauf">
+            <ItineraryTab
+              event={event}
+              isEditing={isEditing}
+              saveSignal={saveSignal}
+              cancelSignal={cancelSignal}
+            />
+          </TabSection>
+          <TabSection id="section-advancing" title="Advancing">
+            <AdvancingTab eventId={event.id} />
+          </TabSection>
         </TabsContent>
 
-        <TabsContent value="financials">
-          <FinancialsTab
-            event={event}
-            isEditing={isEditing}
-            saveSignal={saveSignal}
-            cancelSignal={cancelSignal}
-          />
-        </TabsContent>
-
-        <TabsContent value="advancing">
-          <AdvancingTab eventId={event.id} />
-        </TabsContent>
-
-        <TabsContent value="tickets">
-          <TicketsTab eventId={event.id} />
-        </TabsContent>
-
-        <TabsContent value="settlement">
-          <SettlementTab eventId={event.id} />
+        {/* Geld: deal and contract, ticket sales, and the settlement after the show */}
+        <TabsContent value="financials" className="space-y-10">
+          <TabSection title="Deal & Vertrag">
+            <FinancialsTab
+              event={event}
+              isEditing={isEditing}
+              saveSignal={saveSignal}
+              cancelSignal={cancelSignal}
+            />
+          </TabSection>
+          <TabSection id="section-tickets" title="Tickets">
+            <TicketsTab eventId={event.id} />
+          </TabSection>
+          <TabSection id="section-settlement" title="Abrechnung">
+            <SettlementTab eventId={event.id} />
+          </TabSection>
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-8">
@@ -305,13 +320,13 @@ export function EventHubPage() {
           {/* D1: the band's own documents, read-only here - the rider or tech spec is
               needed on the gig without a second upload */}
           <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />
+          {hasMailAccount && (
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">E-Mails</h2>
+              <MailHistoryPanel entityType="event" entityId={event.id} />
+            </section>
+          )}
         </TabsContent>
-
-        {hasMailAccount && (
-          <TabsContent value="mails">
-            <MailHistoryPanel entityType="event" entityId={event.id} />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   )

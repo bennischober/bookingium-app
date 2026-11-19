@@ -596,10 +596,11 @@ describe('tile requests', () => {
 })
 
 describe('the map route', () => {
-  it('takes no Alt+number shortcut from the pages before it', () => {
+  it('takes no Alt+number shortcut: the ten used most keep theirs', () => {
     expect(getRouteShortcut(ROUTES.map.path)).toBeUndefined()
-    expect(getRouteShortcut(ROUTES.invoices.path)).toBe('4')
-    expect(getRouteShortcut(ROUTES.hotels.path)).toBe('0')
+    expect(getRouteShortcut(ROUTES.invoices.path)).toBe('5')
+    expect(getRouteShortcut(ROUTES.mail.path)).toBe('0')
+    expect(getRouteShortcut(ROUTES.hotels.path)).toBeUndefined()
   })
 
   it('still sits in the Planung group of the menu', () => {

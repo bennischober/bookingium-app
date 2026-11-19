@@ -134,7 +134,10 @@ function enqueueDraft(
 }
 
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+  const writes = new WriteEngine(store, ACCOUNT, {
+    writeAccount: sandboxWriteAccount(),
+    credentials: sandboxCredentials
+  })
   const internals = writes as unknown as {
     writeClient: () => Promise<unknown>
     execute: (op: JournalRow) => Promise<{ outcome: string; detail?: string }>

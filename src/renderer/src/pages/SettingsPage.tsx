@@ -39,6 +39,7 @@ import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
 import { MailRulesCard } from '@/components/settings/MailRulesCard'
+import { TipsCard } from '@/components/settings/TipsCard'
 import { MapPreviewSwitchCard } from '@/components/settings/MapPreviewSwitchCard'
 import { NotificationsCard } from '@/components/settings/NotificationsCard'
 import { BackupCard } from '@/components/settings/BackupCard'
@@ -449,6 +450,7 @@ export default function SettingsPage() {
         <TabsContent value="general" className="space-y-6">
           <GeneralCard />
           <AppearanceCard />
+          <TipsCard />
           <MapPreviewSwitchCard />
           <NotificationsCard />
         </TabsContent>

@@ -35,3 +35,14 @@ export type EventTab = (typeof EVENT_TABS)[number]
 export function isEventTab(value: unknown): value is EventTab {
   return typeof value === 'string' && (EVENT_TABS as readonly string[]).includes(value)
 }
+
+/**
+ * Former tabs, now sections: Advancing in Ablauf (`itinerary`), Tickets and Abrechnung in Geld
+ * (`financials`); E-Mails are part of Dokumente
+ */
+export const EVENT_TAB_ALIASES: Partial<Record<string, EventTab>> = {
+  advancing: 'itinerary',
+  tickets: 'financials',
+  settlement: 'financials',
+  mails: 'documents'
+}

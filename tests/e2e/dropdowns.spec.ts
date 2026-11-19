@@ -42,5 +42,5 @@ test('picks a technical lead by searching', async () => {
   await page.getByRole('button', { name: 'Speichern', exact: true }).click()
   await expect(page.getByText('Band aktualisiert')).toBeVisible()
   await page.locator('tr', { hasText: 'The Electric Waves' }).click()
-  await expect(page.getByText('Sarah Drummer')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sarah Drummer' }).first()).toBeVisible()
 })

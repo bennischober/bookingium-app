@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Combine, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageErrorState } from '@/components/load-states'
-import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
-import { MergeRecordButton } from '@/components/detail/MergeRecordButton'
+import { MergeDialog } from '@/components/detail/MergeDialog'
+import { MoreActions } from '@/components/detail/MoreActions'
+import { Tip } from '@/components/Tip'
+import { confirmDelete } from '@/lib/confirm'
 import { TabCount } from '@/components/detail/DetailParts'
-import { emptyTabClass } from '@/components/detail/tabStyles'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
@@ -104,6 +106,8 @@ export interface DetailTab<TTab extends string = string> {
   count?: number
   /** Width of the tab content, e.g. `max-w-2xl` for a card list */
   className?: string
+  /** A list tab without rows is left out (until it is the open one) */
+  hideWhenEmpty?: boolean
   content: ReactNode
 }
 
@@ -115,6 +119,7 @@ export function RecordDetail<TTab extends string>({
   onDelete,
   deleting,
   isTab,
+  aliases,
   tabs,
   documents,
   children
@@ -129,6 +134,8 @@ export function RecordDetail<TTab extends string>({
   deleting: boolean
   /** The route's tab guard (`components/<obj>/constants.ts`); the first tab is the default */
   isTab: (value: unknown) => value is TTab
+  /** Former tabs that are now a section of another one (`useDetailTab`) */
+  aliases?: Partial<Record<string, TTab>>
   /** The page's own tabs, without Dokumente and E-Mails */
   tabs: DetailTab<TTab>[]
   /** The Dokumente tab: its count, the panel's title and anything shown below the panel */
@@ -139,33 +146,40 @@ export function RecordDetail<TTab extends string>({
   const navigate = useNavigate()
   const hasMailAccount = useHasMailAccount()
   const fallback = tabs[0].id
-  const activeTab = useDetailTab(isTab, fallback)
+  const activeTab = useDetailTab(isTab, fallback, {
+    mails: 'documents' as TTab,
+    ...aliases
+  })
+  const [merging, setMerging] = useState(false)
+  const canMerge =
+    record.type === 'company' ||
+    record.type === 'person' ||
+    record.type === 'venue' ||
+    record.type === 'band'
   const followUpRecord = { type: record.type, id: record.id, name: record.name }
   useRecentRecordVisit({ kind: record.type as RecentRecordKind, label: record.name })
 
+  // Documents and mails are one tab: both are what was exchanged about the record
   const allTabs: DetailTab[] = [
-    ...tabs,
+    ...tabs.filter((tab) => !(tab.hideWhenEmpty && tab.count === 0 && tab.id !== activeTab)),
     {
       id: 'documents',
-      label: 'Dokumente',
+      label: hasMailAccount ? 'Dokumente & E-Mails' : 'Dokumente',
       count: documents.count,
       className: 'space-y-8',
       content: (
         <>
           <DocumentsPanel ownerType={record.type} ownerId={record.id} title={documents.title} />
           {documents.extra}
+          {hasMailAccount && (
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">E-Mails</h2>
+              <MailHistoryPanel entityType={record.type} entityId={record.id} />
+            </section>
+          )}
         </>
       )
-    },
-    ...(hasMailAccount
-      ? [
-          {
-            id: 'mails',
-            label: 'E-Mails',
-            content: <MailHistoryPanel entityType={record.type} entityId={record.id} />
-          }
-        ]
-      : [])
+    }
   ]
 
   return (
@@ -192,22 +206,33 @@ export function RecordDetail<TTab extends string>({
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
-            {(record.type === 'company' ||
-              record.type === 'person' ||
-              record.type === 'venue' ||
-              record.type === 'band') && (
-              <MergeRecordButton kind={record.type} id={record.id} name={record.name} />
-            )}
-            <DeleteRecordButton
-              confirmTitle={deleteQuestion(record.name)}
-              pending={deleting}
-              onDelete={onDelete}
+            <MoreActions
+              actions={[
+                ...(canMerge
+                  ? [
+                      {
+                        label: 'Zusammenführen…',
+                        icon: <Combine className="h-3.5 w-3.5" />,
+                        onSelect: () => setMerging(true)
+                      }
+                    ]
+                  : []),
+                {
+                  label: 'Löschen…',
+                  icon: <Trash2 className="h-3.5 w-3.5" />,
+                  destructive: true,
+                  disabled: deleting,
+                  onSelect: () =>
+                    void confirmDelete(deleteQuestion(record.name)).then((ok) => ok && onDelete())
+                }
+              ]}
             />
           </div>
         </div>
       </div>
 
       <RecordFollowUps record={followUpRecord} />
+      <Tip id="recordActions" className="mb-4" />
 
       <Tabs
         value={activeTab}
@@ -225,7 +250,7 @@ export function RecordDetail<TTab extends string>({
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
           {allTabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} className={emptyTabClass(tab.count)}>
+            <TabsTrigger key={tab.id} value={tab.id}>
               {tab.label}
               <TabCount count={tab.count} />
             </TabsTrigger>
@@ -239,6 +264,14 @@ export function RecordDetail<TTab extends string>({
         ))}
       </Tabs>
 
+      {merging && canMerge && (
+        <MergeDialog
+          kind={record.type as 'company' | 'person' | 'venue' | 'band'}
+          id={record.id}
+          name={record.name}
+          onClose={() => setMerging(false)}
+        />
+      )}
       {children}
     </div>
   )

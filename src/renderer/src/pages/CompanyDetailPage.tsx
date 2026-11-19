@@ -5,129 +5,177 @@ import { parseRecordId } from '@/lib/recordId'
 import { useCompanyTabCounts } from '@/hooks/useTabCounts'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
-import {
-  RelatedBandsTable,
-  RelatedEventsTable,
-  RelatedVenuesTable
-} from '@/components/detail/RelatedTables'
+import { RelatedEventsTable } from '@/components/detail/RelatedTables'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
-import { isCompanyTab } from '@/components/company/constants'
-import { AddressLines, Empty, Fields, InfoCard } from '@/components/detail/DetailParts'
+import { COMPANY_TAB_ALIASES, isCompanyTab } from '@/components/company/constants'
+import { addressBlock, contactFacts } from '@/components/detail/facts'
+import { FactSheet, LinkList, TabSection } from '@/components/detail/CompactParts'
+import {
+  bandItems,
+  eventItems,
+  openInvoices,
+  upcoming,
+  useInvoiceItems,
+  venueItems
+} from '@/components/detail/relatedLinks'
 import { CompanyMarketingCard } from '@/components/band/marketing/MarketingLinksCard'
+import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
 
-/** Overview: address, contact, tax and register data, bank, invoicing */
+/**
+ * Overview: the company's data in one sheet, then what it is linked to (bands, clubs and
+ * festivals, next events, open invoices) as short lists, then its contacts
+ */
 function OverviewTab({ company }: { company: CompanyDto }) {
+  const navigate = useNavigate()
   const { contact, bank } = company
   const persons = trpcReact.person.getListItems.useQuery(undefined, {
     enabled: company.invoiceContactPersonId !== null
   })
+  const bands = trpcReact.band.listByCompany.useQuery(company.id)
+  const venues = trpcReact.venue.listByCompany.useQuery(company.id)
+  const events = trpcReact.dealMemo.listByCompany.useQuery(company.id)
+  const invoices = trpcReact.invoice.listByCompany.useQuery(company.id)
+  const invoiceItems = useInvoiceItems(openInvoices(invoices.data))
   const invoiceContact = persons.data?.find(
     (person) => person.id === company.invoiceContactPersonId
   )
+  const toTab = (tab: 'events' | 'invoices') =>
+    navigate({ to: '.', search: { tab } as never, replace: true })
+  const bandRows = bands.data?.map((band) => ({
+    ...band,
+    role: [
+      band.companyId === company.id && 'Firma der Band',
+      band.managementCompanyId === company.id && 'Management'
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }))
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {company.kind === 'media' && (
-        <InfoCard label="Verteiler">
-          <Fields
-            fields={[
-              ['Art', COMPANY_KIND_LABELS[company.kind]],
-              ['Genres', company.genres]
-            ]}
+    <div className="space-y-6">
+      <FactSheet
+        groups={[
+          {
+            title: 'Kontakt',
+            facts: [...contactFacts(contact), ['Adresse', addressBlock(company.address)]]
+          },
+          {
+            title: 'Rechnungen',
+            facts: [
+              ['Standardfirma', company.isDefaultForInvoicing && 'Ja, für eigene Rechnungen'],
+              [
+                'Ansprechpartner',
+                invoiceContact && (
+                  <Link
+                    to="/persons/$personId"
+                    params={{ personId: String(invoiceContact.id) }}
+                    className="font-medium hover:underline"
+                  >
+                    {`${invoiceContact.firstName} ${invoiceContact.lastName}`.trim()}
+                  </Link>
+                )
+              ],
+              [
+                'Kundennummer',
+                company.customerNumber == null ? null : String(company.customerNumber)
+              ]
+            ]
+          },
+          {
+            title: 'Steuer & Register',
+            facts: [
+              ['USt-IdNr.', company.vatId],
+              ['Steuernummer', company.taxNumber],
+              ['Registernummer', company.commercialRegisterNo],
+              ['Registergericht', company.registerCourt],
+              ['KSK-Nr.', company.kskNumber]
+            ]
+          },
+          {
+            title: 'Bankverbindung',
+            facts: [
+              ['Bank', bank?.bankName],
+              ['Inhaber', bank?.accountHolder],
+              ['IBAN', bank?.iban],
+              ['BIC', bank?.bic]
+            ]
+          },
+          {
+            title: 'Medien',
+            facts:
+              company.kind === 'media'
+                ? [
+                    ['Art', COMPANY_KIND_LABELS[company.kind]],
+                    ['Genres', company.genres]
+                  ]
+                : []
+          },
+          {
+            title: 'Anmerkungen',
+            facts: [
+              [
+                'Notiz',
+                company.notes && <span className="whitespace-pre-wrap">{company.notes}</span>
+              ]
+            ]
+          }
+        ]}
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div id="section-bands">
+          <LinkList
+            title="Bands"
+            items={bandItems(bandRows, (band) => bandRows?.find((row) => row.id === band.id)?.role)}
           />
-        </InfoCard>
-      )}
-      <InfoCard label="Adresse">
-        <AddressLines address={company.address} />
-      </InfoCard>
-      <CompanyMarketingCard companyId={company.id} />
-      <InfoCard label="Kontakt">
-        <Fields
-          fields={[
-            ['E-Mail', contact?.email],
-            ['Telefon', contact?.phone],
-            ['Mobil', contact?.mobilePhone],
-            ['Website', contact?.homepage]
-          ]}
-        />
-      </InfoCard>
-      <InfoCard label="Steuer & Register">
-        <Fields
-          fields={[
-            ['USt-IdNr.', company.vatId],
-            ['Steuernummer', company.taxNumber],
-            ['Registernummer', company.commercialRegisterNo],
-            ['Registergericht', company.registerCourt],
-            ['KSK-Nr.', company.kskNumber],
-            ['Kundennummer', company.customerNumber == null ? null : String(company.customerNumber)]
-          ]}
-        />
-      </InfoCard>
-      <InfoCard label="Bankverbindung">
-        <Fields
-          fields={[
-            ['Bank', bank?.bankName],
-            ['Inhaber', bank?.accountHolder],
-            ['IBAN', bank?.iban],
-            ['BIC', bank?.bic]
-          ]}
-        />
-      </InfoCard>
-      <InfoCard label="Rechnungsstellung">
-        {company.isDefaultForInvoicing ? (
-          <span className="font-medium">Standardfirma für Rechnungen</span>
-        ) : (
-          <Empty>Nicht die Standardfirma für Rechnungen</Empty>
-        )}
-        {invoiceContact && (
-          <div className="mt-1">
-            <span className="text-muted-foreground">Ansprechpartner für Rechnungen: </span>
-            <Link
-              to="/persons/$personId"
-              params={{ personId: String(invoiceContact.id) }}
-              className="font-medium hover:underline"
+        </div>
+        <div id="section-venues">
+          <LinkList
+            title="Clubs / Festivals"
+            items={venueItems(venues.data, (venue) => {
+              const row = venues.data?.find((entry) => entry.id === venue.id)
+              return row
+                ? [VENUE_KIND_LABELS[row.kind], row.address?.city].filter(Boolean).join(' · ')
+                : null
+            })}
+          />
+        </div>
+        <LinkList
+          title="Nächste Events"
+          items={eventItems(upcoming(events.data))}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() => toTab('events')}
             >
-              {`${invoiceContact.firstName} ${invoiceContact.lastName}`.trim()}
-            </Link>
-          </div>
-        )}
-      </InfoCard>
-      <InfoCard label="Anmerkungen">
-        {company.notes ? <p className="whitespace-pre-wrap">{company.notes}</p> : <Empty />}
-      </InfoCard>
+              Alle Events
+            </button>
+          }
+        />
+        <LinkList
+          title="Offene Rechnungen"
+          items={invoiceItems}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() => toTab('invoices')}
+            >
+              Alle Rechnungen
+            </button>
+          }
+        />
+      </div>
+      <CompanyMarketingCard companyId={company.id} />
+      <TabSection id="section-contacts" title="Ansprechpartner">
+        <MembersPanel entityType="company" entityId={company.id} />
+      </TabSection>
     </div>
-  )
-}
-
-/** Bands the company owns ("Firma der Band") or manages */
-function BandsTab({ companyId }: { companyId: number }) {
-  const bands = trpcReact.band.listByCompany.useQuery(companyId)
-  return (
-    <RelatedBandsTable
-      label="Bands der Firma"
-      query={bands}
-      empty="Keine Bands gehören zu dieser Firma oder werden von ihr gemanagt."
-      roles={(band) => [
-        band.companyId === companyId && 'Firma der Band',
-        band.managementCompanyId === companyId && 'Management'
-      ]}
-    />
-  )
-}
-
-/** Venues the company runs */
-function VenuesTab({ companyId }: { companyId: number }) {
-  const venues = trpcReact.venue.listByCompany.useQuery(companyId)
-  return (
-    <RelatedVenuesTable
-      label="Clubs und Festivals der Firma"
-      query={venues}
-      empty="Keine Clubs und Festivals mit dieser Firma."
-    />
   )
 }
 
@@ -160,8 +208,8 @@ function InvoicesTab({ companyId }: { companyId: number }) {
 }
 
 /**
- * Company page: everything about one company in tabs (contacts, bands,
- * venues, events, invoices, documents). Quick edits stay in the sheet.
+ * Company page: the overview holds its data, links and contacts; events and invoices (long,
+ * sortable lists) have a tab each, shown once there are any. Quick edits stay in the sheet.
  */
 export default function CompanyDetailPage() {
   const { companyId } = useParams({ strict: false }) as { companyId?: string }
@@ -210,36 +258,21 @@ export default function CompanyDetailPage() {
           onDelete={() => mutations.deleteNow(company)}
           deleting={mutations.isDeleting}
           isTab={isCompanyTab}
+          aliases={COMPANY_TAB_ALIASES}
           tabs={[
             { id: 'overview', label: 'Übersicht', content: <OverviewTab company={company} /> },
-            {
-              id: 'contacts',
-              label: 'Ansprechpartner',
-              count: counts.contacts,
-              content: <MembersPanel entityType="company" entityId={company.id} />
-            },
-            {
-              id: 'bands',
-              label: 'Bands',
-              count: counts.bands,
-              content: <BandsTab companyId={company.id} />
-            },
-            {
-              id: 'venues',
-              label: 'Clubs / Festivals',
-              count: counts.venues,
-              content: <VenuesTab companyId={company.id} />
-            },
             {
               id: 'events',
               label: 'Events',
               count: counts.events,
+              hideWhenEmpty: true,
               content: <EventsTab companyId={company.id} />
             },
             {
               id: 'invoices',
               label: 'Rechnungen',
               count: counts.invoices,
+              hideWhenEmpty: true,
               content: <InvoicesTab companyId={company.id} />
             }
           ]}

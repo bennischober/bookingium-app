@@ -22,13 +22,15 @@ import {
 import { TERMS } from '../../../main/api/terms'
 
 /**
- * A route information object containing the path, title, group and icon.
+ * A route information object containing the path, title, group and icon, and its Alt+digit
+ * shortcut if it has one.
  */
 export type RouteInfo = {
   path: string
   title: string
   group: string
   icon: LucideIcon
+  shortcut?: string
 }
 
 /**
@@ -40,42 +42,86 @@ export type GroupedRoute = {
 }
 
 /**
- * The application's top-level pages. The order here is the menu order (and
- * the order of the Alt+number shortcuts); the icons are shared by the menu
- * and the search palette.
+ * The application's top-level pages in menu order, grouped by what they are for: planning
+ * the shows, the money, the contacts, communication, administration. The Alt+digit shortcuts
+ * are given per page (the ten used most), so reordering the menu moves none of them.
+ * The icons are shared by the menu and the search palette.
  */
 export const ROUTES = {
-  dashboard: { path: '/', title: 'Dashboard', group: 'Planung', icon: LayoutDashboard },
-  calendar: { path: '/calendar', title: 'Kalender', group: 'Planung', icon: CalendarDays },
-  events: { path: '/events', title: TERMS.event.plural, group: 'Planung', icon: Music2 },
-  invoices: { path: '/invoices', title: TERMS.invoice.plural, group: 'Planung', icon: FileText },
-  bands: { path: '/band', title: TERMS.band.plural, group: 'Kontakte', icon: Guitar },
-  persons: { path: '/persons', title: TERMS.person.plural, group: 'Kontakte', icon: Users },
+  dashboard: {
+    path: '/',
+    title: 'Dashboard',
+    group: 'Planung',
+    icon: LayoutDashboard,
+    shortcut: '1'
+  },
+  calendar: {
+    path: '/calendar',
+    title: 'Kalender',
+    group: 'Planung',
+    icon: CalendarDays,
+    shortcut: '2'
+  },
+  events: {
+    path: '/events',
+    title: TERMS.event.plural,
+    group: 'Planung',
+    icon: Music2,
+    shortcut: '3'
+  },
+  // #232: advancing and ticket sales of a tour's shows
+  tours: { path: '/tours', title: 'Touren', group: 'Planung', icon: ClipboardList, shortcut: '4' },
+  // Shown only while its switch in the settings is on (#102)
+  map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
+  invoices: {
+    path: '/invoices',
+    title: TERMS.invoice.plural,
+    group: 'Finanzen',
+    icon: FileText,
+    shortcut: '5'
+  },
+  // #225
+  receipts: { path: '/receipts', title: 'Belege', group: 'Finanzen', icon: Receipt },
+  trips: { path: '/trips', title: 'Reisekosten', group: 'Finanzen', icon: Plane },
+  bands: {
+    path: '/band',
+    title: TERMS.band.plural,
+    group: 'Kontakte',
+    icon: Guitar,
+    shortcut: '6'
+  },
+  persons: {
+    path: '/persons',
+    title: TERMS.person.plural,
+    group: 'Kontakte',
+    icon: Users,
+    shortcut: '7'
+  },
   companies: {
     path: '/companies',
     title: TERMS.company.plural,
     group: 'Kontakte',
-    icon: Building2
+    icon: Building2,
+    shortcut: '8'
   },
   // Both are venues in the database (venue.kind); the detail page lives under the list of its kind
-  clubs: { path: '/clubs', title: TERMS.club.plural, group: 'Kontakte', icon: MapPin },
+  clubs: {
+    path: '/clubs',
+    title: TERMS.club.plural,
+    group: 'Kontakte',
+    icon: MapPin,
+    shortcut: '9'
+  },
   festivals: { path: '/festivals', title: TERMS.festival.plural, group: 'Kontakte', icon: Tent },
   hotels: { path: '/hotels', title: TERMS.hotel.plural, group: 'Kontakte', icon: Hotel },
+  mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox, shortcut: '0' },
+  // Mailing lists: who gets a mailing, next to the mail it goes out with
   contactLists: {
     path: '/contact-lists',
     title: TERMS.contactList.plural,
-    group: 'Kontakte',
+    group: 'Kommunikation',
     icon: Mails
   },
-  // The menu groups it under Planung; listed here, after the first ten, so the experimental
-  // page takes no Alt+number shortcut away from the pages before it (#102)
-  map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
-  // #225: after the first ten as well, so no Alt+number shortcut moves
-  receipts: { path: '/receipts', title: 'Belege', group: 'Planung', icon: Receipt },
-  trips: { path: '/trips', title: 'Reisekosten', group: 'Planung', icon: Plane },
-  // #232: advancing and ticket sales of a tour's shows
-  tours: { path: '/tours', title: 'Touren', group: 'Planung', icon: ClipboardList },
-  mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
 } as const satisfies Record<string, RouteInfo>
@@ -104,11 +150,14 @@ export const getGroupedRoutes = (
 }
 
 /**
- * Alt+digit shortcuts, assigned in menu order: Alt+1 ... Alt+9, then Alt+0.
+ * Alt+digit shortcuts in key order: Alt+1 ... Alt+9, then Alt+0.
  */
-export const ROUTE_SHORTCUTS: Array<{ key: string; route: RouteInfo }> = Object.values(ROUTES)
-  .slice(0, 10)
-  .map((route, index) => ({ key: String((index + 1) % 10), route }))
+export const ROUTE_SHORTCUTS: Array<{ key: string; route: RouteInfo }> = (
+  Object.values(ROUTES) as RouteInfo[]
+)
+  .filter((route) => route.shortcut !== undefined)
+  .map((route) => ({ key: route.shortcut!, route }))
+  .sort((a, b) => (a.key === '0' ? 10 : Number(a.key)) - (b.key === '0' ? 10 : Number(b.key)))
 
 export const getRouteShortcut = (path: string): string | undefined =>
   ROUTE_SHORTCUTS.find((shortcut) => shortcut.route.path === path)?.key

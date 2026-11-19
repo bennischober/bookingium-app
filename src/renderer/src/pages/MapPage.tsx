@@ -1,3 +1,4 @@
+import { Tip } from '@/components/Tip'
 import { useMemo, useState } from 'react'
 import { useMapPreview } from '@/hooks/useMapPreview'
 import { useNavigate } from '@tanstack/react-router'
@@ -126,6 +127,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           Events, Clubs und Festivals mit ihrem Gebietsschutz: Mit einer Band gewählt zeigt die
           Karte, wo sie noch frei ist. „Anfrage prüfen“ zeigt, was eine Buchung blockieren würde.
         </p>
+        <Tip id="map" className="mt-3" />
       </div>
 
       {/* Filters above the map; the map takes the remaining height */}

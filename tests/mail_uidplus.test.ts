@@ -142,7 +142,10 @@ function seed(store: Store, dir: string): { op: JournalRow; messageKey: string }
 
 /** A WriteEngine whose connection is the stub (the guard is not under test here) */
 function engineWith(store: Store, client: unknown): WriteEngine {
-  const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+  const writes = new WriteEngine(store, ACCOUNT, {
+    writeAccount: sandboxWriteAccount(),
+    credentials: sandboxCredentials
+  })
   const internals = writes as unknown as {
     writeClient: () => Promise<unknown>
     execute: (op: JournalRow) => Promise<{ outcome: string; reason?: string }>

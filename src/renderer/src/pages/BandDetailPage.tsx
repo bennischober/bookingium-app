@@ -11,24 +11,40 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { ManagementContractPanel } from '@/components/band/ManagementContractSheet'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
-import { isBandTab } from '@/components/band/constants'
+import { BAND_TAB_ALIASES, isBandTab } from '@/components/band/constants'
+import { FactSheet, LinkList, TabSection } from '@/components/detail/CompactParts'
+import {
+  eventItems,
+  openInvoices,
+  upcoming,
+  useInvoiceItems
+} from '@/components/detail/relatedLinks'
+import { sumCounts } from '@/hooks/useTabCounts'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { MarketingTab } from '@/components/band/marketing/MarketingTab'
-import { Empty, EventsTable, InfoCard } from '@/components/detail/DetailParts'
+import { EventsTable } from '@/components/detail/DetailParts'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
-/** Overview: who the band is, who bills and represents it */
+/**
+ * Overview: the band's data in one sheet, its members, the next shows and what is still unpaid.
+ * Everything long (all events, contracts, marketing) has its own tab.
+ */
 function OverviewTab({ band }: { band: BandDto }) {
+  const navigate = useNavigate()
   const companies = trpcReact.company.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
+  const events = trpcReact.dealMemo.listByBand.useQuery(band.id)
+  const invoices = trpcReact.invoice.listByBand.useQuery(band.id)
+  const next = upcoming(events.data)
+  const unpaid = openInvoices(invoices.data)
+  const invoiceItems = useInvoiceItems(unpaid)
   const companyName = (id: number | null) =>
     id === null ? null : (companies.data?.find((company) => company.id === id)?.name ?? '…')
   const responsible = persons.data?.find((person) => person.id === band.responsiblePersonId)
 
-  const companyLink = (id: number | null, fallback: string) => {
+  const companyLink = (id: number | null) => {
     const name = companyName(id)
-    if (id === null || name === null)
-      return <span className="text-muted-foreground">{fallback}</span>
+    if (id === null || name === null) return null
     return (
       <Link
         to="/companies/$companyId"
@@ -39,36 +55,83 @@ function OverviewTab({ band }: { band: BandDto }) {
       </Link>
     )
   }
+  const toTab = (tab: 'events' | 'invoices') =>
+    navigate({ to: '.', search: { tab } as never, replace: true })
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <InfoCard label="Firma der Band">{companyLink(band.companyId, '–')}</InfoCard>
-      <InfoCard label="Management (vertreten durch)">
-        {companyLink(band.managementCompanyId, 'Standardfirma (keine eigene hinterlegt)')}
-      </InfoCard>
-      <InfoCard label="Technischer Leiter">
-        {responsible ? (
-          <Link
-            to="/persons/$personId"
-            params={{ personId: String(responsible.id) }}
-            className="font-medium hover:underline"
-          >
-            {responsible.firstName} {responsible.lastName}
-          </Link>
-        ) : (
-          <Empty />
-        )}
-      </InfoCard>
-      <InfoCard label="Genre / Gründung">
-        {[band.genre, band.founded && formatLooseDate(band.founded)]
-          .filter(Boolean)
-          .join(' · ') || <Empty />}
-      </InfoCard>
-      <div className="md:col-span-2">
-        <InfoCard label="Anmerkungen">
-          {band.notes ? <p className="whitespace-pre-wrap">{band.notes}</p> : <Empty />}
-        </InfoCard>
+    <div className="space-y-6">
+      <FactSheet
+        groups={[
+          {
+            title: 'Band',
+            facts: [
+              ['Genre', band.genre],
+              ['Gegründet', band.founded && formatLooseDate(band.founded)],
+              [
+                'Technischer Leiter',
+                responsible && (
+                  <Link
+                    to="/persons/$personId"
+                    params={{ personId: String(responsible.id) }}
+                    className="font-medium hover:underline"
+                  >
+                    {responsible.firstName} {responsible.lastName}
+                  </Link>
+                )
+              ]
+            ]
+          },
+          {
+            title: 'Firma und Management',
+            facts: [
+              ['Firma der Band', companyLink(band.companyId)],
+              [
+                'Management',
+                companyLink(band.managementCompanyId) ?? (
+                  <span className="text-muted-foreground">Standardfirma</span>
+                )
+              ]
+            ]
+          },
+          {
+            title: 'Anmerkungen',
+            facts: [
+              ['Notiz', band.notes && <span className="whitespace-pre-wrap">{band.notes}</span>]
+            ]
+          }
+        ]}
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <LinkList
+          title="Nächste Shows"
+          items={eventItems(next)}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() => toTab('events')}
+            >
+              Alle Events
+            </button>
+          }
+        />
+        <LinkList
+          title="Offene Rechnungen"
+          items={invoiceItems}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() => toTab('invoices')}
+            >
+              Verträge & Rechnungen
+            </button>
+          }
+        />
       </div>
+      <TabSection id="section-members" title="Mitglieder">
+        <MembersPanel entityType="band" entityId={band.id} />
+      </TabSection>
     </div>
   )
 }
@@ -86,15 +149,22 @@ function EventsTab({ bandId }: { bandId: number }) {
   )
 }
 
-/** Invoices for the band's events or addressed to the band; a click opens the print view */
-function InvoicesTab({ bandId }: { bandId: number }) {
+/** Management contracts and the invoices for the band's events or addressed to the band */
+function MoneyTab({ bandId }: { bandId: number }) {
   const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
   return (
-    <RecordInvoicesTable
-      label="Rechnungen der Band"
-      query={invoices}
-      empty="Keine Rechnungen zu Events der Band oder an die Band."
-    />
+    <div className="space-y-10">
+      <TabSection id="section-contracts" title="Managementverträge">
+        <ManagementContractPanel bandId={bandId} />
+      </TabSection>
+      <TabSection title="Rechnungen">
+        <RecordInvoicesTable
+          label="Rechnungen der Band"
+          query={invoices}
+          empty="Keine Rechnungen zu Events der Band oder an die Band."
+        />
+      </TabSection>
+    </div>
   )
 }
 
@@ -140,36 +210,26 @@ export default function BandDetailPage() {
           onDelete={() => mutations.deleteNow(band)}
           deleting={mutations.isDeleting}
           isTab={isBandTab}
+          aliases={BAND_TAB_ALIASES}
           tabs={[
             { id: 'overview', label: 'Übersicht', content: <OverviewTab band={band} /> },
-            {
-              id: 'members',
-              label: 'Mitglieder',
-              count: counts.members,
-              content: <MembersPanel entityType="band" entityId={band.id} />
-            },
             {
               id: 'events',
               label: 'Events',
               count: counts.events,
+              hideWhenEmpty: true,
               content: <EventsTab bandId={band.id} />
-            },
-            {
-              id: 'contracts',
-              label: 'Managementverträge',
-              count: counts.contracts,
-              content: <ManagementContractPanel bandId={band.id} />
-            },
-            {
-              id: 'invoices',
-              label: 'Rechnungen',
-              count: counts.invoices,
-              content: <InvoicesTab bandId={band.id} />
             },
             {
               id: 'marketing',
               label: 'Marketing',
               content: <MarketingTab bandId={band.id} bandName={band.name} />
+            },
+            {
+              id: 'invoices',
+              label: 'Verträge & Rechnungen',
+              count: sumCounts(counts.contracts, counts.invoices),
+              content: <MoneyTab bandId={band.id} />
             }
           ]}
           documents={{

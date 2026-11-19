@@ -20,7 +20,7 @@ test.afterAll(async () => {
 test('offers a Zahlungserinnerung for an overdue invoice', async () => {
   const { page } = h
   // Nothing overdue yet: no card
-  await expect(page.getByText('Unbezahlte Rechnungen')).toBeVisible()
+  await expect(page.getByText('Offene Rechnungen', { exact: true })).toBeVisible()
   await expect(page.getByText('Überfällige Rechnungen')).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Rechnungen' }).first().click()
@@ -65,6 +65,6 @@ test('offers a Zahlungserinnerung for an overdue invoice', async () => {
   await page.getByRole('button', { name: 'Als bezahlt markieren' }).click()
   await expect(page.getByRole('button', { name: 'Zahlungserinnerung senden…' })).toHaveCount(0)
   await page.getByRole('link', { name: 'Dashboard' }).first().click()
-  await expect(page.getByText('Unbezahlte Rechnungen')).toBeVisible()
+  await expect(page.getByText('Offene Rechnungen', { exact: true })).toBeVisible()
   await expect(page.getByText('Überfällige Rechnungen')).toHaveCount(0)
 })

@@ -35,6 +35,7 @@ import {
 } from '../../../main/api/schemas/invoice.schema'
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
+import { Tip } from '@/components/Tip'
 
 export default function InvoicePage() {
   const { sorting, setSorting, sortInput } = useListSorting('invoices', {
@@ -162,6 +163,7 @@ export default function InvoicePage() {
         title="Rechnungen"
         description="Eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen erstellen."
       />
+      <Tip id="invoices" className="mb-4" />
 
       <DataTable
         columns={columns}

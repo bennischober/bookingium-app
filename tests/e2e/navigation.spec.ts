@@ -33,7 +33,7 @@ test('goes back and forward across pages and records', async () => {
   await page.locator('tr', { hasText: EVENT }).first().click()
   await expect(crumbs).toContainText(EVENT)
   // Switching tabs does not add history entries
-  await page.getByRole('tab', { name: 'Finanzen' }).click()
+  await page.getByRole('tab', { name: 'Geld' }).click()
   await page.getByRole('tab', { name: 'Übersicht' }).click()
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await expect(crumbs).toContainText('Bands')

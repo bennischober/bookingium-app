@@ -73,7 +73,6 @@ test('imports a band list with members from the settings page', async () => {
   await page.locator('tr', { hasText: 'Neon Harbour' }).click()
   await expect(page.getByText('Soundwave Records')).toBeVisible()
   await expect(page.getByText('Erik Kabel')).toBeVisible()
-  await page.getByRole('tab', { name: 'Mitglieder' }).click()
   await expect(page.getByText('Mara Licht')).toBeVisible()
   await expect(page.getByText('Pia Takt')).toBeVisible()
   await expect(page.getByText('Schlagzeug')).toBeVisible()

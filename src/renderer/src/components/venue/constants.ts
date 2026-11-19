@@ -44,3 +44,8 @@ export function isMisplacedVenuePath(
   if (!match || match[2] !== String(venue.id)) return false
   return `/${match[1]}` !== venueListPath(venue.kind)
 }
+
+/** Former tab, now part of the overview */
+export const VENUE_TAB_ALIASES: Partial<Record<string, VenueTab>> = {
+  contacts: 'overview'
+}

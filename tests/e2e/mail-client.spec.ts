@@ -1569,7 +1569,8 @@ test("a mail from a person's address appears in their E-Mails tab", async () => 
     await expect(
       page.getByRole('heading', { name: `${LINKED_PERSON.firstName} ${LINKED_PERSON.lastName}` })
     ).toBeVisible()
-    await page.getByRole('tab', { name: 'E-Mails' }).click()
+    // E-Mails are shown in the Dokumente tab
+    await page.getByRole('tab', { name: 'Dokumente & E-Mails' }).click()
     // The linker runs after the folder sync and works through the mailbox in
     // batches, so the row is awaited rather than slept on.
     const panel = page.getByRole('list', { name: 'E-Mails' })

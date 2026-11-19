@@ -231,16 +231,24 @@ describe('folder move rules (B2)', () => {
   })
 
   it('refuses a move into itself or its own subfolder', () => {
-    expect(folderMoveRefusal('Projekte', 'Projekte', { knownPaths: known })).toMatch(/in sich selbst/)
-    expect(folderMoveRefusal('Projekte', 'Projekte/2026', { knownPaths: known })).toMatch(/in sich selbst/)
+    expect(folderMoveRefusal('Projekte', 'Projekte', { knownPaths: known })).toMatch(
+      /in sich selbst/
+    )
+    expect(folderMoveRefusal('Projekte', 'Projekte/2026', { knownPaths: known })).toMatch(
+      /in sich selbst/
+    )
   })
 
   it('refuses a name clash in the target', () => {
-    expect(folderMoveRefusal('Projekte', 'Archiv', { knownPaths: known })).toMatch(/existiert dort schon/)
+    expect(folderMoveRefusal('Projekte', 'Archiv', { knownPaths: known })).toMatch(
+      /existiert dort schon/
+    )
   })
 
   it('refuses a target that does not exist', () => {
-    expect(folderMoveRefusal('Projekte', 'Gibt es nicht', { knownPaths: known })).toMatch(/nicht gefunden/)
+    expect(folderMoveRefusal('Projekte', 'Gibt es nicht', { knownPaths: known })).toMatch(
+      /nicht gefunden/
+    )
   })
 
   it('refuses to move a protected folder', () => {
@@ -251,7 +259,9 @@ describe('folder move rules (B2)', () => {
   })
 
   it('allows a move to a free name in an existing folder', () => {
-    expect(folderMoveRefusal('Projekte', 'Archiv', { knownPaths: ['Projekte', 'Archiv'] })).toBeNull()
+    expect(
+      folderMoveRefusal('Projekte', 'Archiv', { knownPaths: ['Projekte', 'Archiv'] })
+    ).toBeNull()
     expect(folderMoveRefusal('Projekte', null, { knownPaths: ['Projekte'] })).toBeNull()
   })
 })

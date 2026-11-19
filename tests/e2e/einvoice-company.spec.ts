@@ -64,7 +64,6 @@ test('creates a company and its people from an e-invoice', async () => {
   await expect(
     page.getByRole('heading', { name: 'Bühnentechnik Beispiel GmbH & Co. KG' })
   ).toBeVisible()
-  await page.getByRole('tab', { name: 'Ansprechpartner' }).click()
   for (const name of ['Lena Kontaktfrau', 'Erika Beispiel', 'Max Probe', 'Paul Ergänzt']) {
     await expect(page.getByText(name)).toBeVisible()
   }
