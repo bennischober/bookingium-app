@@ -82,7 +82,9 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
   event_settlement: [{ columns: ['deal_memo_id'] }],
   event_advancing: [{ columns: ['deal_memo_id'] }],
   event_ticket_quota: [{ columns: ['deal_memo_id'] }],
-  ticket_report: [{ columns: ['deal_memo_id', 'report_date'] }]
+  ticket_report: [{ columns: ['deal_memo_id', 'report_date'] }],
+  marketing_atlas: [{ columns: ['band_id'] }],
+  marketing_item: [{ columns: ['band_id', 'item_key'] }]
 }
 
 /**
