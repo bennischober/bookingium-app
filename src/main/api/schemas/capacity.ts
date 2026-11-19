@@ -25,14 +25,20 @@ export function parseCapacityRange(raw: string): CapacityRange {
 }
 
 /** "1.200", "500–1.000" or '' */
-export function formatCapacity(min: number | null | undefined, max: number | null | undefined): string {
+export function formatCapacity(
+  min: number | null | undefined,
+  max: number | null | undefined
+): string {
   if (max == null) return ''
   const de = (n: number): string => n.toLocaleString('de-DE')
   return min != null && min < max ? `${de(min)}–${de(max)}` : de(max)
 }
 
 /** The text a form shows for a stored capacity: "1200" or "500-1000" */
-export function capacityInputText(min: number | null | undefined, max: number | null | undefined): string {
+export function capacityInputText(
+  min: number | null | undefined,
+  max: number | null | undefined
+): string {
   if (max == null) return ''
   return min != null && min < max ? `${min}-${max}` : String(max)
 }
@@ -40,6 +46,7 @@ export function capacityInputText(min: number | null | undefined, max: number | 
 /** Whether a typed text is a valid capacity: empty, one number or a range */
 export function capacityError(raw: string): string | undefined {
   if (!raw.trim()) return undefined
-  if (/[^\d.\s\-–—bisBIS]/.test(raw)) return 'Eine Zahl oder eine Spanne eintragen, z. B. 1200 oder 500-1000'
+  if (/[^\d.\s\-–—bisBIS]/.test(raw))
+    return 'Eine Zahl oder eine Spanne eintragen, z. B. 1200 oder 500-1000'
   return parseCapacityRange(raw).max === null ? 'Kapazität muss eine positive Zahl sein' : undefined
 }

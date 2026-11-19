@@ -531,8 +531,6 @@ describe('invoices written in DATEV (#246)', () => {
       mailAccountId: 'sandbox-1',
       sendKey: 'key-246'
     })
-    await expect(invoices().setCreatedInDatev(issued.id, true, 78)).rejects.toThrow(
-      /Nummer bleibt/
-    )
+    await expect(invoices().setCreatedInDatev(issued.id, true, 78)).rejects.toThrow(/Nummer bleibt/)
   })
 })

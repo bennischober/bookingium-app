@@ -22,7 +22,10 @@ export const CompanyBankInput = z.object({
     .string()
     .default('')
     .transform((v) => v.replace(/\s+/g, '').toUpperCase())
-    .refine((v) => v === '' || /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(v), 'Die BIC hat 8 oder 11 Zeichen'),
+    .refine(
+      (v) => v === '' || /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(v),
+      'Die BIC hat 8 oder 11 Zeichen'
+    ),
   bankName: z.string().trim().default('')
 })
 export type CompanyBankInput = z.infer<typeof CompanyBankInput>

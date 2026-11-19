@@ -21,8 +21,7 @@ import {
   normalizeLineItems,
   type NormalizedLineItems
 } from './invoice/lineItems'
-import { assertIssuable, claimDatevInvoiceNumber,
-  takeNextInvoiceNumber } from './invoice/numbering'
+import { assertIssuable, claimDatevInvoiceNumber, takeNextInvoiceNumber } from './invoice/numbering'
 import {
   createCompanySnapshot,
   insertSnapshot,

@@ -203,7 +203,9 @@ export function OverviewTab({
           title="Club / Festival"
           currentName={event.venueName}
           currentDetail={
-            event.venue?.capacity ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}` : null
+            event.venue?.capacity
+              ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}`
+              : null
           }
           currentId={event.venueId}
           items={venueItems}

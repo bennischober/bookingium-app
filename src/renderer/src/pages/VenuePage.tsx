@@ -87,7 +87,9 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
       accessorKey: 'capacity',
       header: 'Kapazität',
       cell: ({ row }) =>
-        row.original.capacity ? formatCapacity(row.original.capacityMin, row.original.capacity) : '-'
+        row.original.capacity
+          ? formatCapacity(row.original.capacityMin, row.original.capacity)
+          : '-'
     },
     {
       accessorKey: 'notes',

@@ -358,7 +358,9 @@ describe('capacity ranges (#245)', () => {
   it('writes the range into a new venue', () => {
     container
       .resolve(ImportService)
-      .commit(request([['BY', 'SPANNENCLUB', 'Musterstadt', '', '', '', '', '', '', '300 – 1.200']]))
+      .commit(
+        request([['BY', 'SPANNENCLUB', 'Musterstadt', '', '', '', '', '', '', '300 – 1.200']])
+      )
     const venue = db.select().from(schema.venue).where(eq(schema.venue.name, 'SPANNENCLUB')).get()!
     expect(venue).toMatchObject({ capacity: 1200, capacity_min: 300 })
   })

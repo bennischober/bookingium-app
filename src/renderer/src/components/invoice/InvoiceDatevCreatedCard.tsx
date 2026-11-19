@@ -50,9 +50,7 @@ export function InvoiceDatevCreatedCard({ invoice }: { invoice: InvoiceDto }) {
       <CardContent className="space-y-3 text-sm">
         {invoice.createdInDatev ? (
           <>
-            <p>
-              In DATEV erstellt. Die Rechnung wird nicht von hier an DATEV übergeben.
-            </p>
+            <p>In DATEV erstellt. Die Rechnung wird nicht von hier an DATEV übergeben.</p>
             <Button
               variant="outline"
               size="sm"

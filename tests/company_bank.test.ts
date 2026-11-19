@@ -55,9 +55,14 @@ describe('company bank account (#247)', () => {
   })
 
   it('never edits an account another company shares; unchanged keeps the link', async () => {
-    const shared = getTestDb().db
-      .insert(bank)
-      .values({ bank_name: 'Gemeinsam', account_holder: 'A', iban: 'DE89370400440532013000', bic: '' })
+    const shared = getTestDb()
+      .db.insert(bank)
+      .values({
+        bank_name: 'Gemeinsam',
+        account_holder: 'A',
+        iban: 'DE89370400440532013000',
+        bic: ''
+      })
       .returning()
       .get()
     const a = await create('Geteilt A', { bankId: shared.id })
