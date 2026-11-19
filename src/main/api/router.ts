@@ -38,6 +38,7 @@ import { mailRuleRouter } from './routers/mail_rule.router'
 import { mailTemplateRouter } from './routers/mail_template.router'
 import { mapRouter } from './routers/map.router'
 import { settlementRouter } from './routers/settlement.router'
+import { advancingRouter } from './routers/advancing.router'
 import { einvoicePartyRouter } from './routers/einvoice_party.router'
 import { receiptRouter } from './routers/receipt.router'
 import { tripRouter } from './routers/trip.router'
@@ -90,6 +91,7 @@ export const router = t.router({
   mailTemplate: mailTemplateRouter,
   map: mapRouter,
   settlement: settlementRouter,
+  advancing: advancingRouter,
   einvoiceParty: einvoicePartyRouter,
   receipt: receiptRouter,
   trip: tripRouter

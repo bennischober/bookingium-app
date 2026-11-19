@@ -37,6 +37,12 @@ export const TourImportField = z.enum([
   'promoter',
   'promoterContact',
   'promoterEmail',
+  // #232: advancing and tickets of the show
+  'localContact',
+  'localContactEmail',
+  'advancingStatus',
+  'ticketQuota',
+  'ticketSold',
   'notes'
 ])
 export type TourImportField = z.infer<typeof TourImportField>
@@ -65,6 +71,11 @@ export const TOUR_IMPORT_FIELD_LABELS: Record<TourImportField, string> = {
   promoter: 'Veranstalter (LoPro)',
   promoterContact: 'Ansprechpartner',
   promoterEmail: 'E-Mail Ansprechpartner',
+  localContact: 'Kontakt vor Ort',
+  localContactEmail: 'E-Mail Kontakt vor Ort',
+  advancingStatus: 'Advancing-Stand',
+  ticketQuota: 'Ticketkontingent',
+  ticketSold: 'Tickets verkauft',
   notes: 'Anmerkung'
 }
 
@@ -109,7 +120,9 @@ export const TourImportPreviewRow = z.object({
   /** The promoter is created by this import */
   newPromoter: z.boolean().default(false),
   /** Why a row is skipped */
-  reason: z.string().optional()
+  reason: z.string().optional(),
+  /** #232: what the row sets besides the event ("Angeschrieben · Kontingent 200"), '' for none */
+  details: z.string().default('')
 })
 export type TourImportPreviewRow = z.infer<typeof TourImportPreviewRow>
 

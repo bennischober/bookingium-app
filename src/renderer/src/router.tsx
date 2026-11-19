@@ -17,6 +17,7 @@ import CompanyPage from '@/pages/CompanyPage'
 import BankPage from '@/pages/BankPage'
 import ReceiptPage from '@/pages/ReceiptPage'
 import TripPage from '@/pages/TripPage'
+import TourPage from '@/pages/TourPage'
 import EventPage from '@/pages/EventPage'
 import EventHubPage from '@/pages/EventHubPage'
 import BandDetailPage from '@/pages/BandDetailPage'
@@ -128,6 +129,15 @@ const tripRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: ROUTES.trips.path,
   component: TripPage
+})
+
+const tourRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: ROUTES.tours.path,
+  validateSearch: (search: Record<string, unknown>): { tour?: string } => ({
+    tour: typeof search.tour === 'string' && search.tour ? search.tour : undefined
+  }),
+  component: TourPage
 })
 
 const clubRoute = createRoute({
@@ -314,6 +324,7 @@ const routeTree = rootRoute.addChildren([
     bankRoute,
     receiptRoute,
     tripRoute,
+    tourRoute,
     clubRoute,
     festivalRoute,
     venueListRoute,
