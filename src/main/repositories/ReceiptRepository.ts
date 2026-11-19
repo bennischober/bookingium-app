@@ -95,7 +95,7 @@ export class ReceiptRepository {
     const { page, pageSize, offset } = listPage(input)
     const conditions: SQL[] = []
     if (input.category) conditions.push(eq(receipt.category, input.category))
-    if (input.notSent) conditions.push(sql`${sentAt} IS NULL`)
+    if (input.notSent) conditions.push(sql`${sentAt} IS NULL AND ${receipt.in_datev} = 0`)
     const search = input.search?.trim()
     if (search) {
       const pattern = `%${search}%`
@@ -152,6 +152,8 @@ export class ReceiptRepository {
       .where(
         and(
           sql`NOT ${hasTransfer}`,
+          // #246: uploaded to DATEV directly
+          sql`${receipt.in_datev} = 0`,
           sql`${DATEV_ADDRESS} <> ''`,
           // #225 step 2: a trip's receipts go to DATEV inside its report
           sql`(${receipt.trip_id} IS NULL OR ${receipt.trip_report} = 1)`

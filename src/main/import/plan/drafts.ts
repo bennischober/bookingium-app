@@ -42,6 +42,8 @@ export interface VenueDraft extends DraftBase {
   normName: string
   kind: VenueKind
   capacity: number | null
+  /** #245: lower end of a range ("500-1000"), null for one number */
+  capacityMin: number | null
   // "Rock, Metal" (normalizeGenres)
   genres: string
   address: AddressDraft
@@ -102,7 +104,8 @@ export interface ExistingRecords {
   venues: Array<{ id: number; name: string; city: string }>
   bands: Array<{ id: number; name: string }>
   companies: Array<{ id: number; name: string }>
-  persons: Array<{ id: number; firstName: string; lastName: string }>
+  /** #248: a person is also found by an email address, not only by the full name */
+  persons: Array<{ id: number; firstName: string; lastName: string; emails?: string[] }>
 }
 
 export const emptyAddress = (): AddressDraft => ({

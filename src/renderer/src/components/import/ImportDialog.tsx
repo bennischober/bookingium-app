@@ -61,6 +61,8 @@ export function ImportDialog({
   const [companyKind, setCompanyKind] = useState<CompanyKind>('company')
   const [genres, setGenres] = useState('')
   const [defaultCountry, setDefaultCountry] = useState('')
+  // #248: values of the file replace different stored ones
+  const [overwrite, setOverwrite] = useState(false)
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
   // #154: the records that take an address of the file go into a member list
@@ -132,7 +134,7 @@ export function ImportDialog({
         headers: table.headers,
         rows: table.rows,
         mapping,
-        options: { kind, companyKind, genres, defaultCountry },
+        options: { kind, companyKind, genres, defaultCountry, overwrite },
         excludedRows: [...excluded],
         // Set on commit only: the preview does not depend on it
         contactList: null
@@ -248,6 +250,8 @@ export function ImportDialog({
             onToggleRow={toggleRow}
             saveAsList={saveAsList}
             onSaveAsListChange={setSaveAsList}
+            overwrite={overwrite}
+            onOverwriteChange={setOverwrite}
             listTarget={listTarget}
             onListTargetChange={setListTarget}
             listName={listName}

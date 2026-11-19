@@ -11,6 +11,7 @@ import { isStateColumn } from '../detectMapping'
 import {
   cleanText,
   countryByCode,
+  companyKey,
   normalizeKey,
   normalizeZip,
   parseRegion,
@@ -64,6 +65,22 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
     return map
   }
   const companiesByName = firstById(existing.companies, (company) => normalizeKey(company.name))
+  // #248: a match only when exactly one existing record has the key, else it stays new
+  const uniqueBy = <T extends { id: number }>(items: T[], keysOf: (item: T) => string[]) => {
+    const found = new Map<string, number | null>()
+    for (const item of items) {
+      for (const key of new Set(keysOf(item))) {
+        if (!key) continue
+        const seen = found.get(key)
+        found.set(key, seen === undefined || seen === item.id ? item.id : null)
+      }
+    }
+    return (key: string): number | null => (key ? (found.get(key) ?? null) : null)
+  }
+  const lowerEmails = (emails: string[] | undefined) =>
+    (emails ?? []).map((email) => email.trim().toLowerCase()).filter(Boolean)
+  const companyByLooseName = uniqueBy(existing.companies, (company) => [companyKey(company.name)])
+  const personByEmail = uniqueBy(existing.persons, (person) => lowerEmails(person.emails))
   const bandsByName = firstById(existing.bands, (band) => normalizeKey(band.name))
   const personsByName = firstById(existing.persons, (person) =>
     person.lastName.trim() ? normalizeKey(`${person.firstName} ${person.lastName}`) : ''
@@ -91,10 +108,23 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
     if (!listMembers.has(id)) listMembers.set(id, { type, key: draft.key })
   }
 
-  const refOf = (draft: DraftBase, label: string, rowNumber: number): ImportEntityRef => ({
-    label,
-    action: draft.existingId !== null ? 'existing' : draft.firstRow < rowNumber ? 'repeat' : 'new'
-  })
+  const refOf = (draft: DraftBase, label: string, rowNumber: number): ImportEntityRef => {
+    // #248: which kind of record, so the preview can show what an existing one gets
+    const type =
+      venues.get(draft.key) === draft
+        ? 'venue'
+        : bands.get(draft.key) === draft
+          ? 'band'
+          : companies.get(draft.key) === draft
+            ? 'company'
+            : 'person'
+    return {
+      label,
+      action:
+        draft.existingId !== null ? 'existing' : draft.firstRow < rowNumber ? 'repeat' : 'new',
+      key: `${type}:${draft.key}`
+    }
+  }
 
   const companyFor = (
     name: string,
@@ -102,7 +132,8 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
     kind: CompanyKind = 'company'
   ): CompanyDraft => {
     const normName = normalizeKey(name)
-    const existingId = companiesByName.get(normName) ?? null
+    // exact name first, then the name without its legal form ("Beispiel" = "Beispiel GmbH")
+    const existingId = companiesByName.get(normName) ?? companyByLooseName(companyKey(name))
     const key = existingId !== null ? `id:${existingId}` : `new:${normName}`
     let draft = companies.get(key)
     if (!draft) {
@@ -160,6 +191,7 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
         normName,
         kind: options.kind,
         capacity: null,
+        capacityMin: null,
         genres: '',
         notes: [],
         address: emptyAddress(),
@@ -197,10 +229,20 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
     return draft
   }
 
-  const personFor = (parsed: ParsedPerson, scopeKey: string, rowNumber: number): PersonDraft => {
+  const personFor = (
+    parsed: ParsedPerson,
+    scopeKey: string,
+    rowNumber: number,
+    emails: string[] = []
+  ): PersonDraft => {
     const fullName = normalizeKey(`${parsed.firstName} ${parsed.lastName}`)
-    // A first name alone is only the same person within the same scope
-    const existingId = parsed.lastName ? (personsByName.get(fullName) ?? null) : null
+    // A first name alone is only the same person within the same scope. #248: the same email
+    // address is the same person too, however the name is written ("Jo" for "Johanna").
+    const byEmail =
+      lowerEmails(emails)
+        .map((email) => personByEmail(email))
+        .find((id) => id !== null) ?? null
+    const existingId = (parsed.lastName ? (personsByName.get(fullName) ?? null) : null) ?? byEmail
     const key =
       existingId !== null
         ? `id:${existingId}`

@@ -351,6 +351,22 @@ export function ReceiptDialog({
                 onChange={(e) => set({ notes: e.target.value })}
               />
             </div>
+
+            {/* #246: uploaded in DATEV already, so it is not offered for a hand-over */}
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={state.inDatev}
+                onChange={(e) => set({ inDatev: e.target.checked })}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <span>
+                Schon direkt in DATEV hochgeladen
+                <span className="block text-xs text-muted-foreground">
+                  Der Beleg steht dann nicht mehr unter „Noch nicht an DATEV übergeben“.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 

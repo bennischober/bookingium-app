@@ -148,7 +148,8 @@ export class SyncEngine {
       changedHere: false
     }
     // the others find this computer by its device file (after a join or a new identity)
-    if (!this.announced) {
+    // #243: and again when its entry was removed from the folder as an earlier one
+    if (!this.announced || !(await this.transport.hasDevice(this.deviceId))) {
       await this.writeDeviceInfo()
       this.announced = true
     }

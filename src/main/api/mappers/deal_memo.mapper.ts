@@ -94,6 +94,7 @@ export class DealMemoMapper {
             id: entity.venue.id,
             name: entity.venue.name,
             capacity: entity.venue.capacity,
+            capacityMin: entity.venue.capacity_min ?? null,
             kind: entity.venue.kind === 'festival' ? 'festival' : 'venue',
             radiusKm: entity.venue.radius_km,
             radiusWeeksBefore: entity.venue.radius_weeks_before,

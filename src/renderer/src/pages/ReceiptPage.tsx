@@ -126,7 +126,9 @@ export default function ReceiptPage() {
         description:
           receipt.datev === 'sent'
             ? 'Der Beleg ist schon übergeben. Ein zweites Mal wird er in DATEV ein zweiter Beleg.'
-            : 'Die erste Übergabe wartet noch auf die Bestätigung des Servers. Ein zweites Mal kann in DATEV ein doppelter Beleg werden.',
+            : receipt.datev === 'external'
+              ? 'Der Beleg ist als „schon direkt in DATEV hochgeladen“ markiert. Ein zweites Mal wird er dort ein zweiter Beleg.'
+              : 'Die erste Übergabe wartet noch auf die Bestätigung des Servers. Ein zweites Mal kann in DATEV ein doppelter Beleg werden.',
         confirmLabel: 'Trotzdem übergeben'
       })
       if (!again) return
@@ -185,6 +187,10 @@ export default function ReceiptPage() {
         row.original.datev === 'sent' ? (
           <Badge variant="secondary" className="gap-1">
             <CheckCircle2 className="h-3 w-3" /> übergeben
+          </Badge>
+        ) : row.original.datev === 'external' ? (
+          <Badge variant="secondary" className="gap-1">
+            <CheckCircle2 className="h-3 w-3" /> direkt in DATEV
           </Badge>
         ) : row.original.datev === 'pending' ? (
           <Badge variant="outline" className="gap-1">

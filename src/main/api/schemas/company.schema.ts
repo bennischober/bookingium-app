@@ -5,6 +5,30 @@ import { AddressDto, AddressInput } from './address.schema'
 import { ContactDto, ContactInput } from './contact.schema'
 import { BankDto } from './bank.schema'
 import { normalizeGenres } from './genres'
+import { isValidIban } from '../../payment/epcQr'
+
+/**
+ * #247: the company's bank account, typed right in the company form. All empty means none;
+ * the IBAN is checked (mod 97) as soon as one is given.
+ */
+export const CompanyBankInput = z.object({
+  accountHolder: z.string().trim().default(''),
+  iban: z
+    .string()
+    .default('')
+    .transform((v) => v.replace(/\s+/g, '').toUpperCase())
+    .refine((v) => v === '' || isValidIban(v), 'Die IBAN ist ungültig (Prüfziffer stimmt nicht)'),
+  bic: z
+    .string()
+    .default('')
+    .transform((v) => v.replace(/\s+/g, '').toUpperCase())
+    .refine(
+      (v) => v === '' || /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(v),
+      'Die BIC hat 8 oder 11 Zeichen'
+    ),
+  bankName: z.string().trim().default('')
+})
+export type CompanyBankInput = z.infer<typeof CompanyBankInput>
 
 // Radio stations and other media are companies of their own kind: the
 // Verteiler lists them as a source next to clubs and festivals (#80)
@@ -75,7 +99,9 @@ export const CreateCompanyInput = z.object({
   invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
-  bankId: z.number().nullable().optional()
+  bankId: z.number().nullable().optional(),
+  /** #247: wins over bankId when given */
+  bank: CompanyBankInput.optional()
 })
 
 export const UpdateCompanyInput = z.object({
@@ -96,7 +122,9 @@ export const UpdateCompanyInput = z.object({
   invoiceContactPersonId: z.number().nullable().optional(),
   address: AddressInput.optional(),
   contact: ContactInput.optional(),
-  bankId: z.number().nullable().optional()
+  bankId: z.number().nullable().optional(),
+  /** #247: wins over bankId when given */
+  bank: CompanyBankInput.optional()
 })
 
 // Infer TypeScript types from schemas

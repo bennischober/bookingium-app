@@ -36,7 +36,16 @@ export class ImportService {
   ) {}
 
   preview(request: ImportRequest): ImportPreview {
-    return buildImportPlan(request, this.importRepository.loadExisting()).preview
+    const plan = buildImportPlan(request, this.importRepository.loadExisting())
+    const { preview } = plan
+    const refs = preview.rows.flatMap((row) => [row.primary, row.company, ...row.persons])
+    if (preview.errors.length > 0 || !refs.some((ref) => ref?.action === 'existing')) return preview
+    // #248: a dry run tells which fields each existing record would get
+    const fills = this.importRepository.dryRun(plan, request.options.overwrite === true)
+    for (const ref of refs) {
+      if (ref?.action === 'existing' && ref.key) ref.fills = fills.get(ref.key) ?? []
+    }
+    return preview
   }
 
   /**
@@ -46,7 +55,11 @@ export class ImportService {
   commit(request: ImportRequest): ImportResult {
     const plan = buildImportPlan(request, this.importRepository.loadExisting())
     if (plan.preview.errors.length > 0) throw new Error(plan.preview.errors.join(' '))
-    const result = this.importRepository.apply(plan, request.contactList)
+    const result = this.importRepository.apply(
+      plan,
+      request.contactList,
+      request.options.overwrite === true
+    )
     this.settingsRepository.setMany({
       [mappingKey(request.headers)]: JSON.stringify({
         target: request.target,

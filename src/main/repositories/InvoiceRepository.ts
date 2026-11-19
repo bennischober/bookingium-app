@@ -21,7 +21,7 @@ import {
   normalizeLineItems,
   type NormalizedLineItems
 } from './invoice/lineItems'
-import { assertIssuable, takeNextInvoiceNumber } from './invoice/numbering'
+import { assertIssuable, claimDatevInvoiceNumber, takeNextInvoiceNumber } from './invoice/numbering'
 import {
   createCompanySnapshot,
   insertSnapshot,
@@ -249,8 +249,16 @@ export class InvoiceRepository {
     const issueDate = input.issueDate ?? new Date().toISOString().slice(0, 10)
     // Drafts get their number when they are issued
     if (status !== 'draft') assertIssuable(totals.totalGrossCents)
+    const fromDatev = input.createdInDatev === true && status !== 'draft'
+    if (fromDatev && !input.datevInvoiceNumber) {
+      throw new Error('Bitte die Rechnungsnummer aus DATEV eintragen.')
+    }
     const assignedInvoiceNumber =
-      status === 'draft' ? null : takeNextInvoiceNumber(tx, companyId, issueDate)
+      status === 'draft'
+        ? null
+        : fromDatev
+          ? claimDatevInvoiceNumber(tx, companyId, input.datevInvoiceNumber as number)
+          : takeNextInvoiceNumber(tx, companyId, issueDate)
 
     const created = tx
       .insert(schema.invoice)
@@ -274,7 +282,8 @@ export class InvoiceRepository {
         reverse_charge_note: input.reverseChargeNote ?? '',
         buyer_reference: input.buyerReference ?? '',
         xrechnung: input.xrechnung ?? false,
-        notes: input.notes ?? ''
+        notes: input.notes ?? '',
+        created_in_datev: fromDatev
       })
       .returning()
       .all()
@@ -350,11 +359,25 @@ export class InvoiceRepository {
         assertIssuable(
           (values.total_gross_cents as number | undefined) ?? existing.total_gross_cents
         )
-        values.invoice_number = takeNextInvoiceNumber(
-          tx,
-          nextCompanyId,
-          (values.issue_date as string | undefined) ?? existing.issue_date
-        )
+        if (input.createdInDatev === true) {
+          // #246: written in DATEV, issued here with DATEV's number
+          if (!input.datevInvoiceNumber) {
+            throw new Error('Bitte die Rechnungsnummer aus DATEV eintragen.')
+          }
+          values.invoice_number = claimDatevInvoiceNumber(
+            tx,
+            nextCompanyId,
+            input.datevInvoiceNumber,
+            existing.id
+          )
+          values.created_in_datev = true
+        } else {
+          values.invoice_number = takeNextInvoiceNumber(
+            tx,
+            nextCompanyId,
+            (values.issue_date as string | undefined) ?? existing.issue_date
+          )
+        }
         Object.assign(
           values,
           issueSnapshotIds(tx, {
@@ -387,6 +410,44 @@ export class InvoiceRepository {
       }
 
       return this.loadInvoiceWithRelationsTx(tx, input.id)
+    })
+  }
+
+  /**
+   * #246: marks an issued invoice as written in DATEV (or not). With a number it also takes
+   * DATEV's number, but only while the invoice has gone nowhere yet: no mail, no hand-over.
+   */
+  async setCreatedInDatev(id: number, createdInDatev: boolean, invoiceNumber?: number | null) {
+    return db.transaction((tx) => {
+      const existing = tx.select().from(schema.invoice).where(eq(schema.invoice.id, id)).get()
+      if (!existing) throw new Error('Rechnung nicht gefunden')
+      if (existing.invoice_number === null) {
+        throw new Error('Ein Entwurf wird beim Stellen als „In DATEV erstellt“ markiert.')
+      }
+      const values: Record<string, unknown> = {
+        created_in_datev: createdInDatev,
+        updated_at: sql`datetime('now')`
+      }
+      if (createdInDatev && invoiceNumber && invoiceNumber !== existing.invoice_number) {
+        const handedOver = tx
+          .select({ id: schema.datev_transfer.id })
+          .from(schema.datev_transfer)
+          .where(eq(schema.datev_transfer.invoice_id, id))
+          .get()
+        if (existing.emailed_at !== null || handedOver) {
+          throw new Error(
+            'Die Rechnung wurde schon verschickt oder an DATEV übergeben; ihre Nummer bleibt.'
+          )
+        }
+        values.invoice_number = claimDatevInvoiceNumber(
+          tx,
+          existing.company_id,
+          invoiceNumber,
+          existing.id
+        )
+      }
+      tx.update(schema.invoice).set(values).where(eq(schema.invoice.id, id)).run()
+      return this.loadInvoiceWithRelationsTx(tx, id)
     })
   }
 

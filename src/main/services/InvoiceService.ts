@@ -90,6 +90,11 @@ export class InvoiceService {
     return updated
   }
 
+  /** #246: an issued invoice written in DATEV (or not), optionally with DATEV's number */
+  async setCreatedInDatev(id: number, createdInDatev: boolean, invoiceNumber?: number | null) {
+    return this.invoiceRepository.setCreatedInDatev(id, createdInDatev, invoiceNumber)
+  }
+
   /**
    * Status-only change (issue, mark paid/overdue, Storno). Cancelling an
    * issued invoice also creates its Stornorechnung.

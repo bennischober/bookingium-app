@@ -379,6 +379,20 @@
       "when": 1795079281169,
       "tag": "0053_advancing_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1795089582942,
+      "tag": "0054_venue_capacity_range",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1795099831199,
+      "tag": "0055_created_in_datev",
+      "breakpoints": true
     }
   ]
 }

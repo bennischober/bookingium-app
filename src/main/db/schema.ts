@@ -281,6 +281,8 @@ export const venue = sqliteTable(
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
+    // #245: lower end of a capacity range ("500–1000"); null for a single number in `capacity`
+    capacity_min: integer('capacity_min'),
     notes: text('notes').default('').notNull(),
     // Radius clause (Gebietsschutz) this venue usually demands, #102: km around it and weeks
     // before/after the show. Null = the global default for the kind (Einstellungen).
@@ -662,6 +664,8 @@ export const invoice = sqliteTable(
     // list: when "Per E-Mail senden" created it (datetime, UTC), to whom
     emailed_at: text('emailed_at'),
     emailed_to: text('emailed_to').default('').notNull(),
+    // #246: written in DATEV, not here: carries DATEV's number and is never handed to DATEV again
+    created_in_datev: integer('created_in_datev', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -828,6 +832,8 @@ export const receipt = sqliteTable(
     trip_id: integer('trip_id').references(() => trip.id, { onDelete: 'set null' }),
     // The trip's report itself (generated PDF), not a receipt of the trip
     trip_report: integer('trip_report', { mode: 'boolean' }).default(false).notNull(),
+    // #246: uploaded to DATEV directly, so it is not offered for a hand-over from here
+    in_datev: integer('in_datev', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

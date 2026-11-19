@@ -128,6 +128,9 @@ export function InvoiceForm({
     Boolean(buyerReference) || xrechnung
   )
   const [notes, setNotes] = useState(edited?.notes ?? '')
+  // #246: issued here, but written in DATEV already: DATEV's number instead of the next one
+  const [createdInDatev, setCreatedInDatev] = useState(false)
+  const [datevNumber, setDatevNumber] = useState('')
   const [lineItems, setLineItems] = useState<InvoiceLineDraft[]>(() => initialLines(edited))
   const lineEditor = useInvoiceLineEditor(lineItems, setLineItems)
   const [step, setStep] = useState<InvoiceFormStep>('basics')
@@ -172,7 +175,13 @@ export function InvoiceForm({
     reverseChargeNote,
     buyerReference: buyerReference.trim(),
     xrechnung,
-    notes
+    notes,
+    ...(status === 'issued' && createdInDatev
+      ? {
+          createdInDatev: true,
+          datevInvoiceNumber: /^d+$/.test(datevNumber.trim()) ? Number(datevNumber.trim()) : null
+        }
+      : {})
   }
   // what was there when the form opened, to tell the surrounding sheet about unsaved changes
   const [openedWith] = useState(() => JSON.stringify(payload))
@@ -185,12 +194,18 @@ export function InvoiceForm({
       return
     }
 
+    if (status === 'issued' && createdInDatev && !/^d+$/.test(datevNumber.trim())) {
+      toast.error('Bitte die Rechnungsnummer aus DATEV eintragen (nur Ziffern).')
+      return
+    }
+
     if (
       status === 'issued' &&
       !(await confirmAction({
         title: 'Rechnung jetzt stellen?',
-        description:
-          'Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.',
+        description: createdInDatev
+          ? `Sie erhält die Nummer ${datevNumber.trim()} aus DATEV und kann danach nicht mehr bearbeitet oder gelöscht werden. An DATEV wird sie nicht mehr übergeben.`
+          : 'Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.',
         confirmLabel: 'Rechnung stellen'
       }))
     ) {
@@ -241,6 +256,37 @@ export function InvoiceForm({
                   ? 'Entwürfe bleiben bearbeitbar und erhalten noch keine Rechnungsnummer.'
                   : 'Beim Stellen wird die nächste Rechnungsnummer vergeben; danach ist die Rechnung gesperrt.'}
               </p>
+              {status === 'issued' && (
+                <div className="space-y-2 rounded-md border p-3">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      checked={createdInDatev}
+                      onChange={(e) => setCreatedInDatev(e.target.checked)}
+                    />
+                    <span>
+                      Rechnung schon in DATEV erstellt
+                      <span className="block text-xs text-muted-foreground">
+                        Sie bekommt die Nummer aus DATEV und wird nicht mehr an DATEV übergeben.
+                        Bookingium zählt danach oberhalb dieser Nummer weiter.
+                      </span>
+                    </span>
+                  </label>
+                  {createdInDatev && (
+                    <div className="space-y-1">
+                      <Label htmlFor="invoice-datev-number">Rechnungsnummer aus DATEV</Label>
+                      <Input
+                        id="invoice-datev-number"
+                        inputMode="numeric"
+                        value={datevNumber}
+                        onChange={(e) => setDatevNumber(e.target.value)}
+                        placeholder="z. B. 2026042"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

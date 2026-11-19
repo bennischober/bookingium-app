@@ -22,6 +22,7 @@ export class VenueMapper {
       name: entity.name,
       kind: entity.kind === 'festival' ? 'festival' : 'venue',
       capacity: entity.capacity,
+      capacityMin: entity.capacity_min ?? null,
       genres: entity.genres,
       notes: entity.notes,
       address: AddressMapper.toDto(entity.address),

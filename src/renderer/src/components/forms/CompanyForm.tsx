@@ -12,6 +12,7 @@ import { ContactFormFields } from './ContactFormFields'
 import { addressDefaults, contactDefaults } from './formDefaults'
 import { trpcReact } from '@/lib/trpc'
 import { InfoLabel } from '@/components/InfoLabel'
+import { isValidIban } from '../../../../main/payment/epcQr'
 
 import type { z } from 'zod'
 import {
@@ -70,8 +71,6 @@ export function CompanyForm({
   onCancel,
   isSubmitting = false
 }: CompanyFormProps) {
-  // Fetch banks for dropdown
-  const banks = trpcReact.bank.getListItems.useQuery()
   const persons = trpcReact.person.getListItems.useQuery()
   const [logoPreview, setLogoPreview] = useState<string>(company?.logoPath || '')
   const [signaturePreview, setSignaturePreview] = useState<string>(company?.signaturePath || '')
@@ -114,7 +113,12 @@ export function CompanyForm({
       customerNumber: company?.customerNumber == null ? '' : String(company.customerNumber),
       logoPath: company?.logoPath || '',
       signaturePath: company?.signaturePath || '',
-      bankId: company?.bank?.id || null,
+      bank: {
+        accountHolder: company?.bank?.accountHolder ?? '',
+        iban: company?.bank?.iban ?? '',
+        bic: company?.bank?.bic ?? '',
+        bankName: company?.bank?.bankName ?? ''
+      },
       invoiceContactPersonId: company?.invoiceContactPersonId ?? null,
       address: addressDefaults(company?.address),
       contact: contactDefaults(company?.contact)
@@ -313,34 +317,6 @@ export function CompanyForm({
           </p>
         )}
 
-        <form.AppField name="bankId">
-          {(field) => (
-            <field.FieldRow label="Bank (optional)">
-              {banks.isLoading ? (
-                <p className="text-sm text-muted-foreground">Banken werden geladen…</p>
-              ) : banks.data && banks.data.length > 0 ? (
-                <SearchableSelect
-                  id={field.name}
-                  value={field.state.value}
-                  onChange={field.handleChange}
-                  options={banks.data.map((bank) => ({
-                    value: bank.id,
-                    label: bank.bankName,
-                    hint: bank.accountHolder
-                  }))}
-                  noneLabel="Keine"
-                  searchPlaceholder="Bank suchen…"
-                  disabled={isSubmitting}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Keine Banken vorhanden. Legen Sie zuerst eine Bank auf der Banken-Seite an.
-                </p>
-              )}
-            </field.FieldRow>
-          )}
-        </form.AppField>
-
         <form.Field name="invoiceContactPersonId">
           {(field) => (
             <FieldShell>
@@ -368,6 +344,37 @@ export function CompanyForm({
         <form.AppField name="notes">
           {(field) => <field.TextareaField label="Anmerkungen" rows={3} />}
         </form.AppField>
+      </div>
+
+      <Separator />
+
+      {/* #247: the account right here instead of a pick from the Banken page */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Bankverbindung</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="bank.accountHolder">
+            {(field) => <field.TextField label="Kontoinhaber" />}
+          </form.AppField>
+          <form.AppField name="bank.bankName">
+            {(field) => <field.TextField label="Bank" />}
+          </form.AppField>
+        </div>
+        <div className="grid grid-cols-[2fr_1fr] gap-4">
+          <form.AppField
+            name="bank.iban"
+            validators={{
+              onBlur: ({ value }) =>
+                value.trim() && !isValidIban(value)
+                  ? 'Die IBAN ist ungültig (Prüfziffer stimmt nicht)'
+                  : undefined
+            }}
+          >
+            {(field) => <field.TextField label="IBAN" placeholder="DE.. .... .... .... .... .." />}
+          </form.AppField>
+          <form.AppField name="bank.bic">
+            {(field) => <field.TextField label="BIC" />}
+          </form.AppField>
+        </div>
       </div>
 
       <Separator />

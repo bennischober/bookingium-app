@@ -239,7 +239,9 @@ export const ImportOptions = z.object({
   // import creates or completes, besides a Genre column ("Rock, Metal")
   genres: z.string(),
   // ISO code used when a row names no country, '' for none
-  defaultCountry: z.string()
+  defaultCountry: z.string(),
+  // #248: values of the file replace different stored ones (default: only empty fields fill)
+  overwrite: z.boolean().optional()
 })
 export type ImportOptions = z.infer<typeof ImportOptions>
 
@@ -271,7 +273,11 @@ export type ImportEntityAction = z.infer<typeof ImportEntityAction>
 
 export const ImportEntityRef = z.object({
   label: z.string(),
-  action: ImportEntityAction
+  action: ImportEntityAction,
+  /** #248: the record ("person:id:5"), to match what an existing one gets */
+  key: z.string().optional(),
+  /** #248: for an existing record, the fields the import fills (or overwrites) */
+  fills: z.array(z.string()).optional()
 })
 export type ImportEntityRef = z.infer<typeof ImportEntityRef>
 

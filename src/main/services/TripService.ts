@@ -264,7 +264,8 @@ export class TripService {
         supplierName: trip.travellerName,
         reference: 'Reisekostenabrechnung',
         notes: '',
-        fileName
+        fileName,
+        inDatev: false
       },
       pdf,
       null

@@ -21,7 +21,7 @@ export class ReceiptMapper {
       fromMail: r.source_mail_account_id !== null,
       tripId: r.trip_id,
       tripReport: r.trip_report,
-      datev: row.datevSentAt ? 'sent' : row.datevAny ? 'pending' : 'none',
+      datev: row.datevSentAt ? 'sent' : row.datevAny ? 'pending' : r.in_datev ? 'external' : 'none',
       datevSentAt: row.datevSentAt,
       createdAt: r.created_at
     }

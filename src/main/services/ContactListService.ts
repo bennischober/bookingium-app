@@ -80,7 +80,8 @@ export function sourceMatches(source: ListSource, filters: ContactListFilters): 
   }
   if (
     filters.capacityMax !== null &&
-    (source.capacity === null || source.capacity > filters.capacityMax)
+    // #245: a range ("500–1000") fits as soon as its lower end does
+    (source.capacity === null || (source.capacityMin ?? source.capacity) > filters.capacityMax)
   ) {
     return false
   }

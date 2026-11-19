@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageErrorState } from '@/components/load-states'
 import { DeleteRecordButton } from '@/components/detail/DeleteRecordButton'
+import { MergeRecordButton } from '@/components/detail/MergeRecordButton'
 import { TabCount } from '@/components/detail/DetailParts'
 import { emptyTabClass } from '@/components/detail/tabStyles'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
@@ -191,6 +192,12 @@ export function RecordDetail<TTab extends string>({
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
+            {(record.type === 'company' ||
+              record.type === 'person' ||
+              record.type === 'venue' ||
+              record.type === 'band') && (
+              <MergeRecordButton kind={record.type} id={record.id} name={record.name} />
+            )}
             <DeleteRecordButton
               confirmTitle={deleteQuestion(record.name)}
               pending={deleting}

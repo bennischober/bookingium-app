@@ -9,6 +9,20 @@ export function normalizeKey(value: string): string {
     .trim()
 }
 
+/**
+ * #248: a company name without its legal form, for matching: "Beispiel GmbH & Co. KG",
+ * "Beispiel GmbH" and "Beispiel" all give "beispiel". Never empty for a name that is only a
+ * legal form ("GmbH" stays "gmbh").
+ */
+const LEGAL_FORMS =
+  /(?:\s+(?:gmbh|mbh|ug|haftungsbeschränkt|ag|kg|ohg|gbr|e v|ev|eg|co|und|ltd|limited|inc|llc|sarl|s a|bv|se|kgaa|e k|ek))+$/u
+
+export function companyKey(value: string): string {
+  const key = normalizeKey(value)
+  const stripped = key.replace(LEGAL_FORMS, '').trim()
+  return stripped || key
+}
+
 /** Trims and collapses whitespace (incl. line breaks) */
 export function cleanText(value: string): string {
   return value.replace(/\s+/g, ' ').trim()

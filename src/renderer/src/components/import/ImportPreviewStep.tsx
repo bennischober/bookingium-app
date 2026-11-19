@@ -39,6 +39,12 @@ function EntityCell({ entity, struck }: { entity: ImportEntityRef | null; struck
       >
         {ACTION_LABELS[entity.action]}
       </Badge>
+      {/* #248: what an existing record gets from the file */}
+      {entity.action === 'existing' && entity.fills && (
+        <span className="text-[11px] text-muted-foreground">
+          {entity.fills.length > 0 ? `ergänzt: ${entity.fills.join(', ')}` : 'unverändert'}
+        </span>
+      )}
     </span>
   )
 }
@@ -55,6 +61,9 @@ interface ImportPreviewStepProps {
   onToggleRow: (rowNumber: number) => void
   saveAsList: boolean
   onSaveAsListChange: (saveAsList: boolean) => void
+  /** #248: replace different stored values instead of only filling empty fields */
+  overwrite: boolean
+  onOverwriteChange: (overwrite: boolean) => void
   /** 'new' or the id of an existing member list */
   listTarget: string
   onListTargetChange: (listTarget: string) => void
@@ -75,6 +84,8 @@ export function ImportPreviewStep({
   onToggleRow,
   saveAsList,
   onSaveAsListChange,
+  overwrite,
+  onOverwriteChange,
   listTarget,
   onListTargetChange,
   listName,
@@ -98,6 +109,25 @@ export function ImportPreviewStep({
             </div>
           ))}
         </div>
+      )}
+
+      {previewData && (
+        <label className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-primary"
+            checked={overwrite}
+            onChange={(event) => onOverwriteChange(event.target.checked)}
+          />
+          <span>
+            Vorhandene Angaben überschreiben
+            <span className="block text-xs text-muted-foreground">
+              {overwrite
+                ? 'Werte aus der Datei ersetzen abweichende gespeicherte Werte; Anmerkungen werden angehängt.'
+                : 'Bei vorhandenen Einträgen werden nur leere Felder ergänzt.'}
+            </span>
+          </span>
+        </label>
       )}
 
       {previewData && (

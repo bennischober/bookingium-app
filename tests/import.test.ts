@@ -4,7 +4,7 @@
 import 'reflect-metadata'
 import { describe, it, expect } from 'vitest'
 import { container } from 'tsyringe'
-import { eq } from 'drizzle-orm'
+import { eq, like } from 'drizzle-orm'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { ImportService } from '../src/main/services/ImportService'
@@ -12,6 +12,7 @@ import { CompanyService } from '../src/main/services/CompanyService'
 import { buildImportPlan } from '../src/main/import/buildImportPlan'
 import { detectMapping } from '../src/main/import/detectMapping'
 import {
+  companyKey,
   normalizeUrl,
   parseCapacity,
   parseEmails,
@@ -342,5 +343,145 @@ describe('writing the import', () => {
       persons: nothing,
       contactList: null
     })
+  })
+})
+
+describe('capacity ranges (#245)', () => {
+  it('reads "500-1000" as a range without a note', () => {
+    const plan = buildImportPlan(
+      request([['BY', 'BEISPIELHALLE', 'Musterstadt', '', '', '', '', '', '', '500-1000']]),
+      NONE
+    )
+    expect(plan.venues[0]).toMatchObject({ capacity: 1000, capacityMin: 500 })
+    expect(plan.venues[0].notes.join(' ')).not.toContain('Kapazität')
+  })
+
+  it('writes the range into a new venue', () => {
+    container
+      .resolve(ImportService)
+      .commit(
+        request([['BY', 'SPANNENCLUB', 'Musterstadt', '', '', '', '', '', '', '300 – 1.200']])
+      )
+    const venue = db.select().from(schema.venue).where(eq(schema.venue.name, 'SPANNENCLUB')).get()!
+    expect(venue).toMatchObject({ capacity: 1200, capacity_min: 300 })
+  })
+})
+
+describe('no duplicates on a second import (#248)', () => {
+  it('finds a company under its name without the legal form', () => {
+    expect(companyKey('Beispiel Konzerte GmbH & Co. KG')).toBe('beispiel konzerte')
+    expect(companyKey('Beispiel Konzerte e.V.')).toBe('beispiel konzerte')
+    expect(companyKey('GmbH')).toBe('gmbh')
+  })
+
+  it('importing the same file twice creates nothing new and fills only empty fields', () => {
+    const rows = [
+      [
+        'BY',
+        'WIEDERHOLHALLE',
+        'Musterstadt',
+        'Wiederhol Konzerte GmbH',
+        'Mara Beispiel',
+        'mara@wiederhol.example.test',
+        'Musterweg',
+        '80331',
+        'Musterstadt',
+        '400'
+      ]
+    ]
+    const service = container.resolve(ImportService)
+    const first = service.commit(request(rows))
+    expect(first).toMatchObject({
+      venues: { created: 1 },
+      companies: { created: 1 },
+      persons: { created: 1 }
+    })
+
+    const preview = service.preview(request(rows))
+    expect(preview.rows[0].primary?.action).toBe('existing')
+    const second = service.commit(request(rows))
+    expect(second).toMatchObject({
+      venues: { created: 0 },
+      companies: { created: 0 },
+      persons: { created: 0 }
+    })
+  })
+
+  it('matches a person by email and a company without its legal form', () => {
+    const service = container.resolve(ImportService)
+    service.commit(
+      request([
+        [
+          'BY',
+          'MAILCLUB',
+          'Musterstadt',
+          'Mailclub Booking GmbH',
+          'Johanna Beispiel',
+          'jo@mailclub.example.test'
+        ]
+      ])
+    )
+    const persons = () =>
+      db.select().from(schema.person).where(eq(schema.person.last_name, 'Beispiel')).all().length
+    const companies = () =>
+      db.select().from(schema.company).where(like(schema.company.name, 'Mailclub Booking%')).all()
+        .length
+    const before = { persons: persons(), companies: companies() }
+
+    const result = service.commit(
+      request([
+        [
+          'BY',
+          'MAILCLUB',
+          'Musterstadt',
+          'Mailclub Booking',
+          'Jo Beispiel',
+          'jo@mailclub.example.test'
+        ]
+      ])
+    )
+    expect(result).toMatchObject({ persons: { created: 0 }, companies: { created: 0 } })
+    expect({ persons: persons(), companies: companies() }).toEqual(before)
+  })
+})
+
+describe('what an existing record gets (#248)', () => {
+  const row = (email: string, capacity: string) => [
+    'BY',
+    'VORSCHAUHALLE',
+    'Musterstadt',
+    '',
+    '',
+    email,
+    '',
+    '',
+    '',
+    capacity
+  ]
+
+  it('names the fields the preview would fill, and writes nothing', () => {
+    const service = container.resolve(ImportService)
+    service.commit(request([row('', '300')]))
+    const preview = service.preview(request([row('info@vorschau.example.test', '500')]))
+    expect(preview.rows[0].primary).toMatchObject({ action: 'existing', fills: ['E-Mail'] })
+    const venue = db
+      .select()
+      .from(schema.venue)
+      .where(eq(schema.venue.name, 'VORSCHAUHALLE'))
+      .get()!
+    expect(venue.contact_id).toBeNull()
+  })
+
+  it('overwrites a different stored value only when asked', () => {
+    const service = container.resolve(ImportService)
+    const capacity = () =>
+      db.select().from(schema.venue).where(eq(schema.venue.name, 'VORSCHAUHALLE')).get()!.capacity
+    service.commit(request([row('', '800')]))
+    expect(capacity()).toBe(300)
+    const asked = request([row('', '800')])
+    asked.options = { ...asked.options, overwrite: true }
+    expect(service.preview(asked).rows[0].primary?.fills).toEqual(['Kapazität'])
+    service.commit(asked)
+    expect(capacity()).toBe(800)
   })
 })

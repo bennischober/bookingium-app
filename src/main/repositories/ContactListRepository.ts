@@ -34,6 +34,8 @@ export interface ListSource {
   // 'venue' | 'festival' | 'media'
   kind: string
   capacity: number | null
+  /** #245: lower end of a capacity range, null for one number */
+  capacityMin?: number | null
   genres: string
   city: string
   state: string
@@ -215,6 +217,7 @@ export class ContactListRepository {
       name: venue.name,
       kind: venue.kind,
       capacity: venue.capacity,
+      capacityMin: venue.capacity_min,
       genres: venueGenres.get(venue.id) ?? '',
       city: address?.city ?? '',
       state: address?.state ?? '',

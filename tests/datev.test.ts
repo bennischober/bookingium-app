@@ -422,3 +422,115 @@ describe('confirmDatevSendFromOp', () => {
     expect(confirmed).toEqual([])
   })
 })
+
+describe('invoices written in DATEV (#246)', () => {
+  const line = [
+    { description: 'A', quantity: 1, unitPriceNet: 100, taxRate: 19, taxCode: 'standard' as const }
+  ]
+  const setup = async (name: string) => {
+    const company = await container.resolve(CompanyService).createCompany({
+      name,
+      isDefaultForInvoicing: false
+    })
+    await container
+      .resolve(DatevService)
+      .setUploadEmail({ companyId: company.id, datevUploadEmail: 'u@duo.example.test' })
+    return company.id
+  }
+  const invoices = () => container.resolve(InvoiceService)
+  const pendingIds = () =>
+    container
+      .resolve(DatevService)
+      .listNotHandedOver()
+      .map((row) => row.id)
+
+  it('issues with DATEV’s number, keeps it off the hand-over list, counts on above it', async () => {
+    const companyId = await setup('Datev Nummer GmbH')
+    const fromDatev = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-03',
+      lineItems: line,
+      createdInDatev: true,
+      datevInvoiceNumber: 41
+    })
+    expect(fromDatev).toMatchObject({ invoice_number: 41, created_in_datev: true })
+    expect(pendingIds()).not.toContain(fromDatev.id)
+
+    const next = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-04',
+      lineItems: line
+    })
+    expect(next.invoice_number).toBe(42)
+    expect(pendingIds()).toContain(next.id)
+  })
+
+  it('refuses a DATEV number the company already used, and none at all', async () => {
+    const companyId = await setup('Datev Doppelt GmbH')
+    const first = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-03',
+      lineItems: line
+    })
+    await expect(
+      invoices().createInvoice({
+        companyId,
+        status: 'issued',
+        issueDate: '2026-11-04',
+        lineItems: line,
+        createdInDatev: true,
+        datevInvoiceNumber: first.invoice_number
+      })
+    ).rejects.toThrow(/schon vergeben/)
+    await expect(
+      invoices().createInvoice({
+        companyId,
+        status: 'issued',
+        lineItems: line,
+        createdInDatev: true
+      })
+    ).rejects.toThrow(/Rechnungsnummer aus DATEV/)
+  })
+
+  it('issues a draft with DATEV’s number', async () => {
+    const companyId = await setup('Datev Entwurf GmbH')
+    const draft = await invoices().createInvoice({ companyId, lineItems: line })
+    const issued = await invoices().updateInvoice({
+      id: draft.id,
+      status: 'issued',
+      createdInDatev: true,
+      datevInvoiceNumber: 900
+    })
+    expect(issued).toMatchObject({ invoice_number: 900, created_in_datev: true })
+  })
+
+  it('marks an issued invoice later; the number changes only while it went nowhere', async () => {
+    const companyId = await setup('Datev Später GmbH')
+    const issued = await invoices().createInvoice({
+      companyId,
+      status: 'issued',
+      issueDate: '2026-11-03',
+      lineItems: line
+    })
+    const marked = await invoices().setCreatedInDatev(issued.id, true, 77)
+    expect(marked).toMatchObject({ invoice_number: 77, created_in_datev: true })
+    expect(pendingIds()).not.toContain(issued.id)
+
+    const unmarked = await invoices().setCreatedInDatev(issued.id, false)
+    expect(unmarked).toMatchObject({ invoice_number: 77, created_in_datev: false })
+    expect(pendingIds()).toContain(issued.id)
+
+    container.resolve(DatevService).addPending({
+      invoiceId: issued.id,
+      category: 'outgoing',
+      to: 'u@duo.example.test',
+      fileName: 'R.pdf',
+      mailAccountId: 'sandbox-1',
+      sendKey: 'key-246'
+    })
+    await expect(invoices().setCreatedInDatev(issued.id, true, 78)).rejects.toThrow(/Nummer bleibt/)
+  })
+})

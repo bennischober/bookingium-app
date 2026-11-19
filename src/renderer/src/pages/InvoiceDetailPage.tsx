@@ -8,6 +8,7 @@ import { isNotFound } from '@/lib/queryErrors'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { Button } from '@/components/ui/button'
+import { InvoiceDatevCreatedCard } from '@/components/invoice/InvoiceDatevCreatedCard'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceMailsCard } from '@/components/invoice/InvoiceMailsCard'
@@ -205,6 +206,7 @@ export default function InvoiceDetailPage() {
         </div>
         <div className="min-w-0 space-y-4">
           <InvoiceMailsCard invoiceId={invoice.id} />
+          {invoice.kind === 'invoice' && <InvoiceDatevCreatedCard invoice={invoice} />}
           <History invoice={invoice} />
         </div>
       </div>

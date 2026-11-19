@@ -136,6 +136,7 @@ export class InvoiceMapper {
       reverseChargeNote: entity.reverse_charge_note,
       buyerReference: entity.buyer_reference,
       xrechnung: entity.xrechnung,
+      createdInDatev: entity.created_in_datev ?? false,
       cancelsInvoiceId: entity.cancelsInvoice?.id ?? null,
       cancelsInvoiceIssueDate: entity.cancelsInvoice?.issue_date ?? null,
       cancelledByInvoiceId: entity.cancelledBy?.id ?? null,
