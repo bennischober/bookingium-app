@@ -1,9 +1,15 @@
 import { inject, injectable } from 'tsyringe'
 import { AdvancingRepository, type PersonRow } from '../repositories/AdvancingRepository'
 import { utilizationPercent } from '../advancing/advancing'
+import { soldInText, suggestedStage } from '../advancing/advancingMail'
+import { GENERIC_DOMAINS } from '../mail/genericDomains'
 import {
   AdvancingStatus,
+  type LocalContactFromMailInput,
+  type MailShowDto,
+  type MailShowsInput,
   type PersonRefDto,
+  type SetStageInput,
   type SaveAdvancingInput,
   type SaveTicketQuotaInput,
   type SaveTicketReportInput,
@@ -90,6 +96,7 @@ export class AdvancingService {
   saveAdvancing(input: SaveAdvancingInput): ShowAdvancingDto {
     if (!this.repository.eventExists(input.eventId)) throw new Error('Event nicht gefunden')
     this.repository.saveAdvancing({ ...input, notes: input.notes.trim() })
+    if (input.localContactId) this.repository.rememberAtVenue(input.eventId, input.localContactId)
     return this.get(input.eventId)
   }
 
@@ -107,6 +114,87 @@ export class AdvancingService {
 
   deleteReport(id: number): void {
     this.repository.deleteReport(id)
+  }
+
+  /** #235: only the stage changes (from a mail); today is the day it was reached */
+  setStage(input: SetStageInput, today = new Date().toISOString().slice(0, 10)): ShowAdvancingDto {
+    const show = this.get(input.eventId)
+    return this.saveAdvancing({
+      eventId: input.eventId,
+      status: input.status,
+      statusDate: input.status === show.status ? show.statusDate : today,
+      localContactId: show.localContact?.id ?? null,
+      notes: show.notes
+    })
+  }
+
+  /** #235: the advancing mail went out - a show not yet further is now "angeschrieben" */
+  markContacted(eventId: number, today = new Date().toISOString().slice(0, 10)): void {
+    const status = this.repository.statusOf(eventId)
+    if (status === null || status === 'open') this.setStage({ eventId, status: 'contacted' }, today)
+  }
+
+  /** #235: the mail's sender becomes the show's contact on site (found or created by e-mail) */
+  localContactFromMail(input: LocalContactFromMailInput): ShowAdvancingDto {
+    const show = this.get(input.eventId)
+    const personId = this.repository.personForEmail(input.email, input.name)
+    return this.saveAdvancing({
+      eventId: input.eventId,
+      status: show.status,
+      statusDate: show.statusDate,
+      localContactId: personId,
+      notes: show.notes
+    })
+  }
+
+  /**
+   * #235: the shows a mail belongs to - linked to it, or from (or to) the promoter's contact,
+   * the promoter or the contact on site - from a week ago to three months ahead, with what the
+   * mail suggests: the next stage, a ticket count
+   */
+  forMail(input: MailShowsInput, today = new Date().toISOString().slice(0, 10)): MailShowDto[] {
+    const emails = [input.fromEmail, ...input.toEmails]
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+    const domains = [...new Set(emails.map((email) => email.split('@')[1] ?? ''))].filter(
+      (domain) => domain && !GENERIC_DOMAINS.has(domain)
+    )
+    const shift = (days: number): string => {
+      const date = new Date(`${today}T00:00:00Z`)
+      date.setUTCDate(date.getUTCDate() + days)
+      return date.toISOString().slice(0, 10)
+    }
+    const bare = (input.messageId ?? '').trim().replace(/^</, '').replace(/>$/, '')
+    const rows = this.repository.showsForMail({
+      emails,
+      domains,
+      linkedEventIds: this.repository.linkedEventIds(input.accountId, bare),
+      from: shift(-7),
+      to: shift(90)
+    })
+    if (rows.length === 0) return []
+    const shows = this.shows(rows.map((row) => row.id))
+    const sender = input.fromEmail.trim().toLowerCase()
+    const sold = soldInText(`${input.subject}\n${input.snippet}`)
+    return rows.map((row) => {
+      const show = shows.get(row.id)!
+      const info = this.repository.showOf(row.id)
+      return {
+        eventId: row.id,
+        date: row.date,
+        label: [info?.bandName, [info?.venueName, info?.city].filter(Boolean).join(', ')]
+          .filter(Boolean)
+          .join(' – '),
+        status: show.status,
+        statusDate: show.statusDate,
+        suggestedStatus: suggestedStage(show.status),
+        suggestedSold: sold !== null && sold !== show.sold ? sold : null,
+        quota: show.quota,
+        sold: show.sold,
+        localContact: show.localContact,
+        senderIsLocalContact: show.localContact?.email.toLowerCase() === sender
+      }
+    })
   }
 
   /** Every show of a tour with its advancing and tickets, by date */

@@ -102,6 +102,13 @@ export interface DocumentAPI {
    * #120: email a concert contract (by its deal memo id) or a management contract (by its
    * id) as the PDF of this window, from the "Vertrag" template
    */
+  /** #235: the advancing mail of a show; a sent mail marks it "angeschrieben" */
+  sendAdvancingEmail: (eventId: number) => Promise<{
+    success: boolean
+    sent?: boolean
+    error?: string
+    setup?: boolean
+  }>
   sendContractEmail: (
     contract: 'concert' | 'management',
     id: number,

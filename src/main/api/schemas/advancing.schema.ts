@@ -101,3 +101,50 @@ export const TourOverviewInput = z.object({
   bandId: z.number().int().positive().nullable().default(null)
 })
 export type TourOverviewInput = z.infer<typeof TourOverviewInput>
+
+// ---- #235: advancing and tickets from a mail ----
+
+export const MailShowsInput = z.object({
+  accountId: z.string(),
+  /** The mail's Message-ID (with or without angle brackets), null for none */
+  messageId: z.string().nullable(),
+  fromEmail: z.string(),
+  fromName: z.string().default(''),
+  toEmails: z.array(z.string()).max(100).default([]),
+  subject: z.string().max(2000).default(''),
+  snippet: z.string().max(5000).default('')
+})
+export type MailShowsInput = z.infer<typeof MailShowsInput>
+
+/** A show a mail belongs to, with what the mail suggests for it */
+export const MailShowDto = z.object({
+  eventId: z.number(),
+  date: z.string(),
+  /** "April Art – Sputnikhalle, Münster" */
+  label: z.string(),
+  status: AdvancingStatus,
+  statusDate: z.string().nullable(),
+  /** The stage a reply suggests ("Im Austausch"), null for none */
+  suggestedStatus: AdvancingStatus.nullable(),
+  /** A ticket count found in the mail, null for none */
+  suggestedSold: z.number().nullable(),
+  quota: z.number().nullable(),
+  sold: z.number().nullable(),
+  localContact: PersonRefDto.nullable(),
+  /** The sender is the show's contact on site already */
+  senderIsLocalContact: z.boolean()
+})
+export type MailShowDto = z.infer<typeof MailShowDto>
+
+export const SetStageInput = z.object({
+  eventId: z.number().int().positive(),
+  status: AdvancingStatus
+})
+export type SetStageInput = z.infer<typeof SetStageInput>
+
+export const LocalContactFromMailInput = z.object({
+  eventId: z.number().int().positive(),
+  email: z.string().email(),
+  name: z.string().max(200).default('')
+})
+export type LocalContactFromMailInput = z.infer<typeof LocalContactFromMailInput>

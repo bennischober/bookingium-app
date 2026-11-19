@@ -21,7 +21,19 @@ function addDays(iso: string, days: number): string {
 
 type EventRow = { eventId: number; eventName: string; eventDate: string; bandName: string | null }
 
-const ORDER: Record<OpenItemDto['kind'], number> = { contract: 0, deposit: 1, invoice: 2, hotel: 3 }
+const ORDER: Record<OpenItemDto['kind'], number> = {
+  contract: 0,
+  deposit: 1,
+  invoice: 2,
+  hotel: 3,
+  advancing: 4,
+  tickets: 5
+}
+
+/** #235: advancing is due this many days before a show */
+export const ADVANCING_DAYS = 21
+/** #235: a quota's sales report is old after this many days */
+export const TICKET_REPORT_DAYS = 14
 
 /**
  * #201: the "Offene Punkte" of the dashboard and of each event page, computed from the data
@@ -67,7 +79,13 @@ export class OpenItemsService {
       bandName: schema.band.name
     }
 
-    const [contracts, deposits, shows, hotels] = await Promise.all([
+    const advancingHorizon = addDays(today, ADVANCING_DAYS)
+    const reportCutoff = addDays(today, -TICKET_REPORT_DAYS)
+    const lastReport = sql<
+      string | null
+    >`(select max(${schema.ticket_report.report_date}) from ${schema.ticket_report} where ${schema.ticket_report.deal_memo_id} = ${memo.id})`
+
+    const [contracts, deposits, shows, hotels, advancing, tickets] = await Promise.all([
       db
         .select({ ...base, date: memo.contract_sent_at })
         .from(memo)
@@ -114,6 +132,38 @@ export class OpenItemsService {
             gte(memo.date, today),
             lte(memo.date, hotelHorizon)
           )
+        ),
+      db
+        .select({
+          ...base,
+          status: schema.event_advancing.status,
+          since: schema.event_advancing.status_date
+        })
+        .from(memo)
+        .leftJoin(schema.band, eq(memo.band_id, schema.band.id))
+        .leftJoin(schema.event_advancing, eq(schema.event_advancing.deal_memo_id, memo.id))
+        .where(
+          and(
+            working,
+            eq(memo.status, 'confirmed'),
+            gte(memo.date, today),
+            lte(memo.date, advancingHorizon),
+            sql`coalesce(${schema.event_advancing.status}, 'open') <> 'done'`
+          )
+        ),
+      db
+        .select({ ...base, lastReport })
+        .from(memo)
+        .innerJoin(schema.event_ticket_quota, eq(schema.event_ticket_quota.deal_memo_id, memo.id))
+        .leftJoin(schema.band, eq(memo.band_id, schema.band.id))
+        .where(
+          and(
+            working,
+            ne(memo.status, 'cancelled'),
+            gte(memo.date, today),
+            isNotNull(schema.event_ticket_quota.quota),
+            sql`coalesce(${lastReport}, '') < ${reportCutoff}`
+          )
         )
     ])
 
@@ -132,6 +182,9 @@ export class OpenItemsService {
       depositPosition: null,
       depositAmount: null,
       hasDraftInvoice: false,
+      advancingStatus: null,
+      advancingSince: null,
+      lastReportAt: null,
       ...extra
     })
 
@@ -148,7 +201,16 @@ export class OpenItemsService {
         .map((row) =>
           item('invoice', row, row.eventDate, { hasDraftInvoice: Number(row.drafts) > 0 })
         ),
-      ...hotels.map((row) => item('hotel', row, row.eventDate))
+      ...hotels.map((row) => item('hotel', row, row.eventDate)),
+      ...advancing.map((row) =>
+        item('advancing', row, row.eventDate, {
+          advancingStatus: row.status ?? 'open',
+          advancingSince: row.since ?? null
+        })
+      ),
+      ...tickets.map((row) =>
+        item('tickets', row, row.lastReport ?? row.eventDate, { lastReportAt: row.lastReport })
+      )
     ]
 
     // Oldest first: what has waited longest comes first; then by kind, then event

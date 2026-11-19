@@ -4,7 +4,15 @@ import { z } from 'zod'
  * #201: what an open point is about. Each one is resolved on one tab of its event:
  * contract and deposit in Finanzen, invoice there too, hotel in Tagesablauf.
  */
-export const OpenItemKind = z.enum(['contract', 'deposit', 'invoice', 'hotel'])
+// #235: advancing not done for a show soon; a quota whose last sales report is old
+export const OpenItemKind = z.enum([
+  'contract',
+  'deposit',
+  'invoice',
+  'hotel',
+  'advancing',
+  'tickets'
+])
 export type OpenItemKind = z.infer<typeof OpenItemKind>
 
 export const OpenItemDto = z.object({
@@ -19,7 +27,12 @@ export const OpenItemDto = z.object({
   depositPosition: z.number().nullable(),
   depositAmount: z.number().nullable(),
   /** invoice: a draft exists but has not been issued */
-  hasDraftInvoice: z.boolean()
+  hasDraftInvoice: z.boolean(),
+  /** advancing: its stage and since when ('open' without a row) */
+  advancingStatus: z.string().nullable().default(null),
+  advancingSince: z.string().nullable().default(null),
+  /** tickets: the newest report's day, null for none */
+  lastReportAt: z.string().nullable().default(null)
 })
 export type OpenItemDto = z.infer<typeof OpenItemDto>
 

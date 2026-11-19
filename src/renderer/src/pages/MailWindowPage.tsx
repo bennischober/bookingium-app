@@ -97,6 +97,13 @@ export default function MailWindowPage() {
         ? {
             ...emptyCompose(),
             to: composeRequest.to ? [parseAddress(composeRequest.to)] : [],
+            cc: composeRequest.cc
+              ? composeRequest.cc
+                  .split(',')
+                  .map((address) => address.trim())
+                  .filter(Boolean)
+                  .map(parseAddress)
+              : [],
             subject: composeRequest.subject,
             bodyText: composeRequest.body
           }

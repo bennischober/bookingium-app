@@ -104,6 +104,27 @@ const emptyLine = (): SettlementTicketLine => ({
   wkzCents: 0
 })
 
+/** #235: the promoter's last sales report beside the tickets settled, a large gap pointed out */
+function LastTicketReport({ eventId, settled }: { eventId: number; settled: number }) {
+  const show = trpcReact.advancing.get.useQuery({ eventId })
+  const report = show.data?.reports[0]
+  if (!report) return null
+  const gap = settled > 0 ? Math.abs(settled - report.sold) / Math.max(settled, report.sold) : 0
+  return (
+    <p
+      className={
+        gap > 0.1 ? 'text-sm text-amber-700 dark:text-amber-400' : 'text-sm text-muted-foreground'
+      }
+    >
+      Letzte Ticketmeldung: {report.sold.toLocaleString('de-DE')} am{' '}
+      {new Date(`${report.reportDate}T00:00:00`).toLocaleDateString('de-DE')}
+      {gap > 0.1 &&
+        settled > 0 &&
+        ` – weicht von den abgerechneten ${settled.toLocaleString('de-DE')} ab`}
+    </p>
+  )
+}
+
 export function SettlementTab({ eventId }: { eventId: number }) {
   const utils = trpcReact.useUtils()
   const navigate = useNavigate()
@@ -255,6 +276,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Tickets</CardTitle>
+                <LastTicketReport eventId={eventId} settled={result.sold} />
               </CardHeader>
               <CardContent className="space-y-2">
                 {/* In a narrow window only the ticket table scrolls sideways, not the page */}
