@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /** "vor 12 s", "vor 3 min", "um 14:30" */
-export function sinceText(iso: string, now = Date.now()): string {
+function sinceText(iso: string, now = Date.now()): string {
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
   if (seconds < 60) return `vor ${seconds} s`
   if (seconds < 3600) return `vor ${Math.round(seconds / 60)} min`
