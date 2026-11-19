@@ -1,5 +1,6 @@
 // Marketing tab of a band: which entries the filters show. Pure, so it is tested.
 import type {
+  MarketingActionDto,
   MarketingCategory,
   MarketingItemDto,
   MarketingStatus
@@ -87,4 +88,11 @@ export function groupItems(items: MarketingItemDto[]): Array<[string, MarketingI
     groups.set(key, [...(groups.get(key) ?? []), item])
   }
   return [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
+}
+
+/** Net cost of the measures that count (not cancelled) */
+export function totalCents(actions: MarketingActionDto[]): number {
+  return actions
+    .filter((action) => action.status !== 'cancelled')
+    .reduce((sum, action) => sum + (action.costCents ?? 0), 0)
 }

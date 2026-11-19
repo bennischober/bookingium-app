@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, ExternalLink, UserPlus } from 'lucide-react'
+import { ChevronRight, ExternalLink, Megaphone, UserPlus } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { MarketingActionDialog } from './MarketingActionDialog'
 import {
+  MARKETING_ACTION_STATUS_LABELS,
+  type MarketingActionKind,
+  type MarketingCategory,
   MARKETING_QUALITY_LABELS,
   MARKETING_STATUS_LABELS,
   MarketingStatus,
@@ -46,11 +50,22 @@ function host(url: string): string {
   }
 }
 
+/** The kind a measure for an entry of the tab most likely is */
+const KIND_OF: Partial<Record<MarketingCategory, MarketingActionKind>> = {
+  radios: 'radio_spot',
+  podcasts: 'interview',
+  presse: 'print_ad',
+  social: 'online_ad',
+  festivals: 'poster',
+  clubs: 'poster'
+}
+
 /** One atlas entry: summary line, status, the linked contact; details on click */
 export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
   const utils = trpcReact.useUtils()
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState(item.statusNote)
+  const [planning, setPlanning] = useState(false)
   const refresh = () => utils.marketing.overview.invalidate(item.bandId)
   const update = trpcReact.marketing.update.useMutation({
     onSuccess: refresh,
@@ -100,6 +115,11 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             {item.type && <span>{item.type}</span>}
             <span>{MARKETING_QUALITY_LABELS[item.quality]}</span>
             {!item.inAtlas && <span>nicht mehr im Atlas</span>}
+            {item.actionStatus && (
+              <span className="font-medium text-foreground">
+                Maßnahme: {MARKETING_ACTION_STATUS_LABELS[item.actionStatus]}
+              </span>
+            )}
           </span>
           {!open && item.reason && (
             <span className="ml-5 mt-1 line-clamp-2 block text-sm text-muted-foreground">
@@ -138,6 +158,15 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
               </Button>
             )
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={() => setPlanning(true)}
+          >
+            <Megaphone className="h-3.5 w-3.5" />
+            Maßnahme
+          </Button>
           <Select
             value={item.status}
             onValueChange={(status) =>
@@ -241,6 +270,20 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             )}
           </dd>
         </dl>
+      )}
+      {planning && (
+        <MarketingActionDialog
+          bandId={item.bandId}
+          action={null}
+          preset={{
+            kind: KIND_OF[item.category] ?? 'other',
+            title: item.name,
+            companyId: item.companyId,
+            marketingItemId: item.id
+          }}
+          open
+          onOpenChange={(open) => !open && setPlanning(false)}
+        />
       )}
     </li>
   )

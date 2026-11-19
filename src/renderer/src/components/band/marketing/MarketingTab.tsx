@@ -20,6 +20,7 @@ import {
 } from '../../../../../main/api/schemas/marketing.schema'
 import { MarketingImportDialog } from './MarketingImportDialog'
 import { MarketingItemRow } from './MarketingItemRow'
+import { MarketingActions } from './MarketingActions'
 import {
   countByCategory,
   countByStatus,
@@ -36,8 +37,55 @@ const LEVELS: Array<[MarketingLevel, string]> = [
 
 const ALL = 'all'
 
-/** The band's Marketing-Atlas: head data, tabs, filters and the entries with their status */
+type View = 'actions' | 'atlas'
+
+/**
+ * The band's marketing: "Maßnahmen" (what is booked: spots, posters, ads …) and the
+ * "Atlas" (the research, imported from a file), switched at the top
+ */
 export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: string }) {
+  const overview = trpcReact.marketing.overview.useQuery(bandId)
+  const [picked, setPicked] = useState<View | null>(null)
+  // the atlas first once there is one; measures work without it
+  const view: View = picked ?? (overview.data?.atlas ? 'atlas' : 'actions')
+  return (
+    <div className="space-y-5">
+      <div
+        className="inline-flex overflow-hidden rounded-md border"
+        role="group"
+        aria-label="Marketing"
+      >
+        {(
+          [
+            ['atlas', 'Atlas'],
+            ['actions', 'Maßnahmen']
+          ] as Array<[View, string]>
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={view === value}
+            className={cn(
+              'border-r px-4 py-1.5 text-sm font-medium last:border-r-0',
+              view === value ? 'bg-foreground text-background' : 'hover:bg-muted'
+            )}
+            onClick={() => setPicked(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === 'atlas' ? (
+        <AtlasView bandId={bandId} bandName={bandName} />
+      ) : (
+        <MarketingActions scope={{ bandId }} bandId={bandId} />
+      )}
+    </div>
+  )
+}
+
+/** The band's Marketing-Atlas: head data, tabs, filters and the entries with their status */
+function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
   const overview = trpcReact.marketing.overview.useQuery(bandId)
   const [importOpen, setImportOpen] = useState(false)
   const [category, setCategory] = useState<MarketingCategory | null>(null)

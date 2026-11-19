@@ -68,6 +68,9 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
   await page.getByRole('link', { name: 'Bands' }).first().click()
   await page.locator('tr', { hasText: BAND }).first().click()
   await page.getByRole('tab', { name: 'Marketing' }).click()
+  // without an atlas the measures come first
+  await expect(page.getByText('Noch keine Maßnahmen.')).toBeVisible()
+  await page.getByRole('button', { name: 'Atlas', exact: true }).click()
   await expect(page.getByText(`Noch kein Marketing-Atlas für ${BAND}`)).toBeVisible()
 
   await page.getByRole('button', { name: 'Marketing-Atlas importieren…' }).click()
@@ -105,7 +108,25 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
   await expect(page.getByText('Über die Musikredaktion.')).toBeVisible()
   await page.screenshot({ path: join(shots, 'marketing-tab.png'), fullPage: true })
 
-  await page.getByRole('link', { name: 'Probe Rock FM' }).click()
-  await expect(page.getByText('Marketing-Atlas', { exact: true })).toBeVisible()
+  // A radio spot booked from the atlas entry: partner and entry are filled in
+  await page.getByRole('button', { name: 'Maßnahme', exact: true }).first().click()
+  const action = page.getByRole('dialog', { name: 'Neue Maßnahme' })
+  await expect(action.getByLabel('Bezeichnung')).toHaveValue('Probe Rock FM')
+  await action.getByLabel('Bezeichnung').fill('Spot 20 s Tourvorbericht')
+  await action.getByLabel('Status').click()
+  await page.getByRole('option', { name: 'Gebucht' }).click()
+  await action.getByLabel('Kosten netto (€)').fill('1.200,00')
+  await action.getByRole('button', { name: 'Anlegen' }).click()
+  await expect(action).toBeHidden()
+  await expect(page.getByText('Maßnahme: Gebucht')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Maßnahmen', exact: true }).click()
+  await expect(page.getByText('Spot 20 s Tourvorbericht')).toBeVisible()
+  await expect(page.getByText(/1 Maßnahme · Kosten 1.200,00/)).toBeVisible()
+  await page.screenshot({ path: join(shots, 'marketing-actions.png'), fullPage: true })
+
+  await page.getByRole('link', { name: 'Probe Rock FM' }).first().click()
+  await expect(page.getByText('Marketing', { exact: true })).toBeVisible()
+  await expect(page.getByText('Spot 20 s Tourvorbericht')).toBeVisible()
   await expect(page.getByText(/Radios · Priorität A · Angefragt/)).toBeVisible()
 })

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { InfoCard } from '@/components/detail/DetailParts'
+import { MarketingActions } from './MarketingActions'
 import {
   MARKETING_CATEGORY_LABELS,
   MARKETING_STATUS_LABELS,
@@ -33,13 +34,22 @@ function Links({ links }: { links: MarketingLinkDto[] }) {
   )
 }
 
-/** On a company page: the bands whose Marketing-Atlas names this company */
+/**
+ * On a company page: the bands whose Marketing-Atlas names this company, and the measures
+ * booked with it (radio spots on this station …)
+ */
 export function CompanyMarketingCard({ companyId }: { companyId: number }) {
   const links = trpcReact.marketing.forCompany.useQuery(companyId)
-  if (!links.data?.length) return null
+  const actions = trpcReact.marketing.actions.useQuery({ companyId })
+  if (!links.data?.length && !actions.data?.length) return null
   return (
-    <InfoCard label="Marketing-Atlas">
-      <Links links={links.data} />
+    <InfoCard label="Marketing">
+      <div className="space-y-4">
+        {!!links.data?.length && <Links links={links.data} />}
+        {!!actions.data?.length && (
+          <MarketingActions scope={{ companyId }} bandId={null} showBand compact />
+        )}
+      </div>
     </InfoCard>
   )
 }
