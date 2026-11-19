@@ -16,6 +16,9 @@ import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
 
+// pdf.js loads on its first use; on a busy Windows runner that alone took more than the default 15 s
+const PDF_TIMEOUT = 60_000
+
 const INVOICE_LINES = [
   'BEISPIEL RECORDS GmbH - Beispielweg 12 - 50667 Koeln',
   'Tel.: +49 221 100000 - info@beispiel-records.example.com',
@@ -49,11 +52,15 @@ describe('invoice text', () => {
     ).toEqual(['Beispielweg 12, 50667 Koeln', 'Musterweg 5, 10115 Berlin'])
   })
 
-  it('reads the text of a PDF', async () => {
-    const text = await pdfText(await invoicePdf(INVOICE_LINES))
-    expect(text).toContain('BEISPIEL RECORDS GmbH')
-    expect(text).toContain('DE89370400440532013000')
-  })
+  it(
+    'reads the text of a PDF',
+    async () => {
+      const text = await pdfText(await invoicePdf(INVOICE_LINES))
+      expect(text).toContain('BEISPIEL RECORDS GmbH')
+      expect(text).toContain('DE89370400440532013000')
+    },
+    PDF_TIMEOUT
+  )
 })
 
 describe('completing a company from an invoice', () => {
@@ -80,65 +87,73 @@ describe('completing a company from an invoice', () => {
       .run()
   })
 
-  it('finds the sender by its name in a plain PDF and fills only what is empty', async () => {
-    const service = container.resolve(CompanyEnrichmentService)
-    const phone = db
-      .insert(schema.contact)
-      .values({ email: '', phone: '0221 111111' })
-      .returning()
-      .get()
-    const cargo = db
-      .insert(schema.company)
-      .values({ name: 'Beispiel Records GmbH', contact_id: phone.id })
-      .returning()
-      .get()
+  it(
+    'finds the sender by its name in a plain PDF and fills only what is empty',
+    async () => {
+      const service = container.resolve(CompanyEnrichmentService)
+      const phone = db
+        .insert(schema.contact)
+        .values({ email: '', phone: '0221 111111' })
+        .returning()
+        .get()
+      const cargo = db
+        .insert(schema.company)
+        .values({ name: 'Beispiel Records GmbH', contact_id: phone.id })
+        .returning()
+        .get()
 
-    const found = await service.checkBytes(await invoicePdf(INVOICE_LINES))
-    expect(found).toMatchObject({ companyId: cargo.id, origin: 'pdf', matchedBy: 'name' })
-    expect(found!.fills.map((fill) => [fill.label, fill.value])).toEqual([
-      ['Adresse', 'Beispielweg 12, 50667 Koeln'],
-      ['E-Mail', 'info@beispiel-records.example.com'],
-      // the stored phone stays
-      ['USt-IdNr.', 'DE135792468'],
-      ['Steuernummer', '214/5701/1234'],
-      ['IBAN', formatIban('DE89370400440532013000')],
-      ['BIC', 'COBADEF0XXX']
-    ])
+      const found = await service.checkBytes(await invoicePdf(INVOICE_LINES))
+      expect(found).toMatchObject({ companyId: cargo.id, origin: 'pdf', matchedBy: 'name' })
+      expect(found!.fills.map((fill) => [fill.label, fill.value])).toEqual([
+        ['Adresse', 'Beispielweg 12, 50667 Koeln'],
+        ['E-Mail', 'info@beispiel-records.example.com'],
+        // the stored phone stays
+        ['USt-IdNr.', 'DE135792468'],
+        ['Steuernummer', '214/5701/1234'],
+        ['IBAN', formatIban('DE89370400440532013000')],
+        ['BIC', 'COBADEF0XXX']
+      ])
 
-    service.apply(found!.companyId, found!.party)
-    const row = db.select().from(schema.company).where(eq(schema.company.id, cargo.id)).get()!
-    expect(row.vat_id).toBe('DE135792468')
-    expect(row.tax_number).toBe('214/5701/1234')
-    const contact = db
-      .select()
-      .from(schema.contact)
-      .where(eq(schema.contact.id, row.contact_id!))
-      .get()!
-    expect(contact).toMatchObject({
-      email: 'info@beispiel-records.example.com',
-      phone: '0221 111111'
-    })
-    const bank = db.select().from(schema.bank).where(eq(schema.bank.id, row.bank_id!)).get()!
-    expect(bank.iban.replace(/\s/g, '')).toBe('DE89370400440532013000')
-    const address = db
-      .select()
-      .from(schema.address)
-      .where(eq(schema.address.id, row.address_id!))
-      .get()!
-    expect(address).toMatchObject({ street: 'Beispielweg', zip_code: '50667', city: 'Koeln' })
+      service.apply(found!.companyId, found!.party)
+      const row = db.select().from(schema.company).where(eq(schema.company.id, cargo.id)).get()!
+      expect(row.vat_id).toBe('DE135792468')
+      expect(row.tax_number).toBe('214/5701/1234')
+      const contact = db
+        .select()
+        .from(schema.contact)
+        .where(eq(schema.contact.id, row.contact_id!))
+        .get()!
+      expect(contact).toMatchObject({
+        email: 'info@beispiel-records.example.com',
+        phone: '0221 111111'
+      })
+      const bank = db.select().from(schema.bank).where(eq(schema.bank.id, row.bank_id!)).get()!
+      expect(bank.iban.replace(/\s/g, '')).toBe('DE89370400440532013000')
+      const address = db
+        .select()
+        .from(schema.address)
+        .where(eq(schema.address.id, row.address_id!))
+        .get()!
+      expect(address).toMatchObject({ street: 'Beispielweg', zip_code: '50667', city: 'Koeln' })
 
-    // now complete: the same invoice has nothing left to add
-    expect(await service.checkBytes(await invoicePdf(INVOICE_LINES))).toBeNull()
-  })
+      // now complete: the same invoice has nothing left to add
+      expect(await service.checkBytes(await invoicePdf(INVOICE_LINES))).toBeNull()
+    },
+    PDF_TIMEOUT
+  )
 
-  it('says nothing for an invoice of no known company', async () => {
-    const service = container.resolve(CompanyEnrichmentService)
-    expect(
-      await service.checkBytes(
-        await invoicePdf(['Unbekannte Firma KG', 'IBAN AT61 1904 3002 3457 3201'])
-      )
-    ).toBeNull()
-  })
+  it(
+    'says nothing for an invoice of no known company',
+    async () => {
+      const service = container.resolve(CompanyEnrichmentService)
+      expect(
+        await service.checkBytes(
+          await invoicePdf(['Unbekannte Firma KG', 'IBAN AT61 1904 3002 3457 3201'])
+        )
+      ).toBeNull()
+    },
+    PDF_TIMEOUT
+  )
 
   it('takes an e-invoice with its people, matched by name', async () => {
     const service = container.resolve(CompanyEnrichmentService)
