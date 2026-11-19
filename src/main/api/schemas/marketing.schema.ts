@@ -24,7 +24,7 @@ export const MARKETING_CATEGORY_LABELS: Record<MarketingCategory, string> = {
   presse: 'Presse und Blogs',
   social: 'Social und Creator',
   festivals: 'Festivals',
-  clubs: 'Clubs und Venues',
+  clubs: 'Clubs',
   kanaele: 'Weitere Kanäle',
   sync: 'Sync, Film, Gaming',
   inspiration: 'Inspiration',
