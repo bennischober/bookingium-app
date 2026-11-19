@@ -618,12 +618,12 @@ describe('a tour workbook with several lists', () => {
       'date',
       'city',
       'venueName',
-      'notes',
-      'ignore'
+      'ticketQuota',
+      'ticketSold'
     ])
   })
 
-  it('checks headers against the cells: e-mails, and a status that is no booking status', () => {
+  it('checks headers against the cells: e-mails, and a status of the advancing', () => {
     const sheets = readXlsxSheets(workbook())
     const advancing = importTable('Tour', sheets[1].records, 'DE')!
     expect(detectTourMapping(advancing.headers, advancing.rows)).toEqual([
@@ -632,13 +632,13 @@ describe('a tour workbook with several lists', () => {
       'venueName',
       'promoterEmail',
       'ignore',
-      'notes',
-      'notes',
-      'notes'
+      'localContact',
+      'localContactEmail',
+      'advancingStatus'
     ])
   })
 
-  it('imports the quota sheet with the dates and the quota in the notes', () => {
+  it('imports the quota sheet: dates, and the quota as a number or as what stands instead', () => {
     const quota = importTable('Tour', readXlsxSheets(workbook())[2].records, 'DE')!
     const plan = buildTourImportPlan(
       {
@@ -656,7 +656,12 @@ describe('a tour workbook with several lists', () => {
     )
     expect(plan.preview.counts).toMatchObject({ new: 2, skipped: 0 })
     expect(plan.preview.rows.map((row) => row.date)).toEqual(['2029-10-29', '2029-10-30'])
-    expect(plan.create[0].fields.notes).toBe('Anfangsbestand: 200')
+    expect(plan.create[0].fields.notes).toBeUndefined()
+    expect(plan.create.map((draft) => draft.extras?.quota)).toEqual([
+      { quota: 200, note: '' },
+      { quota: null, note: 'warten auf Bestätigung' }
+    ])
+    expect(plan.preview.rows[0].details).toBe('Kontingent 200')
   })
 
   it('forgets a remembered mapping whose date column holds no dates', () => {

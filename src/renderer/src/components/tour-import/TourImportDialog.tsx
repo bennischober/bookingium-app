@@ -264,6 +264,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   const showBand = varies((row) => row.bandName)
   const showTour = varies((row) => row.tour)
   const firstRow = previewRows.find((row) => row.action !== 'skipped')
+  const showDetails = previewRows.some((row) => row.details)
 
   return (
     <Dialog
@@ -566,6 +567,9 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                       <th className="px-3 py-2 font-medium">Club / Festival</th>
                       <th className="px-3 py-2 font-medium">Veranstalter</th>
                       {showTour && <th className="px-3 py-2 font-medium">Tour</th>}
+                      {showDetails && (
+                        <th className="px-3 py-2 font-medium">Advancing / Tickets</th>
+                      )}
                       <th className="px-3 py-2 font-medium">Status</th>
                       <th className="px-3 py-2 font-medium">Import</th>
                     </tr>
@@ -604,6 +608,9 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                           )}
                         </td>
                         {showTour && <td className="px-3 py-2 align-top">{row.tour || '–'}</td>}
+                        {showDetails && (
+                          <td className="px-3 py-2 align-top text-xs">{row.details || '–'}</td>
+                        )}
                         <td className="px-3 py-2 align-top">
                           {row.action === 'skipped' ? '–' : STATUS_LABELS[row.status]}
                         </td>

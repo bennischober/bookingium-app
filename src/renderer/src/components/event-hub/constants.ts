@@ -24,6 +24,8 @@ export const EVENT_TABS = [
   'overview',
   'itinerary',
   'financials',
+  'advancing',
+  'tickets',
   'settlement',
   'documents',
   'mails'

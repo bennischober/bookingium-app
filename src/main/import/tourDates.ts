@@ -27,6 +27,8 @@ import {
 } from './agencyBookings'
 import { cleanText, findCountry, normalizeKey, normalizeZip } from './normalize'
 import { hasGeneratedHeaders } from './generatedHeaders'
+import { advancingDateOf, advancingStatusOf, quotaOf, soldOf } from '../advancing/advancing'
+import { ADVANCING_STATUS_LABELS, type AdvancingStatus } from '../api/schemas/advancing.schema'
 
 // Header spellings (compared with normalizeKey: lower case, punctuation as spaces)
 const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
@@ -125,7 +127,56 @@ const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
   ],
   [
     'promoterEmail',
-    ['email', 'e mail', 'mail', 'kontakt email', 'kontakt e mail', 'email ansprechpartner']
+    ['email', 'e mail', 'mail', 'email ansprechpartner', 'email veranstalter', 'promoter email']
+  ],
+  // #232: advancing and tickets. "Kontakt Email" next to "Kontakt vor Ort" is that person's;
+  // without such a column it falls back to the promoter's contact (detectTourMapping)
+  [
+    'localContact',
+    [
+      'kontakt vor ort',
+      'ansprechpartner vor ort',
+      'vor ort',
+      'local contact',
+      'day contact',
+      'tagesansprechpartner',
+      'production contact',
+      'produktion'
+    ]
+  ],
+  [
+    'localContactEmail',
+    ['kontakt email', 'kontakt e mail', 'email vor ort', 'e mail vor ort', 'local contact email']
+  ],
+  ['advancingStatus', ['advancing', 'advancing status', 'stand advancing', 'advance']],
+  [
+    'ticketQuota',
+    [
+      'anfangsbestand',
+      'kontingent',
+      'ticketkontingent',
+      'ticket kontingent',
+      'tickets kontingent',
+      'kapazität',
+      'kapazitaet',
+      'capacity',
+      'quota',
+      'cap'
+    ]
+  ],
+  [
+    'ticketSold',
+    [
+      'verkauft',
+      'sold',
+      'update sales',
+      'sales',
+      'tickets verkauft',
+      'verkaufte tickets',
+      'ticketverkauf',
+      'stand vvk',
+      'vvk stand'
+    ]
   ]
 ]
 
@@ -182,6 +233,8 @@ type ColumnProfile = {
   emails: number
   amounts: number
   statuses: number
+  advancing: number
+  counts: number
   text: number
 }
 
@@ -197,6 +250,8 @@ function profileColumns(width: number, rows: Array<{ cells: string[] }>): Column
       emails: share((value) => emailOf(value) !== ''),
       amounts: share((value) => parseAmountCents(value) !== null),
       statuses: share((value) => statusOf(value) !== null),
+      advancing: share((value) => advancingStatusOf(value) !== null),
+      counts: share((value) => soldOf(value) !== null),
       text: share((value) => !value.includes('@') && /\p{L}/u.test(value))
     }
   })
@@ -219,7 +274,17 @@ function headerField(header: string, column: ColumnProfile): TourImportField | '
     case 'date':
       return column.dates >= 0.5 ? field : null
     case 'status':
-      return column.statuses >= 0.5 ? field : null
+      // a status of the advancing ("angeschrieben am 05.10.") rather than of the booking
+      if (column.statuses >= 0.5) return field
+      return column.advancing >= 0.5 ? 'advancingStatus' : null
+    case 'advancingStatus':
+      return column.advancing >= 0.5 ? field : null
+    case 'ticketSold':
+      return column.counts >= 0.5 ? field : null
+    case 'localContactEmail':
+      return column.emails >= 0.6 ? field : null
+    case 'localContact':
+      return column.emails >= 0.6 ? 'localContactEmail' : field
     case 'guarantee':
     case 'ticketPriceVvk':
     case 'ticketPriceAk':
@@ -294,6 +359,11 @@ export function detectTourMapping(
     const field = index > dateColumn && column.text >= 0.8 ? textFields.shift() : undefined
     assign(index, field ?? 'notes')
   })
+  // "Kontakt Email" without a contact on site is the promoter contact's address
+  const localEmail = mapping.indexOf('localContactEmail')
+  if (localEmail >= 0 && !taken.has('localContact')) {
+    mapping[localEmail] = taken.has('promoterEmail') ? 'notes' : 'promoterEmail'
+  }
   return mapping
 }
 
@@ -439,6 +509,32 @@ export type TourImportExisting = {
   /** Companies and persons a promoter or contact is matched against (#228 follow-up) */
   companies?: Array<{ id: number; name: string }>
   persons?: Array<{ id: number; firstName: string; lastName: string; email: string }>
+  /** #232: advancing and tickets of the events, to tell what an import changes */
+  shows?: TourShowState[]
+}
+
+/** #232: what an event already has of advancing and tickets */
+export type TourShowState = {
+  eventId: number
+  /** null: no advancing row yet */
+  status: AdvancingStatus | null
+  statusDate: string | null
+  localContactId: number | null
+  quota: number | null
+  quotaNote: string
+  /** The newest report's count, null for none */
+  lastSold: number | null
+}
+
+/** #232: what a row sets besides the event; absent keys leave the event's data as it is */
+export type TourShowExtras = {
+  advancing?: { status: AdvancingStatus; statusDate: string | null }
+  /** A status cell naming no stage, kept as the advancing note of a show without one */
+  advancingNote?: string
+  localContact?: { id: number } | { key: string }
+  quota?: { quota: number | null; note: string }
+  /** Tickets sold as of the import day */
+  sold?: number
 }
 
 /** A promoter company the import creates */
@@ -483,6 +579,7 @@ export type TourEventDraft = {
   venue: { id: number } | { key: string } | null
   fields: TourEventFields & { name: string; status: DealMemoStatus }
   lopro?: TourLoPro
+  extras?: TourShowExtras
 }
 
 export type TourImportPlan = {
@@ -494,9 +591,38 @@ export type TourImportPlan = {
     venue: TourEventDraft['venue']
     fields: TourEventFields
     lopro?: TourLoPro
+    extras?: TourShowExtras
   }>
   promoters: NewPromoterDraft[]
   contacts: NewContactDraft[]
+}
+
+/** The part of a row's advancing and tickets that differs from what the event has; undefined for none */
+function changedExtras(
+  extras: TourShowExtras,
+  show: TourShowState | undefined
+): TourShowExtras | undefined {
+  if (!show) return extras
+  const changed: TourShowExtras = {}
+  if (
+    extras.advancing &&
+    (extras.advancing.status !== show.status ||
+      (extras.advancing.statusDate !== null && extras.advancing.statusDate !== show.statusDate))
+  ) {
+    changed.advancing = extras.advancing
+  }
+  if (extras.advancingNote && show.status === null) changed.advancingNote = extras.advancingNote
+  if (
+    extras.localContact &&
+    !('id' in extras.localContact && extras.localContact.id === show.localContactId)
+  ) {
+    changed.localContact = extras.localContact
+  }
+  if (extras.quota && (extras.quota.quota !== show.quota || extras.quota.note !== show.quotaNote)) {
+    changed.quota = extras.quota
+  }
+  if (extras.sold !== undefined && extras.sold !== show.lastSold) changed.sold = extras.sold
+  return Object.keys(changed).length > 0 ? changed : undefined
 }
 
 /** "10115 Berlin" in one Ort column: the postcode and the place */
@@ -559,6 +685,8 @@ export function buildTourImportPlan(
     const key = normalizeKey(venue.name)
     venuesByName.set(key, [...(venuesByName.get(key) ?? []), venue])
   }
+  const venuesById = new Map(existing.venues.map((venue) => [venue.id, venue]))
+  const showsById = new Map((existing.shows ?? []).map((show) => [show.eventId, show]))
   const eventsByKey = new Map(
     existing.events.map((event) => [`${event.band_id}|${event.date}`, event])
   )
@@ -677,7 +805,8 @@ export function buildTourImportPlan(
         status,
         newVenue: false,
         promoterName: '',
-        newPromoter: false
+        newPromoter: false,
+        details: ''
       }
       const skip = (reason: string) => rows.push({ ...base, action: 'skipped', reason })
 
@@ -701,6 +830,24 @@ export function buildTourImportPlan(
         continue
       }
       seen.set(eventKey, row.rowNumber)
+
+      // A club in another city than the stored event's is a row of another date (lists of the
+      // same tour drift apart): never moved silently
+      const storedEvent = eventsByKey.get(eventKey)
+      const storedVenue = storedEvent?.venue_id ? venuesById.get(storedEvent.venue_id) : undefined
+      if (
+        storedVenue &&
+        venueName &&
+        city &&
+        storedVenue.city &&
+        normalizeKey(storedVenue.name) !== normalizeKey(venueName) &&
+        normalizeKey(storedVenue.city) !== normalizeKey(city)
+      ) {
+        skip(
+          `Club weicht ab: am ${date.split('-').reverse().join('.')} ist ${storedVenue.name}, ${storedVenue.city} eingetragen`
+        )
+        continue
+      }
 
       // ---- venue ----
       let venue: TourEventDraft['venue'] = null
@@ -797,13 +944,48 @@ export function buildTourImportPlan(
       const person = contactOf(contactName, contactEmail, promoter.ref)
       const lopro: TourLoPro | undefined =
         promoter.ref || person ? { company: promoter.ref, person } : undefined
+
+      // ---- #232: advancing and tickets ----
+      const extras: TourShowExtras = {}
+      const details: string[] = []
+      const statusCell = cell(row.cells, 'advancingStatus')
+      if (statusCell) {
+        const stage = advancingStatusOf(statusCell)
+        if (stage) {
+          extras.advancing = { status: stage, statusDate: advancingDateOf(statusCell, date) }
+          details.push(ADVANCING_STATUS_LABELS[stage])
+        } else extras.advancingNote = statusCell
+      }
+      const localName = cell(row.cells, 'localContact')
+      const localEmail = emailOf(cell(row.cells, 'localContactEmail'))
+      const localContact = localName || localEmail ? contactOf(localName, localEmail, null) : null
+      if (localContact) {
+        extras.localContact = localContact
+        details.push(`vor Ort: ${localName || localEmail}`)
+      }
+      const quotaCell = cell(row.cells, 'ticketQuota')
+      if (quotaCell) {
+        extras.quota = quotaOf(quotaCell)
+        details.push(
+          extras.quota.quota !== null
+            ? `Kontingent ${extras.quota.quota}`
+            : `Kontingent: ${extras.quota.note}`
+        )
+      }
+      const sold = soldOf(cell(row.cells, 'ticketSold'))
+      if (sold !== null) {
+        extras.sold = sold
+        details.push(`${sold} verkauft`)
+      }
+      const hasExtras = Object.keys(extras).length > 0
       const preview = {
         ...base,
         bandName: band.name,
         eventName,
         newVenue,
         promoterName,
-        newPromoter: promoter.isNew
+        newPromoter: promoter.isNew,
+        details: details.join(' · ')
       }
 
       if (!stored) {
@@ -812,7 +994,8 @@ export function buildTourImportPlan(
           date,
           venue,
           fields: { ...fields, name: eventName, status: fields.status ?? request.defaultStatus },
-          lopro
+          lopro,
+          extras: hasExtras ? extras : undefined
         })
         rows.push({ ...preview, action: 'new' })
         continue
@@ -828,7 +1011,8 @@ export function buildTourImportPlan(
           !('id' in lopro.company && lopro.company.id === stored.lopro_company_id)) ||
           (lopro.person !== null &&
             !('id' in lopro.person && lopro.person.id === stored.lopro_person_id)))
-      if (!venueChanges && !loproChanges && fieldChanges.length === 0) {
+      const extrasChanges = hasExtras ? changedExtras(extras, showsById.get(stored.id)) : undefined
+      if (!venueChanges && !loproChanges && fieldChanges.length === 0 && !extrasChanges) {
         unchanged++
         rows.push({ ...preview, status: stored.status as DealMemoStatus, action: 'unchanged' })
         continue
@@ -839,7 +1023,8 @@ export function buildTourImportPlan(
         fields: Object.fromEntries(
           fieldChanges.map((key) => [key, fields[key]])
         ) as TourEventFields,
-        lopro: loproChanges ? lopro : undefined
+        lopro: loproChanges ? lopro : undefined,
+        extras: extrasChanges
       })
       rows.push({ ...preview, action: 'update' })
     }

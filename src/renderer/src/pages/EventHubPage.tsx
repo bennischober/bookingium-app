@@ -24,6 +24,8 @@ import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
 import { SettlementTab } from '@/components/event-hub/SettlementTab'
+import { AdvancingTab } from '@/components/event-hub/AdvancingTab'
+import { TicketsTab } from '@/components/event-hub/TicketsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
 import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
@@ -248,6 +250,8 @@ export function EventHubPage() {
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="itinerary">Tagesablauf</TabsTrigger>
           <TabsTrigger value="financials">Finanzen</TabsTrigger>
+          <TabsTrigger value="advancing">Advancing</TabsTrigger>
+          <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="settlement">Abrechnung</TabsTrigger>
           <TabsTrigger value="documents" className={emptyTabClass(counts.documents)}>
             Dokumente
@@ -282,6 +286,14 @@ export function EventHubPage() {
             saveSignal={saveSignal}
             cancelSignal={cancelSignal}
           />
+        </TabsContent>
+
+        <TabsContent value="advancing">
+          <AdvancingTab eventId={event.id} />
+        </TabsContent>
+
+        <TabsContent value="tickets">
+          <TicketsTab eventId={event.id} />
         </TabsContent>
 
         <TabsContent value="settlement">

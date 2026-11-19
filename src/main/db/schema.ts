@@ -14,6 +14,7 @@ import { CompanyKind } from '../api/schemas/company.schema'
 import { VenueKind } from '../api/schemas/venue.schema'
 import { ExternalBookingKind, ExternalBookingStatus } from '../api/schemas/external_booking.schema'
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
+import { AdvancingStatus } from '../api/schemas/advancing.schema'
 import {
   InvoiceEmailKind,
   InvoiceKind,
@@ -1476,6 +1477,75 @@ export const event_settlement = sqliteTable(
   (table) => [uniqueIndex('event_settlement_event_idx').on(table.deal_memo_id)]
 )
 
+// #232: agreeing a show with the promoter (Advancing), one per event
+export const event_advancing = sqliteTable(
+  'event_advancing',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    status: text('status').default('open').notNull(),
+    // ISO day the status was reached, null for unknown
+    status_date: text('status_date'),
+    // Kontakt vor Ort: the person at the venue on the day
+    local_contact_id: integer('local_contact_id').references(() => person.id, {
+      onDelete: 'set null'
+    }),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('event_advancing_event_idx').on(table.deal_memo_id),
+    index('event_advancing_contact_idx').on(table.local_contact_id),
+    oneOf('event_advancing_status_check', 'status', AdvancingStatus.options)
+  ]
+)
+
+// #232: the ticket quota of a show (Ticketkontingent), one per event
+export const event_ticket_quota = sqliteTable(
+  'event_ticket_quota',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    quota: integer('quota'),
+    // What stands instead of a number ("warten auf Bestätigung")
+    quota_note: text('quota_note').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('event_ticket_quota_event_idx').on(table.deal_memo_id)]
+)
+
+// #232: tickets sold as of a day, as the promoter reports them; one report per show and day
+export const ticket_report = sqliteTable(
+  'ticket_report',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    report_date: text('report_date').notNull(),
+    sold: integer('sold').notNull(),
+    note: text('note').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('ticket_report_event_day_idx').on(table.deal_memo_id, table.report_date)]
+)
+
 // The band's net income lines for a quarter (e.g. Konzerte, Merchandise)
 export const management_share_income = sqliteTable(
   'management_share_income',
@@ -1533,6 +1603,9 @@ export const schema = {
   management_share,
   management_share_income,
   event_settlement,
+  event_advancing,
+  event_ticket_quota,
+  ticket_report,
   app_setting,
   contact_list,
   contact_list_member,

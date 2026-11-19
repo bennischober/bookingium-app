@@ -1,9 +1,15 @@
 import { injectable } from 'tsyringe'
-import { and, asc, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
-import type { TourImportExisting, TourImportPlan } from '../import/tourDates'
+import type {
+  TourImportExisting,
+  TourImportPlan,
+  TourShowExtras,
+  TourShowState
+} from '../import/tourDates'
+import { AdvancingStatus } from '../api/schemas/advancing.schema'
 
 /** Tour import (Tourdaten): what a tour sheet is compared with, and writing its plan */
 @injectable()
@@ -61,7 +67,49 @@ export class TourImportRepository {
       .leftJoin(schema.contact, eq(schema.person.contact_id, schema.contact.id))
       .all()
       .map((person) => ({ ...person, email: (person.email ?? '').trim().toLowerCase() }))
-    return { bands, venues, events, companies, persons }
+    return { bands, venues, events, companies, persons, shows: this.loadShows() }
+  }
+
+  /** #232: advancing, quota and the newest sales report of every event that has any */
+  private loadShows(): TourShowState[] {
+    const shows = new Map<number, TourShowState>()
+    const show = (eventId: number): TourShowState => {
+      let state = shows.get(eventId)
+      if (!state) {
+        state = {
+          eventId,
+          status: null,
+          statusDate: null,
+          localContactId: null,
+          quota: null,
+          quotaNote: '',
+          lastSold: null
+        }
+        shows.set(eventId, state)
+      }
+      return state
+    }
+    for (const row of db.select().from(schema.event_advancing).all()) {
+      const parsed = AdvancingStatus.safeParse(row.status)
+      Object.assign(show(row.deal_memo_id), {
+        status: parsed.success ? parsed.data : 'open',
+        statusDate: row.status_date,
+        localContactId: row.local_contact_id
+      })
+    }
+    for (const row of db.select().from(schema.event_ticket_quota).all()) {
+      Object.assign(show(row.deal_memo_id), { quota: row.quota, quotaNote: row.quota_note })
+    }
+    const reports = db
+      .select()
+      .from(schema.ticket_report)
+      .orderBy(desc(schema.ticket_report.report_date))
+      .all()
+    for (const row of reports) {
+      const state = show(row.deal_memo_id)
+      if (state.lastSold === null) state.lastSold = row.sold
+    }
+    return [...shows.values()]
   }
 
   /** The tours events name (not archived), alphabetically */
@@ -76,7 +124,10 @@ export class TourImportRepository {
   }
 
   /** Writes the plan in one transaction (synchronous: better-sqlite3) */
-  applyImport(plan: TourImportPlan): {
+  applyImport(
+    plan: TourImportPlan,
+    today = new Date().toISOString().slice(0, 10)
+  ): {
     created: number
     updated: number
     venuesCreated: number
@@ -162,8 +213,73 @@ export class TourImportRepository {
         return venueIds.get(venue.key) ?? null
       }
 
+      /** #232: advancing and tickets of an event, as far as the row names them */
+      const writeExtras = (eventId: number, extras: TourShowExtras | undefined): void => {
+        if (!extras) return
+        const contactId = extras.localContact ? personId(extras.localContact) : undefined
+        if (extras.advancing || contactId !== undefined || extras.advancingNote) {
+          const stored = tx
+            .select()
+            .from(schema.event_advancing)
+            .where(eq(schema.event_advancing.deal_memo_id, eventId))
+            .get()
+          if (!stored) {
+            tx.insert(schema.event_advancing)
+              .values({
+                deal_memo_id: eventId,
+                status: extras.advancing?.status ?? 'open',
+                status_date: extras.advancing?.statusDate ?? null,
+                local_contact_id: contactId ?? null,
+                notes: extras.advancingNote ?? ''
+              })
+              .run()
+          } else {
+            tx.update(schema.event_advancing)
+              .set({
+                ...(extras.advancing
+                  ? {
+                      status: extras.advancing.status,
+                      status_date: extras.advancing.statusDate ?? stored.status_date
+                    }
+                  : {}),
+                ...(contactId !== undefined ? { local_contact_id: contactId } : {}),
+                updated_at: sql`(datetime('now'))`
+              })
+              .where(eq(schema.event_advancing.id, stored.id))
+              .run()
+          }
+        }
+        if (extras.quota) {
+          tx.insert(schema.event_ticket_quota)
+            .values({
+              deal_memo_id: eventId,
+              quota: extras.quota.quota,
+              quota_note: extras.quota.note
+            })
+            .onConflictDoUpdate({
+              target: schema.event_ticket_quota.deal_memo_id,
+              set: {
+                quota: extras.quota.quota,
+                quota_note: extras.quota.note,
+                updated_at: sql`(datetime('now'))`
+              }
+            })
+            .run()
+        }
+        if (extras.sold !== undefined) {
+          tx.insert(schema.ticket_report)
+            .values({ deal_memo_id: eventId, report_date: today, sold: extras.sold })
+            .onConflictDoUpdate({
+              target: [schema.ticket_report.deal_memo_id, schema.ticket_report.report_date],
+              set: { sold: extras.sold }
+            })
+            .run()
+        }
+      }
+
       for (const draft of plan.create) {
-        tx.insert(schema.deal_memo)
+        const created = tx
+          .insert(schema.deal_memo)
           .values({
             ...draft.fields,
             ...loproValues(draft.lopro),
@@ -171,7 +287,9 @@ export class TourImportRepository {
             date: draft.date,
             venue_id: venueId(draft.venue)
           })
-          .run()
+          .returning({ id: schema.deal_memo.id })
+          .get()
+        writeExtras(created.id, draft.extras)
       }
       for (const change of plan.update) {
         const values: Record<string, unknown> = { ...change.fields, ...loproValues(change.lopro) }
@@ -180,6 +298,7 @@ export class TourImportRepository {
           .set({ ...values, updated_at: sql`(datetime('now'))` })
           .where(and(eq(schema.deal_memo.id, change.id), notArchived()))
           .run()
+        writeExtras(change.id, change.extras)
       }
       return {
         created: plan.create.length,

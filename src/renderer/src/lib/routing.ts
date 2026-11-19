@@ -12,6 +12,7 @@ import {
   MapPin,
   Music2,
   Plane,
+  ClipboardList,
   Receipt,
   Settings,
   Tent,
@@ -72,6 +73,8 @@ export const ROUTES = {
   // #225: after the first ten as well, so no Alt+number shortcut moves
   receipts: { path: '/receipts', title: 'Belege', group: 'Planung', icon: Receipt },
   trips: { path: '/trips', title: 'Reisekosten', group: 'Planung', icon: Plane },
+  // #232: advancing and ticket sales of a tour's shows
+  tours: { path: '/tours', title: 'Touren', group: 'Planung', icon: ClipboardList },
   mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox },
   banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
   settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
