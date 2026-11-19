@@ -22,7 +22,10 @@ describe('removeEmptyDevice', () => {
     mkdirSync(join(folder, 'geraete', 'dev-busy', 'aenderungen'), { recursive: true })
     writeFileSync(join(folder, 'geraete', 'dev-busy', 'aenderungen', '0000000001.json'), '{}')
 
+    expect(await transport.hasDevice('dev-empty')).toBe(true)
     await transport.removeEmptyDevice('dev-empty')
+    // a running computer notices the missing entry on its next run and writes it again
+    expect(await transport.hasDevice('dev-empty')).toBe(false)
     await expect(transport.removeEmptyDevice('dev-busy')).rejects.toThrow(/bleibt/)
     expect((await transport.listDevices()).map((d) => d.id)).toEqual(['dev-busy'])
   })

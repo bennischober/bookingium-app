@@ -189,9 +189,13 @@ export class SyncService {
             appVersion: d.appVersion,
             createdAt: d.createdAt,
             lastBatchAt: await transport.deviceLastBatchAt(d.id),
-            superseded: listed.some(
-              (other) => other.id !== d.id && other.name === d.name && other.createdAt > d.createdAt
-            )
+            // this computer is never an earlier entry, even next to a newer one of its name
+            superseded:
+              d.id !== state.deviceId &&
+              listed.some(
+                (other) =>
+                  other.id !== d.id && other.name === d.name && other.createdAt > d.createdAt
+              )
           }))
         )
       } catch {

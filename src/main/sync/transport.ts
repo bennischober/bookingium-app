@@ -26,6 +26,8 @@ export interface SyncTransport {
   createGroup(group: GroupInfo): Promise<void>
   listDevices(): Promise<DeviceInfo[]>
   writeDevice(info: DeviceInfo): Promise<void>
+  /** #243: whether the device's entry is in the folder (it may have been removed as an old one) */
+  hasDevice(device: string): Promise<boolean>
   /** The numbers of a device's batches that are complete, ascending */
   listBatches(device: string): Promise<number[]>
   readBatch(device: string, seq: number): Promise<Batch | null>
@@ -163,6 +165,10 @@ export class FolderTransport implements SyncTransport {
       throw new Error('Dieser Eintrag hat Änderungen abgelegt und bleibt deshalb im Ordner.')
     }
     await rm(this.deviceDir(device), { recursive: true, force: true })
+  }
+
+  async hasDevice(device: string): Promise<boolean> {
+    return existsSync(join(this.deviceDir(device), DEVICE_FILE))
   }
 
   async writeDevice(info: DeviceInfo): Promise<void> {
