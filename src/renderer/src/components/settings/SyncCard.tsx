@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, CloudAlert, FolderOpen, Monitor, RefreshCw } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
@@ -287,33 +288,7 @@ export function SyncCard() {
         )}
 
         {enabled && data && data.devices.length > 0 && (
-          <div className="space-y-2">
-            <p className="font-medium">Computer im Abgleich</p>
-            <ul className="space-y-1 text-sm">
-              {data.devices.map((device) => (
-                <li
-                  key={device.id}
-                  className={
-                    device.superseded
-                      ? 'flex flex-wrap items-center gap-x-2 text-muted-foreground'
-                      : 'flex flex-wrap items-center gap-x-2'
-                  }
-                >
-                  <Monitor className="h-4 w-4 text-muted-foreground" />
-                  <span>{device.name}</span>
-                  {device.self && <span className="text-muted-foreground">(dieser Computer)</span>}
-                  <span className="text-xs text-muted-foreground">Version {device.appVersion}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {device.superseded
-                      ? '· früherer Eintrag, wird nicht mehr genutzt'
-                      : device.lastBatchAt
-                        ? `· zuletzt Änderungen abgelegt: ${formatDateTime(device.lastBatchAt)}`
-                        : `· seit ${formatDateTime(device.createdAt)} dabei, noch keine Änderungen abgelegt`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <SyncDevices devices={data.devices} onChanged={setStatus} />
         )}
 
         {enabled && data && data.conflicts.length > 0 && (
@@ -334,5 +309,105 @@ export function SyncCard() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+type SyncDevice = SyncStatusDto['devices'][number]
+
+/**
+ * "Computer im Abgleich". #243: a computer that joined again leaves its earlier entry behind;
+ * those are folded away, and one that never wrote a change can be removed from the folder.
+ */
+function SyncDevices({
+  devices,
+  onChanged
+}: {
+  devices: SyncDevice[]
+  onChanged: (next: SyncStatusDto) => void
+}) {
+  const [showEarlier, setShowEarlier] = useState(false)
+  const remove = trpcReact.sync.removeDevice.useMutation({
+    onSuccess: (next) => {
+      onChanged(next)
+      toast.success('Früheren Eintrag entfernt')
+    },
+    onError: (error) =>
+      toast.error('Eintrag konnte nicht entfernt werden', { description: error.message })
+  })
+  const current = devices.filter((device) => !device.superseded)
+  const earlier = devices.filter((device) => device.superseded)
+
+  const row = (device: SyncDevice) => (
+    <li
+      key={device.id}
+      className={
+        device.superseded
+          ? 'flex flex-wrap items-center gap-x-2 text-muted-foreground'
+          : 'flex flex-wrap items-center gap-x-2'
+      }
+    >
+      <Monitor className="h-4 w-4 text-muted-foreground" />
+      <span>{device.name}</span>
+      {device.self && <span className="text-muted-foreground">(dieser Computer)</span>}
+      <span className="text-xs text-muted-foreground">Version {device.appVersion}</span>
+      <span className="text-xs text-muted-foreground">
+        {device.superseded
+          ? `· früherer Eintrag vom ${formatDateTime(device.createdAt)}, wird nicht mehr genutzt`
+          : device.lastBatchAt
+            ? `· zuletzt Änderungen abgelegt: ${formatDateTime(device.lastBatchAt)}`
+            : `· seit ${formatDateTime(device.createdAt)} dabei, noch keine Änderungen abgelegt`}
+      </span>
+      {device.superseded && device.lastBatchAt === null && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-xs"
+          disabled={remove.isPending}
+          onClick={async () => {
+            const confirmed = await confirmAction({
+              title: `Früheren Eintrag von „${device.name}“ entfernen?`,
+              description:
+                'Er hat nie Änderungen abgelegt, es geht also nichts verloren. Der aktuelle Eintrag dieses Computers bleibt.',
+              confirmLabel: 'Entfernen'
+            })
+            if (confirmed) remove.mutate({ id: device.id })
+          }}
+        >
+          Entfernen
+        </Button>
+      )}
+    </li>
+  )
+
+  return (
+    <div className="space-y-2">
+      <p className="font-medium">Computer im Abgleich</p>
+      <ul className="space-y-1 text-sm">{current.map(row)}</ul>
+      {earlier.length > 0 && (
+        <div className="space-y-1">
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-xs text-muted-foreground"
+            onClick={() => setShowEarlier((open) => !open)}
+          >
+            {showEarlier
+              ? 'Frühere Einträge ausblenden'
+              : earlier.length === 1
+                ? '1 früherer Eintrag ausgeblendet – anzeigen'
+                : `${earlier.length} frühere Einträge ausgeblendet – anzeigen`}
+          </Button>
+          {showEarlier && (
+            <>
+              <ul className="space-y-1 text-sm">{earlier.map(row)}</ul>
+              <p className="text-xs text-muted-foreground">
+                Frühere Einträge entstehen, wenn ein Computer neu beitritt. Einträge mit abgelegten
+                Änderungen bleiben im Ordner, damit kein anderer Computer etwas verpasst.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

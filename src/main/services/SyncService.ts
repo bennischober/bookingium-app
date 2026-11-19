@@ -322,6 +322,28 @@ export class SyncService {
   }
 
   /** Stops syncing on this computer; joining again merges what changed meanwhile */
+  /**
+   * #243: removes a computer's earlier entry (the same computer joined again later) from the
+   * folder, but only one that never wrote a change: nothing can get lost.
+   */
+  async removeDevice(id: string): Promise<SyncStatusDto> {
+    const state = this.readState()
+    if (!state.enabled || !state.folder) throw new Error('Der Abgleich ist nicht eingerichtet.')
+    if (id === state.deviceId) throw new Error('Dieser Computer kann sich nicht selbst entfernen.')
+    const transport = new FolderTransport(state.folder)
+    const listed = await transport.listDevices()
+    const device = listed.find((d) => d.id === id)
+    if (!device) throw new Error('Diesen Eintrag gibt es im Ordner nicht mehr.')
+    const superseded = listed.some(
+      (other) => other.id !== id && other.name === device.name && other.createdAt > device.createdAt
+    )
+    if (!superseded) {
+      throw new Error('Nur frühere Einträge eines Computers lassen sich entfernen.')
+    }
+    await transport.removeEmptyDevice(id)
+    return this.status()
+  }
+
   leave(): Promise<SyncStatusDto> {
     this.stopTimers()
     this.engine = null

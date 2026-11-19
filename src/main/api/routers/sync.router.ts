@@ -88,6 +88,17 @@ export const syncRouter = t.router({
 
   leave: t.procedure.mutation((): Promise<SyncStatusDto> => service.leave()),
 
+  // #243: an earlier entry of a computer that never wrote a change
+  removeDevice: t.procedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }): Promise<SyncStatusDto> => {
+      try {
+        return await service.removeDevice(input.id)
+      } catch (error) {
+        throw badRequest(error, 'Eintrag konnte nicht entfernt werden')
+      }
+    }),
+
   openFolder: t.procedure.mutation(async () => {
     const { folder } = service.readState()
     if (!folder) throw badRequest(null, 'Kein Ordner gewählt')

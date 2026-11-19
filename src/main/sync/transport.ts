@@ -154,6 +154,17 @@ export class FolderTransport implements SyncTransport {
     }
   }
 
+  /**
+   * #243: removes a device's entry from the folder. Only for an entry that never wrote a batch,
+   * so no other computer can miss a change by it; refuses anything else.
+   */
+  async removeEmptyDevice(device: string): Promise<void> {
+    if ((await this.listBatches(device)).length > 0) {
+      throw new Error('Dieser Eintrag hat Änderungen abgelegt und bleibt deshalb im Ordner.')
+    }
+    await rm(this.deviceDir(device), { recursive: true, force: true })
+  }
+
   async writeDevice(info: DeviceInfo): Promise<void> {
     await writeAtomic(join(this.deviceDir(info.id), DEVICE_FILE), JSON.stringify(info, null, 2))
   }
