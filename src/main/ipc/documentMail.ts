@@ -49,7 +49,7 @@ import { documentPdf } from './print'
  * is gone when the window closes. Not an IPC channel: only invoice:email and
  * contract:email (#120) open it.
  */
-function openComposeWindow(input: {
+export function openComposeWindow(input: {
   draft: ComposeDraft
   compose: DocumentCompose
   /** #121: where a "Wiedervorlage ohne Antwort" of this mail is filed */
@@ -63,7 +63,7 @@ function openComposeWindow(input: {
     // base64 of the UTF-8 JSON: the JSON has characters that would break the URL fragment
     draft: Buffer.from(JSON.stringify(input.draft), 'utf8').toString('base64'),
     // the name only, for the attachment chip - the window never learns the path
-    attachment: input.compose.fileName,
+    attachment: 'fileName' in input.compose ? input.compose.fileName : '',
     record: `${input.record.type}:${input.record.id}`
   })
   return new Promise<ComposeResult>((resolve) => {

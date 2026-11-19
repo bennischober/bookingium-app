@@ -32,7 +32,13 @@ export type ContractCompose = {
   fileName: string
 }
 
-export type DocumentCompose = InvoiceCompose | ContractCompose
+/** #235: an advancing mail of a show - no attachment; the show is marked once it is out */
+export type AdvancingCompose = {
+  advancingEventId: number
+  accountId: string
+}
+
+export type DocumentCompose = InvoiceCompose | ContractCompose | AdvancingCompose
 
 function isInvoiceCompose(compose: DocumentCompose): compose is InvoiceCompose {
   return 'invoiceId' in compose
@@ -166,6 +172,12 @@ export async function sendInvoiceMail(
   if (!compose) throw new Error('Diese E-Mail gehört zu keinem geöffneten Dokument mehr')
   const sendKey = input.mail.sendKey
   if (!sendKey) throw new Error('Senden ohne Sendeschlüssel ist nicht möglich')
+  if ('advancingEventId' in compose) {
+    deps.registry.noteSend(input.token, sendKey)
+    const sent = await deps.send(input.mail, input.draftUid, input.accountId)
+    confirmInvoiceSend(deps, input.accountId, sent.messageId)
+    return sent
+  }
   const invoice = isInvoiceCompose(compose) ? compose : null
   const document = invoice ? 'Rechnungs-PDF' : 'Vertrags-PDF'
   let pdf: Uint8Array

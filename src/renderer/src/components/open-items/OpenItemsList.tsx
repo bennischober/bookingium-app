@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { BedDouble, FileSignature, Receipt, Wallet } from 'lucide-react'
+import { BedDouble, ClipboardList, FileSignature, Receipt, Ticket, Wallet } from 'lucide-react'
 import type { OpenItemDto } from '../../../../main/api/schemas/open_items.schema'
 import { localIsoDate } from '@/lib/followUps'
 import { openItemTab, openItemText } from './openItemText'
@@ -8,7 +8,9 @@ const ICONS: Record<OpenItemDto['kind'], typeof Wallet> = {
   contract: FileSignature,
   deposit: Wallet,
   invoice: Receipt,
-  hotel: BedDouble
+  hotel: BedDouble,
+  advancing: ClipboardList,
+  tickets: Ticket
 }
 
 /**
@@ -27,7 +29,7 @@ export function OpenItemsList({
     <ul className="divide-y" aria-label="Offene Punkte">
       {items.map((item) => {
         const Icon = ICONS[item.kind]
-        const overdue = item.date < today && item.kind !== 'hotel'
+        const overdue = item.date < today && item.kind !== 'hotel' && item.kind !== 'advancing'
         return (
           <li
             key={`${item.kind}-${item.eventId}-${item.depositPosition ?? ''}`}

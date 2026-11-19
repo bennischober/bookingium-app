@@ -11,6 +11,8 @@ export type ComposeRequest = {
   /** The PDF main attaches on send, shown so the user knows it goes along */
   attachmentName: string
   to: string
+  /** #235: comma-separated, '' for none */
+  cc: string
   subject: string
   body: string
   /** #121: the invoice or contract's record, for a follow-up of the mail */
@@ -34,11 +36,17 @@ export function parseComposeRequest(search: Record<string, unknown>): ComposeReq
   if (search.mode !== 'compose' || !search.token) return null
   try {
     const decoded = search.draft ? decodeDraftParam(String(search.draft)) : ''
-    const draft = JSON.parse(decoded || '{}') as { to?: string; subject?: string; body?: string }
+    const draft = JSON.parse(decoded || '{}') as {
+      to?: string
+      cc?: string
+      subject?: string
+      body?: string
+    }
     return {
       token: String(search.token),
       attachmentName: search.attachment == null ? '' : String(search.attachment),
       to: draft.to ?? '',
+      cc: draft.cc ?? '',
       subject: draft.subject ?? '',
       body: draft.body ?? '',
       record: parseRecordParam(search.record)

@@ -50,6 +50,9 @@ const api = {
     lang: 'de' | 'en'
   ) => ipcRenderer.invoke('contract:email', { contract, id, fileName, lang }),
 
+  /** #235: the advancing mail of a show in the compose window */
+  sendAdvancingEmail: (eventId: number) => ipcRenderer.invoke('advancing:email', { eventId }),
+
   /** Copy a mail's link address; the main process holds the clipboard and re-checks the scheme */
   copyMailLink: (url: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('mail:copyLink', { url }),

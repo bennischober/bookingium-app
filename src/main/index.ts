@@ -20,6 +20,7 @@ import {
 import { cleanAttachmentTemp } from './api/routers/mail.router'
 import { seedDatabase } from './db/seed'
 import { registerDocumentMailIpc } from './ipc/documentMail'
+import { registerAdvancingMailIpc } from './ipc/advancingMail'
 import { registerDocumentIpc } from './ipc/documents'
 import { registerImportIpc } from './ipc/import'
 import { registerMailIpc } from './ipc/mail'
@@ -57,6 +58,7 @@ registerMailIpc()
 registerDocumentIpc()
 registerPrintIpc()
 registerDocumentMailIpc()
+registerAdvancingMailIpc()
 registerImportIpc()
 
 // #65: closing the main window may only hide it in the tray

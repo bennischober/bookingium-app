@@ -3,7 +3,10 @@ import { z } from 'zod'
 import { container } from 'tsyringe'
 import { AdvancingService } from '../../services/AdvancingService'
 import {
+  LocalContactFromMailInput,
+  MailShowsInput,
   SaveAdvancingInput,
+  SetStageInput,
   SaveTicketQuotaInput,
   SaveTicketReportInput,
   TourOverviewInput
@@ -56,5 +59,24 @@ export const advancingRouter = t.router({
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(({ input }) => service.deleteReport(input.id)),
 
-  tour: t.procedure.input(TourOverviewInput).query(({ input }) => service.tour(input))
+  tour: t.procedure.input(TourOverviewInput).query(({ input }) => service.tour(input)),
+
+  /** #235: the shows a mail belongs to, with what it suggests */
+  forMail: t.procedure.input(MailShowsInput).query(({ input }) => service.forMail(input)),
+
+  setStage: t.procedure.input(SetStageInput).mutation(({ input }) => {
+    try {
+      return service.setStage(input)
+    } catch (error) {
+      throw badRequest(error, 'Advancing konnte nicht gespeichert werden')
+    }
+  }),
+
+  localContactFromMail: t.procedure.input(LocalContactFromMailInput).mutation(({ input }) => {
+    try {
+      return service.localContactFromMail(input)
+    } catch (error) {
+      throw badRequest(error, 'Kontakt vor Ort konnte nicht übernommen werden')
+    }
+  })
 })

@@ -24,6 +24,7 @@ import { MessageActions } from './MessageActions'
 import { MessageAttachments } from './MessageAttachments'
 import { MessageBody } from './MessageBody'
 import { MessageHeaderFields } from './MessageHeaderFields'
+import { MailShowsBar } from './MailShowsBar'
 
 /**
  * Reading pane. HTML mail is already sanitized by the core and shown in a
@@ -294,6 +295,8 @@ export function MessageView({
         </div>
 
         <MessageHeaderFields message={message} onWriteTo={onWriteTo} />
+
+        <MailShowsBar accountId={accountId} message={message} />
 
         <MessageAttachments
           message={message}

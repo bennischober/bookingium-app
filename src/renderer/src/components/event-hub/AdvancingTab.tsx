@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Mail, Phone, UserRound } from 'lucide-react'
+import { Mail, Phone, Send, UserRound } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { useSyncedStateByKey } from '@/hooks/useSyncedState'
@@ -48,6 +48,7 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
   const show = trpcReact.advancing.get.useQuery({ eventId })
   const persons = trpcReact.person.getListItems.useQuery()
   const [createPerson, setCreatePerson] = useState<PersonPrefill | null>(null)
+  const [mailing, setMailing] = useState(false)
   const loaded = show.data
   const [draft, setDraft] = useSyncedStateByKey<Draft | null>(
     loaded ? draftOf(loaded) : null,
@@ -63,6 +64,24 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
     onError: (error) =>
       toast.error('Advancing konnte nicht gespeichert werden', { description: error.message })
   })
+
+  /** #235: the advancing mail; a sent one marks the show "angeschrieben" */
+  const writeMail = async (): Promise<void> => {
+    setMailing(true)
+    try {
+      const result = await window.api.sendAdvancingEmail(eventId)
+      if (!result.success) {
+        toast.error('Advancing-Mail nicht möglich', { description: result.error })
+        return
+      }
+      if (result.sent) {
+        void utils.advancing.invalidate()
+        toast.success('Advancing-Mail gesendet', { description: 'Stand: angeschrieben' })
+      }
+    } finally {
+      setMailing(false)
+    }
+  }
 
   if (show.isLoading || !loaded || !draft) {
     return <p className="text-sm text-muted-foreground">Wird geladen…</p>
@@ -202,6 +221,15 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
             Verwerfen
           </Button>
         )}
+        <Button
+          variant="outline"
+          className="ml-auto"
+          disabled={mailing}
+          onClick={() => void writeMail()}
+          title="An den Veranstalter, den Kontakt vor Ort in CC; nach dem Senden steht der Stand auf „Angeschrieben“"
+        >
+          <Send className="h-4 w-4" /> Advancing-Mail schreiben…
+        </Button>
       </div>
 
       {createPerson && (
