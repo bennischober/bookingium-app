@@ -66,6 +66,10 @@ export const MERGE_ORDER: readonly string[] = [
   'event_advancing',
   'event_ticket_quota',
   'ticket_report',
+  // Marketing-Atlas of a band; items name a company or venue
+  'marketing_atlas',
+  'marketing_item',
+  'marketing_action',
   'document',
   'contact_list',
   'contact_list_member',

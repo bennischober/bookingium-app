@@ -13,6 +13,7 @@ import { ManagementContractPanel } from '@/components/band/ManagementContractShe
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { isBandTab } from '@/components/band/constants'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
+import { MarketingTab } from '@/components/band/marketing/MarketingTab'
 import { Empty, EventsTable, InfoCard } from '@/components/detail/DetailParts'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
@@ -164,6 +165,11 @@ export default function BandDetailPage() {
               label: 'Rechnungen',
               count: counts.invoices,
               content: <InvoicesTab bandId={band.id} />
+            },
+            {
+              id: 'marketing',
+              label: 'Marketing',
+              content: <MarketingTab bandId={band.id} bandName={band.name} />
             }
           ]}
           documents={{

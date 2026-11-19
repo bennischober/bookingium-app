@@ -16,6 +16,7 @@ import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { isCompanyTab } from '@/components/company/constants'
 import { AddressLines, Empty, Fields, InfoCard } from '@/components/detail/DetailParts'
+import { CompanyMarketingCard } from '@/components/band/marketing/MarketingLinksCard'
 import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
 
@@ -43,6 +44,7 @@ function OverviewTab({ company }: { company: CompanyDto }) {
       <InfoCard label="Adresse">
         <AddressLines address={company.address} />
       </InfoCard>
+      <CompanyMarketingCard companyId={company.id} />
       <InfoCard label="Kontakt">
         <Fields
           fields={[

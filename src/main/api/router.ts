@@ -23,6 +23,7 @@ import { managementContractRouter } from './routers/management_contract.router'
 import { importRouter } from './routers/import.router'
 import { settingsRouter } from './routers/settings.router'
 import { mergeRouter } from './routers/merge.router'
+import { marketingRouter } from './routers/marketing.router'
 import { backupRouter } from './routers/backup.router'
 import { syncRouter } from './routers/sync.router'
 import { updatesRouter } from './routers/updates.router'
@@ -78,6 +79,7 @@ export const router = t.router({
   dataImport: importRouter,
   settings: settingsRouter,
   merge: mergeRouter,
+  marketing: marketingRouter,
   backup: backupRouter,
   sync: syncRouter,
   updates: updatesRouter,

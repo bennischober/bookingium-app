@@ -16,6 +16,15 @@ import { ExternalBookingKind, ExternalBookingStatus } from '../api/schemas/exter
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import { AdvancingStatus } from '../api/schemas/advancing.schema'
 import {
+  MarketingActionKind,
+  MarketingActionStatus,
+  MarketingCategory,
+  MarketingPayer,
+  MarketingPriority,
+  MarketingQuality,
+  MarketingStatus
+} from '../api/schemas/marketing.schema'
+import {
   InvoiceEmailKind,
   InvoiceKind,
   InvoiceNumberFormat,
@@ -1567,6 +1576,134 @@ export const management_share_income = sqliteTable(
   (table) => [index('management_share_income_share_idx').on(table.share_id)]
 )
 
+// Marketing-Atlas of a band: the head data of the last imported atlas, one per band
+export const marketing_atlas = sqliteTable(
+  'marketing_atlas',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    stand: text('stand').default('').notNull(),
+    run: integer('run'),
+    lead: text('lead').default('').notNull(),
+    // JSON: facts [[label, text]], refs [text], tabs [{id,label,lead}], runs, excluded
+    facts: text('facts').default('[]').notNull(),
+    refs: text('refs').default('[]').notNull(),
+    tabs: text('tabs').default('[]').notNull(),
+    runs: text('runs').default('[]').notNull(),
+    excluded: text('excluded').default('[]').notNull(),
+    source_name: text('source_name').default('').notNull(),
+    imported_at: text('imported_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('marketing_atlas_band_idx').on(table.band_id)]
+)
+
+// One researched channel of a band's atlas (a radio, podcast, festival …) and how far the team
+// got with it. A newer atlas updates the texts by item_key and keeps status and links.
+export const marketing_item = sqliteTable(
+  'marketing_item',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    // category + normalized name: the same entry in the next atlas
+    item_key: text('item_key').notNull(),
+    category: text('category').notNull(),
+    group_name: text('group_name').default('').notNull(),
+    name: text('name').notNull(),
+    country: text('country').default('').notNull(),
+    type: text('type').default('').notNull(),
+    priority: text('priority').default('C').notNull(),
+    reason: text('reason').default('').notNull(),
+    approach: text('approach').default('').notNull(),
+    timing: text('timing').default('').notNull(),
+    quality: text('quality').default('w').notNull(),
+    source_url: text('source_url').default('').notNull(),
+    contact_email: text('contact_email').default('').notNull(),
+    contact_url: text('contact_url').default('').notNull(),
+    contact_note: text('contact_note').default('').notNull(),
+    active_note: text('active_note').default('').notNull(),
+    status: text('status').default('open').notNull(),
+    status_note: text('status_note').default('').notNull(),
+    status_date: text('status_date'),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
+    in_atlas: integer('in_atlas', { mode: 'boolean' }).default(true).notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('marketing_item_key_idx').on(table.band_id, table.item_key),
+    index('marketing_item_company_idx').on(table.company_id),
+    index('marketing_item_venue_idx').on(table.venue_id),
+    oneOf('marketing_item_category_check', 'category', MarketingCategory.options),
+    oneOf('marketing_item_priority_check', 'priority', MarketingPriority.options),
+    oneOf('marketing_item_quality_check', 'quality', MarketingQuality.options),
+    oneOf('marketing_item_status_check', 'status', MarketingStatus.options)
+  ]
+)
+
+// A measure booked for a band: radio spot, poster, ad … for a show (and its tour), a tour or a
+// release, with partner, period, cost, receipt and the invoice that passes the cost on
+export const marketing_action = sqliteTable(
+  'marketing_action',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    status: text('status').default('planned').notNull(),
+    deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'set null' }),
+    tour: text('tour').default('').notNull(),
+    release: text('release').default('').notNull(),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    marketing_item_id: integer('marketing_item_id').references(() => marketing_item.id, {
+      onDelete: 'set null'
+    }),
+    start_date: text('start_date'),
+    end_date: text('end_date'),
+    region: text('region').default('').notNull(),
+    cost_cents: integer('cost_cents'),
+    payer: text('payer').default('us').notNull(),
+    receipt_id: integer('receipt_id').references(() => receipt.id, { onDelete: 'set null' }),
+    invoice_id: integer('invoice_id').references(() => invoice.id, { onDelete: 'set null' }),
+    notes: text('notes').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('marketing_action_band_idx').on(table.band_id),
+    index('marketing_action_event_idx').on(table.deal_memo_id),
+    index('marketing_action_company_idx').on(table.company_id),
+    index('marketing_action_item_idx').on(table.marketing_item_id),
+    index('marketing_action_receipt_idx').on(table.receipt_id),
+    index('marketing_action_invoice_idx').on(table.invoice_id),
+    oneOf('marketing_action_kind_check', 'kind', MarketingActionKind.options),
+    oneOf('marketing_action_status_check', 'status', MarketingActionStatus.options),
+    oneOf('marketing_action_payer_check', 'payer', MarketingPayer.options)
+  ]
+)
+
 // ========================================
 // Schema Export for Drizzle Utilities
 // ========================================
@@ -1612,6 +1749,9 @@ export const schema = {
   event_advancing,
   event_ticket_quota,
   ticket_report,
+  marketing_atlas,
+  marketing_item,
+  marketing_action,
   app_setting,
   contact_list,
   contact_list_member,

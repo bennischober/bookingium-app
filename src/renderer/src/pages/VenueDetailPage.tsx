@@ -27,6 +27,7 @@ import {
 import { AddressLines, Empty, EventsTable, Fields, InfoCard } from '@/components/detail/DetailParts'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../main/api/schemas/venue.schema'
 import { formatCapacity } from '../../../main/api/schemas/capacity'
+import { VenueMarketingCard } from '@/components/band/marketing/MarketingLinksCard'
 
 /** Overview: kind, capacity, genres, address, contact, promoter company, notes */
 function OverviewTab({ venue }: { venue: VenueDto }) {
@@ -39,6 +40,7 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
         {venue.capacity ? ` · ${formatCapacity(venue.capacityMin, venue.capacity)} Personen` : ''}
         {venue.genres && <p className="text-muted-foreground">Genres: {venue.genres}</p>}
       </InfoCard>
+      <VenueMarketingCard venueId={venue.id} />
       {mapPreview.enabled && mapPreview.defaults && (
         <InfoCard label="Gebietsschutz">
           {formatClause(inheritClause(venue, defaultClause(mapPreview.defaults, venue.kind)))}

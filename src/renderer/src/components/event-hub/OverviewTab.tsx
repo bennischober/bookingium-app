@@ -29,6 +29,7 @@ import {
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatCapacity } from '../../../../main/api/schemas/capacity'
+import { MarketingActions } from '@/components/band/marketing/MarketingActions'
 export interface OverviewTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -371,6 +372,21 @@ export function OverviewTab({
             )}
           </div>
         )}
+      </div>
+
+      <Separator />
+
+      {/* Maßnahmen (radio spots, posters …) booked for this show */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+          Marketing
+        </h3>
+        <MarketingActions
+          scope={{ dealMemoId: event.id }}
+          bandId={event.bandId}
+          preset={{ dealMemoId: event.id, tour: event.tour }}
+          compact
+        />
       </div>
     </div>
   )
