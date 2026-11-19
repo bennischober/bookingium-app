@@ -21,67 +21,94 @@ import {
   isMisplacedVenuePath,
   isVenueTab,
   VENUE_KIND_TERMS,
+  VENUE_TAB_ALIASES,
   venueDetailPath,
   venueListPath
 } from '@/components/venue/constants'
-import { AddressLines, Empty, EventsTable, Fields, InfoCard } from '@/components/detail/DetailParts'
+import { EventsTable } from '@/components/detail/DetailParts'
+import { addressBlock, contactFacts } from '@/components/detail/facts'
+import { FactSheet, LinkList, TabSection } from '@/components/detail/CompactParts'
+import { eventItems, upcoming } from '@/components/detail/relatedLinks'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../main/api/schemas/venue.schema'
 import { formatCapacity } from '../../../main/api/schemas/capacity'
 import { VenueMarketingCard } from '@/components/band/marketing/MarketingLinksCard'
 
-/** Overview: kind, capacity, genres, address, contact, promoter company, notes */
+/**
+ * Overview: the club's or festival's data in one sheet, the next events, its marketing entries
+ * and its contacts
+ */
 function OverviewTab({ venue }: { venue: VenueDto }) {
   const { contact } = venue
+  const navigate = useNavigate()
   const mapPreview = useMapPreview()
+  const events = trpcReact.dealMemo.listByVenue.useQuery(venue.id)
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <InfoCard label="Art / Kapazität">
-        {VENUE_KIND_LABELS[venue.kind]}
-        {venue.capacity ? ` · ${formatCapacity(venue.capacityMin, venue.capacity)} Personen` : ''}
-        {venue.genres && <p className="text-muted-foreground">Genres: {venue.genres}</p>}
-      </InfoCard>
-      <VenueMarketingCard venueId={venue.id} />
-      {mapPreview.enabled && mapPreview.defaults && (
-        <InfoCard label="Gebietsschutz">
-          {formatClause(inheritClause(venue, defaultClause(mapPreview.defaults, venue.kind)))}
-          <p className="text-muted-foreground">
-            {hasOverride(venue)
-              ? 'Eigene Angabe; leere Felder vom Standard'
-              : `Standard für ${venue.kind === 'festival' ? 'Festivals' : 'Clubs'}`}
-          </p>
-        </InfoCard>
-      )}
-      <InfoCard label="Firma (Veranstalter)">
-        {venue.company ? (
-          <Link
-            to="/companies/$companyId"
-            params={{ companyId: String(venue.company.id) }}
-            className="font-medium hover:underline"
+    <div className="space-y-6">
+      <FactSheet
+        groups={[
+          {
+            title: VENUE_KIND_LABELS[venue.kind],
+            facts: [
+              [
+                'Kapazität',
+                venue.capacity
+                  ? `${formatCapacity(venue.capacityMin, venue.capacity)} Personen`
+                  : null
+              ],
+              ['Genres', venue.genres],
+              [
+                'Veranstalter',
+                venue.company && (
+                  <Link
+                    to="/companies/$companyId"
+                    params={{ companyId: String(venue.company.id) }}
+                    className="font-medium hover:underline"
+                  >
+                    {venue.company.name}
+                  </Link>
+                )
+              ],
+              [
+                'Gebietsschutz',
+                mapPreview.enabled &&
+                  mapPreview.defaults &&
+                  `${formatClause(inheritClause(venue, defaultClause(mapPreview.defaults, venue.kind)))} (${
+                    hasOverride(venue)
+                      ? 'eigene Angabe'
+                      : `Standard für ${venue.kind === 'festival' ? 'Festivals' : 'Clubs'}`
+                  })`
+              ]
+            ]
+          },
+          {
+            title: 'Kontakt',
+            facts: [...contactFacts(contact), ['Adresse', addressBlock(venue.address)]]
+          },
+          {
+            title: 'Anmerkungen',
+            facts: [
+              ['Notiz', venue.notes && <span className="whitespace-pre-wrap">{venue.notes}</span>]
+            ]
+          }
+        ]}
+      />
+      <LinkList
+        title="Nächste Events"
+        items={eventItems(upcoming(events.data), (event) => event.bandName)}
+        action={
+          <button
+            type="button"
+            className="text-sm text-primary hover:underline"
+            onClick={() => navigate({ to: '.', search: { tab: 'events' } as never, replace: true })}
           >
-            {venue.company.name}
-          </Link>
-        ) : (
-          <Empty />
-        )}
-      </InfoCard>
-      <InfoCard label="Adresse">
-        <AddressLines address={venue.address} />
-      </InfoCard>
-      <InfoCard label="Kontakt">
-        <Fields
-          fields={[
-            ['E-Mail', contact?.email],
-            ['Telefon', contact?.phone],
-            ['Mobil', contact?.mobilePhone],
-            ['Website', contact?.homepage]
-          ]}
-        />
-      </InfoCard>
-      <div className="md:col-span-2">
-        <InfoCard label="Anmerkungen">
-          {venue.notes ? <p className="whitespace-pre-wrap">{venue.notes}</p> : <Empty />}
-        </InfoCard>
-      </div>
+            Alle Events
+          </button>
+        }
+      />
+      <VenueMarketingCard venueId={venue.id} />
+      <TabSection id="section-contacts" title="Ansprechpartner">
+        <MembersPanel entityType="venue" entityId={venue.id} />
+      </TabSection>
     </div>
   )
 }
@@ -110,7 +137,7 @@ export default function VenueDetailPage() {
   const counts = useVenueTabCounts(id)
   const navigate = useNavigate()
   // The shell reads the tab too; the redirect below keeps it
-  const activeTab = useDetailTab(isVenueTab, 'overview')
+  const activeTab = useDetailTab(isVenueTab, 'overview', VENUE_TAB_ALIASES)
   const utils = trpcReact.useUtils()
   const sheet = useFormSheet<VenueDto>()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -170,18 +197,14 @@ export default function VenueDetailPage() {
             onDelete={() => mutations.deleteNow(venue)}
             deleting={mutations.isDeleting}
             isTab={isVenueTab}
+            aliases={VENUE_TAB_ALIASES}
             tabs={[
               { id: 'overview', label: 'Übersicht', content: <OverviewTab venue={venue} /> },
-              {
-                id: 'contacts',
-                label: 'Ansprechpartner',
-                count: counts.contacts,
-                content: <MembersPanel entityType="venue" entityId={venue.id} />
-              },
               {
                 id: 'events',
                 label: 'Events',
                 count: counts.events,
+                hideWhenEmpty: true,
                 content: <EventsTab venue={venue} />
               }
             ]}

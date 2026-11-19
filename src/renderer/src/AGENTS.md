@@ -35,7 +35,8 @@ src/renderer/src/
 | List page title and toolbar | `components/ListPageHeader.tsx` | `ListPageHeader`, `ListToolbar` (the DataTable's `actionButton`) |
 | Quick-create a band/venue/person from a form | `components/quick-create/` | `QuickCreateDialog` shell + `Band`/`Venue`/`PersonQuickCreateDialog` |
 | Confirm dialog | `lib/confirm.ts` + `components/ConfirmDialogHost.tsx` | `confirmAction()` returns a Promise; `confirmDelete()` for deletes |
-| A record's detail page | `components/detail/RecordDetailPage.tsx` | `RecordDetailPage` (load states) + `RecordDetail` (header, `tabs` list, Dokumente/E-Mails appended) |
+| A record's detail page | `components/detail/RecordDetailPage.tsx` | `RecordDetailPage` (load states) + `RecordDetail` (header with "…" menu, `tabs` list, Dokumente & E-Mails appended, `aliases` for former tabs) |
+| Overview building blocks, tips | `components/detail/CompactParts.tsx`, `components/Tip.tsx` | `FactSheet`, `LinkList`, `StatusLine`, `TabSection`; `<Tip id>` with texts in `lib/tips.ts`, "Was ist neu" in `lib/whatsNew.ts` |
 | Detail-page building blocks | `components/detail/DetailParts.tsx`, `RelatedTables.tsx` | `InfoCard`, `Fields`, `AddressLines`, `RowTable`; `RelatedBandsTable`/`VenuesTable`/`EventsTable` |
 | Per-object tabs | `components/<obj>/constants.ts` | `<X>_TABS`, `is<Tab>()` - used by the route's `?tab=` guard |
 | A4 print documents | `components/print/PagedDocument.tsx` | renders the real printToPDF output via pdf.js |

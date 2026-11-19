@@ -33,7 +33,7 @@ test('reads the promoter settlement, checks and saves it', async () => {
   const { page } = h
   await page.getByRole('link', { name: 'Events' }).first().click()
   await page.locator('table tbody tr').first().click()
-  await page.getByRole('tab', { name: 'Abrechnung' }).click()
+  await page.getByRole('tab', { name: 'Geld' }).click()
   await expect(page.getByText('Noch keine Abrechnung erfasst.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Excel einlesen…' }).click()
@@ -45,7 +45,7 @@ test('reads the promoter settlement, checks and saves it', async () => {
   await page.getByText('Ergebnis', { exact: true }).scrollIntoViewIfNeeded()
   await page.screenshot({ path: join(shots, 'settlement-result.png') })
 
-  await page.getByRole('button', { name: 'Speichern' }).click()
+  await page.locator('#section-settlement').getByRole('button', { name: 'Speichern' }).click()
   await expect(page.getByText('Abrechnung gespeichert')).toBeVisible()
   await expect(page.getByText('Aus „Veranstaltungsabrechnung Beispielband.xlsx“')).toBeVisible()
 

@@ -89,7 +89,7 @@ test('imports a quota sheet, reports sales on the tour page and advances a show'
   await page.screenshot({ path: join(shots, 'event-advancing.png') })
 
   // Tickets on the event: both reports, the change between them
-  await page.getByRole('tab', { name: 'Tickets' }).click()
+  await page.getByRole('tab', { name: 'Geld' }).click()
   await expect(page.getByText('von 200 · 65 % · 70 übrig')).toBeVisible()
   await expect(page.getByRole('table', { name: 'Meldungen' })).toContainText('130')
   await page.screenshot({ path: join(shots, 'event-tickets.png') })

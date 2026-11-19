@@ -22,7 +22,9 @@ test('duplicates an event as a new date with the same band and deal', async () =
   await page.locator('tr', { hasText: SOURCE }).first().click()
   await expect(page.getByRole('heading', { name: SOURCE })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Duplizieren' }).click()
+  // Duplizieren sits in the header's "…" menu
+  await page.getByRole('button', { name: 'Weitere Aktionen' }).click()
+  await page.getByRole('menuitem', { name: 'Duplizieren…' }).click()
   const wizard = page.getByRole('dialog', { name: 'Event duplizieren' })
   await expect(wizard).toBeVisible()
   await expect(wizard.getByLabel('Eventname')).toHaveValue(SOURCE)

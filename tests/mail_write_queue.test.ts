@@ -98,7 +98,10 @@ describe('folder mutex between sync and writes', () => {
 describe('write engine queue', () => {
   it('shares an op that is still queued instead of running it twice', async () => {
     const { store } = openStore()
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
     // No server in these two tests: the op itself fails, which is what they expect
     ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () => {
       throw new Error('no server in this test')
@@ -187,7 +190,10 @@ describe('write engine queue', () => {
       payload: { flag: '\\Seen', set: true }
     })
 
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
     // No server in these two tests: the op itself fails, which is what they expect
     ;(writes as unknown as { writeClient: () => Promise<unknown> }).writeClient = async () => {
       throw new Error('no server in this test')

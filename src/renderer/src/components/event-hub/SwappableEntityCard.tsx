@@ -25,6 +25,8 @@ export interface SwappableEntityCardProps {
   /** "View" navigation target — only shown when entity is set */
   href?: string
   empty?: string
+  /** One row of a list (the event overview's "Beteiligte") instead of a card */
+  compact?: boolean
 }
 
 export function SwappableEntityCard({
@@ -39,7 +41,8 @@ export function SwappableEntityCard({
   isSaving,
   nullable = false,
   href,
-  empty = 'Nicht zugewiesen'
+  empty = 'Nicht zugewiesen',
+  compact = false
 }: SwappableEntityCardProps) {
   const [editing, setEditing] = useState(false)
   const hasValue = !!currentName
@@ -47,6 +50,70 @@ export function SwappableEntityCard({
   const handleSwap = (id: number | null) => {
     onSwap(id)
     setEditing(false)
+  }
+
+  const picker = (
+    <div className="space-y-2">
+      <InlineCombobox
+        items={items}
+        value={currentId}
+        onChange={handleSwap}
+        placeholder={`${title} auswählen…`}
+        searchPlaceholder={`${title} suchen…`}
+        isLoading={itemsLoading}
+      />
+      {nullable && hasValue && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive w-full"
+          onClick={() => handleSwap(null)}
+        >
+          <X className="h-3 w-3 mr-1" />
+          {title} entfernen
+        </Button>
+      )}
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+        <span className="flex w-40 shrink-0 items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {icon}
+          {title}
+        </span>
+        <div className="min-w-0 flex-1 text-sm">
+          {editing ? (
+            picker
+          ) : !hasValue ? (
+            <span className="italic text-muted-foreground">{empty}</span>
+          ) : (
+            <>
+              {href ? (
+                <Link to={href} className="font-medium hover:underline">
+                  {currentName}
+                </Link>
+              ) : (
+                <span className="font-medium">{currentName}</span>
+              )}
+              {currentDetail && <span className="ml-2 text-muted-foreground">{currentDetail}</span>}
+            </>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setEditing((value) => !value)}
+          disabled={isSaving}
+          aria-label={editing ? `${title}: abbrechen` : `${title} ändern`}
+        >
+          {editing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+          {editing ? 'Abbrechen' : hasValue ? 'Ändern' : 'Zuweisen'}
+        </Button>
+      </div>
+    )
   }
 
   return (

@@ -54,7 +54,10 @@ describe('watchdog limit (A6 step 3)', () => {
   it('is 120 s for ordinary ops and grows with a large draft', () => {
     const { store } = openStore()
     const flag = enqueueFlag(store)
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials }) as unknown as Internals
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    }) as unknown as Internals
     expect(writes.watchdogMs(flag)).toBe(120_000)
 
     // 3.2 MB of base64 MIME ~= 2.4 MB raw; at 32 KB/s that is ~75 s, still under 120 s
@@ -82,7 +85,10 @@ describe('watchdog abandonment (A6 step 4)', () => {
     vi.useFakeTimers()
     const { store } = openStore()
     const op = enqueueFlag(store)
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
     const stopped: string[] = []
     writes.onQueueStopped = (m) => stopped.push(m)
 
@@ -106,7 +112,10 @@ describe('watchdog abandonment (A6 step 4)', () => {
     vi.useFakeTimers()
     const { store } = openStore()
     const op = enqueueFlag(store)
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
     // The send path recorded the SMTP phase in the journal
     store.journalUpdate(op.id, { payload: { phase: 'smtp' } })
 
@@ -129,7 +138,10 @@ describe('watchdog abandonment (A6 step 4)', () => {
     vi.useFakeTimers()
     const { store } = openStore()
     const op = enqueueFlag(store)
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
 
     const resultPromise = (writes as unknown as Internals).withWatchdog(
       op,

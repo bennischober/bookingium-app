@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Combine } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
@@ -21,33 +20,6 @@ const NOUNS: Record<MergeKind, { one: string; other: string }> = {
   person: { one: 'Person', other: 'eine andere Person' },
   venue: { one: 'Club/Festival', other: 'einen anderen Club oder ein anderes Festival' },
   band: { one: 'Band', other: 'eine andere Band' }
-}
-
-/**
- * #249: "Zusammenführen" in a detail page header. The page's record stays; another record of
- * the same kind (picked, or one of the suggested possible duplicates) is merged into it: its
- * events, invoices, memberships, documents and mails move over, differing fields are chosen
- * one by one, and the other record is removed.
- */
-export function MergeRecordButton({
-  kind,
-  id,
-  name
-}: {
-  kind: MergeKind
-  id: number
-  name: string
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setOpen(true)}>
-        <Combine className="h-3.5 w-3.5" />
-        Zusammenführen
-      </Button>
-      {open && <MergeDialog kind={kind} id={id} name={name} onClose={() => setOpen(false)} />}
-    </>
-  )
 }
 
 function useOptions(kind: MergeKind, id: number) {
@@ -73,7 +45,13 @@ function useOptions(kind: MergeKind, id: number) {
   }, [kind, id, companies.data, persons.data, venues.data, bands.data])
 }
 
-function MergeDialog({
+/**
+ * #249: "Zusammenführen" (in a detail page's "…" menu). The page's record stays; another record of
+ * the same kind (picked, or one of the suggested possible duplicates) is merged into it: its
+ * events, invoices, memberships, documents and mails move over, differing fields are chosen
+ * one by one, and the other record is removed.
+ */
+export function MergeDialog({
   kind,
   id,
   name,

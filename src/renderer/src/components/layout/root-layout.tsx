@@ -16,6 +16,7 @@ import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
+import { WhatsNewHost } from '@/components/WhatsNewHost'
 
 export default function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -150,6 +151,7 @@ export default function RootLayout() {
           <Outlet />
         </div>
         <CompanyEnrichmentHost />
+        <WhatsNewHost />
       </SidebarInset>
     </SidebarProvider>
   )

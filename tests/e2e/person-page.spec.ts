@@ -52,22 +52,19 @@ test('person page shows memberships, events, invoices and documents', async () =
     'Tour Manager'
   )
 
-  await page.getByRole('tab', { name: 'Firmen' }).click()
-  await expect(page).toHaveURL(/tab=companies/)
-  await expect(page.getByRole('link', { name: 'Soundwave Records' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Live Music Berlin GmbH' })).toBeVisible()
+  // Bands, companies, clubs and festivals are one tab: "Zugehörigkeiten"
+  await page.getByRole('tab', { name: 'Zugehörigkeiten' }).click()
+  await expect(page).toHaveURL(/tab=bands/)
+  const companies = page.locator('#section-companies')
+  await expect(companies.getByRole('link', { name: 'Soundwave Records' })).toBeVisible()
+  await expect(companies.getByRole('link', { name: 'Live Music Berlin GmbH' })).toBeVisible()
   await expect(
     page.getByText('Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen.')
   ).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
-  // The club card's link; the events section below links the club again
-  await expect(page.getByRole('link', { name: 'Berghain' }).first()).toBeVisible()
-  await expect(page.getByText('Stage Manager')).toBeVisible()
-  // The tab now has the same second section as Bands and Companies: the events
-  // at those venues, so it no longer looks unfinished next to them
-  const venueEvents = page.getByRole('table', { name: 'Events in Berghain' })
-  await expect(venueEvents).toContainText('The Electric Waves - Berlin Tour')
+  const venues = page.locator('#section-venues')
+  await expect(venues.getByRole('link', { name: 'Berghain' })).toBeVisible()
+  await expect(venues.getByText('Stage Manager')).toBeVisible()
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events der Person' })
@@ -75,10 +72,9 @@ test('person page shows memberships, events, invoices and documents', async () =
     'LoPro-Kontakt'
   )
 
-  await page.getByRole('tab', { name: 'Managementverträge' }).click()
+  // Contracts and invoices share one tab
+  await page.getByRole('tab', { name: 'Verträge & Rechnungen' }).click()
   await expect(page.getByText('In keinem Managementvertrag aufgeführt.')).toBeVisible()
-
-  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   const invoices = page.getByRole('table', { name: 'Rechnungen an die Person' })
   await expect(invoices.locator('tr', { hasText: '#1041' })).toContainText('Live Music Berlin')
   // An invoice opens its page; back returns to the tab
@@ -108,8 +104,8 @@ test('person page shows memberships, events, invoices and documents', async () =
   expect(folder).toBeTruthy()
   expect(existsSync(join(storage, folder!, 'Vertrag.pdf'))).toBe(true)
 
-  // Join a band here; its members tab links back to this page
-  await page.getByRole('tab', { name: 'Bands' }).click()
+  // Join a band here; the band's overview lists its members and links back to this page
+  await page.getByRole('tab', { name: 'Zugehörigkeiten' }).click()
   await page.getByRole('button', { name: 'Zur Band hinzufügen' }).click()
   const dialog = page.getByRole('dialog', { name: 'Zur Band hinzufügen' })
   await dialog.getByRole('combobox', { name: 'Band' }).click()
@@ -120,10 +116,13 @@ test('person page shows memberships, events, invoices and documents', async () =
   await expect(dialog).toBeHidden()
   await expect(page.getByText('Tourleitung')).toBeVisible()
 
-  await page.getByRole('link', { name: 'The Electric Waves' }).click()
+  await page
+    .locator('#section-bands')
+    .getByRole('link', { name: 'The Electric Waves' })
+    .first()
+    .click()
   await expect(page.getByRole('heading', { name: 'The Electric Waves' })).toBeVisible()
-  await page.getByRole('tab', { name: 'Mitglieder' }).click()
-  await page.getByRole('link', { name: PERSON }).click()
+  await page.locator('#section-members').getByRole('link', { name: PERSON }).click()
   await expect(page.getByRole('heading', { name: PERSON })).toBeVisible()
 })
 
@@ -146,7 +145,7 @@ test('search palette and event page open the person page', async () => {
   await expect(
     page.getByRole('heading', { name: 'The Electric Waves - Berlin Tour' })
   ).toBeVisible()
-  await page.locator('a[href*="/persons/"]', { hasText: 'Ansehen' }).click()
+  await page.getByRole('link', { name: PERSON }).click()
   await expect(page.getByRole('heading', { name: PERSON })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'breadcrumb' })).toContainText(PERSON)
 })

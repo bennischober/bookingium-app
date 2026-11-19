@@ -48,19 +48,15 @@ test('company page shows contacts, bands, events, invoices and documents', async
   await expect(page.getByText('Bankverbindung')).toBeVisible()
   await expect(page.getByText('Bank of America')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Ansprechpartner' }).click()
-  await expect(page).toHaveURL(/tab=contacts/)
+  // Contacts and linked bands are part of the overview; an empty relation is left out
   await expect(page.getByRole('button', { name: 'Person hinzufügen' })).toBeVisible()
   await expect(page.getByText('Tom Manager')).toBeVisible()
-
-  await page.getByRole('tab', { name: 'Bands' }).click()
-  const bands = page.getByRole('table', { name: 'Bands der Firma' })
+  const bands = page.locator('#section-bands')
+  await expect(bands).toContainText('Bands (2)')
   await expect(bands).toContainText('The Electric Waves')
   await expect(bands).toContainText('Midnight Symphony')
   await expect(bands).toContainText('Firma der Band')
-
-  await page.getByRole('tab', { name: 'Clubs / Festivals' }).click()
-  await expect(page.getByText('Keine Clubs und Festivals mit dieser Firma.')).toBeVisible()
+  await expect(page.locator('#section-venues')).toBeEmpty()
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events der Firma' })
@@ -99,9 +95,9 @@ test('company page shows contacts, bands, events, invoices and documents', async
   expect(folder).toBeTruthy()
   expect(existsSync(join(storage, folder!, 'Handelsregister.pdf'))).toBe(true)
 
-  // A band row opens the band page, whose company link leads back here
-  await page.getByRole('tab', { name: 'Bands' }).click()
-  await page.getByRole('table', { name: 'Bands der Firma' }).getByText('The Electric Waves').click()
+  // A band in the overview opens the band page, whose company link leads back here
+  await page.getByRole('tab', { name: 'Übersicht' }).click()
+  await page.locator('#section-bands').getByRole('link', { name: 'The Electric Waves' }).click()
   await expect(page.getByRole('heading', { name: 'The Electric Waves' })).toBeVisible()
   await page.getByRole('link', { name: COMPANY }).click()
   await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
@@ -123,7 +119,7 @@ test('search palette and event page open the company page', async () => {
   await expect(
     page.getByRole('heading', { name: 'The Electric Waves - Berlin Tour' })
   ).toBeVisible()
-  await page.locator('a[href*="/companies/"]', { hasText: 'Ansehen' }).click()
+  await page.getByRole('link', { name: 'Live Music Berlin GmbH' }).click()
   await expect(page.getByRole('heading', { name: 'Live Music Berlin GmbH' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'breadcrumb' })).toContainText(
     'Live Music Berlin GmbH'
@@ -147,8 +143,7 @@ test('list rows and tab rows open by keyboard; icon buttons are named', async ()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
 
-  // The contact's icon buttons carry the contact's name
-  await page.getByRole('tab', { name: 'Ansprechpartner' }).click()
+  // The contact's icon buttons carry the contact's name (contacts are on the overview)
   await expect(page.getByRole('button', { name: 'Tom Manager entfernen' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Rolle von Tom Manager bearbeiten' })).toBeVisible()
 
@@ -168,9 +163,14 @@ test('tabs show how many records they hold, nothing when empty', async () => {
   await page.locator('tr', { hasText: COMPANY }).first().click()
   await expect(page.getByRole('heading', { name: COMPANY })).toBeVisible()
 
-  // Seed: both demo bands, no venue; Übersicht never counts
-  await expect(page.getByRole('tab', { name: 'Bands' })).toHaveText('Bands2')
-  await expect(page.getByRole('tab', { name: 'Clubs / Festivals' })).toHaveText('Clubs / Festivals')
+  // Übersicht never counts; list tabs with rows count them, empty ones are left out
   await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveText('Übersicht')
   await expect(page.getByRole('tab', { name: 'Events' })).toHaveText(/^Events\d+$/)
+  await expect(page.getByRole('tab', { name: 'Rechnungen' })).toHaveText(/^Rechnungen\d+$/)
+  // Older links to former tabs open the overview
+  await page.goto(`${page.url().replace(/\?.*$/, '')}?tab=bands`)
+  await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
 })

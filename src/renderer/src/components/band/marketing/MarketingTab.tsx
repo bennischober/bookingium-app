@@ -21,6 +21,7 @@ import {
 import { MarketingImportDialog } from './MarketingImportDialog'
 import { MarketingItemRow } from './MarketingItemRow'
 import { MarketingActions } from './MarketingActions'
+import { Tip } from '@/components/Tip'
 import {
   countByCategory,
   countByStatus,
@@ -50,6 +51,7 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
   const view: View = picked ?? (overview.data?.atlas ? 'atlas' : 'actions')
   return (
     <div className="space-y-5">
+      <Tip id="marketing" />
       <div
         className="inline-flex overflow-hidden rounded-md border"
         role="group"

@@ -17,6 +17,7 @@ import type {
 import { VENUE_KIND_LABELS, type VenueKind } from '../../../../main/api/schemas/venue.schema'
 import type { CompanyKind } from '../../../../main/api/schemas/company.schema'
 import { PREVIEW_COLUMNS, summaryEntities } from './importLabels'
+import { Tip } from '@/components/Tip'
 
 const ACTION_LABELS: Record<ImportEntityRef['action'], string> = {
   new: 'neu',
@@ -97,6 +98,7 @@ export function ImportPreviewStep({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <Tip id="import" />
       {previewData && (
         <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
           {summaryEntities(target, kind, companyKind).map(([entity, label]) => (

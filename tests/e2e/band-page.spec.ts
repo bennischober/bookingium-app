@@ -40,23 +40,23 @@ test('band page shows members, events, contracts, invoices and documents', async
 
   await expect(page.getByRole('heading', { name: BAND })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'breadcrumb' })).toContainText(BAND)
-  await expect(page.getByText('Soundwave Records')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Soundwave Records' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Mitglieder' }).click()
+  // Members are part of the overview
   await expect(page.getByRole('button', { name: 'Person hinzufügen' })).toBeVisible()
   await expect(page.getByText('John Rockstar')).toBeVisible()
 
   await page.getByRole('tab', { name: 'Events' }).click()
   await expect(page.getByRole('table', { name: 'Events der Band' })).toContainText(EVENT)
 
-  await page.getByRole('tab', { name: 'Managementverträge' }).click()
+  // Contracts and invoices share one tab
+  await page.getByRole('tab', { name: 'Verträge & Rechnungen' }).click()
   await expect(page.getByRole('button', { name: 'Neuer Vertrag' })).toBeVisible()
   await expect(
     page.getByText('Für diese Band gibt es noch keinen Managementvertrag.')
   ).toBeVisible()
 
   // Invoices of the band's events (the seed bills the Berlin show)
-  await page.getByRole('tab', { name: 'Rechnungen' }).click()
   await expect(page.getByRole('table', { name: 'Rechnungen der Band' })).toContainText(EVENT)
 
   // Band document: copied into documents/bands/<id>-the-electric-waves/
@@ -145,13 +145,18 @@ test('a tab that does not exist is dropped, and leaving an event being edited as
   await page.locator('tr', { hasText: BAND }).first().click()
   await expect(page.getByRole('heading', { name: BAND })).toBeVisible()
 
-  // The mail client is off: a link to the E-Mails tab shows Übersicht and loses ?tab=mails
+  // E-Mails are part of Dokumente now: an older link to them opens that tab
   await page.goto(`${page.url().replace(/\?.*$/, '')}?tab=mails`)
+  await expect(page.getByRole('tab', { name: 'Dokumente' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+  // A tab that does not exist shows Übersicht
+  await page.goto(`${page.url().replace(/\?.*$/, '')}?tab=gibtsnicht`)
   await expect(page.getByRole('tab', { name: 'Übersicht' })).toHaveAttribute(
     'aria-selected',
     'true'
   )
-  await expect(page).not.toHaveURL(/tab=/)
 
   await page.getByRole('tab', { name: 'Events' }).click()
   await page.getByRole('table', { name: 'Events der Band' }).getByText(EVENT).click()
@@ -160,7 +165,7 @@ test('a tab that does not exist is dropped, and leaving an event being edited as
   await expect(page.getByText('Bearbeitungsmodus – Änderungen in allen Tabs')).toBeVisible()
 
   // Switching tabs keeps the edit; leaving the event asks first
-  await page.getByRole('tab', { name: 'Finanzen' }).click()
+  await page.getByRole('tab', { name: 'Geld' }).click()
   await expect(page.getByRole('dialog')).toBeHidden()
   await page.getByRole('button', { name: 'Alle Events' }).click()
   const dialog = page.getByRole('dialog')

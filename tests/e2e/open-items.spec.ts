@@ -19,7 +19,7 @@ const OPEN = 'Vertrag am 02.11.2026 verschickt, noch nicht unterschrieben zurüc
 
 async function editFinancials(fill: (page: AppHandle['page']) => Promise<void>) {
   const { page } = h
-  await page.getByRole('tab', { name: 'Finanzen' }).click()
+  await page.getByRole('tab', { name: 'Geld' }).click()
   await page.getByRole('button', { name: 'Bearbeiten' }).click()
   await fill(page)
   await page.getByRole('button', { name: 'Alles speichern' }).click()
@@ -45,7 +45,7 @@ test('a contract sent but not back is open until it is back signed', async () =>
   await expect(dashboardItem).toContainText(EVENT)
   await dashboardItem.click()
   await expect(page.getByRole('heading', { name: EVENT })).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Finanzen' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Geld' })).toHaveAttribute('aria-selected', 'true')
 
   await editFinancials((p) => p.getByLabel('Unterschrieben zurück am').fill('2026-11-10'))
   await expect(eventItems.getByRole('link', { name: OPEN })).toHaveCount(0)

@@ -1,19 +1,21 @@
 import { useParams, useNavigate, Link } from '@tanstack/react-router'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
-import { EmptyState } from '@/components/load-states'
 import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
-import { usePersonTabCounts } from '@/hooks/useTabCounts'
+import { sumCounts, usePersonTabCounts } from '@/hooks/useTabCounts'
 import { formatShortDate } from '@/lib/utils'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { PersonMembershipsPanel } from '@/components/person/PersonMembershipsPanel'
-import { isPersonTab } from '@/components/person/constants'
+import { isPersonTab, PERSON_TAB_ALIASES } from '@/components/person/constants'
+import { addressBlock, contactFacts } from '@/components/detail/facts'
+import { FactSheet, LinkList, TabSection } from '@/components/detail/CompactParts'
+import { eventItems, upcoming } from '@/components/detail/relatedLinks'
 import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
 import { RelatedBandsTable, RelatedEventsTable } from '@/components/detail/RelatedTables'
-import { AddressLines, Empty, Fields, InfoCard, RowTable } from '@/components/detail/DetailParts'
+import { RowTable } from '@/components/detail/DetailParts'
 import type { PersonDto } from '../../../main/api/schemas/person.schema'
 
 function personName(person: { firstName: string; lastName: string }) {
@@ -67,42 +69,61 @@ function OverviewTab({ person }: { person: PersonDto }) {
     }))
   ]
 
+  const navigate = useNavigate()
+  const events = trpcReact.dealMemo.listByPerson.useQuery(person.id)
+  const roleItems = roles.map((entry) => ({
+    key: entry.key,
+    label: entry.link,
+    detail: entry.role
+  }))
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <InfoCard label="Kontakt">
-        <Fields
-          fields={[
-            ['E-Mail', contact?.email],
-            ['Telefon', contact?.phone],
-            ['Mobil', contact?.mobilePhone],
-            ['Website', contact?.homepage]
-          ]}
+    <div className="space-y-6">
+      <FactSheet
+        groups={[
+          {
+            title: 'Kontakt',
+            facts: [...contactFacts(contact), ['Adresse', addressBlock(person.address)]]
+          },
+          {
+            title: 'Persönliches',
+            facts: [
+              ['Geburtstag', person.birthday && formatShortDate(person.birthday)],
+              ['Notiz', person.notes && <span className="whitespace-pre-wrap">{person.notes}</span>]
+            ]
+          }
+        ]}
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <LinkList
+          title="Rollen"
+          items={roleItems}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() =>
+                navigate({ to: '.', search: { tab: 'bands' } as never, replace: true })
+              }
+            >
+              Zugehörigkeiten
+            </button>
+          }
         />
-      </InfoCard>
-      <InfoCard label="Adresse">
-        <AddressLines address={person.address} />
-      </InfoCard>
-      <InfoCard label="Rollen">
-        {roles.length === 0 ? (
-          <Empty>Keine Zugehörigkeiten</Empty>
-        ) : (
-          <ul className="space-y-1">
-            {roles.map((entry) => (
-              <li key={entry.key}>
-                <span className="font-medium">{entry.link}</span>
-                {entry.role && <span className="text-muted-foreground"> · {entry.role}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </InfoCard>
-      <InfoCard label="Geburtstag">
-        {person.birthday ? formatShortDate(person.birthday) : <Empty />}
-      </InfoCard>
-      <div className="md:col-span-2">
-        <InfoCard label="Anmerkungen">
-          {person.notes ? <p className="whitespace-pre-wrap">{person.notes}</p> : <Empty />}
-        </InfoCard>
+        <LinkList
+          title="Nächste Events"
+          items={eventItems(upcoming(events.data))}
+          action={
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() =>
+                navigate({ to: '.', search: { tab: 'events' } as never, replace: true })
+              }
+            >
+              Alle Events
+            </button>
+          }
+        />
       </div>
     </div>
   )
@@ -170,69 +191,21 @@ function CompaniesTab({ personId }: { personId: number }) {
 }
 
 /**
- * Venues the person is a contact at, plus the events at those venues - the same
- * two sections the Bands and Companies tabs have, so the tab does not look
- * unfinished next to them.
+ * Bands, companies, clubs and festivals the person belongs to, in one tab: memberships are
+ * edited here, the roles elsewhere (technical lead, invoice contact) listed below each
  */
-function VenuesTab({ personId }: { personId: number }) {
-  const relations = trpcReact.relation.getPersonRelations.useQuery({ personId })
-  const venues = relations.data?.venues ?? []
-
+function MembershipsTab({ personId }: { personId: number }) {
   return (
-    <div className="space-y-8">
-      <section>
-        <SectionTitle>Clubs und Festivals</SectionTitle>
+    <div className="space-y-10">
+      <TabSection id="section-bands" title="Bands">
+        <BandsTab personId={personId} />
+      </TabSection>
+      <TabSection id="section-companies" title="Firmen">
+        <CompaniesTab personId={personId} />
+      </TabSection>
+      <TabSection id="section-venues" title="Clubs / Festivals">
         <PersonMembershipsPanel personId={personId} type="venue" />
-      </section>
-      <section>
-        <SectionTitle>Events in diesen Clubs und Festivals</SectionTitle>
-        {venues.length === 0 ? (
-          <EmptyState>Keinem Club und keinem Festival zugeordnet.</EmptyState>
-        ) : (
-          <div className="space-y-6">
-            {venues.map((venue) => (
-              <VenueEvents key={venue.id} venueId={venue.venueId} name={venue.venueName} />
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  )
-}
-
-/** One venue's events; the heading links to the venue so the list has a source */
-function VenueEvents({ venueId, name }: { venueId: number; name: string }) {
-  const navigate = useNavigate()
-  const events = trpcReact.dealMemo.listByVenue.useQuery(venueId)
-  return (
-    <div>
-      <h4 className="mb-2 font-medium">
-        <Link
-          to="/venues/$venueId"
-          params={{ venueId: String(venueId) }}
-          className="hover:underline"
-        >
-          {name}
-        </Link>
-      </h4>
-      <RowTable
-        label={`Events in ${name}`}
-        query={events}
-        loading="Events werden geladen…"
-        empty={`Noch keine Events in ${name}.`}
-        columns={[
-          {
-            header: 'Datum',
-            cell: (event) => formatShortDate(event.date),
-            className: 'whitespace-nowrap'
-          },
-          { header: 'Event', cell: (event) => event.name, className: 'font-medium' },
-          { header: 'Band', cell: (event) => event.bandName }
-        ]}
-        onRowClick={(event) =>
-          navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
-        }
-      />
+      </TabSection>
     </div>
   )
 }
@@ -302,6 +275,20 @@ function ContractsTab({ personId }: { personId: number }) {
   )
 }
 
+/** Management contracts naming the person and invoices addressed to them */
+function MoneyTab({ personId }: { personId: number }) {
+  return (
+    <div className="space-y-10">
+      <TabSection id="section-contracts" title="Managementverträge">
+        <ContractsTab personId={personId} />
+      </TabSection>
+      <TabSection title="Rechnungen">
+        <InvoicesTab personId={personId} />
+      </TabSection>
+    </div>
+  )
+}
+
 /** Invoices addressed to the person; a click opens the print view */
 function InvoicesTab({ personId }: { personId: number }) {
   const invoices = trpcReact.invoice.listByPerson.useQuery(personId)
@@ -366,43 +353,28 @@ export default function PersonDetailPage() {
           onDelete={() => mutations.deleteNow(person)}
           deleting={mutations.isDeleting}
           isTab={isPersonTab}
+          aliases={PERSON_TAB_ALIASES}
           tabs={[
             { id: 'overview', label: 'Übersicht', content: <OverviewTab person={person} /> },
             {
               id: 'bands',
-              label: 'Bands',
-              count: counts.bands,
-              content: <BandsTab personId={person.id} />
-            },
-            {
-              id: 'companies',
-              label: 'Firmen',
-              count: counts.companies,
-              content: <CompaniesTab personId={person.id} />
-            },
-            {
-              id: 'venues',
-              label: 'Clubs / Festivals',
-              count: counts.venues,
-              content: <VenuesTab personId={person.id} />
+              label: 'Zugehörigkeiten',
+              count: sumCounts(counts.bands, counts.companies, counts.venues),
+              content: <MembershipsTab personId={person.id} />
             },
             {
               id: 'events',
               label: 'Events',
               count: counts.events,
+              hideWhenEmpty: true,
               content: <EventsTab personId={person.id} />
             },
             {
-              id: 'contracts',
-              label: 'Managementverträge',
-              count: counts.contracts,
-              content: <ContractsTab personId={person.id} />
-            },
-            {
               id: 'invoices',
-              label: 'Rechnungen',
-              count: counts.invoices,
-              content: <InvoicesTab personId={person.id} />
+              label: 'Verträge & Rechnungen',
+              count: sumCounts(counts.contracts, counts.invoices),
+              hideWhenEmpty: true,
+              content: <MoneyTab personId={person.id} />
             }
           ]}
           documents={{ count: counts.documents, title: 'Dokumente der Person' }}

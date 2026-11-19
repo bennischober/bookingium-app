@@ -27,6 +27,8 @@ import {
   parseOverrideDraft
 } from '@/components/map/radiusDisplay'
 import { SwappableEntityCard } from './SwappableEntityCard'
+import { EventStatusLine } from './EventStatusLine'
+import { Tip } from '@/components/Tip'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatCapacity } from '../../../../main/api/schemas/capacity'
 import { MarketingActions } from '@/components/band/marketing/MarketingActions'
@@ -183,51 +185,53 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* ── Entity cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SwappableEntityCard
-          icon={<Music2 className="h-3.5 w-3.5" />}
-          title="Band"
-          currentName={event.bandName}
-          currentDetail={event.band?.genre || null}
-          currentId={event.bandId}
-          items={bandItems}
-          itemsLoading={bands.isLoading}
-          onSwap={handleSwapBand}
-          isSaving={updateMutation.isPending}
-          nullable={false}
-          href={`/band/${event.bandId}`}
-          empty="Keine Band zugewiesen"
-        />
-        <SwappableEntityCard
-          icon={<MapPin className="h-3.5 w-3.5" />}
-          title="Club / Festival"
-          currentName={event.venueName}
-          currentDetail={
-            event.venue?.capacity
-              ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}`
-              : null
-          }
-          currentId={event.venueId}
-          items={venueItems}
-          itemsLoading={venues.isLoading}
-          onSwap={handleSwapVenue}
-          isSaving={updateMutation.isPending}
-          nullable={true}
-          href={event.venueId ? `/venues/${event.venueId}` : undefined}
-          empty="Kein Club / Festival zugewiesen"
-        />
-      </div>
+      <Tip id="eventOverview" />
+      <EventStatusLine event={event} />
 
-      {/* ── LoPro cards ── */}
+      {/* ── Who takes part: one row each, changed in place ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Lokale Veranstalter (Local Promoter)
+          Beteiligte
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="divide-y rounded-lg border">
           <SwappableEntityCard
+            compact
+            icon={<Music2 className="h-3.5 w-3.5" />}
+            title="Band"
+            currentName={event.bandName}
+            currentDetail={event.band?.genre || null}
+            currentId={event.bandId}
+            items={bandItems}
+            itemsLoading={bands.isLoading}
+            onSwap={handleSwapBand}
+            isSaving={updateMutation.isPending}
+            nullable={false}
+            href={`/band/${event.bandId}`}
+            empty="Keine Band zugewiesen"
+          />
+          <SwappableEntityCard
+            compact
+            icon={<MapPin className="h-3.5 w-3.5" />}
+            title="Club / Festival"
+            currentName={event.venueName}
+            currentDetail={
+              event.venue?.capacity
+                ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}`
+                : null
+            }
+            currentId={event.venueId}
+            items={venueItems}
+            itemsLoading={venues.isLoading}
+            onSwap={handleSwapVenue}
+            isSaving={updateMutation.isPending}
+            nullable={true}
+            href={event.venueId ? `/venues/${event.venueId}` : undefined}
+            empty="Kein Club / Festival zugewiesen"
+          />
+          <SwappableEntityCard
+            compact
             icon={<User className="h-3.5 w-3.5" />}
-            title="Kontaktperson"
+            title="LoPro-Kontakt"
             currentName={
               event.loProPerson
                 ? `${event.loProPerson.firstName} ${event.loProPerson.lastName}`
@@ -243,8 +247,9 @@ export function OverviewTab({
             empty="Kein Kontakt zugewiesen"
           />
           <SwappableEntityCard
+            compact
             icon={<Building2 className="h-3.5 w-3.5" />}
-            title="Firma"
+            title="LoPro-Firma"
             currentName={event.loProCompany?.name ?? null}
             currentId={event.loProCompanyId}
             items={companyItems}

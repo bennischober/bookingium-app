@@ -110,3 +110,10 @@ export function useEventTabCounts(id: number | null) {
   )
   return { documents: lengthOf(documents.data) } satisfies Counts<string>
 }
+
+/** Count of a tab that shows two lists; undefined until both are known */
+export function sumCounts(...counts: (number | undefined)[]): number | undefined {
+  return counts.every((count) => count !== undefined)
+    ? counts.reduce<number>((sum, count) => sum + (count ?? 0), 0)
+    : undefined
+}

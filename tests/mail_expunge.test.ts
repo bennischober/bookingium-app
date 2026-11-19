@@ -77,7 +77,10 @@ describe('expunge: local cleanup (A1)', () => {
     const kept = addMessage(store, dir, 2, folder.id, 'apfel')
     expect(store.ftsIntegrityCheck()).toBe(true)
 
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials
+    })
     writes.removeLocally(doomed.messageKey)
 
     // The row is gone, the other one is untouched
@@ -109,7 +112,10 @@ describe('expunge: local cleanup (A1)', () => {
     fs.writeFileSync(path.join(elsewhere, doomed.file), 'not this one')
     try {
       process.chdir(elsewhere)
-      const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials })
+      const writes = new WriteEngine(store, ACCOUNT, {
+        writeAccount: sandboxWriteAccount(),
+        credentials: sandboxCredentials
+      })
       writes.removeLocally(doomed.messageKey)
     } finally {
       process.chdir(cwd)
@@ -129,7 +135,11 @@ describe('expunge: local cleanup (A1)', () => {
     fs.mkdirSync(path.join(dir, doomed.file))
 
     const warnings: string[] = []
-    const writes = new WriteEngine(store, ACCOUNT, { writeAccount: sandboxWriteAccount(), credentials: sandboxCredentials, log: { warn: (m) => warnings.push(m) } })
+    const writes = new WriteEngine(store, ACCOUNT, {
+      writeAccount: sandboxWriteAccount(),
+      credentials: sandboxCredentials,
+      log: { warn: (m) => warnings.push(m) }
+    })
     writes.removeLocally(doomed.messageKey)
 
     expect(store.getByKey(doomed.messageKey)).toBeUndefined()
