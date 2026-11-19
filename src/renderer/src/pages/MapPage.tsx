@@ -65,6 +65,8 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   const [showVenueRings, setShowVenueRings] = useState(false)
   // #244: a grey base map lets rings and dots stand out
   const [mutedTiles, setMutedTiles] = useState(true)
+  // #244: every ring as one protected area, to see where another show still fits
+  const [highlightAll, setHighlightAll] = useState(false)
   const [tour, setTour] = useState<string | null>(null)
   const tours = trpcReact.tourImport.tours.useQuery()
   // What if: a venue and a date to check before booking it
@@ -263,6 +265,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             showRings={showRings}
             showVenueRings={showVenueRings}
             mutedTiles={mutedTiles}
+            highlightAll={highlightAll}
           />
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
               Leaflet leaves free: zoom sits top left, attribution bottom right */}
@@ -367,6 +370,21 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               />
               Karte grau
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={highlightAll}
+                disabled={!showRings}
+                onChange={(event) => setHighlightAll(event.target.checked)}
+              />
+              Alle Kreise hervorheben
+            </label>
+            {showRings && highlightAll && (
+              <p className="max-w-44 text-muted-foreground">
+                Rot ist der gesamte Gebietsschutz der gezeigten Shows. Wo die Karte frei bleibt,
+                passt noch eine Show.
+              </p>
+            )}
             {showRings &&
               (focusShow ? (
                 <button

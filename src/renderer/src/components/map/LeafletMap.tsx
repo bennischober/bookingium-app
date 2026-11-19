@@ -32,6 +32,13 @@ function pointHasShow(
 
 /** The Leaflet pane the radius rings are drawn in, below the dots */
 const RING_PANE = 'rings'
+/**
+ * #244: "Alle Kreise hervorheben" draws every ring solid into this pane, and the pane itself is
+ * see-through: overlapping circles do not darken each other, so the whole protected area reads
+ * as one even surface and the gaps (where another show could go) stand out.
+ */
+const COVERAGE_PANE = 'coverage'
+const COVERAGE_COLOR = '#dc2626'
 
 /**
  * The Leaflet map itself: OSM tiles, one dot pair per map point (venue, events),
@@ -45,7 +52,8 @@ export function LeafletMap({
   focusShow,
   showRings,
   showVenueRings = false,
-  mutedTiles = true
+  mutedTiles = true,
+  highlightAll = false
 }: {
   markers: MapMarkerDto[]
   /** The what-if booking: a dashed ring and its own dot */
@@ -59,6 +67,8 @@ export function LeafletMap({
   showVenueRings?: boolean
   /** #244: grey base map, so the coloured rings and dots stand out */
   mutedTiles?: boolean
+  /** #244: every ring as one protected area, to find gaps for another show */
+  highlightAll?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMapType | null>(null)
@@ -89,6 +99,9 @@ export function LeafletMap({
       // overlay SVG a ring drawn after a dot painted over it and its fill caught the hover, so a
       // venue inside an event's ring showed no tooltip.
       map.createPane(RING_PANE).style.zIndex = '350'
+      const coverage = map.createPane(COVERAGE_PANE)
+      coverage.style.zIndex = '340'
+      coverage.style.opacity = '0.32'
       mapRef.current = map
       // A hidden container (switch/tab) leaves Leaflet with a wrong size
       map.invalidateSize()
@@ -134,6 +147,21 @@ export function LeafletMap({
                 weight: 1,
                 opacity: 0.6,
                 fill: false
+              })
+            )
+          }
+        }
+        if (showRings && highlightAll) {
+          for (const ring of pointRings(point)) {
+            layers.push(
+              L.circle([point.lat, point.lng], {
+                pane: COVERAGE_PANE,
+                interactive: false,
+                radius: ring.metres,
+                stroke: false,
+                fill: true,
+                fillColor: COVERAGE_COLOR,
+                fillOpacity: 1
               })
             )
           }
@@ -249,7 +277,7 @@ export function LeafletMap({
     return () => {
       cancelled = true
     }
-  }, [markers, candidate, showRings, showVenueRings, mapReady, focusedKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [markers, candidate, showRings, showVenueRings, mapReady, focusedKey, highlightAll]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // #244: the muted base map is a CSS filter on Leaflet's tile pane
   useEffect(() => {
