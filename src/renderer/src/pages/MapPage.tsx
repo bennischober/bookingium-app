@@ -374,15 +374,15 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               <input
                 type="checkbox"
                 checked={highlightAll}
-                disabled={!showRings}
+                disabled={!showRings && !showVenueRings}
                 onChange={(event) => setHighlightAll(event.target.checked)}
               />
               Alle Kreise hervorheben
             </label>
-            {showRings && highlightAll && (
+            {(showRings || showVenueRings) && highlightAll && (
               <p className="max-w-44 text-muted-foreground">
-                Rot ist der gesamte Gebietsschutz der gezeigten Shows. Wo die Karte frei bleibt,
-                passt noch eine Show.
+                Jeder Kreis ist halb durchsichtig gefüllt: wo sich Gebietsschutz überlappt, wird es
+                dunkler. Wo die Karte frei bleibt, passt noch eine Show.
               </p>
             )}
             {showRings &&
