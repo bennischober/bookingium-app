@@ -1,6 +1,6 @@
 {
   "name": "bookingum-app",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Booking-Verwaltung für Bands: Events, Verträge, Rechnungen und Kontakte",
   "main": "./out/main/index.js",
   "author": "Benjamin Schober",
