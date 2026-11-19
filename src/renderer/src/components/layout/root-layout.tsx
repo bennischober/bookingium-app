@@ -4,6 +4,7 @@ import { HistoryNav } from '@/components/layout/history-nav'
 import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
 import { SyncStatus } from '@/components/layout/sync-status'
 import { ImportMenu } from '@/components/layout/import-menu'
+import { CompanyEnrichmentHost } from '@/components/company/CompanyEnrichmentHint'
 import { SidebarToggle } from '@/components/layout/sidebar-toggle'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -148,6 +149,7 @@ export default function RootLayout() {
         >
           <Outlet />
         </div>
+        <CompanyEnrichmentHost />
       </SidebarInset>
     </SidebarProvider>
   )

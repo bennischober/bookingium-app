@@ -158,13 +158,14 @@ export class EInvoicePartyRepository {
   }
 
   /** Creates or completes the company, its people and their membership, in one transaction */
-  apply(party: EInvoicePartyInput): EInvoicePartyResult {
-    const result = db.transaction((tx) => this.write(tx, party))
+  /** `companyId`: the company to complete (#236), else the one the party matches or a new one */
+  apply(party: EInvoicePartyInput, companyId?: number): EInvoicePartyResult {
+    const result = db.transaction((tx) => this.write(tx, party, companyId))
     contactAddressEvents.emit('saved')
     return result
   }
 
-  private write(tx: Tx, party: EInvoicePartyInput): EInvoicePartyResult {
+  private write(tx: Tx, party: EInvoicePartyInput, companyId?: number): EInvoicePartyResult {
     const result: EInvoicePartyResult = {
       companyId: 0,
       companyCreated: false,
@@ -181,7 +182,10 @@ export class EInvoicePartyRepository {
       commercial_register_no: party.commercialRegisterNo,
       register_court: party.registerCourt
     }
-    const match = this.findCompany(party, tx)
+    const match =
+      companyId !== undefined
+        ? { id: companyId, name: party.name, by: 'name' as const }
+        : this.findCompany(party, tx)
     if (match === null) {
       const created = tx
         .insert(schema.company)

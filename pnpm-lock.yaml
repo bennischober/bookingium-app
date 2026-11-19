@@ -208,6 +208,9 @@ importers:
       pdf-lib:
         specifier: 1.17.1
         version: 1.17.1
+      pdfjs-dist:
+        specifier: 4.10.38
+        version: 4.10.38
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -386,9 +389,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      pdfjs-dist:
-        specifier: 4.10.38
-        version: 4.10.38
       playwright-core:
         specifier: ^1.64.0
         version: 1.64.0

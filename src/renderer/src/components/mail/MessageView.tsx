@@ -307,6 +307,7 @@ export function MessageView({
           toDocuments={toDocuments}
           toCompany={companyFromAttachment}
           toReceipt={receiptFromAttachment}
+          accountId={accountId}
         />
 
         {downloading && (
