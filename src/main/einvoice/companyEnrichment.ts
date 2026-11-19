@@ -6,6 +6,7 @@ import type { CompanyFacts } from '../repositories/CompanyEnrichmentRepository'
 import type { CompanyEnrichmentFill } from '../api/schemas/company_enrichment.schema'
 import { formatIban, type InvoiceTextFacts } from './invoiceText'
 import { normalizeKey } from '../import/normalize'
+import { GENERIC_DOMAINS } from '../mail/genericDomains'
 
 /** What the invoice says about its sender, one value each ('' for unknown) */
 export type SenderProposal = {
@@ -28,29 +29,6 @@ const vatKey = (value: string): string => value.replace(/[^0-9A-Za-z]/g, '').toU
 const digits = (value: string): string => value.replace(/\D/g, '')
 const ibanKey = (value: string): string => value.replace(/\s/g, '').toUpperCase()
 const domainOf = (email: string): string => email.trim().toLowerCase().split('@')[1] ?? ''
-
-// Mail providers say nothing about the company behind an address
-const GENERIC_DOMAINS = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'gmx.de',
-  'gmx.net',
-  'web.de',
-  't-online.de',
-  'outlook.com',
-  'hotmail.com',
-  'hotmail.de',
-  'yahoo.com',
-  'yahoo.de',
-  'icloud.com',
-  'me.com',
-  'aol.com',
-  'freenet.de',
-  'posteo.de',
-  'mailbox.org',
-  'gmx.at',
-  'bluewin.ch'
-])
 
 /** The only company of `candidates`, null for none or several */
 const single = (candidates: CompanyFacts[]): CompanyFacts | null => {

@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
-import { readInvoiceText, validIban } from '../src/main/einvoice/invoiceText'
+import { formatIban, readInvoiceText, validIban } from '../src/main/einvoice/invoiceText'
 import { pdfText } from '../src/main/einvoice/pdfText'
 import { CompanyEnrichmentService } from '../src/main/services/CompanyEnrichmentService'
 import { CII_INVOICE } from './helpers/receivedEInvoices'
@@ -18,10 +18,10 @@ setupTestDb()
 
 const INVOICE_LINES = [
   'BEISPIEL RECORDS GmbH - Beispielweg 12 - 50667 Koeln',
-  'Tel.: +49 221 123456 - info@beispiel-records.example.com',
+  'Tel.: +49 221 100000 - info@beispiel-records.example.com',
   'USt-IdNr. DE135792468 - St.-Nr. 214/5701/1234',
-  'IBAN DE89 3704 0044 0532 0130 00 - BIC COBADEFFXXX',
-  'Rechnung an: Eigene Agentur GmbH, Hauptweg 5, 10115 Berlin',
+  'IBAN DE89370400440532013000 - BIC COBADEF0XXX',
+  'Rechnung an: Eigene Agentur GmbH, Musterweg 5, 10115 Berlin',
   'USt-IdNr. DE987654321 - IBAN DE02 1203 0000 0000 2020 51'
 ]
 
@@ -41,18 +41,18 @@ describe('invoice text', () => {
     expect(facts.ibans).toEqual(['DE89370400440532013000', 'DE02120300000000202051'])
     expect(facts.vatIds).toEqual(['DE135792468', 'DE987654321'])
     expect(facts.taxNumbers).toEqual(['214/5701/1234'])
-    expect(facts.bics).toEqual(['COBADEFFXXX'])
+    expect(facts.bics).toEqual(['COBADEF0XXX'])
     expect(facts.emails).toEqual(['info@beispiel-records.example.com'])
-    expect(facts.phones).toEqual(['+49 221 123456'])
+    expect(facts.phones).toEqual(['+49 221 100000'])
     expect(
       facts.addresses.map((a) => `${a.street} ${a.streetNumber}, ${a.zipCode} ${a.city}`)
-    ).toEqual(['Beispielweg 12, 50667 Koeln', 'Hauptweg 5, 10115 Berlin'])
+    ).toEqual(['Beispielweg 12, 50667 Koeln', 'Musterweg 5, 10115 Berlin'])
   })
 
   it('reads the text of a PDF', async () => {
     const text = await pdfText(await invoicePdf(INVOICE_LINES))
     expect(text).toContain('BEISPIEL RECORDS GmbH')
-    expect(text).toContain('DE89 3704 0044 0532 0130 00')
+    expect(text).toContain('DE89370400440532013000')
   })
 })
 
@@ -66,7 +66,7 @@ describe('completing a company from an invoice', () => {
       .get()
     const ownAddress = db
       .insert(schema.address)
-      .values({ street: 'Hauptweg', zip_code: '10115', city: 'Berlin' })
+      .values({ street: 'Musterweg', zip_code: '10115', city: 'Berlin' })
       .returning()
       .get()
     db.insert(schema.company)
@@ -84,7 +84,7 @@ describe('completing a company from an invoice', () => {
     const service = container.resolve(CompanyEnrichmentService)
     const phone = db
       .insert(schema.contact)
-      .values({ email: '', phone: '0221 999' })
+      .values({ email: '', phone: '0221 111111' })
       .returning()
       .get()
     const cargo = db
@@ -101,8 +101,8 @@ describe('completing a company from an invoice', () => {
       // the stored phone stays
       ['USt-IdNr.', 'DE135792468'],
       ['Steuernummer', '214/5701/1234'],
-      ['IBAN', 'DE89 3704 0044 0532 0130 00'],
-      ['BIC', 'COBADEFFXXX']
+      ['IBAN', formatIban('DE89370400440532013000')],
+      ['BIC', 'COBADEF0XXX']
     ])
 
     service.apply(found!.companyId, found!.party)
@@ -114,7 +114,10 @@ describe('completing a company from an invoice', () => {
       .from(schema.contact)
       .where(eq(schema.contact.id, row.contact_id!))
       .get()!
-    expect(contact).toMatchObject({ email: 'info@beispiel-records.example.com', phone: '0221 999' })
+    expect(contact).toMatchObject({
+      email: 'info@beispiel-records.example.com',
+      phone: '0221 111111'
+    })
     const bank = db.select().from(schema.bank).where(eq(schema.bank.id, row.bank_id!)).get()!
     expect(bank.iban.replace(/\s/g, '')).toBe('DE89370400440532013000')
     const address = db
@@ -132,7 +135,7 @@ describe('completing a company from an invoice', () => {
     const service = container.resolve(CompanyEnrichmentService)
     expect(
       await service.checkBytes(
-        await invoicePdf(['Unbekannte Firma KG', 'IBAN DE75 5121 0800 1245 1261 99'])
+        await invoicePdf(['Unbekannte Firma KG', 'IBAN AT61 1904 3002 3457 3201'])
       )
     ).toBeNull()
   })
