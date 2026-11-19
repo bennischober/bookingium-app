@@ -212,7 +212,7 @@ export function balancedJson(text: string, start: number): string | null {
 
 /** The atlas in a file's text: JSON, or an atlas page that carries it as JSON */
 export function parseAtlasText(text: string): Atlas {
-  const trimmed = text.replace(/^﻿/, '').trim()
+  const trimmed = text.replace(/^\uFEFF/, '').trim()
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) return atlasFromJson(JSON.parse(trimmed))
 
   const tag = /<script[^>]*id=["']bookingium-atlas["'][^>]*>([\s\S]*?)<\/script>/i.exec(trimmed)
