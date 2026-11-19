@@ -56,7 +56,7 @@ test('a follow-up on a band shows on its page and the Dashboard, done and back',
   await page.getByRole('link', { name: 'Bookingium' }).click()
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   await expect(page.getByText('Rider schicken')).toBeVisible()
-  await expect(page.getByRole('link', { name: BAND })).toBeVisible()
+  await expect(page.getByRole('link', { name: BAND, exact: true })).toBeVisible()
 
   // Done, then undone from the toast
   await page.getByRole('button', { name: 'Erledigt: Rider schicken' }).click()
