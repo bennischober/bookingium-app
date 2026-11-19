@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { EventsTable, RowTable, type Column, type ListQuery } from '@/components/detail/DetailParts'
 import type { DealMemoListItemDto } from '../../../../main/api/schemas/deal_memo.schema'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../../main/api/schemas/venue.schema'
+import { formatCapacity } from '../../../../main/api/schemas/capacity'
 
 /**
  * #172: tables of the records linked to a detail page's record, shared by the
@@ -88,7 +89,7 @@ export function RelatedVenuesTable({ label, query, empty, roles }: RelatedTableP
         },
         {
           header: 'Kapazität',
-          cell: (venue) => venue.capacity?.toLocaleString('de-DE') ?? '–'
+          cell: (venue) => formatCapacity(venue.capacityMin, venue.capacity) || '–'
         },
         ...(roles ? [roleColumn(roles)] : [])
       ]}

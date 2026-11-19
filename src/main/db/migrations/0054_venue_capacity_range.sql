@@ -1,0 +1,1 @@
+ALTER TABLE `venue` ADD `capacity_min` integer;

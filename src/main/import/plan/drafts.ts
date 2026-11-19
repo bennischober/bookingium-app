@@ -42,6 +42,8 @@ export interface VenueDraft extends DraftBase {
   normName: string
   kind: VenueKind
   capacity: number | null
+  /** #245: lower end of a range ("500-1000"), null for one number */
+  capacityMin: number | null
   // "Rock, Metal" (normalizeGenres)
   genres: string
   address: AddressDraft

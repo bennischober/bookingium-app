@@ -12,6 +12,7 @@ import {
   parseTaxId,
   type ParsedPerson
 } from '../normalize'
+import { parseCapacityRange } from '../../api/schemas/capacity'
 import type { PlanContext } from './context'
 import { addGenres, addNotes, fill, type CompanyDraft, type VenueDraft } from './drafts'
 import { nameFromEmailWarning, notImported, outletName, personLabel } from './rowHelpers'
@@ -139,9 +140,14 @@ export function buildOrganisationRows(ctx: PlanContext): ImportPreviewRow[] {
 
     const capacityText = cleanText(read.value('capacity'))
     if (capacityText) {
-      const capacity = parseCapacity(capacityText)
-      if (venue && capacity !== null && venue.capacity === null) venue.capacity = capacity
-      if (capacity === null || !/^[\d.]+$/.test(capacityText)) {
+      // #245: "500-1000" is a range, not 500 with a note
+      const range = parseCapacityRange(capacityText)
+      const capacity = range.max ?? parseCapacity(capacityText)
+      if (venue && capacity !== null && venue.capacity === null) {
+        venue.capacity = capacity
+        venue.capacityMin = range.min
+      }
+      if (capacity === null || !/^[\d.\s]+(?:(?:[-–]|bis)[\d.\s]+)?$/i.test(capacityText)) {
         notes.push(`Kapazität: ${capacityText}`)
       }
     }

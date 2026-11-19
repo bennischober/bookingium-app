@@ -272,6 +272,7 @@ export class ImportRepository {
               name: draft.name,
               kind: draft.kind,
               capacity: draft.capacity,
+              capacity_min: draft.capacityMin,
               notes,
               company_id: companyId,
               address_id: this.insertAddress(tx, draft.address),
@@ -297,6 +298,8 @@ export class ImportRepository {
         const changes = emptyOnly(row, {
           notes,
           capacity: draft.capacity,
+          // a range goes in only together with its upper end, never under a stored number
+          ...(row.capacity === null ? { capacity_min: draft.capacityMin } : {}),
           company_id: companyId,
           address_id: address.id,
           contact_id: contact.id

@@ -24,6 +24,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { formatCapacity } from '../../../main/api/schemas/capacity'
 
 /** The Clubs list or the Festivals list: the same venue table, one kind each */
 export default function VenuePage({ kind }: { kind: VenueKind }) {
@@ -86,7 +87,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
       accessorKey: 'capacity',
       header: 'Kapazität',
       cell: ({ row }) =>
-        row.original.capacity ? row.original.capacity.toLocaleString('de-DE') : '-'
+        row.original.capacity ? formatCapacity(row.original.capacityMin, row.original.capacity) : '-'
     },
     {
       accessorKey: 'notes',

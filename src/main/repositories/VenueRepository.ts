@@ -189,6 +189,7 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
+          capacity_min: input.capacity == null ? null : (input.capacityMin ?? null),
           notes: input.notes,
           radius_km: input.radiusKm ?? null,
           radius_weeks_before: input.radiusWeeksBefore ?? null,
@@ -307,6 +308,7 @@ export class VenueRepository {
           name: input.name,
           kind: input.kind,
           capacity: input.capacity ?? null,
+          capacity_min: input.capacity == null ? null : (input.capacityMin ?? null),
           notes: input.notes,
           // Callers that don't send the clause keep the stored one; null clears it
           radius_km: input.radiusKm !== undefined ? input.radiusKm : existingVenue.radius_km,

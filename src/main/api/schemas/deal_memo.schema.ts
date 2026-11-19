@@ -88,6 +88,7 @@ export const DealMemoDetailDto = DealMemoDto.extend({
       id: z.number(),
       name: z.string(),
       capacity: z.number().nullable(),
+      capacityMin: z.number().nullable(),
       // The event's radius clause falls back to these, then to the kind's default
       kind: VenueKind
     })

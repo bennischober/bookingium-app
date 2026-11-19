@@ -26,6 +26,11 @@ import {
   type UpdateVenueInput,
   type VenueDto
 } from '../../../../main/api/schemas/venue.schema'
+import {
+  capacityError,
+  capacityInputText,
+  parseCapacityRange
+} from '../../../../main/api/schemas/capacity'
 
 const KIND_OPTIONS = VenueKind.options.map((kind) => ({
   value: kind,
@@ -60,7 +65,7 @@ export function VenueForm({
     defaultValues: {
       name: initialData?.name ?? '',
       kind: initialData?.kind ?? defaultKind,
-      capacity: initialData?.capacity?.toString() ?? '',
+      capacity: capacityInputText(initialData?.capacityMin, initialData?.capacity),
       genres: initialData?.genres ?? '',
       notes: initialData?.notes ?? '',
       companyId: initialData?.company?.id ?? null,
@@ -69,14 +74,14 @@ export function VenueForm({
       contact: contactDefaults(initialData?.contact)
     },
     onSubmit: async ({ value }) => {
-      const parsedCapacity = value.capacity.trim() ? Number(value.capacity) : null
-      const capacity = Number.isNaN(parsedCapacity) ? null : parsedCapacity
+      const range = parseCapacityRange(value.capacity)
       const radius = parseOverrideDraft(value.radius)
       if (mapPreview.enabled && !radius.ok) return
       const basePayload = {
         name: value.name.trim(),
         kind: value.kind,
-        capacity,
+        capacity: range.max,
+        capacityMin: range.min,
         genres: value.genres,
         notes: value.notes.trim(),
         companyId: value.companyId,
@@ -108,18 +113,16 @@ export function VenueForm({
         <form.AppField
           name="capacity"
           validators={{
-            onChange: ({ value }) => {
-              if (!value.trim()) return undefined
-              const parsed = Number(value)
-              if (Number.isNaN(parsed) || parsed < 0) {
-                return 'Kapazität muss eine positive Zahl sein'
-              }
-              return undefined
-            }
+            onChange: ({ value }) => capacityError(value)
           }}
         >
           {(field) => (
-            <field.TextField label="Kapazität" type="number" min={0} placeholder="z. B. 1200" />
+            <field.TextField
+              label="Kapazität"
+              inputMode="numeric"
+              placeholder="z. B. 1200 oder 500-1000"
+              hint="Eine Zahl oder eine Spanne von–bis, je nach Bestuhlung oder Raum."
+            />
           )}
         </form.AppField>
 

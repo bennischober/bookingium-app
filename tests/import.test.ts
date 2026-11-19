@@ -344,3 +344,22 @@ describe('writing the import', () => {
     })
   })
 })
+
+describe('capacity ranges (#245)', () => {
+  it('reads "500-1000" as a range without a note', () => {
+    const plan = buildImportPlan(
+      request([['BY', 'BEISPIELHALLE', 'Musterstadt', '', '', '', '', '', '', '500-1000']]),
+      NONE
+    )
+    expect(plan.venues[0]).toMatchObject({ capacity: 1000, capacityMin: 500 })
+    expect(plan.venues[0].notes.join(' ')).not.toContain('Kapazität')
+  })
+
+  it('writes the range into a new venue', () => {
+    container
+      .resolve(ImportService)
+      .commit(request([['BY', 'SPANNENCLUB', 'Musterstadt', '', '', '', '', '', '', '300 – 1.200']]))
+    const venue = db.select().from(schema.venue).where(eq(schema.venue.name, 'SPANNENCLUB')).get()!
+    expect(venue).toMatchObject({ capacity: 1200, capacity_min: 300 })
+  })
+})

@@ -160,6 +160,7 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
         normName,
         kind: options.kind,
         capacity: null,
+        capacityMin: null,
         genres: '',
         notes: [],
         address: emptyAddress(),

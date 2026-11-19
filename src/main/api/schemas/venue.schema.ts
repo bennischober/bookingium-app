@@ -24,6 +24,8 @@ export const VenueDto = z
     name: z.string(),
     kind: VenueKind,
     capacity: z.number().nullable(),
+    /** #245: lower end of a range, null for a single number */
+    capacityMin: z.number().nullable(),
     genres: z.string(),
     notes: z.string(),
     address: AddressDto.nullable(),
@@ -50,6 +52,7 @@ export const CreateVenueInput = z
     name: z.string().min(1, 'Name ist erforderlich'),
     kind: VenueKind.default('venue'),
     capacity: z.number().nullable().optional(),
+    capacityMin: z.number().nullable().optional(),
     genres: GenresInput.default(''),
     notes: z.string().default(''),
     address: AddressInput.optional(),
@@ -68,6 +71,7 @@ export const UpdateVenueInput = z
     name: z.string().min(1, 'Name ist erforderlich'),
     kind: VenueKind.default('venue'),
     capacity: z.number().nullable().optional(),
+    capacityMin: z.number().nullable().optional(),
     // Optional: callers that don't send it keep the stored tags
     genres: GenresInput.optional(),
     notes: z.string().default(''),

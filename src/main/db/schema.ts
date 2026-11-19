@@ -281,6 +281,8 @@ export const venue = sqliteTable(
     // 'venue' (club, hall, theatre, ...) or 'festival'
     kind: text('kind').default('venue').notNull(),
     capacity: integer('capacity'),
+    // #245: lower end of a capacity range ("500–1000"); null for a single number in `capacity`
+    capacity_min: integer('capacity_min'),
     notes: text('notes').default('').notNull(),
     // Radius clause (Gebietsschutz) this venue usually demands, #102: km around it and weeks
     // before/after the show. Null = the global default for the kind (Einstellungen).

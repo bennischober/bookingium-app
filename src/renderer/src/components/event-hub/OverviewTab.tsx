@@ -28,6 +28,7 @@ import {
 } from '@/components/map/radiusDisplay'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
+import { formatCapacity } from '../../../../main/api/schemas/capacity'
 export interface OverviewTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -202,7 +203,7 @@ export function OverviewTab({
           title="Club / Festival"
           currentName={event.venueName}
           currentDetail={
-            event.venue?.capacity ? `Kapazität: ${event.venue.capacity.toLocaleString()}` : null
+            event.venue?.capacity ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}` : null
           }
           currentId={event.venueId}
           items={venueItems}
