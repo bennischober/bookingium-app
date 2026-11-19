@@ -34,6 +34,7 @@ const item = (over: Partial<MarketingItemDto>): MarketingItemDto => ({
   venueId: null,
   venueName: null,
   inAtlas: true,
+  actionStatus: null,
   ...over
 })
 

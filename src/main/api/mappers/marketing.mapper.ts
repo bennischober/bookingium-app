@@ -22,8 +22,12 @@ function parsed<T>(text: string): T[] {
 }
 
 export class MarketingMapper {
-  static toItemDto(row: MarketingItemRow): MarketingItemDto {
+  static toItemDto(
+    row: MarketingItemRow,
+    actionStatus: MarketingItemDto['actionStatus'] = null
+  ): MarketingItemDto {
     return {
+      actionStatus,
       id: row.id,
       bandId: row.band_id,
       category: row.category as MarketingCategory,

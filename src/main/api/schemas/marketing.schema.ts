@@ -90,7 +90,9 @@ export const MarketingItemDto = z.object({
   venueId: z.number().nullable(),
   venueName: z.string().nullable(),
   /** false once a newer atlas no longer lists it */
-  inAtlas: z.boolean()
+  inAtlas: z.boolean(),
+  /** The furthest measure booked for it (Maßnahmen), null for none */
+  actionStatus: z.enum(['planned', 'booked', 'running', 'done']).nullable()
 })
 export type MarketingItemDto = z.infer<typeof MarketingItemDto>
 
@@ -171,3 +173,138 @@ export const MarketingLinkDto = z.object({
   statusNote: z.string()
 })
 export type MarketingLinkDto = z.infer<typeof MarketingLinkDto>
+
+// ========================================
+// Maßnahmen: what is actually booked for a band (radio spots, posters, ads …)
+// ========================================
+
+export const MarketingActionKind = z.enum([
+  'radio_spot',
+  'poster',
+  'print_ad',
+  'online_ad',
+  'interview',
+  'playlist',
+  'giveaway',
+  'other'
+])
+export type MarketingActionKind = z.infer<typeof MarketingActionKind>
+
+export const MARKETING_ACTION_KIND_LABELS: Record<MarketingActionKind, string> = {
+  radio_spot: 'Radiospot',
+  poster: 'Plakat / Banner',
+  print_ad: 'Print-Anzeige',
+  online_ad: 'Online- / Social-Anzeige',
+  interview: 'Interview / Feature',
+  playlist: 'Playlist',
+  giveaway: 'Gewinnspiel',
+  other: 'Sonstiges'
+}
+
+export const MarketingActionStatus = z.enum(['planned', 'booked', 'running', 'done', 'cancelled'])
+export type MarketingActionStatus = z.infer<typeof MarketingActionStatus>
+
+export const MARKETING_ACTION_STATUS_LABELS: Record<MarketingActionStatus, string> = {
+  planned: 'Geplant',
+  booked: 'Gebucht',
+  running: 'Läuft',
+  done: 'Abgeschlossen',
+  cancelled: 'Abgesagt'
+}
+
+/** Who pays for a measure */
+export const MarketingPayer = z.enum(['us', 'band', 'label', 'promoter', 'other'])
+export type MarketingPayer = z.infer<typeof MarketingPayer>
+
+export const MARKETING_PAYER_LABELS: Record<MarketingPayer, string> = {
+  us: 'Wir',
+  band: 'Band',
+  label: 'Label',
+  promoter: 'Veranstalter',
+  other: 'Sonstige'
+}
+
+const IsoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT')
+  .nullable()
+
+export const MarketingActionFields = z.object({
+  bandId: z.number().int().positive(),
+  kind: MarketingActionKind,
+  title: z.string().trim().min(1, 'Bitte eine Bezeichnung angeben'),
+  status: MarketingActionStatus.default('planned'),
+  /** The show it is for; the tour follows from it unless typed */
+  dealMemoId: z.number().int().positive().nullable().default(null),
+  tour: z.string().trim().default(''),
+  release: z.string().trim().default(''),
+  /** The station, magazine or company it runs with */
+  companyId: z.number().int().positive().nullable().default(null),
+  /** The atlas entry it comes from */
+  marketingItemId: z.number().int().positive().nullable().default(null),
+  startDate: IsoDate.default(null),
+  endDate: IsoDate.default(null),
+  region: z.string().trim().default(''),
+  /** Net, in cents */
+  costCents: z.number().int().nonnegative().nullable().default(null),
+  payer: MarketingPayer.default('us'),
+  receiptId: z.number().int().positive().nullable().default(null),
+  notes: z.string().trim().default('')
+})
+export type MarketingActionFields = z.infer<typeof MarketingActionFields>
+
+export const CreateMarketingActionInput = MarketingActionFields
+export type CreateMarketingActionInput = z.infer<typeof CreateMarketingActionInput>
+
+export const UpdateMarketingActionInput = MarketingActionFields.extend({
+  id: z.number().int().positive()
+})
+export type UpdateMarketingActionInput = z.infer<typeof UpdateMarketingActionInput>
+
+export const MarketingActionDto = z.object({
+  id: z.number(),
+  bandId: z.number(),
+  bandName: z.string(),
+  kind: MarketingActionKind,
+  title: z.string(),
+  status: MarketingActionStatus,
+  dealMemoId: z.number().nullable(),
+  /** "Leipzig, Club Probe · 12.3.2027" */
+  showLabel: z.string().nullable(),
+  showDate: z.string().nullable(),
+  tour: z.string(),
+  release: z.string(),
+  companyId: z.number().nullable(),
+  companyName: z.string().nullable(),
+  marketingItemId: z.number().nullable(),
+  marketingItemName: z.string().nullable(),
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+  region: z.string(),
+  costCents: z.number().nullable(),
+  payer: MarketingPayer,
+  receiptId: z.number().nullable(),
+  receiptName: z.string().nullable(),
+  invoiceId: z.number().nullable(),
+  /** The invoice's number once it is issued */
+  invoiceNumber: z.number().nullable(),
+  notes: z.string()
+})
+export type MarketingActionDto = z.infer<typeof MarketingActionDto>
+
+/** Where a list of measures is shown */
+export const MarketingActionScope = z.object({
+  bandId: z.number().int().optional(),
+  dealMemoId: z.number().int().optional(),
+  companyId: z.number().int().optional()
+})
+export type MarketingActionScope = z.infer<typeof MarketingActionScope>
+
+/** "Rechnung erstellen": a draft invoice for the measure's cost, to the band or a company */
+export const MarketingActionInvoiceInput = z.object({
+  id: z.number().int().positive(),
+  recipient: z.enum(['band', 'company']),
+  /** For recipient 'company' */
+  recipientCompanyId: z.number().int().positive().nullable().default(null)
+})
+export type MarketingActionInvoiceInput = z.infer<typeof MarketingActionInvoiceInput>
