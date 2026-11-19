@@ -192,7 +192,7 @@ describe('a mail and its shows', () => {
         {
           accountId: 'acc',
           messageId: null,
-          fromEmail: 'someone@gmail.com',
+          fromEmail: 'stranger@elsewhere.example.org',
           fromName: '',
           toEmails: [],
           subject: '',
