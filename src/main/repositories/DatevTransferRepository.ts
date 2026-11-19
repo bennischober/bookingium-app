@@ -124,6 +124,8 @@ export class DatevTransferRepository {
       .where(
         and(
           isNotNull(schema.invoice.invoice_number),
+          // #246: written in DATEV, it is there already
+          eq(schema.invoice.created_in_datev, false),
           ne(schema.company_invoice_settings.datev_upload_email, ''),
           notExists(
             db

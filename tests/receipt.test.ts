@@ -60,6 +60,7 @@ const fields = (overrides: Partial<ReceiptFields> = {}): ReceiptFields => ({
   reference: 'H-17',
   notes: '',
   fileName: 'Hotel',
+  inDatev: false,
   ...overrides
 })
 
@@ -225,6 +226,18 @@ describe('receipts', () => {
       receipts.list({ page: 1, pageSize: 50, notSent: true }).items.map((r) => r.receipt.id)
     ).not.toContain(id)
     expect(receipts.listTransfers(id)).toHaveLength(1)
+  })
+
+  it('leaves out a receipt uploaded to DATEV directly (#246)', async () => {
+    const id = await receipts.create(fields({ fileName: 'Direkt' }), await plainPdf(), null)
+    const pending = () => receipts.listNotHandedOver().map((row) => row.receipt.id)
+    expect(pending()).toContain(id)
+    receipts.update({ id, ...fields({ fileName: 'Direkt', inDatev: true }) })
+    expect(pending()).not.toContain(id)
+    expect(ReceiptMapper.toDto(receipts.getById(id)!).datev).toBe('external')
+    expect(
+      receipts.list({ page: 1, pageSize: 50, notSent: true }).items.map((r) => r.receipt.id)
+    ).not.toContain(id)
   })
 })
 

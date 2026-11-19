@@ -242,6 +242,8 @@ export const InvoiceDto = InvoiceListItemDto.extend({
   reverseChargeNote: z.string(),
   buyerReference: z.string(),
   xrechnung: z.boolean(),
+  /** #246: written in DATEV, never handed over from here */
+  createdInDatev: z.boolean(),
   // Stornorechnung: the invoice it cancels
   cancelsInvoiceId: z.number().nullable(),
   cancelsInvoiceIssueDate: z.string().nullable(),
@@ -323,6 +325,29 @@ export const InvoiceLineItemInput = z.object({
 
 export type InvoiceLineItemInput = z.infer<typeof InvoiceLineItemInput>
 
+/**
+ * #246: an invoice already written in DATEV. Issued with DATEV's number instead of the next one
+ * of the counter (which then continues above it, see takeNextInvoiceNumber), and never offered
+ * for a hand-over to DATEV.
+ */
+const DatevCreatedFields = {
+  createdInDatev: z.boolean().optional(),
+  datevInvoiceNumber: z
+    .number()
+    .int('Die Rechnungsnummer muss eine ganze Zahl sein')
+    .positive('Die Rechnungsnummer muss größer als 0 sein')
+    .nullable()
+    .optional()
+}
+
+/** #246: mark an issued invoice as written in DATEV, optionally with DATEV's number */
+export const SetInvoiceCreatedInDatevInput = z.object({
+  id: z.number(),
+  createdInDatev: z.boolean(),
+  invoiceNumber: DatevCreatedFields.datevInvoiceNumber
+})
+export type SetInvoiceCreatedInDatevInput = z.infer<typeof SetInvoiceCreatedInDatevInput>
+
 export const CreateInvoiceInput = z.object({
   dealMemoId: z.number().nullable().optional(),
   companyId: z.number().nullable().optional(),
@@ -344,7 +369,8 @@ export const CreateInvoiceInput = z.object({
   reverseChargeNote: z.string().optional().default(''),
   buyerReference: z.string().optional().default(''),
   xrechnung: z.boolean().optional().default(false),
-  notes: z.string().optional().default('')
+  notes: z.string().optional().default(''),
+  ...DatevCreatedFields
 })
 
 export type CreateInvoiceInput = z.infer<typeof CreateInvoiceInput>
@@ -377,7 +403,8 @@ export const UpdateInvoiceInput = z.object({
   reverseChargeNote: z.string().optional(),
   buyerReference: z.string().optional(),
   xrechnung: z.boolean().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  ...DatevCreatedFields
 })
 
 export type UpdateInvoiceInput = z.infer<typeof UpdateInvoiceInput>

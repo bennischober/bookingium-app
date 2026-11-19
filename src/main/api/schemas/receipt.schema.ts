@@ -42,7 +42,8 @@ export const ReceiptSource = z.discriminatedUnion('kind', [
 export type ReceiptSource = z.infer<typeof ReceiptSource>
 
 /** DATEV state of a receipt: never handed over, a send waiting for confirmation, or sent */
-export const ReceiptDatevState = z.enum(['none', 'pending', 'sent'])
+// external (#246): uploaded to DATEV directly, not from here
+export const ReceiptDatevState = z.enum(['none', 'pending', 'sent', 'external'])
 export type ReceiptDatevState = z.infer<typeof ReceiptDatevState>
 
 export const ReceiptDto = z.object({
@@ -101,7 +102,9 @@ export const ReceiptFields = z.object({
   reference: z.string().trim().default(''),
   notes: z.string().trim().default(''),
   /** The name DATEV shows; ".pdf" is added when missing */
-  fileName: z.string().trim().min(1, 'Dateiname ist erforderlich')
+  fileName: z.string().trim().min(1, 'Dateiname ist erforderlich'),
+  /** #246: "Schon direkt in DATEV hochgeladen" */
+  inDatev: z.boolean().default(false)
 })
 export type ReceiptFields = z.infer<typeof ReceiptFields>
 

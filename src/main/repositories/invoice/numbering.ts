@@ -69,6 +69,34 @@ function highestNumber(tx: Tx, companyId: number, year: number | null): number |
 }
 
 /**
+ * #246: an invoice written in DATEV keeps DATEV's number. It must still be free in the company's
+ * number space; the counter needs no change, takeNextInvoiceNumber never goes below a used number.
+ */
+export function claimDatevInvoiceNumber(
+  tx: Tx,
+  companyId: number,
+  invoiceNumber: number,
+  ownId: number | null = null
+): number {
+  const taken = tx
+    .select({ id: schema.invoice.id })
+    .from(schema.invoice)
+    .where(
+      and(
+        eq(schema.invoice.company_id, companyId),
+        eq(schema.invoice.invoice_number, invoiceNumber)
+      )
+    )
+    .get()
+  if (taken && taken.id !== ownId) {
+    throw new Error(
+      `Die Rechnungsnummer ${invoiceNumber} ist bei dieser Firma schon vergeben. Bitte die Nummer aus DATEV prüfen.`
+    )
+  }
+  return invoiceNumber
+}
+
+/**
  * Takes the company's next invoice number for an invoice issued on `issueDate` and advances
  * its counter. Refuses a date before the last issued invoice (assertChronological).
  */

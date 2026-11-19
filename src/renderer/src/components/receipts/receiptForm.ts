@@ -34,6 +34,7 @@ export function formStateOfReceipt(receipt: ReceiptDto): ReceiptFormState {
     supplierName: receipt.supplierCompanyId ? '' : receipt.supplierName,
     reference: receipt.reference,
     notes: receipt.notes,
+    inDatev: receipt.datev === 'external',
     fileName: receipt.fileName.replace(/\.(pdf|xml)$/i, '')
   })
 }

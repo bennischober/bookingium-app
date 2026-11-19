@@ -11,6 +11,7 @@ import {
   CreateInvoiceForDealMemoInput,
   PreviewInvoicePartiesInput,
   SetInvoiceStatusInput,
+  SetInvoiceCreatedInDatevInput,
   UpdateInvoiceInput,
   SetInvoiceNumberingInput,
   UpsertCompanyInvoiceSettingsInput,
@@ -196,6 +197,23 @@ export const invoiceRouter = t.router({
     }
   }),
 
+  setCreatedInDatev: t.procedure
+    .input(SetInvoiceCreatedInDatevInput)
+    .mutation(async ({ input }) => {
+      try {
+        const entity = await invoiceService.setCreatedInDatev(
+          input.id,
+          input.createdInDatev,
+          input.invoiceNumber
+        )
+        return InvoiceMapper.toDto(entity)
+      } catch (error) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: error instanceof Error ? error.message : 'Failed to change the DATEV mark'
+        })
+      }
+    }),
   setStatus: t.procedure.input(SetInvoiceStatusInput).mutation(async ({ input }) => {
     try {
       const entity = await invoiceService.setInvoiceStatus(input.id, input.status)

@@ -175,7 +175,12 @@ export default function InvoicePrintPage() {
               kind={reminder}
             />
           )}
-          {invoice.status !== 'draft' && (
+          {invoice.status !== 'draft' && invoice.createdInDatev && (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm text-muted-foreground">
+              In DATEV erstellt
+            </span>
+          )}
+          {invoice.status !== 'draft' && !invoice.createdInDatev && (
             <InvoiceDatevButton
               invoiceId={invoice.id}
               companyId={invoice.companyId}

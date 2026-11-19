@@ -74,6 +74,7 @@ export class ReceiptService {
       supplierName,
       reference,
       notes: '',
+      inDatev: false,
       fileName: invoice
         ? suggestReceiptName({
             receiptDate,
@@ -132,7 +133,8 @@ export class ReceiptService {
       // A linked company names the supplier; the typed name is kept for when it goes
       supplier_name: fields.supplierName,
       reference: fields.reference,
-      notes: fields.notes
+      notes: fields.notes,
+      in_datev: fields.inDatev ?? false
     }
   }
 

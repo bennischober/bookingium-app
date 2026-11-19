@@ -664,6 +664,8 @@ export const invoice = sqliteTable(
     // list: when "Per E-Mail senden" created it (datetime, UTC), to whom
     emailed_at: text('emailed_at'),
     emailed_to: text('emailed_to').default('').notNull(),
+    // #246: written in DATEV, not here: carries DATEV's number and is never handed to DATEV again
+    created_in_datev: integer('created_in_datev', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -830,6 +832,8 @@ export const receipt = sqliteTable(
     trip_id: integer('trip_id').references(() => trip.id, { onDelete: 'set null' }),
     // The trip's report itself (generated PDF), not a receipt of the trip
     trip_report: integer('trip_report', { mode: 'boolean' }).default(false).notNull(),
+    // #246: uploaded to DATEV directly, so it is not offered for a hand-over from here
+    in_datev: integer('in_datev', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),
