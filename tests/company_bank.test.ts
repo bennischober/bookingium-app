@@ -14,7 +14,7 @@ const service = () => container.resolve(CompanyService)
 const account = {
   accountHolder: 'Beispiel GmbH',
   iban: 'DE02 1203 0000 0000 2020 51',
-  bic: 'BYLADEM1001',
+  bic: 'BEISDEF0XXX',
   bankName: 'Beispielbank'
 }
 const create = (name: string, extra: object = {}) =>
@@ -33,7 +33,7 @@ describe('company bank account (#247)', () => {
     const created = await create('Bank Eins GmbH', { bank: account })
     expect(bankOf(created.id)).toMatchObject({
       iban: 'DE02120300000000202051',
-      bic: 'BYLADEM1001',
+      bic: 'BEISDEF0XXX',
       account_holder: 'Beispiel GmbH',
       bank_name: 'Beispielbank'
     })
