@@ -108,10 +108,23 @@ export function createContext(request: ImportRequest, existing: ExistingRecords)
     if (!listMembers.has(id)) listMembers.set(id, { type, key: draft.key })
   }
 
-  const refOf = (draft: DraftBase, label: string, rowNumber: number): ImportEntityRef => ({
-    label,
-    action: draft.existingId !== null ? 'existing' : draft.firstRow < rowNumber ? 'repeat' : 'new'
-  })
+  const refOf = (draft: DraftBase, label: string, rowNumber: number): ImportEntityRef => {
+    // #248: which kind of record, so the preview can show what an existing one gets
+    const type =
+      venues.get(draft.key) === draft
+        ? 'venue'
+        : bands.get(draft.key) === draft
+          ? 'band'
+          : companies.get(draft.key) === draft
+            ? 'company'
+            : 'person'
+    return {
+      label,
+      action:
+        draft.existingId !== null ? 'existing' : draft.firstRow < rowNumber ? 'repeat' : 'new',
+      key: `${type}:${draft.key}`
+    }
+  }
 
   const companyFor = (
     name: string,

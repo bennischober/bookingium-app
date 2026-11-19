@@ -20,16 +20,78 @@ type ContactRow = typeof schema.contact.$inferSelect
 const hasValues = (values: object): boolean =>
   Object.values(values).some((value) => value !== '' && value !== null && value !== undefined)
 
-/** The draft values for the columns that are still empty in `row` */
+/** #248: German names of the columns an import fills, for the preview */
+const FIELD_LABELS: Record<string, string> = {
+  email: 'E-Mail',
+  phone: 'Telefon',
+  mobile_phone: 'Mobil',
+  homepage: 'Webseite',
+  street: 'Straße',
+  street_number: 'Hausnummer',
+  zip_code: 'PLZ',
+  city: 'Ort',
+  state: 'Bundesland',
+  country: 'Land',
+  notes: 'Anmerkungen',
+  birthday: 'Geburtstag',
+  capacity: 'Kapazität',
+  vat_id: 'USt-IdNr.',
+  tax_number: 'Steuernummer',
+  founded: 'Gegründet',
+  company_id: 'Veranstalter'
+}
+
+/**
+ * #248: the running write. `overwrite` lets a value of the file replace a different stored one
+ * (notes are added, never replaced); `current` is the record being written, and `changes`
+ * collects which fields each existing record got, for the preview's dry run.
+ */
+let session: {
+  overwrite: boolean
+  current: string | null
+  changes: Map<string, Set<string>>
+} | null = null
+
+function note(column: string): void {
+  const label = FIELD_LABELS[column]
+  if (!session?.current || !label) return
+  const fields = session.changes.get(session.current) ?? new Set<string>()
+  fields.add(label)
+  session.changes.set(session.current, fields)
+}
+
+const blank = (value: unknown): boolean => value === null || value === undefined || value === ''
+
+/**
+ * The draft values for the columns that are still empty in `row`; with "überschreiben" also
+ * those that differ (ids and the country code only fill)
+ */
 function emptyOnly<T extends Record<string, unknown>>(row: T, values: Partial<T>): Partial<T> {
   const changes: Partial<T> = {}
   for (const [column, value] of Object.entries(values) as Array<[keyof T, T[keyof T]]>) {
+    if (blank(value)) continue
     const current = row[column]
-    const isEmpty = current === null || current === undefined || current === ''
-    if (isEmpty && value !== '' && value !== null && value !== undefined) changes[column] = value
+    const name = String(column)
+    if (blank(current)) {
+      changes[column] = value
+      note(name)
+    } else if (session?.overwrite && !name.endsWith('_id') && name !== 'country_code') {
+      if (name === 'notes') {
+        if (!String(current).includes(String(value))) {
+          changes[column] = `${current}\n${value}` as T[keyof T]
+          note(name)
+        }
+      } else if (String(current) !== String(value)) {
+        changes[column] = value
+        note(name)
+      }
+    }
   }
   return changes
 }
+
+/** Thrown at the end of a dry run so the transaction rolls back */
+class DryRunDone extends Error {}
 
 /** Like emptyOnly for genre tags: sets them only on a record that has none; true if it did */
 function fillGenres(tx: Tx, owner: GenreOwner, id: number, value: string): boolean {
@@ -113,8 +175,18 @@ export class ImportRepository {
    * contactList, the records that took an address of the file go into that
    * member list (#154), in the same transaction.
    */
-  apply(plan: ImportPlan, contactList: ImportContactList | null = null): ImportResult {
-    const result = this.write(plan, contactList)
+  apply(
+    plan: ImportPlan,
+    contactList: ImportContactList | null = null,
+    overwrite = false
+  ): ImportResult {
+    session = { overwrite, current: null, changes: new Map() }
+    let result: ImportResult
+    try {
+      result = this.write(plan, contactList)
+    } finally {
+      session = null
+    }
     // The mail linker looks for mail of the imported addresses (after the commit)
     const outcomes = [result.venues, result.bands, result.companies, result.persons]
     if (outcomes.some((outcome) => outcome.created + outcome.updated > 0)) {
@@ -123,7 +195,28 @@ export class ImportRepository {
     return result
   }
 
-  private write(plan: ImportPlan, contactList: ImportContactList | null): ImportResult {
+  /**
+   * #248: writes the plan and rolls it back; returns per existing record ("person:id:5") the
+   * fields the import would fill (or overwrite)
+   */
+  dryRun(plan: ImportPlan, overwrite = false): Map<string, string[]> {
+    session = { overwrite, current: null, changes: new Map() }
+    const changes = session.changes
+    try {
+      this.write(plan, null, true)
+    } catch (error) {
+      if (!(error instanceof DryRunDone)) throw error
+    } finally {
+      session = null
+    }
+    return new Map([...changes].map(([key, fields]) => [key, [...fields]]))
+  }
+
+  private write(
+    plan: ImportPlan,
+    contactList: ImportContactList | null,
+    dryRun = false
+  ): ImportResult {
     return db.transaction((tx) => {
       const outcome = () => ({ created: 0, updated: 0 })
       const result: ImportResult = {
@@ -161,6 +254,7 @@ export class ImportRepository {
           .where(eq(schema.person.id, draft.existingId))
           .get()
         if (!row) throw new Error(`Person ${draft.existingId} nicht gefunden`)
+        if (session) session.current = `person:${draft.key}`
         personIds.set(draft.key, row.id)
         const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
@@ -209,6 +303,7 @@ export class ImportRepository {
           .where(eq(schema.company.id, draft.existingId))
           .get()
         if (!row) throw new Error(`Firma ${draft.existingId} nicht gefunden`)
+        if (session) session.current = `company:${draft.key}`
         companyIds.set(draft.key, row.id)
         const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
@@ -264,6 +359,7 @@ export class ImportRepository {
         }
         const row = tx.select().from(schema.band).where(eq(schema.band.id, draft.existingId)).get()
         if (!row) throw new Error(`Band ${draft.existingId} nicht gefunden`)
+        if (session) session.current = `band:${draft.key}`
         const changes = emptyOnly(row, {
           founded: draft.founded,
           notes,
@@ -313,6 +409,7 @@ export class ImportRepository {
           .where(eq(schema.venue.id, draft.existingId))
           .get()
         if (!row) throw new Error(`Club / Festival ${draft.existingId} nicht gefunden`)
+        if (session) session.current = `venue:${draft.key}`
         venueIds.set(draft.key, row.id)
         const address = this.completeAddress(tx, row.address_id, draft.address)
         const contact = this.completeContact(tx, row.contact_id, draft.contact)
@@ -351,6 +448,7 @@ export class ImportRepository {
           venue: venueIds
         })
       }
+      if (dryRun) throw new DryRunDone()
       return result
     })
   }
@@ -470,6 +568,7 @@ export class ImportRepository {
   ): { id: number | null; changed: boolean } {
     if (addressId === null) {
       const id = this.insertAddress(tx, draft)
+      if (id !== null) note('street')
       return { id, changed: id !== null }
     }
     const row = tx.select().from(schema.address).where(eq(schema.address.id, addressId)).get()
@@ -488,6 +587,7 @@ export class ImportRepository {
   ): { id: number | null; changed: boolean } {
     if (contactId === null) {
       const id = this.insertContact(tx, draft)
+      if (id !== null) note(draft.email ? 'email' : 'phone')
       return { id, changed: id !== null }
     }
     const row = tx.select().from(schema.contact).where(eq(schema.contact.id, contactId)).get()

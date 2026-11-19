@@ -444,3 +444,44 @@ describe('no duplicates on a second import (#248)', () => {
     expect({ persons: persons(), companies: companies() }).toEqual(before)
   })
 })
+
+describe('what an existing record gets (#248)', () => {
+  const row = (email: string, capacity: string) => [
+    'BY',
+    'VORSCHAUHALLE',
+    'Musterstadt',
+    '',
+    '',
+    email,
+    '',
+    '',
+    '',
+    capacity
+  ]
+
+  it('names the fields the preview would fill, and writes nothing', () => {
+    const service = container.resolve(ImportService)
+    service.commit(request([row('', '300')]))
+    const preview = service.preview(request([row('info@vorschau.example.test', '500')]))
+    expect(preview.rows[0].primary).toMatchObject({ action: 'existing', fills: ['E-Mail'] })
+    const venue = db
+      .select()
+      .from(schema.venue)
+      .where(eq(schema.venue.name, 'VORSCHAUHALLE'))
+      .get()!
+    expect(venue.contact_id).toBeNull()
+  })
+
+  it('overwrites a different stored value only when asked', () => {
+    const service = container.resolve(ImportService)
+    const capacity = () =>
+      db.select().from(schema.venue).where(eq(schema.venue.name, 'VORSCHAUHALLE')).get()!.capacity
+    service.commit(request([row('', '800')]))
+    expect(capacity()).toBe(300)
+    const asked = request([row('', '800')])
+    asked.options = { ...asked.options, overwrite: true }
+    expect(service.preview(asked).rows[0].primary?.fills).toEqual(['Kapazität'])
+    service.commit(asked)
+    expect(capacity()).toBe(800)
+  })
+})
