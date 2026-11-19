@@ -33,18 +33,7 @@ const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
   ['band', ['band', 'bands', 'bandname', 'künstler', 'kuenstler', 'artist', 'act', 'interpret']],
   [
     'date',
-    [
-      'datum',
-      'date',
-      'showdatum',
-      'showdate',
-      'konzertdatum',
-      'eventdatum',
-      'termin',
-      'spieltag',
-      'tag',
-      'day'
-    ]
+    ['datum', 'date', 'showdatum', 'showdate', 'konzertdatum', 'eventdatum', 'termin', 'spieltag']
   ],
   ['eventName', ['event', 'eventname', 'name', 'titel', 'veranstaltung', 'show', 'konzert']],
   [
@@ -130,6 +119,7 @@ const HEADER_SYNONYMS: Array<[TourImportField, string[]]> = [
       'contact',
       'kontaktperson',
       'promoter kontakt',
+      'promoter contact',
       'ansprechpartner veranstalter'
     ]
   ],
@@ -143,23 +133,11 @@ const FIELD_BY_HEADER = new Map<string, TourImportField>(
   HEADER_SYNONYMS.flatMap(([field, names]) => names.map((name) => [normalizeKey(name), field]))
 )
 
-/**
- * The column mapping for a tour sheet's headers. Each field takes its first column; notes several.
- * A sheet without a header row ("Spalte A", …) is mapped by what its cells hold instead.
- */
-export function detectTourMapping(
-  headers: string[],
-  rows: Array<{ cells: string[] }> = []
-): TourImportField[] {
-  if (hasGeneratedHeaders(headers)) return detectTourMappingByContent(headers.length, rows)
-  const taken = new Set<TourImportField>()
-  return headers.map((header) => {
-    const field = FIELD_BY_HEADER.get(normalizeKey(header))
-    if (!field || (field !== 'notes' && taken.has(field))) return 'ignore'
-    taken.add(field)
-    return field
-  })
-}
+// A weekday column ("Tag": FR, SA) sits next to the date in most tour sheets; it says nothing
+// the date does not, so it is never imported - and never mistaken for the date
+const WEEKDAY_HEADERS = new Set(
+  ['tag', 'wochentag', 'wt', 'day', 'weekday', 'wochen tag'].map((name) => normalizeKey(name))
+)
 
 const WEEKDAYS = new Set(
   [
@@ -183,46 +161,138 @@ const WEEKDAYS = new Set(
     'donnerstag',
     'freitag',
     'samstag',
-    'sonntag'
+    'sonntag',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday'
   ].map((day) => normalizeKey(day))
 )
 
+const isWeekday = (value: string): boolean => WEEKDAYS.has(normalizeKey(value).replace(/\s/g, ''))
+
+/** What a column's cells hold, as shares of its filled cells */
+type ColumnProfile = {
+  filled: number
+  dates: number
+  weekdays: number
+  emails: number
+  amounts: number
+  statuses: number
+  text: number
+}
+
+function profileColumns(width: number, rows: Array<{ cells: string[] }>): ColumnProfile[] {
+  return Array.from({ length: width }, (_, index) => {
+    const values = rows.map((row) => cleanText(row.cells[index] ?? '')).filter(Boolean)
+    const share = (test: (value: string) => boolean): number =>
+      values.length === 0 ? 0 : values.filter(test).length / values.length
+    return {
+      filled: values.length,
+      dates: share((value) => parseShowDate(value) !== ''),
+      weekdays: share(isWeekday),
+      emails: share((value) => emailOf(value) !== ''),
+      amounts: share((value) => parseAmountCents(value) !== null),
+      statuses: share((value) => statusOf(value) !== null),
+      text: share((value) => !value.includes('@') && /\p{L}/u.test(value))
+    }
+  })
+}
+
 /**
- * A tour sheet without headers, by its cells: the column of dates is the date, weekday columns
- * ("FR", "Samstag") are left out, the first two text columns after the date are city and club
- * (the usual order: date, city, club), and every other filled column - promoter, contact,
- * e-mail - goes into the notes. The dialog shows the guess; anything can be changed there.
+ * The field a header names, checked against what its cells hold: a "Tag" or "Datum" column of
+ * weekdays is no date, a "Status" of "angeschrieben am 05.10." is no booking status (it goes to
+ * the notes with its header), a "Promoter Contact" of e-mail addresses is the e-mail. Null when
+ * the cells contradict the header.
  */
-function detectTourMappingByContent(
-  width: number,
-  rows: Array<{ cells: string[] }>
+function headerField(header: string, column: ColumnProfile): TourImportField | 'weekday' | null {
+  const key = normalizeKey(header)
+  if (WEEKDAY_HEADERS.has(key)) return 'weekday'
+  const field = FIELD_BY_HEADER.get(key)
+  if (!field) return null
+  if (column.filled === 0) return field
+  if (column.weekdays >= 0.8) return 'weekday'
+  switch (field) {
+    case 'date':
+      return column.dates >= 0.5 ? field : null
+    case 'status':
+      return column.statuses >= 0.5 ? field : null
+    case 'guarantee':
+    case 'ticketPriceVvk':
+    case 'ticketPriceAk':
+      return column.amounts >= 0.5 ? field : null
+    case 'promoter':
+    case 'promoterContact':
+      return column.emails >= 0.6 ? 'promoterEmail' : field
+    case 'promoterEmail':
+      return column.emails >= 0.6 ? field : null
+    case 'city':
+    case 'venueName':
+    case 'band':
+      return column.emails >= 0.6 ? null : field
+    default:
+      return field
+  }
+}
+
+/**
+ * The column mapping for a tour sheet. Headers name the fields, checked against the cells; a
+ * column whose cells are dates or e-mail addresses is taken by what it holds when no header
+ * named that field; weekday columns are left out; any other filled column goes into the notes
+ * with its header ("Anfangsbestand: 200"). Each field takes its first column, a second one goes
+ * into the notes too. A sheet without a header row ("Spalte A", …) is mapped by its cells alone:
+ * the first two text columns after the date are city and club (the usual order), then promoter
+ * and contact. The dialog shows the guess; anything can be changed there.
+ */
+export function detectTourMapping(
+  headers: string[],
+  rows: Array<{ cells: string[] }> = []
 ): TourImportField[] {
-  const columns = Array.from({ length: width }, (_, index) =>
-    rows.map((row) => cleanText(row.cells[index] ?? '')).filter(Boolean)
-  )
-  const share = (values: string[], test: (value: string) => boolean): number =>
-    values.length === 0 ? 0 : values.filter(test).length / values.length
-  const mapping: TourImportField[] = columns.map(() => 'ignore')
-  const dateColumn = columns.findIndex(
-    (values) => share(values, (value) => parseShowDate(value) !== '') >= 0.8
-  )
-  if (dateColumn < 0) return mapping
-  mapping[dateColumn] = 'date'
-  const textFields: TourImportField[] = ['city', 'venueName', 'promoter', 'promoterContact']
-  let emailTaken = false
-  columns.forEach((values, index) => {
-    if (index === dateColumn || values.length === 0) return
-    if (share(values, (value) => WEEKDAYS.has(normalizeKey(value).replace(/\s/g, ''))) >= 0.8) {
+  const generated = hasGeneratedHeaders(headers)
+  const columns = profileColumns(headers.length, rows)
+  const mapping: TourImportField[] = headers.map(() => 'ignore')
+  const decided = new Set<number>()
+  const taken = new Set<TourImportField>()
+  const assign = (index: number, field: TourImportField): void => {
+    decided.add(index)
+    if (field !== 'notes' && taken.has(field)) {
+      mapping[index] = columns[index].filled > 0 ? 'notes' : 'ignore'
       return
     }
-    if (!emailTaken && share(values, (value) => emailOf(value) !== '') >= 0.6) {
-      mapping[index] = 'promoterEmail'
-      emailTaken = true
-      return
-    }
-    const isText = share(values, (value) => !value.includes('@') && /\p{L}/u.test(value)) >= 0.8
-    if (index > dateColumn && isText && textFields.length > 0) mapping[index] = textFields.shift()!
-    else mapping[index] = 'notes'
+    mapping[index] = field
+    if (field !== 'notes') taken.add(field)
+  }
+
+  if (!generated) {
+    headers.forEach((header, index) => {
+      const field = headerField(header, columns[index])
+      if (field === 'weekday') decided.add(index)
+      else if (field) assign(index, field)
+    })
+  }
+
+  const open = (index: number): boolean => !decided.has(index) && columns[index].filled > 0
+  columns.forEach((column, index) => {
+    if (open(index) && column.weekdays >= 0.8) decided.add(index)
+  })
+  if (!taken.has('date')) {
+    const date = columns.findIndex((column, index) => open(index) && column.dates >= 0.8)
+    if (date >= 0) assign(date, 'date')
+  }
+  // Without a date there is nothing to import; a headerless sheet stays unmapped
+  if (generated && !taken.has('date')) return mapping
+  const dateColumn = mapping.indexOf('date')
+  const textFields: TourImportField[] = generated
+    ? ['city', 'venueName', 'promoter', 'promoterContact']
+    : []
+  columns.forEach((column, index) => {
+    if (!open(index)) return
+    if (!taken.has('promoterEmail') && column.emails >= 0.6) return assign(index, 'promoterEmail')
+    const field = index > dateColumn && column.text >= 0.8 ? textFields.shift() : undefined
+    assign(index, field ?? 'notes')
   })
   return mapping
 }
@@ -316,11 +386,16 @@ const CONFIRMED = [
 
 /** The event's status from the sheet's wording; the dialog's default when the cell says nothing known */
 export function parseEventStatus(raw: string, fallback: DealMemoStatus): DealMemoStatus {
+  return statusOf(raw) ?? fallback
+}
+
+/** The booking status a cell names, null for anything else ("angeschrieben am 05.10.") */
+function statusOf(raw: string): DealMemoStatus | null {
   const words = normalizeKey(raw).split(' ').filter(Boolean)
   if (words.some((word) => CANCELLED.includes(word))) return 'cancelled'
   if (words.some((word) => PENDING.includes(word))) return 'pending'
   if (words.some((word) => CONFIRMED.includes(word))) return 'confirmed'
-  return fallback
+  return null
 }
 
 /** "20:00", "20.00 Uhr", "8 pm" as HH:MM; the cell as written when it is no time */

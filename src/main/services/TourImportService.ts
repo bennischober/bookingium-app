@@ -5,7 +5,8 @@ import { TourImportRepository } from '../repositories/TourImportRepository'
 import { SettingsRepository } from '../repositories/SettingsRepository'
 import { buildTourImportPlan, detectTourMapping, tourTitleHints } from '../import/tourDates'
 import { hasGeneratedHeaders } from '../import/generatedHeaders'
-import { normalizeKey } from '../import/normalize'
+import { cleanText, normalizeKey } from '../import/normalize'
+import { parseShowDate } from '../import/agencyBookings'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import { VenueKind } from '../api/schemas/venue.schema'
@@ -37,6 +38,18 @@ export function tourImportKey(headers: string[]): string {
   return KEY_PREFIX + createHash('sha1').update(layout).digest('hex')
 }
 
+/**
+ * A remembered mapping still fits the sheet when its date column holds dates; one saved before
+ * the weekday fix ("Tag" as the date) does not and is detected afresh
+ */
+function datesFit(mapping: TourImportField[], rows: Array<{ cells: string[] }>): boolean {
+  const column = mapping.indexOf('date')
+  if (column < 0) return false
+  const values = rows.map((row) => cleanText(row.cells[column] ?? '')).filter(Boolean)
+  if (values.length === 0) return true
+  return values.filter((value) => parseShowDate(value) !== '').length / values.length >= 0.5
+}
+
 @injectable()
 export class TourImportService {
   constructor(
@@ -61,7 +74,7 @@ export class TourImportService {
     if (raw) {
       try {
         const remembered = RememberedImport.parse(JSON.parse(raw))
-        if (remembered.mapping.length === headers.length) {
+        if (remembered.mapping.length === headers.length && datesFit(remembered.mapping, rows)) {
           return {
             ...remembered,
             band: hints.band || remembered.band,

@@ -11,7 +11,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
-import { excelSerialToDate, readXlsx } from '../src/main/import/xlsx'
+import { excelSerialToDate, readXlsx, readXlsxSheets } from '../src/main/import/xlsx'
 import { importTable, readImportFile } from '../src/main/import/readImportFile'
 import {
   buildTourImportPlan,
@@ -26,8 +26,9 @@ import {
 } from '../src/main/import/tourDates'
 import { TourImportService, tourImportKey } from '../src/main/services/TourImportService'
 import type { TourImportRequest } from '../src/main/api/schemas/tour_import.schema'
-import { buildXlsx } from './helpers/xlsx'
+import { buildXlsx, buildXlsxSheets } from './helpers/xlsx'
 import { setupTestDb } from './helpers/setup'
+import { SettingsRepository } from '../src/main/repositories/SettingsRepository'
 
 setupTestDb()
 
@@ -520,5 +521,160 @@ describe('promoter names', () => {
     expect(promoterNameOf('Concertbüro Franken / Guido', 'Guido')).toBe('Concertbüro Franken')
     expect(promoterNameOf('Living Concerts', 'Erik')).toBe('Living Concerts')
     expect(promoterNameOf('Anna', 'Anna')).toBe('Anna')
+  })
+})
+
+describe('a tour workbook with several lists', () => {
+  // The three lists a tour file usually holds: contacts (title row, no header), advancing and
+  // the ticket quota with a weekday column "Tag" next to "Datum"
+  const workbook = () =>
+    buildXlsxSheets([
+      {
+        name: 'Kontakte',
+        rows: [
+          ['Pretty Wild TOUR Herbst 2027'],
+          [],
+          [
+            'FR',
+            '29.10.2027',
+            'Lindau',
+            'Club Beispiel',
+            'Beispiel Konzerte',
+            'Florian',
+            'florian@example.com'
+          ]
+        ]
+      },
+      {
+        name: 'Advancing',
+        rows: [
+          [
+            'Datum',
+            'City',
+            'Location',
+            'Promoter Contact',
+            null,
+            'Kontakt vor Ort',
+            'Kontakt Email',
+            'Status'
+          ],
+          [],
+          [
+            { date: 47420 },
+            'Lindau',
+            'Club Beispiel',
+            'florian@example.com',
+            null,
+            'Jo Probe',
+            'jo@example.org',
+            'angeschrieben am 05.10.'
+          ],
+          [
+            { date: 47421 },
+            'Köln',
+            'Halle Probe',
+            'lisa@example.com',
+            null,
+            null,
+            null,
+            'im Austausch'
+          ]
+        ]
+      },
+      {
+        name: 'Ticketkontingent',
+        rows: [
+          ['Tag', 'Datum', 'City', 'Club', 'Anfangsbestand', 'update Sales'],
+          [],
+          ['FR', { date: 47420 }, 'Lindau', 'Club Beispiel', 200],
+          ['SA', { date: 47421 }, 'Köln', 'Halle Probe', 'warten auf Bestätigung']
+        ]
+      }
+    ])
+
+  it('reads every sheet in tab order, following the relationships', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bookingum-sheets-'))
+    const path = join(dir, 'Tour.xlsx')
+    writeFileSync(path, workbook())
+    const file = await readImportFile(path)
+    expect(file.sheets.map((sheet) => sheet.name)).toEqual([
+      'Kontakte',
+      'Advancing',
+      'Ticketkontingent'
+    ])
+    // The generic import keeps reading the first sheet
+    expect(file.table?.title).toBe('Pretty Wild TOUR Herbst 2027')
+    expect(file.sheets[2].table?.rows[0].cells.slice(0, 2)).toEqual([
+      'FR',
+      excelSerialToDate(47420)
+    ])
+  })
+
+  it('never takes the weekday column "Tag" for the date', () => {
+    const sheets = readXlsxSheets(workbook())
+    const quota = importTable('Tour', sheets[2].records, 'DE')!
+    expect(detectTourMapping(quota.headers, quota.rows)).toEqual([
+      'ignore',
+      'date',
+      'city',
+      'venueName',
+      'notes',
+      'ignore'
+    ])
+  })
+
+  it('checks headers against the cells: e-mails, and a status that is no booking status', () => {
+    const sheets = readXlsxSheets(workbook())
+    const advancing = importTable('Tour', sheets[1].records, 'DE')!
+    expect(detectTourMapping(advancing.headers, advancing.rows)).toEqual([
+      'date',
+      'city',
+      'venueName',
+      'promoterEmail',
+      'ignore',
+      'notes',
+      'notes',
+      'notes'
+    ])
+  })
+
+  it('imports the quota sheet with the dates and the quota in the notes', () => {
+    const quota = importTable('Tour', readXlsxSheets(workbook())[2].records, 'DE')!
+    const plan = buildTourImportPlan(
+      {
+        fileName: 'Tour.xlsx',
+        headers: quota.headers,
+        rows: quota.rows,
+        mapping: detectTourMapping(quota.headers, quota.rows),
+        band: 'Pretty Wild',
+        tour: 'Herbst 2027',
+        defaultKind: 'venue',
+        defaultStatus: 'confirmed',
+        createVenues: true
+      },
+      { bands: [{ id: 1, name: 'Pretty Wild' }], venues: [], events: [] }
+    )
+    expect(plan.preview.counts).toMatchObject({ new: 2, skipped: 0 })
+    expect(plan.preview.rows.map((row) => row.date)).toEqual(['2029-10-29', '2029-10-30'])
+    expect(plan.create[0].fields.notes).toBe('Anfangsbestand: 200')
+  })
+
+  it('forgets a remembered mapping whose date column holds no dates', () => {
+    const service = container.resolve(TourImportService)
+    const headers = ['Tag', 'Datum', 'Club']
+    const rows = [{ cells: ['FR', '29.10.2027', 'Club Beispiel'] }]
+    container.resolve(SettingsRepository).setMany({
+      [tourImportKey(headers)]: JSON.stringify({
+        mapping: ['date', 'ignore', 'venueName'],
+        band: '',
+        tour: 'Alt',
+        defaultKind: 'venue',
+        defaultStatus: 'confirmed'
+      })
+    })
+    expect(service.suggest(headers, '', rows)).toMatchObject({
+      mapping: ['ignore', 'date', 'venueName'],
+      remembered: false
+    })
   })
 })

@@ -136,37 +136,64 @@ function numberText(raw: string): string {
   return String(rounded).replace('.', ',')
 }
 
-/** The path of the workbook's first sheet, as its relationships name it */
-function firstSheetPath(workbook: string | null, rels: string | null): string {
-  const fallback = 'xl/worksheets/sheet1.xml'
-  if (!workbook || !rels) return fallback
-  const sheet = /<sheet\b[^>]*r:id="([^"]+)"/.exec(workbook)
-  if (!sheet) return fallback
-  const relation = new RegExp(`<Relationship\\b[^>]*Id="${sheet[1]}"[^>]*/?>`).exec(rels)
-  const target = relation && /Target="([^"]+)"/.exec(relation[0])?.[1]
-  if (!target) return fallback
-  return target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`
+/** The workbook's sheets in tab order: name and part path, as its relationships name them */
+function sheetParts(
+  workbook: string | null,
+  rels: string | null
+): Array<{ name: string; path: string }> {
+  const fallback = [{ name: '', path: 'xl/worksheets/sheet1.xml' }]
+  if (!workbook) return fallback
+  const sheets = [...workbook.matchAll(/<sheet\b[^>]*\/?>/g)].map((match) => {
+    const tag = match[0]
+    const id = /\br:id="([^"]+)"/.exec(tag)?.[1] ?? ''
+    const relation =
+      rels && id ? new RegExp(`<Relationship\\b[^>]*Id="${id}"[^>]*/?>`).exec(rels) : null
+    const target = relation && /Target="([^"]+)"/.exec(relation[0])?.[1]
+    const path = !target
+      ? ''
+      : target.startsWith('/')
+        ? target.slice(1)
+        : `xl/${target.replace(/^\.\//, '')}`
+    return { name: decodeXml(/\bname="([^"]*)"/.exec(tag)?.[1] ?? ''), path }
+  })
+  if (sheets.length === 0) return fallback
+  if (!sheets[0].path) sheets[0].path = fallback[0].path
+  return sheets.filter((sheet) => sheet.path)
 }
 
-/** The name of the first sheet ("Tour 2027"), '' when unnamed */
-function firstSheetName(workbook: string | null): string {
-  const name = workbook && /<sheet\b[^>]*name="([^"]*)"/.exec(workbook)?.[1]
-  return name ? decodeXml(name) : ''
-}
+export type XlsxSheet = { sheetName: string; records: string[][] }
 
 /**
  * The first worksheet of an .xlsx file as rows of cell texts (empty cells as ''), plus the
  * sheet's name. Rows keep their position, so row numbers match what Excel shows.
  */
-export function readXlsx(file: Buffer): { sheetName: string; records: string[][] } {
+export function readXlsx(file: Buffer): XlsxSheet {
+  return readXlsxSheets(file, 1)[0]
+}
+
+/**
+ * Every worksheet of an .xlsx file in tab order (at most `limit`), each as `readXlsx` reads
+ * the first. A tour file often holds several lists: contacts, advancing, ticket quotas.
+ */
+export function readXlsxSheets(file: Buffer, limit = 20): XlsxSheet[] {
   const entries = zipEntries(file)
   const workbook = readPart(file, entries, 'xl/workbook.xml')
   const rels = readPart(file, entries, 'xl/_rels/workbook.xml.rels')
-  const sheetXml = readPart(file, entries, firstSheetPath(workbook, rels))
-  if (!sheetXml) throw new Error('Die Excel-Datei enthält kein Tabellenblatt.')
+  const parts = sheetParts(workbook, rels).slice(0, limit)
+  const first = readPart(file, entries, parts[0].path)
+  if (!first) throw new Error('Die Excel-Datei enthält kein Tabellenblatt.')
   const strings = sharedStrings(readPart(file, entries, 'xl/sharedStrings.xml'))
   const styles = cellStyles(readPart(file, entries, 'xl/styles.xml'))
 
+  return parts.flatMap((part, index) => {
+    const sheetXml = index === 0 ? first : readPart(file, entries, part.path)
+    if (!sheetXml) return []
+    return [{ sheetName: part.name, records: sheetRecords(sheetXml, strings, styles) }]
+  })
+}
+
+/** One worksheet's rows of cell texts */
+function sheetRecords(sheetXml: string, strings: string[], styles: CellStyle[]): string[][] {
   const records: string[][] = []
   for (const row of sheetXml.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>|<row\b([^>]*)\/>/g)) {
     const attributes = row[1] ?? row[3] ?? ''
@@ -197,5 +224,5 @@ export function readXlsx(file: Buffer): { sheetName: string; records: string[][]
     }
     records.push(cells)
   }
-  return { sheetName: firstSheetName(workbook), records }
+  return records
 }

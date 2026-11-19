@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { buildXlsx } from '../helpers/xlsx'
+import { buildXlsx, buildXlsxSheets } from '../helpers/xlsx'
 import { launchApp, type AppHandle } from './helpers/launch'
 
 let h: AppHandle
@@ -78,4 +78,56 @@ test('imports a tour sheet as events and filters the list by tour', async () => 
   await expect(page.getByText('The Electric Waves – Halle Muster')).toBeVisible()
   await expect(page.getByText('The Electric Waves – Club Beispiel')).toBeVisible()
   await expect(page.getByRole('row')).toHaveCount(3)
+})
+
+test('imports the chosen sheet of a workbook from the top bar, weekday column left out', async () => {
+  const { page } = h
+  const file = join(fixtureDir, 'Tourliste.xlsx')
+  writeFileSync(
+    file,
+    buildXlsxSheets([
+      {
+        name: 'Notizen',
+        rows: [
+          ['Thema', 'Notiz'],
+          ['Hotel', 'noch offen']
+        ]
+      },
+      {
+        name: 'Ticketkontingent',
+        rows: [
+          ['Tag', 'Datum', 'City', 'Club', 'Anfangsbestand'],
+          [],
+          ['FR', { date: serialInDays(120) }, 'Leipzig', 'Club Probe', 200],
+          ['SA', { date: serialInDays(121) }, 'Hamburg', 'Halle Beispiel', 300]
+        ]
+      }
+    ])
+  )
+  await h.app.evaluate(({ dialog }, path) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as never
+  }, file)
+
+  await page.getByRole('button', { name: 'Import', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Tourdaten' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Tourdaten importieren' })
+  await dialog.getByRole('button', { name: 'Datei auswählen…' }).click()
+  // The sheet with show dates is opened, not the first one
+  await expect(dialog.getByRole('combobox', { name: 'Tabellenblatt' })).toHaveText(
+    'Blatt „Ticketkontingent“'
+  )
+  await expect(dialog.getByRole('combobox', { name: 'Spalte A übernehmen als' })).toHaveText(
+    'Nicht importieren'
+  )
+  await expect(dialog.getByRole('combobox', { name: 'Spalte B übernehmen als' })).toHaveText(
+    'Datum'
+  )
+  await dialog.locator('#tour-import-band').click()
+  await page.getByRole('option', { name: 'The Electric Waves' }).click()
+  await dialog.getByLabel('Tour', { exact: true }).fill('Kontingent 2027')
+  await dialog.getByRole('button', { name: 'Weiter zur Vorschau' }).click()
+  await expect(dialog.getByLabel('Zusammenfassung')).toContainText('2 neu')
+  await dialog.getByRole('button', { name: 'Importieren' }).click()
+  await expect(dialog.getByText(/2 neu/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click()
 })

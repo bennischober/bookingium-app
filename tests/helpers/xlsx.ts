@@ -57,6 +57,15 @@ export type Cell = string | number | { date: number } | { zip: number } | null
 
 /** A workbook with one sheet named `sheetName` holding `rows` */
 export function buildXlsx(rows: Cell[][], sheetName = 'Tour'): Buffer {
+  return buildXlsxSheets([{ name: sheetName, rows }])
+}
+
+/**
+ * A workbook with several sheets in tab order. The parts are numbered against the tab order
+ * (the last tab is sheet1.xml), as Excel does after sheets were moved, so readers must follow
+ * the relationships.
+ */
+export function buildXlsxSheets(sheets: Array<{ name: string; rows: Cell[][] }>): Buffer {
   const strings: string[] = []
   // quotes too: the sheet name lands in an attribute
   const esc = (s: string) =>
@@ -67,30 +76,46 @@ export function buildXlsx(rows: Cell[][], sheetName = 'Tour'): Buffer {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;')
   const col = (i: number) => String.fromCharCode(65 + i)
-  const sheetRows = rows
-    .map((row, r) => {
-      const cells = row
-        .map((cell, c) => {
-          const ref = `${col(c)}${r + 1}`
-          if (cell === null) return ''
-          if (typeof cell === 'string') {
-            strings.push(cell)
-            return `<c r="${ref}" t="s"><v>${strings.length - 1}</v></c>`
-          }
-          if (typeof cell === 'number') return `<c r="${ref}"><v>${cell}</v></c>`
-          if ('date' in cell) return `<c r="${ref}" s="1"><v>${cell.date}</v></c>`
-          return `<c r="${ref}" s="2"><v>${cell.zip}</v></c>`
-        })
-        .join('')
-      return `<row r="${r + 1}">${cells}</row>`
-    })
-    .join('')
+  const sheetXml = (rows: Cell[][]) =>
+    rows
+      .map((row, r) => {
+        const cells = row
+          .map((cell, c) => {
+            const ref = `${col(c)}${r + 1}`
+            if (cell === null) return ''
+            if (typeof cell === 'string') {
+              strings.push(cell)
+              return `<c r="${ref}" t="s"><v>${strings.length - 1}</v></c>`
+            }
+            if (typeof cell === 'number') return `<c r="${ref}"><v>${cell}</v></c>`
+            if ('date' in cell) return `<c r="${ref}" s="1"><v>${cell.date}</v></c>`
+            return `<c r="${ref}" s="2"><v>${cell.zip}</v></c>`
+          })
+          .join('')
+        return `<row r="${r + 1}">${cells}</row>`
+      })
+      .join('')
+  const part = (index: number) => sheets.length - index
+  const files: Record<string, string> = {}
+  sheets.forEach((sheet, index) => {
+    files[`xl/worksheets/sheet${part(index)}.xml`] =
+      `<?xml version="1.0"?><worksheet><sheetData>${sheetXml(sheet.rows)}</sheetData></worksheet>`
+  })
   return zip({
     '[Content_Types].xml': '<?xml version="1.0"?><Types/>',
-    'xl/workbook.xml': `<?xml version="1.0"?><workbook xmlns:r="r"><sheets><sheet name="${esc(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-    'xl/_rels/workbook.xml.rels':
-      '<?xml version="1.0"?><Relationships><Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
-    'xl/worksheets/sheet1.xml': `<?xml version="1.0"?><worksheet><sheetData>${sheetRows}</sheetData></worksheet>`,
+    'xl/workbook.xml': `<?xml version="1.0"?><workbook xmlns:r="r"><sheets>${sheets
+      .map(
+        (sheet, index) =>
+          `<sheet name="${esc(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`
+      )
+      .join('')}</sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels': `<?xml version="1.0"?><Relationships>${sheets
+      .map(
+        (_, index) =>
+          `<Relationship Id="rId${index + 1}" Type="worksheet" Target="worksheets/sheet${part(index)}.xml"/>`
+      )
+      .join('')}</Relationships>`,
+    ...files,
     'xl/sharedStrings.xml': `<?xml version="1.0"?><sst>${strings.map((s) => `<si><t>${esc(s)}</t></si>`).join('')}</sst>`,
     'xl/styles.xml':
       '<?xml version="1.0"?><styleSheet><numFmts count="1"><numFmt numFmtId="164" formatCode="00000"/></numFmts><cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/></cellXfs></styleSheet>'
