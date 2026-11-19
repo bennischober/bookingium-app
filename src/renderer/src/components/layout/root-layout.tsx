@@ -2,6 +2,7 @@ import { AppSidebar } from '@/components/app-sidebar'
 import { AppBreadcrumbs } from '@/components/layout/app-breadcrumbs'
 import { HistoryNav } from '@/components/layout/history-nav'
 import { QuickCreateMenu } from '@/components/layout/quick-create-menu'
+import { ImportMenu } from '@/components/layout/import-menu'
 import { SidebarToggle } from '@/components/layout/sidebar-toggle'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -127,8 +128,9 @@ export default function RootLayout() {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/* Most used first: search, then the main action, then help apart */}
+            {/* Most used first: search, import, the main action, then help apart */}
             <SearchButton />
+            <ImportMenu />
             <QuickCreateMenu />
             <div className="mx-1 h-6 w-px bg-border" aria-hidden />
             <ShortcutsHelp />

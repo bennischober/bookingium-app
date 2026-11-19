@@ -9,7 +9,7 @@ import {
   suggestKind,
   suggestTarget
 } from './detectMapping'
-import { readXlsx } from './xlsx'
+import { readXlsxSheets } from './xlsx'
 import { generatedHeader } from './generatedHeaders'
 
 const DATA_CELL = /@|^\d{1,2}\.\d{1,2}\.\d{2,4}$|^\d{4}-\d{2}-\d{2}$|^-?\d+([.,]\d+)?$/
@@ -85,7 +85,7 @@ export function importTable(
 }
 
 /**
- * Reads a CSV or Excel file (.xlsx, its first sheet) for the import dialog. A CSV's separator is
+ * Reads a CSV or Excel file (.xlsx: `table` is its first sheet, `sheets` all of them) for the import dialog. A CSV's separator is
  * detected; on a tie the one of `locale` wins. `defaultCountry` is suggested unless the file
  * name says the list is international.
  */
@@ -98,12 +98,16 @@ export async function readImportFile(
   const name = basename(fileName, extname(fileName))
   const content = await readFile(filePath)
   if (extname(fileName).toLowerCase() === '.xlsx') {
-    const { records } = readXlsx(content)
-    return { fileName, table: importTable(name, records, defaultCountry) }
+    const sheets = readXlsxSheets(content).map((sheet, index) => ({
+      name: sheet.sheetName || `Blatt ${index + 1}`,
+      table: importTable(name, sheet.records, defaultCountry)
+    }))
+    return { fileName, table: sheets[0]?.table ?? null, sheets }
   }
   const text = decodeCsv(content)
   return {
     fileName,
-    table: importTable(name, parseCsv(text, csvSeparator(locale)), defaultCountry)
+    table: importTable(name, parseCsv(text, csvSeparator(locale)), defaultCountry),
+    sheets: []
   }
 }

@@ -22,10 +22,10 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { germanDate } from '@/components/map/mapDisplay'
 import type { ImportFile } from '../../../../main/api/schemas/import.schema'
 import type { DealMemoStatus } from '../../../../main/api/schemas/deal_memo.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { detectTourMapping } from '../../../../main/import/tourDates'
 import {
   TOUR_IMPORT_FIELD_LABELS,
   TOUR_IMPORT_FIELDS,
@@ -40,6 +40,10 @@ type Step = 'file' | 'mapping' | 'preview' | 'done'
 /** The band Select's value for "take it from the Band column"; Radix refuses an empty value */
 const NO_BAND = '__column__'
 type Table = NonNullable<ImportFile['table']>
+type Sheet = { name: string; table: Table }
+
+/** New clubs and festivals: created as clubs, as festivals, or not at all */
+type VenueMode = VenueKind | 'none'
 
 const ACTION_LABELS: Record<TourImportAction, string> = {
   new: 'neu',
@@ -54,7 +58,14 @@ const STATUS_LABELS: Record<DealMemoStatus, string> = {
   cancelled: 'Storniert'
 }
 
-const KIND_LABELS: Record<VenueKind, string> = { venue: 'Club', festival: 'Festival' }
+const VENUE_MODE_LABELS: Record<VenueMode, string> = {
+  venue: 'als Club anlegen',
+  festival: 'als Festival anlegen',
+  none: 'nicht anlegen'
+}
+
+// Rows of the sheet shown under the column choice
+const SAMPLE_ROWS = 5
 
 /** Spreadsheet column letter: 0 → A, 26 → AA */
 function columnLetter(index: number): string {
@@ -65,30 +76,49 @@ function columnLetter(index: number): string {
   return letter
 }
 
+/** "Fr., 30.10.2026" */
+function showDate(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+/** The sheet a tour import starts on: the first whose cells hold show dates */
+function startSheet(sheets: Sheet[]): Sheet {
+  return (
+    sheets.find(({ table }) => detectTourMapping(table.headers, table.rows).includes('date')) ??
+    sheets[0]
+  )
+}
+
 interface TourImportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 /**
- * Tourdaten importieren: own events from a tour sheet (Excel or CSV). Pick the file, check the
- * columns and the tour, review the rows, import. An event is found again by band and date, so
- * the next version of the sheet updates instead of duplicating; a club or festival the app does
- * not know yet is created. Columns and defaults are remembered for sheets with the same columns.
+ * Tourdaten importieren: own events from a tour sheet (Excel or CSV). Pick the file (and the
+ * sheet of a workbook with several), check band, tour and columns, review the rows, import. An
+ * event is found again by band and date, so the next version of the sheet updates instead of
+ * duplicating; a club or festival the app does not know yet is created. Columns and defaults
+ * are remembered for sheets with the same columns.
  */
 export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) {
   const utils = trpcReact.useUtils()
   const [step, setStep] = useState<Step>('file')
   const [picking, setPicking] = useState(false)
   const [fileName, setFileName] = useState('')
+  const [sheets, setSheets] = useState<Sheet[]>([])
   const [table, setTable] = useState<Table | null>(null)
   const [mapping, setMapping] = useState<TourImportField[]>([])
   const [tour, setTour] = useState('')
   // The band of rows without a Band column (a sheet of one band)
   const [band, setBand] = useState('')
-  const [defaultKind, setDefaultKind] = useState<VenueKind>('venue')
+  const [venueMode, setVenueMode] = useState<VenueMode>('venue')
   const [defaultStatus, setDefaultStatus] = useState<DealMemoStatus>('confirmed')
-  const [createVenues, setCreateVenues] = useState(true)
   const [remembered, setRemembered] = useState(false)
   const [result, setResult] = useState<TourImportResult | null>(null)
 
@@ -98,13 +128,13 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   const reset = (): void => {
     setStep('file')
     setFileName('')
+    setSheets([])
     setTable(null)
     setMapping([])
     setTour('')
     setBand('')
-    setDefaultKind('venue')
+    setVenueMode('venue')
     setDefaultStatus('confirmed')
-    setCreateVenues(true)
     setRemembered(false)
     setResult(null)
   }
@@ -112,6 +142,23 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   const close = (): void => {
     onOpenChange(false)
     reset()
+  }
+
+  /** Opens a sheet: its columns, band and tour as suggested (remembered or detected) */
+  const openSheet = async (picked: Table): Promise<void> => {
+    const suggestion = await utils.tourImport.suggest.fetch({
+      headers: picked.headers,
+      title: picked.title,
+      rows: picked.rows.map((row) => ({ cells: row.cells }))
+    })
+    setTable(picked)
+    setMapping(suggestion.mapping)
+    // A sheet without a title keeps what the first sheet said
+    if (suggestion.tour || !tour) setTour(suggestion.tour)
+    if (suggestion.band || !band) setBand(suggestion.band)
+    setVenueMode(suggestion.defaultKind)
+    setDefaultStatus(suggestion.defaultStatus)
+    setRemembered(suggestion.remembered)
   }
 
   const pickFile = async (): Promise<void> => {
@@ -123,26 +170,19 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         return
       }
       if (response.canceled || !response.file) return
-      const picked = response.file.table
-      if (!picked) {
+      const file = response.file
+      const readable: Sheet[] = (
+        file.sheets.length > 0 ? file.sheets : [{ name: '', table: file.table }]
+      ).flatMap((sheet) => (sheet.table ? [{ name: sheet.name, table: sheet.table }] : []))
+      if (readable.length === 0) {
         toast.error('Keine Daten gefunden', {
-          description: 'Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.'
+          description: 'Die Datei enthält keine Tabelle mit Datenzeilen.'
         })
         return
       }
-      const suggestion = await utils.tourImport.suggest.fetch({
-        headers: picked.headers,
-        title: picked.title,
-        rows: picked.rows.map((row) => ({ cells: row.cells }))
-      })
-      setFileName(response.file.fileName)
-      setTable(picked)
-      setMapping(suggestion.mapping)
-      setTour(suggestion.tour)
-      setBand(suggestion.band)
-      setDefaultKind(suggestion.defaultKind)
-      setDefaultStatus(suggestion.defaultStatus)
-      setRemembered(suggestion.remembered)
+      setFileName(file.fileName)
+      setSheets(readable)
+      await openSheet(startSheet(readable).table)
       setStep('mapping')
     } catch (error) {
       toast.error('Datei konnte nicht gelesen werden', {
@@ -161,9 +201,9 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         mapping,
         band,
         tour,
-        defaultKind,
+        defaultKind: venueMode === 'festival' ? 'festival' : 'venue',
         defaultStatus,
-        createVenues
+        createVenues: venueMode !== 'none'
       }
     : null
 
@@ -196,15 +236,17 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
     )
   }
 
-  const samples = useMemo(
+  // Columns with nothing in them (formatting reaching further right) are not offered
+  const columns = useMemo(
     () =>
       table
-        ? table.headers.map((_, column) =>
-            table.rows
-              .map((row) => row.cells[column])
-              .filter(Boolean)
-              .slice(0, 3)
-          )
+        ? table.headers
+            .map((header, index) => ({ header, index }))
+            .filter(({ header, index }) =>
+              header.trim() !== '' && !/^Spalte [A-Z]+$/.test(header)
+                ? true
+                : table.rows.some((row) => (row.cells[index] ?? '').trim() !== '')
+            )
         : [],
     [table]
   )
@@ -215,6 +257,13 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
   ].filter(Boolean)
   const previewData = preview.data
   const writes = previewData ? previewData.counts.new + previewData.counts.update : 0
+  // Band and tour shown once above the rows when every row has the same
+  const previewRows = previewData?.rows ?? []
+  const varies = (pick: (row: (typeof previewRows)[number]) => string): boolean =>
+    new Set(previewRows.filter((row) => row.action !== 'skipped').map(pick)).size > 1
+  const showBand = varies((row) => row.bandName)
+  const showTour = varies((row) => row.tour)
+  const firstRow = previewRows.find((row) => row.action !== 'skipped')
 
   return (
     <Dialog
@@ -225,13 +274,13 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
         else close()
       }}
     >
-      <DialogContent className="flex h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col">
+      <DialogContent className="flex h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-6xl flex-col">
         <DialogHeader>
           <DialogTitle>Tourdaten importieren</DialogTitle>
           <DialogDescription>
             {step === 'file' && 'Eigene Shows aus einer Tour-Tabelle als Events anlegen.'}
             {step === 'mapping' &&
-              'Spalten und Tour prüfen. Band und Datum sind Pflicht; die Band muss angelegt sein.'}
+              'Band und Tour wählen und prüfen, welche Spalte was enthält. Pflicht sind Band und Datum.'}
             {step === 'preview' &&
               'Events mit gleicher Band und gleichem Datum werden aktualisiert, alle anderen neu angelegt.'}
             {step === 'done' && 'Der Import ist abgeschlossen.'}
@@ -243,9 +292,9 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
             <p className="max-w-md text-sm text-muted-foreground">
-              Eine Zeile pro Show, mit Spalten wie Datum, Band, Club, PLZ, Ort, Status, Gage, Deal
-              und Gebietsschutz (km, Wochen davor/danach). Excel-Dateien (.xlsx, erstes Blatt) und
-              CSV gehen direkt. Clubs und Festivals, die es noch nicht gibt, werden angelegt.
+              Eine Zeile pro Show: Datum, Ort, Club und gern Veranstalter, Ansprechpartner, Status
+              oder Gage. Eine Titelzeile über der Tabelle und fehlende Spaltenüberschriften sind in
+              Ordnung. Excel (.xlsx, jedes Blatt) und CSV.
             </p>
             <Button onClick={() => void pickFile()} disabled={picking}>
               {picking ? 'Datei wird gelesen…' : 'Datei auswählen…'}
@@ -253,18 +302,40 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
           </div>
         )}
 
-        {/* ---- Step 2: tour, defaults + column mapping ---- */}
+        {/* ---- Step 2: band, tour, defaults + columns ---- */}
         {step === 'mapping' && table && (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {table.title && (
-              <p className="text-sm text-muted-foreground">
-                Titel der Tabelle:{' '}
-                <span className="font-medium text-foreground">{table.title}</span>
-              </p>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="max-w-72 truncate font-medium" title={fileName}>
+                {fileName}
+              </span>
+              {sheets.length > 1 && (
+                <Select
+                  value={String(sheets.findIndex((sheet) => sheet.table === table))}
+                  onValueChange={(value) => void openSheet(sheets[Number(value)].table)}
+                >
+                  <SelectTrigger className="h-8 w-48" aria-label="Tabellenblatt">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sheets.map((sheet, index) => (
+                      <SelectItem key={index} value={String(index)}>
+                        Blatt „{sheet.name}“
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <span className="text-muted-foreground">
+                {table.rows.length} {table.rows.length === 1 ? 'Zeile' : 'Zeilen'}
+                {table.title && <> · Titel „{table.title}“</>}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
-                <Label htmlFor="tour-import-band">Band (für Zeilen ohne Band-Spalte)</Label>
+                <Label htmlFor="tour-import-band">Band</Label>
                 <Select
                   value={band || NO_BAND}
                   onValueChange={(value) => setBand(value === NO_BAND ? '' : value)}
@@ -273,7 +344,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_BAND}>Aus der Band-Spalte</SelectItem>
+                    <SelectItem value={NO_BAND}>Aus einer Band-Spalte</SelectItem>
                     {(bands.data ?? []).map((option) => (
                       <SelectItem key={option.id} value={option.name}>
                         {option.name}
@@ -289,7 +360,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                   list="tour-import-tours"
                   value={tour}
                   onChange={(event) => setTour(event.target.value)}
-                  placeholder="z. B. Frühjahr 2027"
+                  placeholder="z. B. Herbst 2026"
                   maxLength={200}
                 />
                 <datalist id="tour-import-tours">
@@ -299,7 +370,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                 </datalist>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tour-import-status">Status, wenn keiner angegeben</Label>
+                <Label htmlFor="tour-import-status">Status</Label>
                 <Select
                   value={defaultStatus}
                   onValueChange={(value) => setDefaultStatus(value as DealMemoStatus)}
@@ -315,98 +386,79 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">wenn die Zeile keinen nennt</p>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tour-import-kind">Neue Orte sind</Label>
+                <Label htmlFor="tour-import-venues">Unbekannte Clubs</Label>
                 <Select
-                  value={defaultKind}
-                  onValueChange={(value) => setDefaultKind(value as VenueKind)}
+                  value={venueMode}
+                  onValueChange={(value) => setVenueMode(value as VenueMode)}
                 >
-                  <SelectTrigger id="tour-import-kind">
+                  <SelectTrigger id="tour-import-venues">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(KIND_LABELS) as VenueKind[]).map((option) => (
+                    {(Object.keys(VENUE_MODE_LABELS) as VenueMode[]).map((option) => (
                       <SelectItem key={option} value={option}>
-                        {KIND_LABELS[option]}s (wenn keine Art angegeben)
+                        {VENUE_MODE_LABELS[option]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="min-w-0 space-y-1.5">
-                <Label>Datei</Label>
-                <p className="truncate py-2 text-sm" title={fileName}>
-                  {fileName}{' '}
-                  <span className="text-muted-foreground">
-                    ({table.rows.length} {table.rows.length === 1 ? 'Zeile' : 'Zeilen'})
-                  </span>
+                <p className="text-xs text-muted-foreground">
+                  {venueMode === 'none'
+                    ? 'der Ort steht in den Anmerkungen'
+                    : 'einmal pro Name und Ort'}
                 </p>
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary"
-                checked={createVenues}
-                onChange={(event) => setCreateVenues(event.target.checked)}
-              />
-              Clubs und Festivals, die es noch nicht gibt, anlegen (sonst steht der Ort in den
-              Anmerkungen des Events)
-            </label>
-
-            {remembered && (
-              <p className="text-sm text-muted-foreground">
-                Tour und Zuordnung vom letzten Import einer Tabelle mit diesen Spalten übernommen.
-              </p>
-            )}
-            {missingColumns.length > 0 && (
-              <p className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Noch keine Spalte für: {missingColumns.join(', ')}
-              </p>
+            {(remembered || missingColumns.length > 0) && (
+              <div className="space-y-1 text-sm">
+                {remembered && (
+                  <p className="text-muted-foreground">
+                    Zuordnung vom letzten Import einer Tabelle mit diesen Spalten übernommen.
+                  </p>
+                )}
+                {missingColumns.length > 0 && (
+                  <p className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Noch offen: {missingColumns.join(', ')}
+                    {!band && missingColumns.includes('Band') && ' (oben eine Band wählen)'}
+                  </p>
+                )}
+              </div>
             )}
 
+            {/* The sheet as it is, with the choice of what each column becomes on top */}
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-              <table className="w-full text-sm">
+              <table className="w-max min-w-full text-sm" aria-label="Spalten der Tabelle">
                 <thead className="sticky top-0 z-10 bg-muted text-left">
                   <tr>
-                    <th className="px-3 py-2 font-medium">Spalte</th>
-                    <th className="px-3 py-2 font-medium">Beispielwerte</th>
-                    <th className="w-64 px-3 py-2 font-medium">Übernehmen als</th>
+                    {columns.map(({ header, index }) => (
+                      <th key={index} className="min-w-44 px-2 pt-2 align-top font-normal">
+                        <span className="mr-1.5 font-mono text-xs text-muted-foreground">
+                          {columnLetter(index)}
+                        </span>
+                        <span className="font-medium">
+                          {/^Spalte [A-Z]+$/.test(header) ? '' : header}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {table.headers.map((header, column) => (
-                    <tr
-                      key={column}
-                      className={cn(
-                        'border-t',
-                        mapping[column] === 'ignore' && 'text-muted-foreground'
-                      )}
-                    >
-                      <td className="whitespace-nowrap px-3 py-2 align-top">
-                        <span className="mr-2 font-mono text-xs text-muted-foreground">
-                          {columnLetter(column)}
-                        </span>
-                        <span className="font-medium">{header || '(ohne Überschrift)'}</span>
-                      </td>
-                      <td className="max-w-0 px-3 py-2 align-top">
-                        <span className="block truncate" title={samples[column]?.join(' · ')}>
-                          {samples[column]?.join(' · ') || '–'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-1.5 align-top">
+                  <tr>
+                    {columns.map(({ index }) => (
+                      <th key={index} className="px-2 pt-1 pb-2 font-normal">
                         <Select
-                          value={mapping[column] ?? 'ignore'}
-                          onValueChange={(value) =>
-                            setColumnField(column, value as TourImportField)
-                          }
+                          value={mapping[index] ?? 'ignore'}
+                          onValueChange={(value) => setColumnField(index, value as TourImportField)}
                         >
                           <SelectTrigger
-                            className="h-8"
-                            aria-label={`Spalte ${columnLetter(column)} übernehmen als`}
+                            className={cn(
+                              'h-8 bg-background',
+                              mapping[index] === 'ignore' && 'text-muted-foreground'
+                            )}
+                            aria-label={`Spalte ${columnLetter(index)} übernehmen als`}
                           >
                             <SelectValue />
                           </SelectTrigger>
@@ -418,9 +470,37 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                             ))}
                           </SelectContent>
                         </Select>
-                      </td>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.slice(0, SAMPLE_ROWS).map((row) => (
+                    <tr key={row.rowNumber} className="border-t">
+                      {columns.map(({ index }) => (
+                        <td
+                          key={index}
+                          className={cn(
+                            'max-w-60 truncate px-3 py-1.5',
+                            mapping[index] === 'ignore' && 'text-muted-foreground/60'
+                          )}
+                          title={row.cells[index]}
+                        >
+                          {row.cells[index] || ''}
+                        </td>
+                      ))}
                     </tr>
                   ))}
+                  {table.rows.length > SAMPLE_ROWS && (
+                    <tr className="border-t">
+                      <td
+                        colSpan={columns.length}
+                        className="px-3 py-1.5 text-xs text-muted-foreground"
+                      >
+                        … und {table.rows.length - SAMPLE_ROWS} weitere Zeilen
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -437,23 +517,37 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
               </p>
             )}
             {previewData && (
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-6">
-                {(
-                  [
-                    ['new', 'Neu'],
-                    ['update', 'Geändert'],
-                    ['unchanged', 'Unverändert'],
-                    ['skipped', 'Übersprungen'],
-                    ['newVenues', 'Neue Clubs/Festivals'],
-                    ['newPromoters', 'Neue Veranstalter']
-                  ] as const
-                ).map(([key, label]) => (
-                  <div key={key} className="rounded-lg border px-3 py-2">
-                    <div className="text-muted-foreground">{label}</div>
-                    <div className="font-medium">{previewData.counts[key]}</div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm" aria-label="Zusammenfassung">
+                {firstRow && !showBand && (
+                  <span className="font-medium">
+                    {firstRow.bandName}
+                    {firstRow.tour && !showTour && ` · ${firstRow.tour}`}:{' '}
+                  </span>
+                )}
+                {[
+                  `${previewData.counts.new} neu`,
+                  previewData.counts.update > 0 && `${previewData.counts.update} geändert`,
+                  previewData.counts.unchanged > 0 && `${previewData.counts.unchanged} unverändert`,
+                  previewData.counts.skipped > 0 && `${previewData.counts.skipped} übersprungen`
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {(previewData.counts.newVenues > 0 || previewData.counts.newPromoters > 0) && (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    — legt{' '}
+                    {[
+                      previewData.counts.newVenues > 0 &&
+                        `${previewData.counts.newVenues} ${previewData.counts.newVenues === 1 ? 'Club/Festival' : 'Clubs/Festivals'}`,
+                      previewData.counts.newPromoters > 0 &&
+                        `${previewData.counts.newPromoters} Veranstalter`
+                    ]
+                      .filter(Boolean)
+                      .join(' und ')}{' '}
+                    neu an
+                  </span>
+                )}
+              </p>
             )}
 
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
@@ -462,22 +556,22 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
               ) : preview.error ? (
                 <p className="p-4 text-sm text-destructive">{preview.error.message}</p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" aria-label="Vorschau">
                   <thead className="sticky top-0 z-10 bg-muted text-left">
                     <tr>
-                      <th className="w-16 px-3 py-2 font-medium">Zeile</th>
+                      <th className="w-14 px-3 py-2 font-medium">Zeile</th>
                       <th className="px-3 py-2 font-medium">Datum</th>
-                      <th className="px-3 py-2 font-medium">Band</th>
-                      <th className="px-3 py-2 font-medium">Club / Festival</th>
+                      {showBand && <th className="px-3 py-2 font-medium">Band</th>}
                       <th className="px-3 py-2 font-medium">Ort</th>
+                      <th className="px-3 py-2 font-medium">Club / Festival</th>
                       <th className="px-3 py-2 font-medium">Veranstalter</th>
-                      <th className="px-3 py-2 font-medium">Tour</th>
+                      {showTour && <th className="px-3 py-2 font-medium">Tour</th>}
                       <th className="px-3 py-2 font-medium">Status</th>
                       <th className="px-3 py-2 font-medium">Import</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(previewData?.rows ?? []).map((row) => (
+                    {previewRows.map((row) => (
                       <tr
                         key={row.rowNumber}
                         className={cn(
@@ -488,10 +582,11 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                         <td className="px-3 py-2 align-top text-muted-foreground">
                           {row.rowNumber}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2 align-top">
-                          {row.date ? germanDate(row.date) : '–'}
+                        <td className="whitespace-nowrap px-3 py-2 align-top tabular-nums">
+                          {row.date ? showDate(row.date) : '–'}
                         </td>
-                        <td className="px-3 py-2 align-top">{row.bandName || '–'}</td>
+                        {showBand && <td className="px-3 py-2 align-top">{row.bandName || '–'}</td>}
+                        <td className="px-3 py-2 align-top">{row.city || '–'}</td>
                         <td className="px-3 py-2 align-top">
                           {row.venueName || '–'}
                           {row.newVenue && (
@@ -500,7 +595,6 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-top">{row.city || '–'}</td>
                         <td className="px-3 py-2 align-top">
                           {row.promoterName || '–'}
                           {row.newPromoter && (
@@ -509,7 +603,7 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 align-top">{row.tour || '–'}</td>
+                        {showTour && <td className="px-3 py-2 align-top">{row.tour || '–'}</td>}
                         <td className="px-3 py-2 align-top">
                           {row.action === 'skipped' ? '–' : STATUS_LABELS[row.status]}
                         </td>

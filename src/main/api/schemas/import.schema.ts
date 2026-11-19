@@ -224,7 +224,9 @@ export type ImportTable = z.infer<typeof ImportTable>
 export const ImportFile = z.object({
   fileName: z.string(),
   // null: no header row with data rows below it
-  table: ImportTable.nullable()
+  table: ImportTable.nullable(),
+  // Every sheet of an Excel file in tab order (the first is `table`); [] for CSV
+  sheets: z.array(z.object({ name: z.string(), table: ImportTable.nullable() })).default([])
 })
 export type ImportFile = z.infer<typeof ImportFile>
 
