@@ -192,7 +192,10 @@ export function RecordDetail<TTab extends string>({
               <Pencil className="h-3.5 w-3.5" />
               Bearbeiten
             </Button>
-            {(record.type === 'company' || record.type === 'person' || record.type === 'venue') && (
+            {(record.type === 'company' ||
+              record.type === 'person' ||
+              record.type === 'venue' ||
+              record.type === 'band') && (
               <MergeRecordButton kind={record.type} id={record.id} name={record.name} />
             )}
             <DeleteRecordButton

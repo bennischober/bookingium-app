@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // #249: merging two records that turned out to be the same company, person or club/festival
 
-export const MergeKind = z.enum(['company', 'person', 'venue'])
+export const MergeKind = z.enum(['company', 'person', 'venue', 'band'])
 export type MergeKind = z.infer<typeof MergeKind>
 
 export const MergePairInput = z.object({

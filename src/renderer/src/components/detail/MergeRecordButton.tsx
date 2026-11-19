@@ -19,7 +19,8 @@ import type { MergeKind } from '../../../../main/api/schemas/merge.schema'
 const NOUNS: Record<MergeKind, { one: string; other: string }> = {
   company: { one: 'Firma', other: 'eine andere Firma' },
   person: { one: 'Person', other: 'eine andere Person' },
-  venue: { one: 'Club/Festival', other: 'einen anderen Club oder ein anderes Festival' }
+  venue: { one: 'Club/Festival', other: 'einen anderen Club oder ein anderes Festival' },
+  band: { one: 'Band', other: 'eine andere Band' }
 }
 
 /**
@@ -55,6 +56,7 @@ function useOptions(kind: MergeKind, id: number) {
   })
   const persons = trpcReact.person.getListItems.useQuery(undefined, { enabled: kind === 'person' })
   const venues = trpcReact.venue.getListItems.useQuery(undefined, { enabled: kind === 'venue' })
+  const bands = trpcReact.band.getListItems.useQuery(undefined, { enabled: kind === 'band' })
   return useMemo(() => {
     const items =
       kind === 'company'
@@ -64,9 +66,11 @@ function useOptions(kind: MergeKind, id: number) {
               value: p.id,
               label: `${p.firstName} ${p.lastName}`.trim()
             }))
-          : (venues.data ?? []).map((v) => ({ value: v.id, label: v.name }))
+          : kind === 'band'
+            ? (bands.data ?? []).map((b) => ({ value: b.id, label: b.name }))
+            : (venues.data ?? []).map((v) => ({ value: v.id, label: v.name }))
     return items.filter((item) => item.value !== id)
-  }, [kind, id, companies.data, persons.data, venues.data])
+  }, [kind, id, companies.data, persons.data, venues.data, bands.data])
 }
 
 function MergeDialog({
@@ -101,6 +105,7 @@ function MergeDialog({
         void navigate({ to: '/companies/$companyId', params: { companyId: params } })
       else if (kind === 'person')
         void navigate({ to: '/persons/$personId', params: { personId: params } })
+      else if (kind === 'band') void navigate({ to: '/band/$bandId', params: { bandId: params } })
       else void navigate({ to: '/venues/$venueId', params: { venueId: params } })
     },
     onError: (error) => toast.error('Zusammenführen fehlgeschlagen', { description: error.message })

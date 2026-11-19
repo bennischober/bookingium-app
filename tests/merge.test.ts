@@ -126,3 +126,42 @@ describe('merging persons', () => {
     )
   })
 })
+
+describe('merging bands', () => {
+  it('moves the members and keeps one entry per person', async () => {
+    const owner = await company('Merge Bands GmbH')
+    const bands = container.resolve(BandService)
+    const keep = await bands.createBand({
+      name: 'Doppelband',
+      companyId: owner.id,
+      genre: '',
+      notes: ''
+    })
+    const drop = await bands.createBand({
+      name: 'Doppelband',
+      companyId: owner.id,
+      genre: '',
+      notes: '',
+      founded: '2015-01-01'
+    })
+    const member = await person('Bea', 'Beispiel')
+    const relations = container.resolve(RelationService)
+    await relations.addBandMember({ bandId: keep.id, personId: member.id, role: 'Bass', notes: '' })
+    await relations.addBandMember({ bandId: drop.id, personId: member.id, role: 'Bass', notes: '' })
+
+    expect(merge().candidates('band', keep.id)).toEqual([
+      { id: drop.id, name: 'Doppelband', reason: 'gleicher Name' }
+    ])
+    merge().merge({ kind: 'band', keepId: keep.id, dropId: drop.id, take: [] })
+    expect(db().select().from(schema.band).where(eq(schema.band.id, keep.id)).get()?.founded).toBe(
+      '2015-01-01'
+    )
+    expect(
+      db()
+        .select()
+        .from(schema.band_member)
+        .where(eq(schema.band_member.person_id, member.id))
+        .all()
+    ).toHaveLength(1)
+  })
+})

@@ -59,6 +59,15 @@ const KINDS: Record<
     },
     name: (row) => `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim()
   },
+  band: {
+    table: 'band',
+    fields: {
+      name: 'Name',
+      founded: 'Gegründet',
+      customer_number: 'Kundennummer'
+    },
+    name: (row) => String(row.name ?? '')
+  },
   venue: {
     table: 'venue',
     fields: {
