@@ -15,6 +15,21 @@ import {
 } from './mapDisplay'
 import 'leaflet/dist/leaflet.css'
 
+/** #244: how strongly a ring is drawn: normal, the chosen show's, or behind a chosen one */
+function ringStyle(emphasis: 'normal' | 'focus' | 'dim') {
+  if (emphasis === 'focus') return { weight: 4, opacity: 1, fillOpacity: 0.18 }
+  if (emphasis === 'dim') return { weight: 1.5, opacity: 0.35, fillOpacity: 0.03 }
+  return { weight: 2.5, opacity: 0.95, fillOpacity: 0.1 }
+}
+
+/** Whether a map point carries the given show */
+function pointHasShow(
+  point: { events: MapMarkerDto[] },
+  show: { type: 'event' | 'agency'; id: number } | null | undefined
+): boolean {
+  return Boolean(show && point.events.some((e) => e.type === show.type && e.id === show.id))
+}
+
 /** The Leaflet pane the radius rings are drawn in, below the dots */
 const RING_PANE = 'rings'
 
@@ -29,7 +44,8 @@ export function LeafletMap({
   focusVenueId,
   focusShow,
   showRings,
-  showVenueRings = false
+  showVenueRings = false,
+  mutedTiles = true
 }: {
   markers: MapMarkerDto[]
   /** The what-if booking: a dashed ring and its own dot */
@@ -41,12 +57,15 @@ export function LeafletMap({
   showRings: boolean
   /** "Umkreis um alle Orte": a thin ring of its clause around every club and festival */
   showVenueRings?: boolean
+  /** #244: grey base map, so the coloured rings and dots stand out */
+  mutedTiles?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMapType | null>(null)
   const layerRef = useRef<Layer[] | null>(null)
   // Set once the (async created) map exists, so marker and focus effects re-run
   const [mapReady, setMapReady] = useState(false)
+  const focusedKey = focusShow ? `${focusShow.type}:${focusShow.id}` : null
 
   // The map is created once; markers and rings are re-drawn per change
   useEffect(() => {
@@ -120,8 +139,22 @@ export function LeafletMap({
           }
         }
         if (showRings) {
+          // #244: a chosen show's rings stand out, the others step back
+          const emphasis =
+            focusedKey === null ? 'normal' : pointHasShow(point, focusShow) ? 'focus' : 'dim'
           for (const ring of pointRings(point)) {
+            const style = ringStyle(emphasis)
+            // a white halo under the coloured line keeps it readable on any tile colour
             layers.push(
+              L.circle([point.lat, point.lng], {
+                pane: RING_PANE,
+                interactive: false,
+                radius: ring.metres,
+                color: '#ffffff',
+                weight: style.weight + 3,
+                opacity: style.opacity * 0.8,
+                fill: false
+              }),
               L.circle([point.lat, point.lng], {
                 pane: RING_PANE,
                 interactive: false,
@@ -129,10 +162,10 @@ export function LeafletMap({
                 color: ring.color,
                 // Open offers: a risk, not a block
                 dashArray: ring.dashed ? '8 6' : undefined,
-                weight: 2,
-                opacity: 0.8,
+                weight: style.weight,
+                opacity: style.opacity,
                 fill: true,
-                fillOpacity: 0.08
+                fillOpacity: style.fillOpacity
               })
             )
           }
@@ -216,7 +249,13 @@ export function LeafletMap({
     return () => {
       cancelled = true
     }
-  }, [markers, candidate, showRings, showVenueRings, mapReady])
+  }, [markers, candidate, showRings, showVenueRings, mapReady, focusedKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // #244: the muted base map is a CSS filter on Leaflet's tile pane
+  useEffect(() => {
+    const pane = mapRef.current?.getPane('tilePane')
+    if (pane) pane.style.filter = mutedTiles ? 'grayscale(0.9) brightness(1.04) contrast(0.92)' : ''
+  }, [mutedTiles, mapReady])
 
   // A new what-if booking: fit its ring into view
   const candidateKey = candidate ? `${candidate.venueId}:${candidate.ring.km}` : null

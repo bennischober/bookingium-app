@@ -63,6 +63,8 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
   const [showRings, setShowRings] = useState(true)
   // "Umkreis um alle Orte": every club and festival with the ring of its clause
   const [showVenueRings, setShowVenueRings] = useState(false)
+  // #244: a grey base map lets rings and dots stand out
+  const [mutedTiles, setMutedTiles] = useState(true)
   const [tour, setTour] = useState<string | null>(null)
   const tours = trpcReact.tourImport.tours.useQuery()
   // What if: a venue and a date to check before booking it
@@ -260,6 +262,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             focusShow={focusShow}
             showRings={showRings}
             showVenueRings={showVenueRings}
+            mutedTiles={mutedTiles}
           />
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
               Leaflet leaves free: zoom sits top left, attribution bottom right */}
@@ -356,6 +359,28 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               />
               Umkreis um alle Orte
             </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={mutedTiles}
+                onChange={(event) => setMutedTiles(event.target.checked)}
+              />
+              Karte grau
+            </label>
+            {showRings &&
+              (focusShow ? (
+                <button
+                  type="button"
+                  className="pt-1 text-left text-primary underline-offset-2 hover:underline"
+                  onClick={() => setFocusShow(null)}
+                >
+                  Hervorhebung aufheben
+                </button>
+              ) : (
+                <p className="max-w-44 pt-1 text-muted-foreground">
+                  Eine Zeile in der Liste anklicken hebt den Gebietsschutz dieser Show hervor.
+                </p>
+              ))}
           </div>
           {/* Entries without a location, bottom left (the free corner), at every window width:
               each says why and links to where it is fixed */}
