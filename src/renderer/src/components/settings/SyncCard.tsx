@@ -1,4 +1,4 @@
-import { AlertTriangle, FolderOpen, Monitor, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CloudAlert, FolderOpen, Monitor, RefreshCw } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -188,9 +188,10 @@ export function SyncCard() {
         <CardTitle>Abgleich mit anderen Computern</CardTitle>
         <CardDescription>
           Mehrere Computer arbeiten mit denselben Daten: Jede Änderung, auch an Dokumenten, kommt
-          nach wenigen Sekunden auf den anderen an. Ausgetauscht wird über einen Ordner, auf den
-          alle Zugriff haben, zum Beispiel einen geteilten Ordner in OneDrive oder Google Drive.
-          E-Mail-Konten und E-Mails gleicht jeder Computer selbst mit dem Mailserver ab.
+          nach wenigen Sekunden auf den anderen an – automatisch, solange Bookingium offen ist.
+          Ausgetauscht wird über einen Ordner, auf den alle Zugriff haben, zum Beispiel einen
+          geteilten Ordner in OneDrive oder Google Drive. E-Mail-Konten und E-Mails gleicht jeder
+          Computer selbst mit dem Mailserver ab.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -210,6 +211,35 @@ export function SyncCard() {
             davor wird gesichert.
           </p>
         </div>
+
+        {!enabled &&
+          (data?.suggestions ?? [])
+            .filter((found) => found.kind === 'group')
+            .map((found) => (
+              <div
+                key={found.folder}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:bg-amber-950"
+                aria-label="Gefundener Abgleich"
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <CloudAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                  <div className="min-w-0">
+                    <p className="font-medium">Abgleich in diesem Ordner gefunden</p>
+                    <p className="truncate font-mono text-xs" title={found.folder}>
+                      {found.folder}
+                    </p>
+                    {found.devices.length > 0 && (
+                      <p className="text-muted-foreground">
+                        Dabei: {[...new Set(found.devices)].join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button onClick={() => void confirmJoin(found)} disabled={busy}>
+                  Beitreten
+                </Button>
+              </div>
+            ))}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -261,11 +291,25 @@ export function SyncCard() {
             <p className="font-medium">Computer im Abgleich</p>
             <ul className="space-y-1 text-sm">
               {data.devices.map((device) => (
-                <li key={device.id} className="flex items-center gap-2">
+                <li
+                  key={device.id}
+                  className={
+                    device.superseded
+                      ? 'flex flex-wrap items-center gap-x-2 text-muted-foreground'
+                      : 'flex flex-wrap items-center gap-x-2'
+                  }
+                >
                   <Monitor className="h-4 w-4 text-muted-foreground" />
                   <span>{device.name}</span>
                   {device.self && <span className="text-muted-foreground">(dieser Computer)</span>}
                   <span className="text-xs text-muted-foreground">Version {device.appVersion}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {device.superseded
+                      ? '· früherer Eintrag, wird nicht mehr genutzt'
+                      : device.lastBatchAt
+                        ? `· zuletzt Änderungen abgelegt: ${formatDateTime(device.lastBatchAt)}`
+                        : `· seit ${formatDateTime(device.createdAt)} dabei, noch keine Änderungen abgelegt`}
+                  </span>
                 </li>
               ))}
             </ul>

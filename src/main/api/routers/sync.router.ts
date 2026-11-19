@@ -3,7 +3,12 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { SyncService } from '../../services/SyncService'
-import type { SyncFolderDto, SyncJoinDto, SyncStatusDto } from '../schemas/sync.schema'
+import type {
+  SyncBriefDto,
+  SyncFolderDto,
+  SyncJoinDto,
+  SyncStatusDto
+} from '../schemas/sync.schema'
 
 const t = initTRPC.create()
 const service = container.resolve(SyncService)
@@ -19,6 +24,9 @@ const Folder = z.string().min(1).max(4096)
 /** Einstellungen › Daten › "Abgleich mit anderen Computern" */
 export const syncRouter = t.router({
   status: t.procedure.query((): Promise<SyncStatusDto> => service.status()),
+
+  /** The top bar's indicator */
+  brief: t.procedure.query((): Promise<SyncBriefDto> => service.brief()),
 
   /** Asks for the shared folder and says whether it starts a new sync or joins one */
   chooseFolder: t.procedure.mutation(async (): Promise<SyncFolderDto | null> => {

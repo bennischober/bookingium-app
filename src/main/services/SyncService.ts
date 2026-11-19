@@ -1,5 +1,15 @@
 import { singleton, inject } from 'tsyringe'
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  watch,
+  writeFileSync,
+  type FSWatcher
+} from 'fs'
+import { homedir } from 'os'
 import { dirname, join } from 'path'
 import { getSqlite } from '../db'
 import { latestMigrationMillis, migrateOtherDatabase } from '../db/migrate'
@@ -8,15 +18,27 @@ import { isInsideFolder } from '../backup/files'
 import { SyncEngine, createGroup, type EngineOptions, type RunResult } from '../sync/engine'
 import { prepareJoin } from '../sync/join'
 import { FolderTransport } from '../sync/transport'
+import { cloudRoots, findSyncFolders } from '../sync/findFolders'
 import { configureRowIds } from '../sync/ids'
 import { dropSyncTriggers, getMeta, hasBookkeeping } from '../sync/store'
 import { BackupService, backupLocations } from './BackupService'
-import type { SyncFolderDto, SyncJoinDto, SyncStatusDto } from '../api/schemas/sync.schema'
+import type {
+  SyncBriefDto,
+  SyncFolderDto,
+  SyncJoinDto,
+  SyncStatusDto
+} from '../api/schemas/sync.schema'
 
 /** The first run waits until startup is over */
 const STARTUP_DELAY_MS = 5_000
-/** While the app runs, it syncs this often */
+/** While the app runs, it syncs this often at the latest */
 const RUN_INTERVAL_MS = 20_000
+/** Own changes are looked for this often and go out right away */
+const LOCAL_CHECK_MS = 2_000
+/** Files arriving in the shared folder (or a wake-up) start a run after this pause */
+const NUDGE_DELAY_MS = 1_500
+/** Looking for a sync group in the cloud folders again at most this often */
+const SUGGEST_TTL_MS = 60_000
 /** Quitting waits at most this long for the last changes to go out */
 const STOP_TIMEOUT_MS = 5_000
 
@@ -73,6 +95,9 @@ export class SyncService {
   private engine: SyncEngine | null = null
   private running: Promise<void> | null = null
   private timers: NodeJS.Timeout[] = []
+  private watcher: FSWatcher | null = null
+  private nudgeTimer: NodeJS.Timeout | null = null
+  private suggested: { at: number; folders: Promise<SyncFolderDto[]> } | null = null
   private host: SyncHost = {
     appVersion: '',
     deviceName: 'Computer',
@@ -154,12 +179,21 @@ export class SyncService {
     let devices: SyncStatusDto['devices'] = []
     if (state.enabled && state.folder) {
       try {
-        devices = (await new FolderTransport(state.folder).listDevices()).map((d) => ({
-          id: d.id,
-          name: d.name,
-          self: d.id === state.deviceId,
-          appVersion: d.appVersion
-        }))
+        const transport = new FolderTransport(state.folder)
+        const listed = await transport.listDevices()
+        devices = await Promise.all(
+          listed.map(async (d) => ({
+            id: d.id,
+            name: d.name,
+            self: d.id === state.deviceId,
+            appVersion: d.appVersion,
+            createdAt: d.createdAt,
+            lastBatchAt: await transport.deviceLastBatchAt(d.id),
+            superseded: listed.some(
+              (other) => other.id !== d.id && other.name === d.name && other.createdAt > d.createdAt
+            )
+          }))
+        )
       } catch {
         devices = []
       }
@@ -178,7 +212,53 @@ export class SyncService {
       pendingChanges: pending,
       reidentifiedAt: state.reidentifiedAt,
       devices,
-      conflicts
+      conflicts,
+      suggestions: state.enabled ? [] : await this.suggestions()
+    }
+  }
+
+  /** The top bar's view: no folder reading, so it can be asked every few seconds */
+  async brief(): Promise<SyncBriefDto> {
+    const state = this.readState()
+    const suggestions = state.enabled ? [] : await this.suggestions()
+    return {
+      enabled: state.enabled,
+      active: this.engine !== null,
+      running: this.running !== null,
+      lastSuccessAt: state.lastSuccessAt,
+      lastError: state.lastError,
+      pendingChanges: this.engine ? this.localChangeCount() : 0,
+      suggestedFolder: suggestions.find((folder) => folder.kind === 'group')?.folder ?? ''
+    }
+  }
+
+  /** Sync groups in this computer's OneDrive, Google Drive or Dropbox (cached for a minute) */
+  private suggestions(): Promise<SyncFolderDto[]> {
+    // e2e runs never look into the real OneDrive of the computer they run on
+    if (process.env.BOOKINGIUM_NO_SYNC_DISCOVERY === '1') return Promise.resolve([])
+    if (!this.suggested || Date.now() - this.suggested.at > SUGGEST_TTL_MS) {
+      const folders = findSyncFolders(cloudRoots(process.env, homedir()))
+        .then((found) =>
+          Promise.all(found.map((folder) => this.inspectFolder(folder).catch(() => null)))
+        )
+        .then((inspected) => inspected.filter((folder): folder is SyncFolderDto => folder !== null))
+        .catch(() => [] as SyncFolderDto[])
+      this.suggested = { at: Date.now(), folders }
+    }
+    return this.suggested.folders
+  }
+
+  private localChangeCount(): number {
+    try {
+      return (
+        getSqlite()
+          .prepare(
+            'SELECT (SELECT COUNT(*) FROM sync_change) + (SELECT COUNT(*) FROM sync_outbox) AS n'
+          )
+          .get() as { n: number }
+      ).n
+    } catch {
+      return 0
     }
   }
 
@@ -292,18 +372,70 @@ export class SyncService {
     this.startTimers()
   }
 
+  /**
+   * Runs at startup, every few seconds at the latest, within seconds of an own change, and as
+   * soon as another computer's files arrive in the shared folder
+   */
   private startTimers(): void {
     this.stopTimers()
     const tick = () => {
       void this.run()
     }
-    this.timers.push(setTimeout(tick, STARTUP_DELAY_MS), setInterval(tick, RUN_INTERVAL_MS))
+    const checkLocal = () => {
+      if (!this.running && this.localChangeCount() > 0) void this.run()
+    }
+    this.timers.push(
+      setTimeout(tick, STARTUP_DELAY_MS),
+      setInterval(tick, RUN_INTERVAL_MS),
+      setInterval(checkLocal, LOCAL_CHECK_MS)
+    )
     for (const timer of this.timers) timer.unref()
+    this.watchFolder()
+  }
+
+  /** Another computer's batch or file landing in the shared folder starts a run */
+  private watchFolder(): void {
+    const { folder, deviceId } = this.readState()
+    if (!folder) return
+    const own = deviceId ? join('geraete', deviceId) : null
+    try {
+      this.watcher = watch(folder, { recursive: true }, (_event, file) => {
+        const name = String(file ?? '')
+        // own writes and half-written temporary files say nothing new
+        if (own && name.startsWith(own)) return
+        if (name.includes('.tmp-')) return
+        this.nudge()
+      })
+      // never keeps the process alive on its own (tests, quitting)
+      this.watcher.unref()
+      this.watcher.on('error', () => {
+        this.watcher?.close()
+        this.watcher = null
+      })
+    } catch {
+      // a folder that cannot be watched (some network shares): the timer still runs
+      this.watcher = null
+    }
+  }
+
+  /** A run shortly: files arrived, the computer woke up, the window got the focus */
+  nudge(): void {
+    if (!this.engine) return
+    if (this.nudgeTimer) clearTimeout(this.nudgeTimer)
+    this.nudgeTimer = setTimeout(() => {
+      this.nudgeTimer = null
+      void this.run()
+    }, NUDGE_DELAY_MS)
+    this.nudgeTimer.unref()
   }
 
   private stopTimers(): void {
     for (const timer of this.timers) clearTimeout(timer)
     this.timers = []
+    if (this.nudgeTimer) clearTimeout(this.nudgeTimer)
+    this.nudgeTimer = null
+    this.watcher?.close()
+    this.watcher = null
   }
 
   /** One run now; a second call while one runs joins it. Never throws (lastError) */

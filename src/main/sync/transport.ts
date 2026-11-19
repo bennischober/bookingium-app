@@ -10,7 +10,7 @@
 // reconcile. Files are written under a temporary dotted name and renamed when complete, so a
 // reader never sees half a file.
 import { existsSync } from 'fs'
-import { copyFile, cp, mkdir, readFile, readdir, rename, rm, writeFile } from 'fs/promises'
+import { copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 import { parseBatch, type Batch, type DeviceInfo, type SnapshotInfo } from './format'
@@ -137,6 +137,21 @@ export class FolderTransport implements SyncTransport {
       if (info && info.id === name) devices.push(info)
     }
     return devices
+  }
+
+  /**
+   * When a device last wrote a batch (the newest batch file's time), null when it never did:
+   * a computer that joined but stays silent shows in the settings
+   */
+  async deviceLastBatchAt(device: string): Promise<string | null> {
+    const batches = await this.listBatches(device)
+    const last = batches[batches.length - 1]
+    if (last === undefined) return null
+    try {
+      return (await stat(join(this.deviceDir(device), BATCHES, seqName(last)))).mtime.toISOString()
+    } catch {
+      return null
+    }
   }
 
   async writeDevice(info: DeviceInfo): Promise<void> {

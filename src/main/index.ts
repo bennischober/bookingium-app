@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { app, BrowserWindow, safeStorage, session, shell } from 'electron'
+import { app, BrowserWindow, powerMonitor, safeStorage, session, shell } from 'electron'
 import { join } from 'path'
 import { hostname } from 'os'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
@@ -134,6 +134,10 @@ app.whenReady().then(async () => {
       onNewerVersionElsewhere: () => void checkForUpdates()
     })
     .catch((error) => console.error('Starting sync failed:', error))
+  // Waking up (a laptop opened again) or coming back to the window: sync right away
+  powerMonitor.on('resume', () => container.resolve(SyncService).nudge())
+  powerMonitor.on('unlock-screen', () => container.resolve(SyncService).nudge())
+  app.on('browser-window-focus', () => container.resolve(SyncService).nudge())
 
   createMainWindow()
   // Automatic backups: checked after startup, then hourly; each run copies in the background
