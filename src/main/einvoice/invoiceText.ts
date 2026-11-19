@@ -85,24 +85,26 @@ export function readInvoiceText(text: string): InvoiceTextFacts {
     )
   )
 
+  // Postcode and town first ("50667 Köln"), then the street right before them, looked for in a
+  // short window: no pattern runs over the whole text with nested repetition (CodeQL: ReDoS)
   const addresses: InvoiceTextFacts['addresses'] = []
-  for (const match of flat.matchAll(
-    /([A-ZÄÖÜ][\p{L}ß.-]*(?:[ -][\p{L}ß.-]+)*?)\s+(\d+[a-zA-Z]?(?:\s?-\s?\d+[a-zA-Z]?)?)\s*[,|·•–\n-]\s*(?:D-)?(\d{5})\s+([A-ZÄÖÜ][\p{L}ß-]+(?:[ -][A-ZÄÖÜ][\p{L}ß-]+)*)/gu
-  )) {
-    // "BEISPIEL GmbH - Beispielweg": the street is the part after the last separator, at most
-    // three words ("Straße des 17. Juni" stays whole, a company name before it does not)
-    const street = (match[1].split(/\s[-–·|•]\s|,\s*/).pop() ?? '')
-      .trim()
-      .split(/\s+/)
-      .slice(-3)
-      .join(' ')
+  for (const place of flat.matchAll(/(?:D-)?\b(\d{5})[ \t]+([A-ZÄÖÜ][\p{L}ß-]{1,40})/gu)) {
+    const before = flat.slice(Math.max(0, (place.index ?? 0) - 80), place.index ?? 0)
+    // "Beispielweg 12 · ", "Straße des 17. Juni 3, ": up to four words, a number, a separator
+    const street =
+      /([\p{L}ß.]{2,40}(?:[ ][\p{L}ß.\d]{1,40}){0,3})[ ]+(\d{1,4}[a-zA-Z]?(?:-\d{1,4}[a-zA-Z]?)?)[ ]*[,|·•–\n-][ ]*$/u.exec(
+        before
+      )
+    if (!street) continue
+    // "BEISPIEL GmbH Beispielweg": at most the last three words are the street
+    const name = street[1].trim().split(/\s+/).slice(-3).join(' ')
     // "Rechnung Nr 12, 50667 Köln" is no street
-    if (/^(rechnung|nr|kunden|invoice|seite|datum)/i.test(street)) continue
+    if (/^(rechnung|nr|kunden|invoice|seite|datum)/i.test(name)) continue
     addresses.push({
-      street,
-      streetNumber: match[2].replace(/\s/g, ''),
-      zipCode: match[3],
-      city: match[4]
+      street: name,
+      streetNumber: street[2],
+      zipCode: place[1],
+      city: place[2]
     })
   }
 
