@@ -282,6 +282,72 @@ export function useMessageActions({
     toast.success(`${total.toLocaleString('de-DE')} E-Mails endgültig gelöscht`)
   }
 
+  /** Every mail of a folder, page by page (the core takes ids, not folders) */
+  const folderMails = async (folder: FolderNode): Promise<MessageListItem[]> => {
+    const mails: MessageListItem[] = []
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const page = await mailApi.listMessages(folder.id, { offset, limit: PAGE_SIZE }, accountId)
+      mails.push(...page)
+      if (page.length < PAGE_SIZE) break
+    }
+    return mails
+  }
+
+  // #240: "Alle als gelesen markieren" from the folder's context menu
+  const markFolderRead = async (folder: FolderNode) => {
+    try {
+      const unread = (await folderMails(folder)).filter((m) => !m.isRead).map((m) => m.id)
+      if (unread.length === 0) {
+        toast.info('Alle E-Mails in diesem Ordner sind schon gelesen.')
+        return
+      }
+      for (let i = 0; i < unread.length; i += PAGE_SIZE) {
+        await mailApi.markRead(unread.slice(i, i + PAGE_SIZE), true, accountId)
+      }
+      refreshLists()
+      toast.success(
+        unread.length > 1
+          ? `${unread.length.toLocaleString('de-DE')} E-Mails als gelesen markiert`
+          : 'Als gelesen markiert'
+      )
+    } catch (error) {
+      refreshLists()
+      failed('Als gelesen markieren fehlgeschlagen')(error)
+    }
+  }
+
+  // #240: "Ordner leeren" / "Spam leeren": everything to Trash, where it can still be restored
+  const emptyFolder = async (folder: FolderNode, label: string) => {
+    const total = folder.totalCount ?? 0
+    if (total === 0) {
+      toast.info(`„${label}“ ist leer.`)
+      return
+    }
+    const confirmed = await confirmAction({
+      title: `${total.toLocaleString('de-DE')} E-Mails in den Papierkorb verschieben?`,
+      description: `Alle E-Mails in „${label}“ kommen in den Papierkorb. Dort lassen sie sich wiederherstellen, bis er geleert wird.`,
+      confirmLabel: 'In den Papierkorb',
+      destructive: true
+    })
+    if (!confirmed) return
+    const ids: number[] = []
+    try {
+      ids.push(...(await folderMails(folder)).map((m) => m.id))
+      hideMails(ids)
+      for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+        await mailApi.deleteToTrash(ids.slice(i, i + PAGE_SIZE), accountId)
+      }
+    } catch (error) {
+      unhideMails(ids)
+      refreshLists()
+      failed('Ordner leeren fehlgeschlagen')(error)
+      return
+    }
+    setSelection(EMPTY_SELECTION)
+    refreshLists()
+    toast.success(`${ids.length.toLocaleString('de-DE')} E-Mails in den Papierkorb verschoben`)
+  }
+
   return {
     setHiddenIds,
     listItems,
@@ -289,6 +355,8 @@ export function useMessageActions({
     markFlagged,
     moveAway,
     expunge,
-    emptyTrash
+    emptyTrash,
+    markFolderRead,
+    emptyFolder
   }
 }

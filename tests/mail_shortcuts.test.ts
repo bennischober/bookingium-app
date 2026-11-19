@@ -103,3 +103,14 @@ describe('mail shortcuts (B3)', () => {
     for (const a of actions) expect(SHORTCUT_HINTS[a]).toMatch(/Strg|Entf/)
   })
 })
+
+describe('more Outlook keys (#240)', () => {
+  it('archives with Backspace, flags with Insert, marks spam with Ctrl+Shift+J', () => {
+    expect(action('Backspace')).toBe('archive')
+    expect(action('Insert')).toBe('toggleFlag')
+    expect(action('j', { ctrl: true, shift: true })).toBe('spam')
+    expect(action('Backspace', { ctrl: true })).toBeNull()
+    expect(action('Backspace', {}, { ...ALL, hasSelection: false })).toBeNull()
+    expect(SHORTCUT_HINTS.archive).toBe('Rücktaste')
+  })
+})

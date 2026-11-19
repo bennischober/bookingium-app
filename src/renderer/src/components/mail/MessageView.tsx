@@ -59,7 +59,7 @@ export function MessageView({
   /** Marks the open mail unread again */
   onMarkUnread?: (id: number) => void
   /** Opens the editor with a reply or forward of this mail (writable accounts only) */
-  onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
+  onCompose?: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew') => void
   /** F2: opens a NEW mail to one header address (writable accounts only) */
   onWriteTo?: (address: { name: string; email: string }) => void
   /** #122: opens an event made from this mail; the separate mail window has no app pages */

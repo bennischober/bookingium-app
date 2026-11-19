@@ -5,6 +5,7 @@ import {
   attachmentKey,
   composeTo,
   draftDirtyKey,
+  editAsNewCompose,
   emptyCompose,
   pasteContent,
   forwardCompose,
@@ -254,5 +255,35 @@ describe('draftDirtyKey (MR-38)', () => {
     // Attachments are never mutated; the cache answers for the object, not its current content
     a.base64 = 'changed'
     expect(attachmentKey(a)).toBe(first)
+  })
+})
+
+describe('editAsNewCompose (#240)', () => {
+  it('keeps recipients, subject, text and the attachments, without quote or prefix', () => {
+    const state = editAsNewCompose(
+      message({
+        attachments: [
+          {
+            partId: '2',
+            filename: 'Rider.pdf',
+            contentType: 'application/pdf',
+            sizeBytes: 1,
+            isInline: false,
+            contentId: null
+          }
+        ]
+      })
+    )
+    expect(emails(state.to)).toEqual([ME, 'bob@example.test'])
+    expect(emails(state.cc)).toEqual(['Anna@example.test', 'cleo@example.test'])
+    expect(state.subject).toBe('Angebot')
+    expect(state.bodyText).toBe(
+      'Zeile eins' + String.fromCharCode(10) + '> alt' + String.fromCharCode(10)
+    )
+    expect(state).toMatchObject({ forwardsFrom: 7, forwardedNames: ['Rider.pdf'], inReplyTo: null })
+  })
+
+  it('carries nothing along from a mail without attachments', () => {
+    expect(editAsNewCompose(message()).forwardsFrom).toBeUndefined()
   })
 })

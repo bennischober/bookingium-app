@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from 'react'
 import {
   Archive,
+  FilePen,
   Flag,
   FolderInput,
   Forward,
@@ -8,11 +9,11 @@ import {
   MailOpen,
   Reply,
   ReplyAll,
-  SquareArrowOutUpRight,
-  Trash2,
   ShieldAlert,
+  ShieldBan,
   ShieldCheck,
-  ShieldBan
+  SquareArrowOutUpRight,
+  Trash2
 } from 'lucide-react'
 import {
   ContextMenuItem,
@@ -23,6 +24,7 @@ import {
   ContextMenuSubTrigger
 } from '@/components/ui/context-menu'
 import type { FolderNode, MessageListItem } from '../../../../main/mailclient/core/types'
+import { SHORTCUT_HINTS } from './shortcuts'
 import { folderLabel } from './format'
 
 /**
@@ -31,7 +33,7 @@ import { folderLabel } from './format'
  */
 export type MailActions = {
   openWindow: (id: number) => void
-  compose?: (id: number, kind: 'reply' | 'replyAll' | 'forward') => void
+  compose?: (id: number, kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew') => void
   markRead?: (ids: number[], read: boolean) => void
   markFlagged?: (ids: number[], flagged: boolean) => void
   move?: (ids: number[], folder: FolderNode) => void
@@ -106,6 +108,14 @@ export function MessageMenu({
           >
             <Forward />
             Weiterleiten
+          </ContextMenuItem>,
+          <ContextMenuItem
+            key="editAsNew"
+            className={ITEM}
+            onSelect={() => compose(one.id, 'editAsNew')}
+          >
+            <FilePen />
+            Als neue Nachricht bearbeiten
           </ContextMenuItem>
         ]
       : [],
@@ -124,6 +134,7 @@ export function MessageMenu({
         >
           <Flag />
           {anyUnflagged ? 'Markieren' : 'Markierung entfernen'}
+          <ContextMenuShortcut>{SHORTCUT_HINTS.toggleFlag}</ContextMenuShortcut>
         </ContextMenuItem>
       )
     ].filter(Boolean),
@@ -154,12 +165,14 @@ export function MessageMenu({
         <ContextMenuItem key="archive" className={ITEM} onSelect={() => archive(ids)}>
           <Archive />
           Archivieren
+          <ContextMenuShortcut>{SHORTCUT_HINTS.archive}</ContextMenuShortcut>
         </ContextMenuItem>
       ),
       toSpam && (
         <ContextMenuItem key="spam" className={ITEM} onSelect={() => toSpam(ids)}>
           <ShieldAlert />
           Spam
+          <ContextMenuShortcut>{SHORTCUT_HINTS.spam}</ContextMenuShortcut>
         </ContextMenuItem>
       ),
       notSpam && (

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select'
 import type { useMailSearch } from '@/hooks/useMailSearch'
 import { MailSearchBar } from './MailSearchBar'
-import { MessageList } from './MessageList'
+import { MessageList, type QuickActions } from './MessageList'
 import { type MailActions, MessageMenu } from './MessageMenu'
 import { ThreadList } from './ThreadList'
 import type { Selection } from './selection'
@@ -44,6 +44,7 @@ export function MailListPane({
   openWindow,
   selectedItems,
   selectedActions,
+  quickActions,
   setMovingFolder,
   setDragged,
   syncStatus
@@ -66,6 +67,8 @@ export function MailListPane({
   openWindow: (id: number) => void
   selectedItems: MessageListItem[]
   selectedActions: MailActions
+  /** #240: buttons on the row under the pointer */
+  quickActions?: QuickActions
   setMovingFolder: (folder: FolderNode | null) => void
   setDragged: Dispatch<SetStateAction<MessageListItem[] | null>>
   syncStatus: UseQueryResult<SyncStatus>
@@ -124,6 +127,7 @@ export function MailListPane({
             multiple={canWrite}
             onOpen={openWindow}
             onDelete={selectedActions.toTrash}
+            quickActions={quickActions}
             onDragMessages={
               canWrite
                 ? (mails) => {
