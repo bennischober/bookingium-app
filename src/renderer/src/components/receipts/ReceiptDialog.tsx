@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Building2, FileText } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
+import { openCompanyEnrichment } from '@/components/company/companyEnrichmentEvents'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -86,8 +87,35 @@ export function ReceiptDialog({
   }
   const failed = (error: { message: string }) =>
     toast.error('Beleg konnte nicht gespeichert werden', { description: error.message })
+  /** #236: the invoice may complete its sender's company; asked after the dialog closed */
+  const suggestEnrichment = (from: ReceiptSource): void => {
+    if (from.kind === 'file' && !/.(pdf|xml)$/i.test(from.path)) return
+    const enrichmentSource =
+      from.kind === 'file'
+        ? { kind: 'file' as const, path: from.path }
+        : {
+            kind: 'attachment' as const,
+            accountId: from.accountId,
+            messageId: from.messageId,
+            partId: from.partId
+          }
+    void utils.companyEnrichment.check
+      .fetch({ source: enrichmentSource, senderEmail: '' })
+      .then((enrichment) => {
+        if (!enrichment) return
+        toast(`${enrichment.companyName}: ${enrichment.fills.length} Angaben aus der Rechnung`, {
+          description: enrichment.fills.map((fill) => fill.label).join(', '),
+          duration: 15000,
+          action: { label: 'Ergänzen…', onClick: () => openCompanyEnrichment(enrichment) }
+        })
+      })
+      .catch(() => {})
+  }
   const create = trpcReact.receipt.create.useMutation({
-    onSuccess: (saved) => done(saved, 'Beleg gespeichert'),
+    onSuccess: (saved) => {
+      done(saved, 'Beleg gespeichert')
+      if (source) suggestEnrichment(source)
+    },
     onError: failed
   })
   const update = trpcReact.receipt.update.useMutation({

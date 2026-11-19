@@ -5,6 +5,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/compon
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { NOT_LOADED_NOTE } from './completion'
 import { formatSize } from './format'
+import { CompanyEnrichmentHint } from '@/components/company/CompanyEnrichmentHint'
 
 type Attachments = MessageDetail['attachments']
 
@@ -27,7 +28,8 @@ export function MessageAttachments({
   saveAllAttachments,
   toDocuments,
   toCompany,
-  toReceipt
+  toReceipt,
+  accountId
 }: {
   message: MessageDetail
   /** S1: the whole message is being downloaded; every file action waits for it */
@@ -41,6 +43,8 @@ export function MessageAttachments({
   toCompany?: (partId: string) => Promise<void>
   /** #225: opens "Beleg speichern" for the attachment */
   toReceipt?: (partId: string) => Promise<void>
+  /** #236: the account, to check invoice attachments against the companies */
+  accountId?: string
 }) {
   return (
     <>
@@ -163,6 +167,20 @@ export function MessageAttachments({
             ))}
         </ul>
       )}
+
+      {/* #236: an invoice of a known company with empty fields; only once downloaded */}
+      {accountId &&
+        message.complete &&
+        message.attachments
+          .filter((a) => !a.isInline && mayBeEInvoice(a))
+          .slice(0, 3)
+          .map((a) => (
+            <CompanyEnrichmentHint
+              key={a.partId}
+              source={{ kind: 'attachment', accountId, messageId: message.id, partId: a.partId }}
+              senderEmail={message.fromEmail}
+            />
+          ))}
     </>
   )
 }
