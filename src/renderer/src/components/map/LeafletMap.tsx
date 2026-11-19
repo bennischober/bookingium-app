@@ -33,12 +33,10 @@ function pointHasShow(
 /** The Leaflet pane the radius rings are drawn in, below the dots */
 const RING_PANE = 'rings'
 /**
- * #244: "Alle Kreise hervorheben" draws every ring solid into this pane, and the pane itself is
- * see-through: overlapping circles do not darken each other, so the whole protected area reads
- * as one even surface and the gaps (where another show could go) stand out.
+ * "Alle Kreise hervorheben": every ring filled and half see-through, each on its own, so where
+ * two protected areas overlap the map gets darker and the free gaps stay clear
  */
-const COVERAGE_PANE = 'coverage'
-const COVERAGE_COLOR = '#dc2626'
+const FILLED = { weight: 2.5, opacity: 1, fillOpacity: 0.22 }
 
 /**
  * The Leaflet map itself: OSM tiles, one dot pair per map point (venue, events),
@@ -99,9 +97,6 @@ export function LeafletMap({
       // overlay SVG a ring drawn after a dot painted over it and its fill caught the hover, so a
       // venue inside an event's ring showed no tooltip.
       map.createPane(RING_PANE).style.zIndex = '350'
-      const coverage = map.createPane(COVERAGE_PANE)
-      coverage.style.zIndex = '340'
-      coverage.style.opacity = '0.32'
       mapRef.current = map
       // A hidden container (switch/tab) leaves Leaflet with a wrong size
       map.invalidateSize()
@@ -137,31 +132,27 @@ export function LeafletMap({
         if (showVenueRings) {
           for (const venue of point.venues) {
             if (!venue.radiusKm) continue
+            const color = venue.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue
             layers.push(
               L.circle([point.lat, point.lng], {
                 pane: RING_PANE,
                 interactive: false,
                 radius: venue.radiusKm * 1000,
-                color: venue.kind === 'festival' ? MARKER_COLORS.festival : MARKER_COLORS.venue,
-                dashArray: '2 6',
-                weight: 1,
-                opacity: 0.6,
+                color: '#ffffff',
+                weight: 5,
+                opacity: 0.7,
                 fill: false
-              })
-            )
-          }
-        }
-        if (showRings && highlightAll) {
-          for (const ring of pointRings(point)) {
-            layers.push(
+              }),
               L.circle([point.lat, point.lng], {
-                pane: COVERAGE_PANE,
+                pane: RING_PANE,
                 interactive: false,
-                radius: ring.metres,
-                stroke: false,
-                fill: true,
-                fillColor: COVERAGE_COLOR,
-                fillOpacity: 1
+                radius: venue.radiusKm * 1000,
+                color,
+                dashArray: highlightAll ? undefined : '8 6',
+                weight: highlightAll ? FILLED.weight : 2,
+                opacity: 1,
+                fill: highlightAll,
+                fillOpacity: FILLED.fillOpacity
               })
             )
           }
@@ -171,7 +162,7 @@ export function LeafletMap({
           const emphasis =
             focusedKey === null ? 'normal' : pointHasShow(point, focusShow) ? 'focus' : 'dim'
           for (const ring of pointRings(point)) {
-            const style = ringStyle(emphasis)
+            const style = highlightAll && emphasis === 'normal' ? FILLED : ringStyle(emphasis)
             // a white halo under the coloured line keeps it readable on any tile colour
             layers.push(
               L.circle([point.lat, point.lng], {
