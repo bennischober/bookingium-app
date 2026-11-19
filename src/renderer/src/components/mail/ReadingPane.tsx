@@ -67,7 +67,10 @@ export function ReadingPane({
   markRead: MessageActionsHook['markRead']
   markFlagged: MessageActionsHook['markFlagged']
   moveAway: MessageActionsHook['moveAway']
-  composeFrom: (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
+  composeFrom: (
+    message: MessageDetail,
+    kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew'
+  ) => void
   startCompose: (state: ComposeState) => void
   refreshLists: () => void
 }) {

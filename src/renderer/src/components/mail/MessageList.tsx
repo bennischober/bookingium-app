@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Flag, Paperclip } from 'lucide-react'
+import { Archive, Flag, Mail, MailOpen, Paperclip, Trash2 } from 'lucide-react'
 import { ReplyStateIcons } from './ReplyStateIcons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -42,6 +42,62 @@ function dragImage(count: number): HTMLElement {
  * selects all. The parent owns the selection and decides what selecting does; `how`
  * is 'menu' when a right-click selected the row (it should not mark it read).
  */
+/** #240: what the row buttons do; an absent action has no button */
+export type QuickActions = {
+  archive?: (message: MessageListItem) => void
+  trash?: (message: MessageListItem) => void
+  toggleRead: (message: MessageListItem) => void
+  toggleFlag: (message: MessageListItem) => void
+}
+
+/** #240: the buttons on a row under the pointer, as Outlook and Gmail show them */
+function RowQuickActions({
+  message,
+  actions
+}: {
+  message: MessageListItem
+  actions: QuickActions
+}) {
+  const button = (label: string, onClick: () => void, icon: ReactNode) => (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={label}
+      title={label}
+      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      {icon}
+    </button>
+  )
+  return (
+    <div
+      className="absolute top-1.5 right-2 hidden items-center gap-0.5 rounded-md border bg-background/95 p-0.5 shadow-sm group-hover/row:flex"
+      role="group"
+      aria-label="Schnellaktionen"
+    >
+      {actions.archive &&
+        button('Archivieren', () => actions.archive!(message), <Archive className="size-3.5" />)}
+      {actions.trash &&
+        button('Löschen', () => actions.trash!(message), <Trash2 className="size-3.5" />)}
+      {button(
+        message.isRead ? 'Als ungelesen markieren' : 'Als gelesen markieren',
+        () => actions.toggleRead(message),
+        message.isRead ? <Mail className="size-3.5" /> : <MailOpen className="size-3.5" />
+      )}
+      {button(
+        message.isFlagged ? 'Markierung entfernen' : 'Markieren',
+        () => actions.toggleFlag(message),
+        <Flag className={message.isFlagged ? 'size-3.5 text-orange-500' : 'size-3.5'} />
+      )}
+    </div>
+  )
+}
+
 export function MessageList({
   items,
   selection,
@@ -50,6 +106,7 @@ export function MessageList({
   onOpen,
   onDelete,
   onDragMessages,
+  quickActions,
   menu,
   snippets,
   hasMore,
@@ -68,6 +125,8 @@ export function MessageList({
   onDelete?: (ids: number[]) => void
   /** Rows can be dragged onto folders; called with null when the drag ends */
   onDragMessages?: (items: MessageListItem[] | null) => void
+  /** #240: archive, delete, read and flag buttons that show on a row under the pointer */
+  quickActions?: QuickActions
   /** Right-click menu for the selected mails */
   menu?: ReactNode
   snippets?: Record<number, string>
@@ -193,7 +252,7 @@ export function MessageList({
               onDragMessages?.(null)
             }}
             className={cn(
-              'group/row cursor-pointer border-b px-3 py-2 text-sm',
+              'group/row relative cursor-pointer border-b px-3 py-2 text-sm',
               draggingIds.includes(m.id) && 'opacity-50',
               isSelected
                 ? // An accent bar, and a ring while the list has keyboard focus
@@ -262,6 +321,7 @@ export function MessageList({
             <div className={cn('line-clamp-2 text-xs text-muted-foreground', multiple && 'pl-6')}>
               {snippets?.[m.id] ? <Snippet text={snippets[m.id]} /> : m.snippet}
             </div>
+            {quickActions && !several && <RowQuickActions message={m} actions={quickActions} />}
           </li>
         )
       })}

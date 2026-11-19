@@ -17,7 +17,10 @@ export function useMailShortcuts({
   trashable,
   moveAway,
   startCompose,
-  composeFromList
+  composeFromList,
+  archive,
+  toggleFlag,
+  toSpam
 }: {
   searchRef: RefObject<HTMLInputElement | null>
   folderTreeRef: RefObject<HTMLUListElement | null>
@@ -29,7 +32,11 @@ export function useMailShortcuts({
   trashable: MessageListItem[]
   moveAway: (ids: number[], target: MoveTarget) => Promise<void>
   startCompose: (state: ComposeState) => void
-  composeFromList: (id: number, kind: 'reply' | 'replyAll' | 'forward') => void
+  composeFromList: (id: number, kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew') => void
+  /** #240: absent where the selection cannot be archived / flagged / marked as spam */
+  archive?: (ids: number[]) => void
+  toggleFlag?: (ids: number[]) => void
+  toSpam?: (ids: number[]) => void
 }) {
   // "/" focuses the search, as in most mail clients; B3 adds the action shortcuts.
   // Declared after every handler it calls, so the effect never closes over a value
@@ -85,6 +92,15 @@ export function useMailShortcuts({
           break
         case 'forward':
           if (selectedId !== null) composeFromList(selectedId, 'forward')
+          break
+        case 'archive':
+          archive?.(ids)
+          break
+        case 'toggleFlag':
+          toggleFlag?.(ids)
+          break
+        case 'spam':
+          toSpam?.(ids)
           break
       }
     }

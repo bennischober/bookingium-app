@@ -125,6 +125,26 @@ export function forwardCompose(message: MessageDetail): ComposeState {
   }
 }
 
+/**
+ * #240: "Als neue Nachricht bearbeiten" (Thunderbird's "Als neu bearbeiten", Outlook's "Erneut
+ * senden"): recipients, subject, text and attachments of a mail in a fresh editor
+ */
+export function editAsNewCompose(message: MessageDetail): ComposeState {
+  return {
+    ...emptyCompose(),
+    to: message.to.map((a) => ({ name: a.name, email: a.email })),
+    cc: message.cc.map((a) => ({ name: a.name, email: a.email })),
+    subject: message.subject,
+    bodyText: plainText(message).replace(/\s+$/, '') + '\n',
+    forwardsFrom: message.attachments.some((a) => !a.isInline || !a.contentId)
+      ? message.id
+      : undefined,
+    forwardedNames: message.attachments
+      .filter((a) => !a.isInline || !a.contentId)
+      .map((a) => a.filename || 'Anhang')
+  }
+}
+
 /** Marks the start of a forwarded mail's header block (B8: the signature goes above it) */
 const FORWARD_HEADER = '---------- Weitergeleitete Nachricht ----------'
 

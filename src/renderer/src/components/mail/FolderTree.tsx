@@ -3,10 +3,12 @@ import {
   AlertTriangle,
   Archive,
   ChevronRight,
+  Eraser,
   FileText,
   Folder,
   FolderPlus,
   Inbox,
+  MailOpen,
   Pencil,
   RefreshCw,
   RefreshCwOff,
@@ -24,7 +26,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import type { FolderNode, FolderSyncMode } from '../../../../main/mailclient/core/types'
-import { folderLabel, isInbox, isTrash, FOLDER_DRAG_TYPE } from './format'
+import { folderLabel, isDrafts, isInbox, isTrash, FOLDER_DRAG_TYPE } from './format'
 import { isProtectedFolder } from '../../../../main/mailclient/core/folders'
 
 // Hovering a dragged mail over a closed folder opens it after this delay
@@ -85,6 +87,8 @@ function FolderItem({
   overId,
   onOver,
   onEmptyTrash,
+  onMarkFolderRead,
+  onEmptyFolder,
   onFolderAction,
   onSyncMode,
   syncErrors
@@ -104,6 +108,10 @@ function FolderItem({
   onOver: (id: string, over: boolean) => void
   /** B5: "Papierkorb leeren" - only passed for a writable account */
   onEmptyTrash?: (folder: FolderNode) => void
+  /** #240: "Alle als gelesen markieren" */
+  onMarkFolderRead?: (folder: FolderNode) => void
+  /** #240: "Ordner leeren" / "Spam leeren" (to Trash); never offered on Trash and Drafts */
+  onEmptyFolder?: (folder: FolderNode, label: string) => void
   /** B1: create / rename / delete - only passed for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
   /** #158: the folder's sync setting; a local setting, so also for a read-only account */
@@ -261,6 +269,7 @@ function FolderItem({
     <li>
       {/* B5: emptying Trash is the only folder action so far, so only it gets a menu */}
       {(onEmptyTrash && isTrash(folder)) ||
+      onMarkFolderRead ||
       onFolderAction ||
       (onSyncMode && !isProtected(folder)) ? (
         <ContextMenu>
@@ -293,10 +302,22 @@ function FolderItem({
                 Neuer Ordner…
               </ContextMenuItem>
             )}
+            {onMarkFolderRead && (
+              <ContextMenuItem className="gap-2" onSelect={() => onMarkFolderRead(folder)}>
+                <MailOpen className="size-4 shrink-0 text-muted-foreground" />
+                Alle als gelesen markieren
+              </ContextMenuItem>
+            )}
             {onEmptyTrash && isTrash(folder) && (
               <ContextMenuItem className="gap-2" onSelect={() => onEmptyTrash(folder)}>
                 <Trash2 className="size-4 shrink-0 text-muted-foreground" />
                 Papierkorb leeren
+              </ContextMenuItem>
+            )}
+            {onEmptyFolder && !isTrash(folder) && !isDrafts(folder) && (
+              <ContextMenuItem className="gap-2" onSelect={() => onEmptyFolder(folder, label)}>
+                <Eraser className="size-4 shrink-0 text-muted-foreground" />
+                {folder.specialUse?.includes('Junk') ? 'Spam leeren' : 'Ordner leeren'}
               </ContextMenuItem>
             )}
             {/* #158: INBOX and the special-use folders always sync */}
@@ -338,6 +359,8 @@ function FolderItem({
               overId={overId}
               onOver={onOver}
               onEmptyTrash={onEmptyTrash}
+              onMarkFolderRead={onMarkFolderRead}
+              onEmptyFolder={onEmptyFolder}
               onFolderAction={onFolderAction}
               onSyncMode={onSyncMode}
               syncErrors={syncErrors}
@@ -361,6 +384,8 @@ export function FolderTree({
   folderMove,
   focusRef,
   onEmptyTrash,
+  onMarkFolderRead,
+  onEmptyFolder,
   onFolderAction,
   onSyncMode,
   syncErrors,
@@ -376,6 +401,10 @@ export function FolderTree({
   focusRef?: React.RefObject<HTMLUListElement | null>
   /** B5: emptying the Trash, offered only for a writable account */
   onEmptyTrash?: (folder: FolderNode) => void
+  /** #240: "Alle als gelesen markieren" */
+  onMarkFolderRead?: (folder: FolderNode) => void
+  /** #240: "Ordner leeren" / "Spam leeren" (to Trash) */
+  onEmptyFolder?: (folder: FolderNode, label: string) => void
   /** B1: create / rename / delete, offered only for a writable account */
   onFolderAction?: (action: FolderAction, folder: FolderNode | null) => void
   /** #158: "Immer synchronisieren" / "Nur beim Öffnen synchronisieren" */
@@ -442,6 +471,8 @@ export function FolderTree({
           overId={overId}
           onOver={markOver}
           onEmptyTrash={onEmptyTrash}
+          onMarkFolderRead={onMarkFolderRead}
+          onEmptyFolder={onEmptyFolder}
           onFolderAction={onFolderAction}
           onSyncMode={onSyncMode}
           syncErrors={syncErrors}

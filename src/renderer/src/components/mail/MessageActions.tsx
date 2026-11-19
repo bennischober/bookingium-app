@@ -18,7 +18,10 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 
-type Compose = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => void
+type Compose = (
+  message: MessageDetail,
+  kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew'
+) => void
 
 /**
  * The reader's action buttons. Reply, flag, archive and delete change the mailbox and need

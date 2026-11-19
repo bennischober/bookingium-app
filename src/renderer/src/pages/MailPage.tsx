@@ -14,6 +14,7 @@ import {
   type ComposeState,
   emptyCompose,
   forwardCompose,
+  editAsNewCompose,
   fromSavedDraft,
   replyCompose,
   withSignature
@@ -40,6 +41,7 @@ import { useInboxUnread } from '@/hooks/useMailUnreadCount'
 import { PAGE_SIZE } from '@/components/mail/paging'
 import { isDrafts, isInbox, isTrash, messageKey } from '@/components/mail/format'
 import type { MessageDetail, MessageListItem } from '../../../main/mailclient/core/types'
+import type { QuickActions } from '@/components/mail/MessageList'
 
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
@@ -140,17 +142,26 @@ function MailClient() {
   const search = useMailSearch({ accountId, ready })
   const { searchRef, searching, results, clearSearch } = search
 
-  const { setHiddenIds, listItems, markRead, markFlagged, moveAway, expunge, emptyTrash } =
-    useMessageActions({
-      accountId,
-      searching,
-      results,
-      messages,
-      allFolders,
-      setSelection,
-      refreshLists,
-      failed
-    })
+  const {
+    setHiddenIds,
+    listItems,
+    markRead,
+    markFlagged,
+    moveAway,
+    expunge,
+    emptyTrash,
+    markFolderRead,
+    emptyFolder
+  } = useMessageActions({
+    accountId,
+    searching,
+    results,
+    messages,
+    allFolders,
+    setSelection,
+    refreshLists,
+    failed
+  })
 
   const { movingFolder, setMovingFolder, moveFolderTo, folderAction, setSyncMode } =
     useFolderActions({
@@ -227,14 +238,14 @@ function MailClient() {
   const folderOf = (item: MessageListItem) => allFolders.find((f) => f.id === item.folderId)
 
   // Reply and forward from the menu need the whole mail
-  const composeFromList = (id: number, kind: 'reply' | 'replyAll' | 'forward') => {
+  const composeFromList = (id: number, kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew') => {
     queryClient
       .fetchQuery({
         queryKey: messageKey(accountId, id),
         queryFn: () => mailApi.getMessage(id, accountId)
       })
       .then((message) =>
-        kind === 'forward'
+        kind === 'forward' || kind === 'editAsNew'
           ? // S1: a forward carries the files, so a mail stored without them is downloaded first
             withWholeMessage(
               message,
@@ -331,12 +342,33 @@ function MailClient() {
       }
     : { openWindow }
 
-  const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') => {
+  /** #240: the buttons on a row under the pointer act on that row, selected or not */
+  const quickActions: QuickActions | undefined = canWrite
+    ? {
+        archive: hasArchive
+          ? (m) =>
+              archiveableIds([m], allFolders).length > 0
+                ? void moveAway([m.id], { kind: 'archive' })
+                : toast.info('Diese E-Mail ist schon im Archiv.')
+          : undefined,
+        trash: (m) =>
+          isTrash(folderOf(m)) ? void expunge([m.id]) : void moveAway([m.id], { kind: 'delete' }),
+        toggleRead: (m) => markRead([m.id], !m.isRead),
+        toggleFlag: (m) => markFlagged([m.id], !m.isFlagged)
+      }
+    : undefined
+
+  const composeFrom = (
+    message: MessageDetail,
+    kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew'
+  ) => {
     openedId.current = null
     startCompose(
       kind === 'forward'
         ? forwardCompose(message)
-        : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' })
+        : kind === 'editAsNew'
+          ? editAsNewCompose(message)
+          : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' })
     )
   }
 
@@ -433,7 +465,16 @@ function MailClient() {
     trashable,
     moveAway,
     startCompose,
-    composeFromList
+    composeFromList,
+    archive: selectedActions.archive,
+    toggleFlag: canWrite
+      ? (ids) =>
+          markFlagged(
+            ids,
+            selectedItems.some((m) => !m.isFlagged)
+          )
+      : undefined,
+    toSpam: selectedActions.toSpam
   })
 
   if (accounts.isLoading) {
@@ -475,6 +516,8 @@ function MailClient() {
       selectedId={searching ? null : folderId}
       onSelect={chooseFolder}
       onEmptyTrash={canWrite ? (folder) => void emptyTrash(folder) : undefined}
+      onMarkFolderRead={canWrite ? (folder) => void markFolderRead(folder) : undefined}
+      onEmptyFolder={canWrite ? (folder, label) => void emptyFolder(folder, label) : undefined}
       onFolderAction={canWrite ? (action, folder) => void folderAction(action, folder) : undefined}
       onSyncMode={(folder, mode) => void setSyncMode(folder, mode)}
       syncErrors={folderSyncErrors}
@@ -573,6 +616,7 @@ function MailClient() {
           openWindow={openWindow}
           selectedItems={selectedItems}
           selectedActions={selectedActions}
+          quickActions={quickActions}
           setMovingFolder={setMovingFolder}
           setDragged={setDragged}
           syncStatus={syncStatus}

@@ -6,6 +6,8 @@
 //   Del     to Trash         Ctrl+Shift+V  move (folder picker)
 //   Ctrl+N  new mail         Ctrl+R  reply
 //   Ctrl+Shift+R  reply all  Ctrl+L  forward
+//   Backspace  archive       Insert  flag on/off
+//   Ctrl+Shift+J  spam (#240)
 
 export type MailShortcut =
   | 'markUnread'
@@ -16,6 +18,9 @@ export type MailShortcut =
   | 'reply'
   | 'replyAll'
   | 'forward'
+  | 'archive'
+  | 'toggleFlag'
+  | 'spam'
 
 type KeyLike = {
   key: string
@@ -39,12 +44,16 @@ export function shortcutFor(
 
   if (mod && event.shiftKey && key === 'v') return options.hasSelection ? 'move' : null
   if (mod && event.shiftKey && key === 'r') return options.hasReader ? 'replyAll' : null
+  if (mod && event.shiftKey && key === 'j') return options.hasSelection ? 'spam' : null
   if (mod && key === 'u') return options.hasSelection ? 'markUnread' : null
   if (mod && key === 'q') return options.hasSelection ? 'markRead' : null
   if (mod && key === 'n') return 'compose'
   if (mod && key === 'r') return options.hasReader ? 'reply' : null
   if (mod && key === 'l') return options.hasReader ? 'forward' : null
   if (event.key === 'Delete' && !mod) return options.hasSelection ? 'toTrash' : null
+  if (event.key === 'Backspace' && !mod && !event.shiftKey)
+    return options.hasSelection ? 'archive' : null
+  if (event.key === 'Insert' && !mod) return options.hasSelection ? 'toggleFlag' : null
   return null
 }
 
@@ -105,5 +114,8 @@ export const SHORTCUT_HINTS: Record<MailShortcut, string> = {
   compose: 'Strg+N',
   reply: 'Strg+R',
   replyAll: 'Strg+Umschalt+R',
-  forward: 'Strg+L'
+  forward: 'Strg+L',
+  archive: 'Rücktaste',
+  toggleFlag: 'Einfg',
+  spam: 'Strg+Umschalt+J'
 }

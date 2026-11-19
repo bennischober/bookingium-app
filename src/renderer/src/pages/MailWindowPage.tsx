@@ -14,7 +14,8 @@ import {
   fromSavedDraft,
   replyCompose,
   withSignature,
-  composeTo
+  composeTo,
+  editAsNewCompose
 } from '@/components/mail/composeDraft'
 import { MessageView } from '@/components/mail/MessageView'
 import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail/format'
@@ -157,16 +158,26 @@ export default function MailWindowPage() {
     )
   }
 
-  const composeFrom = (message: MessageDetail, kind: 'reply' | 'replyAll' | 'forward') =>
+  const composeFrom = (
+    message: MessageDetail,
+    kind: 'reply' | 'replyAll' | 'forward' | 'editAsNew'
+  ) =>
     setCompose({
       key: Date.now(),
       // B8: a reply and a forward carry the signature too, above the quote
-      state: withSignature(
-        kind === 'forward'
-          ? forwardCompose(message)
-          : replyCompose(message, { all: kind === 'replyAll', ownEmail: account?.email ?? '' }),
-        account?.signature
-      )
+      // #240: a mail edited as new has its signature in the text already
+      state:
+        kind === 'editAsNew'
+          ? editAsNewCompose(message)
+          : withSignature(
+              kind === 'forward'
+                ? forwardCompose(message)
+                : replyCompose(message, {
+                    all: kind === 'replyAll',
+                    ownEmail: account?.email ?? ''
+                  }),
+              account?.signature
+            )
     })
 
   if (!composeRequest && (!accountId || !Number.isSafeInteger(messageId))) {
