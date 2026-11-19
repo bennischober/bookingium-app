@@ -234,6 +234,8 @@ export class SyncService {
 
   /** Sync groups in this computer's OneDrive, Google Drive or Dropbox (cached for a minute) */
   private suggestions(): Promise<SyncFolderDto[]> {
+    // e2e runs never look into the real OneDrive of the computer they run on
+    if (process.env.BOOKINGIUM_NO_SYNC_DISCOVERY === '1') return Promise.resolve([])
     if (!this.suggested || Date.now() - this.suggested.at > SUGGEST_TTL_MS) {
       const folders = findSyncFolders(cloudRoots(process.env, homedir()))
         .then((found) =>
