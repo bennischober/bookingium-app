@@ -9,6 +9,51 @@ import { company, address, contact, bank, band, invoice } from '../db/schema'
 import { CreateCompanyInput, UpdateCompanyInput } from '../api/schemas/company.schema'
 import { PaginationInput } from '../api/schemas/base.schema'
 import { assertCustomerNumberFree } from './customerNumbers'
+import type { Tx } from './tx'
+import type { CompanyBankInput } from '../api/schemas/company.schema'
+
+/**
+ * #247: writes the account typed in the company form. The company's own bank row is changed
+ * in place; a row other companies point at too (picked on the Banken page) is left alone and
+ * the company gets a row of its own. All fields empty unlinks the account.
+ */
+export function saveCompanyBank(
+  tx: Tx,
+  companyId: number | null,
+  currentBankId: number | null,
+  input: CompanyBankInput
+): number | null {
+  const values = {
+    account_holder: input.accountHolder.trim(),
+    iban: input.iban.replace(/\s+/g, '').toUpperCase(),
+    bic: input.bic.replace(/\s+/g, '').toUpperCase(),
+    bank_name: input.bankName.trim()
+  }
+  if (!values.account_holder && !values.iban && !values.bic && !values.bank_name) return null
+  if (currentBankId !== null) {
+    const current = tx.select().from(bank).where(eq(bank.id, currentBankId)).get()
+    // unchanged (also for a shared row): keep the link, write nothing
+    if (
+      current &&
+      current.account_holder === values.account_holder &&
+      current.iban.replace(/\s+/g, '').toUpperCase() === values.iban &&
+      current.bic.replace(/\s+/g, '').toUpperCase() === values.bic &&
+      current.bank_name === values.bank_name
+    )
+      return currentBankId
+    const shared = tx
+      .select({ id: company.id })
+      .from(company)
+      .where(eq(company.bank_id, currentBankId))
+      .all()
+      .some((row) => row.id !== companyId)
+    if (!shared) {
+      tx.update(bank).set(values).where(eq(bank.id, currentBankId)).run()
+      return currentBankId
+    }
+  }
+  return tx.insert(bank).values(values).returning({ id: bank.id }).get().id
+}
 
 @injectable()
 export class CompanyRepository {
@@ -207,7 +252,7 @@ export class CompanyRepository {
           invoice_contact_person_id: input.invoiceContactPersonId ?? null,
           address_id: addressId,
           contact_id: contactId,
-          bank_id: input.bankId || null
+          bank_id: input.bank ? saveCompanyBank(tx, null, null, input.bank) : input.bankId || null
         })
         .returning()
         .all()
@@ -353,7 +398,9 @@ export class CompanyRepository {
               : existingCompany.invoice_contact_person_id,
           address_id: addressId,
           contact_id: contactId,
-          bank_id: input.bankId ?? existingCompany.bank_id,
+          bank_id: input.bank
+            ? saveCompanyBank(tx, input.id, existingCompany.bank_id, input.bank)
+            : (input.bankId ?? existingCompany.bank_id),
           updated_at: sql`datetime('now')`
         })
         .where(eq(company.id, input.id))
