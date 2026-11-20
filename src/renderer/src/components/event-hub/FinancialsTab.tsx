@@ -17,6 +17,7 @@ import { formatShortDate } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import { ReadOnlyField } from './ReadOnlyField'
+import { ExternalDoneToggle } from './ExternalDoneToggle'
 import {
   depositsChanged,
   depositSummary,
@@ -296,6 +297,10 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
             <FileSignature className="h-4 w-4" />
             Vertrag (Gage)
           </h3>
+          <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2">
+            <ExternalDoneToggle eventId={event.id} step="contract" />
+            <ExternalDoneToggle eventId={event.id} step="deposit" />
+          </div>
           {isEditing ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
               <div className="space-y-2">
@@ -511,6 +516,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
             Rechnungsstellung
           </h3>
+          <ExternalDoneToggle eventId={event.id} step="invoice" className="mb-4" />
 
           {isEditing ? (
             <div className="space-y-2 max-w-md">

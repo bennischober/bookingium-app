@@ -407,6 +407,13 @@
       "when": 1795103844180,
       "tag": "0057_marketing_action",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1795114615502,
+      "tag": "0058_event_step_done",
+      "breakpoints": true
     }
   ]
 }

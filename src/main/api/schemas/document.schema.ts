@@ -14,6 +14,7 @@ export const DocumentType = z.enum([
   'press',
   'photo',
   'invoice',
+  'deposit', // receipt or invoice of a prepayment (Vorkasse)
   'settlement', // show settlement, provided by the Veranstalter
   'other'
 ])
@@ -27,6 +28,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   press: 'Presse',
   photo: 'Foto',
   invoice: 'Rechnung',
+  deposit: 'Vorkasse',
   settlement: 'Abrechnung',
   other: 'Sonstiges'
 }

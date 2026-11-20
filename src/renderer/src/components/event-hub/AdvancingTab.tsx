@@ -22,6 +22,7 @@ import {
   AdvancingStatus,
   type ShowAdvancingDto
 } from '../../../../main/api/schemas/advancing.schema'
+import { ExternalDoneToggle } from './ExternalDoneToggle'
 
 type Draft = {
   status: AdvancingStatus
@@ -104,6 +105,7 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
     <div className="grid max-w-4xl gap-6 md:grid-cols-2">
       <section className="space-y-4 rounded-lg border p-4" aria-label="Stand">
         <h3 className="font-semibold">Stand</h3>
+        <ExternalDoneToggle eventId={eventId} step="advancing" />
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="advancing-status">Status</Label>

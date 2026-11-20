@@ -15,6 +15,7 @@ import { VenueKind } from '../api/schemas/venue.schema'
 import { ExternalBookingKind, ExternalBookingStatus } from '../api/schemas/external_booking.schema'
 import { DealMemoStatus } from '../api/schemas/deal_memo.schema'
 import { AdvancingStatus } from '../api/schemas/advancing.schema'
+import { EventStep } from '../api/schemas/event_step.schema'
 import {
   MarketingActionKind,
   MarketingActionStatus,
@@ -1561,6 +1562,26 @@ export const ticket_report = sqliteTable(
   (table) => [uniqueIndex('ticket_report_event_day_idx').on(table.deal_memo_id, table.report_date)]
 )
 
+// A step of a show that was done outside the program ("extern erledigt"): one row per event
+// and step; no row = not ticked. A ticked step is no open point (OpenItemsService).
+export const event_step_done = sqliteTable(
+  'event_step_done',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    deal_memo_id: integer('deal_memo_id')
+      .notNull()
+      .references(() => deal_memo.id, { onDelete: 'cascade' }),
+    step: text('step').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('event_step_done_event_step_idx').on(table.deal_memo_id, table.step),
+    oneOf('event_step_done_step_check', 'step', EventStep.options)
+  ]
+)
+
 // The band's net income lines for a quarter (e.g. Konzerte, Merchandise)
 export const management_share_income = sqliteTable(
   'management_share_income',
@@ -1749,6 +1770,7 @@ export const schema = {
   event_advancing,
   event_ticket_quota,
   ticket_report,
+  event_step_done,
   marketing_atlas,
   marketing_item,
   marketing_action,

@@ -66,6 +66,8 @@ export const MERGE_ORDER: readonly string[] = [
   'event_advancing',
   'event_ticket_quota',
   'ticket_report',
+  // steps of a show done outside the program ("extern erledigt")
+  'event_step_done',
   // Marketing-Atlas of a band; items name a company or venue
   'marketing_atlas',
   'marketing_item',
@@ -166,6 +168,8 @@ export function keyOf(table: string, row: Row): string | null {
       return key(row.deal_memo_id, row.position)
     case 'itinerary':
       return key(row.deal_memo_id)
+    case 'event_step_done':
+      return key(row.deal_memo_id, row.step)
     case 'company_invoice_settings':
       return key(row.company_id)
     case 'invoice':

@@ -11,6 +11,7 @@ import type { AddressDto } from '../../../../main/api/schemas/address.schema'
 import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import type { QueryError } from '@/lib/queryErrors'
 import { countLabel, nextSort, sortRows, type TableSort } from './tableSort'
+import { isPastEvent, PAST_EVENT_ROW_CLASS } from '@/components/event-list/pastEvent'
 
 export function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -118,7 +119,8 @@ export function RowTable<T extends { id: number }>({
   empty,
   columns,
   onRowClick,
-  itemLabel
+  itemLabel,
+  rowClassName
 }: {
   label: string
   query: ListQuery<T>
@@ -128,6 +130,8 @@ export function RowTable<T extends { id: number }>({
   onRowClick: (row: T) => void
   /** "12 Events" / "1 Event"; omitted = no count line */
   itemLabel?: { singular: string; plural: string }
+  /** Extra classes for a row, e.g. a lighter look for shows that are over */
+  rowClassName?: (row: T) => string | undefined
 }) {
   const [sort, setSort] = useState<TableSort | null>(null)
   const rows = query.data
@@ -194,7 +198,11 @@ export function RowTable<T extends { id: number }>({
             {sorted.map((row) => (
               <tr
                 key={row.id}
-                className={cn('cursor-pointer border-t hover:bg-muted/50', CLICKABLE_ROW_FOCUS)}
+                className={cn(
+                  'cursor-pointer border-t hover:bg-muted/50',
+                  CLICKABLE_ROW_FOCUS,
+                  rowClassName?.(row)
+                )}
                 {...clickableRowProps(() => onRowClick(row))}
               >
                 {columns.map((column) => (
@@ -237,6 +245,7 @@ export function EventsTable<T extends DealMemoListItemDto>({
       loading="Events werden geladen…"
       empty={empty}
       itemLabel={itemLabel}
+      rowClassName={(event) => (isPastEvent(event.date) ? PAST_EVENT_ROW_CLASS : undefined)}
       columns={[
         {
           header: 'Datum',

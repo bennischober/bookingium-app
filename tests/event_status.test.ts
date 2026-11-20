@@ -1,6 +1,7 @@
 // The status line on top of an event's overview
 import { describe, expect, it } from 'vitest'
 import { eventStatusItems } from '../src/renderer/src/components/event-hub/eventStatus'
+import { stepFileCount } from '../src/renderer/src/components/event-hub/externalSteps'
 
 const labels = {
   money: (value: number) => `${value} €`,
@@ -67,5 +68,55 @@ describe('event status line', () => {
       'open',
       'keine Meldung'
     ])
+  })
+
+  it('says "extern erledigt" for steps ticked as done outside the program', () => {
+    const tiles = eventStatusItems({
+      ...base,
+      contractSentAt: '2026-10-01',
+      invoices: [{ status: 'issued', issueDate: '2026-10-20' }],
+      advancing: { status: 'contacted', sold: null, quota: 400, utilization: null },
+      externalDone: new Set(['contract', 'invoice', 'advancing', 'tickets'] as const)
+    })
+    expect(tiles.slice(1).map((tile) => [tile.label, tile.value, tile.tone])).toEqual([
+      ['Vertrag', 'extern erledigt', 'ok'],
+      ['Rechnung', 'extern erledigt', 'ok'],
+      ['Advancing', 'extern erledigt', 'ok'],
+      ['Tickets', 'extern erledigt', 'ok']
+    ])
+  })
+
+  it('keeps what the program knows over a tick', () => {
+    const tiles = eventStatusItems({
+      ...base,
+      contractReturnedAt: '2026-10-08',
+      invoices: [{ status: 'paid', issueDate: '2026-10-20' }],
+      advancing: { status: 'done', sold: 120, quota: null, utilization: null },
+      externalDone: new Set(['contract', 'invoice', 'advancing', 'tickets'] as const)
+    })
+    expect(tiles.slice(1).map((tile) => tile.value)).toEqual([
+      'unterschrieben 2026-10-08',
+      'paid',
+      'done',
+      '120 verkauft'
+    ])
+  })
+})
+
+describe('files of a step done outside the program', () => {
+  it('counts the event files of the step by their type', () => {
+    const documents = [
+      { documentType: 'contract' },
+      { documentType: 'invoice' },
+      { documentType: 'contract' },
+      { documentType: 'deposit' },
+      { documentType: 'rider' }
+    ]
+    expect(stepFileCount('contract', documents)).toBe(2)
+    expect(stepFileCount('invoice', documents)).toBe(1)
+    expect(stepFileCount('deposit', documents)).toBe(1)
+    // no file type for these steps
+    expect(stepFileCount('hotel', documents)).toBe(0)
+    expect(stepFileCount('contract', [])).toBe(0)
   })
 })

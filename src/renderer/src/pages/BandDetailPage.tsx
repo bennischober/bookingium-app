@@ -23,6 +23,7 @@ import { sumCounts } from '@/hooks/useTabCounts'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { MarketingTab } from '@/components/band/marketing/MarketingTab'
 import { EventsTable } from '@/components/detail/DetailParts'
+import { eventPlace } from '@/components/event-list/pastEvent'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
 
 /**
@@ -144,7 +145,7 @@ function EventsTab({ bandId }: { bandId: number }) {
       label="Events der Band"
       query={events}
       empty="Noch keine Events für diese Band."
-      columns={[{ header: 'Club / Festival', cell: (event) => event.venueName ?? '–' }]}
+      columns={[{ header: 'Club / Festival, Ort', cell: (event) => eventPlace(event) }]}
     />
   )
 }

@@ -54,6 +54,7 @@ export class DealMemoRepository {
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
       .where(whereClause)
       .orderBy(
         ...listOrder(
@@ -63,6 +64,7 @@ export class DealMemoRepository {
             date: [schema.deal_memo.date],
             bandName: [schema.band.name],
             venueName: [schema.venue.name],
+            venueCity: [schema.address.city, schema.venue.name],
             status: [schema.deal_memo.status],
             tour: [schema.deal_memo.tour, schema.deal_memo.date]
           },
@@ -76,7 +78,8 @@ export class DealMemoRepository {
     const items = rows.map((row) => ({
       ...row.deal_memo,
       band: row.band,
-      venue: row.venue
+      venue: row.venue,
+      venueCity: row.address?.city ?? null
     }))
 
     return {
@@ -95,9 +98,15 @@ export class DealMemoRepository {
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
       .where(where ? and(notArchived(), where) : notArchived())
       .orderBy(desc(schema.deal_memo.date), desc(schema.deal_memo.id))
-    return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
+    return rows.map((row) => ({
+      ...row.deal_memo,
+      band: row.band,
+      venue: row.venue,
+      venueCity: row.address?.city ?? null
+    }))
   }
 
   /** A band's events, newest first */
@@ -348,9 +357,15 @@ export class DealMemoRepository {
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
       .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
       .where(onlyArchived())
       .orderBy(desc(schema.deal_memo.archived_at), desc(schema.deal_memo.id))
-    return rows.map((row) => ({ ...row.deal_memo, band: row.band, venue: row.venue }))
+    return rows.map((row) => ({
+      ...row.deal_memo,
+      band: row.band,
+      venue: row.venue,
+      venueCity: row.address?.city ?? null
+    }))
   }
 
   /** D3: whether an invoice still points at this event, which blocks a hard delete */

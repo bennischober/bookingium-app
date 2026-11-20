@@ -6,15 +6,17 @@ import { StatusLine, type StatusItem } from '@/components/detail/CompactParts'
 import { ADVANCING_STATUS_LABELS } from '../../../../main/api/schemas/advancing.schema'
 import type { DealMemoDetailDto } from '../../../../main/api/schemas/deal_memo.schema'
 import { eventStatusItems } from './eventStatus'
+import { useEventSteps } from '@/hooks/useEventSteps'
 
 /**
  * The show's state at a glance on top of the overview: fee, contract, invoice, advancing and
- * tickets. Each tile opens the area where it is changed.
+ * tickets (a step ticked "extern erledigt" says so). Each tile opens the area where it is changed.
  */
 export function EventStatusLine({ event }: { event: DealMemoDetailDto }) {
   const navigate = useNavigate()
   const invoices = trpcReact.invoice.getByDealMemoId.useQuery(event.id)
   const advancing = trpcReact.advancing.get.useQuery({ eventId: event.id })
+  const steps = useEventSteps(event.id)
   const open = (tab: string) => navigate({ to: '.', search: { tab } as never, replace: true })
 
   const items: StatusItem[] = eventStatusItems({
@@ -23,6 +25,7 @@ export function EventStatusLine({ event }: { event: DealMemoDetailDto }) {
     contractReturnedAt: event.contractReturnedAt,
     invoices: invoices.data,
     advancing: advancing.data,
+    externalDone: new Set(steps.done.keys()),
     labels: {
       money: (value) => formatMoney(value, 'EUR'),
       date: formatShortDate,

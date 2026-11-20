@@ -21,6 +21,8 @@ type DealMemoWithRelations = DealMemoEntity & {
   loProPerson?: PersonEntity | null
   loProCompany?: CompanyEntity | null
   deposits?: DepositEntity[]
+  /** The venue's city, when the query joined its address */
+  venueCity?: string | null
 }
 
 export class DealMemoMapper {
@@ -35,6 +37,7 @@ export class DealMemoMapper {
       bandName: entity.band?.name ?? 'Unknown',
       venueId: entity.venue_id,
       venueName: entity.venue?.name ?? null,
+      venueCity: entity.venueCity || null,
       tour: entity.tour
     }
   }
