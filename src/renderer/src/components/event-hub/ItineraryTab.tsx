@@ -14,6 +14,7 @@ import type { DealMemoDetailDto } from 'src/main/api/schemas/deal_memo.schema'
 import type { ItineraryDto } from 'src/main/api/schemas/itinerary.schema'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
+import { ExternalDoneToggle } from './ExternalDoneToggle'
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
             <Hotel className="h-4 w-4" />
             Unterkunft
           </h3>
+          <ExternalDoneToggle eventId={event.id} step="hotel" className="mb-4" />
           <div className="space-y-4">
             <div>
               <SwappableEntityCard

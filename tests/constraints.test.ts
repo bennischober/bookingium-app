@@ -82,6 +82,10 @@ describe('enum columns', () => {
     [
       "insert into external_booking (band_id, date, status, agency, source_key, imported_at) values (1, '2026-11-01', 'option', 'A', 'k2', '2026-11-01 10:00:00')",
       'external_booking_status_check'
+    ],
+    [
+      "insert into event_step_done (deal_memo_id, step) values (1, 'marketing')",
+      'event_step_done_step_check'
     ]
   ])('%s', (sql, constraint) => {
     expect(run(sql)).toThrow(CHECK)

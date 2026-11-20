@@ -41,6 +41,7 @@ import { mailTemplateRouter } from './routers/mail_template.router'
 import { mapRouter } from './routers/map.router'
 import { settlementRouter } from './routers/settlement.router'
 import { advancingRouter } from './routers/advancing.router'
+import { eventStepRouter } from './routers/event_step.router'
 import { companyEnrichmentRouter } from './routers/company_enrichment.router'
 import { einvoicePartyRouter } from './routers/einvoice_party.router'
 import { receiptRouter } from './routers/receipt.router'
@@ -97,6 +98,7 @@ export const router = t.router({
   map: mapRouter,
   settlement: settlementRouter,
   advancing: advancingRouter,
+  eventStep: eventStepRouter,
   companyEnrichment: companyEnrichmentRouter,
   einvoiceParty: einvoicePartyRouter,
   receipt: receiptRouter,

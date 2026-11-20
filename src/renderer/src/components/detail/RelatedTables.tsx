@@ -3,6 +3,7 @@ import { EventsTable, RowTable, type Column, type ListQuery } from '@/components
 import type { DealMemoListItemDto } from '../../../../main/api/schemas/deal_memo.schema'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../../main/api/schemas/venue.schema'
 import { formatCapacity } from '../../../../main/api/schemas/capacity'
+import { eventPlace } from '@/components/event-list/pastEvent'
 
 /**
  * #172: tables of the records linked to a detail page's record, shared by the
@@ -118,7 +119,7 @@ export function RelatedEventsTable<T extends DealMemoListItemDto>({
           cell: (event) => (
             <>
               <div>{event.bandName}</div>
-              <div className="text-xs text-muted-foreground">{event.venueName ?? '–'}</div>
+              <div className="text-xs text-muted-foreground">{eventPlace(event)}</div>
             </>
           )
         },

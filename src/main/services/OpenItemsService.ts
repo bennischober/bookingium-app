@@ -46,6 +46,8 @@ export const TICKET_REPORT_DAYS = 14
  * - hotel: a confirmed show within the next `openItemsHotelDays` days has no hotel
  *
  * Follow-ups (Wiedervorlagen) are open points too; the renderer takes them from followUp.listOpen.
+ * A step ticked as done outside the program (event_step_done, "extern erledigt") is no open
+ * point: all points of that kind of the event are gone.
  */
 @injectable()
 export class OpenItemsService {
@@ -213,10 +215,22 @@ export class OpenItemsService {
       )
     ]
 
-    // Oldest first: what has waited longest comes first; then by kind, then event
-    return items.sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) || ORDER[a.kind] - ORDER[b.kind] || a.eventId - b.eventId
+    // Steps done outside the program are no open points
+    const ticked = new Set(
+      db
+        .select({ eventId: schema.event_step_done.deal_memo_id, step: schema.event_step_done.step })
+        .from(schema.event_step_done)
+        .where(eventId === undefined ? undefined : eq(schema.event_step_done.deal_memo_id, eventId))
+        .all()
+        .map((row) => `${row.eventId}:${row.step}`)
     )
+
+    // Oldest first: what has waited longest comes first; then by kind, then event
+    return items
+      .filter((open) => !ticked.has(`${open.eventId}:${open.kind}`))
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) || ORDER[a.kind] - ORDER[b.kind] || a.eventId - b.eventId
+      )
   }
 }

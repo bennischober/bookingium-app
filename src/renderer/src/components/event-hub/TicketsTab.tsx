@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { quotaOf, soldOf } from '../../../../main/advancing/advancing'
 import type { ShowAdvancingDto } from '../../../../main/api/schemas/advancing.schema'
+import { ExternalDoneToggle } from './ExternalDoneToggle'
 
 const today = (): string => new Date().toISOString().slice(0, 10)
 const count = (value: number): string => value.toLocaleString('de-DE')
@@ -138,6 +139,7 @@ export function TicketsTab({ eventId }: { eventId: number }) {
 
       <section className="space-y-3 rounded-lg border p-4" aria-label="Verkaufsmeldungen">
         <h3 className="font-semibold">Verkaufsmeldungen</h3>
+        <ExternalDoneToggle eventId={eventId} step="tickets" />
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(event) => {

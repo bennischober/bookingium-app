@@ -76,6 +76,8 @@ interface DataTableProps<TData> {
   searchPlaceholder?: string
   actionButton?: React.ReactNode
   onRowClick?: (row: TData) => void
+  /** Extra classes for a row, e.g. a lighter look for shows that are over */
+  rowClassName?: (row: TData) => string | undefined
   /**
    * #200: rows can be picked (a checkbox column first). The page keeps the picked ids; while
    * rows are picked the toolbar shows how many, `actions` for them and "Auswahl aufheben"
@@ -138,6 +140,7 @@ export function DataTable<TData>({
   searchPlaceholder = 'Suchen…',
   actionButton,
   onRowClick,
+  rowClassName,
   selection
 }: DataTableProps<TData>) {
   const loadedIds = useMemo(
@@ -337,7 +340,8 @@ export function DataTable<TData>({
                   key={row.id}
                   className={cn(
                     'group border-t hover:bg-muted/50',
-                    onRowClick && ['cursor-pointer', CLICKABLE_ROW_FOCUS]
+                    onRowClick && ['cursor-pointer', CLICKABLE_ROW_FOCUS],
+                    rowClassName?.(row.original)
                   )}
                   {...(onRowClick && clickableRowProps(() => onRowClick(row.original)))}
                 >

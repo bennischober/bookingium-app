@@ -19,6 +19,8 @@ export const DealMemoListItemDto = z.object({
   bandName: z.string(),
   venueId: z.number().nullable(),
   venueName: z.string().nullable(),
+  // The venue's city (Ort); null when unknown or not loaded (detail view)
+  venueCity: z.string().nullable().default(null),
   // The tour it belongs to, '' for none
   tour: z.string()
 })

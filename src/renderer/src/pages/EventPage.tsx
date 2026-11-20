@@ -36,6 +36,7 @@ import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { EventSelectionActions } from '@/components/event-list/EventSelectionActions'
 import { keepShownRows } from '@/lib/rowSelection'
+import { isPastEvent, PAST_EVENT_ROW_CLASS } from '@/components/event-list/pastEvent'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -174,6 +175,12 @@ export function EventPage() {
       accessorKey: 'venueName',
       header: 'Club / Festival',
       cell: (info) => (info.getValue() as string | null) ?? '-'
+    },
+    {
+      // The venue's city, so a list of shows reads like a route
+      accessorKey: 'venueCity',
+      header: 'Ort',
+      cell: (info) => (info.getValue() as string | null) || '-'
     },
     {
       accessorKey: 'tour',
@@ -332,6 +339,7 @@ export function EventPage() {
           onRowClick={(event) =>
             navigate({ to: '/events/$eventId', params: { eventId: String(event.id) } })
           }
+          rowClassName={(event) => (isPastEvent(event.date) ? PAST_EVENT_ROW_CLASS : undefined)}
         />
       )}
 
