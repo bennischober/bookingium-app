@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { reportError } from '@/lib/errorReporting'
+import { t } from '../../../main/i18n/translate'
 
 /** Shown in place of a page, or the whole app, that failed to render */
 export function ErrorFallback({
@@ -15,9 +16,9 @@ export function ErrorFallback({
       role="alert"
       className="flex h-full min-h-48 flex-col items-center justify-center gap-3 p-6 text-center"
     >
-      <p className="font-medium">Hier ist ein Fehler aufgetreten.</p>
+      <p className="font-medium">{t('Hier ist ein Fehler aufgetreten.')}</p>
       <p className="max-w-md text-sm text-muted-foreground">
-        Er wurde im Fehlerprotokoll vermerkt (Einstellungen › Daten).
+        {t('Er wurde im Fehlerprotokoll vermerkt (Einstellungen › Daten).')}
       </p>
       <Button variant="outline" onClick={onRetry}>
         {retryLabel}
@@ -43,7 +44,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { faile
 
   render(): ReactNode {
     if (this.state.failed) {
-      return <ErrorFallback onRetry={() => window.location.reload()} retryLabel="Neu laden" />
+      return <ErrorFallback onRetry={() => window.location.reload()} retryLabel={t('Neu laden')} />
     }
     return this.props.children
   }

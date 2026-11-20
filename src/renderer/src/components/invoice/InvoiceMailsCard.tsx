@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { InfoCard } from '@/components/detail/DetailParts'
 import { INVOICE_EMAIL_LABELS } from '@/lib/invoiceLabels'
 import type { InvoiceMailDto } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * C4: the invoice's mails. What bookingum sent (with the time it was sent) and every
@@ -30,10 +31,10 @@ export function InvoiceMailsCard({ invoiceId }: { invoiceId: number }) {
         {mails.data.answered && (
           <Badge variant="secondary" className="gap-1.5">
             <MailCheck className="size-3" aria-hidden />
-            Antwort erhalten
+            {t('Antwort erhalten')}
           </Badge>
         )}
-        <ul className="divide-y rounded-md border" aria-label="E-Mails zur Rechnung">
+        <ul className="divide-y rounded-md border" aria-label={t('E-Mails zur Rechnung')}>
           {mails.data.mails.map((mail, index) => (
             <li key={`${mail.role}-${mail.messageId ?? index}`} className="px-3 py-2 text-sm">
               <div className="flex items-center gap-2">
@@ -44,10 +45,10 @@ export function InvoiceMailsCard({ invoiceId }: { invoiceId: number }) {
                 )}
                 <span className="min-w-0 flex-1 truncate font-medium">
                   {mail.role === 'reply'
-                    ? (mail.subject ?? 'Antwort')
+                    ? (mail.subject ?? t('Antwort'))
                     : mail.kind
                       ? INVOICE_EMAIL_LABELS[mail.kind]
-                      : 'Gesendet'}
+                      : t('Gesendet')}
                 </span>
                 {mail.storeId !== null && mail.accountId && (
                   <button
@@ -55,7 +56,7 @@ export function InvoiceMailsCard({ invoiceId }: { invoiceId: number }) {
                     className="shrink-0 text-xs text-primary hover:underline"
                     onClick={() => open(mail)}
                   >
-                    Öffnen
+                    {t('Öffnen')}
                   </button>
                 )}
               </div>
@@ -65,7 +66,7 @@ export function InvoiceMailsCard({ invoiceId }: { invoiceId: number }) {
                       .filter(Boolean)
                       .join(' · ')
                   : [
-                      mail.fromEmail && `An ${mail.fromEmail}`,
+                      mail.fromEmail && t('An {{fromEmail}}', { fromEmail: mail.fromEmail }),
                       mail.sentAt && formatShortDate(mail.sentAt)
                     ]
                       .filter(Boolean)

@@ -15,6 +15,7 @@ import type { ItineraryDto } from 'src/main/api/schemas/itinerary.schema'
 import { SwappableEntityCard } from './SwappableEntityCard'
 import { ReadOnlyField } from './ReadOnlyField'
 import { ExternalDoneToggle } from './ExternalDoneToggle'
+import { t } from '../../../../main/i18n/translate'
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
 
@@ -159,18 +160,18 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
       utils.dealMemo.getById.invalidate(event.id)
       // #201: a hotel resolves the event's open point
       utils.dashboard.openItems.invalidate()
-      toast.success('Gespeichert')
+      toast.success(t('Gespeichert'))
     },
-    onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Speichern fehlgeschlagen'), { description: e.message })
   })
 
   const itineraryMutation = trpcReact.itinerary.upsert.useMutation({
     onSuccess: () => {
       utils.itinerary.getByDealMemoId.invalidate(event.id)
-      toast.success('Tagesablauf gespeichert')
+      toast.success(t('Tagesablauf gespeichert'))
     },
     onError: (e) =>
-      toast.error('Tagesablauf konnte nicht gespeichert werden', { description: e.message })
+      toast.error(t('Tagesablauf konnte nicht gespeichert werden'), { description: e.message })
   })
 
   const handleSwapHotel = (hotelId: number | null) => {
@@ -218,14 +219,14 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <Hotel className="h-4 w-4" />
-            Unterkunft
+            {t('Unterkunft')}
           </h3>
           <ExternalDoneToggle eventId={event.id} step="hotel" className="mb-4" />
           <div className="space-y-4">
             <div>
               <SwappableEntityCard
                 icon={<Hotel className="h-3.5 w-3.5" />}
-                title="Hotel"
+                title={t('Hotel')}
                 currentName={event.hotel?.name ?? null}
                 currentId={event.hotelId}
                 items={hotelItems}
@@ -233,7 +234,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                 onSwap={handleSwapHotel}
                 isSaving={dealMemoMutation.isPending}
                 nullable={true}
-                empty="Kein Hotel zugewiesen"
+                empty={t('Kein Hotel zugewiesen')}
               />
             </div>
 
@@ -242,7 +243,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                 <div className="space-y-2">
                   <Label htmlFor="amountOfPeople" className="flex items-center gap-1.5">
                     <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                    Anzahl der Personen
+                    {t('Anzahl der Personen')}
                   </Label>
                   <Input
                     id="amountOfPeople"
@@ -253,15 +254,15 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                     onChange={(e) => setAmountOfPeople(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Gesamte Personen, die eine Unterkunft benötigen
+                    {t('Gesamte Personen, die eine Unterkunft benötigen')}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="roomInfo">Zimmeraufteilung</Label>
+                  <Label htmlFor="roomInfo">{t('Zimmeraufteilung')}</Label>
                   <Textarea
                     id="roomInfo"
                     rows={3}
-                    placeholder="z. B. 1× Einzelzimmer, 2× Doppelzimmer, 1× Dreibettzimmer…"
+                    placeholder={t('z. B. 1× Einzelzimmer, 2× Doppelzimmer, 1× Dreibettzimmer…')}
                     value={roomInformation}
                     onChange={(e) => setRoomInformation(e.target.value)}
                   />
@@ -270,14 +271,14 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
             ) : (
               <div className="space-y-4">
                 <ReadOnlyField
-                  label="Anzahl der Personen"
+                  label={t('Anzahl der Personen')}
                   value={amountOfPeople || null}
-                  placeholder="Nicht angegeben"
+                  placeholder={t('Nicht angegeben')}
                 />
                 <ReadOnlyField
-                  label="Zimmeraufteilung"
+                  label={t('Zimmeraufteilung')}
                   value={roomInformation || null}
-                  placeholder="Nicht angegeben"
+                  placeholder={t('Nicht angegeben')}
                 />
               </div>
             )}
@@ -288,16 +289,16 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <Music2 className="h-4 w-4" />
-            Auftrittsdaten
+            {t('Auftrittsdaten')}
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Vereinbarte Deal-Konditionen — der bestätigte Tagesablauf wird unten verwaltet.
+            {t('Vereinbarte Deal-Konditionen — der bestätigte Tagesablauf wird unten verwaltet.')}
           </p>
           {isEditing ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="perfTime">Show-Zeit</Label>
+                  <Label htmlFor="perfTime">{t('Show-Zeit')}</Label>
                   <Input
                     id="perfTime"
                     type="time"
@@ -306,21 +307,21 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="perfDuration">Dauer</Label>
+                  <Label htmlFor="perfDuration">{t('Dauer')}</Label>
                   <Input
                     id="perfDuration"
-                    placeholder="z. B. 90 min"
+                    placeholder={t('z. B. 90 min')}
                     value={performanceDuration}
                     onChange={(e) => setPerformanceDuration(e.target.value)}
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="perfInfo">Anmerkungen zum Auftritt</Label>
+                <Label htmlFor="perfInfo">{t('Anmerkungen zum Auftritt')}</Label>
                 <Textarea
                   id="perfInfo"
                   rows={3}
-                  placeholder="z. B. Pyrotechnik, besondere Anforderungen…"
+                  placeholder={t('z. B. Pyrotechnik, besondere Anforderungen…')}
                   value={performanceInformation}
                   onChange={(e) => setPerformanceInformation(e.target.value)}
                 />
@@ -330,20 +331,20 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <ReadOnlyField
-                  label="Show-Zeit"
+                  label={t('Show-Zeit')}
                   value={performanceTime || null}
-                  placeholder="Nicht festgelegt"
+                  placeholder={t('Nicht festgelegt')}
                 />
                 <ReadOnlyField
-                  label="Dauer"
+                  label={t('Dauer')}
                   value={performanceDuration || null}
-                  placeholder="Nicht festgelegt"
+                  placeholder={t('Nicht festgelegt')}
                 />
               </div>
               <ReadOnlyField
-                label="Anmerkungen zum Auftritt"
+                label={t('Anmerkungen zum Auftritt')}
                 value={performanceInformation || null}
-                placeholder="Keine Anmerkungen"
+                placeholder={t('Keine Anmerkungen')}
               />
             </div>
           )}
@@ -356,16 +357,17 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
           <ListOrdered className="h-4 w-4" />
-          Tagesablauf
+          {t('Tagesablauf')}
         </h3>
 
         {itineraryLoading ? (
-          <p className="text-sm text-muted-foreground">Lädt…</p>
+          <p className="text-sm text-muted-foreground">{t('Lädt…')}</p>
         ) : !itinerary ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted-foreground">
-              Noch kein Tagesablauf vorhanden. Legen Sie einen an, um Aufbauzeiten, Soundchecks und
-              Show-Zeiten zu erfassen.
+              {t(
+                'Noch kein Tagesablauf vorhanden. Legen Sie einen an, um Aufbauzeiten, Soundchecks und Show-Zeiten zu erfassen.'
+              )}
             </p>
             {isEditing && (
               <Button
@@ -375,7 +377,7 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                 disabled={itineraryMutation.isPending}
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Tagesablauf anlegen
+                {t('Tagesablauf anlegen')}
               </Button>
             )}
           </div>
@@ -383,38 +385,48 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Ablauf</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('Ablauf')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <TimeRow label="Aufbau (Get-in)" value={schedule.getIn} onChange={set('getIn')} />
-                <TimeRow label="Laden (Load-in)" value={schedule.loadIn} onChange={set('loadIn')} />
+                <TimeRow
+                  label={t('Aufbau (Get-in)')}
+                  value={schedule.getIn}
+                  onChange={set('getIn')}
+                />
+                <TimeRow
+                  label={t('Laden (Load-in)')}
+                  value={schedule.loadIn}
+                  onChange={set('loadIn')}
+                />
                 <Separator className="my-1" />
                 <TimeRow
-                  label="Soundcheck (Main Act)"
+                  label={t('Soundcheck (Main Act)')}
                   value={schedule.soundCheckMainAct}
                   onChange={set('soundCheckMainAct')}
                 />
                 <TimeRow
-                  label="Soundcheck (Support)"
+                  label={t('Soundcheck (Support)')}
                   value={schedule.soundCheckSupport}
                   onChange={set('soundCheckSupport')}
                 />
                 <Separator className="my-1" />
-                <TimeRow label="Abendessen" value={schedule.dinner} onChange={set('dinner')} />
-                <TimeRow label="Einlass" value={schedule.doors} onChange={set('doors')} />
+                <TimeRow label={t('Abendessen')} value={schedule.dinner} onChange={set('dinner')} />
+                <TimeRow label={t('Einlass')} value={schedule.doors} onChange={set('doors')} />
                 <Separator className="my-1" />
                 <TimeRow
-                  label="Vorgruppe"
+                  label={t('Vorgruppe')}
                   value={schedule.showTimeSupport}
                   onChange={set('showTimeSupport')}
                 />
                 <TimeRow
-                  label="Hauptact"
+                  label={t('Hauptact')}
                   value={schedule.showTimeMainAct}
                   onChange={set('showTimeMainAct')}
                 />
                 <div className="grid grid-cols-[200px_1fr] items-center gap-3">
-                  <Label className="text-right text-muted-foreground text-sm">Showlänge</Label>
+                  <Label className="text-right text-muted-foreground text-sm">
+                    {t('Showlänge')}
+                  </Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -429,12 +441,12 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                 </div>
                 <Separator className="my-1" />
                 <TimeRow
-                  label="Sperrzeit (Bühne)"
+                  label={t('Sperrzeit (Bühne)')}
                   value={schedule.curfewStage}
                   onChange={set('curfewStage')}
                 />
                 <TimeRow
-                  label="Sperrzeit (Club / Festival)"
+                  label={t('Sperrzeit (Club / Festival)')}
                   value={schedule.curfewVenue}
                   onChange={set('curfewVenue')}
                 />
@@ -442,12 +454,12 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
             </Card>
 
             <div className="space-y-2">
-              <Label>Tagesablauf-Anmerkungen</Label>
+              <Label>{t('Tagesablauf-Anmerkungen')}</Label>
               <Textarea
                 rows={12}
                 value={schedule.notes}
                 onChange={(e) => set('notes')(e.target.value)}
-                placeholder="Weitere Infos für diesen Tag…"
+                placeholder={t('Weitere Infos für diesen Tag…')}
               />
             </div>
           </div>
@@ -455,22 +467,28 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
           /* Read-only schedule view */
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Ablauf</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('Ablauf')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <ReadOnlyTimeRow label="Aufbau (Get-in)" value={schedule.getIn} />
-              <ReadOnlyTimeRow label="Laden (Load-in)" value={schedule.loadIn} />
+              <ReadOnlyTimeRow label={t('Aufbau (Get-in)')} value={schedule.getIn} />
+              <ReadOnlyTimeRow label={t('Laden (Load-in)')} value={schedule.loadIn} />
               <Separator className="my-1" />
-              <ReadOnlyTimeRow label="Soundcheck (Main Act)" value={schedule.soundCheckMainAct} />
-              <ReadOnlyTimeRow label="Soundcheck (Support)" value={schedule.soundCheckSupport} />
+              <ReadOnlyTimeRow
+                label={t('Soundcheck (Main Act)')}
+                value={schedule.soundCheckMainAct}
+              />
+              <ReadOnlyTimeRow
+                label={t('Soundcheck (Support)')}
+                value={schedule.soundCheckSupport}
+              />
               <Separator className="my-1" />
-              <ReadOnlyTimeRow label="Abendessen" value={schedule.dinner} />
-              <ReadOnlyTimeRow label="Einlass" value={schedule.doors} />
+              <ReadOnlyTimeRow label={t('Abendessen')} value={schedule.dinner} />
+              <ReadOnlyTimeRow label={t('Einlass')} value={schedule.doors} />
               <Separator className="my-1" />
-              <ReadOnlyTimeRow label="Vorgruppe" value={schedule.showTimeSupport} />
-              <ReadOnlyTimeRow label="Hauptact" value={schedule.showTimeMainAct} />
+              <ReadOnlyTimeRow label={t('Vorgruppe')} value={schedule.showTimeSupport} />
+              <ReadOnlyTimeRow label={t('Hauptact')} value={schedule.showTimeMainAct} />
               <div className="grid grid-cols-[200px_1fr] items-center gap-3">
-                <span className="text-right text-sm text-muted-foreground">Showlänge</span>
+                <span className="text-right text-sm text-muted-foreground">{t('Showlänge')}</span>
                 <span className="text-sm font-mono">
                   {schedule.showLength ? (
                     `${schedule.showLength} min`
@@ -480,14 +498,17 @@ export function ItineraryTab({ event, isEditing, saveSignal, cancelSignal }: Iti
                 </span>
               </div>
               <Separator className="my-1" />
-              <ReadOnlyTimeRow label="Sperrzeit (Bühne)" value={schedule.curfewStage} />
-              <ReadOnlyTimeRow label="Sperrzeit (Club / Festival)" value={schedule.curfewVenue} />
+              <ReadOnlyTimeRow label={t('Sperrzeit (Bühne)')} value={schedule.curfewStage} />
+              <ReadOnlyTimeRow
+                label={t('Sperrzeit (Club / Festival)')}
+                value={schedule.curfewVenue}
+              />
               {schedule.notes && (
                 <>
                   <Separator className="my-1" />
                   <div className="pt-1">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                      Anmerkungen
+                      {t('Anmerkungen')}
                     </p>
                     <p className="text-sm">{schedule.notes}</p>
                   </div>

@@ -1,6 +1,7 @@
 // The pure half of the shared document table, so the order is testable without a DOM
 // (vitest runs in a node environment here).
 import type { DocumentDto } from '../../../../main/api/schemas/document.schema'
+import { uiLocale } from '../../../../main/i18n/translate'
 
 /** The columns the table can be sorted by; `source` and the actions are not sortable */
 export type DocumentSortKey = 'name' | 'type' | 'size' | 'uploadedAt'
@@ -83,5 +84,5 @@ export function formatFileSize(bytes: number): string {
 
   // Whole bytes have no fraction; everything else keeps at most one decimal
   const maximumFractionDigits = unitIndex === 0 ? 0 : 1
-  return `${size.toLocaleString('de-DE', { maximumFractionDigits })} ${units[unitIndex]}`
+  return `${size.toLocaleString(uiLocale(), { maximumFractionDigits })} ${units[unitIndex]}`
 }

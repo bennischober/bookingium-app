@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import type { QueryError } from '@/lib/queryErrors'
 import { selectionLabel, selectionState, toggleAllRows, toggleRow } from '@/lib/rowSelection'
 import { Button } from '@/components/ui/button'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 // The 'actions' column hugs its buttons at the right edge of the table
 // (w-px shrinks it to its content); any spare width goes to the data
@@ -109,7 +110,7 @@ function SelectAllCheckbox({
       ref={ref}
       type="checkbox"
       className="h-4 w-4 accent-primary"
-      aria-label="Alle geladenen auswählen"
+      aria-label={t('Alle geladenen auswählen')}
       checked={state === 'all'}
       onChange={onToggle}
     />
@@ -137,7 +138,7 @@ export function DataTable<TData>({
   filtered = false,
   search = '',
   onSearchChange,
-  searchPlaceholder = 'Suchen…',
+  searchPlaceholder = t('Suchen…'),
   actionButton,
   onRowClick,
   rowClassName,
@@ -164,7 +165,7 @@ export function DataTable<TData>({
           <input
             type="checkbox"
             className="h-4 w-4 accent-primary"
-            aria-label="Auswählen"
+            aria-label={t('Auswählen')}
             checked={selection.selected.has(id)}
             onChange={() => selection.onChange(toggleRow(selection.selected, id))}
           />
@@ -217,7 +218,7 @@ export function DataTable<TData>({
         <div
           className="mb-4 flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-1.5"
           role="toolbar"
-          aria-label="Auswahl"
+          aria-label={t('Auswahl')}
         >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium" role="status">
@@ -226,7 +227,7 @@ export function DataTable<TData>({
             {selection.actions}
           </div>
           <Button variant="ghost" size="sm" onClick={() => selection.onChange(new Set())}>
-            Auswahl aufheben
+            {t('Auswahl aufheben')}
           </Button>
         </div>
       ) : (
@@ -291,7 +292,7 @@ export function DataTable<TData>({
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
                           className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground"
-                          title="Sortieren"
+                          title={t('Sortieren')}
                         >
                           {label}
                           {sorted === 'asc' ? (
@@ -331,7 +332,7 @@ export function DataTable<TData>({
             ) : table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={allColumns.length} className="px-4 py-8 text-center">
-                  <EmptyState>Keine Ergebnisse gefunden.</EmptyState>
+                  <EmptyState>{t('Keine Ergebnisse gefunden.')}</EmptyState>
                 </td>
               </tr>
             ) : (
@@ -374,7 +375,7 @@ export function DataTable<TData>({
                   colSpan={allColumns.length}
                   className="px-4 py-3 text-center text-sm text-muted-foreground"
                 >
-                  {isLoadingMore ? 'Weitere werden geladen…' : ''}
+                  {isLoadingMore ? t('Weitere werden geladen…') : ''}
                 </td>
               </tr>
             )}
@@ -386,15 +387,20 @@ export function DataTable<TData>({
       <div className="mt-2 flex shrink-0 items-center justify-between gap-2 text-sm text-muted-foreground">
         <span role="status">
           {isLoading
-            ? 'Wird geladen…'
+            ? t('Wird geladen…')
             : error && data.length === 0
-              ? 'Nicht geladen'
-              : `${total.toLocaleString('de-DE')} ${total === 1 ? itemLabel.singular : itemLabel.plural}${
-                  filtered ? ' gefunden' : ''
-                }`}
+              ? t('Nicht geladen')
+              : t(filtered ? '{{count}} {{noun}} gefunden' : '{{count}} {{noun}}', {
+                  count: total.toLocaleString(uiLocale()),
+                  noun: total === 1 ? itemLabel.singular : itemLabel.plural
+                })}
         </span>
         {hasMore && (
-          <span>{data.length.toLocaleString('de-DE')} geladen – weitere beim Scrollen</span>
+          <span>
+            {t('{{count}} geladen – weitere beim Scrollen', {
+              count: data.length.toLocaleString(uiLocale())
+            })}
+          </span>
         )}
       </div>
     </div>

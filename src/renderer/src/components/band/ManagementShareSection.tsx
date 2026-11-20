@@ -39,6 +39,7 @@ import {
   type ManagementContractDto
 } from '../../../../main/api/schemas/management_contract.schema'
 import type { InvoiceStatus } from '../../../../main/api/schemas/invoice.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** The last quarter that has ended (the one usually billed next) */
 function lastEndedQuarter(today = new Date()): { year: number; quarter: number } {
@@ -75,27 +76,27 @@ export function ManagementShareSection({
     <div className="space-y-3 rounded-md border p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="font-medium">Managementbeteiligung</div>
+          <div className="font-medium">{t('Managementbeteiligung')}</div>
           <p className="text-sm text-muted-foreground">
-            {contract.commissionPercent.toLocaleString('de-DE')} % der Netto-Einnahmen der Band, je
-            Quartal als Rechnung an die Band.
+            {contract.commissionPercent.toLocaleString(uiLocale())}{' '}
+            {t('% der Netto-Einnahmen der Band, je Quartal als Rechnung an die Band.')}
           </p>
         </div>
         <Button
           variant="outline"
           className="shrink-0"
           disabled={!contract.managementCompanyId}
-          title={contract.managementCompanyId ? undefined : 'Erst ein Management auswählen'}
+          title={contract.managementCompanyId ? undefined : t('Erst ein Management auswählen')}
           onClick={async () => {
             if (await beforeBilling()) setDialogOpen(true)
           }}
         >
-          <Plus className="h-4 w-4" /> Quartal abrechnen
+          <Plus className="h-4 w-4" /> {t('Quartal abrechnen')}
         </Button>
       </div>
 
       {list.length > 0 && (
-        <ul aria-label="Abgerechnete Quartale" className="divide-y rounded-md border">
+        <ul aria-label={t('Abgerechnete Quartale')} className="divide-y rounded-md border">
           {list.map((share) => (
             <li key={share.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
               <span className="w-36 shrink-0 font-medium">
@@ -107,7 +108,8 @@ export function ManagementShareSection({
                   .map((line) => `${line.description}: ${eur(line.netAmount)}`)
                   .join('\n')}
               >
-                {share.commissionPercent.toLocaleString('de-DE')} % von {eur(share.incomeTotal)} ={' '}
+                {share.commissionPercent.toLocaleString(uiLocale())} {t('% von')}{' '}
+                {eur(share.incomeTotal)} ={' '}
                 <span className="text-foreground">{eur(share.netAmount)}</span> netto
               </span>
               <Badge
@@ -123,7 +125,7 @@ export function ManagementShareSection({
               <div className="flex shrink-0">
                 <RowActionButton
                   icon={FileText}
-                  label="Rechnung öffnen"
+                  label={t('Rechnung öffnen')}
                   onClick={() =>
                     void openInvoice({
                       id: share.invoiceId,
@@ -133,7 +135,7 @@ export function ManagementShareSection({
                 />
                 <RowActionButton
                   icon={Printer}
-                  label="Drucken / PDF"
+                  label={t('Drucken / PDF')}
                   onClick={() =>
                     void navigate({
                       to: '/invoices/$invoiceId/print',
@@ -176,28 +178,35 @@ function BillQuarterDialog({
   const [year, setYear] = useState(String(initial.year))
   const [taxRate, setTaxRate] = useState('19')
   const [lines, setLines] = useState<IncomeLine[]>([
-    { key: 1, description: 'Konzerte', amount: '' }
+    { key: 1, description: t('Konzerte'), amount: '' }
   ])
 
   const createMutation = trpcReact.managementContract.createShare.useMutation({
     onSuccess: (share) => {
       void utils.managementContract.listSharesByBand.invalidate(bandId)
       void utils.invoice.getAllPaginated.invalidate()
-      toast.success(`Entwurf für das ${quarterLabel(share.year, share.quarter)} angelegt`, {
-        description: `${eur(share.netAmount)} netto – unter Rechnungen prüfen und stellen.`,
-        action: {
-          label: 'Drucken',
-          onClick: () =>
-            void navigate({
-              to: '/invoices/$invoiceId/print',
-              params: { invoiceId: String(share.invoiceId) }
-            })
+      toast.success(
+        t('Entwurf für das {{quarterLabel}} angelegt', {
+          quarterLabel: quarterLabel(share.year, share.quarter)
+        }),
+        {
+          description: t('{{eur}} netto – unter Rechnungen prüfen und stellen.', {
+            eur: eur(share.netAmount)
+          }),
+          action: {
+            label: t('Drucken'),
+            onClick: () =>
+              void navigate({
+                to: '/invoices/$invoiceId/print',
+                params: { invoiceId: String(share.invoiceId) }
+              })
+          }
         }
-      })
+      )
       onClose()
     },
     onError: (error) =>
-      toast.error('Abrechnung konnte nicht angelegt werden', { description: error.message })
+      toast.error(t('Abrechnung konnte nicht angelegt werden'), { description: error.message })
   })
 
   const setLine = (key: number, patch: Partial<IncomeLine>) =>
@@ -213,11 +222,11 @@ function BillQuarterDialog({
   const submit = () => {
     const yearNumber = Number(year)
     if (!Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
-      toast.error('Bitte ein gültiges Jahr angeben')
+      toast.error(t('Bitte ein gültiges Jahr angeben'))
       return
     }
     if (vatRate === null || vatRate < 0 || vatRate > 100) {
-      toast.error('USt.: 0 bis 100 %')
+      toast.error(t('USt.: 0 bis 100 %'))
       return
     }
     const income: ManagementShareIncomeInput[] = []
@@ -226,17 +235,17 @@ function BillQuarterDialog({
       const amount = amounts[index]
       if (!description && !line.amount.trim()) continue
       if (!description) {
-        toast.error('Bitte bei jeder Einnahme die Art angeben')
+        toast.error(t('Bitte bei jeder Einnahme die Art angeben'))
         return
       }
       if (amount === null || amount < 0) {
-        toast.error(`„${description}“: bitte einen Betrag ≥ 0 eingeben`)
+        toast.error(t('„{{description}}“: bitte einen Betrag ≥ 0 eingeben', { description }))
         return
       }
       income.push({ description, netAmount: amount })
     }
     if (income.length === 0) {
-      toast.error('Bitte mindestens eine Einnahme erfassen')
+      toast.error(t('Bitte mindestens eine Einnahme erfassen'))
       return
     }
     createMutation.mutate({
@@ -252,32 +261,35 @@ function BillQuarterDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Managementbeteiligung abrechnen</DialogTitle>
+          <DialogTitle>{t('Managementbeteiligung abrechnen')}</DialogTitle>
           <DialogDescription>
-            Netto-Einnahmen der Band laut ihrer Abrechnung. Daraus wird ein Rechnungsentwurf an die
-            Band über {contract.commissionPercent.toLocaleString('de-DE')} % angelegt.
+            {t(
+              'Netto-Einnahmen der Band laut ihrer Abrechnung. Daraus wird ein Rechnungsentwurf an die Band über'
+            )}{' '}
+            {contract.commissionPercent.toLocaleString(uiLocale())} {t('% angelegt.')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div className="space-y-2">
-              <Label>Quartal</Label>
+              <Label>{t('Quartal')}</Label>
               <Select value={String(quarter)} onValueChange={(value) => setQuarter(Number(value))}>
-                <SelectTrigger aria-label="Quartal">
+                <SelectTrigger aria-label={t('Quartal')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4].map((q) => (
                     <SelectItem key={q} value={String(q)}>
-                      {q}. Quartal
+                      {q}
+                      {t('. Quartal')}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ms-year">Jahr</Label>
+              <Label htmlFor="ms-year">{t('Jahr')}</Label>
               <Input
                 id="ms-year"
                 inputMode="numeric"
@@ -288,18 +300,18 @@ function BillQuarterDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Einnahmen der Band (netto)</Label>
+            <Label>{t('Einnahmen der Band (netto)')}</Label>
             {lines.map((line, index) => (
               <div key={line.key} className="flex items-center gap-2">
                 <Input
-                  aria-label={`Einnahme ${index + 1}`}
-                  placeholder="z. B. Konzerte, Merchandise, Lizenzen"
+                  aria-label={t('Einnahme {{value}}', { value: index + 1 })}
+                  placeholder={t('z. B. Konzerte, Merchandise, Lizenzen')}
                   value={line.description}
                   onChange={(e) => setLine(line.key, { description: e.target.value })}
                 />
                 <div className="relative w-40 shrink-0">
                   <Input
-                    aria-label={`Betrag ${index + 1}`}
+                    aria-label={t('Betrag {{value}}', { value: index + 1 })}
                     inputMode="decimal"
                     className="pr-6 text-right"
                     placeholder="0,00"
@@ -313,8 +325,8 @@ function BillQuarterDialog({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Zeile entfernen"
-                  title="Zeile entfernen"
+                  aria-label={t('Zeile entfernen')}
+                  title={t('Zeile entfernen')}
                   disabled={lines.length === 1}
                   onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
                 >
@@ -332,22 +344,24 @@ function BillQuarterDialog({
                 ])
               }
             >
-              <Plus className="h-4 w-4" /> Einnahme
+              <Plus className="h-4 w-4" /> {t('Einnahme')}
             </Button>
             {contract.excludedIncome && (
               <p className="text-xs text-muted-foreground">
-                Nicht beteiligungspflichtig laut Vertrag: {contract.excludedIncome}
+                {t('Nicht beteiligungspflichtig laut Vertrag:')} {contract.excludedIncome}
               </p>
             )}
           </div>
 
           <div className="ml-auto w-72 space-y-1 text-sm" data-testid="management-share-preview">
             <div className="flex justify-between">
-              <span>Einnahmen gesamt</span>
+              <span>{t('Einnahmen gesamt')}</span>
               <span>{eur(incomeTotal)}</span>
             </div>
             <div className="flex justify-between font-medium">
-              <span>Beteiligung {contract.commissionPercent.toLocaleString('de-DE')} %</span>
+              <span>
+                {t('Beteiligung')} {contract.commissionPercent.toLocaleString(uiLocale())} %
+              </span>
               <span>{eur(share)}</span>
             </div>
             <div className="flex items-center justify-between">
@@ -360,12 +374,12 @@ function BillQuarterDialog({
                   value={taxRate}
                   onChange={(e) => setTaxRate(e.target.value)}
                 />
-                % USt.
+                {t('% USt.')}
               </span>
               <span>{eur(vat)}</span>
             </div>
             <div className="flex justify-between border-t pt-1 font-semibold">
-              <span>Gesamtbetrag</span>
+              <span>{t('Gesamtbetrag')}</span>
               <span>{eur(roundMoney(share + vat))}</span>
             </div>
           </div>
@@ -373,10 +387,10 @@ function BillQuarterDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button onClick={submit} disabled={createMutation.isPending || share <= 0}>
-            Entwurf anlegen
+            {t('Entwurf anlegen')}
           </Button>
         </DialogFooter>
       </DialogContent>

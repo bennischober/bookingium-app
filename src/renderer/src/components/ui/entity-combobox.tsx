@@ -11,6 +11,7 @@ import {
   CommandSeparator
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 export interface ComboboxItem {
   id: number
@@ -38,12 +39,12 @@ export function EntityCombobox({
   items,
   value,
   onChange,
-  placeholder = 'Auswählen…',
-  searchPlaceholder = 'Suchen…',
-  emptyText = 'Keine Treffer.',
+  placeholder = t('Auswählen…'),
+  searchPlaceholder = t('Suchen…'),
+  emptyText = t('Keine Treffer.'),
   isLoading = false,
   onCreateNew,
-  createNewLabel = 'Neu anlegen',
+  createNewLabel = t('Neu anlegen'),
   disabled = false,
   className
 }: EntityComboboxProps) {
@@ -75,7 +76,7 @@ export function EntityCombobox({
         className={cn('w-full justify-between font-normal', className)}
       >
         <span className={cn(!selectedItem && 'text-muted-foreground')}>
-          {isLoading ? 'Wird geladen…' : selectedItem ? selectedItem.label : placeholder}
+          {isLoading ? t('Wird geladen…') : selectedItem ? selectedItem.label : placeholder}
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>

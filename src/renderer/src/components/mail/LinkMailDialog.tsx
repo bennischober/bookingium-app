@@ -17,6 +17,7 @@ import {
   type RecordChoice,
   type RecordType
 } from './recordChoices'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * "Zuordnen…": links one mail to a record by hand, for mail the address match missed
@@ -49,25 +50,27 @@ export function LinkMailDialog({
       // The record's E-Mails tab and the attachment dialog's pre-selection read these
       void utils.mailLink.invalidate()
       const label = chosen?.label ?? RECORD_LABELS[input.entityType]
-      if (result.linked) toast.success('Mail zugeordnet', { description: label })
-      else toast.info('Die Mail ist schon zugeordnet', { description: label })
+      if (result.linked) toast.success(t('Mail zugeordnet'), { description: label })
+      else toast.info(t('Die Mail ist schon zugeordnet'), { description: label })
       onOpenChange(false)
     },
     onError: (error) =>
-      toast.error('Mail konnte nicht zugeordnet werden', { description: error.message })
+      toast.error(t('Mail konnte nicht zugeordnet werden'), { description: error.message })
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Mail zuordnen</DialogTitle>
-          <DialogDescription className="truncate">{subject || '(Kein Betreff)'}</DialogDescription>
+          <DialogTitle>{t('Mail zuordnen')}</DialogTitle>
+          <DialogDescription className="truncate">
+            {subject || t('(Kein Betreff)')}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <RecordPicker
             idPrefix="link-mail"
-            typeLabel="Zuordnen zu"
+            typeLabel={t('Zuordnen zu')}
             type={type}
             onTypeChange={(next) => {
               setType(next)
@@ -82,7 +85,7 @@ export function LinkMailDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={!chosen || link.isPending}
@@ -96,7 +99,7 @@ export function LinkMailDialog({
               })
             }}
           >
-            Zuordnen
+            {t('Zuordnen')}
           </Button>
         </DialogFooter>
       </DialogContent>

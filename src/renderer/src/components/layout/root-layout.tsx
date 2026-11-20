@@ -17,6 +17,7 @@ import { toast } from '@/lib/toast'
 import SearchButton from '@/components/ui/search-command-button'
 import { ShortcutsHelp } from '@/components/ShortcutsHelp'
 import { WhatsNewHost } from '@/components/WhatsNewHost'
+import { t } from '../../../../main/i18n/translate'
 
 export default function RootLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -59,7 +60,7 @@ export default function RootLayout() {
           description: notice.body,
           duration: 6000,
           action: {
-            label: 'Anzeigen',
+            label: t('Anzeigen'),
             onClick: () => void navigate({ to: '/mail', search: { newMail: notice.accountId } })
           }
         })
@@ -69,18 +70,21 @@ export default function RootLayout() {
   // #49: a newer version is downloaded; it is installed when the app closes, or right away
   const installUpdate = trpcReact.updates.install.useMutation({
     onError: (error) =>
-      toast.error('Update kann nicht installiert werden', { description: error.message })
+      toast.error(t('Update kann nicht installiert werden'), { description: error.message })
   })
   useEffect(
     () =>
       window.api.onUpdateReady((update) => {
-        toast.info(`Bookingium ${update.version ?? ''} ist bereit`.replace('  ', ' '), {
-          id: 'update-ready',
-          icon: <Download className="size-4" />,
-          description: 'Das Update wird beim Schließen installiert.',
-          duration: 15000,
-          action: { label: 'Jetzt neu starten', onClick: () => installUpdate.mutate() }
-        })
+        toast.info(
+          t('Bookingium {{value}} ist bereit', { value: update.version ?? '' }).replace('  ', ' '),
+          {
+            id: 'update-ready',
+            icon: <Download className="size-4" />,
+            description: t('Das Update wird beim Schließen installiert.'),
+            duration: 15000,
+            action: { label: t('Jetzt neu starten'), onClick: () => installUpdate.mutate() }
+          }
+        )
       }),
     // the mutation object changes on every render; its mutate is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,7 +109,7 @@ export default function RootLayout() {
           description: notice.body,
           duration: 8000,
           action: {
-            label: 'Anzeigen',
+            label: t('Anzeigen'),
             onClick: () =>
               void (day ? navigate({ to: '/calendar', search: { day } }) : navigate({ to: '/' }))
           }

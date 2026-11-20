@@ -2,13 +2,14 @@ import type { RefObject } from 'react'
 import { Bold, FileText, Italic, List, Underline } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ComposeFormat } from './composeBody'
+import { t } from '../../../../main/i18n/translate'
 
 /** F3: the four commands the toolbar offers, and nothing that carries a URL or CSS */
 const FORMAT_BUTTONS: { format: ComposeFormat; label: string; Icon: typeof Bold }[] = [
-  { format: 'bold', label: 'Fett', Icon: Bold },
-  { format: 'italic', label: 'Kursiv', Icon: Italic },
-  { format: 'underline', label: 'Unterstrichen', Icon: Underline },
-  { format: 'insertUnorderedList', label: 'Aufzählung', Icon: List }
+  { format: 'bold', label: t('Fett'), Icon: Bold },
+  { format: 'italic', label: t('Kursiv'), Icon: Italic },
+  { format: 'underline', label: t('Unterstrichen'), Icon: Underline },
+  { format: 'insertUnorderedList', label: t('Aufzählung'), Icon: List }
 ]
 
 export function ComposeFormatBar({
@@ -59,7 +60,7 @@ export function ComposeFormatBar({
         onClick={openTemplates}
       >
         <FileText />
-        Vorlage einfügen
+        {t('Vorlage einfügen')}
       </Button>
     </div>
   )

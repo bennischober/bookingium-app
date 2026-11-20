@@ -12,10 +12,11 @@ import type {
   BackupStatusDto,
   PreparedRestoreDto
 } from '../../../../main/api/schemas/backup.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "28.10.2026, 14:30" */
 const formatDateTime = (iso: string): string =>
-  new Date(iso).toLocaleString('de-DE', {
+  new Date(iso).toLocaleString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -24,17 +25,17 @@ const formatDateTime = (iso: string): string =>
   })
 
 function LastBackup({ status }: { status: BackupStatusDto }) {
-  if (status.running) return <p className="text-sm text-muted-foreground">Wird gesichert…</p>
+  if (status.running) return <p className="text-sm text-muted-foreground">{t('Wird gesichert…')}</p>
   if (status.lastError && status.lastAttemptAt)
     return (
       <div className="text-sm">
         <p className="text-destructive">
-          Letzte Sicherung fehlgeschlagen ({formatDateTime(status.lastAttemptAt)}):{' '}
-          {status.lastError}
+          {t('Letzte Sicherung fehlgeschlagen (')}
+          {formatDateTime(status.lastAttemptAt)}): {status.lastError}
         </p>
         {status.lastSuccessAt && (
           <p className="text-muted-foreground">
-            Letzte erfolgreiche Sicherung: {formatDateTime(status.lastSuccessAt)}
+            {t('Letzte erfolgreiche Sicherung:')} {formatDateTime(status.lastSuccessAt)}
           </p>
         )}
       </div>
@@ -42,10 +43,10 @@ function LastBackup({ status }: { status: BackupStatusDto }) {
   if (status.lastSuccessAt)
     return (
       <p className="text-sm text-muted-foreground">
-        Letzte Sicherung: {formatDateTime(status.lastSuccessAt)} – erfolgreich
+        {t('Letzte Sicherung:')} {formatDateTime(status.lastSuccessAt)} {t('– erfolgreich')}
       </p>
     )
-  return <p className="text-sm text-muted-foreground">Noch keine Sicherung.</p>
+  return <p className="text-sm text-muted-foreground">{t('Noch keine Sicherung.')}</p>
 }
 
 function LastRestore({ status }: { status: BackupStatusDto }) {
@@ -54,15 +55,16 @@ function LastRestore({ status }: { status: BackupStatusDto }) {
   if (restore.error)
     return (
       <p className="text-sm text-destructive">
-        Wiederherstellen am {formatDateTime(restore.at)} fehlgeschlagen: {restore.error} Die
-        bisherigen Daten sind unverändert.
+        {t('Wiederherstellen am')} {formatDateTime(restore.at)} fehlgeschlagen: {restore.error}{' '}
+        {t('Die bisherigen Daten sind unverändert.')}
       </p>
     )
   return (
     <p className="text-sm text-muted-foreground">
-      Am {formatDateTime(restore.at)} wiederhergestellt
+      {t('Am')} {formatDateTime(restore.at)} wiederhergestellt
       {restore.backupCreatedAt ? ` (Sicherung vom ${formatDateTime(restore.backupCreatedAt)})` : ''}
-      . Der Stand davor liegt in „{status.beforeRestoreFolder ?? restore.source}“.
+      {t('. Der Stand davor liegt in „')}
+      {status.beforeRestoreFolder ?? restore.source}“.
     </p>
   )
 }
@@ -84,40 +86,41 @@ export function BackupCard() {
 
   const chooseFolder = trpcReact.backup.chooseFolder.useMutation({
     onSuccess: setStatus,
-    onError: onError('Ordner kann nicht verwendet werden')
+    onError: onError(t('Ordner kann nicht verwendet werden'))
   })
   const setEnabled = trpcReact.backup.setEnabled.useMutation({
     onSuccess: setStatus,
-    onError: onError('Einstellung konnte nicht gespeichert werden')
+    onError: onError(t('Einstellung konnte nicht gespeichert werden'))
   })
   const runNow = trpcReact.backup.runNow.useMutation({
     onSuccess: (next) => {
       setStatus(next)
-      if (next.lastError) toast.error('Sicherung fehlgeschlagen', { description: next.lastError })
-      else toast.success('Sicherung erstellt', { description: next.lastFolder ?? undefined })
+      if (next.lastError)
+        toast.error(t('Sicherung fehlgeschlagen'), { description: next.lastError })
+      else toast.success(t('Sicherung erstellt'), { description: next.lastFolder ?? undefined })
     },
-    onError: onError('Sicherung fehlgeschlagen')
+    onError: onError(t('Sicherung fehlgeschlagen'))
   })
   const openFolder = trpcReact.backup.openFolder.useMutation({
-    onError: onError('Ordner konnte nicht geöffnet werden')
+    onError: onError(t('Ordner konnte nicht geöffnet werden'))
   })
   const cancelRestore = trpcReact.backup.cancelRestore.useMutation()
   const confirmRestore = trpcReact.backup.confirmRestore.useMutation({
     onSuccess: () =>
-      toast.success('Wiederherstellen vorbereitet', {
-        description: 'Bookingium startet neu und übernimmt die Sicherung.'
+      toast.success(t('Wiederherstellen vorbereitet'), {
+        description: t('Bookingium startet neu und übernimmt die Sicherung.')
       }),
-    onError: onError('Wiederherstellen fehlgeschlagen')
+    onError: onError(t('Wiederherstellen fehlgeschlagen'))
   })
   const pickRestore = trpcReact.backup.pickRestore.useMutation({
-    onError: onError('Sicherung kann nicht wiederhergestellt werden')
+    onError: onError(t('Sicherung kann nicht wiederhergestellt werden'))
   })
   const removePassword = trpcReact.backup.removePassword.useMutation({
     onSuccess: (next) => {
       setStatus(next)
-      toast.success('Sicherungen werden nicht mehr verschlüsselt')
+      toast.success(t('Sicherungen werden nicht mehr verschlüsselt'))
     },
-    onError: onError('Einstellung konnte nicht gespeichert werden')
+    onError: onError(t('Einstellung konnte nicht gespeichert werden'))
   })
   // #54: the password dialog, and the restore waiting for a backup's password
   const [passwordDialog, setPasswordDialog] = useState(false)
@@ -126,7 +129,7 @@ export function BackupCard() {
   const takenText = (prepared: PreparedRestoreDto) =>
     prepared.backupCreatedAt
       ? `vom ${formatDateTime(prepared.backupCreatedAt)}`
-      : `aus „${prepared.folder}“`
+      : t('aus „{{folder}}“', { folder: prepared.folder })
 
   const restore = async () => {
     const prepared = await pickRestore.mutateAsync().catch(() => null)
@@ -138,12 +141,14 @@ export function BackupCard() {
   const confirmPrepared = async (prepared: PreparedRestoreDto) => {
     const taken = takenText(prepared)
     const ok = await confirmAction({
-      title: 'Sicherung wiederherstellen?',
-      description:
-        `Die Sicherung ${taken} ersetzt alle aktuellen Daten` +
-        (prepared.hasStorage ? ' und Dokumente' : '') +
-        '. Der aktuelle Stand wird vorher gesichert. Bookingium startet dazu neu.',
-      confirmLabel: 'Wiederherstellen und neu starten',
+      title: t('Sicherung wiederherstellen?'),
+      description: t(
+        prepared.hasStorage
+          ? 'Die Sicherung {{taken}} ersetzt alle aktuellen Daten und Dokumente. Der aktuelle Stand wird vorher gesichert. Bookingium startet dazu neu.'
+          : 'Die Sicherung {{taken}} ersetzt alle aktuellen Daten. Der aktuelle Stand wird vorher gesichert. Bookingium startet dazu neu.',
+        { taken }
+      ),
+      confirmLabel: t('Wiederherstellen und neu starten'),
       destructive: true
     })
     if (ok) confirmRestore.mutate()
@@ -156,10 +161,11 @@ export function BackupCard() {
       return
     }
     const ok = await confirmAction({
-      title: 'Verschlüsselung ausschalten?',
-      description:
-        'Neue Sicherungen werden dann unverschlüsselt in den Sicherungsordner geschrieben. Bereits verschlüsselte Sicherungen bleiben verschlüsselt und brauchen weiter ihr Passwort.',
-      confirmLabel: 'Ausschalten',
+      title: t('Verschlüsselung ausschalten?'),
+      description: t(
+        'Neue Sicherungen werden dann unverschlüsselt in den Sicherungsordner geschrieben. Bereits verschlüsselte Sicherungen bleiben verschlüsselt und brauchen weiter ihr Passwort.'
+      ),
+      confirmLabel: t('Ausschalten'),
       destructive: true
     })
     if (ok) removePassword.mutate()
@@ -172,10 +178,11 @@ export function BackupCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Automatische Sicherung</CardTitle>
+        <CardTitle>{t('Automatische Sicherung')}</CardTitle>
         <CardDescription>
-          Sichert Datenbank und Dokumente einmal am Tag in einen Ordner Ihrer Wahl, zum Beispiel
-          einen, den OneDrive oder Dropbox abgleicht.
+          {t(
+            'Sichert Datenbank und Dokumente einmal am Tag in einen Ordner Ihrer Wahl, zum Beispiel einen, den OneDrive oder Dropbox abgleicht.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -187,29 +194,31 @@ export function BackupCard() {
               onCheckedChange={(checked) => setEnabled.mutate(checked)}
               disabled={!folder || setEnabled.isPending}
             />
-            <Label htmlFor="settings-backup-enabled">Automatisch sichern</Label>
+            <Label htmlFor="settings-backup-enabled">{t('Automatisch sichern')}</Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Behalten werden die Sicherungen der letzten {data?.retention.daily ?? 7} Tage und je
-            eine der letzten {data?.retention.weekly ?? 4} Wochen; ältere automatische Sicherungen
-            werden gelöscht. Andere Dateien und Ordner im Sicherungsordner bleiben unberührt.
+            {t('Behalten werden die Sicherungen der letzten')} {data?.retention.daily ?? 7}{' '}
+            {t('Tage und je eine der letzten')} {data?.retention.weekly ?? 4}{' '}
+            {t(
+              'Wochen; ältere automatische Sicherungen werden gelöscht. Andere Dateien und Ordner im Sicherungsordner bleiben unberührt.'
+            )}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Sicherungsordner</p>
+            <p className="font-medium">{t('Sicherungsordner')}</p>
             <p
               className="truncate font-mono text-xs text-muted-foreground"
               title={folder || undefined}
             >
-              {folder || 'Kein Ordner gewählt'}
+              {folder || t('Kein Ordner gewählt')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {folder && (
               <Button variant="ghost" onClick={() => openFolder.mutate()}>
-                <FolderOpen className="h-4 w-4" /> Öffnen
+                <FolderOpen className="h-4 w-4" /> {t('Öffnen')}
               </Button>
             )}
             <Button
@@ -217,7 +226,7 @@ export function BackupCard() {
               onClick={() => chooseFolder.mutate()}
               disabled={chooseFolder.isPending}
             >
-              {folder ? 'Anderer Ordner…' : 'Ordner wählen…'}
+              {folder ? t('Anderer Ordner…') : t('Ordner wählen…')}
             </Button>
           </div>
         </div>
@@ -237,23 +246,32 @@ export function BackupCard() {
               />
               <Label htmlFor="settings-backup-encrypted" className="flex items-center gap-1.5">
                 <Lock className="h-4 w-4" />
-                Mit Passwort verschlüsseln
+                {t('Mit Passwort verschlüsseln')}
               </Label>
             </div>
             {data?.encrypted && (
               <Button variant="ghost" onClick={() => setPasswordDialog(true)}>
-                Passwort ändern…
+                {t('Passwort ändern…')}
               </Button>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
             {data?.encrypted
-              ? `Sicherungen werden${
-                  data.encryptedSince ? ` seit ${formatDateTime(data.encryptedSince)}` : ''
-                } mit Passwort verschlüsselt (AES-256). Ohne das Passwort lassen sie sich nicht wiederherstellen.`
+              ? t(
+                  'Sicherungen werden{{value}} mit Passwort verschlüsselt (AES-256). Ohne das Passwort lassen sie sich nicht wiederherstellen.',
+                  {
+                    value: data.encryptedSince
+                      ? t(' seit {{date}}', { date: formatDateTime(data.encryptedSince) })
+                      : ''
+                  }
+                )
               : data && !data.encryptionAvailable
-                ? 'Auf diesem Rechner nicht verfügbar: Windows kann den Schlüssel hier nicht geschützt aufbewahren.'
-                : 'Schützt die Sicherungen, etwa in einem Cloud-Ordner, vor fremdem Zugriff. Ein vergessenes Passwort kann niemand zurücksetzen.'}
+                ? t(
+                    'Auf diesem Rechner nicht verfügbar: Windows kann den Schlüssel hier nicht geschützt aufbewahren.'
+                  )
+                : t(
+                    'Schützt die Sicherungen, etwa in einem Cloud-Ordner, vor fremdem Zugriff. Ein vergessenes Passwort kann niemand zurücksetzen.'
+                  )}
           </p>
         </div>
 
@@ -264,16 +282,17 @@ export function BackupCard() {
           </div>
           <Button variant="outline" onClick={() => runNow.mutate()} disabled={!folder || busy}>
             <RefreshCw className="h-4 w-4" />
-            {busy ? 'Wird gesichert…' : 'Jetzt sichern'}
+            {busy ? t('Wird gesichert…') : t('Jetzt sichern')}
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Wiederherstellen</p>
+            <p className="font-medium">{t('Wiederherstellen')}</p>
             <p className="text-sm text-muted-foreground">
-              Übernimmt eine Sicherung beim nächsten Start. E-Mail-Konten, Passwörter und
-              heruntergeladene E-Mails gehören nicht dazu.
+              {t(
+                'Übernimmt eine Sicherung beim nächsten Start. E-Mail-Konten, Passwörter und heruntergeladene E-Mails gehören nicht dazu.'
+              )}
             </p>
           </div>
           <Button
@@ -282,7 +301,7 @@ export function BackupCard() {
             disabled={pickRestore.isPending || confirmRestore.isPending}
           >
             <History className="h-4 w-4" />
-            {pickRestore.isPending ? 'Wird geprüft…' : 'Sicherung wiederherstellen…'}
+            {pickRestore.isPending ? t('Wird geprüft…') : t('Sicherung wiederherstellen…')}
           </Button>
         </div>
         {passwordDialog && (
@@ -292,7 +311,7 @@ export function BackupCard() {
             onSaved={(next) => {
               setStatus(next)
               setPasswordDialog(false)
-              toast.success('Sicherungen werden verschlüsselt')
+              toast.success(t('Sicherungen werden verschlüsselt'))
             }}
           />
         )}

@@ -7,6 +7,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import type { ContactListRecipientDto } from '../../../../main/api/schemas/contactList.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** The addresses left out as "Keine Werbung", each one with a way back in */
 export function ExcludedContactsDialog({
@@ -29,11 +30,11 @@ export function ExcludedContactsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Keine Werbung</DialogTitle>
+          <DialogTitle>{t('Keine Werbung')}</DialogTitle>
           <DialogDescription>
             {memberList
-              ? 'Diese Adressen stehen im Verteiler, bekommen aber keine Rundmails.'
-              : 'Diese Adressen passen zu den Filtern, bekommen aber keine Rundmails.'}
+              ? t('Diese Adressen stehen im Verteiler, bekommen aber keine Rundmails.')
+              : t('Diese Adressen passen zu den Filtern, bekommen aber keine Rundmails.')}
           </DialogDescription>
         </DialogHeader>
         <ul className="max-h-80 divide-y overflow-y-auto">
@@ -49,12 +50,12 @@ export function ExcludedContactsDialog({
                 disabled={restoring}
                 onClick={() => onRestore(row.email)}
               >
-                Wieder aufnehmen
+                {t('Wieder aufnehmen')}
               </Button>
             </li>
           ))}
           {excluded.length === 0 && (
-            <li className="py-2 text-sm text-muted-foreground">Keine mehr.</li>
+            <li className="py-2 text-sm text-muted-foreground">{t('Keine mehr.')}</li>
           )}
         </ul>
       </DialogContent>

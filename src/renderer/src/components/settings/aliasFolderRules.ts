@@ -6,6 +6,7 @@
  */
 import type { MailRuleDto, SaveMailRuleInput } from '../../../../main/api/schemas/mailRule.schema'
 import { ruleAlternatives } from '../../../../main/api/schemas/mailRule.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The folder name for an alias: the address itself, with the server's hierarchy delimiter replaced
@@ -36,7 +37,7 @@ export function aliasRule(accountId: string, alias: string, folderPath: string):
   const address = alias.trim().toLowerCase()
   return {
     accountId,
-    name: `Weiterleitung: ${address}`,
+    name: t('Weiterleitung: {{address}}', { address }),
     enabled: true,
     matchFrom: '',
     matchTo: address,

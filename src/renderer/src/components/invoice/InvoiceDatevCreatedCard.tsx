@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { InvoiceDto } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #246: "Rechnung schon in DATEV erstellt" for an issued invoice. Bookingium has no line back
@@ -29,11 +30,13 @@ export function InvoiceDatevCreatedCard({ invoice }: { invoice: InvoiceDto }) {
       ])
       toast.success(
         updated.createdInDatev
-          ? `Als „In DATEV erstellt“ markiert (Nr. ${updated.invoiceNumber})`
-          : 'Markierung „In DATEV erstellt“ entfernt'
+          ? t('Als „In DATEV erstellt“ markiert (Nr. {{invoiceNumber}})', {
+              invoiceNumber: updated.invoiceNumber
+            })
+          : t('Markierung „In DATEV erstellt“ entfernt')
       )
     },
-    onError: (error) => toast.error('Nicht gespeichert', { description: error.message })
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
   if (invoice.invoiceNumber === null) return null
   // the number can only change while the invoice has gone nowhere
@@ -50,25 +53,26 @@ export function InvoiceDatevCreatedCard({ invoice }: { invoice: InvoiceDto }) {
       <CardContent className="space-y-3 text-sm">
         {invoice.createdInDatev ? (
           <>
-            <p>In DATEV erstellt. Die Rechnung wird nicht von hier an DATEV übergeben.</p>
+            <p>{t('In DATEV erstellt. Die Rechnung wird nicht von hier an DATEV übergeben.')}</p>
             <Button
               variant="outline"
               size="sm"
               disabled={mutation.isPending}
               onClick={() => mutation.mutate({ id: invoice.id, createdInDatev: false })}
             >
-              Markierung entfernen
+              {t('Markierung entfernen')}
             </Button>
           </>
         ) : (
           <>
             <p className="text-muted-foreground">
-              Schon direkt in DATEV geschrieben? Dann hier markieren, damit sie nicht doppelt
-              übergeben wird.
+              {t(
+                'Schon direkt in DATEV geschrieben? Dann hier markieren, damit sie nicht doppelt übergeben wird.'
+              )}
             </p>
             {!numberLocked && (
               <div className="space-y-1">
-                <Label htmlFor="datev-created-number">Rechnungsnummer aus DATEV</Label>
+                <Label htmlFor="datev-created-number">{t('Rechnungsnummer aus DATEV')}</Label>
                 <Input
                   id="datev-created-number"
                   inputMode="numeric"
@@ -89,7 +93,7 @@ export function InvoiceDatevCreatedCard({ invoice }: { invoice: InvoiceDto }) {
                 })
               }
             >
-              Rechnung schon in DATEV erstellt
+              {t('Rechnung schon in DATEV erstellt')}
             </Button>
           </>
         )}

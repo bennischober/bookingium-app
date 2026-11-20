@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 type Compose = (
   message: MessageDetail,
@@ -78,8 +79,8 @@ export function MessageActions({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => onCompose(message, 'reply')}
-                title="Antworten"
-                aria-label="Antworten"
+                title={t('Antworten')}
+                aria-label={t('Antworten')}
               >
                 <Reply />
               </Button>
@@ -87,8 +88,8 @@ export function MessageActions({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => onCompose(message, 'replyAll')}
-                title="Allen antworten"
-                aria-label="Allen antworten"
+                title={t('Allen antworten')}
+                aria-label={t('Allen antworten')}
               >
                 <ReplyAll />
               </Button>
@@ -97,8 +98,8 @@ export function MessageActions({
                 size="icon-sm"
                 onClick={() => void forward(onCompose)}
                 disabled={downloading}
-                title="Weiterleiten"
-                aria-label="Weiterleiten"
+                title={t('Weiterleiten')}
+                aria-label={t('Weiterleiten')}
               >
                 <Forward />
               </Button>
@@ -108,7 +109,7 @@ export function MessageActions({
             variant="ghost"
             size="icon-sm"
             onClick={() => onToggleFlag(message.id, !message.isFlagged)}
-            title={message.isFlagged ? 'Markierung entfernen' : 'Markieren'}
+            title={message.isFlagged ? t('Markierung entfernen') : t('Markieren')}
             aria-pressed={message.isFlagged}
           >
             <Flag className={cn(message.isFlagged && 'fill-orange-500 text-orange-500')} />
@@ -118,7 +119,7 @@ export function MessageActions({
               variant="ghost"
               size="icon-sm"
               onClick={() => onMarkUnread(message.id)}
-              title="Als ungelesen markieren"
+              title={t('Als ungelesen markieren')}
             >
               <Mail />
             </Button>
@@ -128,7 +129,7 @@ export function MessageActions({
               variant="ghost"
               size="icon-sm"
               onClick={() => onArchive(message.id)}
-              title="Archivieren"
+              title={t('Archivieren')}
             >
               <Archive />
             </Button>
@@ -138,8 +139,8 @@ export function MessageActions({
               variant="ghost"
               size="icon-sm"
               onClick={() => onSpam(message.id)}
-              title="Spam"
-              aria-label="Spam"
+              title={t('Spam')}
+              aria-label={t('Spam')}
             >
               <ShieldAlert />
             </Button>
@@ -149,8 +150,8 @@ export function MessageActions({
               variant="ghost"
               size="icon-sm"
               onClick={() => onNotSpam(message.id)}
-              title="Kein Spam (zurück in den Posteingang)"
-              aria-label="Kein Spam"
+              title={t('Kein Spam (zurück in den Posteingang)')}
+              aria-label={t('Kein Spam')}
             >
               <ShieldCheck />
             </Button>
@@ -160,7 +161,7 @@ export function MessageActions({
               variant="ghost"
               size="icon-sm"
               onClick={() => onDelete(message.id)}
-              title="In den Papierkorb (Entf)"
+              title={t('In den Papierkorb (Entf)')}
             >
               <Trash2 />
             </Button>
@@ -173,9 +174,11 @@ export function MessageActions({
         onClick={onLink}
         disabled={!message.messageId}
         title={
-          message.messageId ? 'Zuordnen…' : 'Zuordnen geht nicht: die Mail hat keine Message-ID'
+          message.messageId
+            ? t('Zuordnen…')
+            : t('Zuordnen geht nicht: die Mail hat keine Message-ID')
         }
-        aria-label="Zuordnen…"
+        aria-label={t('Zuordnen…')}
       >
         <Tags />
       </Button>
@@ -186,10 +189,10 @@ export function MessageActions({
         disabled={!message.messageId}
         title={
           message.messageId
-            ? 'Event aus dieser Mail anlegen'
-            : 'Event anlegen geht nicht: die Mail hat keine Message-ID'
+            ? t('Event aus dieser Mail anlegen')
+            : t('Event anlegen geht nicht: die Mail hat keine Message-ID')
         }
-        aria-label="Event aus dieser Mail anlegen"
+        aria-label={t('Event aus dieser Mail anlegen')}
       >
         <CalendarPlus />
       </Button>
@@ -199,8 +202,8 @@ export function MessageActions({
           size="icon-sm"
           onClick={() => void takeInvitation()}
           disabled={downloading}
-          title="Einladung als Termin übernehmen"
-          aria-label="Einladung als Termin übernehmen"
+          title={t('Einladung als Termin übernehmen')}
+          aria-label={t('Einladung als Termin übernehmen')}
         >
           <CalendarCheck />
         </Button>
@@ -210,8 +213,8 @@ export function MessageActions({
         size="icon-sm"
         onClick={onCreateContact}
         disabled={!message.fromEmail}
-        title="Absender als Kontakt anlegen"
-        aria-label="Absender als Kontakt anlegen"
+        title={t('Absender als Kontakt anlegen')}
+        aria-label={t('Absender als Kontakt anlegen')}
       >
         <UserPlus />
       </Button>
@@ -220,7 +223,7 @@ export function MessageActions({
         size="icon-sm"
         onClick={() => void saveEml()}
         disabled={downloading}
-        title="Original speichern (.eml)"
+        title={t('Original speichern (.eml)')}
       >
         <Download />
       </Button>

@@ -3,6 +3,7 @@ import { TERMS } from '../terms'
 import { ImportRow } from './import.schema'
 import { DealMemoStatus } from './deal_memo.schema'
 import { VenueKind } from './venue.schema'
+import { t } from '../../i18n/translate'
 
 // ========================================
 // Tour import (Tourdaten): own events from a tour sheet
@@ -48,35 +49,35 @@ export const TourImportField = z.enum([
 export type TourImportField = z.infer<typeof TourImportField>
 
 export const TOUR_IMPORT_FIELD_LABELS: Record<TourImportField, string> = {
-  ignore: 'Nicht importieren',
+  ignore: t('Nicht importieren'),
   band: TERMS.band.singular,
-  date: 'Datum',
+  date: t('Datum'),
   eventName: `Name ${TERMS.event.des}`,
   venueName: `${TERMS.club.singular} / ${TERMS.festival.singular}`,
-  street: 'Straße',
-  zipCode: 'PLZ',
-  city: 'Ort',
-  country: 'Land',
+  street: t('Straße'),
+  zipCode: t('PLZ'),
+  city: t('Ort'),
+  country: t('Land'),
   kind: `Art (${TERMS.club.singular} / ${TERMS.festival.singular})`,
-  status: 'Status',
-  tour: 'Tour',
-  deal: 'Deal',
-  guarantee: 'Garantie / Gage',
-  ticketPriceVvk: 'Ticketpreis VVK',
-  ticketPriceAk: 'Ticketpreis AK',
-  performanceTime: 'Showtime',
-  radiusKm: 'Gebietsschutz: km',
-  radiusWeeksBefore: 'Gebietsschutz: Wochen davor',
-  radiusWeeksAfter: 'Gebietsschutz: Wochen danach',
-  promoter: 'Veranstalter (LoPro)',
-  promoterContact: 'Ansprechpartner',
-  promoterEmail: 'E-Mail Ansprechpartner',
-  localContact: 'Kontakt vor Ort',
-  localContactEmail: 'E-Mail Kontakt vor Ort',
-  advancingStatus: 'Advancing-Stand',
-  ticketQuota: 'Ticketkontingent',
-  ticketSold: 'Tickets verkauft',
-  notes: 'Anmerkung'
+  status: t('Status'),
+  tour: t('Tour'),
+  deal: t('Deal'),
+  guarantee: t('Garantie / Gage'),
+  ticketPriceVvk: t('Ticketpreis VVK'),
+  ticketPriceAk: t('Ticketpreis AK'),
+  performanceTime: t('Showtime'),
+  radiusKm: t('Gebietsschutz: km'),
+  radiusWeeksBefore: t('Gebietsschutz: Wochen davor'),
+  radiusWeeksAfter: t('Gebietsschutz: Wochen danach'),
+  promoter: t('Veranstalter (LoPro)'),
+  promoterContact: t('Ansprechpartner'),
+  promoterEmail: t('E-Mail Ansprechpartner'),
+  localContact: t('Kontakt vor Ort'),
+  localContactEmail: t('E-Mail Kontakt vor Ort'),
+  advancingStatus: t('Advancing-Stand'),
+  ticketQuota: t('Ticketkontingent'),
+  ticketSold: t('Tickets verkauft'),
+  notes: t('Anmerkung')
 }
 
 /** Fields a column can map to, in menu order */

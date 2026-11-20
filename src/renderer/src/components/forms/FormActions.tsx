@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #161: the action row of a form in a side panel (FormSheet). It stays at the
@@ -36,10 +37,10 @@ export function FormFooter({
   return (
     <FormActions>
       <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
-        Abbrechen
+        {t('Abbrechen')}
       </Button>
       <Button type="submit" disabled={submitting}>
-        {submitting ? 'Speichert…' : children}
+        {submitting ? t('Speichert…') : children}
       </Button>
     </FormActions>
   )

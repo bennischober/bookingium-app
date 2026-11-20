@@ -6,6 +6,7 @@
  */
 import type { FolderNode } from '../../../../main/mailclient/core/types'
 import type { SaveMailRuleInput } from '../../../../main/api/schemas/mailRule.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** A list row as far as these decisions read it */
 export type SpamItem = { id: number; folderId: string }
@@ -58,7 +59,7 @@ export function blockRule(
   if (!pattern) return null
   return {
     accountId,
-    name: `Spam: ${pattern}`,
+    name: t('Spam: {{pattern}}', { pattern }),
     enabled: true,
     matchFrom: pattern,
     matchTo: '',

@@ -3,15 +3,16 @@ import type {
   InvoiceStatus,
   ReminderKind
 } from '../../../main/api/schemas/invoice.schema'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 // Display labels and badge styles for stored invoice status values.
 // The stored values themselves are never translated (see
 // docs/UI_LANGUAGE.md).
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
-  draft: 'Entwurf',
+  draft: t('Entwurf'),
   issued: 'gestellt',
   paid: 'bezahlt',
-  overdue: 'überfällig',
+  overdue: t('überfällig'),
   cancelled: 'storniert'
 }
 
@@ -25,7 +26,7 @@ export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
 
 /** List label of an invoice number: "#1040", or "Entwurf" before it is issued */
 export function invoiceNumberLabel(invoiceNumber: number | null): string {
-  return invoiceNumber === null ? 'Entwurf' : `#${invoiceNumber}`
+  return invoiceNumber === null ? t('Entwurf') : `#${invoiceNumber}`
 }
 
 /** How a follow-up names the invoice it is on (as the main process does) */
@@ -34,7 +35,9 @@ export function invoiceFollowUpName(invoice: {
   recipientName: string
 }): string {
   const label =
-    invoice.invoiceNumber === null ? 'Rechnungsentwurf' : `Rechnung #${invoice.invoiceNumber}`
+    invoice.invoiceNumber === null
+      ? t('Rechnungsentwurf')
+      : t('Rechnung #{{invoiceNumber}}', { invoiceNumber: invoice.invoiceNumber })
   return invoice.recipientName ? `${label} · ${invoice.recipientName}` : label
 }
 
@@ -49,20 +52,23 @@ export function emailedLabel(invoice: { emailedAt: string | null; emailedTo: str
     month: '2-digit',
     year: 'numeric'
   })
-  return `E-Mail erstellt am ${day}${invoice.emailedTo ? ` an ${invoice.emailedTo}` : ''}`
+  return t('E-Mail erstellt am {{day}}{{value}}', {
+    day,
+    value: invoice.emailedTo ? t(' an {{to}}', { to: invoice.emailedTo }) : ''
+  })
 }
 
 /** An invoice's email in its Verlauf, by what it was */
 export const INVOICE_EMAIL_LABELS: Record<InvoiceEmailKind, string> = {
-  invoice: 'E-Mail erstellt',
-  reminder: 'Zahlungserinnerung erstellt',
-  dunning: 'Mahnung erstellt'
+  invoice: t('E-Mail erstellt'),
+  reminder: t('Zahlungserinnerung erstellt'),
+  dunning: t('Mahnung erstellt')
 }
 
 /** The button for an overdue invoice's next reminder (see nextReminderKind) */
 export const REMINDER_ACTION_LABELS: Record<ReminderKind, string> = {
-  reminder: 'Zahlungserinnerung senden…',
-  dunning: 'Mahnung senden…'
+  reminder: t('Zahlungserinnerung senden…'),
+  dunning: t('Mahnung senden…')
 }
 
 /**
@@ -86,7 +92,7 @@ export function invoiceMomentLabel(at: string): string {
 /** SQLite UTC "YYYY-MM-DD HH:MM:SS" in local time, as is if unreadable */
 function localDateTime(utc: string, options: Intl.DateTimeFormatOptions): string {
   const date = new Date(`${utc.replace(' ', 'T')}Z`)
-  return Number.isNaN(date.getTime()) ? utc : date.toLocaleString('de-DE', options)
+  return Number.isNaN(date.getTime()) ? utc : date.toLocaleString(uiLocale(), options)
 }
 
 // Never throws, also for a currency code that is not one

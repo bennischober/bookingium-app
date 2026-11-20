@@ -1,6 +1,7 @@
 import { addDays } from '@/lib/followUps'
 import { ALL_DAY_REMINDERS, TIMED_REMINDERS } from '../../../../main/calendar/appointments'
 import type { AppointmentDto } from '../../../../main/api/schemas/appointment.schema'
+import { t } from '../../../../main/i18n/translate'
 
 // #71: how the calendar shows own appointments (Termine): on which days and with which time.
 // Pure, for the tests.
@@ -41,11 +42,11 @@ export function appointmentsByDay<T extends Span>(
  */
 export function appointmentTimeLabel(appointment: Span, day: string): string {
   const { startDate, startTime, endDate, endTime } = appointment
-  if (startTime === null || endTime === null) return 'Ganztägig'
+  if (startTime === null || endTime === null) return t('Ganztägig')
   if (startDate === endDate) return startTime === endTime ? startTime : `${startTime}–${endTime}`
   if (day === startDate) return `ab ${startTime}`
   if (day === endDate) return `bis ${endTime}`
-  return 'Ganztägig'
+  return t('Ganztägig')
 }
 
 /** The dialog's reminder choices; the value "none" is no reminder */

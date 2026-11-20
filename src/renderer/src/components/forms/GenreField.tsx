@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Input } from '@/components/ui/input'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 interface GenreFieldProps {
   id: string
@@ -26,7 +27,7 @@ export function GenreField({
   onChange,
   onBlur,
   disabled,
-  placeholder = 'z. B. Metal, Rock'
+  placeholder = t('z. B. Metal, Rock')
 }: GenreFieldProps) {
   const known = trpcReact.genre.list.useQuery()
   const [focused, setFocused] = React.useState(false)
@@ -109,7 +110,7 @@ export function GenreField({
         <ul
           id={listId}
           role="listbox"
-          aria-label="Bekannte Genres"
+          aria-label={t('Bekannte Genres')}
           className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md"
         >
           {suggestions.map((genre, index) => (

@@ -21,6 +21,7 @@ import {
   type CompanyDto,
   type CreateCompanyInput
 } from '../../../../main/api/schemas/company.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const KIND_OPTIONS = CompanyKind.options.map((kind) => ({
   value: kind,
@@ -59,7 +60,7 @@ function LogoPreview({ path }: { path: string }) {
   return (
     <img
       src={src}
-      alt="Firmenlogo"
+      alt={t('Firmenlogo')}
       className="h-16 max-w-32 object-contain rounded border bg-white"
     />
   )
@@ -144,18 +145,20 @@ export function CompanyForm({
   return (
     <FormBody form={form} disabled={isSubmitting}>
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Firmeninformationen</h3>
+        <h3 className="text-lg font-semibold">{t('Firmeninformationen')}</h3>
 
         <form.AppField name="name">
-          {(field) => <field.TextField label="Firmenname" required />}
+          {(field) => <field.TextField label={t('Firmenname')} required />}
         </form.AppField>
 
         <form.AppField name="customerNumber">
           {(field) => (
             <field.TextField
-              label="Kundennummer"
+              label={t('Kundennummer')}
               inputMode="numeric"
-              hint="Leer lassen: Die Firma erhält ihre Nummer mit der ersten gestellten Rechnung."
+              hint={t(
+                'Leer lassen: Die Firma erhält ihre Nummer mit der ersten gestellten Rechnung.'
+              )}
             />
           )}
         </form.AppField>
@@ -163,9 +166,9 @@ export function CompanyForm({
         <form.AppField name="kind">
           {(field) => (
             <field.SelectField
-              label="Art"
+              label={t('Art')}
               options={KIND_OPTIONS}
-              hint="Radio/Medien stehen mit ihren Ansprechpartnern in den Verteilern."
+              hint={t('Radio/Medien stehen mit ihren Ansprechpartnern in den Verteilern.')}
             />
           )}
         </form.AppField>
@@ -177,8 +180,10 @@ export function CompanyForm({
               <form.AppField name="genres">
                 {(field) => (
                   <field.FieldRow
-                    label="Genres"
-                    hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
+                    label={t('Genres')}
+                    hint={t(
+                      'Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt.'
+                    )}
                   >
                     <GenreField
                       id={field.name}
@@ -195,26 +200,26 @@ export function CompanyForm({
 
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="vatId">
-            {(field) => <field.TextField label="USt-IdNr." placeholder="z. B. DE123456789" />}
+            {(field) => <field.TextField label="USt-IdNr." placeholder={t('z. B. DE123456789')} />}
           </form.AppField>
           <form.AppField name="taxNumber">
-            {(field) => <field.TextField label="Steuernummer" />}
+            {(field) => <field.TextField label={t('Steuernummer')} />}
           </form.AppField>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="commercialRegisterNo">
-            {(field) => <field.TextField label="Registernummer (HR-Nr.)" />}
+            {(field) => <field.TextField label={t('Registernummer (HR-Nr.)')} />}
           </form.AppField>
           <form.AppField name="registerCourt">
-            {(field) => <field.TextField label="Registergericht (Amtsgericht)" />}
+            {(field) => <field.TextField label={t('Registergericht (Amtsgericht)')} />}
           </form.AppField>
         </div>
 
         {isMainCompany ? (
           <>
             <div className="space-y-2">
-              <Label>Logo (optional)</Label>
+              <Label>{t('Logo (optional)')}</Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -230,7 +235,7 @@ export function CompanyForm({
                   <LogoPreview path={logoPreview} />
                 ) : (
                   <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                    Kein Logo
+                    {t('Kein Logo')}
                   </div>
                 )}
                 <div className="flex flex-col gap-2">
@@ -240,7 +245,7 @@ export function CompanyForm({
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Bild auswählen…
+                    {t('Bild auswählen…')}
                   </Button>
                   {logoPreview && (
                     <Button
@@ -255,7 +260,7 @@ export function CompanyForm({
                         form.setFieldValue('logoPath', '')
                       }}
                     >
-                      Entfernen
+                      {t('Entfernen')}
                     </Button>
                   )}
                 </div>
@@ -263,7 +268,7 @@ export function CompanyForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Unterschrift für Verträge (optional)</Label>
+              <Label>{t('Unterschrift für Verträge (optional)')}</Label>
               <input
                 ref={signatureInputRef}
                 type="file"
@@ -276,7 +281,7 @@ export function CompanyForm({
                   <LogoPreview path={signaturePreview} />
                 ) : (
                   <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                    Keine Unterschrift
+                    {t('Keine Unterschrift')}
                   </div>
                 )}
                 <div className="flex flex-col gap-2">
@@ -286,7 +291,7 @@ export function CompanyForm({
                     size="sm"
                     onClick={() => signatureInputRef.current?.click()}
                   >
-                    Bild auswählen…
+                    {t('Bild auswählen…')}
                   </Button>
                   {signaturePreview && (
                     <Button
@@ -301,19 +306,21 @@ export function CompanyForm({
                         form.setFieldValue('signaturePath', '')
                       }}
                     >
-                      Entfernen
+                      {t('Entfernen')}
                     </Button>
                   )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Erscheint über der Unterschriftszeile der Band im Auftrittsvertrag.
+                {t('Erscheint über der Unterschriftszeile der Band im Auftrittsvertrag.')}
               </p>
             </div>
           </>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Logo und Unterschrift gibt es nur bei der Standardfirma für Rechnungen (Einstellungen).
+            {t(
+              'Logo und Unterschrift gibt es nur bei der Standardfirma für Rechnungen (Einstellungen).'
+            )}
           </p>
         )}
 
@@ -322,8 +329,10 @@ export function CompanyForm({
             <FieldShell>
               <InfoLabel
                 htmlFor="invoiceContactPersonId"
-                text="Ansprechpartner für Rechnungen (optional)"
-                info="Steht in der E-Rechnung als Kontakt: Name, Telefon und E-Mail der Person (sonst die der Firma)."
+                text={t('Ansprechpartner für Rechnungen (optional)')}
+                info={t(
+                  'Steht in der E-Rechnung als Kontakt: Name, Telefon und E-Mail der Person (sonst die der Firma).'
+                )}
               />
               <SearchableSelect
                 id="invoiceContactPersonId"
@@ -333,8 +342,8 @@ export function CompanyForm({
                   value: person.id,
                   label: `${person.firstName} ${person.lastName}`.trim()
                 }))}
-                noneLabel="Keiner"
-                searchPlaceholder="Person suchen…"
+                noneLabel={t('Keiner')}
+                searchPlaceholder={t('Person suchen…')}
                 disabled={isSubmitting}
               />
             </FieldShell>
@@ -342,7 +351,7 @@ export function CompanyForm({
         </form.Field>
 
         <form.AppField name="notes">
-          {(field) => <field.TextareaField label="Anmerkungen" rows={3} />}
+          {(field) => <field.TextareaField label={t('Anmerkungen')} rows={3} />}
         </form.AppField>
       </div>
 
@@ -350,13 +359,13 @@ export function CompanyForm({
 
       {/* #247: the account right here instead of a pick from the Banken page */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Bankverbindung</h3>
+        <h3 className="text-lg font-semibold">{t('Bankverbindung')}</h3>
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="bank.accountHolder">
-            {(field) => <field.TextField label="Kontoinhaber" />}
+            {(field) => <field.TextField label={t('Kontoinhaber')} />}
           </form.AppField>
           <form.AppField name="bank.bankName">
-            {(field) => <field.TextField label="Bank" />}
+            {(field) => <field.TextField label={t('Bank')} />}
           </form.AppField>
         </div>
         <div className="grid grid-cols-[2fr_1fr] gap-4">
@@ -365,11 +374,13 @@ export function CompanyForm({
             validators={{
               onBlur: ({ value }) =>
                 value.trim() && !isValidIban(value)
-                  ? 'Die IBAN ist ungültig (Prüfziffer stimmt nicht)'
+                  ? t('Die IBAN ist ungültig (Prüfziffer stimmt nicht)')
                   : undefined
             }}
           >
-            {(field) => <field.TextField label="IBAN" placeholder="DE.. .... .... .... .... .." />}
+            {(field) => (
+              <field.TextField label="IBAN" placeholder={t('DE.. .... .... .... .... ..')} />
+            )}
           </form.AppField>
           <form.AppField name="bank.bic">
             {(field) => <field.TextField label="BIC" />}
@@ -386,7 +397,7 @@ export function CompanyForm({
       <ContactFormFields form={form} showNoAdvertising />
 
       <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {company ? 'Speichern' : 'Anlegen'}
+        {company ? t('Speichern') : t('Anlegen')}
       </FormFooter>
     </FormBody>
   )

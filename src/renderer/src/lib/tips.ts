@@ -1,34 +1,49 @@
+import { t } from '../../../main/i18n/translate'
 // #253: short tips where a feature sits. Which ones were read is kept per computer (localStorage):
 // tips are about this app's use, not data, and the sync must not bring a read tip back.
 
 export const TIPS = {
   dashboard: {
-    title: 'Schneller ans Ziel',
-    text: 'Alt+1 bis Alt+0 springen zu den wichtigsten Seiten, Strg+K sucht alles (Einträge, Seiten und Aktionen). Die Übersicht aller Tastenkürzel öffnet das Tastatur-Symbol oben rechts.'
+    title: t('Schneller ans Ziel'),
+    text: t(
+      'Alt+1 bis Alt+0 springen zu den wichtigsten Seiten, Strg+K sucht alles (Einträge, Seiten und Aktionen). Die Übersicht aller Tastenkürzel öffnet das Tastatur-Symbol oben rechts.'
+    )
   },
   eventOverview: {
-    title: 'Der Stand der Show auf einen Blick',
-    text: 'Die Kacheln oben zeigen Gage, Vertrag, Rechnung, Advancing und Tickets. Ein Klick führt zum Bereich, wo man es ändert. „Bearbeiten“ schaltet alle Bereiche zugleich in den Bearbeitungsmodus, „Alles speichern“ sichert sie gemeinsam.'
+    title: t('Der Stand der Show auf einen Blick'),
+    text: t(
+      'Die Kacheln oben zeigen Gage, Vertrag, Rechnung, Advancing und Tickets. Ein Klick führt zum Bereich, wo man es ändert. „Bearbeiten“ schaltet alle Bereiche zugleich in den Bearbeitungsmodus, „Alles speichern“ sichert sie gemeinsam.'
+    )
   },
   recordActions: {
-    title: 'Erinnern und aufräumen',
-    text: '„Wiedervorlage“ legt eine Erinnerung zu diesem Eintrag an, sie erscheint am Tag auf dem Dashboard. Ist ein Eintrag doppelt angelegt, führt „…“ › „Zusammenführen“ beide zusammen, mit allen Events, Rechnungen und Dokumenten.'
+    title: t('Erinnern und aufräumen'),
+    text: t(
+      '„Wiedervorlage“ legt eine Erinnerung zu diesem Eintrag an, sie erscheint am Tag auf dem Dashboard. Ist ein Eintrag doppelt angelegt, führt „…“ › „Zusammenführen“ beide zusammen, mit allen Events, Rechnungen und Dokumenten.'
+    )
   },
   map: {
-    title: 'Wo passt noch eine Show?',
-    text: '„Alle Kreise hervorheben“ füllt jeden Gebietsschutz halb durchsichtig. Wo sich Kreise überlappen, wird es dunkler; wo die Karte frei bleibt, blockiert keine Show. „Anfrage prüfen“ zeigt für einen Club und ein Datum, was eine Buchung blockieren würde.'
+    title: t('Wo passt noch eine Show?'),
+    text: t(
+      '„Alle Kreise hervorheben“ füllt jeden Gebietsschutz halb durchsichtig. Wo sich Kreise überlappen, wird es dunkler; wo die Karte frei bleibt, blockiert keine Show. „Anfrage prüfen“ zeigt für einen Club und ein Datum, was eine Buchung blockieren würde.'
+    )
   },
   marketing: {
-    title: 'Atlas und Maßnahmen',
-    text: 'Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren. Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung.'
+    title: t('Atlas und Maßnahmen'),
+    text: t(
+      'Der Atlas ist die Recherche (Radios, Presse, Festivals …), er wird aus einer Datei eingespielt und über „Atlas aktualisieren…“ erneuert, ohne Status und Notizen zu verlieren. Maßnahmen sind, was gebucht ist (Radiospots, Plakate …), mit Kosten, Beleg und Rechnung.'
+    )
   },
   invoices: {
-    title: 'Rechnungen aus DATEV',
-    text: 'Ist eine Rechnung schon in DATEV geschrieben, im Formular „Rechnung schon in DATEV erstellt“ wählen und die DATEV-Nummer eintragen. Bookingium zählt danach oberhalb weiter, so gibt es keine Nummer doppelt.'
+    title: t('Rechnungen aus DATEV'),
+    text: t(
+      'Ist eine Rechnung schon in DATEV geschrieben, im Formular „Rechnung schon in DATEV erstellt“ wählen und die DATEV-Nummer eintragen. Bookingium zählt danach oberhalb weiter, so gibt es keine Nummer doppelt.'
+    )
   },
   import: {
-    title: 'Import ohne Dopplungen',
-    text: 'Vorhandene Firmen und Personen werden am Namen bzw. an der E-Mail erkannt und nur ergänzt. Die Vorschau zeigt vorher, was neu angelegt und was ergänzt wird; „Vorhandene Angaben überschreiben“ ersetzt auch gefüllte Felder.'
+    title: t('Import ohne Dopplungen'),
+    text: t(
+      'Vorhandene Firmen und Personen werden am Namen bzw. an der E-Mail erkannt und nur ergänzt. Die Vorschau zeigt vorher, was neu angelegt und was ergänzt wird; „Vorhandene Angaben überschreiben“ ersetzt auch gefüllte Felder.'
+    )
   }
 } as const satisfies Record<string, { title: string; text: string }>
 

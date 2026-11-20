@@ -5,6 +5,7 @@ import {
   RECIPIENT_TYPE_LABELS,
   type ContactListRecipientDto
 } from '../../../../main/api/schemas/contactList.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /**
  * The recipient table's columns. `onRemoveMember` is given for a member list
@@ -20,18 +21,18 @@ export function contactListColumns({
   return [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: t('Name'),
       cell: ({ row }) => <span className="font-medium">{row.original.name || '-'}</span>
     },
     { accessorKey: 'email', header: 'E-Mail' },
     {
       id: 'types',
-      header: 'Art',
+      header: t('Art'),
       cell: ({ row }) => row.original.types.map((type) => RECIPIENT_TYPE_LABELS[type]).join(', ')
     },
     {
       id: 'sources',
-      header: 'Clubs, Festivals, Medien',
+      header: t('Clubs, Festivals, Medien'),
       cell: ({ row }) => {
         const names = row.original.sources.map((source) =>
           source.role ? `${source.name} (${source.role})` : source.name
@@ -42,30 +43,30 @@ export function contactListColumns({
     },
     {
       id: 'place',
-      header: 'Ort',
+      header: t('Ort'),
       cell: ({ row }) => [row.original.city, row.original.country].filter(Boolean).join(', ') || '-'
     },
     {
       accessorKey: 'capacity',
-      header: 'Kapazität',
+      header: t('Kapazität'),
       cell: ({ row }) =>
-        row.original.capacity ? row.original.capacity.toLocaleString('de-DE') : '-'
+        row.original.capacity ? row.original.capacity.toLocaleString(uiLocale()) : '-'
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           {onRemoveMember && (
             <RowActionButton
               icon={UserMinus}
-              label="Aus Verteiler entfernen"
+              label={t('Aus Verteiler entfernen')}
               onClick={() => onRemoveMember(row.original)}
             />
           )}
           <RowActionButton
             icon={Ban}
-            label="Keine Werbung"
+            label={t('Keine Werbung')}
             destructive
             onClick={() => onNoAdvertising(row.original.email)}
           />

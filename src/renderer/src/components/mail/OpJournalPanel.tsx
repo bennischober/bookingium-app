@@ -21,6 +21,7 @@ import {
   opKindLabel,
   opWhere
 } from './opJournal'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * I3: the badge in the mail header and the panel behind it. Shows the writes that need the
@@ -50,10 +51,12 @@ export function OpJournalPanel({
           variant={badge.urgent ? 'destructive' : 'outline'}
           onClick={() => setOpen(true)}
           data-testid="mail-op-badge"
-          title="Änderungen, die nicht beim Server angekommen sind"
+          title={t('Änderungen, die nicht beim Server angekommen sind')}
         >
           <AlertTriangle />
-          {badge.count === 1 ? '1 offene Änderung' : `${badge.count} offene Änderungen`}
+          {badge.count === 1
+            ? t('1 offene Änderung')
+            : t('{{count}} offene Änderungen', { count: badge.count })}
         </Button>
       )}
       <Sheet open={open} onOpenChange={setOpen}>
@@ -62,13 +65,15 @@ export function OpJournalPanel({
           data-testid="mail-op-panel"
         >
           <SheetHeader>
-            <SheetTitle>Offene Änderungen</SheetTitle>
+            <SheetTitle>{t('Offene Änderungen')}</SheetTitle>
             <SheetDescription>
-              Was Bookingium noch nicht beim Server erledigen konnte. Alles andere ist übertragen.
+              {t(
+                'Was Bookingium noch nicht beim Server erledigen konnte. Alles andere ist übertragen.'
+              )}
             </SheetDescription>
           </SheetHeader>
           {entries.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Nichts offen.</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t('Nichts offen.')}</p>
           ) : (
             <ul className="mt-4 flex flex-col gap-3">
               {entries.map((entry) => (

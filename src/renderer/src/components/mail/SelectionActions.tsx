@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import type { MessageListItem } from '../../../../main/mailclient/core/types'
 import type { MailActions } from './MessageMenu'
+import { t } from '../../../../main/i18n/translate'
 
 /** The reading pane while several mails are selected: what can be done with all of them */
 export function SelectionActions({
@@ -30,60 +31,64 @@ export function SelectionActions({
   return (
     <section
       className="m-auto flex max-w-md flex-col items-center gap-4 p-6 text-center"
-      aria-label="Auswahl"
+      aria-label={t('Auswahl')}
     >
       <Mails className="size-10 stroke-1 text-muted-foreground" aria-hidden />
-      <h2 className="text-lg font-semibold">{items.length} E-Mails ausgewählt</h2>
+      <h2 className="text-lg font-semibold">
+        {items.length} {t('E-Mails ausgewählt')}
+      </h2>
       <div className="flex flex-wrap justify-center gap-2">
         {toTrash && (
           <Button variant="outline" size="sm" onClick={() => toTrash(ids)}>
             <Trash2 />
-            In den Papierkorb
+            {t('In den Papierkorb')}
           </Button>
         )}
         {archive && (
           <Button variant="outline" size="sm" onClick={() => archive(ids)}>
             <Archive />
-            Archivieren
+            {t('Archivieren')}
           </Button>
         )}
         {toSpam && (
           <Button variant="outline" size="sm" onClick={() => toSpam(ids)}>
             <ShieldAlert />
-            Spam
+            {t('Spam')}
           </Button>
         )}
         {notSpam && (
           <Button variant="outline" size="sm" onClick={() => notSpam(ids)}>
             <ShieldCheck />
-            Kein Spam
+            {t('Kein Spam')}
           </Button>
         )}
         {markRead && (
           <Button variant="outline" size="sm" onClick={() => markRead(ids, anyUnread)}>
             {anyUnread ? <MailOpen /> : <Mail />}
-            {anyUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren'}
+            {anyUnread ? t('Als gelesen markieren') : t('Als ungelesen markieren')}
           </Button>
         )}
         {markFlagged && (
           <Button variant="outline" size="sm" onClick={() => markFlagged(ids, anyUnflagged)}>
             <Flag />
-            {anyUnflagged ? 'Markieren' : 'Markierung entfernen'}
+            {anyUnflagged ? t('Markieren') : t('Markierung entfernen')}
           </Button>
         )}
         {/* B5: permanent deletion only exists inside Trash */}
         {expunge && (
           <Button variant="outline" size="sm" onClick={() => expunge(ids)}>
             <Trash2 />
-            Endgültig löschen
+            {t('Endgültig löschen')}
           </Button>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Zum Verschieben auf einen Ordner ziehen oder mit der rechten Maustaste einen Ordner wählen.
+        {t(
+          'Zum Verschieben auf einen Ordner ziehen oder mit der rechten Maustaste einen Ordner wählen.'
+        )}
       </p>
       <Button variant="ghost" size="sm" onClick={onClear}>
-        Auswahl aufheben
+        {t('Auswahl aufheben')}
       </Button>
     </section>
   )

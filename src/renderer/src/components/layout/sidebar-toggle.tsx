@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { t } from '../../../../main/i18n/translate'
 
 export function SidebarToggle({
   collapsed,
@@ -9,7 +10,7 @@ export function SidebarToggle({
   onToggle: () => void
 }) {
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose
-  const label = collapsed ? 'Seitenleiste ausklappen' : 'Seitenleiste einklappen'
+  const label = collapsed ? t('Seitenleiste ausklappen') : t('Seitenleiste einklappen')
   return (
     <Button
       variant="ghost"

@@ -16,6 +16,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import type { FollowUpDto, FollowUpRecord } from '../../../../main/api/schemas/followUp.schema'
+import { t } from '../../../../main/i18n/translate'
 
 type Props = {
   open: boolean
@@ -75,18 +76,18 @@ function FollowUpForm({
     onDone()
   }
   const onError = (error: { message: string }) =>
-    toast.error('Wiedervorlage konnte nicht gespeichert werden', { description: error.message })
+    toast.error(t('Wiedervorlage konnte nicht gespeichert werden'), { description: error.message })
 
   const create = trpcReact.followUp.create.useMutation({
-    onSuccess: () => onSuccess('Wiedervorlage angelegt'),
+    onSuccess: () => onSuccess(t('Wiedervorlage angelegt')),
     onError
   })
   const update = trpcReact.followUp.update.useMutation({
-    onSuccess: () => onSuccess('Wiedervorlage gespeichert'),
+    onSuccess: () => onSuccess(t('Wiedervorlage gespeichert')),
     onError
   })
   const remove = trpcReact.followUp.delete.useMutation({
-    onSuccess: () => onSuccess('Wiedervorlage gelöscht'),
+    onSuccess: () => onSuccess(t('Wiedervorlage gelöscht')),
     onError
   })
 
@@ -104,9 +105,9 @@ function FollowUpForm({
     if (!followUp) return
     if (
       await confirmAction({
-        title: 'Wiedervorlage löschen?',
-        description: 'Zum Abhaken reicht „Erledigt“; Löschen entfernt sie ganz.',
-        confirmLabel: 'Löschen',
+        title: t('Wiedervorlage löschen?'),
+        description: t('Zum Abhaken reicht „Erledigt“; Löschen entfernt sie ganz.'),
+        confirmLabel: t('Löschen'),
         destructive: true
       })
     ) {
@@ -122,17 +123,19 @@ function FollowUpForm({
       }}
     >
       <DialogHeader>
-        <DialogTitle>{followUp ? 'Wiedervorlage bearbeiten' : 'Neue Wiedervorlage'}</DialogTitle>
+        <DialogTitle>
+          {followUp ? t('Wiedervorlage bearbeiten') : t('Neue Wiedervorlage')}
+        </DialogTitle>
         <DialogDescription>
           {recordName
-            ? `Zu ${recordName}. Erscheint am Fälligkeitstag auf dem Dashboard.`
-            : 'Allgemein, ohne Datensatz. Erscheint am Fälligkeitstag auf dem Dashboard.'}
+            ? t('Zu {{recordName}}. Erscheint am Fälligkeitstag auf dem Dashboard.', { recordName })
+            : t('Allgemein, ohne Datensatz. Erscheint am Fälligkeitstag auf dem Dashboard.')}
         </DialogDescription>
       </DialogHeader>
 
       <div className="my-4 space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="follow-up-due">Fällig am</Label>
+          <Label htmlFor="follow-up-due">{t('Fällig am')}</Label>
           <Input
             id="follow-up-due"
             type="date"
@@ -160,7 +163,7 @@ function FollowUpForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="follow-up-note">Notiz</Label>
+          <Label htmlFor="follow-up-note">{t('Notiz')}</Label>
           <Textarea
             id="follow-up-note"
             autoFocus
@@ -174,7 +177,7 @@ function FollowUpForm({
                 submit()
               }
             }}
-            placeholder="z. B. Vertrag zurück? Nachhaken"
+            placeholder={t('z. B. Vertrag zurück? Nachhaken')}
           />
         </div>
       </div>
@@ -188,17 +191,17 @@ function FollowUpForm({
             onClick={() => void handleDelete()}
             disabled={saving}
           >
-            Löschen
+            {t('Löschen')}
           </Button>
         ) : (
           <span />
         )}
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onDone}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button type="submit" disabled={!valid || saving}>
-            Speichern
+            {t('Speichern')}
           </Button>
         </div>
       </DialogFooter>

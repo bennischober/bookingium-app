@@ -20,6 +20,7 @@ import { useHasMailAccount } from '@/hooks/useHasMailAccount'
 import { deleteQuestion } from '@/lib/recordCopy'
 import { isNotFound, type QueryError } from '@/lib/queryErrors'
 import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #172: the skeleton every record detail page shares (band, company, person, venue).
@@ -164,7 +165,7 @@ export function RecordDetail<TTab extends string>({
     ...tabs.filter((tab) => !(tab.hideWhenEmpty && tab.count === 0 && tab.id !== activeTab)),
     {
       id: 'documents',
-      label: hasMailAccount ? 'Dokumente & E-Mails' : 'Dokumente',
+      label: hasMailAccount ? t('Dokumente & E-Mails') : t('Dokumente'),
       count: documents.count,
       className: 'space-y-8',
       content: (
@@ -204,21 +205,21 @@ export function RecordDetail<TTab extends string>({
             <FollowUpButton record={followUpRecord} />
             <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />
-              Bearbeiten
+              {t('Bearbeiten')}
             </Button>
             <MoreActions
               actions={[
                 ...(canMerge
                   ? [
                       {
-                        label: 'Zusammenführen…',
+                        label: t('Zusammenführen…'),
                         icon: <Combine className="h-3.5 w-3.5" />,
                         onSelect: () => setMerging(true)
                       }
                     ]
                   : []),
                 {
-                  label: 'Löschen…',
+                  label: t('Löschen…'),
                   icon: <Trash2 className="h-3.5 w-3.5" />,
                   destructive: true,
                   disabled: deleting,

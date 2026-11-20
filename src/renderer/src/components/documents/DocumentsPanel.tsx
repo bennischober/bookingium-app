@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
 import { droppedFilePaths } from './documentFiles'
 import { DocumentTable } from './DocumentTable'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Files of one record (event, band, …): drop or pick files to copy them into
@@ -18,7 +19,7 @@ import { DocumentTable } from './DocumentTable'
 export function DocumentsPanel({
   ownerType,
   ownerId,
-  title = 'Dokumente'
+  title = t('Dokumente')
 }: {
   ownerType: DocumentOwnerType
   ownerId: number
@@ -51,7 +52,7 @@ export function DocumentsPanel({
 
   const openFolder = trpcReact.document.openOwnerFolder.useMutation({
     onError: (error) => {
-      toast.error('Ordner konnte nicht geöffnet werden', { description: error.message })
+      toast.error(t('Ordner konnte nicht geöffnet werden'), { description: error.message })
     }
   })
 
@@ -63,15 +64,22 @@ export function DocumentsPanel({
         await upload.mutateAsync({ ...owner, sourcePath })
         uploaded++
       } catch (error) {
-        toast.error(`„${sourcePath.split(/[\\/]/).pop()}“ konnte nicht hochgeladen werden`, {
-          description: error instanceof Error ? error.message : undefined
-        })
+        toast.error(
+          t('„{{pop}}“ konnte nicht hochgeladen werden', { pop: sourcePath.split(/[\\/]/).pop() }),
+          {
+            description: error instanceof Error ? error.message : undefined
+          }
+        )
       }
     }
     setIsUploading(false)
     void invalidate()
     if (uploaded > 0) {
-      toast.success(uploaded === 1 ? 'Dokument hochgeladen' : `${uploaded} Dokumente hochgeladen`)
+      toast.success(
+        uploaded === 1
+          ? t('Dokument hochgeladen')
+          : t('{{uploaded}} Dokumente hochgeladen', { uploaded })
+      )
     }
   }
 
@@ -88,9 +96,10 @@ export function DocumentsPanel({
     setIsDragging(false)
     const paths = droppedFilePaths(e)
     if (paths.length === 0) {
-      toast.error('Dateien konnten nicht gelesen werden', {
-        description:
+      toast.error(t('Dateien konnten nicht gelesen werden'), {
+        description: t(
           'Diese Drag-Quelle stellt keine lokalen Dateien bereit. Bitte „Dateien auswählen“ verwenden.'
+        )
       })
       return
     }
@@ -124,9 +133,9 @@ export function DocumentsPanel({
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-background/85">
           <div className="text-center">
             <Upload className="mx-auto mb-2 h-8 w-8 text-primary" />
-            <p className="font-medium">Dateien hier ablegen</p>
+            <p className="font-medium">{t('Dateien hier ablegen')}</p>
             <p className="text-sm text-muted-foreground">
-              Sie werden in den Dokumentenordner dieses Eintrags kopiert.
+              {t('Sie werden in den Dokumentenordner dieses Eintrags kopiert.')}
             </p>
           </div>
         </div>
@@ -136,7 +145,9 @@ export function DocumentsPanel({
       <TabHeader
         summary={
           documents.length > 0
-            ? `${countLabel(documents.length, 'Dokument', 'Dokumente')} · weitere hierher ziehen`
+            ? t('{{countLabel}} · weitere hierher ziehen', {
+                countLabel: countLabel(documents.length, t('Dokument'), t('Dokumente'))
+              })
             : undefined
         }
       >
@@ -146,11 +157,11 @@ export function DocumentsPanel({
           onClick={() => openFolder.mutate(owner)}
           disabled={openFolder.isPending}
         >
-          <FolderOpen className="h-4 w-4" /> Ordner öffnen
+          <FolderOpen className="h-4 w-4" /> {t('Ordner öffnen')}
         </Button>
         <Button size="sm" onClick={() => void handleSelectFiles()} disabled={isUploading}>
           <Upload className="h-4 w-4" />
-          {isUploading ? 'Wird hochgeladen…' : 'Dateien auswählen'}
+          {isUploading ? t('Wird hochgeladen…') : t('Dateien auswählen')}
         </Button>
       </TabHeader>
 
@@ -162,17 +173,17 @@ export function DocumentsPanel({
           )}
         >
           <Upload className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <h3 className="mb-1 font-semibold">Noch keine Dokumente</h3>
+          <h3 className="mb-1 font-semibold">{t('Noch keine Dokumente')}</h3>
           {/* The toolbar above holds the one "Dateien auswählen" button */}
           <p className="text-sm text-muted-foreground">
-            Dateien hier ablegen oder „Dateien auswählen“ verwenden.
+            {t('Dateien hier ablegen oder „Dateien auswählen“ verwenden.')}
           </p>
         </div>
       ) : (
         <DocumentTable
           rows={documents.map((doc) => ({ doc, event: null }))}
           label={title}
-          empty="Noch keine Dokumente."
+          empty={t('Noch keine Dokumente.')}
           isLoading={documentsQuery.isLoading}
           error={documentsQuery.error}
           onRetry={() => void documentsQuery.refetch()}

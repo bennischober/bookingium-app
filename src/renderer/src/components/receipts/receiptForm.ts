@@ -2,6 +2,7 @@
 import { fromCents, toCents } from '../../../../main/einvoice/amounts'
 import { parseAmount } from '@/lib/invoiceLabels'
 import type { ReceiptDto, ReceiptFields } from '../../../../main/api/schemas/receipt.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** The form as typed: amounts and dates are text until saved */
 export type ReceiptFormState = Omit<ReceiptFields, 'amountCents' | 'receiptDate'> & {
@@ -41,18 +42,18 @@ export function formStateOfReceipt(receipt: ReceiptDto): ReceiptFormState {
 
 /** The fields to save, or the German reason they cannot be saved yet */
 export function fieldsOf(state: ReceiptFormState): ReceiptFields | { error: string } {
-  if (!state.fileName.trim()) return { error: 'Bitte einen Dateinamen angeben' }
+  if (!state.fileName.trim()) return { error: t('Bitte einen Dateinamen angeben') }
   let amountCents: number | null = null
   if (state.amount.trim()) {
     const amount = parseAmount(state.amount)
-    if (amount === null) return { error: 'Der Betrag ist keine Zahl' }
+    if (amount === null) return { error: t('Der Betrag ist keine Zahl') }
     amountCents = toCents(amount)
   }
   const date = state.receiptDate.trim()
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date))
-    return { error: 'Bitte ein gültiges Datum angeben' }
+    return { error: t('Bitte ein gültiges Datum angeben') }
   const currency = state.currency.trim().toUpperCase() || 'EUR'
-  if (!/^[A-Z]{3}$/.test(currency)) return { error: 'Währung mit 3 Buchstaben (z. B. EUR)' }
+  if (!/^[A-Z]{3}$/.test(currency)) return { error: t('Währung mit 3 Buchstaben (z. B. EUR)') }
   const { amount: _amount, ...rest } = state
   void _amount
   return { ...rest, currency, amountCents, receiptDate: date || null }

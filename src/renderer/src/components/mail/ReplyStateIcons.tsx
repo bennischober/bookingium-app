@@ -1,5 +1,6 @@
 import { Forward, Reply } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #163: whether a mail was answered (\Answered) or forwarded ($Forwarded). The lists
@@ -22,15 +23,15 @@ export function ReplyStateIcons({
       className={cn('inline-flex shrink-0 items-center gap-1.5 text-muted-foreground', className)}
     >
       {answered && (
-        <span className="inline-flex items-center gap-1" title="Beantwortet">
-          <Reply className="size-3.5" aria-label={withLabel ? undefined : 'Beantwortet'} />
-          {withLabel && <span className="text-xs">Beantwortet</span>}
+        <span className="inline-flex items-center gap-1" title={t('Beantwortet')}>
+          <Reply className="size-3.5" aria-label={withLabel ? undefined : t('Beantwortet')} />
+          {withLabel && <span className="text-xs">{t('Beantwortet')}</span>}
         </span>
       )}
       {forwarded && (
-        <span className="inline-flex items-center gap-1" title="Weitergeleitet">
-          <Forward className="size-3.5" aria-label={withLabel ? undefined : 'Weitergeleitet'} />
-          {withLabel && <span className="text-xs">Weitergeleitet</span>}
+        <span className="inline-flex items-center gap-1" title={t('Weitergeleitet')}>
+          <Forward className="size-3.5" aria-label={withLabel ? undefined : t('Weitergeleitet')} />
+          {withLabel && <span className="text-xs">{t('Weitergeleitet')}</span>}
         </span>
       )}
     </span>

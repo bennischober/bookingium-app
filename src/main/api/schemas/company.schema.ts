@@ -6,6 +6,7 @@ import { ContactDto, ContactInput } from './contact.schema'
 import { BankDto } from './bank.schema'
 import { normalizeGenres } from './genres'
 import { isValidIban } from '../../payment/epcQr'
+import { t } from '../../i18n/translate'
 
 /**
  * #247: the company's bank account, typed right in the company form. All empty means none;
@@ -37,7 +38,7 @@ export type CompanyKind = z.infer<typeof CompanyKind>
 
 export const COMPANY_KIND_LABELS: Record<CompanyKind, string> = {
   company: TERMS.company.singular,
-  media: 'Radio/Medien'
+  media: t('Radio/Medien')
 }
 
 // Output DTO - what the frontend receives (with embedded relations)

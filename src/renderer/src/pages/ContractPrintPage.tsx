@@ -14,6 +14,7 @@ import {
 } from '@/components/print/DocumentLanguageSelect'
 import { contractEmailLang } from '../../../main/mail/contractEmail'
 import { useStoredImageUrl } from '@/hooks/useStoredImageUrl'
+import { t } from '../../../main/i18n/translate'
 
 export default function ContractPrintPage() {
   const { eventId } = useParams({ strict: false })
@@ -42,7 +43,7 @@ export default function ContractPrintPage() {
   if (contractQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Vertrag wird geladen…
+        {t('Vertrag wird geladen…')}
       </div>
     )
   }
@@ -50,9 +51,9 @@ export default function ContractPrintPage() {
   if (contractQuery.isError || !data) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Vertrag nicht gefunden.</p>
+        <p className="text-muted-foreground">{t('Vertrag nicht gefunden.')}</p>
         <Button variant="outline" onClick={() => navigate({ to: '/events' })}>
-          <ArrowLeft className="h-4 w-4" /> Zurück zu den Events
+          <ArrowLeft className="h-4 w-4" /> {t('Zurück zu den Events')}
         </Button>
       </div>
     )
@@ -80,7 +81,7 @@ export default function ContractPrintPage() {
               : navigate({ to: '/events/$eventId', params: { eventId: String(id) } })
           }
         >
-          <ArrowLeft className="h-4 w-4" /> Zurück
+          <ArrowLeft className="h-4 w-4" /> {t('Zurück')}
         </Button>
         <div className="flex items-center gap-2">
           <DocumentLanguageSelect value={lang} onChange={setLang} />

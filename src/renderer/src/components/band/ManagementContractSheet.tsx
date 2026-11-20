@@ -27,6 +27,7 @@ import type {
   ManagementContractDto,
   UpdateManagementContractInput
 } from '../../../../main/api/schemas/management_contract.schema'
+import { t } from '../../../../main/i18n/translate'
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split('-')
@@ -38,7 +39,7 @@ function contractLabel(contract: ManagementContractDto, isCurrent: boolean): str
   const date = contract.startDate
     ? `ab ${formatDate(contract.startDate)}`
     : `angelegt am ${formatDate(contract.createdAt)}`
-  return `Vertrag ${date}${isCurrent ? ' (aktuell)' : ''}`
+  return t('Vertrag {{date}}{{value}}', { date, value: isCurrent ? t(' (aktuell)') : '' })
 }
 
 /**
@@ -60,16 +61,16 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
       setSelectedId(created.id)
       toast.success(
         list.length > 0
-          ? 'Neuer Vertrag mit den aktuellen Konditionen angelegt'
-          : 'Vertrag angelegt'
+          ? t('Neuer Vertrag mit den aktuellen Konditionen angelegt')
+          : t('Vertrag angelegt')
       )
     },
     onError: (error) =>
-      toast.error('Vertrag konnte nicht angelegt werden', { description: error.message })
+      toast.error(t('Vertrag konnte nicht angelegt werden'), { description: error.message })
   })
 
   if (contracts.isLoading) {
-    return <p className="text-sm text-muted-foreground">Verträge werden geladen…</p>
+    return <p className="text-sm text-muted-foreground">{t('Verträge werden geladen…')}</p>
   }
 
   return (
@@ -77,8 +78,8 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
       <TabHeader
         summary={
           selected
-            ? countLabel(list.length, 'Vertrag', 'Verträge')
-            : 'Für diese Band gibt es noch keinen Managementvertrag.'
+            ? countLabel(list.length, t('Vertrag'), t('Verträge'))
+            : t('Für diese Band gibt es noch keinen Managementvertrag.')
         }
       >
         <Button
@@ -86,10 +87,10 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
           className="gap-1.5"
           onClick={() => createMutation.mutate(bandId)}
           disabled={createMutation.isPending}
-          title={selected ? 'Neuer Vertrag mit den Konditionen des aktuellen' : undefined}
+          title={selected ? t('Neuer Vertrag mit den Konditionen des aktuellen') : undefined}
         >
           <Plus className="h-4 w-4" />
-          Neuer Vertrag
+          {t('Neuer Vertrag')}
         </Button>
       </TabHeader>
 
@@ -97,7 +98,7 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
         // The contract form reads best at a form's width
         <div className="max-w-3xl space-y-5">
           <div className="space-y-2">
-            <Label>Vertrag</Label>
+            <Label>{t('Vertrag')}</Label>
             <Select
               value={String(selected.id)}
               onValueChange={(value) => setSelectedId(Number(value))}
@@ -142,8 +143,8 @@ export function ManagementContractSheet({
       isOpen={band !== null}
       onClose={onClose}
       mode="edit"
-      title={`Managementvertrag – ${band?.name ?? ''}`}
-      description="Konditionen des Managementvertrags zwischen Management und Band."
+      title={t('Managementvertrag – {{value}}', { value: band?.name ?? '' })}
+      description={t('Konditionen des Managementvertrags zwischen Management und Band.')}
     >
       {band && <ManagementContractPanel key={band.id} bandId={band.id} />}
     </FormSheet>
@@ -197,10 +198,10 @@ function ContractForm({
     onSuccess: () => {
       void utils.managementContract.listByBand.invalidate(bandId)
       onDeleted()
-      toast.success('Vertrag gelöscht')
+      toast.success(t('Vertrag gelöscht'))
     },
     onError: (error) =>
-      toast.error('Vertrag konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Vertrag konnte nicht gelöscht werden'), { description: error.message })
   })
 
   const members = bandMembers.data ?? []
@@ -221,7 +222,8 @@ function ContractForm({
   const save = async (): Promise<boolean> => {
     const whole = (label: string, value: string) => {
       const n = Number(value)
-      if (!Number.isInteger(n) || n < 0) throw new Error(`${label}: bitte eine ganze Zahl ≥ 0`)
+      if (!Number.isInteger(n) || n < 0)
+        throw new Error(t('{{label}}: bitte eine ganze Zahl ≥ 0', { label }))
       return n
     }
     const percent = (label: string, value: string) => {
@@ -237,24 +239,24 @@ function ContractForm({
         managementCompanyId: form.managementCompanyId,
         startDate: form.startDate || null,
         territory: form.territory.trim(),
-        termYears: whole('Laufzeit', form.termYears),
-        renewalYears: whole('Verlängerung', form.renewalYears),
-        noticeMonths: whole('Kündigungsfrist', form.noticeMonths),
-        commissionPercent: percent('Vergütung', form.commissionPercent),
-        agencyPercent: percent('Agenturprovision', form.agencyPercent),
+        termYears: whole(t('Laufzeit'), form.termYears),
+        renewalYears: whole(t('Verlängerung'), form.renewalYears),
+        noticeMonths: whole(t('Kündigungsfrist'), form.noticeMonths),
+        commissionPercent: percent(t('Vergütung'), form.commissionPercent),
+        agencyPercent: percent(t('Agenturprovision'), form.agencyPercent),
         excludedIncome: form.excludedIncome.trim(),
         statementEmail: form.statementEmail.trim(),
-        settlementDays: whole('Abrechnungsfrist', form.settlementDays),
-        paymentDays: whole('Zahlungsfrist', form.paymentDays),
-        postTermYear1Percent: percent('Nachvertraglich 1. Jahr', form.postTermYear1Percent),
-        postTermYear2Percent: percent('Nachvertraglich 2. Jahr', form.postTermYear2Percent),
-        postTermYear3Percent: percent('Nachvertraglich 3. Jahr', form.postTermYear3Percent),
+        settlementDays: whole(t('Abrechnungsfrist'), form.settlementDays),
+        paymentDays: whole(t('Zahlungsfrist'), form.paymentDays),
+        postTermYear1Percent: percent(t('Nachvertraglich 1. Jahr'), form.postTermYear1Percent),
+        postTermYear2Percent: percent(t('Nachvertraglich 2. Jahr'), form.postTermYear2Percent),
+        postTermYear3Percent: percent(t('Nachvertraglich 3. Jahr'), form.postTermYear3Percent),
         memberPersonIds: form.memberPersonIds,
         representativePersonId: form.representativePersonId,
         specialClauses: form.specialClauses
       }
     } catch (error) {
-      toast.error('Bitte Eingaben prüfen', {
+      toast.error(t('Bitte Eingaben prüfen'), {
         description: error instanceof Error ? error.message : String(error)
       })
       return false
@@ -266,7 +268,7 @@ function ContractForm({
       setDirty(false)
       return true
     } catch (error) {
-      toast.error('Vertrag konnte nicht gespeichert werden', {
+      toast.error(t('Vertrag konnte nicht gespeichert werden'), {
         description: error instanceof Error ? error.message : String(error)
       })
       return false
@@ -299,7 +301,7 @@ function ContractForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="mc-management">Management</Label>
+          <Label htmlFor="mc-management">{t('Management')}</Label>
           <SearchableSelect
             id="mc-management"
             value={form.managementCompanyId || null}
@@ -308,12 +310,12 @@ function ContractForm({
               value: company.id,
               label: company.name
             }))}
-            placeholder="Firma auswählen"
-            searchPlaceholder="Firma suchen…"
+            placeholder={t('Firma auswählen')}
+            searchPlaceholder={t('Firma suchen…')}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="mc-start">Vertragsbeginn</Label>
+          <Label htmlFor="mc-start">{t('Vertragsbeginn')}</Label>
           <Input
             id="mc-start"
             type="date"
@@ -321,16 +323,16 @@ function ContractForm({
             onChange={(e) => set('startDate', e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Datum der Letztunterschrift, sobald bekannt
+            {t('Datum der Letztunterschrift, sobald bekannt')}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {numberField('commissionPercent', 'Vergütung', '% zzgl. USt.')}
-        {numberField('agencyPercent', 'Agenturprovision (vor der Vergütung)', '% der Gage')}
+        {numberField('commissionPercent', t('Vergütung'), t('% zzgl. USt.'))}
+        {numberField('agencyPercent', t('Agenturprovision (vor der Vergütung)'), t('% der Gage'))}
         <div className="space-y-2">
-          <Label htmlFor="mc-excluded">Ausgenommene Einnahmen</Label>
+          <Label htmlFor="mc-excluded">{t('Ausgenommene Einnahmen')}</Label>
           <Input
             id="mc-excluded"
             value={form.excludedIncome}
@@ -340,27 +342,27 @@ function ContractForm({
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {numberField('termYears', 'Laufzeit', 'Jahre')}
-        {numberField('renewalYears', 'Verlängerung', 'Jahre')}
-        {numberField('noticeMonths', 'Kündigungsfrist', 'Monate')}
+        {numberField('termYears', t('Laufzeit'), t('Jahre'))}
+        {numberField('renewalYears', t('Verlängerung'), t('Jahre'))}
+        {numberField('noticeMonths', t('Kündigungsfrist'), t('Monate'))}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mc-territory">Vertragsgebiet</Label>
+        <Label htmlFor="mc-territory">{t('Vertragsgebiet')}</Label>
         <Input
           id="mc-territory"
           value={form.territory}
           onChange={(e) => set('territory', e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Satz im Vertrag: „… die vertragsgegenständlichen Aufgaben <em>{form.territory}</em>{' '}
+          {t('Satz im Vertrag: „… die vertragsgegenständlichen Aufgaben')} <em>{form.territory}</em>{' '}
           wahrzunehmen.“
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="mc-email">E-Mail für Abrechnungen</Label>
+          <Label htmlFor="mc-email">{t('E-Mail für Abrechnungen')}</Label>
           <Input
             id="mc-email"
             type="email"
@@ -368,16 +370,16 @@ function ContractForm({
             onChange={(e) => set('statementEmail', e.target.value)}
           />
         </div>
-        {numberField('settlementDays', 'Abrechnungsfrist', 'Tage nach Quartalsende')}
-        {numberField('paymentDays', 'Zahlungsfrist', 'Tage nach Rechnung')}
+        {numberField('settlementDays', t('Abrechnungsfrist'), t('Tage nach Quartalsende'))}
+        {numberField('paymentDays', t('Zahlungsfrist'), t('Tage nach Rechnung'))}
       </div>
 
       <div className="space-y-2">
-        <Label>Nachvertragliche Beteiligung (Anteil der Vergütung)</Label>
+        <Label>{t('Nachvertragliche Beteiligung (Anteil der Vergütung)')}</Label>
         <div className="grid grid-cols-3 gap-4">
-          {numberField('postTermYear1Percent', '1. Jahr', '%')}
-          {numberField('postTermYear2Percent', '2. Jahr', '%')}
-          {numberField('postTermYear3Percent', '3. Jahr', '%')}
+          {numberField('postTermYear1Percent', t('1. Jahr'), '%')}
+          {numberField('postTermYear2Percent', t('2. Jahr'), '%')}
+          {numberField('postTermYear3Percent', t('3. Jahr'), '%')}
         </div>
       </div>
 
@@ -386,10 +388,12 @@ function ContractForm({
       {/* Group clause: who is named as member/shareholder, and who receives
           notices, statements and payments for the group */}
       <div className="space-y-2">
-        <Label>Mitglieder / Gesellschafter (Gruppenklausel)</Label>
+        <Label>{t('Mitglieder / Gesellschafter (Gruppenklausel)')}</Label>
         {members.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Diese Band hat noch keine Mitglieder – über „Mitglieder“ in der Bandliste hinzufügen.
+            {t(
+              'Diese Band hat noch keine Mitglieder – über „Mitglieder“ in der Bandliste hinzufügen.'
+            )}
           </p>
         ) : (
           <div className="space-y-1 rounded-md border p-3">
@@ -410,14 +414,14 @@ function ContractForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Bevollmächtigtes Mitglied</Label>
+        <Label>{t('Bevollmächtigtes Mitglied')}</Label>
         <Select
           value={form.representativePersonId ? String(form.representativePersonId) : ''}
           onValueChange={(value) => set('representativePersonId', Number(value))}
           disabled={listedMembers.length === 0}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Mitglied auswählen" />
+            <SelectValue placeholder={t('Mitglied auswählen')} />
           </SelectTrigger>
           <SelectContent>
             {listedMembers.map((member) => (
@@ -428,18 +432,20 @@ function ContractForm({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Empfängt Erklärungen, Abrechnungen und Zahlungen für die Gruppe (mit Adresse im Vertrag).
+          {t(
+            'Empfängt Erklärungen, Abrechnungen und Zahlungen für die Gruppe (mit Adresse im Vertrag).'
+          )}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mc-special">Sondervereinbarungen</Label>
+        <Label htmlFor="mc-special">{t('Sondervereinbarungen')}</Label>
         <Textarea
           id="mc-special"
           rows={3}
           value={form.specialClauses}
           onChange={(e) => set('specialClauses', e.target.value)}
-          placeholder="Erscheint als eigener Paragraph am Vertragsende"
+          placeholder={t('Erscheint als eigener Paragraph am Vertragsende')}
         />
       </div>
 
@@ -451,9 +457,9 @@ function ContractForm({
           onClick={async () => {
             if (
               await confirmAction({
-                title: 'Diesen Vertrag löschen?',
-                description: 'Der Vertrag und seine Konditionen werden endgültig entfernt.',
-                confirmLabel: 'Löschen',
+                title: t('Diesen Vertrag löschen?'),
+                description: t('Der Vertrag und seine Konditionen werden endgültig entfernt.'),
+                confirmLabel: t('Löschen'),
                 destructive: true
               })
             ) {
@@ -461,7 +467,7 @@ function ContractForm({
             }
           }}
         >
-          <Trash2 className="h-4 w-4" /> Löschen
+          <Trash2 className="h-4 w-4" /> {t('Löschen')}
         </Button>
         <div className="flex gap-2">
           <Button
@@ -476,15 +482,15 @@ function ContractForm({
               })
             }}
           >
-            <Printer className="h-4 w-4" /> Drucken / PDF
+            <Printer className="h-4 w-4" /> {t('Drucken / PDF')}
           </Button>
           <Button
             disabled={!dirty || updateMutation.isPending}
             onClick={async () => {
-              if (await save()) toast.success('Vertrag gespeichert')
+              if (await save()) toast.success(t('Vertrag gespeichert'))
             }}
           >
-            Speichern
+            {t('Speichern')}
           </Button>
         </div>
       </FormActions>

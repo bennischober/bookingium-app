@@ -49,7 +49,9 @@ describe('I16 item 22: the attachment group is announced', () => {
   it('gives "Alle Anhänge" a role, so its aria-label is read', () => {
     // aria-label on a plain div is ignored by assistive tech; a role makes the name meaningful.
     const src = source(READER)
-    const at = src.indexOf('aria-label="Alle Anhänge"')
+    // #254: the label may be wrapped in t()
+    const plain = src.indexOf('aria-label="Alle Anhänge"')
+    const at = plain > -1 ? plain : src.indexOf("aria-label={t('Alle Anhänge')}")
     expect(at).toBeGreaterThan(-1)
     const tag = src.slice(src.lastIndexOf('<', at), src.indexOf('>', at))
     expect(tag).toMatch(/role="group"|role="region"/)

@@ -18,6 +18,7 @@ import type {
   MessageDetail,
   MessageListItem
 } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /** The open editor; a new key mounts a fresh one, `draftId` when it shows a mail from Drafts */
 export type OpenCompose = { key: number; state: ComposeState; draftId?: number }
@@ -158,7 +159,7 @@ export function ReadingPane({
       ) : (
         <div className="m-auto flex flex-col items-center gap-2 text-sm text-muted-foreground">
           <Mail className="size-10 stroke-1" aria-hidden />
-          <p>Keine E-Mail ausgewählt.</p>
+          <p>{t('Keine E-Mail ausgewählt.')}</p>
         </div>
       )}
     </div>

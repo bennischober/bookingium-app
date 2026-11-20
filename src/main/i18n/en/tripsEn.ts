@@ -1,0 +1,68 @@
+// #254: English UI texts of trips, keyed by the German source string (see ../translate.ts)
+
+export const tripsEn: Record<string, string> = {
+  'Reise gespeichert': 'Trip saved',
+  'Reise konnte nicht gespeichert werden': 'Trip could not be saved',
+  'Beleg konnte nicht zugeordnet werden': 'Receipt could not be assigned',
+  'Abrechnung erstellt': 'Statement created',
+  'Abrechnung konnte nicht erstellt werden': 'Statement could not be created',
+  'Bitte die reisende Person angeben': 'Please enter the travelling person',
+  'Bitte beide Pauschalen des Landes angeben (BMF-Tabelle)':
+    'Please enter both allowances of the country (BMF table)',
+  'Bitte zuerst speichern und die Abrechnung neu erstellen':
+    'Please save first and create the statement again',
+  'Noch einmal an DATEV übergeben?': 'Hand over to DATEV again?',
+  'Die Abrechnung ist schon übergeben. Ein zweites Mal wird sie in DATEV ein zweiter Beleg.':
+    'The statement has already been handed over. A second time it becomes a second receipt in DATEV.',
+  'Trotzdem übergeben': 'Hand over anyway',
+  'Neue Reise': 'New trip',
+  'Reise bearbeiten': 'Edit trip',
+  'Verpflegungspauschalen 2026 im Inland: 14 € ab mehr als 8 Stunden und für An- und Abreisetag, 28 € pro vollem Tag. Gestellte Mahlzeiten werden gekürzt.':
+    'Domestic meal allowances 2026: €14 for more than 8 hours and for the arrival and departure day, €28 per full day. Meals provided are deducted.',
+  'Reisende Person': 'Travelling person',
+  'Keine Person aus Bookingium': 'No person from Bookingium',
+  'Person wählen': 'Choose person',
+  'Name auf der Abrechnung': 'Name on the statement',
+  Anlass: 'Occasion',
+  'z. B. Tourbegleitung April Art, Herbst 2026': 'e.g. tour support April Art, autumn 2026',
+  Reiseziel: 'Destination',
+  'Mit Übernachtung (sonst über Mitternacht ohne Übernachtung: eine Pauschale)':
+    'With overnight stay (otherwise past midnight without overnight stay: one allowance)',
+  'Auslandsreise: die Pauschalen des Landes aus der BMF-Tabelle des Jahres. Leer gelassen gelten die Inlandssätze.':
+    "Trip abroad: the country's allowances from the year's BMF table. Left empty, the domestic rates apply.",
+  'An-/Abreisetag, über 8 Std.': 'Arrival/departure day, over 8 h',
+  'Voller Tag (24 Std.)': 'Full day (24 h)',
+  'Gestellte Mahlzeiten': 'Meals provided',
+  Frühstück: 'Breakfast',
+  Mittag: 'Lunch',
+  Abend: 'Dinner',
+  Pauschale: 'Allowance',
+  Mittagessen: 'Lunch',
+  'Gefahrene km (eigenes Fahrzeug)': 'Kilometres driven (own vehicle)',
+  Fahrzeug: 'Vehicle',
+  'Pkw (0,30 €/km)': 'Car (€0.30/km)',
+  'Anderes Kfz (0,20 €/km)': 'Other motor vehicle (€0.20/km)',
+  Anmerkung: 'Note',
+  'Belege der Reise': 'Receipts of the trip',
+  'Nach dem Speichern': 'After saving',
+  'Vorhandenen Beleg zuordnen': 'Assign existing receipt',
+  'Keine freien Belege': 'No unassigned receipts',
+  'Neue Belege…': 'New receipts…',
+  'Noch keine Belege zugeordnet.': 'No receipts assigned yet.',
+  'Beleg von der Reise lösen': 'Detach receipt from the trip',
+  'Von der Reise lösen': 'Detach from the trip',
+  Erstattung: 'Reimbursement',
+  Verpflegung: 'Meals',
+  Kilometer: 'Mileage',
+  'Belege (EUR)': 'Receipts (EUR)',
+  Gesamt: 'Total',
+  Abrechnung: 'Statement',
+  'an DATEV übergeben': 'handed over to DATEV',
+  'wird bestätigt': 'being confirmed',
+  'Ein PDF: Übersicht und dahinter die Belege der Reise.':
+    "One PDF: overview followed by the trip's receipts.",
+  'Zuerst speichern': 'Save first',
+  'Abrechnung neu erstellen': 'Create statement again',
+  'Abrechnung erstellen': 'Create statement',
+  'Abrechnung öffnen': 'Open statement'
+}

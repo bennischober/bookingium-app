@@ -37,6 +37,7 @@ import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { EventSelectionActions } from '@/components/event-list/EventSelectionActions'
 import { keepShownRows } from '@/lib/rowSelection'
 import { isPastEvent, PAST_EVENT_ROW_CLASS } from '@/components/event-list/pastEvent'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 // TODO: create an enum or something for this to avoid hard-coded status strings everywhere
 const STATUS_STYLES: Record<string, string> = {
@@ -46,9 +47,9 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Ausstehend',
-  cancelled: 'Storniert'
+  confirmed: t('Bestätigt'),
+  pending: t('Ausstehend'),
+  cancelled: t('Storniert')
 }
 
 const ALL_TOURS = '__all__'
@@ -95,28 +96,29 @@ export function EventPage() {
   const deleteMutation = trpcReact.dealMemo.delete.useMutation({
     onSuccess: () => {
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event gelöscht')
+      toast.success(t('Event gelöscht'))
     },
-    onError: (e) => toast.error('Event konnte nicht gelöscht werden', { description: e.message })
+    onError: (e) => toast.error(t('Event konnte nicht gelöscht werden'), { description: e.message })
   })
 
   // D3: the normal way out of the working view - nothing is destroyed
   const archiveMutation = trpcReact.dealMemo.archive.useMutation({
     onSuccess: () => {
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event archiviert')
+      toast.success(t('Event archiviert'))
     },
-    onError: (e) => toast.error('Event konnte nicht archiviert werden', { description: e.message })
+    onError: (e) =>
+      toast.error(t('Event konnte nicht archiviert werden'), { description: e.message })
   })
 
   const restoreMutation = trpcReact.dealMemo.restore.useMutation({
     onSuccess: () => {
       utils.dealMemo.listArchived.invalidate()
       utils.dealMemo.getAllPaginated.invalidate()
-      toast.success('Event wiederhergestellt')
+      toast.success(t('Event wiederhergestellt'))
     },
     onError: (e) =>
-      toast.error('Event konnte nicht wiederhergestellt werden', { description: e.message })
+      toast.error(t('Event konnte nicht wiederhergestellt werden'), { description: e.message })
   })
 
   // D3: the archive view - archived events are out of every other surface
@@ -125,10 +127,11 @@ export function EventPage() {
   const handleArchive = async (id: number, name: string) => {
     if (
       await confirmAction({
-        title: `Event „${name}“ archivieren?`,
-        description:
-          'Das Event verschwindet aus den Listen und dem Kalender. Rechnungen, Dokumente und Wiedervorlagen bleiben erhalten, und es lässt sich jederzeit wiederherstellen.',
-        confirmLabel: 'Archivieren'
+        title: t('Event „{{name}}“ archivieren?', { name }),
+        description: t(
+          'Das Event verschwindet aus den Listen und dem Kalender. Rechnungen, Dokumente und Wiedervorlagen bleiben erhalten, und es lässt sich jederzeit wiederherstellen.'
+        ),
+        confirmLabel: t('Archivieren')
       })
     ) {
       archiveMutation.mutate(id)
@@ -136,7 +139,7 @@ export function EventPage() {
   }
 
   const handleDelete = async (id: number, name: string) => {
-    if (await confirmDelete(`Event „${name}“ löschen?`)) deleteMutation.mutate(id)
+    if (await confirmDelete(t('Event „{{name}}“ löschen?', { name }))) deleteMutation.mutate(id)
   }
 
   // Only events the list still shows stay picked (after a search, a filter, an archive)
@@ -150,16 +153,16 @@ export function EventPage() {
   const columns: ColumnDef<DealMemoListItemDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Event',
+      header: t('Event'),
       cell: (info) => <span className="font-medium">{info.getValue() as string}</span>
     },
     {
       accessorKey: 'date',
-      header: 'Datum',
+      header: t('Datum'),
       cell: (info) => {
         const val = info.getValue() as string
         if (!val) return '-'
-        return new Date(val).toLocaleDateString('de-DE', {
+        return new Date(val).toLocaleDateString(uiLocale(), {
           day: '2-digit',
           month: 'short',
           year: 'numeric'
@@ -168,28 +171,28 @@ export function EventPage() {
     },
     {
       accessorKey: 'bandName',
-      header: 'Band',
+      header: t('Band'),
       cell: (info) => info.getValue() as string
     },
     {
       accessorKey: 'venueName',
-      header: 'Club / Festival',
+      header: t('Club / Festival'),
       cell: (info) => (info.getValue() as string | null) ?? '-'
     },
     {
       // The venue's city, so a list of shows reads like a route
       accessorKey: 'venueCity',
-      header: 'Ort',
+      header: t('Ort'),
       cell: (info) => (info.getValue() as string | null) || '-'
     },
     {
       accessorKey: 'tour',
-      header: 'Tour',
+      header: t('Tour'),
       cell: (info) => (info.getValue() as string) || '-'
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: t('Status'),
       cell: (info) => {
         const status = (info.getValue() as string) || 'pending'
         return (
@@ -201,24 +204,24 @@ export function EventPage() {
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => {
         const event = row.original
         return (
           <RowActions>
             <RowActionButton
               icon={Copy}
-              label="Duplizieren"
+              label={t('Duplizieren')}
               onClick={() => setDuplicateId(event.id)}
             />
             <RowActionButton
               icon={Archive}
-              label="Archivieren"
+              label={t('Archivieren')}
               onClick={() => handleArchive(event.id, event.name)}
             />
             <RowActionButton
               icon={Trash2}
-              label="Löschen"
+              label={t('Löschen')}
               destructive
               onClick={() => handleDelete(event.id, event.name)}
             />
@@ -230,32 +233,33 @@ export function EventPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader title="Events" description="Shows, Tours und Deal Memos verwalten.">
+      <ListPageHeader title={t('Events')} description={t('Shows, Tours und Deal Memos verwalten.')}>
         {/* #103: shows other agencies booked - read-only, imported from their export */}
         <Button variant="outline" onClick={() => setView(view === 'agency' ? 'list' : 'agency')}>
           <Building2 className="h-4 w-4" />{' '}
-          {view === 'agency' ? 'Agenturbuchungen schließen' : 'Agenturbuchungen'}
+          {view === 'agency' ? t('Agenturbuchungen schließen') : t('Agenturbuchungen')}
         </Button>
         {/* D3: archived events are out of every working view, and findable here */}
         <Button variant="outline" onClick={() => setView(view === 'archive' ? 'list' : 'archive')}>
-          <Archive className="h-4 w-4" /> {showArchive ? 'Archiv schließen' : 'Archiv'}
+          <Archive className="h-4 w-4" /> {showArchive ? t('Archiv schließen') : t('Archiv')}
         </Button>
       </ListPageHeader>
 
       {view === 'agency' ? (
         <AgencyBookingsView />
       ) : showArchive ? (
-        <section aria-label="Archiv" className="space-y-3">
+        <section aria-label={t('Archiv')} className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Archivierte Events sind aus den Listen und dem Kalender verschwunden. Rechnungen,
-            Dokumente und Wiedervorlagen sind erhalten.
+            {t(
+              'Archivierte Events sind aus den Listen und dem Kalender verschwunden. Rechnungen, Dokumente und Wiedervorlagen sind erhalten.'
+            )}
           </p>
           {archived.isLoading ? (
-            <p className="text-sm text-muted-foreground">Archiv wird geladen…</p>
+            <p className="text-sm text-muted-foreground">{t('Archiv wird geladen…')}</p>
           ) : (archived.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Das Archiv ist leer.</p>
+            <p className="text-sm text-muted-foreground">{t('Das Archiv ist leer.')}</p>
           ) : (
-            <ul className="rounded-lg border" aria-label="Archivierte Events">
+            <ul className="rounded-lg border" aria-label={t('Archivierte Events')}>
               {(archived.data ?? []).map((event) => (
                 <li
                   key={event.id}
@@ -280,7 +284,7 @@ export function EventPage() {
                     onClick={() => restoreMutation.mutate(event.id)}
                     disabled={restoreMutation.isPending}
                   >
-                    Wiederherstellen
+                    {t('Wiederherstellen')}
                   </Button>
                 </li>
               ))}
@@ -291,7 +295,7 @@ export function EventPage() {
         <DataTable
           columns={columns}
           data={rows}
-          itemLabel={{ singular: 'Event', plural: 'Events' }}
+          itemLabel={{ singular: t('Event'), plural: t('Events') }}
           selection={{
             selected,
             onChange: setSelected,
@@ -308,20 +312,20 @@ export function EventPage() {
           filtered={Boolean(search) || tourKnown}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Events filtern…"
+          searchPlaceholder={t('Events filtern…')}
           isLoading={events.isLoading}
           error={events.error}
           onRetry={() => void events.refetch()}
           total={listTotal(events.data)}
           actionButton={
-            <ListToolbar createLabel="+ Neues Event" onCreate={() => setWizardOpen(true)}>
+            <ListToolbar createLabel={t('+ Neues Event')} onCreate={() => setWizardOpen(true)}>
               {(tours.data ?? []).length > 0 && (
                 <Select value={tourKnown ? tour : ALL_TOURS} onValueChange={setTour}>
-                  <SelectTrigger className="w-48" aria-label="Tour">
+                  <SelectTrigger className="w-48" aria-label={t('Tour')}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL_TOURS}>Alle Touren</SelectItem>
+                    <SelectItem value={ALL_TOURS}>{t('Alle Touren')}</SelectItem>
                     {(tours.data ?? []).map((name) => (
                       <SelectItem key={name} value={name}>
                         {name}
@@ -331,7 +335,7 @@ export function EventPage() {
                 </Select>
               )}
               <Button variant="outline" onClick={() => setTourImportOpen(true)}>
-                <FileSpreadsheet className="h-4 w-4" /> Tourdaten importieren
+                <FileSpreadsheet className="h-4 w-4" /> {t('Tourdaten importieren')}
               </Button>
               <ExportButton list="events" sort={sortInput} search={search} />
             </ListToolbar>

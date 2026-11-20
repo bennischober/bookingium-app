@@ -1,3 +1,4 @@
+import { t } from '../../../../main/i18n/translate'
 // Settings page tabs; the active one is kept in the URL (?tab=...) so other
 // places (e.g. the search palette) can link straight to it
 export const SETTINGS_TABS = ['general', 'invoices', 'email', 'calendar', 'data'] as const
@@ -7,9 +8,9 @@ export function isSettingsTab(value: unknown): value is SettingsTab {
 }
 
 export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
-  general: 'Allgemein',
-  invoices: 'Rechnungen',
+  general: t('Allgemein'),
+  invoices: t('Rechnungen'),
   email: 'E-Mail',
-  calendar: 'Kalender',
-  data: 'Daten'
+  calendar: t('Kalender'),
+  data: t('Daten')
 }

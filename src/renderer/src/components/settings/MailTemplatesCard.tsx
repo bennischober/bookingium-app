@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { MailTemplateDto } from '../../../../main/api/schemas/mailTemplate.schema'
 import { MAIL_TEMPLATE_PLACEHOLDERS } from '../../../../main/mail/mailTemplate'
 import { DocumentTemplates } from './DocumentTemplates'
+import { t } from '../../../../main/i18n/translate'
 
 const EMPTY = { name: '', subject: '', body: '' }
 
@@ -57,11 +58,11 @@ function MailTemplateDialog({
   const save = trpcReact.mailTemplate.save.useMutation({
     onSuccess: () => {
       void utils.mailTemplate.list.invalidate()
-      toast.success('Vorlage gespeichert')
+      toast.success(t('Vorlage gespeichert'))
       onOpenChange(false)
     },
     onError: (error) =>
-      toast.error('Vorlage konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Vorlage konnte nicht gespeichert werden'), { description: error.message })
   })
 
   const submit = (event: React.FormEvent) => {
@@ -75,25 +76,27 @@ function MailTemplateDialog({
       <DialogContent className="sm:max-w-2xl">
         <form onSubmit={submit} className="max-h-[75vh] space-y-4 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{template ? 'Vorlage bearbeiten' : 'Neue Vorlage'}</DialogTitle>
+            <DialogTitle>{template ? t('Vorlage bearbeiten') : t('Neue Vorlage')}</DialogTitle>
             <DialogDescription>
-              Platzhalter: <Placeholders />. Die Werte kommen aus dem Event, das Sie beim Einfügen
-              wählen; ohne Event bleiben dessen Platzhalter stehen.
+              {t('Platzhalter:')} <Placeholders />
+              {t(
+                '. Die Werte kommen aus dem Event, das Sie beim Einfügen wählen; ohne Event bleiben dessen Platzhalter stehen.'
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-template-name">Name</Label>
+            <Label htmlFor="mail-template-name">{t('Name')}</Label>
             <Input
               id="mail-template-name"
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="z. B. Bestätigung Anfrage"
+              placeholder={t('z. B. Bestätigung Anfrage')}
               autoFocus
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="mail-template-subject">Betreff</Label>
+            <Label htmlFor="mail-template-subject">{t('Betreff')}</Label>
             <Input
               id="mail-template-subject"
               value={draft.subject}
@@ -101,7 +104,7 @@ function MailTemplateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="mail-template-body">Text</Label>
+            <Label htmlFor="mail-template-body">{t('Text')}</Label>
             <Textarea
               id="mail-template-body"
               rows={10}
@@ -112,10 +115,10 @@ function MailTemplateDialog({
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
             <Button type="submit" disabled={!draft.name.trim() || save.isLoading}>
-              Speichern
+              {t('Speichern')}
             </Button>
           </DialogFooter>
         </form>
@@ -138,10 +141,10 @@ export function MailTemplatesCard() {
   const remove = trpcReact.mailTemplate.delete.useMutation({
     onSuccess: () => {
       void utils.mailTemplate.list.invalidate()
-      toast.success('Vorlage gelöscht')
+      toast.success(t('Vorlage gelöscht'))
     },
     onError: (error) =>
-      toast.error('Vorlage konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Vorlage konnte nicht gelöscht werden'), { description: error.message })
   })
 
   const openDialog = (template: MailTemplateDto | null) => {
@@ -151,9 +154,9 @@ export function MailTemplatesCard() {
 
   const confirmRemove = async (template: MailTemplateDto) => {
     const confirmed = await confirmAction({
-      title: `Vorlage „${template.name}“ löschen?`,
-      description: 'Bereits geschriebene E-Mails bleiben unverändert.',
-      confirmLabel: 'Löschen',
+      title: t('Vorlage „{{name}}“ löschen?', { name: template.name }),
+      description: t('Bereits geschriebene E-Mails bleiben unverändert.'),
+      confirmLabel: t('Löschen'),
       destructive: true
     })
     if (confirmed) remove.mutate(template.id)
@@ -166,18 +169,21 @@ export function MailTemplatesCard() {
       <CardHeader>
         <CardTitle>E-Mail-Vorlagen</CardTitle>
         <CardDescription>
-          Texte für E-Mails aus Bookingium: feste für Rechnungen und Verträge, dazu eigene für
-          häufige E-Mails.
+          {t(
+            'Texte für E-Mails aus Bookingium: feste für Rechnungen und Verträge, dazu eigene für häufige E-Mails.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         <section className="space-y-3" aria-labelledby="settings-document-templates">
           <div>
             <h3 id="settings-document-templates" className="font-medium">
-              Für Rechnungen und Verträge
+              {t('Für Rechnungen und Verträge')}
             </h3>
             <p className="text-sm text-muted-foreground">
-              „Per E-Mail senden“ füllt diese Texte mit den Daten der Rechnung bzw. des Vertrags.
+              {t(
+                '„Per E-Mail senden“ füllt diese Texte mit den Daten der Rechnung bzw. des Vertrags.'
+              )}
             </p>
           </div>
           <DocumentTemplates />
@@ -186,15 +192,16 @@ export function MailTemplatesCard() {
         <section className="space-y-3" aria-labelledby="settings-own-templates">
           <div>
             <h3 id="settings-own-templates" className="font-medium">
-              Eigene Vorlagen
+              {t('Eigene Vorlagen')}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Etwa Bestätigungen oder Absagen. Beim Schreiben fügt „Vorlage einfügen“ sie ein, mit
-              den Daten eines Events in den Platzhaltern.
+              {t(
+                'Etwa Bestätigungen oder Absagen. Beim Schreiben fügt „Vorlage einfügen“ sie ein, mit den Daten eines Events in den Platzhaltern.'
+              )}
             </p>
           </div>
           {list.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Noch keine Vorlage angelegt.</p>
+            <p className="text-sm text-muted-foreground">{t('Noch keine Vorlage angelegt.')}</p>
           ) : (
             <ul className="divide-y rounded-md border" aria-label="E-Mail-Vorlagen">
               {list.map((template) => (
@@ -202,14 +209,14 @@ export function MailTemplatesCard() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{template.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {template.subject || 'Ohne Betreff'}
+                      {template.subject || t('Ohne Betreff')}
                     </p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => openDialog(template)}
-                    title="Bearbeiten"
+                    title={t('Bearbeiten')}
                     aria-label={`${template.name} bearbeiten`}
                   >
                     <Pencil />
@@ -218,8 +225,8 @@ export function MailTemplatesCard() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => void confirmRemove(template)}
-                    title="Löschen"
-                    aria-label={`${template.name} löschen`}
+                    title={t('Löschen')}
+                    aria-label={t('{{name}} löschen', { name: template.name })}
                   >
                     <Trash2 />
                   </Button>
@@ -229,7 +236,7 @@ export function MailTemplatesCard() {
           )}
 
           <Button variant="outline" onClick={() => openDialog(null)}>
-            <Plus className="h-4 w-4" /> Vorlage hinzufügen…
+            <Plus className="h-4 w-4" /> {t('Vorlage hinzufügen…')}
           </Button>
         </section>
       </CardContent>

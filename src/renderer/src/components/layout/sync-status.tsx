@@ -3,13 +3,14 @@ import { CloudAlert, CloudCheck, CloudUpload, RefreshCw } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "vor 12 s", "vor 3 min", "um 14:30" */
 function sinceText(iso: string, now = Date.now()): string {
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
   if (seconds < 60) return `vor ${seconds} s`
   if (seconds < 3600) return `vor ${Math.round(seconds / 60)} min`
-  return `um ${new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+  return `um ${new Date(iso).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}`
 }
 
 /**
@@ -31,11 +32,13 @@ export function SyncStatus() {
         size="sm"
         variant="outline"
         className="border-amber-400 text-amber-800 dark:text-amber-300"
-        title={`Abgleich gefunden: ${data.suggestedFolder}`}
+        title={t('Abgleich gefunden: {{suggestedFolder}}', {
+          suggestedFolder: data.suggestedFolder
+        })}
         onClick={open}
       >
         <CloudAlert className="h-4 w-4" />
-        <span className="hidden md:inline">Abgleich gefunden</span>
+        <span className="hidden md:inline">{t('Abgleich gefunden')}</span>
       </Button>
     )
   }
@@ -49,14 +52,16 @@ export function SyncStatus() {
         ? CloudUpload
         : CloudCheck
   const label = failed
-    ? `Abgleich fehlgeschlagen: ${data.lastError}`
+    ? t('Abgleich fehlgeschlagen: {{lastError}}', { lastError: data.lastError })
     : data.running
-      ? 'Wird abgeglichen…'
+      ? t('Wird abgeglichen…')
       : data.pendingChanges > 0
-        ? `${data.pendingChanges} Änderungen gehen gleich an die anderen Computer`
+        ? t('{{pendingChanges}} Änderungen gehen gleich an die anderen Computer', {
+            pendingChanges: data.pendingChanges
+          })
         : data.lastSuccessAt
-          ? `Abgeglichen ${sinceText(data.lastSuccessAt)}`
-          : 'Noch nicht abgeglichen'
+          ? t('Abgeglichen {{sinceText}}', { sinceText: sinceText(data.lastSuccessAt) })
+          : t('Noch nicht abgeglichen')
   return (
     <Button
       size="icon-sm"

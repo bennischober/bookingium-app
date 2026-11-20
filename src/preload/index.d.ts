@@ -3,6 +3,10 @@ import type { EInvoiceCheckDto } from '../main/api/schemas/invoice.schema'
 import type { DatevCategory } from '../main/api/schemas/datev.schema'
 
 export interface DocumentAPI {
+  /** #254: the stored UI language ('de' or 'en') */
+  getLanguage: () => string
+  /** #254: stores the UI language and reloads this window */
+  setLanguage: (language: 'de' | 'en') => Promise<void>
   /** Local path of a file dropped from the file manager ('' if it has none) */
   getPathForFile: (file: File) => string
   openDocument: (filePath: string) => Promise<{ success: boolean; error?: string }>

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { useRecordChoices, type RecordChoice } from './recordChoices'
 import { fillMailTemplate, mailTemplateEventValues } from '../../../../main/mail/mailTemplate'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #123: picks one of the user's templates and, for its placeholders, an event. The event a
@@ -62,7 +63,8 @@ export function InsertTemplateDialog({
   })
 
   const list = templates.data ?? []
-  const template = list.find((t) => t.id === templateId) ?? (list.length === 1 ? list[0] : null)
+  const template =
+    list.find((entry) => entry.id === templateId) ?? (list.length === 1 ? list[0] : null)
 
   const insert = () => {
     if (!template) return
@@ -78,31 +80,33 @@ export function InsertTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Vorlage einfügen</DialogTitle>
+          <DialogTitle>{t('Vorlage einfügen')}</DialogTitle>
           <DialogDescription>
-            Der Text kommt an die Stelle des Cursors, der Betreff nur in ein leeres Betreff-Feld.
+            {t(
+              'Der Text kommt an die Stelle des Cursors, der Betreff nur in ein leeres Betreff-Feld.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
         {templates.isSuccess && list.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Noch keine Vorlage. Vorlagen legen Sie unter Einstellungen › E-Mail an.
+            {t('Noch keine Vorlage. Vorlagen legen Sie unter Einstellungen › E-Mail an.')}
           </p>
         ) : (
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="insert-template">Vorlage</Label>
+              <Label htmlFor="insert-template">{t('Vorlage')}</Label>
               <Select
                 value={template ? String(template.id) : ''}
                 onValueChange={(value) => setTemplateId(Number(value))}
               >
                 <SelectTrigger id="insert-template">
-                  <SelectValue placeholder="Vorlage wählen…" />
+                  <SelectValue placeholder={t('Vorlage wählen…')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {list.map((t) => (
-                    <SelectItem key={t.id} value={String(t.id)}>
-                      {t.name}
+                  {list.map((entry) => (
+                    <SelectItem key={entry.id} value={String(entry.id)}>
+                      {entry.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -110,16 +114,16 @@ export function InsertTemplateDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="insert-template-event">Event für die Platzhalter</Label>
+              <Label htmlFor="insert-template-event">{t('Event für die Platzhalter')}</Label>
               <Input
                 id="insert-template-event"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Event suchen…"
+                placeholder={t('Event suchen…')}
                 autoComplete="off"
               />
               <ul
-                aria-label="Treffer"
+                aria-label={t('Treffer')}
                 className="max-h-40 overflow-auto rounded-md border empty:hidden"
               >
                 {choices.map((choice) => {
@@ -143,8 +147,10 @@ export function InsertTemplateDialog({
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>
                   {eventId === null
-                    ? 'Kein Event: dessen Platzhalter bleiben stehen.'
-                    : `Ausgewählt: ${event.data?.name ?? (event.isLoading ? '…' : 'nicht gefunden')}`}
+                    ? t('Kein Event: dessen Platzhalter bleiben stehen.')
+                    : t('Ausgewählt: {{value}}', {
+                        value: event.data?.name ?? (event.isLoading ? '…' : t('nicht gefunden'))
+                      })}
                 </span>
                 {eventId !== null && (
                   <button
@@ -152,7 +158,7 @@ export function InsertTemplateDialog({
                     className="underline hover:text-foreground"
                     onClick={() => setChosen(null)}
                   >
-                    Ohne Event
+                    {t('Ohne Event')}
                   </button>
                 )}
               </div>
@@ -162,14 +168,14 @@ export function InsertTemplateDialog({
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             type="button"
             onClick={insert}
             disabled={!template || (eventId !== null && event.isLoading)}
           >
-            Einfügen
+            {t('Einfügen')}
           </Button>
         </DialogFooter>
       </DialogContent>

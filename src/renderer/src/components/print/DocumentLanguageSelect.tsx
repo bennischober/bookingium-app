@@ -5,13 +5,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { t } from '../../../../main/i18n/translate'
 
 /** The languages every outgoing document prints in (invoices, contracts) */
 export type DocumentLang = 'de' | 'en'
 
 const DOCUMENT_LANGUAGES: ReadonlyArray<{ value: DocumentLang; label: string }> = [
-  { value: 'de', label: 'Deutsch (DE)' },
-  { value: 'en', label: 'Englisch (EN)' }
+  { value: 'de', label: t('Deutsch (DE)') },
+  { value: 'en', label: t('Englisch (EN)') }
 ]
 
 // Looks like the outline buttons of the print toolbar
@@ -33,7 +34,7 @@ export function DocumentLanguageSelect({
     <Select value={value} onValueChange={(next) => onChange(next as DocumentLang)}>
       <SelectTrigger
         className={`w-[150px] ${TOOLBAR_SELECT_CLASS}`}
-        aria-label="Sprache des Dokuments"
+        aria-label={t('Sprache des Dokuments')}
       >
         <SelectValue />
       </SelectTrigger>

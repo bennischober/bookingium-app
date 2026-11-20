@@ -10,6 +10,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { FOLLOW_UP_CHOICES, type FollowUpChoice } from './composeFollowUp'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** What the editor is waiting for; every button is off while it waits */
 export type ComposeBusy = 'send' | 'save' | 'discard' | null
@@ -48,14 +49,14 @@ export function ComposeToolbar({
         size="sm"
         onClick={() => void send()}
         disabled={busy !== null || sendBlocked !== null || locked}
-        title={sendBlocked ?? 'Senden (Strg+Enter)'}
+        title={sendBlocked ?? t('Senden (Strg+Enter)')}
         // The accessible name stays the ACTION ("Senden"). Putting the reason in the aria-label made the
         // button answer to "An" and collided with the recipient field of the same name; the reason is a
         // tooltip, and aria-disabled is what tells assistive tech the control is unavailable.
-        aria-label="Senden"
+        aria-label={t('Senden')}
       >
         {busy === 'send' ? <Spinner className="size-4" /> : <Send />}
-        Senden
+        {t('Senden')}
       </Button>
       {/* A disabled button cannot be hovered for its title, and a tooltip is not read by a screen
             reader on a disabled control - so the reason is written out where it applies */}
@@ -72,7 +73,7 @@ export function ComposeToolbar({
         onClick={() => void saveNow()}
       >
         {busy === 'save' && <Spinner className="size-4" />}
-        Entwurf speichern
+        {t('Entwurf speichern')}
       </Button>
       <Button
         type="button"
@@ -82,7 +83,7 @@ export function ComposeToolbar({
         onClick={() => fileInput.current?.click()}
       >
         <Paperclip />
-        Anhängen
+        {t('Anhängen')}
       </Button>
       <input
         ref={fileInput}
@@ -101,10 +102,10 @@ export function ComposeToolbar({
       >
         <SelectTrigger
           className="ml-1 h-8 w-auto gap-1 text-xs"
-          aria-label="Wiedervorlage ohne Antwort"
-          title="Wiedervorlage ohne Antwort: erledigt sich, wenn eine Antwort kommt"
+          aria-label={t('Wiedervorlage ohne Antwort')}
+          title={t('Wiedervorlage ohne Antwort: erledigt sich, wenn eine Antwort kommt')}
         >
-          <span className="text-muted-foreground">Wiedervorlage:</span>
+          <span className="text-muted-foreground">{t('Wiedervorlage:')}</span>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -117,7 +118,8 @@ export function ComposeToolbar({
       </Select>
       {savedAt && (
         <span className="ml-2 text-xs text-muted-foreground">
-          Gespeichert {savedAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+          {t('Gespeichert')}{' '}
+          {savedAt.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}
         </span>
       )}
       <Button
@@ -127,7 +129,7 @@ export function ComposeToolbar({
         className="ml-auto"
         disabled={busy !== null || locked}
         onClick={() => void discard()}
-        title="Verwerfen"
+        title={t('Verwerfen')}
       >
         <Trash2 />
       </Button>

@@ -1,3 +1,4 @@
+import { t } from '../../../../main/i18n/translate'
 // H2: what a running mail write op says in the sync bar.
 //
 // The mail core emits an op-event when an op starts and again when it finishes. Two kinds
@@ -10,7 +11,7 @@ export const VISIBLE_OPS = new Set(['send', 'move', 'move_batch', 'expunge', 'dr
 /** The German label for a running op, or null when nothing should be shown */
 export function runningOpLabel(kind: string | null | undefined): string | null {
   if (!kind || !VISIBLE_OPS.has(kind)) return null
-  if (kind === 'send') return 'Sendet…'
-  if (kind === 'move' || kind === 'move_batch') return 'Verschiebt…'
-  return 'Löscht…' // expunge, draft_delete
+  if (kind === 'send') return t('Sendet…')
+  if (kind === 'move' || kind === 'move_batch') return t('Verschiebt…')
+  return t('Löscht…') // expunge, draft_delete
 }

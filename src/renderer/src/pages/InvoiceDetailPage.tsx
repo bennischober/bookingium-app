@@ -34,15 +34,16 @@ import {
   type InvoiceDto,
   type InvoiceStatus
 } from '../../../main/api/schemas/invoice.schema'
+import { t } from '../../../main/i18n/translate'
 
 const STATUS_ACTION_LABELS: Partial<Record<InvoiceStatus, string>> = {
-  issued: 'Wieder offen (gestellt)',
-  paid: 'Als bezahlt markieren',
-  overdue: 'Als überfällig markieren'
+  issued: t('Wieder offen (gestellt)'),
+  paid: t('Als bezahlt markieren'),
+  overdue: t('Als überfällig markieren')
 }
 
 function invoiceTitle(invoice: Pick<InvoiceDto, 'kind' | 'invoiceNumber'>) {
-  const noun = invoice.kind === 'cancellation' ? 'Stornorechnung' : 'Rechnung'
+  const noun = invoice.kind === 'cancellation' ? t('Stornorechnung') : t('Rechnung')
   return `${noun} ${invoiceNumberLabel(invoice.invoiceNumber)}`
 }
 
@@ -79,7 +80,7 @@ export default function InvoiceDetailPage() {
   if ((id !== null && invoiceQuery.isLoading) || draft) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">Rechnung wird geladen…</p>
+        <p className="text-muted-foreground">{t('Rechnung wird geladen…')}</p>
       </div>
     )
   }
@@ -91,9 +92,9 @@ export default function InvoiceDetailPage() {
   if (!invoice) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Rechnung nicht gefunden.</p>
+        <p className="text-muted-foreground">{t('Rechnung nicht gefunden.')}</p>
         <Button variant="outline" onClick={() => navigate({ to: '/invoices' })}>
-          Zurück zu den Rechnungen
+          {t('Zurück zu den Rechnungen')}
         </Button>
       </div>
     )
@@ -116,7 +117,7 @@ export default function InvoiceDetailPage() {
           onClick={() => navigate({ to: '/invoices' })}
         >
           <ArrowLeft className="h-4 w-4" />
-          Alle Rechnungen
+          {t('Alle Rechnungen')}
         </Button>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -131,7 +132,8 @@ export default function InvoiceDetailPage() {
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {[
-                invoice.recipientName && `An ${invoice.recipientName}`,
+                invoice.recipientName &&
+                  t('An {{recipientName}}', { recipientName: invoice.recipientName }),
                 formatMoney(invoice.totalGrossAmount, invoice.currency)
               ]
                 .filter(Boolean)
@@ -158,11 +160,11 @@ export default function InvoiceDetailPage() {
             )}
             <Button size="sm" variant="outline" className="gap-1.5" onClick={toPrint}>
               <Mail className="h-3.5 w-3.5" />
-              Per E-Mail senden…
+              {t('Per E-Mail senden…')}
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={toPrint}>
               <Printer className="h-3.5 w-3.5" />
-              Drucken / PDF
+              {t('Drucken / PDF')}
             </Button>
           </div>
         </div>
@@ -174,19 +176,19 @@ export default function InvoiceDetailPage() {
         <div className="min-w-0 space-y-4">
           <LockNotice invoice={invoice} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <InfoCard label="Rechnung">
+            <InfoCard label={t('Rechnung')}>
               <Fields
                 fields={[
-                  ['Rechnungssteller', invoice.companyName],
-                  ['Rechnungsempfänger', invoice.recipientName],
-                  ['Rechnungsdatum', formatShortDate(invoice.issueDate)],
-                  ['Fällig', invoice.dueDate ? formatShortDate(invoice.dueDate) : null],
-                  ['Zeitraum', invoice.periodLabel],
-                  ['Käuferreferenz / Leitweg-ID', invoice.buyerReference]
+                  [t('Rechnungssteller'), invoice.companyName],
+                  [t('Rechnungsempfänger'), invoice.recipientName],
+                  [t('Rechnungsdatum'), formatShortDate(invoice.issueDate)],
+                  [t('Fällig'), invoice.dueDate ? formatShortDate(invoice.dueDate) : null],
+                  [t('Zeitraum'), invoice.periodLabel],
+                  [t('Käuferreferenz / Leitweg-ID'), invoice.buyerReference]
                 ]}
               />
             </InfoCard>
-            <InfoCard label="Event">
+            <InfoCard label={t('Event')}>
               {invoice.dealMemoId && invoice.dealMemoName ? (
                 <Link
                   to="/events/$eventId"
@@ -220,12 +222,20 @@ function LockNotice({ invoice }: { invoice: InvoiceDto }) {
       <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <p>
         {invoice.kind === 'cancellation'
-          ? `Diese Stornorechnung gleicht Rechnung ${invoiceNumberLabel(invoice.cancelsInvoiceNumber)} aus. Sie bleibt, wie sie ist.`
+          ? t(
+              'Diese Stornorechnung gleicht Rechnung {{invoiceNumberLabel}} aus. Sie bleibt, wie sie ist.',
+              { invoiceNumberLabel: invoiceNumberLabel(invoice.cancelsInvoiceNumber) }
+            )
           : invoice.status === 'cancelled'
             ? invoice.cancelledByInvoiceNumber
-              ? `Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten; ausgeglichen wird sie durch die Stornorechnung ${invoiceNumberLabel(invoice.cancelledByInvoiceNumber)}.`
-              : 'Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten.'
-            : 'Diese Rechnung ist gestellt und kann nicht mehr geändert oder gelöscht werden. Für Korrekturen bitte stornieren und eine neue Rechnung anlegen.'}
+              ? t(
+                  'Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten; ausgeglichen wird sie durch die Stornorechnung {{invoiceNumberLabel}}.',
+                  { invoiceNumberLabel: invoiceNumberLabel(invoice.cancelledByInvoiceNumber) }
+                )
+              : t('Diese Rechnung ist storniert. Sie bleibt mit ihrer Nummer erhalten.')
+            : t(
+                'Diese Rechnung ist gestellt und kann nicht mehr geändert oder gelöscht werden. Für Korrekturen bitte stornieren und eine neue Rechnung anlegen.'
+              )}
       </p>
     </div>
   )
@@ -233,7 +243,7 @@ function LockNotice({ invoice }: { invoice: InvoiceDto }) {
 
 function Positions({ invoice }: { invoice: InvoiceDto }) {
   return (
-    <InfoCard label="Positionen">
+    <InfoCard label={t('Positionen')}>
       <div className="space-y-1">
         {invoice.lineItems.map((line) => (
           <div key={line.id} className="flex justify-between gap-4">
@@ -246,7 +256,7 @@ function Positions({ invoice }: { invoice: InvoiceDto }) {
           </div>
         ))}
         <div className="flex justify-between gap-4 border-t pt-1 font-semibold">
-          <span>Gesamt brutto</span>
+          <span>{t('Gesamt brutto')}</span>
           <span className="tabular-nums">
             {formatMoney(invoice.totalGrossAmount, invoice.currency)}
           </span>
@@ -272,10 +282,16 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
       const stornoId = updated.cancelledByInvoiceId
       if (updated.status === 'cancelled' && stornoId) {
         toast.success(
-          `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} storniert – Stornorechnung ${invoiceNumberLabel(updated.cancelledByInvoiceNumber)} erstellt`,
+          t(
+            'Rechnung {{invoiceNumberLabel}} storniert – Stornorechnung {{invoiceNumberLabel2}} erstellt',
+            {
+              invoiceNumberLabel: invoiceNumberLabel(updated.invoiceNumber),
+              invoiceNumberLabel2: invoiceNumberLabel(updated.cancelledByInvoiceNumber)
+            }
+          ),
           {
             action: {
-              label: 'Anzeigen',
+              label: t('Anzeigen'),
               onClick: () =>
                 navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(stornoId) } })
             }
@@ -285,12 +301,14 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
       }
       toast.success(
         updated.status === 'cancelled'
-          ? `Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} storniert`
-          : `Status: ${INVOICE_STATUS_LABELS[updated.status]}`
+          ? t('Rechnung {{invoiceNumberLabel}} storniert', {
+              invoiceNumberLabel: invoiceNumberLabel(updated.invoiceNumber)
+            })
+          : t('Status: {{value}}', { value: INVOICE_STATUS_LABELS[updated.status] })
       )
     },
     onError: (error) =>
-      toast.error('Status konnte nicht geändert werden', { description: error.message })
+      toast.error(t('Status konnte nicht geändert werden'), { description: error.message })
   })
 
   const nextStatuses = nextInvoiceStatuses(invoice.status, invoice.kind)
@@ -320,10 +338,13 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
           onClick={async () => {
             if (
               await confirmAction({
-                title: `Rechnung ${invoiceNumberLabel(invoice.invoiceNumber)} stornieren?`,
-                description:
-                  'Die Rechnung bleibt mit ihrer Nummer erhalten. Eine Stornorechnung mit der nächsten Rechnungsnummer gleicht sie aus. Das lässt sich nicht rückgängig machen.',
-                confirmLabel: 'Stornieren',
+                title: t('Rechnung {{invoiceNumberLabel}} stornieren?', {
+                  invoiceNumberLabel: invoiceNumberLabel(invoice.invoiceNumber)
+                }),
+                description: t(
+                  'Die Rechnung bleibt mit ihrer Nummer erhalten. Eine Stornorechnung mit der nächsten Rechnungsnummer gleicht sie aus. Das lässt sich nicht rückgängig machen.'
+                ),
+                confirmLabel: t('Stornieren'),
                 destructive: true
               })
             ) {
@@ -331,7 +352,7 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
             }
           }}
         >
-          <Ban className="h-4 w-4" /> Stornieren
+          <Ban className="h-4 w-4" /> {t('Stornieren')}
         </Button>
       )}
     </div>
@@ -343,8 +364,8 @@ function History({ invoice }: { invoice: InvoiceDto }) {
   const datevTransfers = trpcReact.datev.listForInvoice.useQuery(invoice.id)
   return (
     <section className="min-w-0">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Verlauf</h2>
-      <ol aria-label="Verlauf" className="space-y-3 border-l pl-4">
+      <h2 className="mb-3 text-sm font-medium text-muted-foreground">{t('Verlauf')}</h2>
+      <ol aria-label={t('Verlauf')} className="space-y-3 border-l pl-4">
         {invoiceHistory(invoice, datevTransfers.data).map((entry, index) => (
           <li key={index} className="relative text-sm">
             <span className="absolute top-1.5 -left-[21px] h-2 w-2 rounded-full bg-muted-foreground/50" />

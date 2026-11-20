@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { t } from '../../i18n/translate'
 
 // ========================================
 // #232: advancing and ticket quota of a show
@@ -10,10 +11,10 @@ export const AdvancingStatus = z.enum(['open', 'contacted', 'in_progress', 'done
 export type AdvancingStatus = z.infer<typeof AdvancingStatus>
 
 export const ADVANCING_STATUS_LABELS: Record<AdvancingStatus, string> = {
-  open: 'Offen',
-  contacted: 'Angeschrieben',
-  in_progress: 'Im Austausch',
-  done: 'Abgeschlossen'
+  open: t('Offen'),
+  contacted: t('Angeschrieben'),
+  in_progress: t('Im Austausch'),
+  done: t('Abgeschlossen')
 }
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum als JJJJ-MM-TT')

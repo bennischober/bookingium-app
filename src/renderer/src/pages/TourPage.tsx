@@ -20,6 +20,7 @@ import {
   type AdvancingStatus,
   type TourShowDto
 } from '../../../main/api/schemas/advancing.schema'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 const STATUS_CLASS: Record<AdvancingStatus, string> = {
   open: 'border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
@@ -30,11 +31,11 @@ const STATUS_CLASS: Record<AdvancingStatus, string> = {
 }
 
 const today = (): string => new Date().toISOString().slice(0, 10)
-const count = (value: number): string => value.toLocaleString('de-DE')
+const count = (value: number): string => value.toLocaleString(uiLocale())
 
 /** "Fr. 30.10." */
 const dayLabel = (date: string): string =>
-  new Date(`${date}T00:00:00`).toLocaleDateString('de-DE', {
+  new Date(`${date}T00:00:00`).toLocaleDateString(uiLocale(), {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -49,10 +50,10 @@ function QuickReport({ show }: { show: TourShowDto }) {
     onSuccess: () => {
       setValue('')
       void utils.advancing.invalidate()
-      toast.success(`Meldung für ${show.city || show.venueName} gespeichert`)
+      toast.success(t('Meldung für {{value}} gespeichert', { value: show.city || show.venueName }))
     },
     onError: (error) =>
-      toast.error('Meldung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Meldung konnte nicht gespeichert werden'), { description: error.message })
   })
   const sold = soldOf(value)
   return (
@@ -60,7 +61,7 @@ function QuickReport({ show }: { show: TourShowDto }) {
       className="h-8 w-24"
       inputMode="numeric"
       placeholder="heute"
-      aria-label={`Verkauft heute ${show.city || show.venueName}`}
+      aria-label={t('Verkauft heute {{value}}', { value: show.city || show.venueName })}
       value={value}
       disabled={save.isPending}
       onClick={(event) => event.stopPropagation()}
@@ -101,15 +102,15 @@ export default function TourPage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
-        title="Touren"
-        description="Advancing und Ticketverkäufe aller Shows einer Tour auf einen Blick."
+        title={t('Touren')}
+        description={t('Advancing und Ticketverkäufe aller Shows einer Tour auf einen Blick.')}
       >
         {tourNames.length > 0 && (
           <Select
             value={tour}
             onValueChange={(value) => void navigate({ to: '/tours', search: { tour: value } })}
           >
-            <SelectTrigger className="w-64" aria-label="Tour">
+            <SelectTrigger className="w-64" aria-label={t('Tour')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,49 +124,54 @@ export default function TourPage() {
         )}
       </ListPageHeader>
 
-      {tours.isLoading && <p className="text-sm text-muted-foreground">Wird geladen…</p>}
+      {tours.isLoading && <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>}
       {!tours.isLoading && tourNames.length === 0 && (
         <p className="max-w-xl text-sm text-muted-foreground">
-          Noch keine Tour. Eine Tour entsteht, wenn Events eine Tour haben – im Event unter „Tour“
-          oder beim Import der Tourdaten (oben rechts „Import“).
+          {t(
+            'Noch keine Tour. Eine Tour entsteht, wenn Events eine Tour haben – im Event unter „Tour“ oder beim Import der Tourdaten (oben rechts „Import“).'
+          )}
         </p>
       )}
 
       {tour && list.length > 0 && (
         <>
-          <div className="mb-4 flex flex-wrap gap-x-8 gap-y-2 text-sm" aria-label="Tour-Summe">
+          <div className="mb-4 flex flex-wrap gap-x-8 gap-y-2 text-sm" aria-label={t('Tour-Summe')}>
             <p>
-              <span className="text-muted-foreground">Shows </span>
+              <span className="text-muted-foreground">{t('Shows')} </span>
               <span className="font-semibold">{upcoming.length}</span>
             </p>
             <p>
-              <span className="text-muted-foreground">Advancing abgeschlossen </span>
+              <span className="text-muted-foreground">{t('Advancing abgeschlossen')} </span>
               <span className="font-semibold">
-                {advanced} von {upcoming.length}
+                {advanced} {t('von')} {upcoming.length}
               </span>
             </p>
             <p>
-              <span className="text-muted-foreground">Tickets verkauft </span>
+              <span className="text-muted-foreground">{t('Tickets verkauft')} </span>
               <span className="font-semibold tabular-nums">
                 {count(sold)}
-                {quota > 0 && ` von ${count(quota)} (${Math.round((sold / quota) * 100)} %)`}
+                {quota > 0 &&
+                  t(' von {{quota}} ({{percent}} %)', {
+                    quota: count(quota),
+                    percent: Math.round((sold / quota) * 100)
+                  })}
               </span>
             </p>
           </div>
 
           <div className="min-h-0 overflow-auto rounded-md border">
-            <table className="w-full text-sm" aria-label="Shows der Tour">
+            <table className="w-full text-sm" aria-label={t('Shows der Tour')}>
               <thead className="sticky top-0 z-10 bg-muted text-left">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Datum</th>
-                  <th className="px-3 py-2 font-medium">Stadt</th>
-                  <th className="px-3 py-2 font-medium">Club</th>
-                  <th className="px-3 py-2 font-medium">Advancing</th>
-                  <th className="px-3 py-2 font-medium">Kontakt vor Ort</th>
-                  <th className="px-3 py-2 text-right font-medium">Kontingent</th>
-                  <th className="px-3 py-2 text-right font-medium">Verkauft</th>
-                  <th className="w-36 px-3 py-2 font-medium">Auslastung</th>
-                  <th className="px-3 py-2 font-medium">Neue Meldung</th>
+                  <th className="px-3 py-2 font-medium">{t('Datum')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Stadt')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Club')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Advancing')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Kontakt vor Ort')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('Kontingent')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('Verkauft')}</th>
+                  <th className="w-36 px-3 py-2 font-medium">{t('Auslastung')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Neue Meldung')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,7 +214,7 @@ export default function TourPage() {
                         </button>
                         {show.statusDate && (
                           <span className="block text-xs text-muted-foreground">
-                            seit {formatShortDate(show.statusDate)}
+                            {t('seit')} {formatShortDate(show.statusDate)}
                           </span>
                         )}
                       </td>
@@ -268,7 +274,7 @@ export default function TourPage() {
         </>
       )}
       {tour && shows.isSuccess && list.length === 0 && (
-        <p className="text-sm text-muted-foreground">Keine Shows in dieser Tour.</p>
+        <p className="text-sm text-muted-foreground">{t('Keine Shows in dieser Tour.')}</p>
       )}
     </div>
   )

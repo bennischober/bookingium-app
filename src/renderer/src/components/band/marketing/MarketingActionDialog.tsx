@@ -33,6 +33,7 @@ import {
   type MarketingActionDto,
   type MarketingActionFields
 } from '../../../../../main/api/schemas/marketing.schema'
+import { t } from '../../../../../main/i18n/translate'
 
 /** What a new measure starts with (from an atlas entry or an event page) */
 export type MarketingActionPreset = Partial<
@@ -113,12 +114,12 @@ export function MarketingActionDialog({
     onOpenChange(false)
   }
   const create = trpcReact.marketing.createAction.useMutation({
-    onSuccess: () => done('Maßnahme angelegt'),
-    onError: (error) => toast.error('Nicht gespeichert', { description: error.message })
+    onSuccess: () => done(t('Maßnahme angelegt')),
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
   const update = trpcReact.marketing.updateAction.useMutation({
-    onSuccess: () => done('Maßnahme gespeichert'),
-    onError: (error) => toast.error('Nicht gespeichert', { description: error.message })
+    onSuccess: () => done(t('Maßnahme gespeichert')),
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
 
   const save = () => {
@@ -126,13 +127,13 @@ export function MarketingActionDialog({
     if (draft.cost.trim()) {
       const amount = parseAmount(draft.cost)
       if (amount === null || amount < 0) {
-        toast.error('Die Kosten sind keine Zahl')
+        toast.error(t('Die Kosten sind keine Zahl'))
         return
       }
       costCents = toCents(amount)
     }
     if (!draft.title.trim()) {
-      toast.error('Bitte eine Bezeichnung angeben')
+      toast.error(t('Bitte eine Bezeichnung angeben'))
       return
     }
     const fields = {
@@ -178,15 +179,15 @@ export function MarketingActionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{action ? 'Maßnahme bearbeiten' : 'Neue Maßnahme'}</DialogTitle>
+          <DialogTitle>{action ? t('Maßnahme bearbeiten') : t('Neue Maßnahme')}</DialogTitle>
           <DialogDescription>
-            Radiospot, Plakat, Anzeige … für eine Show, eine Tour oder ein Release.
+            {t('Radiospot, Plakat, Anzeige … für eine Show, eine Tour oder ein Release.')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div className="space-y-1">
-            <Label htmlFor="action-kind">Art</Label>
+            <Label htmlFor="action-kind">{t('Art')}</Label>
             <Select
               value={draft.kind}
               onValueChange={(kind) => set({ kind: kind as MarketingActionKind })}
@@ -204,7 +205,7 @@ export function MarketingActionDialog({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-status">Status</Label>
+            <Label htmlFor="action-status">{t('Status')}</Label>
             <Select
               value={draft.status}
               onValueChange={(status) => set({ status: status as MarketingActionStatus })}
@@ -222,17 +223,17 @@ export function MarketingActionDialog({
             </Select>
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="action-title">Bezeichnung</Label>
+            <Label htmlFor="action-title">{t('Bezeichnung')}</Label>
             <Input
               id="action-title"
-              placeholder="z. B. Spot 20 s, Tourvorbericht"
+              placeholder={t('z. B. Spot 20 s, Tourvorbericht')}
               value={draft.title}
               onChange={(event) => set({ title: event.target.value })}
             />
           </div>
 
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="action-show">Show</Label>
+            <Label htmlFor="action-show">{t('Show')}</Label>
             <SearchableSelect
               id="action-show"
               value={draft.dealMemoId}
@@ -241,12 +242,12 @@ export function MarketingActionDialog({
                 set({ dealMemoId, tour: draft.tour || show?.tour || '' })
               }}
               options={showOptions}
-              noneLabel="Keine bestimmte Show"
-              searchPlaceholder="Show suchen…"
+              noneLabel={t('Keine bestimmte Show')}
+              searchPlaceholder={t('Show suchen…')}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-tour">Tour</Label>
+            <Label htmlFor="action-tour">{t('Tour')}</Label>
             <Input
               id="action-tour"
               list="action-tours"
@@ -260,17 +261,17 @@ export function MarketingActionDialog({
             </datalist>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-release">Release</Label>
+            <Label htmlFor="action-release">{t('Release')}</Label>
             <Input
               id="action-release"
-              placeholder="z. B. neues Album"
+              placeholder={t('z. B. neues Album')}
               value={draft.release}
               onChange={(event) => set({ release: event.target.value })}
             />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="action-company">Partner</Label>
+            <Label htmlFor="action-company">{t('Partner')}</Label>
             <SearchableSelect
               id="action-company"
               value={draft.companyId}
@@ -279,12 +280,12 @@ export function MarketingActionDialog({
                 value: company.id,
                 label: company.name
               }))}
-              noneLabel="Kein Partner"
-              searchPlaceholder="Sender, Magazin, Firma…"
+              noneLabel={t('Kein Partner')}
+              searchPlaceholder={t('Sender, Magazin, Firma…')}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-item">Aus dem Atlas</Label>
+            <Label htmlFor="action-item">{t('Aus dem Atlas')}</Label>
             <SearchableSelect
               id="action-item"
               value={draft.marketingItemId}
@@ -292,15 +293,15 @@ export function MarketingActionDialog({
               options={(atlas.data?.items ?? []).map((item) => ({
                 value: item.id,
                 label: item.name,
-                hint: `Priorität ${item.priority}`
+                hint: t('Priorität {{priority}}', { priority: item.priority })
               }))}
-              noneLabel="Nicht aus dem Atlas"
-              searchPlaceholder="Atlas-Eintrag suchen…"
+              noneLabel={t('Nicht aus dem Atlas')}
+              searchPlaceholder={t('Atlas-Eintrag suchen…')}
             />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="action-start">Von</Label>
+            <Label htmlFor="action-start">{t('Von')}</Label>
             <Input
               id="action-start"
               type="date"
@@ -309,7 +310,7 @@ export function MarketingActionDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-end">Bis</Label>
+            <Label htmlFor="action-end">{t('Bis')}</Label>
             <Input
               id="action-end"
               type="date"
@@ -318,17 +319,17 @@ export function MarketingActionDialog({
             />
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="action-region">Region / Ort</Label>
+            <Label htmlFor="action-region">{t('Region / Ort')}</Label>
             <Input
               id="action-region"
-              placeholder="z. B. Rhein-Main, Leipzig"
+              placeholder={t('z. B. Rhein-Main, Leipzig')}
               value={draft.region}
               onChange={(event) => set({ region: event.target.value })}
             />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="action-cost">Kosten netto (€)</Label>
+            <Label htmlFor="action-cost">{t('Kosten netto (€)')}</Label>
             <Input
               id="action-cost"
               inputMode="decimal"
@@ -338,7 +339,7 @@ export function MarketingActionDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="action-payer">Zahlt</Label>
+            <Label htmlFor="action-payer">{t('Zahlt')}</Label>
             <Select
               value={draft.payer}
               onValueChange={(payer) => set({ payer: payer as MarketingPayer })}
@@ -356,18 +357,18 @@ export function MarketingActionDialog({
             </Select>
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="action-receipt">Beleg</Label>
+            <Label htmlFor="action-receipt">{t('Beleg')}</Label>
             <SearchableSelect
               id="action-receipt"
               value={draft.receiptId}
               onChange={(receiptId) => set({ receiptId })}
               options={receiptOptions}
-              noneLabel="Kein Beleg"
-              searchPlaceholder="Beleg suchen…"
+              noneLabel={t('Kein Beleg')}
+              searchPlaceholder={t('Beleg suchen…')}
             />
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="action-notes">Notiz</Label>
+            <Label htmlFor="action-notes">{t('Notiz')}</Label>
             <Textarea
               id="action-notes"
               rows={2}
@@ -379,10 +380,10 @@ export function MarketingActionDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button disabled={create.isPending || update.isPending} onClick={save}>
-            {action ? 'Speichern' : 'Anlegen'}
+            {action ? t('Speichern') : t('Anlegen')}
           </Button>
         </DialogFooter>
       </DialogContent>

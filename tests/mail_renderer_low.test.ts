@@ -35,7 +35,11 @@ describe('I10 Low: renderer fixes', () => {
     // title is a tooltip, not an accessible name; a screen reader announced these as "button".
     const src = source(READER)
     for (const label of ['Antworten', 'Allen antworten', 'Weiterleiten']) {
-      expect(src, `the ${label} button needs an aria-label`).toContain(`aria-label="${label}"`)
+      // #254: the label may be wrapped in t()
+      expect(
+        src.includes(`aria-label="${label}"`) || src.includes(`aria-label={t('${label}')}`),
+        `the ${label} button needs an aria-label`
+      ).toBe(true)
     }
   })
 })

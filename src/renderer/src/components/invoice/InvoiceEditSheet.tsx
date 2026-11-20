@@ -9,6 +9,7 @@ import { isInvoiceLocked, type InvoiceDto } from '../../../../main/api/schemas/i
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { useFollowUpNudge } from '@/hooks/useFollowUpNudge'
 import { useInvalidateInvoices } from '@/hooks/useInvalidateInvoices'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Sheet for a draft invoice: the full form, where it can also be issued.
@@ -42,22 +43,27 @@ export function InvoiceEditSheet({
       invalidateInvoices()
       onClose()
       if (updated.status === 'draft') {
-        void nudgeFollowUp('Entwurf gespeichert', {
+        void nudgeFollowUp(t('Entwurf gespeichert'), {
           record: { type: 'invoice', id: updated.id, name: invoiceFollowUpName(updated) },
-          note: 'Entwurf vervollständigen'
+          note: t('Entwurf vervollständigen')
         })
       } else {
-        toast.success(`Rechnung ${invoiceNumberLabel(updated.invoiceNumber)} gestellt`, {
-          action: {
-            label: 'Anzeigen',
-            onClick: () =>
-              navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(updated.id) } })
+        toast.success(
+          t('Rechnung {{invoiceNumberLabel}} gestellt', {
+            invoiceNumberLabel: invoiceNumberLabel(updated.invoiceNumber)
+          }),
+          {
+            action: {
+              label: t('Anzeigen'),
+              onClick: () =>
+                navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(updated.id) } })
+            }
           }
-        })
+        )
       }
     },
     onError: (error) =>
-      toast.error('Rechnung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Rechnung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   return (
@@ -65,12 +71,12 @@ export function InvoiceEditSheet({
       isOpen={invoiceId !== null}
       onClose={onClose}
       mode="edit"
-      title="Entwurf bearbeiten"
-      description="Details, Empfänger, Verknüpfung und Positionen des Entwurfs bearbeiten."
+      title={t('Entwurf bearbeiten')}
+      description={t('Details, Empfänger, Verknüpfung und Positionen des Entwurfs bearbeiten.')}
     >
       {!invoice || locked ? (
         <p className="text-sm text-muted-foreground">
-          {invoiceQuery.isError ? 'Rechnung nicht gefunden.' : 'Rechnung wird geladen…'}
+          {invoiceQuery.isError ? t('Rechnung nicht gefunden.') : t('Rechnung wird geladen…')}
         </p>
       ) : (
         <>

@@ -13,6 +13,7 @@ import {
 } from '../../../../main/api/schemas/document.schema'
 import { DocumentTable } from './DocumentTable'
 import { ALL, categoriesOf, eventsOf, rowsOf } from './bandDocuments'
+import { t } from '../../../../main/i18n/translate'
 
 export function BandDocumentsView({ bandId }: { bandId: number }) {
   // The band's own documents are listed (and edited) by the DocumentsPanel above this view;
@@ -41,24 +42,24 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
   const total = fromEvents.length
 
   return (
-    <section aria-label="Dokumente aus Events" className="space-y-3">
+    <section aria-label={t('Dokumente aus Events')} className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h3 className="font-semibold">
-          Dokumente aus Events{' '}
+          {t('Dokumente aus Events')}{' '}
           {total > 0 && (
             <span className="text-muted-foreground">
-              ({filtered ? `${rows.length} von ${total}` : total})
+              ({filtered ? t('{{shown}} von {{total}}', { shown: rows.length, total }) : total})
             </span>
           )}
         </h3>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={category} onValueChange={setCategory} disabled={categories.length === 0}>
-            <SelectTrigger className="w-44" aria-label="Nach Kategorie filtern">
+            <SelectTrigger className="w-44" aria-label={t('Nach Kategorie filtern')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Alle Kategorien</SelectItem>
+              <SelectItem value={ALL}>{t('Alle Kategorien')}</SelectItem>
               {categories.map((value) => (
                 <SelectItem key={value} value={value}>
                   {DOCUMENT_TYPE_LABELS[value as DocumentType] ?? value}
@@ -68,11 +69,11 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
           </Select>
 
           <Select value={eventId} onValueChange={setEventId} disabled={events.length === 0}>
-            <SelectTrigger className="w-56" aria-label="Nach Event filtern">
+            <SelectTrigger className="w-56" aria-label={t('Nach Event filtern')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Alle Events</SelectItem>
+              <SelectItem value={ALL}>{t('Alle Events')}</SelectItem>
               {events.map((event) => (
                 <SelectItem key={event.id} value={String(event.id)}>
                   {event.name}
@@ -85,11 +86,11 @@ export function BandDocumentsView({ bandId }: { bandId: number }) {
 
       <DocumentTable
         rows={rows}
-        label="Dokumentliste aus Events"
+        label={t('Dokumentliste aus Events')}
         empty={
           total === 0
-            ? 'Noch keine Dokumente in den Events der Band.'
-            : 'Keine Dokumente für diese Auswahl.'
+            ? t('Noch keine Dokumente in den Events der Band.')
+            : t('Keine Dokumente für diese Auswahl.')
         }
         isLoading={isLoading}
         error={error}

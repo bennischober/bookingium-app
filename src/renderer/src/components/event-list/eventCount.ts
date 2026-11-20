@@ -1,4 +1,5 @@
+import { t, uiLocale } from '../../../../main/i18n/translate'
 /** "1 Event" / "3 Events" */
 export function eventCount(count: number): string {
-  return `${count.toLocaleString('de-DE')} ${count === 1 ? 'Event' : 'Events'}`
+  return `${count.toLocaleString(uiLocale())} ${count === 1 ? t('Event') : t('Events')}`
 }

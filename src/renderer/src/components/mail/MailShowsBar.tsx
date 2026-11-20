@@ -13,6 +13,7 @@ import {
   type MailShowDto
 } from '../../../../main/api/schemas/advancing.schema'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 const today = (): string => new Date().toISOString().slice(0, 10)
 
@@ -25,26 +26,29 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
   const setStage = trpcReact.advancing.setStage.useMutation({
     onSuccess: (saved) => {
       refresh()
-      toast.success(`Advancing: ${ADVANCING_STATUS_LABELS[saved.status]}`)
+      toast.success(t('Advancing: {{value}}', { value: ADVANCING_STATUS_LABELS[saved.status] }))
     },
-    onError: (error) => toast.error('Advancing nicht gespeichert', { description: error.message })
+    onError: (error) =>
+      toast.error(t('Advancing nicht gespeichert'), { description: error.message })
   })
   const report = trpcReact.advancing.saveReport.useMutation({
     onSuccess: () => {
       refresh()
       setSold('')
-      toast.success('Ticketmeldung gespeichert')
+      toast.success(t('Ticketmeldung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Ticketmeldung nicht gespeichert', { description: error.message })
+      toast.error(t('Ticketmeldung nicht gespeichert'), { description: error.message })
   })
   const contact = trpcReact.advancing.localContactFromMail.useMutation({
     onSuccess: () => {
       refresh()
-      toast.success(`${message.fromName || message.fromEmail} ist Kontakt vor Ort`)
+      toast.success(
+        t('{{value}} ist Kontakt vor Ort', { value: message.fromName || message.fromEmail })
+      )
     },
     onError: (error) =>
-      toast.error('Kontakt vor Ort nicht übernommen', { description: error.message })
+      toast.error(t('Kontakt vor Ort nicht übernommen'), { description: error.message })
   })
   const parsed = soldOf(sold)
 
@@ -79,7 +83,7 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
           disabled={setStage.isPending}
           onClick={() => setStage.mutate({ eventId: show.eventId, status: 'done' })}
         >
-          Abgeschlossen
+          {t('Abgeschlossen')}
         </Button>
       )}
       <form
@@ -94,7 +98,7 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
         <Input
           className="h-8 w-20"
           inputMode="numeric"
-          aria-label={`Tickets verkauft ${show.label}`}
+          aria-label={t('Tickets verkauft {{label}}', { label: show.label })}
           placeholder={show.sold !== null ? String(show.sold) : 'verkauft'}
           value={sold}
           onChange={(event) => setSold(event.target.value)}
@@ -105,10 +109,12 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
           type="submit"
           disabled={parsed === null || report.isPending}
         >
-          Meldung
+          {t('Meldung')}
         </Button>
         {show.quota !== null && (
-          <span className="text-xs text-muted-foreground">von {show.quota}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('von')} {show.quota}
+          </span>
         )}
       </form>
       {!show.senderIsLocalContact && message.fromEmail && (
@@ -118,8 +124,8 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
           disabled={contact.isPending}
           title={
             show.localContact
-              ? `Ersetzt ${show.localContact.name} als Kontakt vor Ort`
-              : 'Absender als Kontakt vor Ort der Show eintragen'
+              ? t('Ersetzt {{name}} als Kontakt vor Ort', { name: show.localContact.name })
+              : t('Absender als Kontakt vor Ort der Show eintragen')
           }
           onClick={() =>
             contact.mutate({
@@ -129,7 +135,7 @@ function ShowRow({ show, message }: { show: MailShowDto; message: MessageDetail 
             })
           }
         >
-          <UserRound className="h-4 w-4" /> Als Kontakt vor Ort
+          <UserRound className="h-4 w-4" /> {t('Als Kontakt vor Ort')}
         </Button>
       )}
     </li>
@@ -163,7 +169,10 @@ export function MailShowsBar({
   const list = shows.data ?? []
   if (list.length === 0) return null
   return (
-    <section className="rounded-md border bg-muted/40 px-3 py-1" aria-label="Shows dieser E-Mail">
+    <section
+      className="rounded-md border bg-muted/40 px-3 py-1"
+      aria-label={t('Shows dieser E-Mail')}
+    >
       <ul className="divide-y">
         {list.map((show) => (
           <ShowRow key={show.eventId} show={show} message={message} />

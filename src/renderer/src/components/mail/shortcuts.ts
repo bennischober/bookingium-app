@@ -1,3 +1,4 @@
+import { t } from '../../../../main/i18n/translate'
 // B3: the mail shortcuts, as data. The page only maps a keydown to one of these
 // actions; what a key means is decided here and pinned by a unit test.
 //
@@ -87,7 +88,8 @@ const BLOCKING_SELECTORS = [
   // Radix renders popovers and menus into a portal wrapper; the trigger alone is not enough
   '[data-radix-popper-content-wrapper]',
   // the compose form itself, so a key inside the editor never reaches the list
-  'form[aria-label="E-Mail verfassen"]'
+  // (#254: its label in the current UI language)
+  `form[aria-label="${t('E-Mail verfassen')}"]`
 ]
 
 /**
@@ -109,13 +111,13 @@ export function shortcutBlocked(input: {
 export const SHORTCUT_HINTS: Record<MailShortcut, string> = {
   markUnread: 'Strg+U',
   markRead: 'Strg+Q',
-  toTrash: 'Entf',
+  toTrash: t('Entf'),
   move: 'Strg+Umschalt+V',
   compose: 'Strg+N',
   reply: 'Strg+R',
   replyAll: 'Strg+Umschalt+R',
   forward: 'Strg+L',
-  archive: 'Rücktaste',
-  toggleFlag: 'Einfg',
+  archive: t('Rücktaste'),
+  toggleFlag: t('Einfg'),
   spam: 'Strg+Umschalt+J'
 }

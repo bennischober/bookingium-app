@@ -1,3 +1,4 @@
+import { t } from '../../../../main/i18n/translate'
 /** The form side of a contact's further addresses (pure, unit-tested) */
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -14,10 +15,10 @@ export function otherEmailProblem(
 ): string | undefined {
   const email = value.trim().toLowerCase()
   if (!email) return undefined
-  if (!EMAIL.test(email)) return 'Ungültige E-Mail-Adresse'
-  if (email === primary.trim().toLowerCase()) return 'Das ist schon die Haupt-Adresse'
+  if (!EMAIL.test(email)) return t('Ungültige E-Mail-Adresse')
+  if (email === primary.trim().toLowerCase()) return t('Das ist schon die Haupt-Adresse')
   const first = others.findIndex((other) => other.trim().toLowerCase() === email)
-  if (first !== -1 && first < index) return 'Diese Adresse steht schon in der Liste'
+  if (first !== -1 && first < index) return t('Diese Adresse steht schon in der Liste')
   return undefined
 }
 

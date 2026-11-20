@@ -4,6 +4,7 @@ import { useOpenInvoice } from '@/hooks/useOpenInvoice'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
 import { formatShortDate } from '@/lib/utils'
 import type { InvoiceListItemDto } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The invoices of one record (company, band, person) as a detail-page tab, with
@@ -27,34 +28,34 @@ export function RecordInvoicesTable({
     <RowTable
       label={label}
       query={query}
-      loading="Rechnungen werden geladen…"
+      loading={t('Rechnungen werden geladen…')}
       empty={empty}
-      itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
+      itemLabel={{ singular: t('Rechnung'), plural: t('Rechnungen') }}
       columns={[
         {
-          header: 'Nr.',
+          header: t('Nr.'),
           cell: (invoice) => invoiceNumberLabel(invoice.invoiceNumber),
           className: 'whitespace-nowrap font-medium',
           sortValue: (invoice) => invoice.invoiceNumber ?? ''
         },
         {
-          header: 'Datum',
+          header: t('Datum'),
           cell: (invoice) => formatShortDate(invoice.issueDate),
           className: 'whitespace-nowrap',
           sortValue: (invoice) => invoice.issueDate
         },
-        { header: 'Rechnungssteller', cell: (invoice) => invoice.companyName },
+        { header: t('Rechnungssteller'), cell: (invoice) => invoice.companyName },
         ...(recipient
           ? [
               {
-                header: 'Rechnungsempfänger',
+                header: t('Rechnungsempfänger'),
                 cell: (invoice: InvoiceListItemDto) => invoice.recipientName
               }
             ]
           : []),
-        { header: 'Event', cell: (invoice) => invoice.dealMemoName ?? '–' },
+        { header: t('Event'), cell: (invoice) => invoice.dealMemoName ?? '–' },
         {
-          header: 'Status',
+          header: t('Status'),
           cell: (invoice) => (
             <InvoiceStatusBadge
               status={invoice.status}
@@ -64,7 +65,7 @@ export function RecordInvoicesTable({
           )
         },
         {
-          header: 'Betrag',
+          header: t('Betrag'),
           cell: (invoice) => formatMoney(invoice.totalAmount, invoice.currency),
           className: 'whitespace-nowrap text-right'
         }

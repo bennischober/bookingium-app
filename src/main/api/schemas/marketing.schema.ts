@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { t } from '../../i18n/translate'
 
 // Marketing-Atlas of a band: the researched radios, podcasts, press, festivals, clubs and further
 // channels, each with priority, reason, way in and timing, and a status the team keeps up to date
@@ -19,16 +20,16 @@ export const MarketingCategory = z.enum([
 export type MarketingCategory = z.infer<typeof MarketingCategory>
 
 export const MARKETING_CATEGORY_LABELS: Record<MarketingCategory, string> = {
-  radios: 'Radios',
-  podcasts: 'Podcasts',
-  presse: 'Presse und Blogs',
-  social: 'Social und Creator',
-  festivals: 'Festivals',
-  clubs: 'Clubs',
-  kanaele: 'Weitere Kanäle',
-  sync: 'Sync, Film, Gaming',
-  inspiration: 'Inspiration',
-  ausland: 'Auslandsmärkte'
+  radios: t('Radios'),
+  podcasts: t('Podcasts'),
+  presse: t('Presse und Blogs'),
+  social: t('Social und Creator'),
+  festivals: t('Festivals'),
+  clubs: t('Clubs'),
+  kanaele: t('Weitere Kanäle'),
+  sync: t('Sync, Film, Gaming'),
+  inspiration: t('Inspiration'),
+  ausland: t('Auslandsmärkte')
 }
 
 export const MarketingPriority = z.enum(['A', 'B', 'C'])
@@ -39,9 +40,9 @@ export const MarketingQuality = z.enum(['b', 'w', 'i'])
 export type MarketingQuality = z.infer<typeof MarketingQuality>
 
 export const MARKETING_QUALITY_LABELS: Record<MarketingQuality, string> = {
-  b: 'belegt',
-  w: 'zu prüfen',
-  i: 'Idee'
+  b: t('belegt'),
+  w: t('zu prüfen'),
+  i: t('Idee')
 }
 
 export const MarketingStatus = z.enum([
@@ -55,12 +56,12 @@ export const MarketingStatus = z.enum([
 export type MarketingStatus = z.infer<typeof MarketingStatus>
 
 export const MARKETING_STATUS_LABELS: Record<MarketingStatus, string> = {
-  open: 'Offen',
-  contacted: 'Angefragt',
-  talking: 'Im Gespräch',
-  positive: 'Zugesagt',
-  declined: 'Absage',
-  active: 'Läuft schon'
+  open: t('Offen'),
+  contacted: t('Angefragt'),
+  talking: t('Im Gespräch'),
+  positive: t('Zugesagt'),
+  declined: t('Absage'),
+  active: t('Läuft schon')
 }
 
 export const MarketingItemDto = z.object({
@@ -191,25 +192,25 @@ export const MarketingActionKind = z.enum([
 export type MarketingActionKind = z.infer<typeof MarketingActionKind>
 
 export const MARKETING_ACTION_KIND_LABELS: Record<MarketingActionKind, string> = {
-  radio_spot: 'Radiospot',
-  poster: 'Plakat / Banner',
-  print_ad: 'Print-Anzeige',
-  online_ad: 'Online- / Social-Anzeige',
-  interview: 'Interview / Feature',
-  playlist: 'Playlist',
-  giveaway: 'Gewinnspiel',
-  other: 'Sonstiges'
+  radio_spot: t('Radiospot'),
+  poster: t('Plakat / Banner'),
+  print_ad: t('Print-Anzeige'),
+  online_ad: t('Online- / Social-Anzeige'),
+  interview: t('Interview / Feature'),
+  playlist: t('Playlist'),
+  giveaway: t('Gewinnspiel'),
+  other: t('Sonstiges')
 }
 
 export const MarketingActionStatus = z.enum(['planned', 'booked', 'running', 'done', 'cancelled'])
 export type MarketingActionStatus = z.infer<typeof MarketingActionStatus>
 
 export const MARKETING_ACTION_STATUS_LABELS: Record<MarketingActionStatus, string> = {
-  planned: 'Geplant',
-  booked: 'Gebucht',
-  running: 'Läuft',
-  done: 'Abgeschlossen',
-  cancelled: 'Abgesagt'
+  planned: t('Geplant'),
+  booked: t('Gebucht'),
+  running: t('Läuft'),
+  done: t('Abgeschlossen'),
+  cancelled: t('Abgesagt')
 }
 
 /** Who pays for a measure */
@@ -217,11 +218,11 @@ export const MarketingPayer = z.enum(['us', 'band', 'label', 'promoter', 'other'
 export type MarketingPayer = z.infer<typeof MarketingPayer>
 
 export const MARKETING_PAYER_LABELS: Record<MarketingPayer, string> = {
-  us: 'Wir',
-  band: 'Band',
-  label: 'Label',
-  promoter: 'Veranstalter',
-  other: 'Sonstige'
+  us: t('Wir'),
+  band: t('Band'),
+  label: t('Label'),
+  promoter: t('Veranstalter'),
+  other: t('Sonstige')
 }
 
 const IsoDate = z

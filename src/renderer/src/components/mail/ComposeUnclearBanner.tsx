@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { ComposeBusy } from './ComposeToolbar'
+import { t } from '../../../../main/i18n/translate'
 
 /** I2: the send may have reached the server; the user checks Sent or sends it again on purpose */
 export function ComposeUnclearBanner({
@@ -21,8 +22,9 @@ export function ComposeUnclearBanner({
       data-testid="send-unclear"
     >
       <span className="mr-auto">
-        Versand unklar: Die E-Mail ist vielleicht schon beim Server angekommen. Bitte prüfen, bevor
-        sie noch einmal gesendet wird.
+        {t(
+          'Versand unklar: Die E-Mail ist vielleicht schon beim Server angekommen. Bitte prüfen, bevor sie noch einmal gesendet wird.'
+        )}
       </span>
       <Button
         type="button"
@@ -32,7 +34,7 @@ export function ComposeUnclearBanner({
         onClick={() => void checkUnclear()}
       >
         {busy === 'send' && <Spinner className="size-4" />}
-        Im Ordner Gesendet prüfen
+        {t('Im Ordner Gesendet prüfen')}
       </Button>
       <Button
         type="button"
@@ -41,10 +43,10 @@ export function ComposeUnclearBanner({
         disabled={busy !== null}
         onClick={() => void sendAsNew()}
       >
-        Als neue Mail senden
+        {t('Als neue Mail senden')}
       </Button>
       <Button type="button" size="sm" variant="ghost" disabled={busy !== null} onClick={close}>
-        Schließen
+        {t('Schließen')}
       </Button>
     </div>
   )

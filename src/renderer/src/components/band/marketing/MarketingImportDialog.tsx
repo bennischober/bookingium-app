@@ -16,18 +16,19 @@ import {
   type MarketingContactScope,
   type MarketingFileDto
 } from '../../../../../main/api/schemas/marketing.schema'
+import { t } from '../../../../../main/i18n/translate'
 
 const SCOPES: Array<{ value: MarketingContactScope; label: string; hint: string }> = [
   {
     value: 'ab',
-    label: 'Priorität A und B',
-    hint: 'Radios, Podcasts und Presse werden Medien-Firmen, Clubs und Festivals Orte.'
+    label: t('Priorität A und B'),
+    hint: t('Radios, Podcasts und Presse werden Medien-Firmen, Clubs und Festivals Orte.')
   },
-  { value: 'all', label: 'Alle Einträge', hint: 'Auch C-Einträge kommen ins Adressbuch.' },
+  { value: 'all', label: t('Alle Einträge'), hint: t('Auch C-Einträge kommen ins Adressbuch.') },
   {
     value: 'none',
-    label: 'Keine neuen Kontakte',
-    hint: 'Nur vorhandene Firmen und Orte mit gleichem Namen werden verknüpft.'
+    label: t('Keine neuen Kontakte'),
+    hint: t('Nur vorhandene Firmen und Orte mit gleichem Namen werden verknüpft.')
   }
 ]
 
@@ -52,19 +53,21 @@ export function MarketingImportDialog({
   const [contactLists, setContactLists] = useState(false)
   const pick = trpcReact.marketing.pickAtlas.useMutation({
     onSuccess: (picked) => picked && setFile(picked),
-    onError: (error) => toast.error('Datei nicht lesbar', { description: error.message })
+    onError: (error) => toast.error(t('Datei nicht lesbar'), { description: error.message })
   })
   const run = trpcReact.marketing.importAtlas.useMutation({
     onSuccess: async (result) => {
       await utils.invalidate()
-      toast.success('Marketing-Atlas importiert', {
+      toast.success(t('Marketing-Atlas importiert'), {
         description: [
           `${result.created} neu, ${result.updated} aktualisiert`,
-          result.dropped > 0 && `${result.dropped} nicht mehr im Atlas`,
+          result.dropped > 0 && t('{{dropped}} nicht mehr im Atlas', { dropped: result.dropped }),
           result.companiesCreated + result.venuesCreated > 0 &&
-            `${result.companiesCreated + result.venuesCreated} Kontakte angelegt`,
-          result.linked > 0 && `${result.linked} verknüpft`,
-          result.lists > 0 && `${result.lists} Verteiler`
+            t('{{value}} Kontakte angelegt', {
+              value: result.companiesCreated + result.venuesCreated
+            }),
+          result.linked > 0 && t('{{linked}} verknüpft', { linked: result.linked }),
+          result.lists > 0 && t('{{lists}} Verteiler', { lists: result.lists })
         ]
           .filter(Boolean)
           .join(' · ')
@@ -72,7 +75,7 @@ export function MarketingImportDialog({
       setFile(null)
       onOpenChange(false)
     },
-    onError: (error) => toast.error('Import fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Import fehlgeschlagen'), { description: error.message })
   })
   const otherBand = file?.band && file.band.trim().toLowerCase() !== bandName.trim().toLowerCase()
 
@@ -86,10 +89,12 @@ export function MarketingImportDialog({
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Marketing-Atlas importieren</DialogTitle>
+          <DialogTitle>{t('Marketing-Atlas importieren')}</DialogTitle>
           <DialogDescription>
-            Die Atlas-Datei (.json) von {bandName}. Ein neuer Stand aktualisiert die Einträge;
-            Status, Notizen und Verknüpfungen bleiben.
+            {t('Die Atlas-Datei (.json) von')} {bandName}
+            {t(
+              '. Ein neuer Stand aktualisiert die Einträge; Status, Notizen und Verknüpfungen bleiben.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -101,14 +106,18 @@ export function MarketingImportDialog({
             onClick={() => pick.mutate()}
           >
             <FileUp className="h-4 w-4" />
-            {file ? 'Andere Datei wählen…' : 'Datei wählen…'}
+            {file ? t('Andere Datei wählen…') : t('Datei wählen…')}
           </Button>
 
           {file && (
             <div className="space-y-2 rounded-md border p-3">
               <p className="font-medium">{file.fileName}</p>
               <p className="text-muted-foreground">
-                {[file.band, file.stand && `Stand ${file.stand}`, `${file.total} Einträge`]
+                {[
+                  file.band,
+                  file.stand && t('Stand {{stand}}', { stand: file.stand }),
+                  t('{{total}} Einträge', { total: file.total })
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
@@ -120,7 +129,10 @@ export function MarketingImportDialog({
               {otherBand && (
                 <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  Die Datei gehört zu „{file.band}“, nicht zu „{bandName}“.
+                  {t('Die Datei gehört zu „')}
+                  {file.band}
+                  {t('“, nicht zu „')}
+                  {bandName}“.
                 </p>
               )}
             </div>
@@ -128,7 +140,7 @@ export function MarketingImportDialog({
 
           {file && (
             <fieldset className="space-y-2">
-              <legend className="mb-1 font-medium">Kontakte ins Adressbuch</legend>
+              <legend className="mb-1 font-medium">{t('Kontakte ins Adressbuch')}</legend>
               {SCOPES.map((scope) => (
                 <label key={scope.value} className="flex items-start gap-2">
                   <input
@@ -152,9 +164,9 @@ export function MarketingImportDialog({
                   onChange={(event) => setContactLists(event.target.checked)}
                 />
                 <span>
-                  Je Reiter einen Verteiler anlegen
+                  {t('Je Reiter einen Verteiler anlegen')}
                   <span className="block text-xs text-muted-foreground">
-                    „Marketing-Atlas {bandName} – Radios“ usw. mit den verknüpften Kontakten.
+                    „Marketing-Atlas {bandName} {t('– Radios“ usw. mit den verknüpften Kontakten.')}
                   </span>
                 </span>
               </label>
@@ -164,13 +176,13 @@ export function MarketingImportDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={!file || run.isPending}
             onClick={() => file && run.mutate({ bandId, path: file.path, contacts, contactLists })}
           >
-            {run.isPending ? 'Wird importiert…' : 'Importieren'}
+            {run.isPending ? t('Wird importiert…') : t('Importieren')}
           </Button>
         </DialogFooter>
       </DialogContent>

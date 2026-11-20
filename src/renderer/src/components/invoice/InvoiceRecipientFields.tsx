@@ -17,6 +17,7 @@ import {
   type RecipientDraft
 } from '@/components/invoice/invoiceFormState'
 import type { InvoiceRecipientKind } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Who receives the invoice: the kind, then the company, band or person of
@@ -37,7 +38,10 @@ export function InvoiceRecipientFields({
   return (
     <>
       <div className="space-y-2">
-        <InfoLabel text="Rechnungsempfänger" info="Wer wird belastet? Zahlt diese Rechnung." />
+        <InfoLabel
+          text={t('Rechnungsempfänger')}
+          info={t('Wer wird belastet? Zahlt diese Rechnung.')}
+        />
         <Select
           value={recipient.kind}
           onValueChange={(value) => onChange(recipientOfKind(value as InvoiceRecipientKind))}
@@ -57,35 +61,35 @@ export function InvoiceRecipientFields({
 
       {recipient.kind === 'company' && (
         <div className="space-y-2">
-          <Label htmlFor="invoice-recipient-company">Empfänger-Firma</Label>
+          <Label htmlFor="invoice-recipient-company">{t('Empfänger-Firma')}</Label>
           <SearchableSelect
             id="invoice-recipient-company"
             value={recipient.companyId}
             onChange={(companyId) => set({ companyId })}
             options={(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
-            noneLabel="Automatisch"
-            searchPlaceholder="Firma suchen…"
+            noneLabel={t('Automatisch')}
+            searchPlaceholder={t('Firma suchen…')}
           />
         </div>
       )}
 
       {recipient.kind === 'band' && (
         <div className="space-y-2">
-          <Label htmlFor="invoice-recipient-band">Empfänger-Band</Label>
+          <Label htmlFor="invoice-recipient-band">{t('Empfänger-Band')}</Label>
           <SearchableSelect
             id="invoice-recipient-band"
             value={recipient.bandId}
             onChange={(bandId) => set({ bandId })}
             options={(bands.data ?? []).map((b) => ({ value: b.id, label: b.name }))}
-            placeholder="Band auswählen"
-            searchPlaceholder="Band suchen…"
+            placeholder={t('Band auswählen')}
+            searchPlaceholder={t('Band suchen…')}
           />
         </div>
       )}
 
       {recipient.kind === 'person' && (
         <div className="space-y-2">
-          <Label htmlFor="invoice-recipient-person">Empfänger-Person</Label>
+          <Label htmlFor="invoice-recipient-person">{t('Empfänger-Person')}</Label>
           <SearchableSelect
             id="invoice-recipient-person"
             value={recipient.personId}
@@ -94,19 +98,19 @@ export function InvoiceRecipientFields({
               value: p.id,
               label: `${p.firstName} ${p.lastName}`.trim()
             }))}
-            placeholder="Person auswählen"
-            searchPlaceholder="Person suchen…"
+            placeholder={t('Person auswählen')}
+            searchPlaceholder={t('Person suchen…')}
           />
         </div>
       )}
 
       {recipient.kind === 'other' && (
         <div className="space-y-2">
-          <Label>Empfängername</Label>
+          <Label>{t('Empfängername')}</Label>
           <Input
             value={recipient.nameOverride}
             onChange={(e) => set({ nameOverride: e.target.value })}
-            placeholder="Empfängername eingeben"
+            placeholder={t('Empfängername eingeben')}
           />
         </div>
       )}

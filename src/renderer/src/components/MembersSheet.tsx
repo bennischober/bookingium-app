@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { confirmAction } from '@/lib/confirm'
 import { COMPANY_MEMBER_ROLE_SUGGESTIONS } from '../../../main/api/schemas/einvoice_party.schema'
+import { t } from '../../../main/i18n/translate'
 
 type MemberEntityType = 'band' | 'company' | 'venue'
 
@@ -47,9 +48,9 @@ type MemberRow = {
  */
 /** What one person in the panel is called: a band has members, a company or venue contacts */
 const MEMBER_NOUNS: Record<MemberEntityType, { one: string; many: string; edit: string }> = {
-  band: { one: 'Mitglied', many: 'Mitglieder', edit: 'Mitgliedschaft' },
-  company: { one: 'Ansprechpartner', many: 'Ansprechpartner', edit: 'Ansprechpartner' },
-  venue: { one: 'Ansprechpartner', many: 'Ansprechpartner', edit: 'Ansprechpartner' }
+  band: { one: t('Mitglied'), many: t('Mitglieder'), edit: t('Mitgliedschaft') },
+  company: { one: t('Ansprechpartner'), many: t('Ansprechpartner'), edit: t('Ansprechpartner') },
+  venue: { one: t('Ansprechpartner'), many: t('Ansprechpartner'), edit: t('Ansprechpartner') }
 }
 
 export function MembersPanel({
@@ -63,7 +64,7 @@ export function MembersPanel({
   open?: boolean
 }) {
   const entityLabel =
-    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Club / Festival'
+    entityType === 'band' ? t('Band') : entityType === 'company' ? t('Firma') : t('Club / Festival')
   const nouns = MEMBER_NOUNS[entityType]
   const utils = trpcReact.useUtils()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -101,25 +102,25 @@ export function MembersPanel({
     onSuccess: () => {
       invalidate()
       setDialogOpen(false)
-      toast.success(`${nouns.one} hinzugefügt`)
+      toast.success(t('{{one}} hinzugefügt', { one: nouns.one }))
     },
-    onError: (e) => toast.error('Hinzufügen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Hinzufügen fehlgeschlagen'), { description: e.message })
   })
   const addCompanyMutation = trpcReact.relation.addCompanyMember.useMutation({
     onSuccess: () => {
       invalidate()
       setDialogOpen(false)
-      toast.success(`${nouns.one} hinzugefügt`)
+      toast.success(t('{{one}} hinzugefügt', { one: nouns.one }))
     },
-    onError: (e) => toast.error('Hinzufügen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Hinzufügen fehlgeschlagen'), { description: e.message })
   })
   const addVenueMutation = trpcReact.relation.addVenueMember.useMutation({
     onSuccess: () => {
       invalidate()
       setDialogOpen(false)
-      toast.success(`${nouns.one} hinzugefügt`)
+      toast.success(t('{{one}} hinzugefügt', { one: nouns.one }))
     },
-    onError: (e) => toast.error('Hinzufügen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Hinzufügen fehlgeschlagen'), { description: e.message })
   })
 
   const updateMutation = trpcReact.relation.updateBandMember.useMutation({
@@ -128,7 +129,7 @@ export function MembersPanel({
       setDialogOpen(false)
       toast.success(`${nouns.edit} aktualisiert`)
     },
-    onError: (e) => toast.error('Aktualisierung fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Aktualisierung fehlgeschlagen'), { description: e.message })
   })
   const updateCompanyMutation = trpcReact.relation.updateCompanyMember.useMutation({
     onSuccess: () => {
@@ -136,7 +137,7 @@ export function MembersPanel({
       setDialogOpen(false)
       toast.success(`${nouns.edit} aktualisiert`)
     },
-    onError: (e) => toast.error('Aktualisierung fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Aktualisierung fehlgeschlagen'), { description: e.message })
   })
   const updateVenueMutation = trpcReact.relation.updateVenueMember.useMutation({
     onSuccess: () => {
@@ -144,7 +145,7 @@ export function MembersPanel({
       setDialogOpen(false)
       toast.success(`${nouns.edit} aktualisiert`)
     },
-    onError: (e) => toast.error('Aktualisierung fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Aktualisierung fehlgeschlagen'), { description: e.message })
   })
 
   const removeMutation = trpcReact.relation.removeBandMember.useMutation({
@@ -152,21 +153,21 @@ export function MembersPanel({
       invalidate()
       toast.success(`${nouns.one} entfernt`)
     },
-    onError: (e) => toast.error('Entfernen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Entfernen fehlgeschlagen'), { description: e.message })
   })
   const removeCompanyMutation = trpcReact.relation.removeCompanyMember.useMutation({
     onSuccess: () => {
       invalidate()
       toast.success(`${nouns.one} entfernt`)
     },
-    onError: (e) => toast.error('Entfernen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Entfernen fehlgeschlagen'), { description: e.message })
   })
   const removeVenueMutation = trpcReact.relation.removeVenueMember.useMutation({
     onSuccess: () => {
       invalidate()
       toast.success(`${nouns.one} entfernt`)
     },
-    onError: (e) => toast.error('Entfernen fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Entfernen fehlgeschlagen'), { description: e.message })
   })
 
   const members: MemberRow[] =
@@ -174,7 +175,7 @@ export function MembersPanel({
       ? (membersQuery.data ?? []).map((m) => ({
           id: m.id,
           personId: m.personId,
-          personName: m.personName ?? `Person #${m.personId}`,
+          personName: m.personName ?? t('Person #{{personId}}', { personId: m.personId }),
           role: m.role,
           notes: m.notes
         }))
@@ -182,14 +183,14 @@ export function MembersPanel({
         ? (companyMembersQuery.data ?? []).map((m) => ({
             id: m.id,
             personId: m.personId,
-            personName: m.personName ?? `Person #${m.personId}`,
+            personName: m.personName ?? t('Person #{{personId}}', { personId: m.personId }),
             role: m.role,
             notes: m.notes
           }))
         : (venueMembersQuery.data ?? []).map((m) => ({
             id: m.id,
             personId: m.personId,
-            personName: m.personName ?? `Person #${m.personId}`,
+            personName: m.personName ?? t('Person #{{personId}}', { personId: m.personId }),
             role: m.role,
             notes: m.notes
           }))
@@ -219,13 +220,13 @@ export function MembersPanel({
 
   const handleSave = () => {
     if (editingId === null && !personId) {
-      toast.error('Bitte eine Person auswählen')
+      toast.error(t('Bitte eine Person auswählen'))
       return
     }
 
     if (editingId === null) {
       if (!role.trim()) {
-        toast.error('Bitte eine Rolle angeben')
+        toast.error(t('Bitte eine Rolle angeben'))
         return
       }
       const baseData = { role: role.trim(), notes: notes || '' }
@@ -251,8 +252,11 @@ export function MembersPanel({
 
   const handleRemove = async (member: MemberRow) => {
     const confirmed = await confirmAction({
-      title: `${member.personName} aus der ${entityLabel} entfernen?`,
-      confirmLabel: 'Entfernen',
+      title: t('{{personName}} aus der {{entityLabel}} entfernen?', {
+        personName: member.personName,
+        entityLabel
+      }),
+      confirmLabel: t('Entfernen'),
       destructive: true
     })
     if (!confirmed) return
@@ -272,19 +276,21 @@ export function MembersPanel({
           summary={
             membersOf.data
               ? members.length === 0
-                ? `Noch keine ${nouns.many}.`
+                ? t('Noch keine {{many}}.', { many: nouns.many })
                 : countLabel(members.length, nouns.one, nouns.many)
               : undefined
           }
         >
           <Button size="sm" onClick={openAdd} className="gap-1.5">
             <Plus className="h-4 w-4" />
-            Person hinzufügen
+            {t('Person hinzufügen')}
           </Button>
         </TabHeader>
 
         {membersOf.isLoading ? (
-          <LoadingRow>{nouns.many} werden geladen…</LoadingRow>
+          <LoadingRow>
+            {nouns.many} {t('werden geladen…')}
+          </LoadingRow>
         ) : membersOf.isError ? (
           <ErrorState error={membersOf.error} onRetry={() => void membersOf.refetch()} />
         ) : members.length === 0 ? null : (
@@ -313,8 +319,10 @@ export function MembersPanel({
                     variant="ghost"
                     size="sm"
                     onClick={() => openEdit(member)}
-                    title="Rolle bearbeiten"
-                    aria-label={`Rolle von ${member.personName} bearbeiten`}
+                    title={t('Rolle bearbeiten')}
+                    aria-label={t('Rolle von {{personName}} bearbeiten', {
+                      personName: member.personName
+                    })}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -322,7 +330,7 @@ export function MembersPanel({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemove(member)}
-                    title="Entfernen"
+                    title={t('Entfernen')}
                     aria-label={`${member.personName} entfernen`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -339,13 +347,15 @@ export function MembersPanel({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingId === null ? `Zur ${entityLabel} hinzufügen` : `${nouns.edit} bearbeiten`}
+              {editingId === null
+                ? t('Zur {{entityLabel}} hinzufügen', { entityLabel })
+                : `${nouns.edit} bearbeiten`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {editingId === null && (
               <div className="space-y-2">
-                <Label htmlFor="member-person">Person</Label>
+                <Label htmlFor="member-person">{t('Person')}</Label>
                 <SearchableSelect<string>
                   id="member-person"
                   value={personId || null}
@@ -354,21 +364,21 @@ export function MembersPanel({
                     value: p.id.toString(),
                     label: `${p.firstName} ${p.lastName}`.trim()
                   }))}
-                  placeholder="Person auswählen"
-                  searchPlaceholder="Person suchen…"
+                  placeholder={t('Person auswählen')}
+                  searchPlaceholder={t('Person suchen…')}
                 />
               </div>
             )}
             <div className="space-y-2">
-              <Label>Rolle</Label>
+              <Label>{t('Rolle')}</Label>
               <Input
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 list={entityType === 'company' ? 'company-member-roles' : undefined}
                 placeholder={
                   entityType === 'company'
-                    ? 'z. B. Kontakt, Geschäftsführer'
-                    : 'z. B. Sänger, TL, Booker'
+                    ? t('z. B. Kontakt, Geschäftsführer')
+                    : t('z. B. Sänger, TL, Booker')
                 }
               />
               {/* #222: common roles of a company's people; the role stays free text */}
@@ -381,15 +391,17 @@ export function MembersPanel({
               )}
             </div>
             <div className="space-y-2">
-              <Label>Anmerkungen</Label>
+              <Label>{t('Anmerkungen')}</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
-            <Button onClick={handleSave}>{editingId === null ? 'Hinzufügen' : 'Speichern'}</Button>
+            <Button onClick={handleSave}>
+              {editingId === null ? t('Hinzufügen') : t('Speichern')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -412,7 +424,7 @@ export function MembersSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const entityLabel =
-    entityType === 'band' ? 'Band' : entityType === 'company' ? 'Firma' : 'Club / Festival'
+    entityType === 'band' ? t('Band') : entityType === 'company' ? t('Firma') : t('Club / Festival')
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -422,7 +434,9 @@ export function MembersSheet({
             <Users className="h-4 w-4" />
             {MEMBER_NOUNS[entityType].many}: {entityName}
           </SheetTitle>
-          <SheetDescription>Personen, die dieser {entityLabel} zugeordnet sind.</SheetDescription>
+          <SheetDescription>
+            {t('Personen, die dieser')} {entityLabel} zugeordnet sind.
+          </SheetDescription>
         </SheetHeader>
         <div className="mt-4 px-4">
           <MembersPanel entityType={entityType} entityId={entityId} open={open} />

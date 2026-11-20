@@ -4,6 +4,7 @@ import {
   EXTERNAL_BOOKING_STATUS_LABELS,
   type ExternalBookingDto
 } from '../../../../main/api/schemas/external_booking.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #103: agency bookings of a day, as the calendar lists them. Plain entries,
@@ -12,7 +13,7 @@ import {
  */
 export function AgencyBookingList({ bookings }: { bookings: ExternalBookingDto[] }) {
   return (
-    <ul className="space-y-2" aria-label="Agenturbuchungen">
+    <ul className="space-y-2" aria-label={t('Agenturbuchungen')}>
       {bookings.map((booking) => {
         const place = [booking.venueName, [booking.zipCode, booking.city].filter(Boolean).join(' ')]
           .filter(Boolean)
@@ -26,7 +27,7 @@ export function AgencyBookingList({ bookings }: { bookings: ExternalBookingDto[]
             </p>
             <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-800">
-                Agenturbuchung
+                {t('Agenturbuchung')}
               </Badge>
               {booking.agency}
               {booking.status !== 'confirmed' &&

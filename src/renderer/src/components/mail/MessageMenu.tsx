@@ -26,6 +26,7 @@ import {
 import type { FolderNode, MessageListItem } from '../../../../main/mailclient/core/types'
 import { SHORTCUT_HINTS } from './shortcuts'
 import { folderLabel } from './format'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * What can be done with the selected mails; an absent action is not offered
@@ -64,7 +65,7 @@ export function MessageMenu({
   actions: MailActions
 }) {
   if (items.length === 0) {
-    return <ContextMenuItem disabled>Keine E-Mail ausgewählt</ContextMenuItem>
+    return <ContextMenuItem disabled>{t('Keine E-Mail ausgewählt')}</ContextMenuItem>
   }
   const ids = items.map((m) => m.id)
   const one = items.length === 1 ? items[0] : null
@@ -83,7 +84,7 @@ export function MessageMenu({
             onSelect={() => actions.openWindow(one.id)}
           >
             <SquareArrowOutUpRight />
-            In eigenem Fenster öffnen
+            {t('In eigenem Fenster öffnen')}
           </ContextMenuItem>
         ]
       : [],
@@ -91,7 +92,7 @@ export function MessageMenu({
       ? [
           <ContextMenuItem key="reply" className={ITEM} onSelect={() => compose(one.id, 'reply')}>
             <Reply />
-            Antworten
+            {t('Antworten')}
           </ContextMenuItem>,
           <ContextMenuItem
             key="replyAll"
@@ -99,7 +100,7 @@ export function MessageMenu({
             onSelect={() => compose(one.id, 'replyAll')}
           >
             <ReplyAll />
-            Allen antworten
+            {t('Allen antworten')}
           </ContextMenuItem>,
           <ContextMenuItem
             key="forward"
@@ -107,7 +108,7 @@ export function MessageMenu({
             onSelect={() => compose(one.id, 'forward')}
           >
             <Forward />
-            Weiterleiten
+            {t('Weiterleiten')}
           </ContextMenuItem>,
           <ContextMenuItem
             key="editAsNew"
@@ -115,7 +116,7 @@ export function MessageMenu({
             onSelect={() => compose(one.id, 'editAsNew')}
           >
             <FilePen />
-            Als neue Nachricht bearbeiten
+            {t('Als neue Nachricht bearbeiten')}
           </ContextMenuItem>
         ]
       : [],
@@ -123,7 +124,7 @@ export function MessageMenu({
       markRead && (
         <ContextMenuItem key="read" className={ITEM} onSelect={() => markRead(ids, anyUnread)}>
           {anyUnread ? <MailOpen /> : <Mail />}
-          {anyUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren'}
+          {anyUnread ? t('Als gelesen markieren') : t('Als ungelesen markieren')}
         </ContextMenuItem>
       ),
       markFlagged && (
@@ -133,7 +134,7 @@ export function MessageMenu({
           onSelect={() => markFlagged(ids, anyUnflagged)}
         >
           <Flag />
-          {anyUnflagged ? 'Markieren' : 'Markierung entfernen'}
+          {anyUnflagged ? t('Markieren') : t('Markierung entfernen')}
           <ContextMenuShortcut>{SHORTCUT_HINTS.toggleFlag}</ContextMenuShortcut>
         </ContextMenuItem>
       )
@@ -143,7 +144,7 @@ export function MessageMenu({
         <ContextMenuSub key="move">
           <ContextMenuSubTrigger className={ITEM}>
             <FolderInput />
-            Verschieben nach
+            {t('Verschieben nach')}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="max-h-80 w-56 overflow-y-auto">
             {folders.map((f) => (
@@ -164,35 +165,35 @@ export function MessageMenu({
       archive && (
         <ContextMenuItem key="archive" className={ITEM} onSelect={() => archive(ids)}>
           <Archive />
-          Archivieren
+          {t('Archivieren')}
           <ContextMenuShortcut>{SHORTCUT_HINTS.archive}</ContextMenuShortcut>
         </ContextMenuItem>
       ),
       toSpam && (
         <ContextMenuItem key="spam" className={ITEM} onSelect={() => toSpam(ids)}>
           <ShieldAlert />
-          Spam
+          {t('Spam')}
           <ContextMenuShortcut>{SHORTCUT_HINTS.spam}</ContextMenuShortcut>
         </ContextMenuItem>
       ),
       notSpam && (
         <ContextMenuItem key="notSpam" className={ITEM} onSelect={() => notSpam(ids)}>
           <ShieldCheck />
-          Kein Spam
+          {t('Kein Spam')}
         </ContextMenuItem>
       ),
       one && blockSender && (
         <ContextMenuSub key="block">
           <ContextMenuSubTrigger className={ITEM}>
             <ShieldBan />
-            Absender immer als Spam
+            {t('Absender immer als Spam')}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-56">
             <ContextMenuItem onSelect={() => blockSender(one.id, 'sender')}>
-              Nur diese Adresse
+              {t('Nur diese Adresse')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => blockSender(one.id, 'domain')}>
-              Die ganze Domain
+              {t('Die ganze Domain')}
             </ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
@@ -200,15 +201,15 @@ export function MessageMenu({
       toTrash && (
         <ContextMenuItem key="trash" className={ITEM} onSelect={() => toTrash(ids)}>
           <Trash2 />
-          In den Papierkorb
-          <ContextMenuShortcut>Entf</ContextMenuShortcut>
+          {t('In den Papierkorb')}
+          <ContextMenuShortcut>{t('Entf')}</ContextMenuShortcut>
         </ContextMenuItem>
       ),
       // B5: permanent deletion is only offered inside Trash
       expunge && (
         <ContextMenuItem key="expunge" className={ITEM} onSelect={() => expunge(ids)}>
           <Trash2 />
-          Endgültig löschen
+          {t('Endgültig löschen')}
         </ContextMenuItem>
       )
     ].filter(Boolean)

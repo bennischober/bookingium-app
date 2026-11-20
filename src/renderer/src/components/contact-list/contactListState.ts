@@ -4,13 +4,14 @@ import {
   ContactListFilters,
   type SavedContactListDto
 } from '../../../../main/api/schemas/contactList.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 export const EMPTY_FILTERS: ContactListFilters = ContactListFilters.parse({})
 
 /** Above this, mail providers start to refuse or flag a BCC email */
 export const LARGE_LIST = 50
 
-const countryNames = new Intl.DisplayNames(['de'], { type: 'region' })
+const countryNames = new Intl.DisplayNames([uiLocale()], { type: 'region' })
 
 /** A country code's German name, or the code itself if it has none */
 export function countryLabel(code: string): string {
@@ -56,4 +57,4 @@ export function filtersChanged(
   return !sameFilters(saved?.filters ?? EMPTY_FILTERS, filters)
 }
 
-export const addresses = (count: number) => `${count} ${count === 1 ? 'Adresse' : 'Adressen'}`
+export const addresses = (count: number) => `${count} ${count === 1 ? t('Adresse') : t('Adressen')}`

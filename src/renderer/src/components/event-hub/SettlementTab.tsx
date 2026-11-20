@@ -26,6 +26,7 @@ import {
 } from '../../../../main/settlement/settlement'
 import type { SettlementSheetDto } from '../../../../main/api/schemas/settlement.schema'
 import { centsText, euroText, parseCents, parsePercent } from './settlementForm'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 // #228: the promoter's settlement of the show (Konzertabrechnung) - read from the agency's Excel
 // or typed in - with the live result, and the management fee invoice made from it.
@@ -116,11 +117,13 @@ function LastTicketReport({ eventId, settled }: { eventId: number; settled: numb
         gap > 0.1 ? 'text-sm text-amber-700 dark:text-amber-400' : 'text-sm text-muted-foreground'
       }
     >
-      Letzte Ticketmeldung: {report.sold.toLocaleString('de-DE')} am{' '}
-      {new Date(`${report.reportDate}T00:00:00`).toLocaleDateString('de-DE')}
+      {t('Letzte Ticketmeldung:')} {report.sold.toLocaleString(uiLocale())} {t('am')}{' '}
+      {new Date(`${report.reportDate}T00:00:00`).toLocaleDateString(uiLocale())}
       {gap > 0.1 &&
         settled > 0 &&
-        ` – weicht von den abgerechneten ${settled.toLocaleString('de-DE')} ab`}
+        t(' – weicht von den abgerechneten {{settled}} ab', {
+          settled: settled.toLocaleString(uiLocale())
+        })}
     </p>
   )
 }
@@ -146,7 +149,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
   const failed = (title: string) => (error: { message: string }) =>
     toast.error(title, { description: error.message })
   const readFile = trpcReact.settlement.readFile.useMutation({
-    onError: failed('Abrechnung konnte nicht gelesen werden')
+    onError: failed(t('Abrechnung konnte nicht gelesen werden'))
   })
   const attachFile = trpcReact.settlement.attachFile.useMutation()
   const save = trpcReact.settlement.save.useMutation({
@@ -156,7 +159,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
           await attachFile.mutateAsync({ eventId, path: pendingFile.path })
           void utils.document.invalidate()
         } catch (error) {
-          toast.error('Die Excel-Datei wurde nicht bei den Dokumenten abgelegt', {
+          toast.error(t('Die Excel-Datei wurde nicht bei den Dokumenten abgelegt'), {
             description: error instanceof Error ? error.message : undefined
           })
         }
@@ -164,17 +167,17 @@ export function SettlementTab({ eventId }: { eventId: number }) {
       setPendingFile(null)
       setDirty(false)
       void utils.settlement.get.invalidate({ eventId })
-      toast.success('Abrechnung gespeichert')
+      toast.success(t('Abrechnung gespeichert'))
     },
-    onError: failed('Abrechnung konnte nicht gespeichert werden')
+    onError: failed(t('Abrechnung konnte nicht gespeichert werden'))
   })
   const createFee = trpcReact.settlement.createFeeInvoice.useMutation({
     onSuccess: () => {
       void utils.settlement.get.invalidate({ eventId })
       void utils.invoice.invalidate()
-      toast.success('Managementbeteiligung als Entwurf erstellt')
+      toast.success(t('Managementbeteiligung als Entwurf erstellt'))
     },
-    onError: failed('Managementbeteiligung nicht erstellt')
+    onError: failed(t('Managementbeteiligung nicht erstellt'))
   })
 
   const result = useMemo(() => (input ? computeSettlement(input) : null), [input])
@@ -204,7 +207,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
     setDirty(true)
   }
 
-  if (query.isLoading) return <p className="text-sm text-muted-foreground">Wird geladen…</p>
+  if (query.isLoading) return <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
 
   // The computation against what the promoter's sheet shows, to the cent
   const check =
@@ -217,9 +220,11 @@ export function SettlementTab({ eventId }: { eventId: number }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Abrechnung des Veranstalters</h2>
+          <h2 className="text-lg font-semibold">{t('Abrechnung des Veranstalters')}</h2>
           <p className="text-sm text-muted-foreground">
-            {sourceFileName ? `Aus „${sourceFileName}“` : 'Noch keine Abrechnung erfasst.'}
+            {sourceFileName
+              ? t('Aus „{{sourceFileName}}“', { sourceFileName })
+              : t('Noch keine Abrechnung erfasst.')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -229,12 +234,12 @@ export function SettlementTab({ eventId }: { eventId: number }) {
             disabled={readFile.isPending}
           >
             <FileSpreadsheet className="h-4 w-4" />
-            Excel einlesen…
+            {t('Excel einlesen…')}
           </Button>
           {!input && (
             <Button variant="outline" onClick={() => update({ lines: [emptyLine()] })}>
               <Plus className="h-4 w-4" />
-              Von Hand erfassen
+              {t('Von Hand erfassen')}
             </Button>
           )}
           {input && (
@@ -242,7 +247,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
               onClick={() => save.mutate({ eventId, input, sourceFileName })}
               disabled={!dirty || save.isPending}
             >
-              {save.isPending ? 'Wird gespeichert…' : 'Speichern'}
+              {save.isPending ? t('Wird gespeichert…') : t('Speichern')}
             </Button>
           )}
         </div>
@@ -261,11 +266,17 @@ export function SettlementTab({ eventId }: { eventId: number }) {
           </span>
           <span className="text-muted-foreground">
             {check
-              ? '– die Summen stimmen mit der Excel überein.'
-              : `– die Excel zeigt ${euroText(pendingFile.sheet.sheet.totalNetCents ?? 0)} netto, berechnet sind ${euroText(result?.totalOpenNetCents ?? 0)}. Bitte prüfen.`}
+              ? t('– die Summen stimmen mit der Excel überein.')
+              : t(
+                  '– die Excel zeigt {{euroText}} netto, berechnet sind {{euroText2}}. Bitte prüfen.',
+                  {
+                    euroText: euroText(pendingFile.sheet.sheet.totalNetCents ?? 0),
+                    euroText2: euroText(result?.totalOpenNetCents ?? 0)
+                  }
+                )}
           </span>
           <span className="text-muted-foreground">
-            Beim Speichern kommt die Datei zu den Dokumenten.
+            {t('Beim Speichern kommt die Datei zu den Dokumenten.')}
           </span>
         </div>
       )}
@@ -275,7 +286,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
           <div className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Tickets</CardTitle>
+                <CardTitle className="text-base">{t('Tickets')}</CardTitle>
                 <LastTicketReport eventId={eventId} settled={result.sold} />
               </CardHeader>
               <CardContent className="space-y-2">
@@ -283,12 +294,12 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                 <div className="overflow-x-auto">
                   <div className="min-w-[48rem] space-y-2">
                     <div className="grid grid-cols-[1fr_1fr_6rem_6rem_5rem_5rem_2rem] gap-2 text-xs text-muted-foreground">
-                      <span>Ticketsystem</span>
-                      <span>Kategorie</span>
-                      <span className="text-right">Preis (brutto)</span>
-                      <span className="text-right">Gebühren</span>
-                      <span className="text-right">Verkauft</span>
-                      <span className="text-right">WKZ / Ticket</span>
+                      <span>{t('Ticketsystem')}</span>
+                      <span>{t('Kategorie')}</span>
+                      <span className="text-right">{t('Preis (brutto)')}</span>
+                      <span className="text-right">{t('Gebühren')}</span>
+                      <span className="text-right">{t('Verkauft')}</span>
+                      <span className="text-right">{t('WKZ / Ticket')}</span>
                       <span />
                     </div>
                     {input.lines.map((line, index) => (
@@ -297,27 +308,27 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                         className="grid grid-cols-[1fr_1fr_6rem_6rem_5rem_5rem_2rem] items-center gap-2"
                       >
                         <Input
-                          aria-label="Ticketsystem"
+                          aria-label={t('Ticketsystem')}
                           value={line.system}
                           onChange={(e) => updateLine(index, { system: e.target.value })}
                         />
                         <Input
-                          aria-label="Kategorie"
+                          aria-label={t('Kategorie')}
                           value={line.category}
                           onChange={(e) => updateLine(index, { category: e.target.value })}
                         />
                         <MoneyInput
-                          label="Preis"
+                          label={t('Preis')}
                           cents={line.priceCents}
                           onChange={(cents) => updateLine(index, { priceCents: cents })}
                         />
                         <MoneyInput
-                          label="Gebühren"
+                          label={t('Gebühren')}
                           cents={line.extraCents}
                           onChange={(cents) => updateLine(index, { extraCents: cents })}
                         />
                         <Input
-                          aria-label="Verkauft"
+                          aria-label={t('Verkauft')}
                           inputMode="numeric"
                           className="text-right"
                           value={String(line.sold)}
@@ -328,14 +339,14 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                           }
                         />
                         <MoneyInput
-                          label="WKZ pro Ticket"
+                          label={t('WKZ pro Ticket')}
                           cents={line.wkzCents}
                           onChange={(cents) => updateLine(index, { wkzCents: cents })}
                         />
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Zeile entfernen"
+                          aria-label={t('Zeile entfernen')}
                           onClick={() =>
                             update({ lines: input.lines.filter((_, i) => i !== index) })
                           }
@@ -351,12 +362,12 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                   size="sm"
                   onClick={() => update({ lines: [...input.lines, emptyLine()] })}
                 >
-                  <Plus className="h-4 w-4" /> Ticketzeile
+                  <Plus className="h-4 w-4" /> {t('Ticketzeile')}
                 </Button>
                 <div className="flex items-center gap-2 pt-2 text-sm">
-                  <Label>MwSt. Tickets und WKZ</Label>
+                  <Label>{t('MwSt. Tickets und WKZ')}</Label>
                   <PercentInput
-                    label="MwSt. Tickets"
+                    label={t('MwSt. Tickets')}
                     value={input.ticketVatRate}
                     onChange={(value) => update({ ticketVatRate: value })}
                   />
@@ -367,13 +378,13 @@ export function SettlementTab({ eventId }: { eventId: number }) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Deal</CardTitle>
+                <CardTitle className="text-base">{t('Deal')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <div>
                     <Label htmlFor="settlement-guarantee" className="mb-1 block">
-                      Garantie (netto)
+                      {t('Garantie (netto)')}
                     </Label>
                     <MoneyInput
                       id="settlement-guarantee"
@@ -383,7 +394,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                   </div>
                   <div>
                     <Label htmlFor="settlement-mode" className="mb-1 block">
-                      Art
+                      {t('Art')}
                     </Label>
                     <Select
                       value={input.dealMode}
@@ -393,15 +404,19 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="versus">Garantie gegen Beteiligung (VS)</SelectItem>
-                        <SelectItem value="plus">Garantie plus Beteiligung ab Break</SelectItem>
+                        <SelectItem value="versus">
+                          {t('Garantie gegen Beteiligung (VS)')}
+                        </SelectItem>
+                        <SelectItem value="plus">
+                          {t('Garantie plus Beteiligung ab Break')}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label>MwSt. Gage</Label>
+                    <Label>{t('MwSt. Gage')}</Label>
                     <PercentInput
-                      label="MwSt. Gage"
+                      label={t('MwSt. Gage')}
                       value={input.gageVatRate}
                       onChange={(value) => update({ gageVatRate: value })}
                     />
@@ -410,27 +425,29 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                 </div>
                 {input.tiers.map((tier, index) => (
                   <div key={index} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="w-36 text-muted-foreground">Beteiligung {index + 1}</span>
+                    <span className="w-36 text-muted-foreground">
+                      {t('Beteiligung')} {index + 1}
+                    </span>
                     <PercentInput
-                      label={`Beteiligung ${index + 1} Prozent`}
+                      label={t('Beteiligung {{value}} Prozent', { value: index + 1 })}
                       value={tier.percent}
                       onChange={(value) =>
                         update({
-                          tiers: input.tiers.map((t, i) =>
-                            i === index ? { ...t, percent: value } : t
+                          tiers: input.tiers.map((tier, i) =>
+                            i === index ? { ...tier, percent: value } : tier
                           )
                         })
                       }
                     />
-                    <span>% der Nettoeinnahmen ab</span>
+                    <span>{t('% der Nettoeinnahmen ab')}</span>
                     <div className="w-32">
                       <MoneyInput
-                        label={`Beteiligung ${index + 1} ab`}
+                        label={t('Beteiligung {{value}} ab', { value: index + 1 })}
                         cents={tier.fromCents}
                         onChange={(cents) =>
                           update({
-                            tiers: input.tiers.map((t, i) =>
-                              i === index ? { ...t, fromCents: cents } : t
+                            tiers: input.tiers.map((tier, i) =>
+                              i === index ? { ...tier, fromCents: cents } : tier
                             )
                           })
                         }
@@ -449,7 +466,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                       update({ tiers: [...input.tiers, { percent: 0, fromCents: 0 }] })
                     }
                   >
-                    <Plus className="h-4 w-4" /> Stufe
+                    <Plus className="h-4 w-4" /> {t('Stufe')}
                   </Button>
                 )}
               </CardContent>
@@ -457,13 +474,13 @@ export function SettlementTab({ eventId }: { eventId: number }) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Nebenkosten, Support, Abschläge</CardTitle>
+                <CardTitle className="text-base">{t('Nebenkosten, Support, Abschläge')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {input.costs.map((cost, index) => (
                   <div key={index} className="grid grid-cols-[1fr_8rem_2rem] items-center gap-2">
                     <Input
-                      aria-label="Nebenkosten Bezeichnung"
+                      aria-label={t('Nebenkosten Bezeichnung')}
                       value={cost.label}
                       onChange={(e) =>
                         update({
@@ -474,7 +491,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                       }
                     />
                     <MoneyInput
-                      label="Nebenkosten netto"
+                      label={t('Nebenkosten netto')}
                       cents={cost.netCents}
                       onChange={(cents) =>
                         update({
@@ -487,7 +504,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Nebenkosten entfernen"
+                      aria-label={t('Nebenkosten entfernen')}
                       onClick={() => update({ costs: input.costs.filter((_, i) => i !== index) })}
                     >
                       <Trash2 />
@@ -500,15 +517,15 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                     size="sm"
                     onClick={() =>
                       update({
-                        costs: [...input.costs, { label: 'Übernachtungspauschale', netCents: 0 }]
+                        costs: [...input.costs, { label: t('Übernachtungspauschale'), netCents: 0 }]
                       })
                     }
                   >
-                    <Plus className="h-4 w-4" /> Nebenkosten
+                    <Plus className="h-4 w-4" /> {t('Nebenkosten')}
                   </Button>
-                  <Label className="ml-4">MwSt. Nebenkosten</Label>
+                  <Label className="ml-4">{t('MwSt. Nebenkosten')}</Label>
                   <PercentInput
-                    label="MwSt. Nebenkosten"
+                    label={t('MwSt. Nebenkosten')}
                     value={input.costsVatRate}
                     onChange={(value) => update({ costsVatRate: value })}
                   />
@@ -517,10 +534,10 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                 <div className="grid grid-cols-2 gap-3 pt-3 lg:grid-cols-4">
                   {(
                     [
-                      ['gageCents', 'Abschlag Gage'],
-                      ['wkzCents', 'Abschlag WKZ'],
-                      ['costsCents', 'Abschlag Nebenkosten'],
-                      ['supportCents', 'Abschlag Support']
+                      ['gageCents', t('Abschlag Gage')],
+                      ['wkzCents', t('Abschlag WKZ')],
+                      ['costsCents', t('Abschlag Nebenkosten')],
+                      ['supportCents', t('Abschlag Support')]
                     ] as const
                   ).map(([key, label]) => (
                     <div key={key}>
@@ -535,9 +552,9 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                     </div>
                   ))}
                   <div>
-                    <Label className="mb-1 block text-xs">Supportfee (netto)</Label>
+                    <Label className="mb-1 block text-xs">{t('Supportfee (netto)')}</Label>
                     <MoneyInput
-                      label="Supportfee"
+                      label={t('Supportfee')}
                       cents={input.supportFeeCents}
                       onChange={(cents) => update({ supportFeeCents: cents })}
                     />
@@ -550,29 +567,31 @@ export function SettlementTab({ eventId }: { eventId: number }) {
           <div className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Ergebnis</CardTitle>
+                <CardTitle className="text-base">{t('Ergebnis')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Row
-                  label={`Tickets (${result.sold}) brutto`}
+                  label={t('Tickets ({{sold}}) brutto', { sold: result.sold })}
                   value={euroText(result.ticketGrossCents)}
                 />
-                <Row label="Tickets netto" value={euroText(result.ticketNetCents)} />
+                <Row label={t('Tickets netto')} value={euroText(result.ticketNetCents)} />
                 <Row
-                  label={`Gage netto (${result.gageFrom === 'guarantee' ? 'Garantie' : 'Beteiligung'})`}
+                  label={t('Gage netto ({{value}})', {
+                    value: result.gageFrom === 'guarantee' ? t('Garantie') : t('Beteiligung')
+                  })}
                   value={euroText(result.gageCents)}
                 />
-                <Row label="Gage brutto, offen" value={euroText(result.gage.openGrossCents)} />
-                <Row label="WKZ netto" value={euroText(result.wkzNetCents)} />
-                <Row label="Nebenkosten netto" value={euroText(result.costs.netCents)} />
+                <Row label={t('Gage brutto, offen')} value={euroText(result.gage.openGrossCents)} />
+                <Row label={t('WKZ netto')} value={euroText(result.wkzNetCents)} />
+                <Row label={t('Nebenkosten netto')} value={euroText(result.costs.netCents)} />
                 <div className="mt-2 border-t pt-2">
                   <Row
-                    label="Offen netto (ohne Support)"
+                    label={t('Offen netto (ohne Support)')}
                     value={euroText(result.totalOpenNetCents)}
                     strong
                   />
                   <Row
-                    label="Offen brutto (ohne Support)"
+                    label={t('Offen brutto (ohne Support)')}
                     value={euroText(result.totalOpenGrossCents)}
                     strong
                   />
@@ -582,32 +601,37 @@ export function SettlementTab({ eventId }: { eventId: number }) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Managementbeteiligung</CardTitle>
+                <CardTitle className="text-base">{t('Managementbeteiligung')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {!contract && (
                   <p className="text-sm text-muted-foreground">
-                    Die Band hat keinen Managementvertrag. Die Beteiligung wird aus dem Vertrag
-                    berechnet (Bands › Managementvertrag).
+                    {t(
+                      'Die Band hat keinen Managementvertrag. Die Beteiligung wird aus dem Vertrag berechnet (Bands › Managementvertrag).'
+                    )}
                   </p>
                 )}
                 {contract && fee && (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      {contract.managementCompanyName || 'Management'} · nur auf die Gage, ohne WKZ
-                      und Nebenkosten
+                      {contract.managementCompanyName || t('Management')}{' '}
+                      {t('· nur auf die Gage, ohne WKZ und Nebenkosten')}
                     </p>
-                    <Row label="Gage netto" value={euroText(fee.baseCents)} />
+                    <Row label={t('Gage netto')} value={euroText(fee.baseCents)} />
                     <Row
-                      label={`abzgl. ${contract.agencyPercent} % Agentur`}
+                      label={t('abzgl. {{agencyPercent}} % Agentur', {
+                        agencyPercent: contract.agencyPercent
+                      })}
                       value={`− ${euroText(fee.agencyCents)}`}
                     />
                     <Row
-                      label={`davon ${contract.commissionPercent} %`}
+                      label={t('davon {{commissionPercent}} %', {
+                        commissionPercent: contract.commissionPercent
+                      })}
                       value={euroText(fee.netCents)}
                     />
-                    <Row label="zzgl. 19 % MwSt." value={euroText(fee.vatCents)} />
-                    <Row label="Rechnung brutto" value={euroText(fee.grossCents)} strong />
+                    <Row label={t('zzgl. 19 % MwSt.')} value={euroText(fee.vatCents)} />
+                    <Row label={t('Rechnung brutto')} value={euroText(fee.grossCents)} strong />
                     {query.data?.feeInvoice && query.data.feeInvoice.status !== 'cancelled' ? (
                       <Button
                         variant="outline"
@@ -621,22 +645,26 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                       >
                         <Receipt className="h-4 w-4" />
                         {query.data.feeInvoice.invoiceNumber === null
-                          ? 'Entwurf öffnen'
-                          : `${invoiceNumberLabel(query.data.feeInvoice.invoiceNumber)} öffnen`}
+                          ? t('Entwurf öffnen')
+                          : t('{{invoiceNumberLabel}} öffnen', {
+                              invoiceNumberLabel: invoiceNumberLabel(
+                                query.data.feeInvoice.invoiceNumber
+                              )
+                            })}
                       </Button>
                     ) : (
                       <Button
                         className="w-full"
                         disabled={dirty || createFee.isPending || fee.netCents <= 0}
-                        title={dirty ? 'Zuerst die Abrechnung speichern' : undefined}
+                        title={dirty ? t('Zuerst die Abrechnung speichern') : undefined}
                         onClick={() => createFee.mutate({ eventId })}
                       >
                         <Receipt className="h-4 w-4" />
-                        Managementbeteiligung erstellen
+                        {t('Managementbeteiligung erstellen')}
                       </Button>
                     )}
                     {query.data?.feeInvoice?.status === 'cancelled' && (
-                      <Badge variant="outline">Die letzte Rechnung ist storniert</Badge>
+                      <Badge variant="outline">{t('Die letzte Rechnung ist storniert')}</Badge>
                     )}
                   </>
                 )}

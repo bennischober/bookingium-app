@@ -4,6 +4,7 @@ import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { type Address, addressProblem, isValidEmail, parseAddress } from './composeDraft'
 import { recipientKeyAction } from './composeSend'
+import { t } from '../../../../main/i18n/translate'
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -16,10 +17,10 @@ function useDebounced<T>(value: T, ms: number): T {
 
 /** G8: where a recipient suggestion came from, in the dropdown */
 const SOURCE_LABELS: Record<'person' | 'company' | 'venue' | 'mail', string> = {
-  person: 'Kontakt',
-  company: 'Firma',
-  venue: 'Club / Festival',
-  mail: 'Aus E-Mails'
+  person: t('Kontakt'),
+  company: t('Firma'),
+  venue: t('Club / Festival'),
+  mail: t('Aus E-Mails')
 }
 
 /** Recipients as chips; typed text becomes one on Enter, comma or leaving the field */
@@ -79,7 +80,7 @@ export function RecipientField({
                 'flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5',
                 valid ? 'bg-muted' : 'bg-destructive/10 text-destructive'
               )}
-              title={valid ? a.email : (addressProblem(a.email) ?? 'Keine gültige Adresse')}
+              title={valid ? a.email : (addressProblem(a.email) ?? t('Keine gültige Adresse'))}
             >
               <span className="truncate">{a.name || a.email}</span>
               {problem ? (
@@ -154,7 +155,7 @@ export function RecipientField({
         <ul
           className="absolute top-full right-4 left-16 z-10 mt-1 overflow-hidden rounded-md border bg-popover shadow-md"
           role="listbox"
-          aria-label="Vorschläge"
+          aria-label={t('Vorschläge')}
         >
           {suggestions.map((c, i) => (
             <li

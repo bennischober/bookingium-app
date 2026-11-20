@@ -8,6 +8,7 @@ import { passSummaryText, syncProgressText } from '@/components/mail/syncProgres
 import { syncErrorsOf } from '@/components/mail/syncActivity'
 import { SyncActivityPanel } from '@/components/mail/SyncActivityPanel'
 import type { SyncStatus } from '../../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** The current time, updated every second while `active` (for countdowns) */
 function useNow(active: boolean): number {
@@ -66,7 +67,7 @@ export function SyncIndicator({
     return (
       <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
         <Spinner className="size-3" />
-        <span>{label ?? 'Startet…'}</span>
+        <span>{label ?? t('Startet…')}</span>
       </div>
     )
   }
@@ -82,8 +83,8 @@ export function SyncIndicator({
         data-testid="mail-disk-full"
       >
         <HardDrive className="size-3.5" />
-        <span>Speicherplatz voll</span>
-        <Button variant="ghost" size="icon-xs" onClick={onResume} title="Erneut versuchen">
+        <span>{t('Speicherplatz voll')}</span>
+        <Button variant="ghost" size="icon-xs" onClick={onResume} title={t('Erneut versuchen')}>
           <RefreshCw />
         </Button>
       </div>
@@ -93,7 +94,7 @@ export function SyncIndicator({
   if (status.connection === 'auth-failed') {
     return (
       <div className="text-xs text-destructive" aria-live="polite">
-        Anmeldung fehlgeschlagen
+        {t('Anmeldung fehlgeschlagen')}
       </div>
     )
   }
@@ -105,10 +106,10 @@ export function SyncIndicator({
         type="button"
         className="text-destructive hover:underline"
         onClick={() => setPanelOpen(true)}
-        title="Fehler und letzte Durchläufe anzeigen"
+        title={t('Fehler und letzte Durchläufe anzeigen')}
         data-testid="mail-sync-errors"
       >
-        · {errorCount} Fehler
+        · {errorCount} {t('Fehler')}
       </button>
     ) : null
   const panel = (
@@ -132,11 +133,13 @@ export function SyncIndicator({
       >
         <WifiOff className="size-3.5" />
         <span>
-          Offline
+          {t('Offline')}
           {status.retryAt &&
-            (due ? ' · verbinde…' : ` · nächster Versuch ${retryIn(status.retryAt, now)}`)}
+            (due
+              ? t(' · verbinde…')
+              : t(' · nächster Versuch {{when}}', { when: retryIn(status.retryAt, now) }))}
         </span>
-        <Button variant="ghost" size="icon-xs" onClick={onSync} title="Jetzt verbinden">
+        <Button variant="ghost" size="icon-xs" onClick={onSync} title={t('Jetzt verbinden')}>
           <RefreshCw />
         </Button>
         {errorsButton}
@@ -164,15 +167,24 @@ export function SyncIndicator({
           data-testid="mail-space-warning"
         >
           <HardDrive className="size-3.5" />
-          <span>Wenig Speicherplatz · {progress}</span>
-          <Button variant="ghost" size="icon-xs" onClick={onResume} title="Trotzdem fortsetzen">
+          <span>
+            {t('Wenig Speicherplatz ·')} {progress}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onResume}
+            title={t('Trotzdem fortsetzen')}
+          >
             <Play />
           </Button>
         </span>
       ) : status.paused ? (
         <>
-          <span>Download pausiert · {progress}</span>
-          <Button variant="ghost" size="icon-xs" onClick={onResume} title="Fortsetzen">
+          <span>
+            {t('Download pausiert ·')} {progress}
+          </span>
+          <Button variant="ghost" size="icon-xs" onClick={onResume} title={t('Fortsetzen')}>
             <Play />
           </Button>
         </>
@@ -180,10 +192,12 @@ export function SyncIndicator({
         <>
           <Spinner className="size-3" />
           <span>
-            {status.connection === 'connecting' ? 'Verbinde…' : `Synchronisiere · ${progress}`}
+            {status.connection === 'connecting'
+              ? t('Verbinde…')
+              : t('Synchronisiere · {{progress}}', { progress })}
           </span>
           {initial && (
-            <Button variant="ghost" size="icon-xs" onClick={onPause} title="Pausieren">
+            <Button variant="ghost" size="icon-xs" onClick={onPause} title={t('Pausieren')}>
               <Pause />
             </Button>
           )}
@@ -198,17 +212,21 @@ export function SyncIndicator({
             onClick={() => setPanelOpen(true)}
             title={
               status.lastPass
-                ? `${passSummaryText(status.lastPass)}\n\nKlicken für die letzten Durchläufe`
-                : 'Klicken für die letzten Durchläufe'
+                ? t('{{passSummaryText}}\n\nKlicken für die letzten Durchläufe', {
+                    passSummaryText: passSummaryText(status.lastPass)
+                  })
+                : t('Klicken für die letzten Durchläufe')
             }
             data-testid="mail-sync-time"
           >
             {status.lastSyncAt
-              ? `Synchronisiert ${new Date(status.lastSyncAt).toLocaleTimeString('de-DE', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}`
-              : 'Noch nicht synchronisiert'}
+              ? t('Synchronisiert {{value}}', {
+                  value: new Date(status.lastSyncAt).toLocaleTimeString(uiLocale(), {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                })
+              : t('Noch nicht synchronisiert')}
           </button>
           {/* F14: the mailbox updates by itself (IDLE on INBOX, plus a poll), so the
               button is an extra, not the only way to get new mail */}
@@ -216,11 +234,13 @@ export function SyncIndicator({
             className="text-muted-foreground"
             title={
               status.idleConnected
-                ? 'Neue E-Mail im Posteingang kommt von selbst an. Andere Ordner werden regelmäßig abgeglichen.'
-                : 'Der Posteingang wird regelmäßig abgeglichen.'
+                ? t(
+                    'Neue E-Mail im Posteingang kommt von selbst an. Andere Ordner werden regelmäßig abgeglichen.'
+                  )
+                : t('Der Posteingang wird regelmäßig abgeglichen.')
             }
           >
-            {status.idleConnected ? '· automatisch' : '· regelmäßig'}
+            {status.idleConnected ? t('· automatisch') : t('· regelmäßig')}
           </span>
           {/* #156: two visible actions. "Synchronisieren" is the fast pass (the important
               folders and whatever STATUS says changed); "Alle Ordner prüfen" opens every folder */}
@@ -228,20 +248,24 @@ export function SyncIndicator({
             variant="outline"
             size="xs"
             onClick={onSync}
-            title="Gleicht den geöffneten Ordner, Posteingang, Gesendet, Entwürfe und Papierkorb ab, dazu jeden Ordner, der sich auf dem Server geändert hat."
+            title={t(
+              'Gleicht den geöffneten Ordner, Posteingang, Gesendet, Entwürfe und Papierkorb ab, dazu jeden Ordner, der sich auf dem Server geändert hat.'
+            )}
             data-testid="mail-sync"
           >
             <RefreshCw />
-            Synchronisieren
+            {t('Synchronisieren')}
           </Button>
           <Button
             variant="ghost"
             size="xs"
             onClick={onSyncAll}
-            title="Öffnet und vergleicht jeden Ordner, auch gelesene und markierte E-Mails. Dauert bei einem großen Postfach einige Minuten."
+            title={t(
+              'Öffnet und vergleicht jeden Ordner, auch gelesene und markierte E-Mails. Dauert bei einem großen Postfach einige Minuten.'
+            )}
             data-testid="mail-sync-all"
           >
-            Alle Ordner prüfen
+            {t('Alle Ordner prüfen')}
           </Button>
         </>
       )}

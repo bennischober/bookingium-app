@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * #253: after an update, the new version's highlights once per computer. Only in the installed
@@ -37,9 +38,9 @@ export function WhatsNewHost() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-amber-500" />
-            Neu in Bookingium {version}
+            {t('Neu in Bookingium')} {version}
           </DialogTitle>
-          <DialogDescription>Was sich mit dem Update geändert hat.</DialogDescription>
+          <DialogDescription>{t('Was sich mit dem Update geändert hat.')}</DialogDescription>
         </DialogHeader>
         <ul className="list-disc space-y-2 pl-5 text-sm">
           {items.map((item) => (
@@ -47,7 +48,7 @@ export function WhatsNewHost() {
           ))}
         </ul>
         <DialogFooter>
-          <Button onClick={close}>Verstanden</Button>
+          <Button onClick={close}>{t('Verstanden')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

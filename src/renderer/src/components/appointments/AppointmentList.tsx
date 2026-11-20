@@ -6,6 +6,7 @@ import { AppointmentDialog } from './AppointmentDialog'
 import { appointmentTimeLabel } from './appointmentDays'
 import { reminderLabel } from '../../../../main/calendar/appointments'
 import type { AppointmentDto } from '../../../../main/api/schemas/appointment.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** #71: own appointments (Termine) on `day` as rows: time, title, place, record, edit */
 export function AppointmentList({
@@ -41,7 +42,7 @@ export function AppointmentList({
                       <span
                         key="reminder"
                         className="inline-flex items-center gap-1"
-                        title="Erinnerung"
+                        title={t('Erinnerung')}
                       >
                         <Bell className="size-3" aria-hidden />
                         {reminderLabel(appointment.reminderMinutes, appointment.startTime === null)}
@@ -60,7 +61,7 @@ export function AppointmentList({
             </div>
             <RowActionButton
               icon={Pencil}
-              label="Bearbeiten"
+              label={t('Bearbeiten')}
               onClick={() => {
                 setEditing(appointment)
                 setEditOpen(true)

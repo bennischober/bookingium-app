@@ -4,6 +4,7 @@ import {
   type DatevTransferDto
 } from '../../../main/api/schemas/datev.schema'
 import { INVOICE_EMAIL_LABELS, invoiceNumberLabel } from './invoiceLabels'
+import { t } from '../../../main/i18n/translate'
 
 /** One line of an invoice's Verlauf */
 export type InvoiceHistoryEntry = {
@@ -45,35 +46,39 @@ export function invoiceHistory(
       case 'issued': {
         const entry: InvoiceHistoryEntry = {
           at: change.createdAt,
-          label: issuedBefore ? 'Wieder offen (gestellt)' : 'Gestellt'
+          label: issuedBefore ? t('Wieder offen (gestellt)') : t('Gestellt')
         }
         if (!issuedBefore && invoice.kind === 'cancellation' && invoice.cancelsInvoiceId) {
-          entry.label = 'Gestellt als Storno zu'
+          entry.label = t('Gestellt als Storno zu')
           entry.link = {
             invoiceId: invoice.cancelsInvoiceId,
-            label: `Rechnung ${invoiceNumberLabel(invoice.cancelsInvoiceNumber)}`
+            label: t('Rechnung {{invoiceNumberLabel}}', {
+              invoiceNumberLabel: invoiceNumberLabel(invoice.cancelsInvoiceNumber)
+            })
           }
         }
         issuedBefore = true
         return entry
       }
       case 'paid':
-        return { at: change.createdAt, label: 'Als bezahlt markiert' }
+        return { at: change.createdAt, label: t('Als bezahlt markiert') }
       case 'overdue':
-        return { at: change.createdAt, label: 'Als überfällig markiert' }
+        return { at: change.createdAt, label: t('Als überfällig markiert') }
       case 'cancelled':
         return {
           at: change.createdAt,
-          label: 'Storniert',
+          label: t('Storniert'),
           ...(invoice.cancelledByInvoiceId && {
             link: {
               invoiceId: invoice.cancelledByInvoiceId,
-              label: `Stornorechnung ${invoiceNumberLabel(invoice.cancelledByInvoiceNumber)}`
+              label: t('Stornorechnung {{invoiceNumberLabel}}', {
+                invoiceNumberLabel: invoiceNumberLabel(invoice.cancelledByInvoiceNumber)
+              })
             }
           })
         }
       default:
-        return { at: change.createdAt, label: 'Entwurf' }
+        return { at: change.createdAt, label: t('Entwurf') }
     }
   })
   const emails = [...invoice.emails].reverse().map(
@@ -87,12 +92,15 @@ export function invoiceHistory(
   const datev = datevTransfers.map(
     (transfer): InvoiceHistoryEntry => ({
       at: transfer.sentAt ?? transfer.createdAt,
-      label: transfer.sentAt ? 'An DATEV übergeben' : 'Übergabe an DATEV wird bestätigt',
-      detail: `${DATEV_CATEGORY_LABELS[transfer.category]}, an ${transfer.to}`
+      label: transfer.sentAt ? t('An DATEV übergeben') : t('Übergabe an DATEV wird bestätigt'),
+      detail: t('{{value}}, an {{to}}', {
+        value: DATEV_CATEGORY_LABELS[transfer.category],
+        to: transfer.to
+      })
     })
   )
   const later = [...emails, ...datev, ...statuses].sort((a, b) =>
     a.at < b.at ? -1 : a.at > b.at ? 1 : 0
   )
-  return [{ at: invoice.createdAt, label: 'Angelegt' }, ...later]
+  return [{ at: invoice.createdAt, label: t('Angelegt') }, ...later]
 }

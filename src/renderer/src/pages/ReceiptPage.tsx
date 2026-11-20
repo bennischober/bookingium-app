@@ -37,6 +37,7 @@ import {
   type ReceiptDto,
   type ReceiptSource
 } from '../../../main/api/schemas/receipt.schema'
+import { t } from '../../../main/i18n/translate'
 
 const ALL = 'all'
 
@@ -73,20 +74,20 @@ export default function ReceiptPage() {
   const remove = trpcReact.receipt.delete.useMutation({
     onSuccess: () => {
       void utils.receipt.invalidate()
-      toast.success('Beleg gelöscht', { description: 'Die Datei liegt im Papierkorb.' })
+      toast.success(t('Beleg gelöscht'), { description: t('Die Datei liegt im Papierkorb.') })
     },
-    onError: failed('Beleg konnte nicht gelöscht werden')
+    onError: failed(t('Beleg konnte nicht gelöscht werden'))
   })
   const open = trpcReact.receipt.open.useMutation({
-    onError: failed('Datei konnte nicht geöffnet werden')
+    onError: failed(t('Datei konnte nicht geöffnet werden'))
   })
   const send = trpcReact.receipt.sendToDatev.useMutation({
     onSuccess: (result) => {
       void utils.receipt.invalidate()
-      if (result.success) toast.success('An DATEV übergeben', { description: result.to })
-      else toast.error('Nicht an DATEV übergeben', { description: result.error })
+      if (result.success) toast.success(t('An DATEV übergeben'), { description: result.to })
+      else toast.error(t('Nicht an DATEV übergeben'), { description: result.error })
     },
-    onError: failed('Nicht an DATEV übergeben')
+    onError: failed(t('Nicht an DATEV übergeben'))
   })
 
   const startQueue = (sources: ReceiptSource[]) => {
@@ -110,9 +111,10 @@ export default function ReceiptPage() {
     setDragging(false)
     const paths = droppedFilePaths(e)
     if (paths.length === 0) {
-      toast.error('Dateien konnten nicht gelesen werden', {
-        description:
+      toast.error(t('Dateien konnten nicht gelesen werden'), {
+        description: t(
           'Diese Drag-Quelle stellt keine lokalen Dateien bereit. Bitte „Belege hinzufügen“ verwenden.'
+        )
       })
       return
     }
@@ -122,14 +124,20 @@ export default function ReceiptPage() {
   const sendToDatev = async (receipt: ReceiptDto) => {
     if (receipt.datev !== 'none') {
       const again = await confirmAction({
-        title: 'Noch einmal an DATEV übergeben?',
+        title: t('Noch einmal an DATEV übergeben?'),
         description:
           receipt.datev === 'sent'
-            ? 'Der Beleg ist schon übergeben. Ein zweites Mal wird er in DATEV ein zweiter Beleg.'
+            ? t(
+                'Der Beleg ist schon übergeben. Ein zweites Mal wird er in DATEV ein zweiter Beleg.'
+              )
             : receipt.datev === 'external'
-              ? 'Der Beleg ist als „schon direkt in DATEV hochgeladen“ markiert. Ein zweites Mal wird er dort ein zweiter Beleg.'
-              : 'Die erste Übergabe wartet noch auf die Bestätigung des Servers. Ein zweites Mal kann in DATEV ein doppelter Beleg werden.',
-        confirmLabel: 'Trotzdem übergeben'
+              ? t(
+                  'Der Beleg ist als „schon direkt in DATEV hochgeladen“ markiert. Ein zweites Mal wird er dort ein zweiter Beleg.'
+                )
+              : t(
+                  'Die erste Übergabe wartet noch auf die Bestätigung des Servers. Ein zweites Mal kann in DATEV ein doppelter Beleg werden.'
+                ),
+        confirmLabel: t('Trotzdem übergeben')
       })
       if (!again) return
     }
@@ -138,12 +146,12 @@ export default function ReceiptPage() {
 
   const confirmRemove = async (receipt: ReceiptDto) => {
     const confirmed = await confirmAction({
-      title: `Beleg „${receipt.fileName}“ löschen?`,
+      title: t('Beleg „{{fileName}}“ löschen?', { fileName: receipt.fileName }),
       description:
         receipt.datev === 'sent'
-          ? 'Die Datei kommt in den Papierkorb. In DATEV bleibt der übergebene Beleg.'
-          : 'Die Datei kommt in den Papierkorb.',
-      confirmLabel: 'Löschen',
+          ? t('Die Datei kommt in den Papierkorb. In DATEV bleibt der übergebene Beleg.')
+          : t('Die Datei kommt in den Papierkorb.'),
+      confirmLabel: t('Löschen'),
       destructive: true
     })
     if (confirmed) remove.mutate({ id: receipt.id })
@@ -153,32 +161,32 @@ export default function ReceiptPage() {
     {
       id: 'receiptDate',
       accessorKey: 'receiptDate',
-      header: 'Datum',
+      header: t('Datum'),
       cell: ({ row }) =>
         row.original.receiptDate ? formatShortDate(row.original.receiptDate) : '–'
     },
     {
       id: 'supplierName',
       accessorKey: 'supplierName',
-      header: 'Lieferant',
+      header: t('Lieferant'),
       cell: ({ row }) => row.original.supplierName || '–'
     },
     {
       id: 'category',
       accessorKey: 'category',
-      header: 'Belegart',
+      header: t('Belegart'),
       cell: ({ row }) => RECEIPT_CATEGORY_LABELS[row.original.category]
     },
     {
       id: 'amountCents',
       accessorKey: 'amountCents',
-      header: 'Betrag',
+      header: t('Betrag'),
       cell: ({ row }) =>
         row.original.amountCents === null
           ? '–'
           : formatMoney(fromCents(row.original.amountCents), row.original.currency)
     },
-    { id: 'fileName', accessorKey: 'fileName', header: 'Datei' },
+    { id: 'fileName', accessorKey: 'fileName', header: t('Datei') },
     {
       id: 'datev',
       header: 'DATEV',
@@ -186,45 +194,47 @@ export default function ReceiptPage() {
       cell: ({ row }) =>
         row.original.datev === 'sent' ? (
           <Badge variant="secondary" className="gap-1">
-            <CheckCircle2 className="h-3 w-3" /> übergeben
+            <CheckCircle2 className="h-3 w-3" /> {t('übergeben')}
           </Badge>
         ) : row.original.datev === 'external' ? (
           <Badge variant="secondary" className="gap-1">
-            <CheckCircle2 className="h-3 w-3" /> direkt in DATEV
+            <CheckCircle2 className="h-3 w-3" /> {t('direkt in DATEV')}
           </Badge>
         ) : row.original.datev === 'pending' ? (
           <Badge variant="outline" className="gap-1">
-            <Clock className="h-3 w-3" /> wird bestätigt
+            <Clock className="h-3 w-3" /> {t('wird bestätigt')}
           </Badge>
         ) : (
           <span className="text-muted-foreground">
-            {row.original.tripId !== null && !row.original.tripReport ? 'mit der Reise' : 'offen'}
+            {row.original.tripId !== null && !row.original.tripReport
+              ? t('mit der Reise')
+              : 'offen'}
           </span>
         )
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={ExternalLink}
-            label="Öffnen"
+            label={t('Öffnen')}
             onClick={() => open.mutate({ id: row.original.id })}
           />
           <RowActionButton
             icon={Landmark}
-            label="An DATEV übergeben"
+            label={t('An DATEV übergeben')}
             onClick={() => void sendToDatev(row.original)}
           />
           <RowActionButton
             icon={Pencil}
-            label="Bearbeiten"
+            label={t('Bearbeiten')}
             onClick={() => setEditing(row.original)}
           />
           <RowActionButton
             icon={Trash2}
-            label="Löschen"
+            label={t('Löschen')}
             destructive
             onClick={() => void confirmRemove(row.original)}
           />
@@ -258,22 +268,26 @@ export default function ReceiptPage() {
         <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-background/85">
           <div className="text-center">
             <Upload className="mx-auto mb-2 h-8 w-8 text-primary" />
-            <p className="font-medium">Belege hier ablegen</p>
-            <p className="text-sm text-muted-foreground">PDF, E-Rechnung (XML), JPG oder PNG</p>
+            <p className="font-medium">{t('Belege hier ablegen')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('PDF, E-Rechnung (XML), JPG oder PNG')}
+            </p>
           </div>
         </div>
       )}
 
       <ListPageHeader
-        title="Belege"
-        description="Eingangsrechnungen, Kreditkarten- und Kassenbelege für DATEV. Dateien hierher ziehen oder hinzufügen."
+        title={t('Belege')}
+        description={t(
+          'Eingangsrechnungen, Kreditkarten- und Kassenbelege für DATEV. Dateien hierher ziehen oder hinzufügen.'
+        )}
       >
         <Select value={category} onValueChange={(value) => setCategory(value as typeof category)}>
-          <SelectTrigger className="w-52" aria-label="Belegart">
+          <SelectTrigger className="w-52" aria-label={t('Belegart')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Alle Belegarten</SelectItem>
+            <SelectItem value={ALL}>{t('Alle Belegarten')}</SelectItem>
             {RECEIPT_CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
                 {RECEIPT_CATEGORY_LABELS[c]}
@@ -283,14 +297,14 @@ export default function ReceiptPage() {
         </Select>
         <div className="flex items-center gap-2">
           <Switch id="receipts-not-sent" checked={notSent} onCheckedChange={setNotSent} />
-          <Label htmlFor="receipts-not-sent">Nur nicht übergebene</Label>
+          <Label htmlFor="receipts-not-sent">{t('Nur nicht übergebene')}</Label>
         </div>
       </ListPageHeader>
 
       <DataTable
         columns={columns}
         data={listRows(receipts.data)}
-        itemLabel={{ singular: 'Beleg', plural: 'Belege' }}
+        itemLabel={{ singular: t('Beleg'), plural: t('Belege') }}
         hasMore={receipts.hasNextPage ?? false}
         isLoadingMore={receipts.isFetchingNextPage}
         onLoadMore={() => void receipts.fetchNextPage()}
@@ -299,14 +313,14 @@ export default function ReceiptPage() {
         filtered={Boolean(search) || category !== ALL || notSent}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Belege filtern…"
+        searchPlaceholder={t('Belege filtern…')}
         onRowClick={(receipt) => setEditing(receipt)}
         isLoading={receipts.isLoading}
         error={receipts.error}
         onRetry={() => void receipts.refetch()}
         total={listTotal(receipts.data)}
         actionButton={
-          <ListToolbar createLabel="+ Belege hinzufügen" onCreate={() => void pickFiles()} />
+          <ListToolbar createLabel={t('+ Belege hinzufügen')} onCreate={() => void pickFiles()} />
         }
       />
 

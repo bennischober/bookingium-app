@@ -46,6 +46,7 @@ import {
 } from '@/components/mail/recordChoices'
 import { flattenFolders, folderLabel, isDrafts, isInbox } from '@/components/mail/format'
 import type { MailRuleDto } from '../../../../main/api/schemas/mailRule.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** The Select's value for "do not move"; Radix refuses an empty value */
 const NO_FOLDER = '__none__'
@@ -80,7 +81,9 @@ const draftOf = (rule: MailRuleDto | null, accountId: string): Draft =>
         linkChoice: rule.link
           ? {
               id: rule.link.entityId,
-              label: rule.link.label ?? `${RECORD_LABELS[rule.link.entityType]} (gelöscht)`
+              label:
+                rule.link.label ??
+                t('{{value}} (gelöscht)', { value: RECORD_LABELS[rule.link.entityType] })
             }
           : null
       }
@@ -101,18 +104,23 @@ const draftOf = (rule: MailRuleDto | null, accountId: string): Draft =>
 /** What a rule does, in one line for the list */
 function ruleSummary(rule: MailRuleDto): string {
   const conditions = [
-    rule.matchFrom && `Absender enthält „${rule.matchFrom}“`,
-    rule.matchTo && `An/Cc enthält „${rule.matchTo}“`,
-    rule.matchSubject && `Betreff enthält „${rule.matchSubject}“`
+    rule.matchFrom && t('Absender enthält „{{matchFrom}}“', { matchFrom: rule.matchFrom }),
+    rule.matchTo && t('An/Cc enthält „{{matchTo}}“', { matchTo: rule.matchTo }),
+    rule.matchSubject &&
+      t('Betreff enthält „{{matchSubject}}“', { matchSubject: rule.matchSubject })
   ].filter(Boolean)
   const actions = [
-    rule.markRead && 'als gelesen markieren',
-    rule.markFlagged && 'mit Fähnchen markieren',
-    rule.moveToFolderPath && `nach „${rule.moveToFolderPath}“ verschieben`,
+    rule.markRead && t('als gelesen markieren'),
+    rule.markFlagged && t('mit Fähnchen markieren'),
+    rule.moveToFolderPath &&
+      t('nach „{{moveToFolderPath}}“ verschieben', { moveToFolderPath: rule.moveToFolderPath }),
     rule.link &&
-      `${RECORD_LABELS[rule.link.entityType]} „${rule.link.label ?? 'gelöscht'}“ zuordnen`
+      t('{{value}} „{{value2}}“ zuordnen', {
+        value: RECORD_LABELS[rule.link.entityType],
+        value2: rule.link.label ?? t('gelöscht')
+      })
   ].filter(Boolean)
-  return `${conditions.join(' und ')}: ${actions.join(', ')}`
+  return `${conditions.join(t(' und '))}: ${actions.join(', ')}`
 }
 
 function MailRuleDialog({
@@ -167,11 +175,11 @@ function MailRuleDialog({
   const save = trpcReact.mailRule.save.useMutation({
     onSuccess: () => {
       void utils.mailRule.list.invalidate()
-      toast.success('Regel gespeichert')
+      toast.success(t('Regel gespeichert'))
       onOpenChange(false)
     },
     onError: (error) =>
-      toast.error('Regel konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Regel konnte nicht gespeichert werden'), { description: error.message })
   })
 
   const writes = canWrite && (draft.markRead || draft.markFlagged || draft.moveToFolderPath)
@@ -210,32 +218,33 @@ function MailRuleDialog({
       <DialogContent className="sm:max-w-2xl">
         <form onSubmit={submit} className="max-h-[75vh] space-y-5 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{rule ? 'Regel bearbeiten' : 'Neue Regel'}</DialogTitle>
+            <DialogTitle>{rule ? t('Regel bearbeiten') : t('Neue Regel')}</DialogTitle>
             <DialogDescription>
-              Die Regel gilt für E-Mails, die ab dem Speichern im Posteingang ankommen. Ältere
-              E-Mails bleiben, wie sie sind.
+              {t(
+                'Die Regel gilt für E-Mails, die ab dem Speichern im Posteingang ankommen. Ältere E-Mails bleiben, wie sie sind.'
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="mail-rule-name">Name</Label>
+              <Label htmlFor="mail-rule-name">{t('Name')}</Label>
               <Input
                 id="mail-rule-name"
                 value={draft.name}
                 onChange={(e) => set({ name: e.target.value })}
-                placeholder="z. B. Anfragen Festival"
+                placeholder={t('z. B. Anfragen Festival')}
                 autoFocus
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mail-rule-account">Konto</Label>
+              <Label htmlFor="mail-rule-account">{t('Konto')}</Label>
               <Select
                 value={draft.accountId}
                 onValueChange={(value) => set({ accountId: value, moveToFolderPath: null })}
               >
                 <SelectTrigger id="mail-rule-account">
-                  <SelectValue placeholder="Konto wählen" />
+                  <SelectValue placeholder={t('Konto wählen')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(accounts.data ?? []).map((a) => (
@@ -249,31 +258,32 @@ function MailRuleDialog({
           </div>
 
           <fieldset className="space-y-3">
-            <legend className="font-medium">Wenn</legend>
+            <legend className="font-medium">{t('Wenn')}</legend>
             <p className="text-sm text-muted-foreground">
-              Groß- und Kleinschreibung spielt keine Rolle. Mehrere Werte trennen Sie mit Komma:
-              einer davon genügt. Alle ausgefüllten Felder müssen passen.
+              {t(
+                'Groß- und Kleinschreibung spielt keine Rolle. Mehrere Werte trennen Sie mit Komma: einer davon genügt. Alle ausgefüllten Felder müssen passen.'
+              )}
             </p>
             <div className="space-y-1.5">
-              <Label htmlFor="mail-rule-from">Absender enthält</Label>
+              <Label htmlFor="mail-rule-from">{t('Absender enthält')}</Label>
               <Input
                 id="mail-rule-from"
                 value={draft.matchFrom}
                 onChange={(e) => set({ matchFrom: e.target.value })}
-                placeholder="Adresse, Domain oder Name"
+                placeholder={t('Adresse, Domain oder Name')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mail-rule-to">An/Cc enthält</Label>
+              <Label htmlFor="mail-rule-to">{t('An/Cc enthält')}</Label>
               <Input
                 id="mail-rule-to"
                 value={draft.matchTo}
                 onChange={(e) => set({ matchTo: e.target.value })}
-                placeholder="z. B. eine Ihrer Adressen"
+                placeholder={t('z. B. eine Ihrer Adressen')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mail-rule-subject">Betreff enthält</Label>
+              <Label htmlFor="mail-rule-subject">{t('Betreff enthält')}</Label>
               <Input
                 id="mail-rule-subject"
                 value={draft.matchSubject}
@@ -283,17 +293,18 @@ function MailRuleDialog({
           </fieldset>
 
           <fieldset className="space-y-3">
-            <legend className="font-medium">Dann</legend>
+            <legend className="font-medium">{t('Dann')}</legend>
             {account && !canWrite && (
               <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                Dieses Konto ist auf „Nur lesen“ gestellt. Markieren und Verschieben ändern das
-                Postfach auf dem Server, deshalb kann eine Regel hier nur zuordnen.
+                {t(
+                  'Dieses Konto ist auf „Nur lesen“ gestellt. Markieren und Verschieben ändern das Postfach auf dem Server, deshalb kann eine Regel hier nur zuordnen.'
+                )}
               </p>
             )}
             {canWrite && (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mail-rule-folder">In Ordner verschieben</Label>
+                  <Label htmlFor="mail-rule-folder">{t('In Ordner verschieben')}</Label>
                   <Select
                     value={draft.moveToFolderPath ?? NO_FOLDER}
                     onValueChange={(value) =>
@@ -304,7 +315,7 @@ function MailRuleDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_FOLDER}>Nicht verschieben</SelectItem>
+                      <SelectItem value={NO_FOLDER}>{t('Nicht verschieben')}</SelectItem>
                       {targets.map((folder) => (
                         <SelectItem key={folder.id} value={folder.path}>
                           {folderLabel(folder) === folder.name
@@ -322,7 +333,7 @@ function MailRuleDialog({
                   </Select>
                   {status.data?.running !== true && (
                     <p className="text-xs text-muted-foreground">
-                      Die Ordner erscheinen, sobald das Postfach verbunden ist.
+                      {t('Die Ordner erscheinen, sobald das Postfach verbunden ist.')}
                     </p>
                   )}
                 </div>
@@ -333,7 +344,7 @@ function MailRuleDialog({
                     checked={draft.markRead}
                     onChange={(e) => set({ markRead: e.target.checked })}
                   />
-                  Als gelesen markieren
+                  {t('Als gelesen markieren')}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -342,7 +353,7 @@ function MailRuleDialog({
                     checked={draft.markFlagged}
                     onChange={(e) => set({ markFlagged: e.target.checked })}
                   />
-                  Mit Fähnchen markieren
+                  {t('Mit Fähnchen markieren')}
                 </label>
               </>
             )}
@@ -353,13 +364,13 @@ function MailRuleDialog({
                 checked={draft.link}
                 onChange={(e) => set({ link: e.target.checked })}
               />
-              Einem Datensatz zuordnen
+              {t('Einem Datensatz zuordnen')}
             </label>
             {draft.link && (
               <div className="space-y-3 pl-6">
                 <RecordPicker
                   idPrefix="mail-rule-link"
-                  typeLabel="Zuordnen zu"
+                  typeLabel={t('Zuordnen zu')}
                   type={draft.linkType}
                   onTypeChange={(next) => set({ linkType: next, linkChoice: null })}
                   search={search}
@@ -375,17 +386,17 @@ function MailRuleDialog({
           {!valid && draft.name.trim() && (
             <p className="text-sm text-muted-foreground">
               {hasCondition
-                ? 'Bitte mindestens eine Aktion wählen.'
-                : 'Bitte mindestens eine Bedingung angeben.'}
+                ? t('Bitte mindestens eine Aktion wählen.')
+                : t('Bitte mindestens eine Bedingung angeben.')}
             </p>
           )}
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
             <Button type="submit" disabled={!valid || save.isLoading}>
-              Speichern
+              {t('Speichern')}
             </Button>
           </DialogFooter>
         </form>
@@ -414,17 +425,17 @@ export function MailRulesCard() {
   const remove = trpcReact.mailRule.delete.useMutation({
     onSuccess: () => {
       refresh()
-      toast.success('Regel gelöscht')
+      toast.success(t('Regel gelöscht'))
     },
-    onError: failed('Regel konnte nicht gelöscht werden')
+    onError: failed(t('Regel konnte nicht gelöscht werden'))
   })
   const setEnabled = trpcReact.mailRule.setEnabled.useMutation({
     onSuccess: refresh,
-    onError: failed('Regel konnte nicht geändert werden')
+    onError: failed(t('Regel konnte nicht geändert werden'))
   })
   const move = trpcReact.mailRule.move.useMutation({
     onSuccess: refresh,
-    onError: failed('Reihenfolge konnte nicht geändert werden')
+    onError: failed(t('Reihenfolge konnte nicht geändert werden'))
   })
 
   const openDialog = (rule: MailRuleDto | null) => {
@@ -436,9 +447,9 @@ export function MailRulesCard() {
 
   const confirmRemove = async (rule: MailRuleDto) => {
     const confirmed = await confirmAction({
-      title: `Regel „${rule.name}“ löschen?`,
-      description: 'E-Mails, die sie schon verschoben oder zugeordnet hat, bleiben so.',
-      confirmLabel: 'Löschen',
+      title: t('Regel „{{name}}“ löschen?', { name: rule.name }),
+      description: t('E-Mails, die sie schon verschoben oder zugeordnet hat, bleiben so.'),
+      confirmLabel: t('Löschen'),
       destructive: true
     })
     if (confirmed) remove.mutate(rule.id)
@@ -449,7 +460,7 @@ export function MailRulesCard() {
   const shown = filterRules(list, query, ruleSummary)
   const accountIds = [...new Set(list.map((rule) => rule.accountId))]
   const emailOf = (id: string) =>
-    accounts.data?.find((a) => a.id === id)?.email ?? 'Entferntes Konto'
+    accounts.data?.find((a) => a.id === id)?.email ?? t('Entferntes Konto')
   const noAccount = (accounts.data ?? []).length === 0
 
   return (
@@ -457,15 +468,15 @@ export function MailRulesCard() {
       <CardHeader>
         <CardTitle>E-Mail-Regeln</CardTitle>
         <CardDescription>
-          Neue E-Mails im Posteingang automatisch verschieben, markieren oder einer Person, Firma,
-          Band, einem Club oder Event zuordnen. Die Regeln eines Kontos laufen nach jedem Abruf in
-          ihrer Reihenfolge; verschoben wird nach der ersten passenden Regel mit Ordner.
+          {t(
+            'Neue E-Mails im Posteingang automatisch verschieben, markieren oder einer Person, Firma, Band, einem Club oder Event zuordnen. Die Regeln eines Kontos laufen nach jedem Abruf in ihrer Reihenfolge; verschoben wird nach der ersten passenden Regel mit Ordner.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {list.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {noAccount ? 'Zuerst ein E-Mail-Konto anlegen.' : 'Noch keine Regel angelegt.'}
+            {noAccount ? t('Zuerst ein E-Mail-Konto anlegen.') : t('Noch keine Regel angelegt.')}
           </p>
         ) : (
           <button
@@ -476,7 +487,7 @@ export function MailRulesCard() {
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            {list.length} {list.length === 1 ? 'Regel' : 'Regeln'}
+            {list.length} {list.length === 1 ? t('Regel') : t('Regeln')}
             <span className="font-normal text-muted-foreground">
               · {list.filter((rule) => rule.enabled).length} eingeschaltet
             </span>
@@ -492,13 +503,14 @@ export function MailRulesCard() {
                 className="pl-8"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Regeln durchsuchen…"
-                aria-label="Regeln durchsuchen"
+                placeholder={t('Regeln durchsuchen…')}
+                aria-label={t('Regeln durchsuchen')}
               />
             </div>
             {shown.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Keine Regel passt zu „{query.trim()}“.
+                {t('Keine Regel passt zu „')}
+                {query.trim()}“.
               </p>
             )}
             {accountIds.map((accountId) => {
@@ -514,7 +526,7 @@ export function MailRulesCard() {
                     {visible.map((rule) => {
                       // Order is the account's whole list; while searching it is not moved
                       const index = ofAccount.indexOf(rule)
-                      const moveHint = searching ? 'Zum Sortieren die Suche leeren' : undefined
+                      const moveHint = searching ? t('Zum Sortieren die Suche leeren') : undefined
                       return (
                         <li key={rule.id} className="flex items-start gap-3 px-3 py-2">
                           <Switch
@@ -530,13 +542,17 @@ export function MailRulesCard() {
                             <p className="text-xs text-muted-foreground">{ruleSummary(rule)}</p>
                             <p className="text-xs text-muted-foreground">
                               {rule.hitCount === 0
-                                ? 'Noch nicht angewendet'
-                                : `${rule.hitCount} ${rule.hitCount === 1 ? 'E-Mail' : 'E-Mails'}, zuletzt ${parseTimestamp(
-                                    rule.lastAppliedAt ?? ''
-                                  ).toLocaleString('de-DE', {
-                                    dateStyle: 'short',
-                                    timeStyle: 'short'
-                                  })}`}
+                                ? t('Noch nicht angewendet')
+                                : t('{{hitCount}} {{value}}, zuletzt {{parseTimestamp}}', {
+                                    hitCount: rule.hitCount,
+                                    value: rule.hitCount === 1 ? t('E-Mail') : t('E-Mails'),
+                                    parseTimestamp: parseTimestamp(
+                                      rule.lastAppliedAt ?? ''
+                                    ).toLocaleString(uiLocale(), {
+                                      dateStyle: 'short',
+                                      timeStyle: 'short'
+                                    })
+                                  })}
                             </p>
                             {rule.lastError && (
                               <p className="text-xs text-destructive">{rule.lastError}</p>
@@ -547,7 +563,7 @@ export function MailRulesCard() {
                             size="icon-sm"
                             disabled={searching || index === 0 || move.isLoading}
                             onClick={() => move.mutate({ id: rule.id, direction: 'up' })}
-                            title={moveHint ?? 'Nach oben'}
+                            title={moveHint ?? t('Nach oben')}
                             aria-label={`${rule.name} nach oben`}
                           >
                             <ArrowUp />
@@ -557,7 +573,7 @@ export function MailRulesCard() {
                             size="icon-sm"
                             disabled={searching || index === ofAccount.length - 1 || move.isLoading}
                             onClick={() => move.mutate({ id: rule.id, direction: 'down' })}
-                            title={moveHint ?? 'Nach unten'}
+                            title={moveHint ?? t('Nach unten')}
                             aria-label={`${rule.name} nach unten`}
                           >
                             <ArrowDown />
@@ -566,7 +582,7 @@ export function MailRulesCard() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => openDialog(rule)}
-                            title="Bearbeiten"
+                            title={t('Bearbeiten')}
                             aria-label={`${rule.name} bearbeiten`}
                           >
                             <Pencil />
@@ -575,8 +591,8 @@ export function MailRulesCard() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => void confirmRemove(rule)}
-                            title="Löschen"
-                            aria-label={`${rule.name} löschen`}
+                            title={t('Löschen')}
+                            aria-label={t('{{name}} löschen', { name: rule.name })}
                           >
                             <Trash2 />
                           </Button>
@@ -591,7 +607,7 @@ export function MailRulesCard() {
         )}
 
         <Button variant="outline" disabled={noAccount} onClick={() => openDialog(null)}>
-          <Plus className="h-4 w-4" /> Regel hinzufügen…
+          <Plus className="h-4 w-4" /> {t('Regel hinzufügen…')}
         </Button>
 
         <AliasFolders rules={list} />

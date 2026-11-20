@@ -1,6 +1,7 @@
 import { ReplyStateIcons } from './ReplyStateIcons'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { formatAddresses, formatFullDate } from './format'
+import { t } from '../../../../main/i18n/translate'
 
 type Address = { name: string; email: string }
 
@@ -15,26 +16,26 @@ export function MessageHeaderFields({
 }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm">
-      <dt className="text-muted-foreground">Von</dt>
+      <dt className="text-muted-foreground">{t('Von')}</dt>
       <dd className="truncate">
         <HeaderAddress
           address={{ name: message.fromName, email: message.fromEmail }}
           onWriteTo={onWriteTo}
         />
       </dd>
-      <dt className="text-muted-foreground">An</dt>
+      <dt className="text-muted-foreground">{t('An')}</dt>
       <dd className="truncate" title={formatAddresses(message.to)}>
         <HeaderAddressList addresses={message.to} onWriteTo={onWriteTo} />
       </dd>
       {message.cc.length > 0 && (
         <>
-          <dt className="text-muted-foreground">Cc</dt>
+          <dt className="text-muted-foreground">{t('Cc')}</dt>
           <dd className="truncate" title={formatAddresses(message.cc)}>
             <HeaderAddressList addresses={message.cc} onWriteTo={onWriteTo} />
           </dd>
         </>
       )}
-      <dt className="text-muted-foreground">Datum</dt>
+      <dt className="text-muted-foreground">{t('Datum')}</dt>
       <dd className="flex flex-wrap items-center gap-x-3">
         {formatFullDate(message.date ?? message.internalDate)}
         <ReplyStateIcons answered={message.isAnswered} forwarded={message.isForwarded} withLabel />
@@ -60,7 +61,7 @@ function HeaderAddress({
     <button
       type="button"
       className="hover:underline"
-      title={`Neue E-Mail an ${label}`}
+      title={t('Neue E-Mail an {{label}}', { label })}
       onClick={() => onWriteTo(address)}
     >
       {label}

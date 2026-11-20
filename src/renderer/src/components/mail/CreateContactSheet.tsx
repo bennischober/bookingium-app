@@ -3,6 +3,7 @@ import { trpcReact } from '@/lib/trpc'
 import { FormSheet } from '@/components/form-sheet'
 import { PersonForm } from '@/components/forms/PersonForm'
 import { contactPrefillFromSender } from './senderContact'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * "Kontakt anlegen": a new person from a mail's sender, with the name and address
@@ -23,12 +24,12 @@ export function CreateContactSheet({
     onSuccess: () => {
       void utils.person.invalidate()
       onOpenChange(false)
-      toast.success('Kontakt angelegt', {
-        description: 'Die Mails dieser Adresse werden der Person gleich zugeordnet.'
+      toast.success(t('Kontakt angelegt'), {
+        description: t('Die Mails dieser Adresse werden der Person gleich zugeordnet.')
       })
     },
     onError: (error) =>
-      toast.error('Kontakt konnte nicht angelegt werden', { description: error.message })
+      toast.error(t('Kontakt konnte nicht angelegt werden'), { description: error.message })
   })
 
   return (
@@ -36,8 +37,8 @@ export function CreateContactSheet({
       isOpen={open}
       onClose={() => onOpenChange(false)}
       mode="create"
-      title="Kontakt anlegen"
-      description="Eine neue Person mit der Adresse des Absenders."
+      title={t('Kontakt anlegen')}
+      description={t('Eine neue Person mit der Adresse des Absenders.')}
     >
       <PersonForm
         prefill={contactPrefillFromSender(sender)}

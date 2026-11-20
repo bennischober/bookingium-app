@@ -1,3 +1,4 @@
+import { t } from '../../../main/i18n/translate'
 /**
  * Sends the renderer's unexpected errors to the local error log (src/main/utils/errorLog.ts):
  * errors nothing caught, and render errors a boundary caught. Only an error's text and stack
@@ -13,7 +14,10 @@ export function reportError(error: unknown, componentStack?: string): void {
     const message = e ? `${e.name}: ${e.message}` : String(error)
     if (IGNORED.some((pattern) => pattern.test(message))) return
     const stack =
-      [e?.stack, componentStack ? `Component stack:${componentStack}` : undefined]
+      [
+        e?.stack,
+        componentStack ? t('Component stack:{{componentStack}}', { componentStack }) : undefined
+      ]
         .filter(Boolean)
         .join('\n') || undefined
     window.api.reportError({ message, stack })

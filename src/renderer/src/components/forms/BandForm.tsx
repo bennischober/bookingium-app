@@ -12,6 +12,7 @@ import type {
   UpdateBandInput
 } from '../../../../main/api/schemas/band.schema'
 import type { FormMode } from '@/hooks/useFormSheet'
+import { t } from '../../../../main/i18n/translate'
 
 interface BandFormProps {
   mode: FormMode
@@ -81,8 +82,10 @@ export function BandForm({
   return (
     <>
       <FormBody form={form} disabled={isSubmitting}>
-        <form.AppField name="name" validators={{ onChange: required('Name') }}>
-          {(field) => <field.TextField label="Name" required placeholder="Bandnamen eingeben" />}
+        <form.AppField name="name" validators={{ onChange: required(t('Name')) }}>
+          {(field) => (
+            <field.TextField label={t('Name')} required placeholder={t('Bandnamen eingeben')} />
+          )}
         </form.AppField>
 
         <form.AppField
@@ -90,27 +93,29 @@ export function BandForm({
           validators={{
             onChange: ({ value }) => {
               if (!value || value === 0) {
-                return 'Firma ist erforderlich'
+                return t('Firma ist erforderlich')
               }
               return undefined
             }
           }}
         >
           {(field) => (
-            <field.FieldRow label="Firma" required>
+            <field.FieldRow label={t('Firma')} required>
               {companies.isLoading ? (
-                <div className="text-sm text-muted-foreground">Firmen werden geladen…</div>
+                <div className="text-sm text-muted-foreground">{t('Firmen werden geladen…')}</div>
               ) : (
                 <SearchableSelect
                   id={field.name}
                   value={field.state.value || null}
                   onChange={(value) => field.handleChange(value ?? 0)}
                   options={companyOptions}
-                  placeholder={companyOptions.length > 0 ? 'Firma auswählen' : 'Noch keine Firmen'}
-                  searchPlaceholder="Firma suchen…"
-                  emptyText="Keine Firma gefunden."
+                  placeholder={
+                    companyOptions.length > 0 ? t('Firma auswählen') : t('Noch keine Firmen')
+                  }
+                  searchPlaceholder={t('Firma suchen…')}
+                  emptyText={t('Keine Firma gefunden.')}
                   onCreateNew={(name) => setNewCompany({ field: 'companyId', name })}
-                  createNewLabel="Neue Firma anlegen"
+                  createNewLabel={t('Neue Firma anlegen')}
                   disabled={isSubmitting}
                 />
               )}
@@ -121,11 +126,13 @@ export function BandForm({
         <form.AppField name="responsiblePersonId">
           {(field) => (
             <field.FieldRow
-              label="Technischer Leiter (TL)"
-              hint="Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1."
+              label={t('Technischer Leiter (TL)')}
+              hint={t(
+                'Ansprechpartner für Technikfragen, erscheint im Vertrag als Ansprechpartner VP1.'
+              )}
             >
               {persons.isLoading ? (
-                <div className="text-sm text-muted-foreground">Personen werden geladen…</div>
+                <div className="text-sm text-muted-foreground">{t('Personen werden geladen…')}</div>
               ) : persons.data && persons.data.length > 0 ? (
                 <SearchableSelect
                   id={field.name}
@@ -135,12 +142,14 @@ export function BandForm({
                     value: person.id,
                     label: `${person.firstName} ${person.lastName}`.trim()
                   }))}
-                  noneLabel="Kein TL hinterlegt"
-                  searchPlaceholder="Person suchen…"
+                  noneLabel={t('Kein TL hinterlegt')}
+                  searchPlaceholder={t('Person suchen…')}
                   disabled={isSubmitting}
                 />
               ) : (
-                <div className="text-sm text-muted-foreground">Keine Personen vorhanden.</div>
+                <div className="text-sm text-muted-foreground">
+                  {t('Keine Personen vorhanden.')}
+                </div>
               )}
             </field.FieldRow>
           )}
@@ -150,19 +159,23 @@ export function BandForm({
         <form.AppField name="managementCompanyId">
           {(field) => (
             <field.FieldRow
-              label="Management (vertreten durch)"
-              hint="Vertritt die Band in Auftrittsverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben."
+              label={t('Management (vertreten durch)')}
+              hint={t(
+                'Vertritt die Band in Auftrittsverträgen (Briefkopf, „vertreten durch“, Unterschrift VP1). Einzelne Events können das überschreiben.'
+              )}
             >
               <SearchableSelect
                 id={field.name}
                 value={field.state.value}
                 onChange={field.handleChange}
                 options={companyOptions}
-                noneLabel={`Standard (${defaultCompany.data?.name ?? 'keine Standard-Firma'})`}
-                searchPlaceholder="Firma suchen…"
-                emptyText="Keine Firma gefunden."
+                noneLabel={t('Standard ({{value}})', {
+                  value: defaultCompany.data?.name ?? t('keine Standard-Firma')
+                })}
+                searchPlaceholder={t('Firma suchen…')}
+                emptyText={t('Keine Firma gefunden.')}
                 onCreateNew={(name) => setNewCompany({ field: 'managementCompanyId', name })}
-                createNewLabel="Neue Firma anlegen"
+                createNewLabel={t('Neue Firma anlegen')}
                 disabled={isSubmitting || companies.isLoading}
               />
             </field.FieldRow>
@@ -171,13 +184,13 @@ export function BandForm({
 
         <form.AppField name="genre">
           {(field) => (
-            <field.FieldRow label="Genre">
+            <field.FieldRow label={t('Genre')}>
               <GenreField
                 id={field.name}
                 value={field.state.value}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
-                placeholder="z. B. Rock, Metal, Pop"
+                placeholder={t('z. B. Rock, Metal, Pop')}
                 disabled={isSubmitting}
               />
             </field.FieldRow>
@@ -185,21 +198,21 @@ export function BandForm({
         </form.AppField>
 
         <form.AppField name="founded">
-          {(field) => <field.TextField label="Gründung" placeholder="z. B. 1965" />}
+          {(field) => <field.TextField label={t('Gründung')} placeholder="z. B. 1965" />}
         </form.AppField>
 
         <form.AppField name="notes">
           {(field) => (
             <field.TextareaField
-              label="Anmerkungen"
-              placeholder="Weitere Anmerkungen hinzufügen…"
+              label={t('Anmerkungen')}
+              placeholder={t('Weitere Anmerkungen hinzufügen…')}
               rows={4}
             />
           )}
         </form.AppField>
 
         <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-          {mode === 'create' ? 'Anlegen' : 'Speichern'}
+          {mode === 'create' ? t('Anlegen') : t('Speichern')}
         </FormFooter>
       </FormBody>
 

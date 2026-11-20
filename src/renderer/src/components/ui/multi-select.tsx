@@ -10,6 +10,7 @@ import {
   CommandItem,
   CommandList
 } from '@/components/ui/command'
+import { t } from '../../../../main/i18n/translate'
 
 export interface MultiSelectOption {
   value: string
@@ -39,8 +40,8 @@ export function MultiSelect({
   onChange,
   options,
   placeholder,
-  searchPlaceholder = 'Suchen…',
-  emptyText = 'Keine Treffer.',
+  searchPlaceholder = t('Suchen…'),
+  emptyText = t('Keine Treffer.'),
   className,
   'aria-label': ariaLabel
 }: MultiSelectProps) {
@@ -111,7 +112,7 @@ export function MultiSelect({
             className="w-full border-t px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent"
             onClick={() => onChange([])}
           >
-            Auswahl aufheben
+            {t('Auswahl aufheben')}
           </button>
         )}
       </PopoverContent>

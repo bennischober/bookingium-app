@@ -32,6 +32,7 @@ import type { MailAccountDto } from '../../../../main/mailclient/accounts'
 import type { ConnectionTestResult } from '../../../../main/mailclient/core/connection_test'
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
 import type { ImapSecurity } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 type Draft = {
   id?: string
@@ -157,7 +158,7 @@ export function MailAccountDialog({
   const test = trpcReact.mail.accounts.test.useMutation({
     onSuccess: setResult,
     onError: (error) =>
-      toast.error('Verbindungstest fehlgeschlagen', { description: error.message })
+      toast.error(t('Verbindungstest fehlgeschlagen'), { description: error.message })
   })
 
   // The server checks the settings first and saves only what passes
@@ -166,11 +167,11 @@ export function MailAccountDialog({
       setResult(data.test)
       if (!data.account) return
       void utils.mail.invalidate()
-      toast.success('E-Mail-Konto gespeichert')
+      toast.success(t('E-Mail-Konto gespeichert'))
       onOpenChange(false)
     },
     onError: (error) =>
-      toast.error('Konto konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Konto konnte nicht gespeichert werden'), { description: error.message })
   })
 
   // Any change makes the last result stale
@@ -251,11 +252,12 @@ export function MailAccountDialog({
         <form onSubmit={submit} className="max-h-[70vh] space-y-4 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {account ? 'E-Mail-Konto bearbeiten' : 'E-Mail-Konto hinzufügen'}
+              {account ? t('E-Mail-Konto bearbeiten') : t('E-Mail-Konto hinzufügen')}
             </DialogTitle>
             <DialogDescription>
-              IMAP-Zugang des Postfachs. Das Passwort wird mit der Verschlüsselung von Windows
-              gespeichert.
+              {t(
+                'IMAP-Zugang des Postfachs. Das Passwort wird mit der Verschlüsselung von Windows gespeichert.'
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -277,33 +279,36 @@ export function MailAccountDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-account-display-name">Anzeigename</Label>
+            <Label htmlFor="mail-account-display-name">{t('Anzeigename')}</Label>
             <Input
               id="mail-account-display-name"
               value={draft.displayName}
               onChange={(e) => set({ displayName: e.target.value })}
-              placeholder="z. B. Max Muster | Agentur"
+              placeholder={t('z. B. Max Muster | Agentur')}
               maxLength={100}
             />
             <p className="text-xs text-muted-foreground">
-              Steht als Absender vor der Adresse in jeder Mail aus diesem Postfach (auch Rechnungen,
-              Verträge und DATEV). Leer: nur die Adresse.
+              {t(
+                'Steht als Absender vor der Adresse in jeder Mail aus diesem Postfach (auch Rechnungen, Verträge und DATEV). Leer: nur die Adresse.'
+              )}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-account-aliases">Weitere eigene Adressen</Label>
+            <Label htmlFor="mail-account-aliases">{t('Weitere eigene Adressen')}</Label>
             <Input
               id="mail-account-aliases"
               value={draft.aliases}
               onChange={(e) => set({ aliases: e.target.value })}
-              placeholder="z. B. info@… – durch Komma getrennt"
+              placeholder={t('z. B. info@… – durch Komma getrennt')}
               aria-describedby="mail-account-aliases-hint"
             />
             <p id="mail-account-aliases-hint" className="text-xs text-muted-foreground">
               {aliases.invalid
-                ? `„${aliases.invalid}“ ist keine E-Mail-Adresse.`
-                : 'Adressen, die in dieses Postfach weiterleiten. Mails über sie werden keinem Kontakt zugeordnet.'}
+                ? t('„{{invalid}}“ ist keine E-Mail-Adresse.', { invalid: aliases.invalid })
+                : t(
+                    'Adressen, die in dieses Postfach weiterleiten. Mails über sie werden keinem Kontakt zugeordnet.'
+                  )}
             </p>
           </div>
 
@@ -320,7 +325,7 @@ export function MailAccountDialog({
 
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <div className="space-y-2">
-              <Label htmlFor="mail-account-security">Verschlüsselung</Label>
+              <Label htmlFor="mail-account-security">{t('Verschlüsselung')}</Label>
               <Select
                 value={draft.security}
                 onValueChange={(security) => changeSecurity(security as ImapSecurity)}
@@ -338,7 +343,7 @@ export function MailAccountDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mail-account-port">Port</Label>
+              <Label htmlFor="mail-account-port">{t('Port')}</Label>
               <Input
                 id="mail-account-port"
                 inputMode="numeric"
@@ -377,7 +382,7 @@ export function MailAccountDialog({
               IMAPS 993 plus submission 587 with STARTTLS, so it cannot borrow the
               IMAP value; "wie IMAP" keeps them equal. */}
           <div className="space-y-2">
-            <Label htmlFor="mail-account-smtp-security">SMTP-Verschlüsselung</Label>
+            <Label htmlFor="mail-account-smtp-security">{t('SMTP-Verschlüsselung')}</Label>
             <Select
               value={draft.smtpSecurity === '' ? 'imap' : draft.smtpSecurity}
               onValueChange={(value) =>
@@ -388,7 +393,7 @@ export function MailAccountDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="imap">Wie IMAP</SelectItem>
+                <SelectItem value="imap">{t('Wie IMAP')}</SelectItem>
                 {smtpSecurities.map((security) => (
                   <SelectItem key={security} value={security}>
                     {SECURITY_LABELS[security]}
@@ -399,7 +404,7 @@ export function MailAccountDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-account-user">Benutzername</Label>
+            <Label htmlFor="mail-account-user">{t('Benutzername')}</Label>
             <Input
               id="mail-account-user"
               value={draft.user}
@@ -409,14 +414,14 @@ export function MailAccountDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-account-password">Passwort</Label>
+            <Label htmlFor="mail-account-password">{t('Passwort')}</Label>
             <div className="relative">
               <Input
                 id="mail-account-password"
                 type={showPassword ? 'text' : 'password'}
                 value={draft.password}
                 onChange={(e) => set({ password: e.target.value })}
-                placeholder={account ? 'Unverändert lassen' : undefined}
+                placeholder={account ? t('Unverändert lassen') : undefined}
                 autoComplete="off"
                 spellCheck={false}
                 className="pr-10"
@@ -426,27 +431,28 @@ export function MailAccountDialog({
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:bg-transparent"
-                aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                aria-label={showPassword ? t('Passwort verbergen') : t('Passwort anzeigen')}
                 aria-pressed={showPassword}
-                title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                title={showPassword ? t('Passwort verbergen') : t('Passwort anzeigen')}
                 onClick={() => setShowPassword((shown) => !shown)}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Zeigt nur, was hier eingetippt wird; das gespeicherte Passwort wird nie wieder
-              angezeigt.
+              {t(
+                'Zeigt nur, was hier eingetippt wird; das gespeicherte Passwort wird nie wieder angezeigt.'
+              )}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-account-signature">Signatur</Label>
+            <Label htmlFor="mail-account-signature">{t('Signatur')}</Label>
             <Textarea
               id="mail-account-signature"
               value={draft.signature}
               onChange={(e) => set({ signature: e.target.value })}
-              placeholder="Name, Telefon, … – wird an neue Mails angehängt"
+              placeholder={t('Name, Telefon, … – wird an neue Mails angehängt')}
               rows={3}
             />
           </div>
@@ -460,7 +466,7 @@ export function MailAccountDialog({
                 onChange={(e) => set({ readOnly: e.target.checked })}
                 aria-describedby="mail-account-read-only-hint"
               />
-              Nur lesen
+              {t('Nur lesen')}
             </label>
             <p
               id="mail-account-read-only-hint"
@@ -468,14 +474,18 @@ export function MailAccountDialog({
             >
               {draft.readOnly && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
               {draft.readOnly
-                ? 'Bookingium liest das Postfach nur: Es verschiebt, markiert und löscht nichts und sendet keine E-Mails.'
-                : 'Bookingium kann E-Mails markieren, verschieben, löschen und über den SMTP-Server senden.'}
+                ? t(
+                    'Bookingium liest das Postfach nur: Es verschiebt, markiert und löscht nichts und sendet keine E-Mails.'
+                  )
+                : t(
+                    'Bookingium kann E-Mails markieren, verschieben, löschen und über den SMTP-Server senden.'
+                  )}
             </p>
           </div>
 
           {busy && (
             <p className="text-sm text-muted-foreground" role="status">
-              Verbindung wird geprüft (höchstens 15 Sekunden)…
+              {t('Verbindung wird geprüft (höchstens 15 Sekunden)…')}
             </p>
           )}
           {result && !busy && <TestResult result={result} />}
@@ -487,14 +497,14 @@ export function MailAccountDialog({
               onClick={runTest}
               disabled={!connectionValid || busy}
             >
-              {test.isLoading ? 'Wird geprüft…' : 'Verbindung testen'}
+              {test.isLoading ? t('Wird geprüft…') : t('Verbindung testen')}
             </Button>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Abbrechen
+                {t('Abbrechen')}
               </Button>
               <Button type="submit" disabled={!valid || busy}>
-                {save.isLoading ? 'Wird geprüft…' : 'Speichern'}
+                {save.isLoading ? t('Wird geprüft…') : t('Speichern')}
               </Button>
             </div>
           </DialogFooter>

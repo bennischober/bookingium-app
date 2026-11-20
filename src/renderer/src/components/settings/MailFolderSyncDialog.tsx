@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { flattenFolders, folderLabel } from '@/components/mail/format'
 import { syncModeRows } from '@/components/settings/mailFolderSync'
 import type { FolderNode, FolderSyncMode } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #158: which folders of an account sync always ("ausgewählt") and which only when they are
@@ -52,7 +53,7 @@ export function MailFolderSyncDialog({
       await queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
       toast.success(done(changed))
     } catch (error) {
-      toast.error('Einstellung konnte nicht gespeichert werden', {
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     } finally {
@@ -67,17 +68,18 @@ export function MailFolderSyncDialog({
           mode,
           accountId
         ),
-      (changed) => (changed === 1 ? '1 Ordner geändert' : `${changed} Ordner geändert`)
+      (changed) =>
+        changed === 1 ? t('1 Ordner geändert') : t('{{changed}} Ordner geändert', { changed })
     )
   const adopt = () =>
     run(
       () => mailApi.adoptSubscriptions(accountId),
       (changed) =>
         changed === 0
-          ? 'Die Auswahl entspricht schon den Abonnements'
+          ? t('Die Auswahl entspricht schon den Abonnements')
           : changed === 1
-            ? 'Abonnements übernommen: 1 Ordner geändert'
-            : `Abonnements übernommen: ${changed} Ordner geändert`
+            ? t('Abonnements übernommen: 1 Ordner geändert')
+            : t('Abonnements übernommen: {{changed}} Ordner geändert', { changed })
     )
   const switchable = rows.filter((r) => !r.fixed).map((r) => r.folder)
 
@@ -85,18 +87,19 @@ export function MailFolderSyncDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Ordner auswählen</DialogTitle>
+          <DialogTitle>{t('Ordner auswählen')}</DialogTitle>
           <DialogDescription>
-            {email}: Ausgewählte Ordner werden immer synchronisiert, die anderen nur beim Öffnen.
-            Posteingang, Gesendet, Entwürfe, Papierkorb, Archiv und Spam werden immer
-            synchronisiert. Die Abonnements auf dem Server bleiben unverändert.
+            {email}
+            {t(
+              ': Ausgewählte Ordner werden immer synchronisiert, die anderen nur beim Öffnen. Posteingang, Gesendet, Entwürfe, Papierkorb, Archiv und Spam werden immer synchronisiert. Die Abonnements auf dem Server bleiben unverändert.'
+            )}
           </DialogDescription>
         </DialogHeader>
         <Input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Ordner filtern"
-          aria-label="Ordner filtern"
+          placeholder={t('Ordner filtern')}
+          aria-label={t('Ordner filtern')}
         />
         <div className="flex flex-wrap gap-2">
           <Button
@@ -106,7 +109,7 @@ export function MailFolderSyncDialog({
             disabled={busy || switchable.length === 0}
             onClick={() => void setMode(switchable, 'always')}
           >
-            Angezeigte auswählen
+            {t('Angezeigte auswählen')}
           </Button>
           <Button
             type="button"
@@ -115,23 +118,25 @@ export function MailFolderSyncDialog({
             disabled={busy || switchable.length === 0}
             onClick={() => void setMode(switchable, 'on_open')}
           >
-            Angezeigte abwählen
+            {t('Angezeigte abwählen')}
           </Button>
         </div>
         {folders.isLoading ? (
           <Spinner className="m-2" />
         ) : folders.isError ? (
           <p className="text-sm text-destructive" role="alert">
-            Die Ordner konnten nicht geladen werden.
+            {t('Die Ordner konnten nicht geladen werden.')}
           </p>
         ) : (
           <ul
             className="max-h-80 divide-y overflow-auto rounded-md border"
-            aria-label="Ordner"
+            aria-label={t('Ordner')}
             data-testid="mail-folder-sync-list"
           >
             {rows.length === 0 && (
-              <li className="px-3 py-2 text-sm text-muted-foreground">Kein Ordner gefunden.</li>
+              <li className="px-3 py-2 text-sm text-muted-foreground">
+                {t('Kein Ordner gefunden.')}
+              </li>
             )}
             {rows.map(({ folder, fixed, path }) => (
               <li key={folder.id}>
@@ -148,7 +153,9 @@ export function MailFolderSyncDialog({
                     {fixed ? folderLabel(folder) : path}
                   </span>
                   {folder.subscribed === false && (
-                    <span className="shrink-0 text-xs text-muted-foreground">nicht abonniert</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {t('nicht abonniert')}
+                    </span>
                   )}
                 </label>
               </li>
@@ -162,15 +169,15 @@ export function MailFolderSyncDialog({
             disabled={busy || !knowsSubscriptions}
             title={
               knowsSubscriptions
-                ? 'Abonnierte Ordner werden immer synchronisiert, die anderen nur beim Öffnen'
-                : 'Der Server hat keine Abonnements gemeldet'
+                ? t('Abonnierte Ordner werden immer synchronisiert, die anderen nur beim Öffnen')
+                : t('Der Server hat keine Abonnements gemeldet')
             }
             onClick={() => void adopt()}
           >
-            Abonnierte Ordner übernehmen
+            {t('Abonnierte Ordner übernehmen')}
           </Button>
           <Button type="button" onClick={() => onOpenChange(false)}>
-            Fertig
+            {t('Fertig')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -18,11 +18,12 @@ import { VENUE_KIND_LABELS, type VenueKind } from '../../../../main/api/schemas/
 import type { CompanyKind } from '../../../../main/api/schemas/company.schema'
 import { PREVIEW_COLUMNS, summaryEntities } from './importLabels'
 import { Tip } from '@/components/Tip'
+import { t } from '../../../../main/i18n/translate'
 
 const ACTION_LABELS: Record<ImportEntityRef['action'], string> = {
   new: 'neu',
   existing: 'vorhanden',
-  repeat: 'wie oben'
+  repeat: t('wie oben')
 }
 
 function EntityCell({ entity, struck }: { entity: ImportEntityRef | null; struck: boolean }) {
@@ -43,7 +44,9 @@ function EntityCell({ entity, struck }: { entity: ImportEntityRef | null; struck
       {/* #248: what an existing record gets from the file */}
       {entity.action === 'existing' && entity.fills && (
         <span className="text-[11px] text-muted-foreground">
-          {entity.fills.length > 0 ? `ergänzt: ${entity.fills.join(', ')}` : 'unverändert'}
+          {entity.fills.length > 0
+            ? t('ergänzt: {{fills}}', { fills: entity.fills.join(', ') })
+            : t('unverändert')}
         </span>
       )}
     </span>
@@ -105,8 +108,8 @@ export function ImportPreviewStep({
             <div key={entity} className="rounded-lg border px-3 py-2">
               <div className="text-muted-foreground">{label}</div>
               <div className="font-medium">
-                {previewData.summary[entity].new} neu · {previewData.summary[entity].existing}{' '}
-                vorhanden
+                {previewData.summary[entity].new} {t('neu ·')}{' '}
+                {previewData.summary[entity].existing} vorhanden
               </div>
             </div>
           ))}
@@ -122,11 +125,13 @@ export function ImportPreviewStep({
             onChange={(event) => onOverwriteChange(event.target.checked)}
           />
           <span>
-            Vorhandene Angaben überschreiben
+            {t('Vorhandene Angaben überschreiben')}
             <span className="block text-xs text-muted-foreground">
               {overwrite
-                ? 'Werte aus der Datei ersetzen abweichende gespeicherte Werte; Anmerkungen werden angehängt.'
-                : 'Bei vorhandenen Einträgen werden nur leere Felder ergänzt.'}
+                ? t(
+                    'Werte aus der Datei ersetzen abweichende gespeicherte Werte; Anmerkungen werden angehängt.'
+                  )
+                : t('Bei vorhandenen Einträgen werden nur leere Felder ergänzt.')}
             </span>
           </span>
         </label>
@@ -141,16 +146,16 @@ export function ImportPreviewStep({
               checked={saveAsList}
               onChange={(event) => onSaveAsListChange(event.target.checked)}
             />
-            Als Verteiler speichern
+            {t('Als Verteiler speichern')}
           </label>
           {saveAsList && (
             <>
               <Select value={listTarget} onValueChange={onListTargetChange}>
-                <SelectTrigger className="h-8 w-56" aria-label="Verteiler">
+                <SelectTrigger className="h-8 w-56" aria-label={t('Verteiler')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new">Neuer Verteiler</SelectItem>
+                  <SelectItem value="new">{t('Neuer Verteiler')}</SelectItem>
                   {memberLists.map((entry) => (
                     <SelectItem key={entry.id} value={String(entry.id)}>
                       {entry.name}
@@ -161,16 +166,16 @@ export function ImportPreviewStep({
               {listTarget === 'new' && (
                 <Input
                   className="h-8 w-56"
-                  aria-label="Name des Verteilers"
-                  placeholder="Name des Verteilers"
+                  aria-label={t('Name des Verteilers')}
+                  placeholder={t('Name des Verteilers')}
                   value={listName}
                   onChange={(event) => onListNameChange(event.target.value)}
                 />
               )}
               <span className="text-muted-foreground">
                 {previewData.listMembers}{' '}
-                {previewData.listMembers === 1 ? 'Kontakt kommt' : 'Kontakte kommen'} in den
-                Verteiler (alle mit E-Mail-Adresse in der Datei)
+                {previewData.listMembers === 1 ? t('Kontakt kommt') : t('Kontakte kommen')}{' '}
+                {t('in den Verteiler (alle mit E-Mail-Adresse in der Datei)')}
               </span>
             </>
           )}
@@ -188,7 +193,7 @@ export function ImportPreviewStep({
 
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
         {loading ? (
-          <p className="p-4 text-sm text-muted-foreground">Vorschau wird berechnet…</p>
+          <p className="p-4 text-sm text-muted-foreground">{t('Vorschau wird berechnet…')}</p>
         ) : errorMessage !== null ? (
           <p className="p-4 text-sm text-destructive">{errorMessage}</p>
         ) : (
@@ -196,12 +201,12 @@ export function ImportPreviewStep({
             <thead className="sticky top-0 z-10 bg-muted text-left">
               <tr>
                 <th className="w-10 px-3 py-2">
-                  <span className="sr-only">Importieren</span>
+                  <span className="sr-only">{t('Importieren')}</span>
                 </th>
-                <th className="w-14 px-2 py-2 font-medium">Zeile</th>
+                <th className="w-14 px-2 py-2 font-medium">{t('Zeile')}</th>
                 {primaryHeader && <th className="px-2 py-2 font-medium">{primaryHeader}</th>}
                 <th className="px-2 py-2 font-medium">{columns.company}</th>
-                <th className="px-2 py-2 font-medium">{columns.persons ?? 'Hinweise'}</th>
+                <th className="px-2 py-2 font-medium">{columns.persons ?? t('Hinweise')}</th>
               </tr>
             </thead>
             <tbody>
@@ -219,7 +224,9 @@ export function ImportPreviewStep({
                           className="h-4 w-4 accent-primary"
                           checked={!excluded.has(row.rowNumber)}
                           onChange={() => onToggleRow(row.rowNumber)}
-                          aria-label={`Zeile ${row.rowNumber} importieren`}
+                          aria-label={t('Zeile {{rowNumber}} importieren', {
+                            rowNumber: row.rowNumber
+                          })}
                         />
                       )}
                     </td>

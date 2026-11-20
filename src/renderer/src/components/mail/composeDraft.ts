@@ -1,4 +1,5 @@
 import type { DraftInput, MessageDetail, SavedDraft } from '../../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 export type Address = { name: string; email: string }
 
@@ -52,8 +53,8 @@ function sender(message: MessageDetail): string {
 function formatDate(message: MessageDetail): string {
   const iso = message.date ?? message.internalDate
   return iso
-    ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
-    : 'unbekanntem Datum'
+    ? new Date(iso).toLocaleString(uiLocale(), { dateStyle: 'medium', timeStyle: 'short' })
+    : t('unbekanntem Datum')
 }
 
 function prefixed(subject: string, prefix: string, known: RegExp): string {
@@ -108,11 +109,11 @@ export function forwardCompose(message: MessageDetail): ComposeState {
     list.map((a) => (a.name ? `${a.name} <${a.email}>` : a.email)).join(', ')
   const header = [
     FORWARD_HEADER,
-    `Von: ${field([{ name: message.fromName, email: message.fromEmail }])}`,
-    `Datum: ${formatDate(message)}`,
-    `Betreff: ${message.subject}`,
-    `An: ${field(message.to)}`,
-    ...(message.cc.length ? [`Cc: ${field(message.cc)}`] : [])
+    t('Von: {{field}}', { field: field([{ name: message.fromName, email: message.fromEmail }]) }),
+    t('Datum: {{formatDate}}', { formatDate: formatDate(message) }),
+    t('Betreff: {{subject}}', { subject: message.subject }),
+    t('An: {{field}}', { field: field(message.to) }),
+    ...(message.cc.length ? [t('Cc: {{field}}', { field: field(message.cc) })] : [])
   ].join('\n')
   return {
     ...emptyCompose(),
@@ -121,7 +122,7 @@ export function forwardCompose(message: MessageDetail): ComposeState {
     forwardsFrom: message.id,
     forwardedNames: message.attachments
       .filter((a) => !a.isInline || !a.contentId)
-      .map((a) => a.filename || 'Anhang')
+      .map((a) => a.filename || t('Anhang'))
   }
 }
 
@@ -141,12 +142,12 @@ export function editAsNewCompose(message: MessageDetail): ComposeState {
       : undefined,
     forwardedNames: message.attachments
       .filter((a) => !a.isInline || !a.contentId)
-      .map((a) => a.filename || 'Anhang')
+      .map((a) => a.filename || t('Anhang'))
   }
 }
 
 /** Marks the start of a forwarded mail's header block (B8: the signature goes above it) */
-const FORWARD_HEADER = '---------- Weitergeleitete Nachricht ----------'
+const FORWARD_HEADER = t('---------- Weitergeleitete Nachricht ----------')
 
 /**
  * B8: the signature goes between the new text and the quote, and only once. * The editor keeps the body as plain text, so a signature is appended as text.
