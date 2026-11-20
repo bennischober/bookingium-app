@@ -54,3 +54,10 @@ export const MergeCandidatesInput = z.object({
   id: z.number().int().positive()
 })
 export type MergeCandidatesInput = z.infer<typeof MergeCandidatesInput>
+
+/** Records of one kind whose names match (legal form aside for companies): possible duplicates */
+export const DuplicateGroupDto = z.object({
+  key: z.string(),
+  items: z.array(z.object({ id: z.number(), name: z.string() }))
+})
+export type DuplicateGroupDto = z.infer<typeof DuplicateGroupDto>

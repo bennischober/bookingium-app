@@ -16,6 +16,9 @@ export const SyncDeviceDto = z.object({
   createdAt: z.string(),
   // when it last put changes into the folder (ISO), null for never
   lastBatchAt: z.string().nullable(),
+  // its last sign in the folder (ISO): the newer of its last run and its last changes; null when
+  // it never wrote one (versions before 1.7 wrote no lastSeenAt)
+  lastSeenAt: z.string().nullable(),
   // a newer entry of a computer with the same name exists (it joined again, e.g. after a
   // reinstall or a restored backup): this one is no longer used
   superseded: z.boolean()

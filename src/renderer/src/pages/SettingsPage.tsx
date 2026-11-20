@@ -35,6 +35,7 @@ import { InvoiceEmailCard } from '@/components/invoice/InvoiceEmailCard'
 import { ImportDialog } from '@/components/import/ImportDialog'
 import { AppearanceCard } from '@/components/settings/AppearanceCard'
 import { OwnCompanySettings } from '@/components/settings/OwnCompanySettings'
+import { DuplicatesCard } from '@/components/settings/DuplicatesCard'
 import { MailAccountsCard } from '@/components/settings/MailAccountsCard'
 import { MailClientSwitchCard } from '@/components/settings/MailClientSwitchCard'
 import { MailTemplatesCard } from '@/components/settings/MailTemplatesCard'
@@ -503,6 +504,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="data" className="space-y-6">
           <DataCard />
+          <DuplicatesCard />
           <SyncCard />
           <BackupCard />
           <UpdatesCard />

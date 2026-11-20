@@ -106,10 +106,10 @@ export function ImportDialog({
     setExcluded(new Set())
   }
 
-  const pickFile = async (): Promise<void> => {
+  const pickFile = async (droppedPath?: string): Promise<void> => {
     setPicking(true)
     try {
-      const response = await window.api.pickImportFile()
+      const response = await window.api.pickImportFile(droppedPath)
       if (!response.success) {
         toast.error(t('Datei konnte nicht gelesen werden'), { description: response.error })
         return

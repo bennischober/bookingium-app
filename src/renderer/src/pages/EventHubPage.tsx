@@ -25,9 +25,11 @@ import {
   Check,
   FileSignature,
   Copy,
+  FolderInput,
   Trash2
 } from 'lucide-react'
 import { DuplicateEventWizard } from '@/components/event-wizard/DuplicateEventWizard'
+import { ShowFolderDialog } from '@/components/show-folder/ShowFolderDialog'
 import { STATUS_LABELS, STATUS_STYLES, formatDate } from '@/components/event-hub/constants'
 import { OverviewTab } from '@/components/event-hub/OverviewTab'
 import { FinancialsTab } from '@/components/event-hub/FinancialsTab'
@@ -76,6 +78,7 @@ export function EventHubPage() {
   const [isEditing, setIsEditing] = useState(false)
   // #199: the wizard for a new date of this event
   const [duplicating, setDuplicating] = useState(false)
+  const [readingFolder, setReadingFolder] = useState(false)
   // Incrementing these signals tells all tabs to either save or reset their local state
   const [saveSignal, setSaveSignal] = useState(0)
   const [cancelSignal, setCancelSignal] = useState(0)
@@ -193,6 +196,16 @@ export function EventHubPage() {
                   size="sm"
                   variant="outline"
                   className="gap-1.5"
+                  onClick={() => setReadingFolder(true)}
+                  title={t('Day-/Infosheet, Club-Infos, Mails und Pläne der Agentur einlesen')}
+                >
+                  <FolderInput className="h-3.5 w-3.5" />
+                  {t('Show-Ordner')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
                   onClick={() =>
                     navigate({
                       to: '/events/$eventId/contract/print',
@@ -249,6 +262,7 @@ export function EventHubPage() {
         sourceId={duplicating ? event.id : null}
         onClose={() => setDuplicating(false)}
       />
+      <ShowFolderDialog eventId={event.id} open={readingFolder} onOpenChange={setReadingFolder} />
 
       {/* ── Tabs ── */}
       <Tabs

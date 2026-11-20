@@ -1,6 +1,10 @@
 // #254: English UI texts of forms, keyed by the German source string (see ../translate.ts)
 
 export const formsEn: Record<string, string> = {
+  'Bild konnte nicht übernommen werden': 'Image could not be added',
+  'Bild hierher ziehen': 'Drag an image here',
+  'Hier ablegen': 'Drop here',
+  '{{empty}} · Bild hierher ziehen': '{{empty}} · drag an image here',
   'Wohnung, Etage, etc.': 'Apartment, floor, etc.',
   Bundesland: 'State',
   Ländercode: 'Country code',

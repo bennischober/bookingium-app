@@ -1,6 +1,13 @@
 // #254: English UI texts of settlement, keyed by the German source string (see ../translate.ts)
 
 export const settlementEn: Record<string, string> = {
+  'Die abgerechneten Tickets stehen jetzt auch als Verkaufsmeldung beim Event.':
+    'The tickets settled now also show as a sales report on the event.',
+  'Abrechnung hier ablegen': 'Drop the statement here',
+  'Die Excel-Datei des Veranstalters (.xlsx) wird eingelesen.':
+    "The promoter's Excel file (.xlsx) is read.",
+  'Noch keine Abrechnung erfasst. Die Excel-Datei lässt sich auch hierher ziehen.':
+    'No statement recorded yet. The Excel file can also be dragged here.',
   'Letzte Ticketmeldung:': 'Last ticket report:',
   'Abrechnung konnte nicht gelesen werden': 'Statement could not be read',
   'Die Excel-Datei wurde nicht bei den Dokumenten abgelegt':
@@ -11,7 +18,6 @@ export const settlementEn: Record<string, string> = {
   'Managementbeteiligung nicht erstellt': 'Management share not created',
   'Abrechnung des Veranstalters': "Promoter's statement",
   'Aus „{{sourceFileName}}“': 'From “{{sourceFileName}}”',
-  'Noch keine Abrechnung erfasst.': 'No statement recorded yet.',
   'Excel einlesen…': 'Read Excel…',
   'Von Hand erfassen': 'Enter manually',
   '– die Summen stimmen mit der Excel überein.': '– the totals match the Excel file.',

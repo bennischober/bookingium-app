@@ -165,3 +165,23 @@ describe('merging bands', () => {
     ).toHaveLength(1)
   })
 })
+
+describe('duplicate groups', () => {
+  it('groups companies of the same name, legal form aside, largest first', async () => {
+    const a = await company('Beispiel Konzerte')
+    const b = await company('Beispiel Konzerte GmbH')
+    const c = await company('beispiel konzerte gmbh & co. kg')
+    const d = await company('Muster Halle')
+    const e = await company('Muster Halle e.V.')
+    await company('Ganz Allein AG')
+
+    const groups = merge().duplicateGroups('company')
+    const ids = groups.map((group) => group.items.map((item) => item.id))
+    expect(ids).toContainEqual([a.id, b.id, c.id])
+    expect(ids).toContainEqual([d.id, e.id])
+    expect(groups.findIndex((g) => g.items.length === 3)).toBeLessThan(
+      groups.findIndex((g) => g.items.some((item) => item.id === d.id))
+    )
+    expect(groups.some((g) => g.items.some((item) => item.name === 'Ganz Allein AG'))).toBe(false)
+  })
+})

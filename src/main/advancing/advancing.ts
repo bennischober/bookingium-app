@@ -47,6 +47,13 @@ export function advancingDateOf(raw: string, showDate: string): string | null {
   return sameYear <= showDate ? sameYear : iso(showYear - 1)
 }
 
+/**
+ * The note of the sales report a saved settlement writes for the show day: the tickets settled
+ * become the show's last count (Tickets tab, tour overview). The settlement's own comparison
+ * with the promoter's last report skips it.
+ */
+export const SETTLEMENT_REPORT_NOTE = 'Aus der Abrechnung'
+
 /** A quota cell: "200" → 200; anything else ("warten auf Bestätigung", "none") as note */
 export function quotaOf(raw: string): { quota: number | null; note: string } {
   const text = raw.trim()

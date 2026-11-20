@@ -10,7 +10,12 @@ import { BandRepository } from '../src/main/repositories/BandRepository'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { eq } from 'drizzle-orm'
-import { EMPTY_SETTLEMENT, type SettlementInput } from '../src/main/settlement/settlement'
+import {
+  computeSettlement,
+  EMPTY_SETTLEMENT,
+  type SettlementInput
+} from '../src/main/settlement/settlement'
+import { SETTLEMENT_REPORT_NOTE } from '../src/main/advancing/advancing'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
@@ -98,5 +103,54 @@ describe('settlement service', () => {
     expect(invoice?.recipientSnapshot?.source_company_id).toBe(bandCompany.id)
     expect(settlements.get(event.id).feeInvoice).toMatchObject({ id: invoiceId, status: 'draft' })
     expect(() => settlements.createFeeInvoice(event.id)).toThrow(/schon erstellt/)
+  })
+
+  it('writes the tickets settled as the sales report of the show day, once', async () => {
+    const { event } = await setup()
+    const reports = () =>
+      db
+        .select()
+        .from(schema.ticket_report)
+        .where(eq(schema.ticket_report.deal_memo_id, event.id))
+        .all()
+    // a presale report of the promoter stays beside it
+    db.insert(schema.ticket_report)
+      .values({ deal_memo_id: event.id, report_date: '2026-11-01', sold: 190, note: '' })
+      .run()
+
+    settlements.save({ eventId: event.id, input: show, sourceFileName: '' })
+    const settled = computeSettlement(show).sold
+    expect(reports()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ report_date: '2026-11-01', sold: 190 }),
+        expect.objectContaining({
+          report_date: '2026-11-13',
+          sold: settled,
+          note: SETTLEMENT_REPORT_NOTE
+        })
+      ])
+    )
+
+    // saving a corrected settlement replaces the show day's report instead of adding one
+    settlements.save({
+      eventId: event.id,
+      input: { ...show, lines: show.lines.map((line) => ({ ...line, sold: 1 })) },
+      sourceFileName: ''
+    })
+    const showDay = reports().filter((r) => r.report_date === '2026-11-13')
+    expect(showDay).toHaveLength(1)
+    expect(showDay[0].sold).toBe(show.lines.length)
+  })
+
+  it('writes no sales report for a settlement without tickets', async () => {
+    const { event } = await setup()
+    settlements.save({ eventId: event.id, input: { ...show, lines: [] }, sourceFileName: '' })
+    expect(
+      db
+        .select()
+        .from(schema.ticket_report)
+        .where(eq(schema.ticket_report.deal_memo_id, event.id))
+        .all()
+    ).toHaveLength(0)
   })
 })
