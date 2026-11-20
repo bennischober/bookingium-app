@@ -19,6 +19,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { t } from '../../../main/i18n/translate'
 
 export default function BankPage() {
   const { sorting, setSorting, sortInput } = useListSorting('banks', {
@@ -50,7 +51,7 @@ export default function BankPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.bank,
     utils: utils.bank,
-    noun: 'Bank',
+    noun: t('Bank'),
     label: (bank: BankDto) => bank.bankName,
     deleteInput: (bank) => ({ id: bank.id }),
     onSaved: formSheet.close
@@ -60,11 +61,11 @@ export default function BankPage() {
   const columns: ColumnDef<BankDto>[] = [
     {
       accessorKey: 'bankName',
-      header: 'Bankname'
+      header: t('Bankname')
     },
     {
       accessorKey: 'accountHolder',
-      header: 'Kontoinhaber'
+      header: t('Kontoinhaber')
     },
     {
       accessorKey: 'iban',
@@ -76,17 +77,17 @@ export default function BankPage() {
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={Pencil}
-            label="Bearbeiten"
+            label={t('Bearbeiten')}
             onClick={() => formSheet.openEdit(row.original)}
           />
           <RowActionButton
             icon={Trash2}
-            label="Löschen"
+            label={t('Löschen')}
             destructive
             onClick={() => void mutations.remove(row.original)}
           />
@@ -98,14 +99,14 @@ export default function BankPage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
-        title="Bankkontoinformationen"
-        description="Bankkontodaten von Kundschaft verwalten."
+        title={t('Bankkontoinformationen')}
+        description={t('Bankkontodaten von Kundschaft verwalten.')}
       />
 
       <DataTable
         columns={columns}
         data={listRows(banks.data)}
-        itemLabel={{ singular: 'Bank', plural: 'Banken' }}
+        itemLabel={{ singular: t('Bank'), plural: t('Banken') }}
         hasMore={banks.hasNextPage ?? false}
         isLoadingMore={banks.isFetchingNextPage}
         onLoadMore={() => void banks.fetchNextPage()}
@@ -114,13 +115,13 @@ export default function BankPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Banken filtern…"
+        searchPlaceholder={t('Banken filtern…')}
         isLoading={banks.isLoading}
         error={banks.error}
         onRetry={() => void banks.refetch()}
         total={listTotal(banks.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Bank" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel={t('+ Neue Bank')} onCreate={formSheet.openCreate}>
             <ExportButton list="banks" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -130,11 +131,11 @@ export default function BankPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Neue Bank anlegen' : 'Bank bearbeiten'}
+        title={formSheet.mode === 'create' ? t('Neue Bank anlegen') : t('Bank bearbeiten')}
         description={
           formSheet.mode === 'create'
-            ? 'Eine neue Bank im System anlegen.'
-            : 'Bankinformationen aktualisieren.'
+            ? t('Eine neue Bank im System anlegen.')
+            : t('Bankinformationen aktualisieren.')
         }
       >
         <BankForm

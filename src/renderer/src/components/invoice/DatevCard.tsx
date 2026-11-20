@@ -12,6 +12,7 @@ import {
   DatevCategory,
   type DatevUploadEmails
 } from '../../../../main/api/schemas/datev.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const EMPTY: DatevUploadEmails = {
   outgoing: '',
@@ -63,14 +64,14 @@ export function DatevCard() {
 
   const handleSave = async () => {
     if (companyId === null) {
-      toast.error('Bitte zuerst eine Firma auswählen')
+      toast.error(t('Bitte zuerst eine Firma auswählen'))
       return
     }
     const changed = DatevCategory.options.filter(
       (category) => addresses[category].trim() !== (loaded ?? EMPTY)[category]
     )
     if (changed.length === 0) {
-      toast.success('DATEV-Adressen gespeichert')
+      toast.success(t('DATEV-Adressen gespeichert'))
       return
     }
     setSaving(true)
@@ -82,9 +83,9 @@ export function DatevCard() {
           datevUploadEmail: addresses[category].trim()
         })
       }
-      toast.success('DATEV-Adressen gespeichert')
+      toast.success(t('DATEV-Adressen gespeichert'))
     } catch (error) {
-      toast.error('DATEV-Adressen konnten nicht gespeichert werden', {
+      toast.error(t('DATEV-Adressen konnten nicht gespeichert werden'), {
         description: error instanceof Error ? error.message : String(error)
       })
     } finally {
@@ -98,16 +99,15 @@ export function DatevCard() {
       <CardHeader>
         <CardTitle>DATEV</CardTitle>
         <CardDescription>
-          {PRODUCT_NAMES.datevOnline} gibt jeder Firma eine Upload-Mail-Adresse pro Belegkategorie
-          und legt einen Beleg nach der Adresse ab, an die er geht. „An DATEV übergeben“ schickt das
-          Rechnungs-PDF an die dort gewählte Kategorie, sonst an Rechnungsausgang. Gesendet wird vom
-          Konto unter E-Mail › „Senden von“ – diese Absenderadresse muss in DATEV Upload Mail
-          freigegeben sein.
+          {PRODUCT_NAMES.datevOnline}{' '}
+          {t(
+            'gibt jeder Firma eine Upload-Mail-Adresse pro Belegkategorie und legt einen Beleg nach der Adresse ab, an die er geht. „An DATEV übergeben“ schickt das Rechnungs-PDF an die dort gewählte Kategorie, sonst an Rechnungsausgang. Gesendet wird vom Konto unter E-Mail › „Senden von“ – diese Absenderadresse muss in DATEV Upload Mail freigegeben sein.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2 sm:max-w-md">
-          <Label htmlFor="datev-company">Firma (DATEV-Mandant)</Label>
+          <Label htmlFor="datev-company">{t('Firma (DATEV-Mandant)')}</Label>
           <SearchableSelect
             id="datev-company"
             value={companyId}
@@ -116,8 +116,8 @@ export function DatevCard() {
               value: company.id,
               label: company.name
             }))}
-            placeholder="Firma auswählen"
-            searchPlaceholder="Firma suchen…"
+            placeholder={t('Firma auswählen')}
+            searchPlaceholder={t('Firma suchen…')}
           />
         </div>
 
@@ -128,7 +128,9 @@ export function DatevCard() {
               <Input
                 id={`datev-address-${category}`}
                 type="email"
-                placeholder={`Adresse aus ${PRODUCT_NAMES.datevOnline}`}
+                placeholder={t('Adresse aus {{datevOnline}}', {
+                  datevOnline: PRODUCT_NAMES.datevOnline
+                })}
                 value={addresses[category]}
                 onChange={(e) => setAddresses({ ...addresses, [category]: e.target.value })}
                 disabled={companyId === null || settingsQuery.isLoading}
@@ -138,7 +140,7 @@ export function DatevCard() {
         </div>
 
         <Button onClick={() => void handleSave()} disabled={saving || companyId === null}>
-          Speichern
+          {t('Speichern')}
         </Button>
       </CardContent>
     </Card>

@@ -3,6 +3,7 @@ import { InfoLabel } from '@/components/InfoLabel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Buyer reference and the XRechnung switch. Rarely needed, so the form opens
@@ -33,7 +34,7 @@ export function InvoiceEInvoiceDetails({
         onClick={() => onOpenChange(!open)}
       >
         <span>
-          E-Rechnung: Käuferreferenz, XRechnung
+          {t('E-Rechnung: Käuferreferenz, XRechnung')}
           {!open && (buyerReference || xrechnung) && (
             <span className="ml-2 font-normal text-muted-foreground">
               {[buyerReference, xrechnung && 'XRechnung'].filter(Boolean).join(' · ')}
@@ -47,8 +48,10 @@ export function InvoiceEInvoiceDetails({
           <div className="space-y-2">
             <InfoLabel
               htmlFor="invoice-buyer-reference"
-              text="Käuferreferenz / Leitweg-ID (optional)"
-              info="Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung."
+              text={t('Käuferreferenz / Leitweg-ID (optional)')}
+              info={t(
+                'Bestell- oder Referenznummer des Empfängers; bei Behörden die Leitweg-ID. Steht in der E-Rechnung.'
+              )}
             />
             <Input
               id="invoice-buyer-reference"
@@ -64,11 +67,13 @@ export function InvoiceEInvoiceDetails({
               onCheckedChange={onXrechnungChange}
             />
             <div className="space-y-1">
-              <Label htmlFor="invoice-xrechnung">XRechnung (öffentlicher Auftraggeber)</Label>
+              <Label htmlFor="invoice-xrechnung">
+                {t('XRechnung (öffentlicher Auftraggeber)')}
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Für Behörden und andere öffentliche Stellen: braucht die Leitweg-ID, einen
-                Ansprechpartner mit Telefon und E-Mail, die IBAN und die E-Mail des Empfängers. Das
-                PDF enthält dann die XRechnung; für Portale lässt sie sich auch als XML speichern.
+                {t(
+                  'Für Behörden und andere öffentliche Stellen: braucht die Leitweg-ID, einen Ansprechpartner mit Telefon und E-Mail, die IBAN und die E-Mail des Empfängers. Das PDF enthält dann die XRechnung; für Portale lässt sie sich auch als XML speichern.'
+                )}
               </p>
             </div>
           </div>

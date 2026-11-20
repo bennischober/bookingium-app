@@ -4,47 +4,57 @@ import type {
   ConnectionTestStage
 } from '../../../main/mailclient/core/connection_test'
 import type { ImapSecurity } from '../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 export const SECURITY_LABELS: Record<ImapSecurity, string> = {
   tls: 'SSL/TLS',
   starttls: 'STARTTLS',
-  none: 'Keine (nur auf diesem Computer)'
+  none: t('Keine (nur auf diesem Computer)')
 }
 
 /** The usual IMAP port for each setting */
 export const SECURITY_PORTS: Record<ImapSecurity, number> = { tls: 993, starttls: 143, none: 143 }
 
-const PORT_HINT = 'Meist passt die Verschlüsselung nicht zum Port (SSL/TLS: 993, STARTTLS: 143).'
+const PORT_HINT = t('Meist passt die Verschlüsselung nicht zum Port (SSL/TLS: 993, STARTTLS: 143).')
 
 const STAGE_MESSAGES: Record<ConnectionTestStage, string> = {
-  dns: 'Server nicht gefunden. Bitte den Servernamen prüfen.',
-  refused:
-    'Der Server ist erreichbar, aber an diesem Port antwortet kein Mailserver. Bitte den Port prüfen.',
-  unreachable: 'Keine Antwort vom Server. Internetverbindung, Servername und Port prüfen.',
-  greeting: `Verbunden, aber es meldet sich kein Mailserver. ${PORT_HINT}`,
-  tls: `Die verschlüsselte Verbindung kam nicht zustande. ${PORT_HINT}`,
-  certificate:
-    'Das Zertifikat des Servers ist nicht vertrauenswürdig. Bitte den Servernamen prüfen.',
-  starttls: 'Der Server bietet kein STARTTLS an. Bitte SSL/TLS mit Port 993 wählen.',
-  auth: 'Anmeldung abgelehnt: Benutzername oder Passwort stimmt nicht.',
-  timeout: 'Der Server hat nicht rechtzeitig geantwortet.',
-  other: 'Die Verbindung ist fehlgeschlagen.'
+  dns: t('Server nicht gefunden. Bitte den Servernamen prüfen.'),
+  refused: t(
+    'Der Server ist erreichbar, aber an diesem Port antwortet kein Mailserver. Bitte den Port prüfen.'
+  ),
+  unreachable: t('Keine Antwort vom Server. Internetverbindung, Servername und Port prüfen.'),
+  greeting: t('Verbunden, aber es meldet sich kein Mailserver. {{PORT_HINT}}', { PORT_HINT }),
+  tls: t('Die verschlüsselte Verbindung kam nicht zustande. {{PORT_HINT}}', { PORT_HINT }),
+  certificate: t(
+    'Das Zertifikat des Servers ist nicht vertrauenswürdig. Bitte den Servernamen prüfen.'
+  ),
+  starttls: t('Der Server bietet kein STARTTLS an. Bitte SSL/TLS mit Port 993 wählen.'),
+  auth: t('Anmeldung abgelehnt: Benutzername oder Passwort stimmt nicht.'),
+  timeout: t('Der Server hat nicht rechtzeitig geantwortet.'),
+  other: t('Die Verbindung ist fehlgeschlagen.')
 }
 
 const seconds = (ms: number): string =>
-  `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`
+  `${(ms / 1000).toLocaleString(uiLocale(), { maximumFractionDigits: 1 })} s`
 
 /** One line for the result of "Verbindung testen" */
 export function connectionTestMessage(result: ConnectionTestResult): string {
   if (result.ok) {
-    const folders = result.folderCount === 1 ? '1 Ordner' : `${result.folderCount} Ordner`
+    const folders =
+      result.folderCount === 1
+        ? t('1 Ordner')
+        : t('{{folderCount}} Ordner', { folderCount: result.folderCount })
     // #158: only when it says something; all folders subscribed is also what a server without
     // subscriptions reports
     const subscribed =
       result.subscribedCount < result.folderCount
-        ? `, davon ${result.subscribedCount} abonniert`
+        ? t(', davon {{subscribedCount}} abonniert', { subscribedCount: result.subscribedCount })
         : ''
-    return `Verbindung erfolgreich: ${folders} gefunden${subscribed} (${seconds(result.ms)}).`
+    return t('Verbindung erfolgreich: {{folders}} gefunden{{subscribed}} ({{seconds}}).', {
+      folders,
+      subscribed,
+      seconds: seconds(result.ms)
+    })
   }
   return STAGE_MESSAGES[result.stage]
 }
@@ -55,7 +65,7 @@ export function connectionTestMessage(result: ConnectionTestResult): string {
  */
 export function capabilitiesLine(result: ConnectionTestResult): string | null {
   if (!result.ok || !result.capabilities?.length) return null
-  return `Server-Funktionen: ${result.capabilities.join(', ')}`
+  return t('Server-Funktionen: {{capabilities}}', { capabilities: result.capabilities.join(', ') })
 }
 
 /** "in 40 s", "in 2 min" until `iso`, never negative */

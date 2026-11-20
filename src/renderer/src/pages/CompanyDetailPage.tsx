@@ -25,6 +25,7 @@ import { CompanyMarketingCard } from '@/components/band/marketing/MarketingLinks
 import { VENUE_KIND_LABELS } from '../../../main/api/schemas/venue.schema'
 import type { CompanyDto } from '../../../main/api/schemas/company.schema'
 import { COMPANY_KIND_LABELS } from '../../../main/api/schemas/company.schema'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * Overview: the company's data in one sheet, then what it is linked to (bands, clubs and
@@ -49,8 +50,8 @@ function OverviewTab({ company }: { company: CompanyDto }) {
   const bandRows = bands.data?.map((band) => ({
     ...band,
     role: [
-      band.companyId === company.id && 'Firma der Band',
-      band.managementCompanyId === company.id && 'Management'
+      band.companyId === company.id && t('Firma der Band'),
+      band.managementCompanyId === company.id && t('Management')
     ]
       .filter(Boolean)
       .join(' · ')
@@ -61,15 +62,15 @@ function OverviewTab({ company }: { company: CompanyDto }) {
       <FactSheet
         groups={[
           {
-            title: 'Kontakt',
-            facts: [...contactFacts(contact), ['Adresse', addressBlock(company.address)]]
+            title: t('Kontakt'),
+            facts: [...contactFacts(contact), [t('Adresse'), addressBlock(company.address)]]
           },
           {
-            title: 'Rechnungen',
+            title: t('Rechnungen'),
             facts: [
-              ['Standardfirma', company.isDefaultForInvoicing && 'Ja, für eigene Rechnungen'],
+              [t('Standardfirma'), company.isDefaultForInvoicing && t('Ja, für eigene Rechnungen')],
               [
-                'Ansprechpartner',
+                t('Ansprechpartner'),
                 invoiceContact && (
                   <Link
                     to="/persons/$personId"
@@ -81,45 +82,45 @@ function OverviewTab({ company }: { company: CompanyDto }) {
                 )
               ],
               [
-                'Kundennummer',
+                t('Kundennummer'),
                 company.customerNumber == null ? null : String(company.customerNumber)
               ]
             ]
           },
           {
-            title: 'Steuer & Register',
+            title: t('Steuer & Register'),
             facts: [
               ['USt-IdNr.', company.vatId],
-              ['Steuernummer', company.taxNumber],
-              ['Registernummer', company.commercialRegisterNo],
-              ['Registergericht', company.registerCourt],
+              [t('Steuernummer'), company.taxNumber],
+              [t('Registernummer'), company.commercialRegisterNo],
+              [t('Registergericht'), company.registerCourt],
               ['KSK-Nr.', company.kskNumber]
             ]
           },
           {
-            title: 'Bankverbindung',
+            title: t('Bankverbindung'),
             facts: [
-              ['Bank', bank?.bankName],
-              ['Inhaber', bank?.accountHolder],
+              [t('Bank'), bank?.bankName],
+              [t('Inhaber'), bank?.accountHolder],
               ['IBAN', bank?.iban],
               ['BIC', bank?.bic]
             ]
           },
           {
-            title: 'Medien',
+            title: t('Medien'),
             facts:
               company.kind === 'media'
                 ? [
-                    ['Art', COMPANY_KIND_LABELS[company.kind]],
-                    ['Genres', company.genres]
+                    [t('Art'), COMPANY_KIND_LABELS[company.kind]],
+                    [t('Genres'), company.genres]
                   ]
                 : []
           },
           {
-            title: 'Anmerkungen',
+            title: t('Anmerkungen'),
             facts: [
               [
-                'Notiz',
+                t('Notiz'),
                 company.notes && <span className="whitespace-pre-wrap">{company.notes}</span>
               ]
             ]
@@ -129,13 +130,13 @@ function OverviewTab({ company }: { company: CompanyDto }) {
       <div className="grid gap-6 lg:grid-cols-2">
         <div id="section-bands">
           <LinkList
-            title="Bands"
+            title={t('Bands')}
             items={bandItems(bandRows, (band) => bandRows?.find((row) => row.id === band.id)?.role)}
           />
         </div>
         <div id="section-venues">
           <LinkList
-            title="Clubs / Festivals"
+            title={t('Clubs / Festivals')}
             items={venueItems(venues.data, (venue) => {
               const row = venues.data?.find((entry) => entry.id === venue.id)
               return row
@@ -145,7 +146,7 @@ function OverviewTab({ company }: { company: CompanyDto }) {
           />
         </div>
         <LinkList
-          title="Nächste Events"
+          title={t('Nächste Events')}
           items={eventItems(upcoming(events.data))}
           action={
             <button
@@ -153,12 +154,12 @@ function OverviewTab({ company }: { company: CompanyDto }) {
               className="text-sm text-primary hover:underline"
               onClick={() => toTab('events')}
             >
-              Alle Events
+              {t('Alle Events')}
             </button>
           }
         />
         <LinkList
-          title="Offene Rechnungen"
+          title={t('Offene Rechnungen')}
           items={invoiceItems}
           action={
             <button
@@ -166,13 +167,13 @@ function OverviewTab({ company }: { company: CompanyDto }) {
               className="text-sm text-primary hover:underline"
               onClick={() => toTab('invoices')}
             >
-              Alle Rechnungen
+              {t('Alle Rechnungen')}
             </button>
           }
         />
       </div>
       <CompanyMarketingCard companyId={company.id} />
-      <TabSection id="section-contacts" title="Ansprechpartner">
+      <TabSection id="section-contacts" title={t('Ansprechpartner')}>
         <MembersPanel entityType="company" entityId={company.id} />
       </TabSection>
     </div>
@@ -184,12 +185,12 @@ function EventsTab({ companyId }: { companyId: number }) {
   const events = trpcReact.dealMemo.listByCompany.useQuery(companyId)
   return (
     <RelatedEventsTable
-      label="Events der Firma"
+      label={t('Events der Firma')}
       query={events}
-      empty="Keine Events mit dieser Firma als LoPro oder Rechnungsfirma."
+      empty={t('Keine Events mit dieser Firma als LoPro oder Rechnungsfirma.')}
       roles={(event) => [
         event.loProCompanyId === companyId && 'LoPro',
-        event.invoiceCompanyId === companyId && 'Rechnungsfirma'
+        event.invoiceCompanyId === companyId && t('Rechnungsfirma')
       ]}
     />
   )
@@ -200,9 +201,9 @@ function InvoicesTab({ companyId }: { companyId: number }) {
   const invoices = trpcReact.invoice.listByCompany.useQuery(companyId)
   return (
     <RecordInvoicesTable
-      label="Rechnungen der Firma"
+      label={t('Rechnungen der Firma')}
       query={invoices}
-      empty="Keine Rechnungen von oder an diese Firma."
+      empty={t('Keine Rechnungen von oder an diese Firma.')}
     />
   )
 }
@@ -224,7 +225,7 @@ export default function CompanyDetailPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.company,
     utils: utils.company,
-    noun: 'Firma',
+    noun: t('Firma'),
     label: (company: CompanyDto) => company.name,
     deleteInput: (company) => ({ id: company.id }),
     onSaved: sheet.close,
@@ -237,20 +238,20 @@ export default function CompanyDetailPage() {
     <RecordDetailPage
       id={id}
       query={company}
-      loading="Firma wird geladen…"
+      loading={t('Firma wird geladen…')}
       notFound={{
-        text: 'Firma nicht gefunden.',
-        backLabel: 'Zurück zu den Firmen',
+        text: t('Firma nicht gefunden.'),
+        backLabel: t('Zurück zu den Firmen'),
         onBack: toList
       }}
     >
       {(company) => (
         <RecordDetail
           record={{ type: 'company', id: company.id, name: company.name }}
-          back={{ label: 'Alle Firmen', onBack: toList }}
+          back={{ label: t('Alle Firmen'), onBack: toList }}
           subtitle={[
             company.address?.city,
-            company.isDefaultForInvoicing && 'Standardfirma für Rechnungen'
+            company.isDefaultForInvoicing && t('Standardfirma für Rechnungen')
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -260,30 +261,30 @@ export default function CompanyDetailPage() {
           isTab={isCompanyTab}
           aliases={COMPANY_TAB_ALIASES}
           tabs={[
-            { id: 'overview', label: 'Übersicht', content: <OverviewTab company={company} /> },
+            { id: 'overview', label: t('Übersicht'), content: <OverviewTab company={company} /> },
             {
               id: 'events',
-              label: 'Events',
+              label: t('Events'),
               count: counts.events,
               hideWhenEmpty: true,
               content: <EventsTab companyId={company.id} />
             },
             {
               id: 'invoices',
-              label: 'Rechnungen',
+              label: t('Rechnungen'),
               count: counts.invoices,
               hideWhenEmpty: true,
               content: <InvoicesTab companyId={company.id} />
             }
           ]}
-          documents={{ count: counts.documents, title: 'Dokumente der Firma' }}
+          documents={{ count: counts.documents, title: t('Dokumente der Firma') }}
         >
           <FormSheet
             isOpen={sheet.isOpen}
             onClose={sheet.close}
             mode="edit"
-            title="Firma bearbeiten"
-            description="Firmeninformationen aktualisieren."
+            title={t('Firma bearbeiten')}
+            description={t('Firmeninformationen aktualisieren.')}
           >
             <CompanyForm
               company={sheet.selectedItem || undefined}

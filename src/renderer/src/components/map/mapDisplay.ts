@@ -8,6 +8,7 @@ import type {
   MapMarkerDto,
   MapUnlocatedDto
 } from '../../../../main/api/schemas/map.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /**
  * Whether a marker is a show: an event, or an agency booking (#103) - booked
@@ -81,30 +82,34 @@ export function markerTitle(marker: MapMarkerDto): string {
 
 /** "Agenturbuchung (Agentur X)": how an agency booking is marked wherever it is listed */
 export function agencyLabel(agency: string): string {
-  return agency ? `Agenturbuchung (${agency})` : 'Agenturbuchung'
+  return agency ? t('Agenturbuchung ({{agency}})', { agency }) : t('Agenturbuchung')
 }
 
 /** km label for the ring legend, German notation */
 export function ringLabel(metres: number): string {
-  return `${(metres / 1000).toLocaleString('de-DE')} km`
+  return `${(metres / 1000).toLocaleString(uiLocale())} km`
 }
 
 /** ISO date in German notation ("1.3.2027"), local midnight so no day shift */
 export function germanDate(date: string): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString('de-DE')
+  return new Date(`${date}T00:00:00`).toLocaleDateString(uiLocale())
 }
 
 /** "100 km, 3.4.2026 – 29.5.2026": a clause applied to a show */
 export function ringWindowLabel(ring: { km: number; from: string; to: string }): string {
-  return `${ring.km.toLocaleString('de-DE')} km, ${germanDate(ring.from)} – ${germanDate(ring.to)}`
+  return t('{{km}} km, {{germanDate}} – {{germanDate2}}', {
+    km: ring.km.toLocaleString(uiLocale()),
+    germanDate: germanDate(ring.from),
+    germanDate2: germanDate(ring.to)
+  })
 }
 
 /** How an existing event collides with the what-if booking */
 export const CONFLICT_KIND_LABELS: Record<MapConflictDto['kind'], string> = {
-  both: 'gegenseitig im Gebietsschutz',
-  candidate_covers: 'liegt im Gebietsschutz der Anfrage',
-  event_covers: 'Anfrage liegt in seinem Gebietsschutz',
-  unknown_location: 'Ort unbekannt, Zeitraum überschneidet sich – bitte prüfen'
+  both: t('gegenseitig im Gebietsschutz'),
+  candidate_covers: t('liegt im Gebietsschutz der Anfrage'),
+  event_covers: t('Anfrage liegt in seinem Gebietsschutz'),
+  unknown_location: t('Ort unbekannt, Zeitraum überschneidet sich – bitte prüfen')
 }
 
 /** Escapes user data for Leaflet's HTML popups and tooltips */
@@ -119,10 +124,10 @@ export function escapeHtml(text: string): string {
 
 /** Why an entry is not on the map, as the page's list says it */
 export const UNLOCATED_REASON_LABELS: Record<MapUnlocatedDto['reason'], string> = {
-  no_venue: 'kein Club/Festival',
-  no_address: 'keine Adresse',
-  unknown_postcode: 'PLZ unbekannt',
-  invalid_date: 'Datum ungültig'
+  no_venue: t('kein Club/Festival'),
+  no_address: t('keine Adresse'),
+  unknown_postcode: t('PLZ unbekannt'),
+  invalid_date: t('Datum ungültig')
 }
 
 /**
@@ -214,7 +219,7 @@ export function pointTitle(point: MapPoint): string {
   const [first, ...rest] = [...point.venues, ...point.events]
   const title = markerTitle(first)
   if (point.venues.length === 1 && point.events.length > 0) {
-    return `${title} · ${point.events.length} ${point.events.length === 1 ? 'Event' : 'Events'}`
+    return `${title} · ${point.events.length} ${point.events.length === 1 ? t('Event') : t('Events')}`
   }
   return rest.length > 0 ? `${title} · +${rest.length}` : title
 }
@@ -236,10 +241,10 @@ export function pointPopupHtml(point: MapPoint): string {
     parts.push(
       `<strong>${link(venue, venue.name)}</strong>${
         venue.addressLabel ? `<br>${escapeHtml(venue.addressLabel)}` : ''
-      }${availability === 'free' ? '<br>Frei für die Band' : ''}${blocks(
-        'Blockiert durch',
+      }${availability === 'free' ? t('<br>Frei für die Band') : ''}${blocks(
+        t('Blockiert durch'),
         venue.blockedBy
-      )}${blocks('Risiko (ausstehend)', venue.riskBy)}`
+      )}${blocks(t('Risiko (ausstehend)'), venue.riskBy)}`
     )
   }
   if (point.venues.length === 0 && point.events[0]?.addressLabel) {
@@ -253,14 +258,14 @@ export function pointPopupHtml(point: MapPoint): string {
           event.type === 'agency'
             ? `<br><small>${escapeHtml(agencyLabel(event.agency ?? ''))}</small>`
             : ''
-        }${event.ring ? `<br><small>Gebietsschutz: ${ringWindowLabel(event.ring)}</small>` : ''}${
+        }${event.ring ? `<br><small>${t('Gebietsschutz: {{ring}}', { ring: ringWindowLabel(event.ring) })}</small>` : ''}${
           event.conflicts && event.conflicts.length > 0
-            ? `<br><small>Überschneidung mit: ${event.conflicts.map(blockHtml).join(', ')}</small>`
+            ? `<br><small>${t('Überschneidung mit: {{conflicts}}', { conflicts: event.conflicts.map(blockHtml).join(', ') })}</small>`
             : ''
         }`
     )
     const more = point.events.length - shown.length
-    if (more > 0) rows.push(`+ ${more} weitere`)
+    if (more > 0) rows.push(t('+ {{more}} weitere', { more }))
     parts.push(rows.join('<br>'))
   }
   // Tailwind's preflight zeroes the margins of hr

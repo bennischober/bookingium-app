@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * "An DATEV übergeben" of the invoice print page: the main process mails this page's PDF (with
@@ -50,9 +51,9 @@ export function InvoiceDatevButton({
     if (
       latest &&
       !(await confirmAction({
-        title: 'Erneut an DATEV übergeben?',
+        title: t('Erneut an DATEV übergeben?'),
         description: `${datevTransferLabel(latest)}. DATEV legt dann einen zweiten Beleg an.`,
-        confirmLabel: 'Erneut übergeben'
+        confirmLabel: t('Erneut übergeben')
       }))
     ) {
       return
@@ -62,12 +63,12 @@ export function InvoiceDatevButton({
       const result = await window.api.sendInvoiceToDatev(invoiceId, fileName, category)
       if (!result.success) {
         const tab = result.setup === 'datev' ? 'invoices' : 'email'
-        toast.error('Übergabe an DATEV fehlgeschlagen', {
+        toast.error(t('Übergabe an DATEV fehlgeschlagen'), {
           description: result.error,
           ...(result.setup
             ? {
                 action: {
-                  label: 'Einstellungen öffnen',
+                  label: t('Einstellungen öffnen'),
                   onClick: () => void navigate({ to: '/settings', search: { tab } })
                 }
               }
@@ -77,11 +78,11 @@ export function InvoiceDatevButton({
       }
       const where = `${DATEV_CATEGORY_LABELS[category]} – ${result.to}`
       if (result.eInvoice?.state === 'incomplete') {
-        toast.warning('An DATEV übergeben', {
+        toast.warning(t('An DATEV übergeben'), {
           description: `${where}. PDF ohne E-Rechnung – es fehlt: ${result.eInvoice.missing.join('; ')}`
         })
       } else {
-        toast.success('An DATEV übergeben', { description: where })
+        toast.success(t('An DATEV übergeben'), { description: where })
       }
     } finally {
       // An unclear send stays pending: the list shows it as still being confirmed
@@ -115,7 +116,9 @@ export function InvoiceDatevButton({
         onClick={() => void send()}
         disabled={sending || transfers.isLoading}
         title={
-          latest ? datevTransferLabel(latest) : `PDF an ${PRODUCT_NAMES.datevOnline} übergeben`
+          latest
+            ? datevTransferLabel(latest)
+            : t('PDF an {{datevOnline}} übergeben', { datevOnline: PRODUCT_NAMES.datevOnline })
         }
       >
         {latest?.sentAt ? (
@@ -123,7 +126,7 @@ export function InvoiceDatevButton({
         ) : (
           <Landmark className="h-4 w-4" />
         )}
-        {sending ? 'Wird übergeben…' : 'An DATEV übergeben'}
+        {sending ? t('Wird übergeben…') : t('An DATEV übergeben')}
       </Button>
     </div>
   )

@@ -1,3 +1,4 @@
+import { t, uiLocale } from '../../../../main/i18n/translate'
 export const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -5,13 +6,13 @@ export const STATUS_STYLES: Record<string, string> = {
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Ausstehend',
-  cancelled: 'Storniert'
+  confirmed: t('Bestätigt'),
+  pending: t('Ausstehend'),
+  cancelled: t('Storniert')
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
+  return new Date(iso).toLocaleDateString(uiLocale(), {
     weekday: 'long',
     day: '2-digit',
     month: 'long',

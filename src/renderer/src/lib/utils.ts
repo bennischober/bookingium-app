@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { uiLocale } from '../../../main/i18n/translate'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -31,7 +32,7 @@ export function formatShortDate(iso: string): string {
   // A date without a time is a calendar day, not UTC midnight
   const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
   if (day) return `${day[3]}.${day[2]}.${day[1]}`
-  return parseTimestamp(iso).toLocaleDateString('de-DE', {
+  return parseTimestamp(iso).toLocaleDateString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'

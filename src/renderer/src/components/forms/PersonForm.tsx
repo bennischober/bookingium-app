@@ -7,6 +7,7 @@ import { ContactFormFields } from './ContactFormFields'
 import { addressDefaults, contactDefaults } from './formDefaults'
 import type { z } from 'zod'
 import type { CreatePersonInput, PersonDto } from '../../../../main/api/schemas/person.schema'
+import { t } from '../../../../main/i18n/translate'
 
 interface PersonFormProps {
   person?: PersonDto
@@ -37,25 +38,25 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
   return (
     <FormBody form={form}>
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Persönliche Angaben</h3>
+        <h3 className="text-lg font-semibold">{t('Persönliche Angaben')}</h3>
 
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="firstName">
-            {(field) => <field.TextField label="Vorname" required />}
+            {(field) => <field.TextField label={t('Vorname')} required />}
           </form.AppField>
           <form.AppField name="lastName">
-            {(field) => <field.TextField label="Nachname" required />}
+            {(field) => <field.TextField label={t('Nachname')} required />}
           </form.AppField>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <form.AppField name="birthday">
-            {(field) => <field.TextField label="Geburtstag" type="date" nullIfEmpty />}
+            {(field) => <field.TextField label={t('Geburtstag')} type="date" nullIfEmpty />}
           </form.AppField>
         </div>
 
         <form.AppField name="notes">
-          {(field) => <field.TextareaField label="Anmerkungen" rows={3} />}
+          {(field) => <field.TextareaField label={t('Anmerkungen')} rows={3} />}
         </form.AppField>
       </div>
 
@@ -67,7 +68,7 @@ export function PersonForm({ person, onSubmit, onCancel, prefill }: PersonFormPr
 
       <ContactFormFields form={form} showNoAdvertising />
 
-      <FormFooter onCancel={onCancel}>{person ? 'Speichern' : 'Anlegen'}</FormFooter>
+      <FormFooter onCancel={onCancel}>{person ? t('Speichern') : t('Anlegen')}</FormFooter>
     </FormBody>
   )
 }

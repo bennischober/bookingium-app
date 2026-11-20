@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { flattenFolders, isInbox } from '@/components/mail/format'
 import type { MailRuleDto } from '../../../../main/api/schemas/mailRule.schema'
 import { aliasFolderName, aliasRule, aliasRuleOf } from './aliasFolderRules'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #213: the forwarded addresses of each writable account ("Weitere eigene Adressen"), each with
@@ -38,18 +39,18 @@ export function AliasFolders({ rules }: { rules: MailRuleDto[] }) {
       if (path === null) {
         const op = await mailApi.createFolder(null, name, accountId)
         if (op.state !== 'done' || !op.folderPath) {
-          throw new Error(op.error ?? 'Der Ordner wurde auf dem Server nicht angelegt.')
+          throw new Error(op.error ?? t('Der Ordner wurde auf dem Server nicht angelegt.'))
         }
         path = op.folderPath
         void queryClient.invalidateQueries({ queryKey: ['mail', accountId, 'folders'] })
       }
       await saveRule.mutateAsync(aliasRule(accountId, alias, path))
       await utils.mailRule.list.invalidate()
-      toast.success('Ordner und Regel angelegt', {
-        description: 'Neue Mails an diese Adresse landen ab jetzt in ihrem Ordner.'
+      toast.success(t('Ordner und Regel angelegt'), {
+        description: t('Neue Mails an diese Adresse landen ab jetzt in ihrem Ordner.')
       })
     } catch (error) {
-      toast.error('Ordner oder Regel konnte nicht angelegt werden', {
+      toast.error(t('Ordner oder Regel konnte nicht angelegt werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     } finally {
@@ -59,11 +60,12 @@ export function AliasFolders({ rules }: { rules: MailRuleDto[] }) {
 
   const running = status.data?.running === true
   return (
-    <section className="space-y-2" aria-label="Weitergeleitete Adressen">
-      <h3 className="text-sm font-medium">Weitergeleitete Adressen</h3>
+    <section className="space-y-2" aria-label={t('Weitergeleitete Adressen')}>
+      <h3 className="text-sm font-medium">{t('Weitergeleitete Adressen')}</h3>
       <p className="text-xs text-muted-foreground">
-        Je Adresse ein eigener Ordner: legt den Ordner auf dem Server an und eine Regel, die neue
-        Mails an diese Adresse dorthin verschiebt. Schon vorhandene Mails bleiben, wo sie sind.
+        {t(
+          'Je Adresse ein eigener Ordner: legt den Ordner auf dem Server an und eine Regel, die neue Mails an diese Adresse dorthin verschiebt. Schon vorhandene Mails bleiben, wo sie sind.'
+        )}
       </p>
       <ul className="divide-y rounded-md border">
         {withAliases.flatMap((account) =>
@@ -81,18 +83,18 @@ export function AliasFolders({ rules }: { rules: MailRuleDto[] }) {
                 {rule ? (
                   <span className="flex items-center gap-1.5 text-muted-foreground">
                     <CircleCheck className="h-4 w-4 text-green-600" aria-hidden />
-                    Ordner {rule.moveToFolderPath}
+                    {t('Ordner')} {rule.moveToFolderPath}
                   </span>
                 ) : (
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={!running || busy !== null}
-                    title={running ? undefined : 'Der Mail-Abruf läuft nicht'}
+                    title={running ? undefined : t('Der Mail-Abruf läuft nicht')}
                     onClick={() => void create(account.id, alias)}
                   >
                     <FolderPlus className="h-4 w-4" />
-                    {busy === key ? 'Wird angelegt…' : 'Ordner und Regel anlegen'}
+                    {busy === key ? t('Wird angelegt…') : t('Ordner und Regel anlegen')}
                   </Button>
                 )}
               </li>

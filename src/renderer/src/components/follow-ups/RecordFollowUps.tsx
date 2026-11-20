@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { FollowUpDialog } from './FollowUpDialog'
 import { FollowUpList } from './FollowUpList'
 import type { FollowUpRecord } from '../../../../main/api/schemas/followUp.schema'
+import { t } from '../../../../main/i18n/translate'
 
 type RecordProps = { record: FollowUpRecord & { name: string } }
 
@@ -18,10 +19,10 @@ export function FollowUpButton({ record }: RecordProps) {
         variant="outline"
         className="gap-1.5"
         onClick={() => setOpen(true)}
-        title="Wiedervorlage anlegen"
+        title={t('Wiedervorlage anlegen')}
       >
         <BellPlus className="h-3.5 w-3.5" />
-        Wiedervorlage
+        {t('Wiedervorlage')}
       </Button>
       <FollowUpDialog open={open} onOpenChange={setOpen} record={record} />
     </>
@@ -36,11 +37,11 @@ export function RecordFollowUps({ record }: RecordProps) {
 
   return (
     <section
-      aria-label="Wiedervorlagen"
+      aria-label={t('Wiedervorlagen')}
       className="mb-6 max-w-2xl rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/20"
     >
       <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Wiedervorlagen
+        {t('Wiedervorlagen')}
       </h2>
       <FollowUpList followUps={followUps} />
     </section>

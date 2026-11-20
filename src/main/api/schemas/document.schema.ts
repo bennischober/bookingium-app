@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createPaginatedResponse } from './base.schema'
+import { t } from '../../i18n/translate'
 
 /** Records documents can belong to ('event' = deal memo) */
 export const DOCUMENT_OWNER_TYPES = ['event', 'band', 'company', 'venue', 'person'] as const
@@ -21,16 +22,16 @@ export const DocumentType = z.enum([
 export type DocumentType = z.infer<typeof DocumentType>
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  deal_memo: 'Deal Memo',
-  contract: 'Vertrag',
-  rider: 'Rider',
-  stage_plot: 'Stageplot',
-  press: 'Presse',
-  photo: 'Foto',
-  invoice: 'Rechnung',
-  deposit: 'Vorkasse',
-  settlement: 'Abrechnung',
-  other: 'Sonstiges'
+  deal_memo: t('Deal Memo'),
+  contract: t('Vertrag'),
+  rider: t('Rider'),
+  stage_plot: t('Stageplot'),
+  press: t('Presse'),
+  photo: t('Foto'),
+  invoice: t('Rechnung'),
+  deposit: t('Vorkasse'),
+  settlement: t('Abrechnung'),
+  other: t('Sonstiges')
 }
 
 /**

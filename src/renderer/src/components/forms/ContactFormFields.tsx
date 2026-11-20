@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Star, X } from 'lucide-react'
 import { otherEmailProblem, promoteOtherEmail } from './contactEmailFields'
 import { useFormDisabled } from './formContext'
+import { t } from '../../../../main/i18n/translate'
 
 // The parent form instance (`useAppForm`). Typed loosely on purpose: these shared fields
 // are embedded in several forms with different value shapes, and TanStack Form's FormApi
@@ -30,7 +31,7 @@ export function ContactFormFields({
   const disabled = useFormDisabled()
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Kontaktinformationen</h3>
+      <h3 className="text-lg font-semibold">{t('Kontaktinformationen')}</h3>
       <form.AppField name="contact.email">
         {(field) => <field.TextField label="E-Mail" type="email" placeholder="email@example.com" />}
       </form.AppField>
@@ -43,7 +44,9 @@ export function ContactFormFields({
             // label and the hint show only once there is a further address
             return (
               <div className="-mt-2 space-y-2">
-                {others.length > 0 && <Label className="block pt-2">Weitere E-Mail-Adressen</Label>}
+                {others.length > 0 && (
+                  <Label className="block pt-2">{t('Weitere E-Mail-Adressen')}</Label>
+                )}
                 {others.map((_, index) => (
                   <form.Field
                     key={index}
@@ -65,7 +68,7 @@ export function ContactFormFields({
                           <Input
                             id={`contact.otherEmails.${index}`}
                             type="email"
-                            aria-label={`Weitere E-Mail-Adresse ${index + 1}`}
+                            aria-label={t('Weitere E-Mail-Adresse {{value}}', { value: index + 1 })}
                             value={field.state.value || ''}
                             onChange={(e) => field.handleChange(e.target.value)}
                             onBlur={field.handleBlur}
@@ -76,8 +79,8 @@ export function ContactFormFields({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label="Als Haupt-Adresse"
-                            title="Als Haupt-Adresse"
+                            aria-label={t('Als Haupt-Adresse')}
+                            title={t('Als Haupt-Adresse')}
                             disabled={disabled || !(field.state.value || '').trim()}
                             onClick={() => {
                               const next = promoteOtherEmail(
@@ -95,8 +98,8 @@ export function ContactFormFields({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label="Adresse entfernen"
-                            title="Adresse entfernen"
+                            aria-label={t('Adresse entfernen')}
+                            title={t('Adresse entfernen')}
                             onClick={() => listField.removeValue(index)}
                             disabled={disabled}
                           >
@@ -115,17 +118,20 @@ export function ContactFormFields({
                   variant="ghost"
                   size="sm"
                   className="-ml-2 h-7 px-2 text-muted-foreground hover:text-foreground"
-                  title="Mails von und an weitere Adressen werden dem Kontakt ebenfalls zugeordnet"
+                  title={t(
+                    'Mails von und an weitere Adressen werden dem Kontakt ebenfalls zugeordnet'
+                  )}
                   onClick={() => listField.pushValue('')}
                   disabled={disabled}
                 >
                   <Plus />
-                  Weitere Adresse
+                  {t('Weitere Adresse')}
                 </Button>
                 {others.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet.
-                    Rechnungen und Verteiler nutzen die Haupt-Adresse.
+                    {t(
+                      'Mails von und an diese Adressen werden dem Kontakt ebenfalls zugeordnet. Rechnungen und Verteiler nutzen die Haupt-Adresse.'
+                    )}
                   </p>
                 )}
               </div>
@@ -136,16 +142,20 @@ export function ContactFormFields({
 
       <div className="grid grid-cols-2 gap-4">
         <form.AppField name="contact.phone">
-          {(field) => <field.TextField label="Telefon" type="tel" placeholder="+1 234 567 8900" />}
+          {(field) => (
+            <field.TextField label={t('Telefon')} type="tel" placeholder="+1 234 567 8900" />
+          )}
         </form.AppField>
         <form.AppField name="contact.mobilePhone">
-          {(field) => <field.TextField label="Mobil" type="tel" placeholder="+1 234 567 8900" />}
+          {(field) => (
+            <field.TextField label={t('Mobil')} type="tel" placeholder="+1 234 567 8900" />
+          )}
         </form.AppField>
       </div>
 
       <form.AppField name="contact.homepage">
         {(field) => (
-          <field.TextField label="Homepage" type="url" placeholder="https://example.com" />
+          <field.TextField label={t('Homepage')} type="url" placeholder="https://example.com" />
         )}
       </form.AppField>
 
@@ -153,8 +163,10 @@ export function ContactFormFields({
         <form.AppField name="contact.noAdvertising">
           {(field) => (
             <field.SwitchField
-              label="Keine Werbung"
-              hint="Diese Adresse kommt in keinen Verteiler (z. B. nach einem Werbewiderspruch)."
+              label={t('Keine Werbung')}
+              hint={t(
+                'Diese Adresse kommt in keinen Verteiler (z. B. nach einem Werbewiderspruch).'
+              )}
             />
           )}
         </form.AppField>

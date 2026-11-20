@@ -14,12 +14,13 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import type { MergeKind } from '../../../../main/api/schemas/merge.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const NOUNS: Record<MergeKind, { one: string; other: string }> = {
-  company: { one: 'Firma', other: 'eine andere Firma' },
-  person: { one: 'Person', other: 'eine andere Person' },
-  venue: { one: 'Club/Festival', other: 'einen anderen Club oder ein anderes Festival' },
-  band: { one: 'Band', other: 'eine andere Band' }
+  company: { one: t('Firma'), other: t('eine andere Firma') },
+  person: { one: t('Person'), other: t('eine andere Person') },
+  venue: { one: t('Club/Festival'), other: t('einen anderen Club oder ein anderes Festival') },
+  band: { one: t('Band'), other: t('eine andere Band') }
 }
 
 function useOptions(kind: MergeKind, id: number) {
@@ -76,7 +77,7 @@ export function MergeDialog({
   const merge = trpcReact.merge.merge.useMutation({
     onSuccess: async () => {
       await utils.invalidate()
-      toast.success(`Zusammengeführt in „${name}“`)
+      toast.success(t('Zusammengeführt in „{{name}}“', { name }))
       onClose()
       const params = String(id)
       if (kind === 'company')
@@ -86,7 +87,8 @@ export function MergeDialog({
       else if (kind === 'band') void navigate({ to: '/band/$bandId', params: { bandId: params } })
       else void navigate({ to: '/venues/$venueId', params: { venueId: params } })
     },
-    onError: (error) => toast.error('Zusammenführen fehlgeschlagen', { description: error.message })
+    onError: (error) =>
+      toast.error(t('Zusammenführen fehlgeschlagen'), { description: error.message })
   })
 
   const pick = (next: number | null) => {
@@ -99,17 +101,22 @@ export function MergeDialog({
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>„{name}“ zusammenführen</DialogTitle>
+          <DialogTitle>
+            „{name}
+            {t('“ zusammenführen')}
+          </DialogTitle>
           <DialogDescription>
-            Wähle {NOUNS[kind].other}, die dasselbe meint. Alles, was daran hängt, kommt zu „{name}
-            “; der andere Eintrag wird danach entfernt.
+            {t('Wähle')} {NOUNS[kind].other}
+            {t(', die dasselbe meint. Alles, was daran hängt, kommt zu „')}
+            {name}
+            {t('“; der andere Eintrag wird danach entfernt.')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
           {(candidates.data?.length ?? 0) > 0 && (
             <div className="space-y-1">
-              <p className="font-medium">Mögliche Dopplungen</p>
+              <p className="font-medium">{t('Mögliche Dopplungen')}</p>
               <ul className="space-y-1">
                 {candidates.data!.map((candidate) => (
                   <li key={candidate.id}>
@@ -132,13 +139,16 @@ export function MergeDialog({
           )}
 
           <div className="space-y-1">
-            <Label htmlFor="merge-other">{NOUNS[kind].one}, die übernommen wird</Label>
+            <Label htmlFor="merge-other">
+              {NOUNS[kind].one}
+              {t(', die übernommen wird')}
+            </Label>
             <SearchableSelect
               id="merge-other"
               value={otherId}
               onChange={pick}
               options={options}
-              searchPlaceholder="Suchen…"
+              searchPlaceholder={t('Suchen…')}
             />
           </div>
 
@@ -148,7 +158,7 @@ export function MergeDialog({
             <div className="space-y-4">
               {data.fields.length > 0 && (
                 <div className="space-y-2">
-                  <p className="font-medium">Unterschiedliche Angaben – welche bleibt?</p>
+                  <p className="font-medium">{t('Unterschiedliche Angaben – welche bleibt?')}</p>
                   {data.fields.map((field) => (
                     <fieldset key={field.key} className="rounded-md border p-2">
                       <legend className="px-1 text-xs text-muted-foreground">{field.label}</legend>
@@ -180,7 +190,7 @@ export function MergeDialog({
               )}
               {data.fills.length > 0 && (
                 <div className="space-y-1">
-                  <p className="font-medium">Wird ergänzt</p>
+                  <p className="font-medium">{t('Wird ergänzt')}</p>
                   <ul className="list-inside list-disc text-muted-foreground">
                     {data.fills.map((fill) => (
                       <li key={fill.label}>
@@ -191,11 +201,14 @@ export function MergeDialog({
                 </div>
               )}
               <div className="space-y-1">
-                <p className="font-medium">Kommt zu „{data.keep.name}“</p>
+                <p className="font-medium">
+                  {t('Kommt zu „')}
+                  {data.keep.name}“
+                </p>
                 <p className="text-muted-foreground">
                   {data.moves.length > 0
                     ? data.moves.map((move) => `${move.count} ${move.label}`).join(', ')
-                    : 'Am anderen Eintrag hängt nichts weiter.'}
+                    : t('Am anderen Eintrag hängt nichts weiter.')}
                 </p>
               </div>
             </div>
@@ -204,7 +217,7 @@ export function MergeDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={!data || merge.isPending}
@@ -213,7 +226,9 @@ export function MergeDialog({
               merge.mutate({ kind, keepId: id, dropId: otherId, take: [...take] })
             }
           >
-            {data ? `„${data.drop.name}“ übernehmen und entfernen` : 'Zusammenführen'}
+            {data
+              ? t('„{{name}}“ übernehmen und entfernen', { name: data.drop.name })
+              : t('Zusammenführen')}
           </Button>
         </DialogFooter>
       </DialogContent>

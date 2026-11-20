@@ -11,7 +11,7 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { de, enGB } from 'date-fns/locale'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Calendar } from '@/components/ui/calendar'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,11 @@ import { AgencyBookingList } from '@/components/agency/AgencyBookingList'
 import { cn } from '@/lib/utils'
 import { trpcReact } from '@/lib/trpc'
 import type { FollowUpDto } from '../../../main/api/schemas/followUp.schema'
+import { getLanguage, t } from '../../../main/i18n/translate'
+
+// #254: day and month names and the date pattern in the UI language
+const DATE_LOCALE = getLanguage() === 'en' ? enGB : de
+const DATE_PATTERN = t('dd.MM.yyyy')
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -36,9 +41,9 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Ausstehend',
-  cancelled: 'Storniert'
+  confirmed: t('Bestätigt'),
+  pending: t('Ausstehend'),
+  cancelled: t('Storniert')
 }
 
 export default function CalendarPage() {
@@ -193,7 +198,7 @@ export default function CalendarPage() {
       .sort((a, b) => compareAsc(parseISO(a[0]), parseISO(b[0])))
       .map(([dayKey, dayEvents]) => ({
         dayKey,
-        dayLabel: format(parseISO(dayKey), 'EEEE, dd. MMMM yyyy', { locale: de }),
+        dayLabel: format(parseISO(dayKey), t('EEEE, dd. MMMM yyyy'), { locale: DATE_LOCALE }),
         items: dayEvents.sort((a, b) => compareAsc(a.parsedDate, b.parsedDate)),
         followUps: followUpsByDay.get(dayKey) ?? [],
         appointments: appointmentsOnDay.get(dayKey) ?? [],
@@ -215,23 +220,24 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col w-full h-full p-6 gap-6">
       <div>
-        <h1 className="text-2xl font-bold mb-2">Kalender</h1>
+        <h1 className="text-2xl font-bold mb-2">{t('Kalender')}</h1>
         <p className="text-sm text-muted-foreground">
-          Tag anklicken, um seine Events, Termine und Wiedervorlagen zu sehen oder dort etwas Neues
-          anzulegen (Doppelklick legt direkt ein Event an).
+          {t(
+            'Tag anklicken, um seine Events, Termine und Wiedervorlagen zu sehen oder dort etwas Neues anzulegen (Doppelklick legt direkt ein Event an).'
+          )}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Event-Kalender</CardTitle>
+            <CardTitle>{t('Event-Kalender')}</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Calendar
               mode="single"
               required
-              locale={de}
+              locale={DATE_LOCALE}
               weekStartsOn={1}
               selected={selectedDate}
               onSelect={(date) => {
@@ -272,24 +278,24 @@ export default function CalendarPage() {
             <div className="mt-4 space-y-3 border-t pt-4" data-testid="selected-day">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-medium">
-                  {format(selectedDate, 'EEEE, dd.MM.yyyy', { locale: de })}
+                  {format(selectedDate, t('EEEE, dd.MM.yyyy'), { locale: DATE_LOCALE })}
                 </p>
                 {/* "+" as text like the other create buttons: the thin Plus icon
                     sat visibly higher than the text in this font */}
                 <div className="flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setFollowUpOpen(true)}>
-                    + Wiedervorlage
+                    {t('+ Wiedervorlage')}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setAppointmentOpen(true)}>
-                    + Termin
+                    {t('+ Termin')}
                   </Button>
                   <Button size="sm" onClick={() => setWizardOpen(true)}>
-                    + Event anlegen
+                    {t('+ Event anlegen')}
                   </Button>
                 </div>
               </div>
               {selectedDayEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Keine Events an diesem Tag.</p>
+                <p className="text-sm text-muted-foreground">{t('Keine Events an diesem Tag.')}</p>
               ) : (
                 <div className="space-y-2">
                   {selectedDayEvents.map((event) => (
@@ -308,25 +314,28 @@ export default function CalendarPage() {
                 </div>
               )}
               {selectedDayAgency.length > 0 && (
-                <section aria-label="Agenturbuchungen an diesem Tag" className="space-y-2 pt-1">
+                <section
+                  aria-label={t('Agenturbuchungen an diesem Tag')}
+                  className="space-y-2 pt-1"
+                >
                   <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Agenturbuchungen
+                    {t('Agenturbuchungen')}
                   </h3>
                   <AgencyBookingList bookings={selectedDayAgency} />
                 </section>
               )}
               {selectedDayAppointments.length > 0 && (
-                <section aria-label="Termine an diesem Tag" className="space-y-2 pt-1">
+                <section aria-label={t('Termine an diesem Tag')} className="space-y-2 pt-1">
                   <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Termine
+                    {t('Termine')}
                   </h3>
                   <AppointmentList appointments={selectedDayAppointments} day={selectedKey} />
                 </section>
               )}
               {selectedDayFollowUps.length > 0 && (
-                <section aria-label="Wiedervorlagen an diesem Tag" className="space-y-2 pt-1">
+                <section aria-label={t('Wiedervorlagen an diesem Tag')} className="space-y-2 pt-1">
                   <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Wiedervorlagen
+                    {t('Wiedervorlagen')}
                   </h3>
                   <FollowUpList followUps={selectedDayFollowUps} showRecord />
                 </section>
@@ -340,29 +349,35 @@ export default function CalendarPage() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <CardTitle>
                 {viewMode === 'day'
-                  ? `Agenda für den ${format(selectedDate, 'dd.MM.yyyy')}`
+                  ? t('Agenda für den {{format}}', { format: format(selectedDate, DATE_PATTERN) })
                   : viewMode === 'week'
-                    ? `Agenda für die Woche vom ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd.MM.yyyy')}`
-                    : `Agenda für ${format(activeMonthDate, 'MMMM yyyy', { locale: de })}`}
+                    ? t('Agenda für die Woche vom {{format}}', {
+                        format: format(startOfWeek(selectedDate, { weekStartsOn: 1 }), DATE_PATTERN)
+                      })
+                    : t('Agenda für {{format}}', {
+                        format: format(activeMonthDate, 'MMMM yyyy', { locale: DATE_LOCALE })
+                      })}
               </CardTitle>
               <Tabs
                 value={viewMode}
                 onValueChange={(value) => setViewMode(value as 'day' | 'week' | 'month')}
               >
                 <TabsList>
-                  <TabsTrigger value="day">Tag</TabsTrigger>
-                  <TabsTrigger value="week">Woche</TabsTrigger>
-                  <TabsTrigger value="month">Monat</TabsTrigger>
+                  <TabsTrigger value="day">{t('Tag')}</TabsTrigger>
+                  <TabsTrigger value="week">{t('Woche')}</TabsTrigger>
+                  <TabsTrigger value="month">{t('Monat')}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           </CardHeader>
           <CardContent>
             {events.isLoading ? (
-              <p className="text-sm text-muted-foreground">Events werden geladen…</p>
+              <p className="text-sm text-muted-foreground">{t('Events werden geladen…')}</p>
             ) : groupedAgenda.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine Events, Agenturbuchungen, Termine oder Wiedervorlagen für diese Auswahl.
+                {t(
+                  'Keine Events, Agenturbuchungen, Termine oder Wiedervorlagen für diese Auswahl.'
+                )}
               </p>
             ) : (
               <div className="space-y-5">
@@ -379,7 +394,7 @@ export default function CalendarPage() {
                         )}
                       >
                         {group.dayLabel}
-                        {isSelected && ' · ausgewählt'}
+                        {isSelected && t(' · ausgewählt')}
                       </button>
 
                       <div className="space-y-3">

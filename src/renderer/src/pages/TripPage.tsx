@@ -10,6 +10,7 @@ import { ListPageHeader } from '@/components/ListPageHeader'
 import { TripDialog } from '@/components/trips/TripDialog'
 import { amountText } from '@/components/receipts/receiptForm'
 import type { TripDto } from '../../../main/api/schemas/trip.schema'
+import { t } from '../../../main/i18n/translate'
 
 /** #225 step 2: business trips (Reisekostenabrechnung) */
 export default function TripPage() {
@@ -21,17 +22,19 @@ export default function TripPage() {
     onSuccess: () => {
       void utils.trip.invalidate()
       void utils.receipt.invalidate()
-      toast.success('Reise gelöscht', { description: 'Die Belege bleiben unter Belege.' })
+      toast.success(t('Reise gelöscht'), { description: t('Die Belege bleiben unter Belege.') })
     },
     onError: (error) =>
-      toast.error('Reise konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Reise konnte nicht gelöscht werden'), { description: error.message })
   })
 
   const confirmRemove = async (trip: TripDto) => {
     const confirmed = await confirmAction({
-      title: `Reise „${trip.purpose || trip.destination || trip.travellerName}“ löschen?`,
-      description: 'Die Belege und eine erstellte Abrechnung bleiben unter Belege erhalten.',
-      confirmLabel: 'Löschen',
+      title: t('Reise „{{value}}“ löschen?', {
+        value: trip.purpose || trip.destination || trip.travellerName
+      }),
+      description: t('Die Belege und eine erstellte Abrechnung bleiben unter Belege erhalten.'),
+      confirmLabel: t('Löschen'),
       destructive: true
     })
     if (confirmed) remove.mutate({ id: trip.id })
@@ -41,26 +44,28 @@ export default function TripPage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
-        title="Reisekosten"
-        description="Dienstreisen mit Verpflegungspauschalen, Kilometern und Belegen; die Abrechnung geht als ein PDF an DATEV."
+        title={t('Reisekosten')}
+        description={t(
+          'Dienstreisen mit Verpflegungspauschalen, Kilometern und Belegen; die Abrechnung geht als ein PDF an DATEV.'
+        )}
       >
-        <Button onClick={() => setEditing(null)}>+ Neue Reise</Button>
+        <Button onClick={() => setEditing(null)}>{t('+ Neue Reise')}</Button>
       </ListPageHeader>
 
-      {trips.isLoading && <p className="text-sm text-muted-foreground">Wird geladen…</p>}
+      {trips.isLoading && <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>}
       {!trips.isLoading && list.length === 0 && (
-        <p className="text-sm text-muted-foreground">Noch keine Reise erfasst.</p>
+        <p className="text-sm text-muted-foreground">{t('Noch keine Reise erfasst.')}</p>
       )}
       {list.length > 0 && (
         <div className="min-h-0 overflow-auto rounded-md border">
-          <table className="w-full text-sm" aria-label="Reisen">
+          <table className="w-full text-sm" aria-label={t('Reisen')}>
             <thead className="sticky top-0 bg-muted text-left">
               <tr>
-                <th className="px-3 py-2 font-medium">Zeitraum</th>
-                <th className="px-3 py-2 font-medium">Person</th>
-                <th className="px-3 py-2 font-medium">Anlass / Ziel</th>
-                <th className="px-3 py-2 text-right font-medium">Belege</th>
-                <th className="px-3 py-2 text-right font-medium">Erstattung</th>
+                <th className="px-3 py-2 font-medium">{t('Zeitraum')}</th>
+                <th className="px-3 py-2 font-medium">{t('Person')}</th>
+                <th className="px-3 py-2 font-medium">{t('Anlass / Ziel')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('Belege')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('Erstattung')}</th>
                 <th className="px-3 py-2 font-medium">DATEV</th>
                 <th className="px-3 py-2" />
               </tr>
@@ -87,14 +92,14 @@ export default function TripPage() {
                   </td>
                   <td className="px-3 py-2">
                     {!trip.report ? (
-                      <span className="text-muted-foreground">keine Abrechnung</span>
+                      <span className="text-muted-foreground">{t('keine Abrechnung')}</span>
                     ) : trip.report.datev === 'sent' ? (
                       <Badge variant="secondary" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> übergeben
+                        <CheckCircle2 className="h-3 w-3" /> {t('übergeben')}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">
-                        {trip.report.datev === 'pending' ? 'wird bestätigt' : 'offen'}
+                        {trip.report.datev === 'pending' ? t('wird bestätigt') : 'offen'}
                       </span>
                     )}
                   </td>
@@ -102,7 +107,7 @@ export default function TripPage() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Reise löschen"
+                      aria-label={t('Reise löschen')}
                       onClick={(event) => {
                         event.stopPropagation()
                         void confirmRemove(trip)

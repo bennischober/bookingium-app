@@ -9,6 +9,7 @@ import { ImportDialog } from '@/components/import/ImportDialog'
 import { TERMS } from '../../../../main/api/terms'
 import type { ImportTarget } from '../../../../main/api/schemas/import.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { t } from '../../../../main/i18n/translate'
 
 type Open =
   | { kind: 'tour' }
@@ -60,15 +61,15 @@ export function ImportMenu() {
           <Button
             size="sm"
             variant="outline"
-            aria-label="Import"
-            title="Importieren: Tourdaten, Agenturbuchungen, Listen"
+            aria-label={t('Import')}
+            title={t('Importieren: Tourdaten, Agenturbuchungen, Listen')}
           >
             <Upload className="h-4 w-4" />
-            <span className="hidden md:inline">Import</span>
+            <span className="hidden md:inline">{t('Import')}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
-          <div role="menu" aria-label="Importieren" className="flex flex-col">
+          <div role="menu" aria-label={t('Importieren')} className="flex flex-col">
             <button
               type="button"
               role="menuitem"
@@ -76,7 +77,7 @@ export function ImportMenu() {
               onClick={() => choose({ kind: 'tour' })}
             >
               <CalendarRange className="h-4 w-4 text-muted-foreground" />
-              Tourdaten
+              {t('Tourdaten')}
             </button>
             <button
               type="button"
@@ -85,7 +86,7 @@ export function ImportMenu() {
               onClick={() => choose({ kind: 'agency' })}
             >
               <Building2 className="h-4 w-4 text-muted-foreground" />
-              Agenturbuchungen
+              {t('Agenturbuchungen')}
             </button>
             <div className="my-1 h-px bg-border" aria-hidden />
             {LIST_ITEMS.map((item) => (

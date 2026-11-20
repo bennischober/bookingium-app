@@ -3,6 +3,7 @@ import { BedDouble, ClipboardList, FileSignature, Receipt, Ticket, Wallet } from
 import type { OpenItemDto } from '../../../../main/api/schemas/open_items.schema'
 import { localIsoDate } from '@/lib/followUps'
 import { openItemTab, openItemText } from './openItemText'
+import { t } from '../../../../main/i18n/translate'
 
 const ICONS: Record<OpenItemDto['kind'], typeof Wallet> = {
   contract: FileSignature,
@@ -26,7 +27,7 @@ export function OpenItemsList({
 }) {
   const today = localIsoDate()
   return (
-    <ul className="divide-y" aria-label="Offene Punkte">
+    <ul className="divide-y" aria-label={t('Offene Punkte')}>
       {items.map((item) => {
         const Icon = ICONS[item.kind]
         const overdue = item.date < today && item.kind !== 'hotel' && item.kind !== 'advancing'

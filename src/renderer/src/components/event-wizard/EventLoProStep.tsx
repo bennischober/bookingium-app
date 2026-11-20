@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { EntityCombobox, type ComboboxItem } from '@/components/ui/entity-combobox'
 import type { SetWizardField, WizardFormData } from '@/components/event-wizard/wizardState'
+import { t } from '../../../../main/i18n/translate'
 
 /** Step 2 (optional): the local promoter, a person and/or a company */
 export function EventLoProStep({
@@ -28,8 +29,9 @@ export function EventLoProStep({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Der LoPro (Local Promoter) ist die Person und/oder Firma, die vor Ort für die Show
-        verantwortlich ist.
+        {t(
+          'Der LoPro (Local Promoter) ist die Person und/oder Firma, die vor Ort für die Show verantwortlich ist.'
+        )}
       </p>
 
       <div className="space-y-2">
@@ -38,11 +40,11 @@ export function EventLoProStep({
           items={personItems}
           value={form.loProPersonId}
           onChange={(id) => set('loProPersonId', id)}
-          placeholder="Person auswählen…"
-          searchPlaceholder="Personen suchen…"
+          placeholder={t('Person auswählen…')}
+          searchPlaceholder={t('Personen suchen…')}
           isLoading={personsLoading}
           onCreateNew={onCreatePerson}
-          createNewLabel="Neue Person anlegen"
+          createNewLabel={t('Neue Person anlegen')}
         />
         {onCreateSenderPerson && form.loProPersonId === null && (
           <Button
@@ -53,7 +55,7 @@ export function EventLoProStep({
             onClick={onCreateSenderPerson}
           >
             <UserPlus className="h-3.5 w-3.5" />
-            Absender als Person anlegen
+            {t('Absender als Person anlegen')}
           </Button>
         )}
       </div>
@@ -64,8 +66,8 @@ export function EventLoProStep({
           items={companyItems}
           value={form.loProCompanyId}
           onChange={(id) => set('loProCompanyId', id)}
-          placeholder="Firma auswählen…"
-          searchPlaceholder="Firmen suchen…"
+          placeholder={t('Firma auswählen…')}
+          searchPlaceholder={t('Firmen suchen…')}
           isLoading={companiesLoading}
         />
       </div>

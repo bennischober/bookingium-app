@@ -33,6 +33,7 @@ import {
 } from '@/components/map/mapDisplay'
 import { formatClause, type RadiusDefaults } from '@/components/map/radiusDisplay'
 import type { MapCandidateDto, MapKindFilter } from '../../../main/api/schemas/map.schema'
+import { t } from '../../../main/i18n/translate'
 
 const SHOW_ALL = 'alle'
 
@@ -44,9 +45,11 @@ export default function MapPage() {
   if (enabled) return <MapPreview defaults={defaults} />
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <h1 className="text-2xl font-bold">Karte</h1>
-      <p className="text-sm text-muted-foreground">Die Karte ist ausgeschaltet.</p>
-      <Button onClick={() => void navigate({ to: '/settings' })}>Zu den Einstellungen</Button>
+      <h1 className="text-2xl font-bold">{t('Karte')}</h1>
+      <p className="text-sm text-muted-foreground">{t('Die Karte ist ausgeschaltet.')}</p>
+      <Button onClick={() => void navigate({ to: '/settings' })}>
+        {t('Zu den Einstellungen')}
+      </Button>
     </div>
   )
 }
@@ -122,10 +125,11 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
     // Scrolls as a whole on a low window, so the map keeps a usable height
     <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto p-6">
       <div className="mb-4">
-        <h1 className="mb-2 text-2xl font-bold">Karte</h1>
+        <h1 className="mb-2 text-2xl font-bold">{t('Karte')}</h1>
         <p className="text-sm text-muted-foreground">
-          Events, Clubs und Festivals mit ihrem Gebietsschutz: Mit einer Band gewählt zeigt die
-          Karte, wo sie noch frei ist. „Anfrage prüfen“ zeigt, was eine Buchung blockieren würde.
+          {t(
+            'Events, Clubs und Festivals mit ihrem Gebietsschutz: Mit einer Band gewählt zeigt die Karte, wo sie noch frei ist. „Anfrage prüfen“ zeigt, was eine Buchung blockieren würde.'
+          )}
         </p>
         <Tip id="map" className="mt-3" />
       </div>
@@ -133,32 +137,32 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
       {/* Filters above the map; the map takes the remaining height */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="space-y-1">
-          <Label htmlFor="map-kind">Art</Label>
+          <Label htmlFor="map-kind">{t('Art')}</Label>
           <MultiSelect
             id="map-kind"
             value={kinds}
             onChange={(value) => setKinds(value as MapKindFilter[])}
             options={[
-              { value: 'venue', label: 'Clubs' },
-              { value: 'festival', label: 'Festivals' }
+              { value: 'venue', label: t('Clubs') },
+              { value: 'festival', label: t('Festivals') }
             ]}
-            placeholder="Alle"
+            placeholder={t('Alle')}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-band">Band</Label>
+          <Label htmlFor="map-band">{t('Band')}</Label>
           <SearchableSelect
             id="map-band"
             value={bandId}
             onChange={setBandId}
             options={(bands.data ?? []).map((band) => ({ value: band.id, label: band.name }))}
-            noneLabel="Alle Bands"
-            searchPlaceholder="Band suchen…"
-            emptyText="Keine Bands angelegt."
+            noneLabel={t('Alle Bands')}
+            searchPlaceholder={t('Band suchen…')}
+            emptyText={t('Keine Bands angelegt.')}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-tour">Tour</Label>
+          <Label htmlFor="map-tour">{t('Tour')}</Label>
           <Select
             value={tour ?? SHOW_ALL}
             onValueChange={(value) => setTour(value === SHOW_ALL ? null : value)}
@@ -167,7 +171,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SHOW_ALL}>Alle Touren</SelectItem>
+              <SelectItem value={SHOW_ALL}>{t('Alle Touren')}</SelectItem>
               {(tours.data ?? []).map((name) => (
                 <SelectItem key={name} value={name}>
                   {name}
@@ -177,7 +181,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-date-from">Von</Label>
+          <Label htmlFor="map-date-from">{t('Von')}</Label>
           <Input
             id="map-date-from"
             type="date"
@@ -186,7 +190,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-date-to">Bis</Label>
+          <Label htmlFor="map-date-to">{t('Bis')}</Label>
           <Input
             id="map-date-to"
             type="date"
@@ -195,7 +199,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-venue">Zentrieren auf</Label>
+          <Label htmlFor="map-venue">{t('Zentrieren auf')}</Label>
           <Select
             value={focusVenueId === null ? SHOW_ALL : String(focusVenueId)}
             onValueChange={(value) => setFocusVenueId(value === SHOW_ALL ? null : Number(value))}
@@ -204,7 +208,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SHOW_ALL}>Gesamte Karte</SelectItem>
+              <SelectItem value={SHOW_ALL}>{t('Gesamte Karte')}</SelectItem>
               {venues.map((venue) => (
                 <SelectItem key={venue.id} value={String(venue.id)}>
                   {venue.name}
@@ -218,7 +222,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
       {/* What if: the candidate booking */}
       <div className="mb-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
         <div className="space-y-1">
-          <Label htmlFor="map-candidate-venue">Anfrage prüfen: Club / Festival</Label>
+          <Label htmlFor="map-candidate-venue">{t('Anfrage prüfen: Club / Festival')}</Label>
           <SearchableSelect
             id="map-candidate-venue"
             value={candidateVenueId}
@@ -227,13 +231,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
               value: venue.id,
               label: venue.name
             }))}
-            noneLabel="Keine Anfrage"
-            searchPlaceholder="Club / Festival suchen…"
-            emptyText="Keine Clubs oder Festivals angelegt."
+            noneLabel={t('Keine Anfrage')}
+            searchPlaceholder={t('Club / Festival suchen…')}
+            emptyText={t('Keine Clubs oder Festivals angelegt.')}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="map-candidate-date">Datum der Anfrage</Label>
+          <Label htmlFor="map-candidate-date">{t('Datum der Anfrage')}</Label>
           <Input
             id="map-candidate-date"
             type="date"
@@ -250,7 +254,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           disabled={candidateVenueId === null && !candidateDate}
         >
           <X className="h-4 w-4" />
-          Zurücksetzen
+          {t('Zurücksetzen')}
         </Button>
       </div>
 
@@ -272,13 +276,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           {/* Legend and ring toggle on top of the tiles (above every Leaflet pane), in the corner
               Leaflet leaves free: zoom sits top left, attribution bottom right */}
           <div className="absolute top-2 right-2 z-[1000] space-y-1 rounded-md border bg-popover/95 p-3 text-xs shadow-sm">
-            <div className="font-medium">Legende</div>
+            <div className="font-medium">{t('Legende')}</div>
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full"
                 style={{ background: MARKER_COLORS.event }}
               />
-              Event
+              {t('Event')}
             </div>
             {agencyCount > 0 && (
               <div className="flex items-center gap-2">
@@ -286,7 +290,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                   className="inline-block size-2 rounded-full"
                   style={{ background: MARKER_COLORS.agency }}
                 />
-                Agenturbuchung
+                {t('Agenturbuchung')}
               </div>
             )}
             <div className="flex items-center gap-2">
@@ -294,14 +298,14 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 className="inline-block size-2 rounded-full"
                 style={{ background: MARKER_COLORS.venue }}
               />
-              Club
+              {t('Club')}
             </div>
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full"
                 style={{ background: MARKER_COLORS.festival }}
               />
-              Festival
+              {t('Festival')}
             </div>
             {bandId !== null && (
               <>
@@ -310,14 +314,14 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                     className="inline-block size-2 rounded-full"
                     style={{ background: MARKER_COLORS.blocked }}
                   />
-                  Blockiert
+                  {t('Blockiert')}
                 </div>
                 <div className="flex items-center gap-2">
                   <span
                     className="inline-block size-2 rounded-full border-2"
                     style={{ borderColor: MARKER_COLORS.risk }}
                   />
-                  Risiko (ausstehend)
+                  {t('Risiko (ausstehend)')}
                 </div>
               </>
             )}
@@ -326,14 +330,14 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.venue }}
               />
-              Gebietsschutz (Club)
+              {t('Gebietsschutz (Club)')}
             </div>
             <div className="flex items-center gap-2">
               <span
                 className="inline-block size-2 rounded-full border-2"
                 style={{ borderColor: MARKER_COLORS.festival }}
               />
-              Gebietsschutz (Festival)
+              {t('Gebietsschutz (Festival)')}
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 border-t-2 border-dashed border-muted-foreground" />
@@ -345,7 +349,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                   className="inline-block size-2 rounded-full"
                   style={{ background: MARKER_COLORS.candidate }}
                 />
-                Anfrage
+                {t('Anfrage')}
               </div>
             )}
             <label className="flex items-center gap-2 pt-1">
@@ -354,7 +358,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 checked={showRings}
                 onChange={(event) => setShowRings(event.target.checked)}
               />
-              Ringe zeigen
+              {t('Ringe zeigen')}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -362,7 +366,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 checked={showVenueRings}
                 onChange={(event) => setShowVenueRings(event.target.checked)}
               />
-              Umkreis um alle Orte
+              {t('Umkreis um alle Orte')}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -370,7 +374,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 checked={mutedTiles}
                 onChange={(event) => setMutedTiles(event.target.checked)}
               />
-              Karte grau
+              {t('Karte grau')}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -379,12 +383,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                 disabled={!showRings && !showVenueRings}
                 onChange={(event) => setHighlightAll(event.target.checked)}
               />
-              Alle Kreise hervorheben
+              {t('Alle Kreise hervorheben')}
             </label>
             {(showRings || showVenueRings) && highlightAll && (
               <p className="max-w-44 text-muted-foreground">
-                Jeder Kreis ist halb durchsichtig gefüllt: wo sich Gebietsschutz überlappt, wird es
-                dunkler. Wo die Karte frei bleibt, passt noch eine Show.
+                {t(
+                  'Jeder Kreis ist halb durchsichtig gefüllt: wo sich Gebietsschutz überlappt, wird es dunkler. Wo die Karte frei bleibt, passt noch eine Show.'
+                )}
               </p>
             )}
             {showRings &&
@@ -394,11 +399,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                   className="pt-1 text-left text-primary underline-offset-2 hover:underline"
                   onClick={() => setFocusShow(null)}
                 >
-                  Hervorhebung aufheben
+                  {t('Hervorhebung aufheben')}
                 </button>
               ) : (
                 <p className="max-w-44 pt-1 text-muted-foreground">
-                  Eine Zeile in der Liste anklicken hebt den Gebietsschutz dieser Show hervor.
+                  {t(
+                    'Eine Zeile in der Liste anklicken hebt den Gebietsschutz dieser Show hervor.'
+                  )}
                 </p>
               ))}
           </div>
@@ -413,11 +420,11 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                   className="absolute bottom-2 left-2 z-[1001] bg-popover/95 shadow-sm"
                 >
                   <MapPinOff className="h-4 w-4" />
-                  {unlocated.length} nicht auf der Karte
+                  {unlocated.length} {t('nicht auf der Karte')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-3 text-sm">
-                <p className="mb-2 font-medium">Nicht auf der Karte</p>
+                <p className="mb-2 font-medium">{t('Nicht auf der Karte')}</p>
                 <ul className="space-y-1">
                   {unlocated.map((entry) => {
                     const href = markerHref(entry)
@@ -429,7 +436,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
                           </a>
                         ) : (
                           // An agency booking has no page; its address comes from the next import
-                          <span className="truncate" title="Agenturbuchung">
+                          <span className="truncate" title={t('Agenturbuchung')}>
                             {entry.name}
                           </span>
                         )}
@@ -446,13 +453,13 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
           {/* Loading and empty states overlaying the tiles */}
           {map.isLoading && (
             <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 text-sm text-muted-foreground">
-              Lädt…
+              {t('Lädt…')}
             </div>
           )}
           {!map.isLoading && located.length === 0 && (
             <div className="absolute inset-0 z-[1000] flex flex-col items-center justify-center gap-2 bg-background/60 text-center text-sm text-muted-foreground">
               <MapIcon className="h-6 w-6" />
-              Keine Treffer für die Filter.
+              {t('Keine Treffer für die Filter.')}
             </div>
           )}
         </div>
@@ -466,60 +473,63 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
             !candidateDate && (
               <Card>
                 <CardContent className="pt-6 text-sm text-muted-foreground">
-                  Ein Datum für die Anfrage wählen.
+                  {t('Ein Datum für die Anfrage wählen.')}
                 </CardContent>
               </Card>
             )
           )}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Auf der Karte</CardTitle>
+              <CardTitle className="text-base">{t('Auf der Karte')}</CardTitle>
               <CardDescription>
-                {eventCount} {eventCount === 1 ? 'Event' : 'Events'} ·{' '}
+                {eventCount} {eventCount === 1 ? t('Event') : t('Events')} ·{' '}
                 {agencyCount > 0 &&
-                  `${agencyCount} ${agencyCount === 1 ? 'Agenturbuchung' : 'Agenturbuchungen'} · `}
-                {venues.length} {venues.length === 1 ? 'Club/Festival' : 'Clubs/Festivals'}
+                  `${agencyCount} ${agencyCount === 1 ? t('Agenturbuchung') : t('Agenturbuchungen')} · `}
+                {venues.length} {venues.length === 1 ? t('Club/Festival') : t('Clubs/Festivals')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {conflicting > 0 && (
                 <p className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  {conflicting} {conflicting === 1 ? 'Show liegt' : 'Shows liegen'} im Gebietsschutz
-                  einer anderen Show derselben Band (siehe Liste unter der Karte).
+                  {conflicting} {conflicting === 1 ? t('Show liegt') : t('Shows liegen')}{' '}
+                  {t(
+                    'im Gebietsschutz einer anderen Show derselben Band (siehe Liste unter der Karte).'
+                  )}
                 </p>
               )}
               {bandId !== null ? (
                 <p>
-                  Für die Band: {availability.free} frei · {availability.risk} mit Risiko ·{' '}
-                  {availability.blocked} blockiert
+                  {t('Für die Band:')} {availability.free} {t('frei ·')} {availability.risk}{' '}
+                  {t('mit Risiko ·')} {availability.blocked} blockiert
                 </p>
               ) : (
                 <p className="text-muted-foreground">
-                  Eine Band wählen, um zu sehen, wo sie frei ist und was blockiert.
+                  {t('Eine Band wählen, um zu sehen, wo sie frei ist und was blockiert.')}
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Standard: Clubs {formatClause(defaults.club)}; Festivals{' '}
-                {formatClause(defaults.festival)} (Einstellungen › Allgemein). Eigene Werte für
-                einen Club oder ein Festival stehen in seinem Formular, für ein Event in dessen
-                Übersicht. Ein Event erscheint, solange sein Gebietsschutz in den Zeitraum fällt.
+                {t('Standard: Clubs')} {formatClause(defaults.club)}
+                {t('; Festivals')} {formatClause(defaults.festival)}{' '}
+                {t(
+                  '(Einstellungen › Allgemein). Eigene Werte für einen Club oder ein Festival stehen in seinem Formular, für ein Event in dessen Übersicht. Ein Event erscheint, solange sein Gebietsschutz in den Zeitraum fällt.'
+                )}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Hinweise</CardTitle>
+              <CardTitle className="text-base">{t('Hinweise')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs text-muted-foreground">
               <p>
-                Adressen werden nur offline über die Postleitzahl verortet; nichts verlässt den
-                Rechner. Kartenbilder von OpenStreetMap – dabei sieht der Kartenanbieter, welcher
-                Ausschnitt geladen wird.
+                {t(
+                  'Adressen werden nur offline über die Postleitzahl verortet; nichts verlässt den Rechner. Kartenbilder von OpenStreetMap – dabei sieht der Kartenanbieter, welcher Ausschnitt geladen wird.'
+                )}
               </p>
               <p>
                 <Navigation className="mr-1 inline h-3 w-3" />
-                Einen Club oder ein Festival auswählen, um die Karte darauf zu zentrieren.
+                {t('Einen Club oder ein Festival auswählen, um die Karte darauf zu zentrieren.')}
               </p>
             </CardContent>
           </Card>
@@ -528,7 +538,7 @@ function MapPreview({ defaults }: { defaults: RadiusDefaults }) {
 
       {/* The shows on the map, sortable: by date, band, tour, radius clause, overlaps */}
       <div className="mt-4 space-y-2">
-        <h2 className="text-base font-semibold">Shows im Gebietsschutz</h2>
+        <h2 className="text-base font-semibold">{t('Shows im Gebietsschutz')}</h2>
         <ShowTable
           markers={map.data?.markers ?? []}
           bandNames={bandNames}
@@ -550,24 +560,30 @@ function CandidateCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Anfrage: {candidate.name}</CardTitle>
-        <CardDescription>Gebietsschutz {ringWindowLabel(candidate.ring)}</CardDescription>
+        <CardTitle className="text-base">
+          {t('Anfrage:')} {candidate.name}
+        </CardTitle>
+        <CardDescription>
+          {t('Gebietsschutz')} {ringWindowLabel(candidate.ring)}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {!candidate.located && (
           <p className="text-muted-foreground">
-            Ohne bekannte PLZ nicht auf der Karte; Entfernungen lassen sich nicht prüfen.
+            {t('Ohne bekannte PLZ nicht auf der Karte; Entfernungen lassen sich nicht prüfen.')}
           </p>
         )}
         <div>
           <p className="mb-1 font-medium">
-            Konflikte mit Events der Band
+            {t('Konflikte mit Events der Band')}
             {bandChosen && ` (${candidate.conflicts.length})`}
           </p>
           {!bandChosen ? (
-            <p className="text-muted-foreground">Eine Band wählen, um ihre Events zu prüfen.</p>
+            <p className="text-muted-foreground">
+              {t('Eine Band wählen, um ihre Events zu prüfen.')}
+            </p>
           ) : candidate.conflicts.length === 0 ? (
-            <p className="text-muted-foreground">Keine – die Band ist frei.</p>
+            <p className="text-muted-foreground">{t('Keine – die Band ist frei.')}</p>
           ) : (
             <ul className="space-y-1">
               {candidate.conflicts.map((conflict) => (
@@ -604,9 +620,14 @@ function CandidateCard({
           )}
         </div>
         <div>
-          <p className="mb-1 font-medium">Würde blockieren ({candidate.blocks.length})</p>
+          <p className="mb-1 font-medium">
+            {t('Würde blockieren (')}
+            {candidate.blocks.length})
+          </p>
           {candidate.blocks.length === 0 ? (
-            <p className="text-muted-foreground">Keine anderen Clubs oder Festivals im Radius.</p>
+            <p className="text-muted-foreground">
+              {t('Keine anderen Clubs oder Festivals im Radius.')}
+            </p>
           ) : (
             <ul className="max-h-60 space-y-1 overflow-y-auto">
               {candidate.blocks.map((block) => (

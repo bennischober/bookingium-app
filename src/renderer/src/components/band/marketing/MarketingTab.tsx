@@ -29,11 +29,12 @@ import {
   groupItems,
   type MarketingLevel
 } from './marketingFilters'
+import { t } from '../../../../../main/i18n/translate'
 
 const LEVELS: Array<[MarketingLevel, string]> = [
-  ['A', 'Top-Auswahl (A)'],
-  ['AB', 'A und B'],
-  ['all', 'Alle']
+  ['A', t('Top-Auswahl (A)')],
+  ['AB', t('A und B')],
+  ['all', t('Alle')]
 ]
 
 const ALL = 'all'
@@ -55,12 +56,12 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
       <div
         className="inline-flex overflow-hidden rounded-md border"
         role="group"
-        aria-label="Marketing"
+        aria-label={t('Marketing')}
       >
         {(
           [
-            ['atlas', 'Atlas'],
-            ['actions', 'Maßnahmen']
+            ['atlas', t('Atlas')],
+            ['actions', t('Maßnahmen')]
           ] as Array<[View, string]>
         ).map(([value, label]) => (
           <button
@@ -118,21 +119,23 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
     />
   )
 
-  if (overview.isLoading) return <p className="text-muted-foreground">Wird geladen…</p>
+  if (overview.isLoading) return <p className="text-muted-foreground">{t('Wird geladen…')}</p>
 
   if (!atlas && items.length === 0) {
     return (
       <div className="max-w-xl space-y-3 rounded-lg border border-dashed p-6">
         <Megaphone className="h-6 w-6 text-muted-foreground" />
-        <p className="font-medium">Noch kein Marketing-Atlas für {bandName}</p>
+        <p className="font-medium">
+          {t('Noch kein Marketing-Atlas für')} {bandName}
+        </p>
         <p className="text-sm text-muted-foreground">
-          Der Atlas sammelt Radios, Podcasts, Presse, Festivals, Clubs und weitere Kanäle mit
-          Priorität, Begründung und Weg. Nach dem Import steht hier jeder Eintrag mit Status, und
-          die Kontakte landen im Adressbuch.
+          {t(
+            'Der Atlas sammelt Radios, Podcasts, Presse, Festivals, Clubs und weitere Kanäle mit Priorität, Begründung und Weg. Nach dem Import steht hier jeder Eintrag mit Status, und die Kontakte landen im Adressbuch.'
+          )}
         </p>
         <Button className="gap-2" onClick={() => setImportOpen(true)}>
           <FileUp className="h-4 w-4" />
-          Marketing-Atlas importieren…
+          {t('Marketing-Atlas importieren…')}
         </Button>
         {dialog}
       </div>
@@ -145,9 +148,9 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
         <div className="min-w-0 max-w-3xl space-y-1">
           <p className="text-sm text-muted-foreground">
             {[
-              atlas?.stand && `Stand ${atlas.stand}`,
-              atlas?.run && `Lauf ${atlas.run}`,
-              `${items.length - dropped} Einträge`
+              atlas?.stand && t('Stand {{stand}}', { stand: atlas.stand }),
+              atlas?.run && t('Lauf {{run}}', { run: atlas.run }),
+              t('{{value}} Einträge', { value: items.length - dropped })
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -165,13 +168,13 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportOpen(true)}>
           <FileUp className="h-4 w-4" />
-          Atlas aktualisieren…
+          {t('Atlas aktualisieren…')}
         </Button>
       </div>
 
       {atlas && <AtlasFacts atlas={atlas} />}
 
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Reiter des Atlas">
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('Reiter des Atlas')}>
         {MarketingCategory.options
           .filter((option) => categories.has(option))
           .map((option) => (
@@ -218,11 +221,11 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
           value={status ?? ALL}
           onValueChange={(value) => setStatus(value === ALL ? null : (value as MarketingStatus))}
         >
-          <SelectTrigger className="h-9 w-44" aria-label="Status filtern">
+          <SelectTrigger className="h-9 w-44" aria-label={t('Status filtern')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Jeder Status</SelectItem>
+            <SelectItem value={ALL}>{t('Jeder Status')}</SelectItem>
             {MarketingStatus.options.map((option) => (
               <SelectItem key={option} value={option}>
                 {MARKETING_STATUS_LABELS[option]}
@@ -233,8 +236,8 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
         <Input
           className="h-9 w-64"
           type="search"
-          placeholder="Suche über alle Reiter"
-          aria-label="Suche im Marketing-Atlas"
+          placeholder={t('Suche über alle Reiter')}
+          aria-label={t('Suche im Marketing-Atlas')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -246,7 +249,7 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
               checked={showDropped}
               onChange={(event) => setShowDropped(event.target.checked)}
             />
-            {dropped} nicht mehr im Atlas zeigen
+            {dropped} {t('nicht mehr im Atlas zeigen')}
           </label>
         )}
         <span className="ml-auto text-sm text-muted-foreground">{shown.length} angezeigt</span>
@@ -254,8 +257,8 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
 
       {shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Keine Einträge mit diesen Filtern
-          {level !== 'all' ? ' – „Alle“ zeigt auch die übrigen Prioritäten.' : '.'}
+          {t('Keine Einträge mit diesen Filtern')}
+          {level !== 'all' ? t(' – „Alle“ zeigt auch die übrigen Prioritäten.') : '.'}
         </p>
       ) : (
         groupItems(shown).map(([group, entries]) => (
@@ -282,7 +285,7 @@ function AtlasFacts({ atlas }: { atlas: MarketingAtlasDto }) {
     return null
   return (
     <details className="rounded-md border px-3 py-2 text-sm">
-      <summary className="cursor-pointer font-medium">Fakten, Referenzen und Läufe</summary>
+      <summary className="cursor-pointer font-medium">{t('Fakten, Referenzen und Läufe')}</summary>
       <div className="mt-3 space-y-4">
         {atlas.facts.length > 0 && (
           <dl className="grid max-w-4xl grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-1.5">
@@ -306,7 +309,7 @@ function AtlasFacts({ atlas }: { atlas: MarketingAtlasDto }) {
             {atlas.runs.map((run, index) => (
               <li key={index}>
                 <span className="font-medium">
-                  {run.run ? `Lauf ${run.run}` : 'Lauf'}
+                  {run.run ? t('Lauf {{run}}', { run: run.run }) : t('Lauf')}
                   {run.date && ` (${run.date})`}:
                 </span>{' '}
                 <span className="text-muted-foreground">{run.text}</span>
@@ -317,7 +320,8 @@ function AtlasFacts({ atlas }: { atlas: MarketingAtlasDto }) {
         {atlas.excluded.length > 0 && (
           <details>
             <summary className="cursor-pointer text-muted-foreground">
-              Ausgeschlossen ({atlas.excluded.length})
+              {t('Ausgeschlossen (')}
+              {atlas.excluded.length})
             </summary>
             <ul className="mt-2 max-w-4xl space-y-1">
               {atlas.excluded.map((entry, index) => (

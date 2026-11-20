@@ -36,6 +36,7 @@ import {
 import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { Tip } from '@/components/Tip'
+import { t } from '../../../main/i18n/translate'
 
 export default function InvoicePage() {
   const { sorting, setSorting, sortInput } = useListSorting('invoices', {
@@ -80,16 +81,20 @@ export default function InvoicePage() {
       utils.dashboard.invalidate()
       sheet.close()
       if (created.status === 'draft') {
-        void nudgeFollowUp('Entwurf angelegt', {
+        void nudgeFollowUp(t('Entwurf angelegt'), {
           record: { type: 'invoice', id: created.id, name: invoiceFollowUpName(created) },
-          note: 'Entwurf vervollständigen'
+          note: t('Entwurf vervollständigen')
         })
       } else {
-        toast.success(`Rechnung ${invoiceNumberLabel(created.invoiceNumber)} gestellt`)
+        toast.success(
+          t('Rechnung {{invoiceNumberLabel}} gestellt', {
+            invoiceNumberLabel: invoiceNumberLabel(created.invoiceNumber)
+          })
+        )
       }
     },
     onError: (error) =>
-      toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
+      toast.error(t('Rechnung konnte nicht erstellt werden'), { description: error.message })
   })
 
   const rows = useMemo(() => listRows(invoices.data), [invoices.data])
@@ -97,35 +102,35 @@ export default function InvoicePage() {
   const columns: ColumnDef<InvoiceListItemDto>[] = [
     {
       accessorKey: 'invoiceNumber',
-      header: 'Rechnungsnr.',
+      header: t('Rechnungsnr.'),
       cell: ({ row }) => invoiceNumberLabel(row.original.invoiceNumber)
     },
     {
       accessorKey: 'companyName',
-      header: 'Rechnungssteller'
+      header: t('Rechnungssteller')
     },
     {
       accessorKey: 'recipientName',
-      header: 'Rechnungsempfänger'
+      header: t('Rechnungsempfänger')
     },
     {
       accessorKey: 'periodLabel',
-      header: 'Zeitraum',
+      header: t('Zeitraum'),
       cell: ({ row }) => row.original.periodLabel || '-'
     },
     {
       accessorKey: 'dealMemoName',
-      header: 'Event',
+      header: t('Event'),
       cell: ({ row }) => row.original.dealMemoName ?? '-'
     },
     {
       accessorKey: 'issueDate',
-      header: 'Datum',
+      header: t('Datum'),
       cell: ({ row }) => formatShortDate(row.original.issueDate)
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: t('Status'),
       cell: ({ row }) => {
         const invoice = row.original
         const emailed = emailedLabel(invoice)
@@ -147,12 +152,12 @@ export default function InvoicePage() {
     },
     {
       accessorKey: 'totalAmount',
-      header: 'Betrag',
+      header: t('Betrag'),
       cell: ({ row }) => formatMoney(row.original.totalAmount, row.original.currency)
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => <InvoiceRowActions invoice={row.original} onOpen={setOpenInvoiceId} />
     }
   ]
@@ -160,15 +165,17 @@ export default function InvoicePage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
-        title="Rechnungen"
-        description="Eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen erstellen."
+        title={t('Rechnungen')}
+        description={t(
+          'Eventbezogene oder eigenständige Rechnungen mit bearbeitbarem Status und Positionen erstellen.'
+        )}
       />
       <Tip id="invoices" className="mb-4" />
 
       <DataTable
         columns={columns}
         data={rows}
-        itemLabel={{ singular: 'Rechnung', plural: 'Rechnungen' }}
+        itemLabel={{ singular: t('Rechnung'), plural: t('Rechnungen') }}
         hasMore={invoices.hasNextPage ?? false}
         isLoadingMore={invoices.isFetchingNextPage}
         onLoadMore={() => void invoices.fetchNextPage()}
@@ -177,14 +184,14 @@ export default function InvoicePage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Rechnungen filtern…"
+        searchPlaceholder={t('Rechnungen filtern…')}
         isLoading={invoices.isLoading}
         error={invoices.error}
         onRetry={() => void invoices.refetch()}
         total={listTotal(invoices.data)}
         onRowClick={openInvoice}
         actionButton={
-          <ListToolbar createLabel="+ Neue Rechnung" onCreate={sheet.openCreate}>
+          <ListToolbar createLabel={t('+ Neue Rechnung')} onCreate={sheet.openCreate}>
             <ExportButton list="invoices" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -194,8 +201,8 @@ export default function InvoicePage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode="create"
-        title="Neue Rechnung anlegen"
-        description="Rechnung mit Positionen erstellen – als Entwurf oder direkt gestellt."
+        title={t('Neue Rechnung anlegen')}
+        description={t('Rechnung mit Positionen erstellen – als Entwurf oder direkt gestellt.')}
       >
         <InvoiceForm
           key={sheet.isOpen ? 'create-open' : 'create'}

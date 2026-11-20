@@ -5,6 +5,7 @@ import { germanDate } from '@/lib/followUps'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatMoney, invoiceNumberLabel } from '@/lib/invoiceLabels'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Dashboard card: issued invoices and Stornorechnungen of companies with a DATEV address that
@@ -20,7 +21,7 @@ export function DatevPendingCard() {
   return (
     <Card role="region" aria-labelledby="datev-pending-title">
       <CardHeader>
-        <CardTitle id="datev-pending-title">Noch nicht an DATEV übergeben</CardTitle>
+        <CardTitle id="datev-pending-title">{t('Noch nicht an DATEV übergeben')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
@@ -35,7 +36,7 @@ export function DatevPendingCard() {
                   {invoiceNumberLabel(invoice.invoiceNumber)} · {invoice.recipientName}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Gestellt am {germanDate(invoice.issueDate)}
+                  {t('Gestellt am')} {germanDate(invoice.issueDate)}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -53,7 +54,7 @@ export function DatevPendingCard() {
                   }
                 >
                   <Landmark className="h-4 w-4" />
-                  An DATEV übergeben…
+                  {t('An DATEV übergeben…')}
                 </Button>
               </div>
             </li>

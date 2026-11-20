@@ -33,6 +33,7 @@ import { defaultReminder, reminderAfterSwitch, reminderOptions } from './appoint
 import { appointmentTimesError, reminderLabel } from '../../../../main/calendar/appointments'
 import type { AppointmentDto } from '../../../../main/api/schemas/appointment.schema'
 import type { Invitation } from '../../../../main/calendar/invitation'
+import { t } from '../../../../main/i18n/translate'
 
 /** The Select's value for "no reminder"; Radix refuses an empty value */
 const NO_REMINDER = 'none'
@@ -110,18 +111,18 @@ function AppointmentForm({
     onDone()
   }
   const onError = (error: { message: string }) =>
-    toast.error('Termin konnte nicht gespeichert werden', { description: error.message })
+    toast.error(t('Termin konnte nicht gespeichert werden'), { description: error.message })
 
   const create = trpcReact.appointment.create.useMutation({
-    onSuccess: () => onSuccess('Termin angelegt'),
+    onSuccess: () => onSuccess(t('Termin angelegt')),
     onError
   })
   const update = trpcReact.appointment.update.useMutation({
-    onSuccess: () => onSuccess('Termin gespeichert'),
+    onSuccess: () => onSuccess(t('Termin gespeichert')),
     onError
   })
   const remove = trpcReact.appointment.delete.useMutation({
-    onSuccess: () => onSuccess('Termin gelöscht'),
+    onSuccess: () => onSuccess(t('Termin gelöscht')),
     onError
   })
 
@@ -172,9 +173,9 @@ function AppointmentForm({
     if (!appointment) return
     if (
       await confirmAction({
-        title: 'Termin löschen?',
-        description: `„${appointment.title}“ wird aus dem Kalender entfernt.`,
-        confirmLabel: 'Löschen',
+        title: t('Termin löschen?'),
+        description: t('„{{title}}“ wird aus dem Kalender entfernt.', { title: appointment.title }),
+        confirmLabel: t('Löschen'),
         destructive: true
       })
     ) {
@@ -193,18 +194,20 @@ function AppointmentForm({
         <DialogTitle>
           {invitation
             ? appointment
-              ? 'Termin aus der Einladung aktualisieren'
-              : 'Einladung als Termin übernehmen'
+              ? t('Termin aus der Einladung aktualisieren')
+              : t('Einladung als Termin übernehmen')
             : appointment
-              ? 'Termin bearbeiten'
-              : 'Neuer Termin'}
+              ? t('Termin bearbeiten')
+              : t('Neuer Termin')}
         </DialogTitle>
         <DialogDescription>
           {invitation
             ? appointment
-              ? 'Diese Einladung ist schon als Termin im Kalender. Speichern übernimmt, was die Einladung jetzt sagt.'
-              : 'Aus der Einladung vorausgefüllt – bitte prüfen.'
-            : 'Ein eigener Termin im Kalender, zum Beispiel eine Besprechung oder ein Anruf.'}
+              ? t(
+                  'Diese Einladung ist schon als Termin im Kalender. Speichern übernimmt, was die Einladung jetzt sagt.'
+                )
+              : t('Aus der Einladung vorausgefüllt – bitte prüfen.')
+            : t('Ein eigener Termin im Kalender, zum Beispiel eine Besprechung oder ein Anruf.')}
         </DialogDescription>
       </DialogHeader>
       {invitation && invitation.hints.length > 0 && (
@@ -217,26 +220,26 @@ function AppointmentForm({
 
       <div className="my-4 space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="appointment-title">Titel</Label>
+          <Label htmlFor="appointment-title">{t('Titel')}</Label>
           <Input
             id="appointment-title"
             autoFocus
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="z. B. Telefonat mit dem Veranstalter"
+            placeholder={t('z. B. Telefonat mit dem Veranstalter')}
             maxLength={200}
           />
         </div>
 
         <div className="flex items-center gap-2">
           <Switch id="appointment-all-day" checked={allDay} onCheckedChange={changeAllDay} />
-          <Label htmlFor="appointment-all-day">Ganztägig</Label>
+          <Label htmlFor="appointment-all-day">{t('Ganztägig')}</Label>
         </div>
 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Label htmlFor="appointment-start-date" className="w-14">
-              Beginn
+              {t('Beginn')}
             </Label>
             <Input
               id="appointment-start-date"
@@ -247,7 +250,7 @@ function AppointmentForm({
             />
             {!allDay && (
               <Input
-                aria-label="Uhrzeit Beginn"
+                aria-label={t('Uhrzeit Beginn')}
                 type="time"
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
@@ -257,7 +260,7 @@ function AppointmentForm({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Label htmlFor="appointment-end-date" className="w-14">
-              Ende
+              {t('Ende')}
             </Label>
             <Input
               id="appointment-end-date"
@@ -269,7 +272,7 @@ function AppointmentForm({
             />
             {!allDay && (
               <Input
-                aria-label="Uhrzeit Ende"
+                aria-label={t('Uhrzeit Ende')}
                 type="time"
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
@@ -281,18 +284,18 @@ function AppointmentForm({
         {timesError && <p className="text-sm text-destructive">{timesError}</p>}
 
         <div className="space-y-2">
-          <Label htmlFor="appointment-place">Ort</Label>
+          <Label htmlFor="appointment-place">{t('Ort')}</Label>
           <Input
             id="appointment-place"
             value={place}
             onChange={(event) => setPlace(event.target.value)}
-            placeholder="Adresse, Raum oder Link"
+            placeholder={t('Adresse, Raum oder Link')}
             maxLength={500}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="appointment-reminder">Erinnerung</Label>
+          <Label htmlFor="appointment-reminder">{t('Erinnerung')}</Label>
           <Select
             value={reminder === null ? NO_REMINDER : String(reminder)}
             onValueChange={(value) => setReminder(value === NO_REMINDER ? null : Number(value))}
@@ -301,7 +304,7 @@ function AppointmentForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NO_REMINDER}>Keine</SelectItem>
+              <SelectItem value={NO_REMINDER}>{t('Keine')}</SelectItem>
               {offered.map((option) => (
                 <SelectItem key={option.minutes} value={String(option.minutes)}>
                   {option.label}
@@ -311,7 +314,7 @@ function AppointmentForm({
           </Select>
           {reminder !== null && settings.data && !settings.data.reminderNotifications && (
             <p className="text-xs text-muted-foreground">
-              Erinnerungen sind unter Einstellungen → Benachrichtigungen ausgeschaltet.
+              {t('Erinnerungen sind unter Einstellungen → Benachrichtigungen ausgeschaltet.')}
             </p>
           )}
         </div>
@@ -326,13 +329,13 @@ function AppointmentForm({
                 if (!value) setLinkChoice(null)
               }}
             />
-            <Label htmlFor="appointment-link">Zu einem Datensatz</Label>
+            <Label htmlFor="appointment-link">{t('Zu einem Datensatz')}</Label>
           </div>
           {link && (
             <div className="space-y-3 pl-6">
               <RecordPicker
                 idPrefix="appointment-record"
-                typeLabel="Datensatz"
+                typeLabel={t('Datensatz')}
                 type={linkType}
                 onTypeChange={(next) => {
                   setLinkType(next)
@@ -349,7 +352,7 @@ function AppointmentForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="appointment-notes">Notizen</Label>
+          <Label htmlFor="appointment-notes">{t('Notizen')}</Label>
           <Textarea
             id="appointment-notes"
             rows={3}
@@ -375,17 +378,17 @@ function AppointmentForm({
             onClick={() => void handleDelete()}
             disabled={saving}
           >
-            Löschen
+            {t('Löschen')}
           </Button>
         ) : (
           <span />
         )}
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onDone}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button type="submit" disabled={!valid || saving}>
-            Speichern
+            {t('Speichern')}
           </Button>
         </div>
       </DialogFooter>

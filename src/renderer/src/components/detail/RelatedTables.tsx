@@ -4,6 +4,7 @@ import type { DealMemoListItemDto } from '../../../../main/api/schemas/deal_memo
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../../main/api/schemas/venue.schema'
 import { formatCapacity } from '../../../../main/api/schemas/capacity'
 import { eventPlace } from '@/components/event-list/pastEvent'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #172: tables of the records linked to a detail page's record, shared by the
@@ -16,7 +17,7 @@ import { eventPlace } from '@/components/event-list/pastEvent'
 type Roles<T> = (row: T) => (string | false)[]
 
 function roleColumn<T>(roles: Roles<T>): Column<T> {
-  return { header: 'Rolle', cell: (row) => roles(row).filter(Boolean).join(' · ') }
+  return { header: t('Rolle'), cell: (row) => roles(row).filter(Boolean).join(' · ') }
 }
 
 interface RelatedTableProps<T> {
@@ -39,18 +40,18 @@ export function RelatedBandsTable<T extends { id: number; name: string; genre: s
     <RowTable
       label={label}
       query={query}
-      loading="Bands werden geladen…"
+      loading={t('Bands werden geladen…')}
       empty={empty}
-      itemLabel={{ singular: 'Band', plural: 'Bands' }}
+      itemLabel={{ singular: t('Band'), plural: t('Bands') }}
       columns={[
         {
-          header: 'Band',
+          header: t('Band'),
           cell: (band) => band.name,
           className: 'font-medium',
           sortValue: (band) => band.name
         },
         {
-          header: 'Genre',
+          header: t('Genre'),
           cell: (band) => band.genre || '–',
           sortValue: (band) => band.genre || ''
         },
@@ -68,28 +69,28 @@ export function RelatedVenuesTable({ label, query, empty, roles }: RelatedTableP
     <RowTable
       label={label}
       query={query}
-      loading="Clubs und Festivals werden geladen…"
+      loading={t('Clubs und Festivals werden geladen…')}
       empty={empty}
-      itemLabel={{ singular: 'Club oder Festival', plural: 'Clubs und Festivals' }}
+      itemLabel={{ singular: t('Club oder Festival'), plural: t('Clubs und Festivals') }}
       columns={[
         {
-          header: 'Name',
+          header: t('Name'),
           cell: (venue) => venue.name,
           className: 'font-medium',
           sortValue: (venue) => venue.name
         },
         {
-          header: 'Art',
+          header: t('Art'),
           cell: (venue) => VENUE_KIND_LABELS[venue.kind],
           sortValue: (venue) => VENUE_KIND_LABELS[venue.kind]
         },
         {
-          header: 'Stadt',
+          header: t('Stadt'),
           cell: (venue) => venue.address?.city || '–',
           sortValue: (venue) => venue.address?.city || ''
         },
         {
-          header: 'Kapazität',
+          header: t('Kapazität'),
           cell: (venue) => formatCapacity(venue.capacityMin, venue.capacity) || '–'
         },
         ...(roles ? [roleColumn(roles)] : [])
@@ -115,7 +116,7 @@ export function RelatedEventsTable<T extends DealMemoListItemDto>({
       empty={empty}
       columns={[
         {
-          header: 'Band / Club / Festival',
+          header: t('Band / Club / Festival'),
           cell: (event) => (
             <>
               <div>{event.bandName}</div>

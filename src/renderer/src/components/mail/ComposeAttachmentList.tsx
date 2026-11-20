@@ -1,6 +1,7 @@
 import { Paperclip, X } from 'lucide-react'
 import type { ComposeState } from './composeDraft'
 import { formatSize } from './format'
+import { t } from '../../../../main/i18n/translate'
 
 /** The files that go with the mail: the invoice PDF, added files and forwarded ones */
 export function ComposeAttachmentList({
@@ -18,11 +19,11 @@ export function ComposeAttachmentList({
       {(mail.attachments.length > 0 ||
         mail.forwardedNames.length > 0 ||
         invoice?.attachmentName) && (
-        <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label="Anhänge">
+        <ul className="flex flex-wrap gap-1 border-b px-4 py-2 text-sm" aria-label={t('Anhänge')}>
           {invoice?.attachmentName && (
             <li
               className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
-              title="Wird beim Senden angehängt"
+              title={t('Wird beim Senden angehängt')}
             >
               <Paperclip className="size-3" />
               <span className="max-w-56 truncate">{invoice.attachmentName}</span>
@@ -49,7 +50,7 @@ export function ComposeAttachmentList({
             <li
               key={`fwd-${i}`}
               className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5"
-              title="Aus der weitergeleiteten E-Mail"
+              title={t('Aus der weitergeleiteten E-Mail')}
             >
               <Paperclip className="size-3" />
               <span className="max-w-56 truncate">{name}</span>

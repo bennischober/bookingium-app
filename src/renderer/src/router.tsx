@@ -46,6 +46,7 @@ import type { ReminderKind } from '../../main/api/schemas/invoice.schema'
 import { isVenueTab, type VenueTab } from '@/components/venue/constants'
 import { isPersonTab, type PersonTab } from '@/components/person/constants'
 import { isSettingsTab, type SettingsTab } from '@/components/settings/constants'
+import { t } from '../../main/i18n/translate'
 
 const hashHistory = createHashHistory()
 // Back/forward buttons in the top bar
@@ -357,7 +358,7 @@ export const router = createRouter({
   defaultPreload: 'intent',
   // A page that fails to render shows this in its place; the error goes to the local log
   defaultErrorComponent: ({ reset }) => (
-    <ErrorFallback onRetry={reset} retryLabel="Erneut versuchen" />
+    <ErrorFallback onRetry={reset} retryLabel={t('Erneut versuchen')} />
   ),
   defaultOnCatch: (error, info) => reportError(error, info.componentStack ?? undefined)
 })

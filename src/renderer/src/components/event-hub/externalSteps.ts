@@ -1,15 +1,16 @@
 // Steps of a show that can be ticked as done outside the program ("extern erledigt")
 import type { EventStep } from '../../../../main/api/schemas/event_step.schema'
 import type { DocumentType } from '../../../../main/api/schemas/document.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** What the tick says: "<label> extern erledigt" */
 export const EXTERNAL_STEP_LABELS: Record<EventStep, string> = {
-  contract: 'Vertrag',
-  deposit: 'Vorkasse',
-  invoice: 'Rechnung',
-  hotel: 'Hotel',
-  advancing: 'Advancing',
-  tickets: 'Ticketmeldung'
+  contract: t('Vertrag'),
+  deposit: t('Vorkasse'),
+  invoice: t('Rechnung'),
+  hotel: t('Hotel'),
+  advancing: t('Advancing'),
+  tickets: t('Ticketmeldung')
 }
 
 /** The value of a status tile for a step ticked as done outside the program */

@@ -1,4 +1,5 @@
 import type { OpResult, OpSummary } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 // I3: the op-journal panel. The core keeps every write as a journaled op; most settle within a
 // second and need no attention. This module decides which ones do, what the user can do with
@@ -79,17 +80,17 @@ export function opBadge(entries: readonly OpEntry[]): { count: number; urgent: b
 }
 
 const KIND_LABELS: Record<OpSummary['kind'], string> = {
-  flag: 'Markierung ändern',
-  move: 'Verschieben',
-  move_batch: 'Mehrere E-Mails verschieben',
-  delete: 'In den Papierkorb',
-  expunge: 'Endgültig löschen',
-  send: 'Senden',
-  draft_save: 'Entwurf speichern',
-  draft_delete: 'Entwurf löschen',
-  folder_create: 'Ordner anlegen',
-  folder_rename: 'Ordner umbenennen',
-  folder_delete: 'Ordner löschen'
+  flag: t('Markierung ändern'),
+  move: t('Verschieben'),
+  move_batch: t('Mehrere E-Mails verschieben'),
+  delete: t('In den Papierkorb'),
+  expunge: t('Endgültig löschen'),
+  send: t('Senden'),
+  draft_save: t('Entwurf speichern'),
+  draft_delete: t('Entwurf löschen'),
+  folder_create: t('Ordner anlegen'),
+  folder_rename: t('Ordner umbenennen'),
+  folder_delete: t('Ordner löschen')
 }
 
 export function opKindLabel(kind: OpSummary['kind']): string {
@@ -97,34 +98,42 @@ export function opKindLabel(kind: OpSummary['kind']): string {
 }
 
 export const ATTENTION_LABELS: Record<OpAttention, string> = {
-  unclear: 'Versand unklar',
-  rejected: 'Abgelehnt',
-  waiting: 'Wartet auf neuen Versuch',
-  stuck: 'Hängt'
+  unclear: t('Versand unklar'),
+  rejected: t('Abgelehnt'),
+  waiting: t('Wartet auf neuen Versuch'),
+  stuck: t('Hängt')
 }
 
 /** One sentence on what this state means for the user */
 export function attentionHint(op: OpSummary, attention: OpAttention): string {
   switch (attention) {
     case 'unclear':
-      return 'Die Verbindung brach ab, nachdem die E-Mail übergeben wurde. Sie ist vielleicht schon beim Empfänger. Prüfen sucht sie im Ordner Gesendet und sendet nie ein zweites Mal.'
+      return t(
+        'Die Verbindung brach ab, nachdem die E-Mail übergeben wurde. Sie ist vielleicht schon beim Empfänger. Prüfen sucht sie im Ordner Gesendet und sendet nie ein zweites Mal.'
+      )
     case 'rejected':
       return op.kind === 'send'
-        ? 'Der Server hat das Ablegen im Ordner Gesendet abgelehnt.'
-        : 'Der Server hat die Änderung abgelehnt, meist weil sich das Postfach inzwischen geändert hat. Verwerfen zeigt wieder den Stand des Servers.'
+        ? t('Der Server hat das Ablegen im Ordner Gesendet abgelehnt.')
+        : t(
+            'Der Server hat die Änderung abgelehnt, meist weil sich das Postfach inzwischen geändert hat. Verwerfen zeigt wieder den Stand des Servers.'
+          )
     case 'waiting':
-      return 'Fehlgeschlagen; Bookingium versucht es automatisch erneut, sobald die Verbindung steht.'
+      return t(
+        'Fehlgeschlagen; Bookingium versucht es automatisch erneut, sobald die Verbindung steht.'
+      )
     case 'stuck':
       return op.state === 'running'
-        ? 'Läuft seit einer Weile ohne Ergebnis; wird spätestens beim nächsten Start fortgesetzt.'
-        : 'Wartet seit einer Weile darauf, ausgeführt zu werden.'
+        ? t(
+            'Läuft seit einer Weile ohne Ergebnis; wird spätestens beim nächsten Start fortgesetzt.'
+          )
+        : t('Wartet seit einer Weile darauf, ausgeführt zu werden.')
   }
 }
 
 export const ACTION_LABELS: Record<OpAction, string> = {
-  resolve: 'Im Ordner Gesendet prüfen',
-  retry: 'Erneut versuchen',
-  discard: 'Verwerfen'
+  resolve: t('Im Ordner Gesendet prüfen'),
+  retry: t('Erneut versuchen'),
+  discard: t('Verwerfen')
 }
 
 /** Source and target folder of an op, as far as it has them (never mail content) */
@@ -138,11 +147,11 @@ export function opAge(updatedAt: string, now: number): string {
   const ms = now - Date.parse(updatedAt)
   if (!Number.isFinite(ms) || ms < 60_000) return 'gerade eben'
   const minutes = Math.floor(ms / 60_000)
-  if (minutes < 60) return `vor ${minutes} Min.`
+  if (minutes < 60) return t('vor {{minutes}} Min.', { minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `vor ${hours} Std.`
+  if (hours < 24) return t('vor {{hours}} Std.', { hours })
   const days = Math.floor(hours / 24)
-  return days === 1 ? 'vor 1 Tag' : `vor ${days} Tagen`
+  return days === 1 ? t('vor 1 Tag') : t('vor {{days}} Tagen', { days })
 }
 
 /** Discarding asks first where it may lose something: an unclear send, a pending change */
@@ -153,17 +162,19 @@ export function discardConfirm(entry: OpEntry): {
 } {
   if (entry.attention === 'unclear') {
     return {
-      title: 'Unklaren Versand verwerfen?',
-      description:
-        'Bookingium prüft diese E-Mail dann nicht mehr. Sie ist vielleicht trotzdem beim Empfänger angekommen. Ein gespeicherter Entwurf bleibt im Ordner Entwürfe.',
-      confirmLabel: 'Verwerfen'
+      title: t('Unklaren Versand verwerfen?'),
+      description: t(
+        'Bookingium prüft diese E-Mail dann nicht mehr. Sie ist vielleicht trotzdem beim Empfänger angekommen. Ein gespeicherter Entwurf bleibt im Ordner Entwürfe.'
+      ),
+      confirmLabel: t('Verwerfen')
     }
   }
   return {
-    title: `„${opKindLabel(entry.op.kind)}“ verwerfen?`,
-    description:
-      'Die Änderung wird nicht mehr an den Server übertragen. Die Ansicht zeigt danach wieder den Stand des Servers.',
-    confirmLabel: 'Verwerfen'
+    title: t('„{{opKindLabel}}“ verwerfen?', { opKindLabel: opKindLabel(entry.op.kind) }),
+    description: t(
+      'Die Änderung wird nicht mehr an den Server übertragen. Die Ansicht zeigt danach wieder den Stand des Servers.'
+    ),
+    confirmLabel: t('Verwerfen')
   }
 }
 
@@ -174,18 +185,18 @@ export function actionResult(
 ): { ok: boolean; text: string } {
   if (action === 'resolve') {
     if (outcome === 'done')
-      return { ok: true, text: 'Die E-Mail liegt im Ordner Gesendet; sie wurde verschickt.' }
+      return { ok: true, text: t('Die E-Mail liegt im Ordner Gesendet; sie wurde verschickt.') }
     if (outcome === 'conflict') {
       return {
         ok: false,
-        text: 'Nicht im Ordner Gesendet gefunden. Ob die E-Mail angekommen ist, bleibt unklar.'
+        text: t('Nicht im Ordner Gesendet gefunden. Ob die E-Mail angekommen ist, bleibt unklar.')
       }
     }
-    return { ok: false, text: 'Prüfen war gerade nicht möglich. Bitte später noch einmal.' }
+    return { ok: false, text: t('Prüfen war gerade nicht möglich. Bitte später noch einmal.') }
   }
-  if (outcome === 'done' || outcome === 'noop') return { ok: true, text: 'Erledigt' }
+  if (outcome === 'done' || outcome === 'noop') return { ok: true, text: t('Erledigt') }
   if (outcome === 'conflict')
-    return { ok: false, text: 'Der Server hat die Änderung erneut abgelehnt.' }
-  if (outcome === 'unknown') return { ok: false, text: 'Das Ergebnis ist unklar.' }
-  return { ok: false, text: 'Wieder fehlgeschlagen. Bookingium versucht es später erneut.' }
+    return { ok: false, text: t('Der Server hat die Änderung erneut abgelehnt.') }
+  if (outcome === 'unknown') return { ok: false, text: t('Das Ergebnis ist unklar.') }
+  return { ok: false, text: t('Wieder fehlgeschlagen. Bookingium versucht es später erneut.') }
 }

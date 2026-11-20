@@ -4,6 +4,7 @@ import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /** Every link of the mail with its real address; unsafe ones cannot be opened */
 function LinkList({ message }: { message: MessageDetail }) {
@@ -11,8 +12,8 @@ function LinkList({ message }: { message: MessageDetail }) {
   // Copying is silent otherwise; a toast is the only feedback that it happened
   const copyLink = async (url: string): Promise<void> => {
     const result = await window.api.copyMailLink(url)
-    if (result.success) toast.success('Link-Adresse kopiert')
-    else toast.error('Kopieren fehlgeschlagen', { description: result.error })
+    if (result.success) toast.success(t('Link-Adresse kopiert'))
+    else toast.error(t('Kopieren fehlgeschlagen'), { description: result.error })
   }
   if (message.links.length === 0) return null
   return (
@@ -25,14 +26,14 @@ function LinkList({ message }: { message: MessageDetail }) {
       >
         {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         <Link2 className="size-4" />
-        {message.links.length} {message.links.length === 1 ? 'Link' : 'Links'}
+        {message.links.length} {message.links.length === 1 ? t('Link') : t('Links')}
       </button>
       {open && (
         <ul className="mt-2 space-y-1">
           {message.links.map((link) => (
             <li key={link.index} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate">{link.text || '(ohne Text)'}</p>
+                <p className="truncate">{link.text || t('(ohne Text)')}</p>
                 <p className="truncate font-mono text-xs text-muted-foreground" title={link.url}>
                   {link.url}
                 </p>
@@ -45,7 +46,7 @@ function LinkList({ message }: { message: MessageDetail }) {
                     // The main process opens it in the default browser
                     onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
                   >
-                    Öffnen
+                    {t('Öffnen')}
                   </Button>
                   {/* F16: copy instead of open - for pasting into another browser or an incognito
                       window, which opening in the default browser cannot do. The clipboard lives in
@@ -53,15 +54,18 @@ function LinkList({ message }: { message: MessageDetail }) {
                   <Button
                     variant="outline"
                     size="icon-sm"
-                    title="Link-Adresse kopieren"
-                    aria-label={`Link-Adresse kopieren: ${link.url}`}
+                    title={t('Link-Adresse kopieren')}
+                    aria-label={t('Link-Adresse kopieren: {{url}}', { url: link.url })}
                     onClick={() => void copyLink(link.url)}
                   >
                     <Copy className="size-3.5" />
                   </Button>
                 </ButtonGroup>
               ) : (
-                <span className="text-xs text-destructive">Gesperrt ({link.scheme || '?'})</span>
+                <span className="text-xs text-destructive">
+                  {t('Gesperrt (')}
+                  {link.scheme || '?'})
+                </span>
               )}
             </li>
           ))}
@@ -85,7 +89,7 @@ export function MessageBody({ message }: { message: MessageDetail }) {
           // hands to the default browser.
           sandbox="allow-popups allow-popups-to-escape-sandbox"
           srcDoc={message.html}
-          title="Inhalt der E-Mail"
+          title={t('Inhalt der E-Mail')}
           className="min-h-0 w-full flex-1 bg-white"
         />
       ) : (

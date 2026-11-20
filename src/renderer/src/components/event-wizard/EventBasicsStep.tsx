@@ -8,6 +8,7 @@ import {
   type SetWizardField,
   type WizardFormData
 } from '@/components/event-wizard/wizardState'
+import { t } from '../../../../main/i18n/translate'
 
 /** Step 1: name, date, band and venue; warns when an agency booked the band that day */
 export function EventBasicsStep({
@@ -41,20 +42,20 @@ export function EventBasicsStep({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="event-name">
-          Eventname <span className="text-destructive">*</span>
+          {t('Eventname')} <span className="text-destructive">*</span>
         </Label>
         <Input
           id="event-name"
           value={form.name}
           onChange={(e) => set('name', e.target.value)}
-          placeholder="z. B. Sommertour 2027 – Hamburg"
+          placeholder={t('z. B. Sommertour 2027 – Hamburg')}
           autoFocus
         />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="event-date">
-          Datum <span className="text-destructive">*</span>
+          {t('Datum')} <span className="text-destructive">*</span>
         </Label>
         <Input
           id="event-date"
@@ -68,21 +69,21 @@ export function EventBasicsStep({
 
       <div className="space-y-2">
         <Label>
-          Band <span className="text-destructive">*</span>
+          {t('Band')} <span className="text-destructive">*</span>
         </Label>
         <EntityCombobox
           items={bandItems}
           value={form.bandId}
           onChange={(id) => set('bandId', id)}
-          placeholder="Band auswählen…"
-          searchPlaceholder="Bands suchen…"
+          placeholder={t('Band auswählen…')}
+          searchPlaceholder={t('Bands suchen…')}
           isLoading={bandsLoading}
           onCreateNew={onCreateBand}
-          createNewLabel="Neue Band anlegen"
+          createNewLabel={t('Neue Band anlegen')}
         />
         {agencyClashes.length > 0 && (
           <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
-            Agenturbuchung am selben Tag:{' '}
+            {t('Agenturbuchung am selben Tag:')}{' '}
             {agencyClashes
               .map((booking) =>
                 [booking.venueName || booking.city, booking.agency].filter(Boolean).join(' · ')
@@ -94,17 +95,17 @@ export function EventBasicsStep({
 
       <div className="space-y-2">
         <Label>
-          Club / Festival <span className="text-muted-foreground text-xs">(optional)</span>
+          {t('Club / Festival')} <span className="text-muted-foreground text-xs">(optional)</span>
         </Label>
         <EntityCombobox
           items={venueItems}
           value={form.venueId}
           onChange={(id) => set('venueId', id)}
-          placeholder="Club / Festival auswählen…"
-          searchPlaceholder="Clubs und Festivals suchen…"
+          placeholder={t('Club / Festival auswählen…')}
+          searchPlaceholder={t('Clubs und Festivals suchen…')}
           isLoading={venuesLoading}
           onCreateNew={onCreateVenue}
-          createNewLabel="Neuen Club / Festival anlegen"
+          createNewLabel={t('Neuen Club / Festival anlegen')}
         />
       </div>
     </div>

@@ -22,6 +22,7 @@ import {
   type ContactListFilterOptionsDto,
   type ContactListFilters
 } from '../../../../main/api/schemas/contactList.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** The filters of a filter-based mailing list, beside the table */
 export function ContactListFilterPanel({
@@ -42,9 +43,12 @@ export function ContactListFilterPanel({
   onReset: () => void
 }) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto pr-1" aria-label="Filter">
+    <aside
+      className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
+      aria-label={t('Filter')}
+    >
       <div className="space-y-2">
-        <Label>Art</Label>
+        <Label>{t('Art')}</Label>
         <ToggleGroup
           type="multiple"
           variant="outline"
@@ -60,12 +64,12 @@ export function ContactListFilterPanel({
           ))}
         </ToggleGroup>
         <p className="text-xs text-muted-foreground">
-          Radio/Medien sind Firmen mit der Art „Radio/Medien“.
+          {t('Radio/Medien sind Firmen mit der Art „Radio/Medien“.')}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label>Empfänger</Label>
+        <Label>{t('Empfänger')}</Label>
         <ToggleGroup
           type="multiple"
           variant="outline"
@@ -81,13 +85,14 @@ export function ContactListFilterPanel({
           ))}
         </ToggleGroup>
         <p className="text-xs text-muted-foreground">
-          Keine Auswahl: alle. Hauptadresse ist die E-Mail des Clubs, Festivals oder Senders; LoPros
-          sind die der Events dort.
+          {t(
+            'Keine Auswahl: alle. Hauptadresse ist die E-Mail des Clubs, Festivals oder Senders; LoPros sind die der Events dort.'
+          )}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-country">Land</Label>
+        <Label htmlFor="contact-list-country">{t('Land')}</Label>
         <MultiSelect
           id="contact-list-country"
           value={filters.countryCodes}
@@ -96,12 +101,12 @@ export function ContactListFilterPanel({
             value: code,
             label: countryLabel(code)
           }))}
-          placeholder="Alle Länder"
+          placeholder={t('Alle Länder')}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-state">Bundesland / Region</Label>
+        <Label htmlFor="contact-list-state">{t('Bundesland / Region')}</Label>
         <MultiSelect
           id="contact-list-state"
           value={filters.states}
@@ -110,12 +115,12 @@ export function ContactListFilterPanel({
             value: state,
             label: state
           }))}
-          placeholder="Alle Regionen"
+          placeholder={t('Alle Regionen')}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-zip">PLZ beginnt mit</Label>
+        <Label htmlFor="contact-list-zip">{t('PLZ beginnt mit')}</Label>
         <Input
           id="contact-list-zip"
           value={filters.zipPrefixes}
@@ -125,12 +130,12 @@ export function ContactListFilterPanel({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-capacity-min">Kapazität</Label>
+        <Label htmlFor="contact-list-capacity-min">{t('Kapazität')}</Label>
         <div className="flex items-center gap-2">
           <Input
             id="contact-list-capacity-min"
             inputMode="numeric"
-            aria-label="Kapazität ab"
+            aria-label={t('Kapazität ab')}
             placeholder="ab"
             value={filters.capacityMin ?? ''}
             onChange={(event) => onChange({ capacityMin: parseCapacity(event.target.value) })}
@@ -138,17 +143,17 @@ export function ContactListFilterPanel({
           <span className="text-muted-foreground">–</span>
           <Input
             inputMode="numeric"
-            aria-label="Kapazität bis"
+            aria-label={t('Kapazität bis')}
             placeholder="bis"
             value={filters.capacityMax ?? ''}
             onChange={(event) => onChange({ capacityMax: parseCapacity(event.target.value) })}
           />
         </div>
-        <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
+        <p className="text-xs text-muted-foreground">{t('Nur Clubs und Festivals.')}</p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-genre">Genre</Label>
+        <Label htmlFor="contact-list-genre">{t('Genre')}</Label>
         <MultiSelect
           id="contact-list-genre"
           value={filters.genres}
@@ -157,16 +162,16 @@ export function ContactListFilterPanel({
             value: genre,
             label: genre
           }))}
-          placeholder="Alle Genres"
-          emptyText="Keine Genres. Bei Clubs, Festivals, Radio/Medien und Bands eintragen."
+          placeholder={t('Alle Genres')}
+          emptyText={t('Keine Genres. Bei Clubs, Festivals, Radio/Medien und Bands eintragen.')}
         />
         <p className="text-xs text-muted-foreground">
-          Genres des Clubs, Festivals oder Senders und der Bands, die dort gespielt haben.
+          {t('Genres des Clubs, Festivals oder Senders und der Bands, die dort gespielt haben.')}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact-list-booked">Buchungen</Label>
+        <Label htmlFor="contact-list-booked">{t('Buchungen')}</Label>
         <Select
           value={filters.booked}
           onValueChange={(value) => onChange({ booked: value as BookedFilter })}
@@ -175,39 +180,40 @@ export function ContactListFilterPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
-            <SelectItem value="booked">Schon gebucht</SelectItem>
-            <SelectItem value="never">Noch nie gebucht</SelectItem>
+            <SelectItem value="all">{t('Alle')}</SelectItem>
+            <SelectItem value="booked">{t('Schon gebucht')}</SelectItem>
+            <SelectItem value="never">{t('Noch nie gebucht')}</SelectItem>
           </SelectContent>
         </Select>
         {filters.booked !== 'all' && (
           <SearchableSelect
-            aria-label="Band"
+            aria-label={t('Band')}
             value={filters.bandId}
             onChange={(value) => onChange({ bandId: value })}
             options={(options?.bands ?? []).map((band) => ({
               value: band.id,
               label: band.name
             }))}
-            noneLabel="Alle Bands"
-            searchPlaceholder="Band suchen…"
+            noneLabel={t('Alle Bands')}
+            searchPlaceholder={t('Band suchen…')}
           />
         )}
         {filters.booked !== 'all' && (
-          <p className="text-xs text-muted-foreground">Nur Clubs und Festivals.</p>
+          <p className="text-xs text-muted-foreground">{t('Nur Clubs und Festivals.')}</p>
         )}
       </div>
 
       {changed && (
         <Button variant="ghost" size="sm" className="self-start" onClick={onReset}>
           <Undo2 className="h-4 w-4" />
-          {hasSaved ? 'Änderungen verwerfen' : 'Filter zurücksetzen'}
+          {hasSaved ? t('Änderungen verwerfen') : t('Filter zurücksetzen')}
         </Button>
       )}
 
       <p className="mt-auto border-t pt-4 text-xs text-muted-foreground">
-        Werbe-E-Mails nur an Empfänger, die eingewilligt haben oder mit denen Sie schon
-        zusammenarbeiten (§ 7 UWG). Wer widerspricht, wird als „Keine Werbung“ markiert.
+        {t(
+          'Werbe-E-Mails nur an Empfänger, die eingewilligt haben oder mit denen Sie schon zusammenarbeiten (§ 7 UWG). Wer widerspricht, wird als „Keine Werbung“ markiert.'
+        )}
       </p>
     </aside>
   )

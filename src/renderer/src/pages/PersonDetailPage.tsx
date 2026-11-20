@@ -17,6 +17,7 @@ import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetail
 import { RelatedBandsTable, RelatedEventsTable } from '@/components/detail/RelatedTables'
 import { RowTable } from '@/components/detail/DetailParts'
 import type { PersonDto } from '../../../main/api/schemas/person.schema'
+import { t } from '../../../main/i18n/translate'
 
 function personName(person: { firstName: string; lastName: string }) {
   return `${person.firstName} ${person.lastName}`.trim()
@@ -81,21 +82,24 @@ function OverviewTab({ person }: { person: PersonDto }) {
       <FactSheet
         groups={[
           {
-            title: 'Kontakt',
-            facts: [...contactFacts(contact), ['Adresse', addressBlock(person.address)]]
+            title: t('Kontakt'),
+            facts: [...contactFacts(contact), [t('Adresse'), addressBlock(person.address)]]
           },
           {
-            title: 'Persönliches',
+            title: t('Persönliches'),
             facts: [
-              ['Geburtstag', person.birthday && formatShortDate(person.birthday)],
-              ['Notiz', person.notes && <span className="whitespace-pre-wrap">{person.notes}</span>]
+              [t('Geburtstag'), person.birthday && formatShortDate(person.birthday)],
+              [
+                t('Notiz'),
+                person.notes && <span className="whitespace-pre-wrap">{person.notes}</span>
+              ]
             ]
           }
         ]}
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <LinkList
-          title="Rollen"
+          title={t('Rollen')}
           items={roleItems}
           action={
             <button
@@ -105,12 +109,12 @@ function OverviewTab({ person }: { person: PersonDto }) {
                 navigate({ to: '.', search: { tab: 'bands' } as never, replace: true })
               }
             >
-              Zugehörigkeiten
+              {t('Zugehörigkeiten')}
             </button>
           }
         />
         <LinkList
-          title="Nächste Events"
+          title={t('Nächste Events')}
           items={eventItems(upcoming(events.data))}
           action={
             <button
@@ -120,7 +124,7 @@ function OverviewTab({ person }: { person: PersonDto }) {
                 navigate({ to: '.', search: { tab: 'events' } as never, replace: true })
               }
             >
-              Alle Events
+              {t('Alle Events')}
             </button>
           }
         />
@@ -135,15 +139,15 @@ function BandsTab({ personId }: { personId: number }) {
   return (
     <div className="space-y-8">
       <section>
-        <SectionTitle>Mitglied in</SectionTitle>
+        <SectionTitle>{t('Mitglied in')}</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="band" />
       </section>
       <section>
-        <SectionTitle>Technischer Leiter von</SectionTitle>
+        <SectionTitle>{t('Technischer Leiter von')}</SectionTitle>
         <RelatedBandsTable
-          label="Bands als Technischer Leiter"
+          label={t('Bands als Technischer Leiter')}
           query={ledBands}
-          empty="Für keine Band als Technischer Leiter eingetragen."
+          empty={t('Für keine Band als Technischer Leiter eingetragen.')}
         />
       </section>
     </div>
@@ -157,26 +161,26 @@ function CompaniesTab({ personId }: { personId: number }) {
   return (
     <div className="space-y-8">
       <section>
-        <SectionTitle>Zugehörig zu</SectionTitle>
+        <SectionTitle>{t('Zugehörig zu')}</SectionTitle>
         <PersonMembershipsPanel personId={personId} type="company" />
       </section>
       <section>
-        <SectionTitle>Ansprechpartner für Rechnungen bei</SectionTitle>
+        <SectionTitle>{t('Ansprechpartner für Rechnungen bei')}</SectionTitle>
         <RowTable
-          label="Firmen mit der Person als Ansprechpartner für Rechnungen"
+          label={t('Firmen mit der Person als Ansprechpartner für Rechnungen')}
           query={billed}
-          loading="Firmen werden geladen…"
-          empty="Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen."
-          itemLabel={{ singular: 'Firma', plural: 'Firmen' }}
+          loading={t('Firmen werden geladen…')}
+          empty={t('Bei keiner Firma als Ansprechpartner für Rechnungen eingetragen.')}
+          itemLabel={{ singular: t('Firma'), plural: t('Firmen') }}
           columns={[
             {
-              header: 'Firma',
+              header: t('Firma'),
               cell: (company) => company.name,
               className: 'font-medium',
               sortValue: (company) => company.name
             },
             {
-              header: 'Stadt',
+              header: t('Stadt'),
               cell: (company) => company.address?.city || '–',
               sortValue: (company) => company.address?.city || ''
             }
@@ -197,13 +201,13 @@ function CompaniesTab({ personId }: { personId: number }) {
 function MembershipsTab({ personId }: { personId: number }) {
   return (
     <div className="space-y-10">
-      <TabSection id="section-bands" title="Bands">
+      <TabSection id="section-bands" title={t('Bands')}>
         <BandsTab personId={personId} />
       </TabSection>
-      <TabSection id="section-companies" title="Firmen">
+      <TabSection id="section-companies" title={t('Firmen')}>
         <CompaniesTab personId={personId} />
       </TabSection>
-      <TabSection id="section-venues" title="Clubs / Festivals">
+      <TabSection id="section-venues" title={t('Clubs / Festivals')}>
         <PersonMembershipsPanel personId={personId} type="venue" />
       </TabSection>
     </div>
@@ -217,12 +221,12 @@ function EventsTab({ personId }: { personId: number }) {
   const ledBandIds = new Set((ledBands.data ?? []).map((band) => band.id))
   return (
     <RelatedEventsTable
-      label="Events der Person"
+      label={t('Events der Person')}
       query={events}
-      empty="Keine Events mit dieser Person als LoPro-Kontakt oder Technischer Leiter."
+      empty={t('Keine Events mit dieser Person als LoPro-Kontakt oder Technischer Leiter.')}
       roles={(event) => [
         event.loProPersonId === personId && 'LoPro-Kontakt',
-        ledBandIds.has(event.bandId) && 'TL der Band'
+        ledBandIds.has(event.bandId) && t('TL der Band')
       ]}
     />
   )
@@ -236,29 +240,29 @@ function ContractsTab({ personId }: { personId: number }) {
   const bandName = (id: number) => bands.data?.find((band) => band.id === id)?.name ?? '–'
   return (
     <RowTable
-      label="Managementverträge der Person"
+      label={t('Managementverträge der Person')}
       query={contracts}
-      loading="Verträge werden geladen…"
-      empty="In keinem Managementvertrag aufgeführt."
-      itemLabel={{ singular: 'Vertrag', plural: 'Verträge' }}
+      loading={t('Verträge werden geladen…')}
+      empty={t('In keinem Managementvertrag aufgeführt.')}
+      itemLabel={{ singular: t('Vertrag'), plural: t('Verträge') }}
       columns={[
         {
-          header: 'Band',
+          header: t('Band'),
           cell: (contract) => bandName(contract.bandId),
           className: 'font-medium',
           sortValue: (contract) => bandName(contract.bandId)
         },
         {
-          header: 'Beginn',
+          header: t('Beginn'),
           cell: (contract) => (contract.startDate ? formatShortDate(contract.startDate) : '–'),
           className: 'whitespace-nowrap'
         },
         {
-          header: 'Rolle',
+          header: t('Rolle'),
           cell: (contract) =>
             [
-              contract.memberPersonIds.includes(personId) && 'Mitglied',
-              contract.representativePersonId === personId && 'Bevollmächtigt'
+              contract.memberPersonIds.includes(personId) && t('Mitglied'),
+              contract.representativePersonId === personId && t('Bevollmächtigt')
             ]
               .filter(Boolean)
               .join(' · ')
@@ -279,10 +283,10 @@ function ContractsTab({ personId }: { personId: number }) {
 function MoneyTab({ personId }: { personId: number }) {
   return (
     <div className="space-y-10">
-      <TabSection id="section-contracts" title="Managementverträge">
+      <TabSection id="section-contracts" title={t('Managementverträge')}>
         <ContractsTab personId={personId} />
       </TabSection>
-      <TabSection title="Rechnungen">
+      <TabSection title={t('Rechnungen')}>
         <InvoicesTab personId={personId} />
       </TabSection>
     </div>
@@ -294,9 +298,9 @@ function InvoicesTab({ personId }: { personId: number }) {
   const invoices = trpcReact.invoice.listByPerson.useQuery(personId)
   return (
     <RecordInvoicesTable
-      label="Rechnungen an die Person"
+      label={t('Rechnungen an die Person')}
       query={invoices}
-      empty="Keine Rechnungen an diese Person."
+      empty={t('Keine Rechnungen an diese Person.')}
       recipient={false}
     />
   )
@@ -320,7 +324,7 @@ export default function PersonDetailPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.person,
     utils: utils.person,
-    noun: 'Person',
+    noun: t('Person'),
     label: personName,
     deleteInput: (person: PersonDto) => ({ id: person.id }),
     onSaved: () => {
@@ -337,17 +341,17 @@ export default function PersonDetailPage() {
     <RecordDetailPage
       id={id}
       query={person}
-      loading="Person wird geladen…"
+      loading={t('Person wird geladen…')}
       notFound={{
-        text: 'Person nicht gefunden.',
-        backLabel: 'Zurück zu den Personen',
+        text: t('Person nicht gefunden.'),
+        backLabel: t('Zurück zu den Personen'),
         onBack: toList
       }}
     >
       {(person) => (
         <RecordDetail
           record={{ type: 'person', id: person.id, name: personName(person) }}
-          back={{ label: 'Alle Personen', onBack: toList }}
+          back={{ label: t('Alle Personen'), onBack: toList }}
           subtitle={[person.address?.city, person.contact?.email].filter(Boolean).join(' · ')}
           onEdit={() => sheet.openEdit(person)}
           onDelete={() => mutations.deleteNow(person)}
@@ -355,36 +359,36 @@ export default function PersonDetailPage() {
           isTab={isPersonTab}
           aliases={PERSON_TAB_ALIASES}
           tabs={[
-            { id: 'overview', label: 'Übersicht', content: <OverviewTab person={person} /> },
+            { id: 'overview', label: t('Übersicht'), content: <OverviewTab person={person} /> },
             {
               id: 'bands',
-              label: 'Zugehörigkeiten',
+              label: t('Zugehörigkeiten'),
               count: sumCounts(counts.bands, counts.companies, counts.venues),
               content: <MembershipsTab personId={person.id} />
             },
             {
               id: 'events',
-              label: 'Events',
+              label: t('Events'),
               count: counts.events,
               hideWhenEmpty: true,
               content: <EventsTab personId={person.id} />
             },
             {
               id: 'invoices',
-              label: 'Verträge & Rechnungen',
+              label: t('Verträge & Rechnungen'),
               count: sumCounts(counts.contracts, counts.invoices),
               hideWhenEmpty: true,
               content: <MoneyTab personId={person.id} />
             }
           ]}
-          documents={{ count: counts.documents, title: 'Dokumente der Person' }}
+          documents={{ count: counts.documents, title: t('Dokumente der Person') }}
         >
           <FormSheet
             isOpen={sheet.isOpen}
             onClose={sheet.close}
             mode="edit"
-            title="Person bearbeiten"
-            description="Kontaktdaten der Person aktualisieren."
+            title={t('Person bearbeiten')}
+            description={t('Kontaktdaten der Person aktualisieren.')}
           >
             <PersonForm
               person={sheet.selectedItem || undefined}

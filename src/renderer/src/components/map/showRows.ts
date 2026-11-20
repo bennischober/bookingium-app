@@ -1,6 +1,7 @@
 // The map page's list of shows (events and agency bookings) with their radius clause: the rows
 // and their sorting. Pure, unit-tested; the component only renders it.
 import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
+import { uiLocale } from '../../../../main/i18n/translate'
 
 export type ShowSortKey = 'date' | 'name' | 'band' | 'kind' | 'tour' | 'km' | 'conflicts'
 export type ShowSort = { key: ShowSortKey; desc: boolean }
@@ -47,7 +48,7 @@ export function showRows(markers: MapMarkerDto[], bandNames: Map<number, string>
     }))
 }
 
-const collator = new Intl.Collator('de-DE', { sensitivity: 'base', numeric: true })
+const collator = new Intl.Collator(uiLocale(), { sensitivity: 'base', numeric: true })
 
 /**
  * The rows in the chosen order. Ties fall back to date, then name, so the list stays stable;

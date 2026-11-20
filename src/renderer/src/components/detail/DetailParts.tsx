@@ -12,6 +12,7 @@ import { EmptyState, ErrorState, LoadingRow } from '@/components/load-states'
 import type { QueryError } from '@/lib/queryErrors'
 import { countLabel, nextSort, sortRows, type TableSort } from './tableSort'
 import { isPastEvent, PAST_EVENT_ROW_CLASS } from '@/components/event-list/pastEvent'
+import { t } from '../../../../main/i18n/translate'
 
 export function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -173,7 +174,7 @@ export function RowTable<T extends { id: number }>({
                         type="button"
                         onClick={() => setSort((current) => nextSort(current, column.header))}
                         className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground"
-                        title="Sortieren"
+                        title={t('Sortieren')}
                       >
                         {column.header}
                         {isSorted ? (
@@ -229,7 +230,7 @@ export function EventsTable<T extends DealMemoListItemDto>({
   query,
   empty,
   columns,
-  itemLabel = { singular: 'Event', plural: 'Events' }
+  itemLabel = { singular: t('Event'), plural: t('Events') }
 }: {
   label: string
   query: ListQuery<T>
@@ -242,26 +243,26 @@ export function EventsTable<T extends DealMemoListItemDto>({
     <RowTable
       label={label}
       query={query}
-      loading="Events werden geladen…"
+      loading={t('Events werden geladen…')}
       empty={empty}
       itemLabel={itemLabel}
       rowClassName={(event) => (isPastEvent(event.date) ? PAST_EVENT_ROW_CLASS : undefined)}
       columns={[
         {
-          header: 'Datum',
+          header: t('Datum'),
           cell: (event) => formatShortDate(event.date),
           className: 'whitespace-nowrap',
           sortValue: (event) => event.date
         },
         {
-          header: 'Event',
+          header: t('Event'),
           cell: (event) => event.name,
           className: 'font-medium',
           sortValue: (event) => event.name
         },
         ...columns,
         {
-          header: 'Status',
+          header: t('Status'),
           cell: (event) => (
             <Badge variant="outline" className={cn(STATUS_STYLES[event.status] ?? '')}>
               {STATUS_LABELS[event.status] ?? event.status}

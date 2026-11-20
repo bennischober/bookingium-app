@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FollowUpDialog } from './FollowUpDialog'
 import { FollowUpList } from './FollowUpList'
 import { FollowUpHistoryDialog } from './FollowUpHistoryDialog'
+import { t } from '../../../../main/i18n/translate'
 
 // Further out than this, follow-ups wait behind "weitere anzeigen"
 const HORIZON_DAYS = 14
@@ -27,25 +28,26 @@ export function FollowUpsCard() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Wiedervorlagen</CardTitle>
+        <CardTitle>{t('Wiedervorlagen')}</CardTitle>
         <div className="flex gap-2">
           <Button variant="ghost" className="gap-1.5" onClick={() => setHistoryOpen(true)}>
             <History className="h-4 w-4" />
-            Erledigte
+            {t('Erledigte')}
           </Button>
           <Button variant="outline" className="gap-1.5" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" />
-            Wiedervorlage
+            {t('Wiedervorlage')}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <p className="text-sm text-muted-foreground">Wiedervorlagen werden geladen…</p>
+          <p className="text-sm text-muted-foreground">{t('Wiedervorlagen werden geladen…')}</p>
         ) : followUps.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Keine offenen Wiedervorlagen. Auf Events, Bands, Clubs, Festivals, Firmen, Personen und
-            Rechnungen über „Wiedervorlage“ anlegen.
+            {t(
+              'Keine offenen Wiedervorlagen. Auf Events, Bands, Clubs, Festivals, Firmen, Personen und Rechnungen über „Wiedervorlage“ anlegen.'
+            )}
           </p>
         ) : (
           <>
@@ -53,7 +55,7 @@ export function FollowUpsCard() {
               <FollowUpList followUps={shown} showRecord />
             ) : (
               <p className="text-sm text-muted-foreground">
-                In den nächsten {HORIZON_DAYS} Tagen ist nichts fällig.
+                {t('In den nächsten')} {HORIZON_DAYS} {t('Tagen ist nichts fällig.')}
               </p>
             )}
             {later > 0 && (
@@ -63,8 +65,8 @@ export function FollowUpsCard() {
                 onClick={() => setShowAll((current) => !current)}
               >
                 {showAll
-                  ? `Nur die nächsten ${HORIZON_DAYS} Tage`
-                  : `${later} weitere später anzeigen`}
+                  ? t('Nur die nächsten {{HORIZON_DAYS}} Tage', { HORIZON_DAYS })
+                  : t('{{later}} weitere später anzeigen', { later })}
               </Button>
             )}
           </>

@@ -1,6 +1,7 @@
 // Facts for a detail page's FactSheet that several pages share
 import type { ReactNode } from 'react'
 import type { Fact } from './CompactParts'
+import { t } from '../../../../main/i18n/translate'
 
 /** An address as lines for a fact sheet, or null when there is none */
 export function addressBlock(
@@ -47,8 +48,8 @@ export function contactFacts(
 ): Fact[] {
   return [
     ['E-Mail', contact?.email],
-    ['Telefon', contact?.phone],
-    ['Mobil', contact?.mobilePhone],
-    ['Website', contact?.homepage]
+    [t('Telefon'), contact?.phone],
+    [t('Mobil'), contact?.mobilePhone],
+    [t('Website'), contact?.homepage]
   ]
 }

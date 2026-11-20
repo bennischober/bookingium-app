@@ -5,6 +5,7 @@
  */
 import type { MailEvent } from '../../../../main/mailclient/protocol'
 import { OP_REFRESH_MS, SYNC_REFRESH_MS, syncChanged, type RefreshPlan } from './mailRefresh'
+import { t } from '../../../../main/i18n/translate'
 
 /** Outside the `['mail', accountId]` keys, so the mail page's per-account refreshes leave it alone */
 export const UNREAD_BADGE_KEY = ['mail-badge', 'inbox-unread'] as const
@@ -29,10 +30,10 @@ export function inboxUnreadByAccount(
 /** The badge's tooltip: the total, then each account's share when there are several */
 export function unreadBadgeTitle(accounts: AccountUnread[]): string {
   const total = accounts.reduce((sum, account) => sum + account.unread, 0)
-  const mails = `${total} ${total === 1 ? 'ungelesene E-Mail' : 'ungelesene E-Mails'}`
-  if (accounts.length < 2) return `${mails} im Posteingang`
+  const mails = `${total} ${total === 1 ? t('ungelesene E-Mail') : t('ungelesene E-Mails')}`
+  if (accounts.length < 2) return t('{{mails}} im Posteingang', { mails })
   return [
-    `${mails} in den Posteingängen:`,
+    t('{{mails}} in den Posteingängen:', { mails }),
     ...accounts.map((account) => `${account.email}: ${account.unread}`)
   ].join('\n')
 }

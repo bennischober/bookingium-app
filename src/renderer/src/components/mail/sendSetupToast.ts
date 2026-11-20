@@ -1,4 +1,5 @@
 import { toast } from '@/lib/toast'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #136: "Per E-Mail senden" found no account to send from. The error says why (none set up,
@@ -9,8 +10,8 @@ export function showSendSetupError(
   openSettings: () => void,
   setup: boolean | undefined
 ): void {
-  toast.error('E-Mail konnte nicht erstellt werden', {
+  toast.error(t('E-Mail konnte nicht erstellt werden'), {
     description: error,
-    ...(setup ? { action: { label: 'Einstellungen öffnen', onClick: openSettings } } : {})
+    ...(setup ? { action: { label: t('Einstellungen öffnen'), onClick: openSettings } } : {})
   })
 }

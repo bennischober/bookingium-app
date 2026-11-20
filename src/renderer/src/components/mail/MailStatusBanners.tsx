@@ -4,6 +4,7 @@ import { mailApi } from '@/lib/mailApi'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { SyncStatus } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The notes under the mail page's top bar: the mail service down or starting, a rejected login and
@@ -25,7 +26,7 @@ export function MailStatusBanners({
     <>
       {worker?.error && (
         <p role="alert" className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          Der E-Mail-Dienst läuft nicht: {worker.error}
+          {t('Der E-Mail-Dienst läuft nicht:')} {worker.error}
         </p>
       )}
       {worker?.starting && (
@@ -34,8 +35,9 @@ export function MailStatusBanners({
           className="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground"
         >
           <Spinner className="size-4" />
-          Der E-Mail-Dienst startet. Nach einem Update kann das bei einem großen Postfach einige
-          Minuten dauern.
+          {t(
+            'Der E-Mail-Dienst startet. Nach einem Update kann das bei einem großen Postfach einige Minuten dauern.'
+          )}
         </p>
       )}
 
@@ -46,15 +48,16 @@ export function MailStatusBanners({
           data-testid="mail-login-failed"
         >
           <p className="min-w-0 flex-1">
-            Anmeldung fehlgeschlagen: Der Server hat Benutzername oder Passwort abgelehnt.
-            Bookingium versucht es erst wieder, wenn das Konto neu gespeichert wird.
+            {t(
+              'Anmeldung fehlgeschlagen: Der Server hat Benutzername oder Passwort abgelehnt. Bookingium versucht es erst wieder, wenn das Konto neu gespeichert wird.'
+            )}
           </p>
           <Button
             size="sm"
             variant="outline"
             onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}
           >
-            Zugangsdaten prüfen
+            {t('Zugangsdaten prüfen')}
           </Button>
         </div>
       )}
@@ -66,15 +69,15 @@ export function MailStatusBanners({
           data-testid="mail-space-banner"
         >
           <p className="min-w-0 flex-1">
-            {syncStatus.data.spaceWarning} E-Mails über 5 MB lädt Bookingium erst beim Öffnen, meist
-            wird es also weniger.
+            {syncStatus.data.spaceWarning}{' '}
+            {t('E-Mails über 5 MB lädt Bookingium erst beim Öffnen, meist wird es also weniger.')}
           </p>
           <Button
             size="sm"
             variant="outline"
             onClick={() => void mailApi.resumeSync(accountId).then(() => syncStatus.refetch())}
           >
-            Trotzdem fortsetzen
+            {t('Trotzdem fortsetzen')}
           </Button>
         </div>
       )}

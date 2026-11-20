@@ -17,6 +17,7 @@ import type {
   BackupStatusDto,
   PreparedRestoreDto
 } from '../../../../main/api/schemas/backup.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #54: sets (or changes) the password every backup is encrypted with from now on. Rendered only
@@ -48,19 +49,22 @@ export function SetBackupPasswordDialog({
     <Dialog open onOpenChange={(next) => !next && !save.isPending && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{change ? 'Passwort ändern' : 'Sicherungen verschlüsseln'}</DialogTitle>
+          <DialogTitle>
+            {change ? t('Passwort ändern') : t('Sicherungen verschlüsseln')}
+          </DialogTitle>
           <DialogDescription>
-            Ab jetzt werden alle Sicherungen mit diesem Passwort verschlüsselt. Zum Wiederherstellen
-            fragt Bookingium danach.
+            {t(
+              'Ab jetzt werden alle Sicherungen mit diesem Passwort verschlüsselt. Zum Wiederherstellen fragt Bookingium danach.'
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <p>
-            Ein vergessenes Passwort kann niemand zurücksetzen. Ohne das Passwort sind
-            verschlüsselte Sicherungen verloren. Bitte das Passwort notieren und getrennt vom
-            Rechner aufbewahren.
-            {change && ' Ältere Sicherungen behalten ihr bisheriges Passwort.'}
+            {t(
+              'Ein vergessenes Passwort kann niemand zurücksetzen. Ohne das Passwort sind verschlüsselte Sicherungen verloren. Bitte das Passwort notieren und getrennt vom Rechner aufbewahren.'
+            )}
+            {change && ` ${t('Ältere Sicherungen behalten ihr bisheriges Passwort.')}`}
           </p>
         </div>
         <form
@@ -71,7 +75,7 @@ export function SetBackupPasswordDialog({
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="backup-password">Passwort</Label>
+            <Label htmlFor="backup-password">{t('Passwort')}</Label>
             <Input
               id="backup-password"
               type="password"
@@ -82,7 +86,7 @@ export function SetBackupPasswordDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="backup-password-repeat">Passwort wiederholen</Label>
+            <Label htmlFor="backup-password-repeat">{t('Passwort wiederholen')}</Label>
             <Input
               id="backup-password-repeat"
               type="password"
@@ -98,7 +102,7 @@ export function SetBackupPasswordDialog({
               checked={noted}
               onChange={(event) => setNoted(event.target.checked)}
             />
-            Ich habe das Passwort sicher notiert.
+            {t('Ich habe das Passwort sicher notiert.')}
           </label>
           {touched && problem && <p className="text-sm text-destructive">{problem}</p>}
           {save.error && <p className="text-sm text-destructive">{save.error.message}</p>}
@@ -107,10 +111,10 @@ export function SetBackupPasswordDialog({
         </form>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={save.isPending}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button onClick={submit} disabled={save.isPending || (touched && problem !== null)}>
-            {save.isPending ? 'Wird gespeichert…' : 'Verschlüsseln'}
+            {save.isPending ? t('Wird gespeichert…') : t('Verschlüsseln')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -143,9 +147,9 @@ export function RestorePasswordDialog({
     <Dialog open onOpenChange={(next) => !next && !unlock.isPending && onCancel()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Verschlüsselte Sicherung</DialogTitle>
+          <DialogTitle>{t('Verschlüsselte Sicherung')}</DialogTitle>
           <DialogDescription>
-            Die Sicherung {taken} ist mit einem Passwort verschlüsselt.
+            {t('Die Sicherung')} {taken} {t('ist mit einem Passwort verschlüsselt.')}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -155,7 +159,7 @@ export function RestorePasswordDialog({
             submit()
           }}
         >
-          <Label htmlFor="backup-restore-password">Passwort der Sicherung</Label>
+          <Label htmlFor="backup-restore-password">{t('Passwort der Sicherung')}</Label>
           <Input
             id="backup-restore-password"
             type="password"
@@ -171,10 +175,10 @@ export function RestorePasswordDialog({
         </form>
         <DialogFooter>
           <Button variant="ghost" onClick={onCancel} disabled={unlock.isPending}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button onClick={submit} disabled={password === '' || unlock.isPending}>
-            {unlock.isPending ? 'Wird geprüft…' : 'Weiter'}
+            {unlock.isPending ? t('Wird geprüft…') : t('Weiter')}
           </Button>
         </DialogFooter>
       </DialogContent>

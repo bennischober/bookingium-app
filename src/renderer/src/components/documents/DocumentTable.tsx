@@ -33,6 +33,7 @@ import {
   type DocumentSort,
   type DocumentSortKey
 } from './documentSort'
+import { t } from '../../../../main/i18n/translate'
 
 /** Where a document came from: the record itself (null) or one of a band's gigs */
 export type DocumentSource = { id: number; name: string; date: string } | null
@@ -40,12 +41,12 @@ export type DocumentSource = { id: number; name: string; date: string } | null
 export type DocumentRow = { doc: DocumentDto | EventDocumentDto; event: DocumentSource }
 
 const HEADERS: { key: DocumentSortKey | null; label: string; className?: string }[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'type', label: 'Typ' },
-  { key: null, label: 'Quelle' },
-  { key: 'size', label: 'Größe', className: 'text-right' },
-  { key: 'uploadedAt', label: 'Hochgeladen' },
-  { key: null, label: 'Aktionen', className: 'text-right' }
+  { key: 'name', label: t('Name') },
+  { key: 'type', label: t('Typ') },
+  { key: null, label: t('Quelle') },
+  { key: 'size', label: t('Größe'), className: 'text-right' },
+  { key: 'uploadedAt', label: t('Hochgeladen') },
+  { key: null, label: t('Aktionen'), className: 'text-right' }
 ]
 
 /**
@@ -86,10 +87,10 @@ export function DocumentTable({
   const updateDocument = trpcReact.document.update.useMutation({
     onSuccess: () => {
       onChanged?.()
-      toast.success('Dokument aktualisiert')
+      toast.success(t('Dokument aktualisiert'))
     },
     onError: (mutationError) => {
-      toast.error('Dokument konnte nicht aktualisiert werden', {
+      toast.error(t('Dokument konnte nicht aktualisiert werden'), {
         description: mutationError.message
       })
     }
@@ -98,10 +99,10 @@ export function DocumentTable({
   const deleteDocument = trpcReact.document.delete.useMutation({
     onSuccess: () => {
       onChanged?.()
-      toast.success('Die Datei wird in den Papierkorb verschoben.')
+      toast.success(t('Die Datei wird in den Papierkorb verschoben.'))
     },
     onError: (mutationError) => {
-      toast.error('Dokument konnte nicht gelöscht werden', {
+      toast.error(t('Dokument konnte nicht gelöscht werden'), {
         description: mutationError.message
       })
     }
@@ -125,7 +126,7 @@ export function DocumentTable({
     updateDocument.mutate({ id: doc.id, displayName: next }, { onSettled: () => setBusyId(null) })
   }
 
-  if (isLoading) return <LoadingRow>Dokumente werden geladen…</LoadingRow>
+  if (isLoading) return <LoadingRow>{t('Dokumente werden geladen…')}</LoadingRow>
   if (error && rows.length === 0) return <ErrorState error={error} onRetry={() => onRetry?.()} />
   if (sorted.length === 0) return <EmptyState>{empty}</EmptyState>
 
@@ -151,7 +152,7 @@ export function DocumentTable({
                         )
                       }
                       className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground"
-                      title="Sortieren"
+                      title={t('Sortieren')}
                     >
                       {header.label}
                       {isSorted ? (
@@ -182,7 +183,7 @@ export function DocumentTable({
                 {renaming?.id === doc.id ? (
                   <input
                     autoFocus
-                    aria-label={`Name von ${doc.fileName}`}
+                    aria-label={t('Name von {{fileName}}', { fileName: doc.fileName })}
                     className="w-full rounded border bg-background px-2 py-1 text-sm"
                     value={renaming.value}
                     disabled={busyId === doc.id}
@@ -217,7 +218,7 @@ export function DocumentTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        title="Umbenennen"
+                        title={t('Umbenennen')}
                         aria-label={`${shownName(doc)} umbenennen`}
                         className="shrink-0"
                         onClick={() => {
@@ -248,7 +249,10 @@ export function DocumentTable({
                     }}
                     disabled={busyId === doc.id}
                   >
-                    <SelectTrigger className="w-32" aria-label={`Art von ${shownName(doc)}`}>
+                    <SelectTrigger
+                      className="w-32"
+                      aria-label={t('Art von {{shownName}}', { shownName: shownName(doc) })}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -275,7 +279,7 @@ export function DocumentTable({
                     </Badge>
                   </Link>
                 ) : (
-                  <span className="text-xs text-muted-foreground">Band</span>
+                  <span className="text-xs text-muted-foreground">{t('Band')}</span>
                 )}
               </td>
               <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
@@ -287,8 +291,8 @@ export function DocumentTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    title="Im Ordner anzeigen"
-                    aria-label="Im Ordner anzeigen"
+                    title={t('Im Ordner anzeigen')}
+                    aria-label={t('Im Ordner anzeigen')}
                     onClick={() => void revealDocument(doc.filePath)}
                   >
                     <FolderOpen className="h-4 w-4" />
@@ -297,16 +301,16 @@ export function DocumentTable({
                     <Button
                       variant="ghost"
                       size="sm"
-                      title="Löschen"
-                      aria-label={`${shownName(doc)} löschen`}
+                      title={t('Löschen')}
+                      aria-label={t('{{shownName}} löschen', { shownName: shownName(doc) })}
                       className="hover:text-destructive"
                       disabled={deleteDocument.isPending}
                       onClick={async () => {
                         if (
                           await confirmAction({
-                            title: `„${shownName(doc)}“ löschen?`,
-                            description: 'Die Datei wird in den Papierkorb verschoben.',
-                            confirmLabel: 'Löschen',
+                            title: t('„{{shownName}}“ löschen?', { shownName: shownName(doc) }),
+                            description: t('Die Datei wird in den Papierkorb verschoben.'),
+                            confirmLabel: t('Löschen'),
                             destructive: true
                           })
                         ) {

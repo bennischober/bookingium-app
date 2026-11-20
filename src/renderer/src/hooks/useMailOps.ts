@@ -13,6 +13,7 @@ import {
   discardConfirm,
   opEntries
 } from '@/components/mail/opJournal'
+import { t } from '../../../main/i18n/translate'
 
 /** R4: the mail page's open ops and their actions, the running op and the refresh batcher */
 export function useMailOps({
@@ -80,7 +81,7 @@ export function useMailOps({
     try {
       if (action === 'discard') {
         await mailApi.cancelOp(entry.op.id, accountId)
-        toast.success('Verworfen')
+        toast.success(t('Verworfen'))
       } else {
         const result =
           action === 'resolve'
@@ -91,7 +92,7 @@ export function useMailOps({
         else toast.error(text)
       }
     } catch (error) {
-      failed('Aktion fehlgeschlagen')(error)
+      failed(t('Aktion fehlgeschlagen'))(error)
     } finally {
       setBusyOpId(null)
       void openOps.refetch()

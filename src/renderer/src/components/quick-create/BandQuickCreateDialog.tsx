@@ -7,6 +7,7 @@ import { EntityCombobox } from '@/components/ui/entity-combobox'
 import { GenreField } from '@/components/forms/GenreField'
 import { QuickCreateDialog } from '@/components/quick-create/QuickCreateDialog'
 import { CompanyQuickCreateDialog } from '@/components/quick-create/CompanyQuickCreateDialog'
+import { t } from '../../../../main/i18n/translate'
 
 /** A band with name, genre and management company */
 export function BandQuickCreateDialog({
@@ -29,11 +30,11 @@ export function BandQuickCreateDialog({
 
   const createBand = trpcReact.band.create.useMutation({
     onSuccess: (band) => {
-      toast.success(`Band "${band.name}" erstellt`)
+      toast.success(t('Band "{{name}}" erstellt', { name: band.name }))
       onCreated(band.id, band.name)
       onClose()
     },
-    onError: (e) => toast.error('Band konnte nicht erstellt werden', { description: e.message })
+    onError: (e) => toast.error(t('Band konnte nicht erstellt werden'), { description: e.message })
   })
 
   const handleSubmit = () => {
@@ -50,37 +51,42 @@ export function BandQuickCreateDialog({
     <>
       <QuickCreateDialog
         isOpen={isOpen}
-        title="Neue Band anlegen"
-        submitLabel="Anlegen"
+        title={t('Neue Band anlegen')}
+        submitLabel={t('Anlegen')}
         submitDisabled={!name.trim() || companyId === null || createBand.isPending}
         onSubmit={handleSubmit}
         onClose={onClose}
       >
         <div className="space-y-2">
-          <Label htmlFor="band-name">Bandname *</Label>
+          <Label htmlFor="band-name">{t('Bandname *')}</Label>
           <Input
             id="band-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="z. B. Die Toten Hosen"
+            placeholder={t('z. B. Die Toten Hosen')}
             autoFocus
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="band-genre">Genre</Label>
-          <GenreField id="band-genre" value={genre} onChange={setGenre} placeholder="z. B. Rock" />
+          <Label htmlFor="band-genre">{t('Genre')}</Label>
+          <GenreField
+            id="band-genre"
+            value={genre}
+            onChange={setGenre}
+            placeholder={t('z. B. Rock')}
+          />
         </div>
         <div className="space-y-2">
-          <Label>Firma *</Label>
+          <Label>{t('Firma *')}</Label>
           <EntityCombobox
             items={(companies.data ?? []).map((c) => ({ id: c.id, label: c.name }))}
             value={companyId}
             onChange={setCompanyId}
-            placeholder="Firma auswählen…"
-            searchPlaceholder="Firma suchen…"
-            emptyText="Keine Firma gefunden."
+            placeholder={t('Firma auswählen…')}
+            searchPlaceholder={t('Firma suchen…')}
+            emptyText={t('Keine Firma gefunden.')}
             onCreateNew={setNewCompanyName}
-            createNewLabel="Neue Firma anlegen"
+            createNewLabel={t('Neue Firma anlegen')}
             isLoading={companies.isLoading}
           />
         </div>

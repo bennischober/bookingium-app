@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { QueryError } from '@/lib/queryErrors'
+import { t } from '../../../main/i18n/translate'
 
 /** One muted line while something loads */
 export function LoadingRow({
-  children = 'Wird geladen…',
+  children = t('Wird geladen…'),
   className
 }: {
   children?: React.ReactNode
@@ -42,10 +43,10 @@ export function ErrorState({
 }) {
   return (
     <div role="alert" className={cn('flex flex-col items-start gap-2 text-sm', className)}>
-      <p className="font-medium">Konnte nicht geladen werden</p>
+      <p className="font-medium">{t('Konnte nicht geladen werden')}</p>
       {error?.message && <p className="break-words text-muted-foreground">{error.message}</p>}
       <Button variant="outline" size="sm" onClick={onRetry}>
-        Erneut versuchen
+        {t('Erneut versuchen')}
       </Button>
     </div>
   )

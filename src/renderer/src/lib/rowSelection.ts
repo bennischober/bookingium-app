@@ -1,3 +1,4 @@
+import { t, uiLocale } from '../../../main/i18n/translate'
 // #200: rows picked in a list (DataTable). Pure, so the rules are unit tested; the list page
 // keeps the set in its state.
 
@@ -51,5 +52,8 @@ export function selectionLabel(
   count: number,
   itemLabel: { singular: string; plural: string }
 ): string {
-  return `${count.toLocaleString('de-DE')} ${count === 1 ? itemLabel.singular : itemLabel.plural} ausgewählt`
+  return t('{{count}} {{noun}} ausgewählt', {
+    count: count.toLocaleString(uiLocale()),
+    noun: count === 1 ? itemLabel.singular : itemLabel.plural
+  })
 }

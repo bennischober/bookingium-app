@@ -3,6 +3,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { t } from '../../../../main/i18n/translate'
 
 /** Payment QR code switch (Einstellungen › Rechnungen) */
 export function PaymentQrCard() {
@@ -12,18 +13,18 @@ export function PaymentQrCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Zahlung per QR-Code</CardTitle>
+        <CardTitle>{t('Zahlung per QR-Code')}</CardTitle>
         <CardDescription>
-          Banking-Apps füllen die Überweisung aus dem QR-Code aus (EPC-QR-Code, „GiroCode“).
+          {t('Banking-Apps füllen die Überweisung aus dem QR-Code aus (EPC-QR-Code, „GiroCode“).')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -34,12 +35,12 @@ export function PaymentQrCard() {
             onCheckedChange={(checked) => updateSettings.mutate({ paymentQr: checked })}
             disabled={settings.isLoading || updateSettings.isPending}
           />
-          <Label htmlFor="settings-payment-qr">QR-Code zum Bezahlen auf Rechnungen</Label>
+          <Label htmlFor="settings-payment-qr">{t('QR-Code zum Bezahlen auf Rechnungen')}</Label>
         </div>
         <p className="text-xs text-muted-foreground">
-          Gestellte Rechnungen in Euro bekommen unter dem Gesamtbetrag einen QR-Code mit Empfänger,
-          IBAN, Betrag und Rechnungsnummer als Verwendungszweck. Ohne gültige IBAN der eigenen
-          Firma, bei Entwürfen, stornierten Rechnungen und Stornorechnungen entfällt er.
+          {t(
+            'Gestellte Rechnungen in Euro bekommen unter dem Gesamtbetrag einen QR-Code mit Empfänger, IBAN, Betrag und Rechnungsnummer als Verwendungszweck. Ohne gültige IBAN der eigenen Firma, bei Entwürfen, stornierten Rechnungen und Stornorechnungen entfällt er.'
+          )}
         </p>
       </CardContent>
     </Card>

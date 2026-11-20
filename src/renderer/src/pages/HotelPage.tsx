@@ -19,6 +19,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { t } from '../../../main/i18n/translate'
 
 export default function HotelPage() {
   const { sorting, setSorting, sortInput } = useListSorting('hotels', { id: 'name', desc: false })
@@ -46,7 +47,7 @@ export default function HotelPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.hotel,
     utils: utils.hotel,
-    noun: 'Hotel',
+    noun: t('Hotel'),
     label: (hotel: HotelDto) => hotel.name,
     deleteInput: (hotel) => hotel.id,
     onSaved: formSheet.close
@@ -55,12 +56,12 @@ export default function HotelPage() {
   const columns: ColumnDef<HotelDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Hotelname',
+      header: t('Hotelname'),
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
     },
     {
       accessorKey: 'address',
-      header: 'Stadt',
+      header: t('Stadt'),
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
@@ -70,7 +71,7 @@ export default function HotelPage() {
     },
     {
       accessorKey: 'notes',
-      header: 'Anmerkungen',
+      header: t('Anmerkungen'),
       cell: ({ row }) => {
         const value = row.original.notes
         return value ? (value.length > 90 ? `${value.slice(0, 90)}...` : value) : '-'
@@ -78,17 +79,17 @@ export default function HotelPage() {
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={Pencil}
-            label="Bearbeiten"
+            label={t('Bearbeiten')}
             onClick={() => formSheet.openEdit(row.original)}
           />
           <RowActionButton
             icon={Trash2}
-            label="Löschen"
+            label={t('Löschen')}
             destructive
             onClick={() => void mutations.remove(row.original)}
           />
@@ -99,12 +100,15 @@ export default function HotelPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader title="Hotels" description="Unterkünfte für Tours und Events verwalten." />
+      <ListPageHeader
+        title={t('Hotels')}
+        description={t('Unterkünfte für Tours und Events verwalten.')}
+      />
 
       <DataTable
         columns={columns}
         data={listRows(hotels.data)}
-        itemLabel={{ singular: 'Hotel', plural: 'Hotels' }}
+        itemLabel={{ singular: t('Hotel'), plural: t('Hotels') }}
         hasMore={hotels.hasNextPage ?? false}
         isLoadingMore={hotels.isFetchingNextPage}
         onLoadMore={() => void hotels.fetchNextPage()}
@@ -113,13 +117,13 @@ export default function HotelPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Hotels filtern…"
+        searchPlaceholder={t('Hotels filtern…')}
         isLoading={hotels.isLoading}
         error={hotels.error}
         onRetry={() => void hotels.refetch()}
         total={listTotal(hotels.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neues Hotel" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel={t('+ Neues Hotel')} onCreate={formSheet.openCreate}>
             <ExportButton list="hotels" sort={sortInput} search={search} />
           </ListToolbar>
         }
@@ -129,11 +133,11 @@ export default function HotelPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Neues Hotel anlegen' : 'Hotel bearbeiten'}
+        title={formSheet.mode === 'create' ? t('Neues Hotel anlegen') : t('Hotel bearbeiten')}
         description={
           formSheet.mode === 'create'
-            ? 'Ein neues Hotel im Verzeichnis anlegen.'
-            : 'Hotelinformationen aktualisieren.'
+            ? t('Ein neues Hotel im Verzeichnis anlegen.')
+            : t('Hotelinformationen aktualisieren.')
         }
       >
         <HotelForm

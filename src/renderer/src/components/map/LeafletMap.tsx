@@ -14,6 +14,7 @@ import {
   venueAvailability
 } from './mapDisplay'
 import 'leaflet/dist/leaflet.css'
+import { t } from '../../../../main/i18n/translate'
 
 /** #244: how strongly a ring is drawn: normal, the chosen show's, or behind a chosen one */
 function ringStyle(emphasis: 'normal' | 'focus' | 'dim') {
@@ -86,12 +87,13 @@ export function LeafletMap({
       // The links open in the browser (target=_blank reaches the window open
       // handler); a plain link would try to replace the app and be dropped
       map.attributionControl.setPrefix(
-        '<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>'
+        t('<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>')
       )
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution:
+        attribution: t(
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> · PLZ-Daten: <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a>, CC BY 4.0'
+        )
       }).addTo(map)
       // Rings get a pane of their own below the dots (overlayPane is z-index 400). In the shared
       // overlay SVG a ring drawn after a dot painted over it and its fill caught the hover, so a
@@ -232,7 +234,7 @@ export function LeafletMap({
       // The what-if booking on top: its ring dashed in its own colour, always shown (it is
       // what the user asked about), and a dot with a halo
       if (candidate?.lat !== undefined && candidate.lng !== undefined) {
-        const tooltip = escapeHtml(`Anfrage: ${candidate.name}`)
+        const tooltip = escapeHtml(t('Anfrage: {{name}}', { name: candidate.name }))
         const layers: Layer[] = [
           L.circle([candidate.lat, candidate.lng], {
             pane: RING_PANE,
@@ -317,5 +319,5 @@ export function LeafletMap({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  return <div ref={containerRef} className="h-full w-full" aria-label="Karte" />
+  return <div ref={containerRef} className="h-full w-full" aria-label={t('Karte')} />
 }

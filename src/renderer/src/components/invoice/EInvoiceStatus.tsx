@@ -1,11 +1,12 @@
 import { CircleAlert, CircleCheck } from 'lucide-react'
 import type { EInvoiceCheckDto } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 function readyText(check: EInvoiceCheckDto): string {
   const name = check.xrechnung ? 'XRechnung' : 'E-Rechnung'
   return check.state === 'draft'
-    ? `${name} vollständig – das PDF erhält sie, sobald die Rechnung gestellt ist.`
-    : `${name} vollständig – „Als PDF speichern“ bettet sie ins PDF ein (ZUGFeRD).`
+    ? t('{{name}} vollständig – das PDF erhält sie, sobald die Rechnung gestellt ist.', { name })
+    : t('{{name}} vollständig – „Als PDF speichern“ bettet sie ins PDF ein (ZUGFeRD).', { name })
 }
 
 /**
@@ -25,7 +26,9 @@ export function EInvoiceStatus({
   if (check.state === 'cancelled') {
     return (
       <p className={`text-sm text-muted-foreground ${className}`}>
-        Stornierte Rechnungen erhalten keine E-Rechnung mehr – die Stornorechnung hat ihre eigene.
+        {t(
+          'Stornierte Rechnungen erhalten keine E-Rechnung mehr – die Stornorechnung hat ihre eigene.'
+        )}
       </p>
     )
   }
@@ -38,7 +41,7 @@ export function EInvoiceStatus({
         className={`rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 ${className}`}
       >
         <p className="flex items-center gap-2 font-medium">
-          <CircleAlert className="h-4 w-4 shrink-0" /> Für die{' '}
+          <CircleAlert className="h-4 w-4 shrink-0" /> {t('Für die')}{' '}
           {check.xrechnung ? 'XRechnung' : 'E-Rechnung'} fehlt:
         </p>
         <ul className="mt-1 list-disc pl-10">
@@ -46,7 +49,9 @@ export function EInvoiceStatus({
             <li key={item}>{item}</li>
           ))}
         </ul>
-        <p className="mt-2 text-xs">Ohne diese Angaben wird das PDF ohne E-Rechnung gespeichert.</p>
+        <p className="mt-2 text-xs">
+          {t('Ohne diese Angaben wird das PDF ohne E-Rechnung gespeichert.')}
+        </p>
       </div>
     )
   }

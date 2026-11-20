@@ -12,6 +12,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { RecordLink } from './FollowUpList'
+import { t } from '../../../../main/i18n/translate'
 
 const PAGE = 50
 
@@ -27,9 +28,9 @@ export function FollowUpHistoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Erledigte Wiedervorlagen</DialogTitle>
+          <DialogTitle>{t('Erledigte Wiedervorlagen')}</DialogTitle>
           <DialogDescription>
-            Zuletzt erledigte zuerst. „Wieder öffnen“ holt eine zurück in die offenen.
+            {t('Zuletzt erledigte zuerst. „Wieder öffnen“ holt eine zurück in die offenen.')}
           </DialogDescription>
         </DialogHeader>
         {/* Mounted per opening: starts with the first page again */}
@@ -46,22 +47,24 @@ function History() {
   const reopen = trpcReact.followUp.setDone.useMutation({
     onSuccess: () => {
       void utils.followUp.invalidate()
-      toast.success('Wiedervorlage wieder offen')
+      toast.success(t('Wiedervorlage wieder offen'))
     },
-    onError: (error) => toast.error('Änderung fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Änderung fehlgeschlagen'), { description: error.message })
   })
 
   if (query.isLoading) {
-    return <p className="text-sm text-muted-foreground">Wird geladen…</p>
+    return <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
   }
   const items = query.data?.items ?? []
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">Noch keine erledigten Wiedervorlagen.</p>
+    return (
+      <p className="text-sm text-muted-foreground">{t('Noch keine erledigten Wiedervorlagen.')}</p>
+    )
   }
 
   return (
     <div className="max-h-[60vh] overflow-y-auto pr-1">
-      <ul className="divide-y" aria-label="Erledigte Wiedervorlagen">
+      <ul className="divide-y" aria-label={t('Erledigte Wiedervorlagen')}>
         {items.map((followUp) => (
           <li key={followUp.id} className="flex items-start gap-3 py-2 first:pt-0">
             <div className="min-w-0 flex-1">
@@ -73,21 +76,21 @@ function History() {
                   ? repliedLabel(followUp.repliedAt)
                   : followUp.doneAt
                     ? doneLabel(followUp.doneAt)
-                    : 'Erledigt'}
-                {` · fällig ${germanDate(followUp.dueDate)} · `}
-                {followUp.record ? <RecordLink record={followUp.record} /> : 'Allgemein'}
+                    : t('Erledigt')}
+                {t(' · fällig {{date}} · ', { date: germanDate(followUp.dueDate) })}
+                {followUp.record ? <RecordLink record={followUp.record} /> : t('Allgemein')}
               </p>
             </div>
             <Button
               size="sm"
               variant="ghost"
               className="gap-1.5"
-              aria-label={`Wieder öffnen: ${followUp.note}`}
+              aria-label={t('Wieder öffnen: {{note}}', { note: followUp.note })}
               disabled={reopen.isLoading}
               onClick={() => reopen.mutate({ id: followUp.id, done: false })}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Wieder öffnen
+              {t('Wieder öffnen')}
             </Button>
           </li>
         ))}
@@ -99,7 +102,7 @@ function History() {
           disabled={query.isFetching}
           onClick={() => setLimit((current) => current + PAGE)}
         >
-          Ältere anzeigen
+          {t('Ältere anzeigen')}
         </Button>
       )}
     </div>

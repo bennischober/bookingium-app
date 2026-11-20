@@ -22,6 +22,7 @@ import { flattenFolders, isDrafts, isTrash, messageKey } from '@/components/mail
 import { readingActions } from '@/components/mail/readingActions'
 import { parseComposeRequest } from '@/components/mail/composeRequest'
 import type { MessageDetail } from '../../../main/mailclient/core/types'
+import { t } from '../../../main/i18n/translate'
 
 const failed = (title: string) => (error: unknown) =>
   toast.error(title, { description: error instanceof Error ? error.message : undefined })
@@ -122,7 +123,7 @@ export default function MailWindowPage() {
         if (current)
           setCompose({ key: Date.now(), state: fromSavedDraft(draft), closesWindow: true })
       })
-      .catch(failed('Entwurf konnte nicht geöffnet werden'))
+      .catch(failed(t('Entwurf konnte nicht geöffnet werden')))
     return () => {
       current = false
     }
@@ -146,7 +147,7 @@ export default function MailWindowPage() {
     mailApi
       .markFlagged([id], flagged, accountId)
       .then(() => queryClient.invalidateQueries({ queryKey: messageKey(accountId, id) }))
-      .catch(failed('Markierung fehlgeschlagen'))
+      .catch(failed(t('Markierung fehlgeschlagen')))
   }
 
   // The mail leaves its folder, so its window closes
@@ -154,7 +155,7 @@ export default function MailWindowPage() {
     const move = kind === 'delete' ? mailApi.deleteToTrash : mailApi.archive
     move([id], accountId).then(
       () => window.close(),
-      failed(kind === 'delete' ? 'Löschen fehlgeschlagen' : 'Archivieren fehlgeschlagen')
+      failed(kind === 'delete' ? t('Löschen fehlgeschlagen') : t('Archivieren fehlgeschlagen'))
     )
   }
 
@@ -181,7 +182,7 @@ export default function MailWindowPage() {
     })
 
   if (!composeRequest && (!accountId || !Number.isSafeInteger(messageId))) {
-    return <p className="p-6 text-sm text-destructive">Diese E-Mail gibt es nicht.</p>
+    return <p className="p-6 text-sm text-destructive">{t('Diese E-Mail gibt es nicht.')}</p>
   }
   // C1: a compose window needs no message, so it never waits for one
   if (accounts.isLoading || (isSavedDraft && !compose)) {
@@ -195,7 +196,9 @@ export default function MailWindowPage() {
   // through to MessageView with no message id and showed nothing
   if (composeRequest && !canWrite) {
     return (
-      <p className="p-6 text-sm text-destructive">Mit diesem Konto kann nicht gesendet werden.</p>
+      <p className="p-6 text-sm text-destructive">
+        {t('Mit diesem Konto kann nicht gesendet werden.')}
+      </p>
     )
   }
 
@@ -230,7 +233,7 @@ export default function MailWindowPage() {
           onMarkUnread={(id) =>
             void mailApi
               .markRead([id], false, accountId)
-              .catch(failed('Konnte nicht als ungelesen markiert werden'))
+              .catch(failed(t('Konnte nicht als ungelesen markiert werden')))
           }
           onDelete={(id) => moveAway(id, 'delete')}
           onArchive={

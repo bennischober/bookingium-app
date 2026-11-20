@@ -23,6 +23,7 @@ import {
   type ShowAdvancingDto
 } from '../../../../main/api/schemas/advancing.schema'
 import { ExternalDoneToggle } from './ExternalDoneToggle'
+import { t } from '../../../../main/i18n/translate'
 
 type Draft = {
   status: AdvancingStatus
@@ -60,10 +61,10 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
     onSuccess: (saved) => {
       utils.advancing.get.setData({ eventId }, saved)
       void utils.advancing.tour.invalidate()
-      toast.success('Advancing gespeichert')
+      toast.success(t('Advancing gespeichert'))
     },
     onError: (error) =>
-      toast.error('Advancing konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Advancing konnte nicht gespeichert werden'), { description: error.message })
   })
 
   /** #235: the advancing mail; a sent one marks the show "angeschrieben" */
@@ -72,12 +73,12 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
     try {
       const result = await window.api.sendAdvancingEmail(eventId)
       if (!result.success) {
-        toast.error('Advancing-Mail nicht möglich', { description: result.error })
+        toast.error(t('Advancing-Mail nicht möglich'), { description: result.error })
         return
       }
       if (result.sent) {
         void utils.advancing.invalidate()
-        toast.success('Advancing-Mail gesendet', { description: 'Stand: angeschrieben' })
+        toast.success(t('Advancing-Mail gesendet'), { description: t('Stand: angeschrieben') })
       }
     } finally {
       setMailing(false)
@@ -85,7 +86,7 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
   }
 
   if (show.isLoading || !loaded || !draft) {
-    return <p className="text-sm text-muted-foreground">Wird geladen…</p>
+    return <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
   }
   if (show.error) return <p className="text-sm text-destructive">{show.error.message}</p>
 
@@ -103,12 +104,12 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
 
   return (
     <div className="grid max-w-4xl gap-6 md:grid-cols-2">
-      <section className="space-y-4 rounded-lg border p-4" aria-label="Stand">
-        <h3 className="font-semibold">Stand</h3>
+      <section className="space-y-4 rounded-lg border p-4" aria-label={t('Stand')}>
+        <h3 className="font-semibold">{t('Stand')}</h3>
         <ExternalDoneToggle eventId={eventId} step="advancing" />
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="advancing-status">Status</Label>
+            <Label htmlFor="advancing-status">{t('Status')}</Label>
             <Select
               value={draft.status}
               onValueChange={(value) =>
@@ -133,7 +134,7 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="advancing-date">seit</Label>
+            <Label htmlFor="advancing-date">{t('seit')}</Label>
             <Input
               id="advancing-date"
               type="date"
@@ -143,31 +144,31 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="advancing-notes">Offene Punkte / Notizen</Label>
+          <Label htmlFor="advancing-notes">{t('Offene Punkte / Notizen')}</Label>
           <Textarea
             id="advancing-notes"
             rows={6}
             value={draft.notes}
             onChange={(event) => set('notes', event.target.value)}
-            placeholder="Technik, Catering, Parken, Load-in, Hotel…"
+            placeholder={t('Technik, Catering, Parken, Load-in, Hotel…')}
           />
         </div>
       </section>
 
-      <section className="space-y-4 rounded-lg border p-4" aria-label="Kontakt vor Ort">
-        <h3 className="font-semibold">Kontakt vor Ort</h3>
+      <section className="space-y-4 rounded-lg border p-4" aria-label={t('Kontakt vor Ort')}>
+        <h3 className="font-semibold">{t('Kontakt vor Ort')}</h3>
         <p className="text-sm text-muted-foreground">
-          Wer am Showtag im Club ansprechbar ist – nicht der Veranstalter.
+          {t('Wer am Showtag im Club ansprechbar ist – nicht der Veranstalter.')}
         </p>
         <EntityCombobox
           items={personItems}
           value={draft.localContactId}
           onChange={(id) => set('localContactId', id)}
-          placeholder="Person auswählen…"
-          searchPlaceholder="Personen suchen…"
+          placeholder={t('Person auswählen…')}
+          searchPlaceholder={t('Personen suchen…')}
           isLoading={persons.isLoading}
           onCreateNew={(query) => setCreatePerson(personFromSearch(query))}
-          createNewLabel="Neue Person anlegen"
+          createNewLabel={t('Neue Person anlegen')}
         />
         {contact && (
           <div className="space-y-1 text-sm">
@@ -190,14 +191,14 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/50 p-2 text-sm">
             <UserRound className="h-4 w-4 text-muted-foreground" />
             <span>
-              Letzte Show im Club: <strong>{loaded.suggestedContact.name}</strong>
+              {t('Letzte Show im Club:')} <strong>{loaded.suggestedContact.name}</strong>
             </span>
             <Button
               size="sm"
               variant="outline"
               onClick={() => set('localContactId', loaded.suggestedContact!.id)}
             >
-              Übernehmen
+              {t('Übernehmen')}
             </Button>
           </div>
         )}
@@ -216,11 +217,11 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
             })
           }
         >
-          {save.isPending ? 'Wird gespeichert…' : 'Speichern'}
+          {save.isPending ? t('Wird gespeichert…') : t('Speichern')}
         </Button>
         {dirty && (
           <Button variant="outline" onClick={() => setDraft(draftOf(loaded))}>
-            Verwerfen
+            {t('Verwerfen')}
           </Button>
         )}
         <Button
@@ -228,9 +229,11 @@ export function AdvancingTab({ eventId }: { eventId: number }) {
           className="ml-auto"
           disabled={mailing}
           onClick={() => void writeMail()}
-          title="An den Veranstalter, den Kontakt vor Ort in CC; nach dem Senden steht der Stand auf „Angeschrieben“"
+          title={t(
+            'An den Veranstalter, den Kontakt vor Ort in CC; nach dem Senden steht der Stand auf „Angeschrieben“'
+          )}
         >
-          <Send className="h-4 w-4" /> Advancing-Mail schreiben…
+          <Send className="h-4 w-4" /> {t('Advancing-Mail schreiben…')}
         </Button>
       </div>
 

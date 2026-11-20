@@ -35,6 +35,7 @@ import {
 } from '../../../../../main/api/schemas/marketing.schema'
 import { MarketingActionDialog, type MarketingActionPreset } from './MarketingActionDialog'
 import { totalCents } from './marketingFilters'
+import { t } from '../../../../../main/i18n/translate'
 
 const ALL = 'all'
 
@@ -86,10 +87,10 @@ export function MarketingActions({
     const byTour = new Map<string, MarketingActionDto[]>()
     for (const action of shown) {
       const key = action.tour
-        ? `Tour ${action.tour}`
+        ? t('Tour {{tour}}', { tour: action.tour })
         : action.release
-          ? `Release ${action.release}`
-          : 'Ohne Tour'
+          ? t('Release {{release}}', { release: action.release })
+          : t('Ohne Tour')
       byTour.set(key, [...(byTour.get(key) ?? []), action])
     }
     return [...byTour.entries()]
@@ -101,7 +102,7 @@ export function MarketingActions({
         {bandId !== null && (
           <Button size="sm" className="gap-1.5" onClick={() => setEditing('new')}>
             <Plus className="h-4 w-4" />
-            Neue Maßnahme
+            {t('Neue Maßnahme')}
           </Button>
         )}
         {!compact && (
@@ -111,11 +112,11 @@ export function MarketingActions({
               setStatus(value === ALL ? null : (value as MarketingActionStatus))
             }
           >
-            <SelectTrigger className="h-9 w-44" aria-label="Status der Maßnahmen filtern">
+            <SelectTrigger className="h-9 w-44" aria-label={t('Status der Maßnahmen filtern')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Jeder Status</SelectItem>
+              <SelectItem value={ALL}>{t('Jeder Status')}</SelectItem>
               {MarketingActionStatus.options.map((option) => (
                 <SelectItem key={option} value={option}>
                   {MARKETING_ACTION_STATUS_LABELS[option]}
@@ -126,17 +127,17 @@ export function MarketingActions({
         )}
         {shown.length > 0 && (
           <span className="ml-auto text-sm text-muted-foreground">
-            {shown.length} {shown.length === 1 ? 'Maßnahme' : 'Maßnahmen'} · Kosten{' '}
+            {shown.length} {shown.length === 1 ? t('Maßnahme') : t('Maßnahmen')} {t('· Kosten')}{' '}
             {formatMoney(fromCents(totalCents(shown)), 'EUR')} netto
           </span>
         )}
       </div>
 
       {actions.isLoading ? (
-        <p className="text-sm text-muted-foreground">Wird geladen…</p>
+        <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {status ? 'Keine Maßnahmen mit diesem Status.' : 'Noch keine Maßnahmen.'}
+          {status ? t('Keine Maßnahmen mit diesem Status.') : t('Noch keine Maßnahmen.')}
         </p>
       ) : (
         groups.map(([group, entries]) => (
@@ -192,7 +193,7 @@ function ActionRow({
   const utils = trpcReact.useUtils()
   const remove = trpcReact.marketing.deleteAction.useMutation({
     onSuccess: () => utils.marketing.invalidate(),
-    onError: (error) => toast.error('Nicht gelöscht', { description: error.message })
+    onError: (error) => toast.error(t('Nicht gelöscht'), { description: error.message })
   })
   const when = period(action)
   return (
@@ -225,8 +226,16 @@ function ActionRow({
                 {action.showLabel}
               </Link>
             )}
-            {!action.showLabel && action.tour && <span>Tour {action.tour}</span>}
-            {action.release && <span>Release {action.release}</span>}
+            {!action.showLabel && action.tour && (
+              <span>
+                {t('Tour')} {action.tour}
+              </span>
+            )}
+            {action.release && (
+              <span>
+                {t('Release')} {action.release}
+              </span>
+            )}
             {action.companyName && action.companyId !== null && (
               <Link
                 to="/companies/$companyId"
@@ -241,7 +250,7 @@ function ActionRow({
           </p>
           {action.marketingItemName && (
             <p className="text-xs text-muted-foreground">
-              Aus dem Atlas: {action.marketingItemName}
+              {t('Aus dem Atlas:')} {action.marketingItemName}
             </p>
           )}
           {action.notes && <p className="text-sm text-muted-foreground">{action.notes}</p>}
@@ -253,7 +262,7 @@ function ActionRow({
               {formatMoney(fromCents(action.costCents), 'EUR')}
               <span className="text-muted-foreground">
                 {' '}
-                · zahlt {MARKETING_PAYER_LABELS[action.payer]}
+                {t('· zahlt')} {MARKETING_PAYER_LABELS[action.payer]}
               </span>
             </span>
           )}
@@ -270,19 +279,21 @@ function ActionRow({
             >
               <FileText className="h-3.5 w-3.5" />
               {action.invoiceNumber !== null
-                ? `Rechnung ${invoiceNumberLabel(action.invoiceNumber)}`
-                : 'Rechnungsentwurf'}
+                ? t('Rechnung {{invoiceNumberLabel}}', {
+                    invoiceNumberLabel: invoiceNumberLabel(action.invoiceNumber)
+                  })
+                : t('Rechnungsentwurf')}
             </Link>
           )}
         </div>
       </div>
       <div className="mt-1 flex flex-wrap gap-1">
         <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onEdit}>
-          <Pencil className="h-3.5 w-3.5" /> Bearbeiten
+          <Pencil className="h-3.5 w-3.5" /> {t('Bearbeiten')}
         </Button>
         {action.invoiceId === null && action.costCents !== null && action.costCents > 0 && (
           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onBill}>
-            <FileText className="h-3.5 w-3.5" /> Rechnung erstellen…
+            <FileText className="h-3.5 w-3.5" /> {t('Rechnung erstellen…')}
           </Button>
         )}
         <Button
@@ -291,10 +302,11 @@ function ActionRow({
           className="h-7 gap-1 text-xs text-muted-foreground hover:text-destructive"
           disabled={remove.isPending}
           onClick={async () => {
-            if (await confirmDelete(`„${action.title}“ löschen?`)) remove.mutate(action.id)
+            if (await confirmDelete(t('„{{title}}“ löschen?', { title: action.title })))
+              remove.mutate(action.id)
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" /> Löschen
+          <Trash2 className="h-3.5 w-3.5" /> {t('Löschen')}
         </Button>
       </div>
     </li>
@@ -311,22 +323,22 @@ function InvoiceDialog({ action, onClose }: { action: MarketingActionDto; onClos
   const create = trpcReact.marketing.createActionInvoice.useMutation({
     onSuccess: async ({ invoiceId }) => {
       await utils.invalidate()
-      toast.success('Rechnungsentwurf angelegt')
+      toast.success(t('Rechnungsentwurf angelegt'))
       onClose()
       void navigate({ to: '/invoices', search: { open: invoiceId } })
     },
     onError: (error) =>
-      toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
+      toast.error(t('Rechnung konnte nicht erstellt werden'), { description: error.message })
   })
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Rechnung erstellen</DialogTitle>
+          <DialogTitle>{t('Rechnung erstellen')}</DialogTitle>
           <DialogDescription>
-            Ein Entwurf über{' '}
-            {action.costCents !== null && formatMoney(fromCents(action.costCents), 'EUR')} netto
-            zzgl. 19 % USt. Er lässt sich danach wie jede Rechnung bearbeiten.
+            {t('Ein Entwurf über')}{' '}
+            {action.costCents !== null && formatMoney(fromCents(action.costCents), 'EUR')}{' '}
+            {t('netto zzgl. 19 % USt. Er lässt sich danach wie jede Rechnung bearbeiten.')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 text-sm">
@@ -338,7 +350,8 @@ function InvoiceDialog({ action, onClose }: { action: MarketingActionDto; onClos
               checked={recipient === 'band'}
               onChange={() => setRecipient('band')}
             />
-            An die Band ({action.bandName})
+            {t('An die Band (')}
+            {action.bandName})
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -348,7 +361,7 @@ function InvoiceDialog({ action, onClose }: { action: MarketingActionDto; onClos
               checked={recipient === 'company'}
               onChange={() => setRecipient('company')}
             />
-            An eine Firma (z. B. Label, Veranstalter)
+            {t('An eine Firma (z. B. Label, Veranstalter)')}
           </label>
           {recipient === 'company' && (
             <SearchableSelect
@@ -359,13 +372,13 @@ function InvoiceDialog({ action, onClose }: { action: MarketingActionDto; onClos
                 value: company.id,
                 label: company.name
               }))}
-              searchPlaceholder="Firma suchen…"
+              searchPlaceholder={t('Firma suchen…')}
             />
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={create.isPending || (recipient === 'company' && companyId === null)}
@@ -377,7 +390,7 @@ function InvoiceDialog({ action, onClose }: { action: MarketingActionDto; onClos
               })
             }
           >
-            Entwurf anlegen
+            {t('Entwurf anlegen')}
           </Button>
         </DialogFooter>
       </DialogContent>

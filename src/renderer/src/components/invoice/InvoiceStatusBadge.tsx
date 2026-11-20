@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES } from '@/lib/invoiceLabels'
 import type { InvoiceKind, InvoiceStatus } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Status of an invoice; a Stornorechnung has no status of its own and shows
@@ -18,7 +19,9 @@ export function InvoiceStatusBadge({
   if (kind === 'cancellation') {
     return (
       <Badge variant="outline" className="border-red-200 bg-red-50 text-red-800">
-        {cancelsInvoiceNumber ? `Storno zu #${cancelsInvoiceNumber}` : 'Stornorechnung'}
+        {cancelsInvoiceNumber
+          ? t('Storno zu #{{cancelsInvoiceNumber}}', { cancelsInvoiceNumber })
+          : t('Stornorechnung')}
       </Badge>
     )
   }

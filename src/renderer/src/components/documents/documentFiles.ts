@@ -1,4 +1,5 @@
 import { toast } from '@/lib/toast'
+import { t } from '../../../../main/i18n/translate'
 
 // Shared helpers of the document lists (own documents and related ones)
 
@@ -7,11 +8,11 @@ export async function revealDocument(filePath: string): Promise<void> {
   try {
     const result = await window.api.revealDocumentInFolder(filePath)
     if (!result.success) {
-      toast.error('Fehler beim Anzeigen der Datei im Ordner', { description: result.error })
+      toast.error(t('Fehler beim Anzeigen der Datei im Ordner'), { description: result.error })
     }
   } catch (error) {
-    toast.error('Fehler beim Anzeigen der Datei im Ordner', {
-      description: error instanceof Error ? error.message : 'Unbekannter Fehler'
+    toast.error(t('Fehler beim Anzeigen der Datei im Ordner'), {
+      description: error instanceof Error ? error.message : t('Unbekannter Fehler')
     })
   }
 }
@@ -22,8 +23,8 @@ export async function openDocument(filePath: string): Promise<void> {
     const result = await window.api.openDocument(filePath)
     if (!result.success) await revealDocument(filePath)
   } catch (error) {
-    toast.error('Fehler beim Öffnen des Dokuments', {
-      description: error instanceof Error ? error.message : 'Unbekannter Fehler'
+    toast.error(t('Fehler beim Öffnen des Dokuments'), {
+      description: error instanceof Error ? error.message : t('Unbekannter Fehler')
     })
   }
 }

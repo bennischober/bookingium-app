@@ -7,6 +7,7 @@ import {
   MARKETING_STATUS_LABELS,
   type MarketingLinkDto
 } from '../../../../../main/api/schemas/marketing.schema'
+import { t } from '../../../../../main/i18n/translate'
 
 function Links({ links }: { links: MarketingLinkDto[] }) {
   return (
@@ -22,7 +23,7 @@ function Links({ links }: { links: MarketingLinkDto[] }) {
             {link.bandName}
           </Link>
           <span className="text-muted-foreground">
-            {MARKETING_CATEGORY_LABELS[link.category]} · Priorität {link.priority} ·{' '}
+            {MARKETING_CATEGORY_LABELS[link.category]} {t('· Priorität')} {link.priority} ·{' '}
             {MARKETING_STATUS_LABELS[link.status]}
           </span>
           {link.statusNote && (
@@ -43,7 +44,7 @@ export function CompanyMarketingCard({ companyId }: { companyId: number }) {
   const actions = trpcReact.marketing.actions.useQuery({ companyId })
   if (!links.data?.length && !actions.data?.length) return null
   return (
-    <InfoCard label="Marketing">
+    <InfoCard label={t('Marketing')}>
       <div className="space-y-4">
         {!!links.data?.length && <Links links={links.data} />}
         {!!actions.data?.length && (
@@ -59,7 +60,7 @@ export function VenueMarketingCard({ venueId }: { venueId: number }) {
   const links = trpcReact.marketing.forVenue.useQuery(venueId)
   if (!links.data?.length) return null
   return (
-    <InfoCard label="Marketing-Atlas">
+    <InfoCard label={t('Marketing-Atlas')}>
       <Links links={links.data} />
     </InfoCard>
   )

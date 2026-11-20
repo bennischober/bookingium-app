@@ -8,6 +8,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import type { SavedContactListDto } from '../../../../main/api/schemas/contactList.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The page header's controls: the filter toggle, the saved list picker and
@@ -57,7 +58,7 @@ export function SavedListControls({
           onClick={onToggleFilters}
         >
           <SlidersHorizontal className="h-4 w-4" />
-          Filter
+          {t('Filter')}
           {activeFilters > 0 && (
             <span className="rounded-full bg-primary px-1.5 text-xs leading-5 text-primary-foreground">
               {activeFilters}
@@ -66,11 +67,11 @@ export function SavedListControls({
         </Button>
       )}
       <Select value={savedId === null ? 'new' : String(savedId)} onValueChange={onChoose}>
-        <SelectTrigger className="w-56" aria-label="Gespeicherter Verteiler">
+        <SelectTrigger className="w-56" aria-label={t('Gespeicherter Verteiler')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="new">Neuer Verteiler</SelectItem>
+          <SelectItem value="new">{t('Neuer Verteiler')}</SelectItem>
           {savedLists?.map((entry) => (
             <SelectItem key={entry.id} value={String(entry.id)}>
               {entry.name}
@@ -80,21 +81,21 @@ export function SavedListControls({
       </Select>
       {!memberList && (
         <Button variant="outline" onClick={onSave} disabled={!changed || saving}>
-          Speichern
+          {t('Speichern')}
         </Button>
       )}
       {saved && (
         <>
           {!memberList && (
             <Button variant="outline" onClick={onSaveAs}>
-              Speichern unter…
+              {t('Speichern unter…')}
             </Button>
           )}
           <Button variant="outline" onClick={onRename}>
-            Umbenennen
+            {t('Umbenennen')}
           </Button>
           <Button variant="outline" onClick={onDelete}>
-            Löschen
+            {t('Löschen')}
           </Button>
         </>
       )}

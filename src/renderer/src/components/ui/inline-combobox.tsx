@@ -11,6 +11,7 @@ import {
   CommandList
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 export interface InlineComboboxItem {
   id: number
@@ -35,7 +36,7 @@ export function InlineCombobox({
   onChange,
   placeholder = 'Select…',
   searchPlaceholder = 'Search…',
-  emptyText = 'No items found.',
+  emptyText = t('No items found.'),
   isLoading = false,
   disabled = false,
   className

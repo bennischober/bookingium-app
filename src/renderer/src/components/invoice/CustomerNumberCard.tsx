@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Where new Kundennummern start (Einstellungen › Rechnungen). A customer gets its number with
@@ -22,16 +23,16 @@ export function CustomerNumberCard() {
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
       setTyped(null)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   const save = () => {
     const next = Number(value)
     if (!Number.isInteger(next) || next < 1) {
-      toast.error('Nächste Kundennummer muss eine ganze Zahl ≥ 1 sein')
+      toast.error(t('Nächste Kundennummer muss eine ganze Zahl ≥ 1 sein'))
       return
     }
     updateSettings.mutate({ nextCustomerNumber: next })
@@ -40,15 +41,16 @@ export function CustomerNumberCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Kundennummern</CardTitle>
+        <CardTitle>{t('Kundennummern')}</CardTitle>
         <CardDescription>
-          Ein Kunde erhält seine Kundennummer mit der ersten gestellten Rechnung. Vergebene Nummern
-          (eingetragen oder aus DATEV übernommen) werden übersprungen.
+          {t(
+            'Ein Kunde erhält seine Kundennummer mit der ersten gestellten Rechnung. Vergebene Nummern (eingetragen oder aus DATEV übernommen) werden übersprungen.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-end gap-4">
         <div className="w-48 space-y-2">
-          <Label htmlFor="settings-next-customer-number">Nächste Kundennummer</Label>
+          <Label htmlFor="settings-next-customer-number">{t('Nächste Kundennummer')}</Label>
           <Input
             id="settings-next-customer-number"
             type="number"
@@ -60,7 +62,7 @@ export function CustomerNumberCard() {
           />
         </div>
         <Button onClick={save} disabled={updateSettings.isPending || settings.isLoading}>
-          Speichern
+          {t('Speichern')}
         </Button>
       </CardContent>
     </Card>

@@ -14,6 +14,7 @@ import {
 import type { EInvoicePartySource } from '../../../../main/api/schemas/einvoice_party.schema'
 import type { CompanyEnrichmentDto } from '../../../../main/api/schemas/company_enrichment.schema'
 import { COMPANY_ENRICHMENT_EVENT } from './companyEnrichmentEvents'
+import { t } from '../../../../main/i18n/translate'
 
 /** The confirmation: every value the invoice adds, then "Übernehmen" */
 export function CompanyEnrichmentDialog({
@@ -28,25 +29,30 @@ export function CompanyEnrichmentDialog({
     onSuccess: () => {
       void utils.company.invalidate()
       void utils.companyEnrichment.invalidate()
-      toast.success(`${enrichment.companyName} ergänzt`)
+      toast.success(t('{{companyName}} ergänzt', { companyName: enrichment.companyName }))
       onClose()
     },
     onError: (error) =>
-      toast.error('Firma konnte nicht ergänzt werden', { description: error.message })
+      toast.error(t('Firma konnte nicht ergänzt werden'), { description: error.message })
   })
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{enrichment.companyName} ergänzen</DialogTitle>
+          <DialogTitle>
+            {enrichment.companyName} {t('ergänzen')}
+          </DialogTitle>
           <DialogDescription>
             {enrichment.origin === 'einvoice'
-              ? 'Aus den Daten der E-Rechnung. '
-              : 'Aus dem Text der Rechnung gelesen – bitte kurz prüfen. '}
-            Nur leere Felder werden gefüllt, nichts wird überschrieben.
+              ? t('Aus den Daten der E-Rechnung.')
+              : t('Aus dem Text der Rechnung gelesen – bitte kurz prüfen.')}{' '}
+            {t('Nur leere Felder werden gefüllt, nichts wird überschrieben.')}
           </DialogDescription>
         </DialogHeader>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm" aria-label="Angaben">
+        <dl
+          className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm"
+          aria-label={t('Angaben')}
+        >
           {enrichment.fills.map((fill) => (
             <div key={fill.key} className="contents">
               <dt className="text-muted-foreground">{fill.label}</dt>
@@ -56,7 +62,7 @@ export function CompanyEnrichmentDialog({
         </dl>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={apply.isPending}
@@ -64,7 +70,7 @@ export function CompanyEnrichmentDialog({
               apply.mutate({ companyId: enrichment.companyId, party: enrichment.party })
             }
           >
-            Übernehmen
+            {t('Übernehmen')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -99,11 +105,12 @@ export function CompanyEnrichmentHint({
       >
         <Building2 className="h-4 w-4 shrink-0 text-amber-700" />
         <span>
-          <strong>{enrichment.companyName}</strong>: {count} {count === 1 ? 'Angabe' : 'Angaben'}{' '}
-          aus der Rechnung ergänzen ({enrichment.fills.map((fill) => fill.label).join(', ')})
+          <strong>{enrichment.companyName}</strong>: {count}{' '}
+          {count === 1 ? t('Angabe') : t('Angaben')} {t('aus der Rechnung ergänzen (')}
+          {enrichment.fills.map((fill) => fill.label).join(', ')})
         </span>
         <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          Ergänzen…
+          {t('Ergänzen…')}
         </Button>
       </div>
       {open && <CompanyEnrichmentDialog enrichment={enrichment} onClose={() => setOpen(false)} />}

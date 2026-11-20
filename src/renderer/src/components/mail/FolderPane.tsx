@@ -9,6 +9,7 @@ import { UnreadCount } from './UnreadCount'
 import { accountName } from './format'
 import type { MailAccountDto } from '../../../../main/mailclient/accounts'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /** The mail page's folder pane (wide windows only): the shown account's tree, or one section per account */
 export function FolderPane({
@@ -45,7 +46,7 @@ export function FolderPane({
     <nav
       className="hidden shrink-0 overflow-auto p-2 lg:block"
       style={{ width: folderWidth }}
-      aria-label="Ordnerliste"
+      aria-label={t('Ordnerliste')}
     >
       {otherAccounts.length === 0
         ? shownTree

@@ -5,6 +5,7 @@ import type {
   MarketingItemDto,
   MarketingStatus
 } from '../../../../../main/api/schemas/marketing.schema'
+import { t } from '../../../../../main/i18n/translate'
 
 /** A: the top picks; AB: A and B; all: everything */
 export type MarketingLevel = 'A' | 'AB' | 'all'
@@ -84,7 +85,7 @@ export function countByStatus(items: MarketingItemDto[]): Map<MarketingStatus, n
 export function groupItems(items: MarketingItemDto[]): Array<[string, MarketingItemDto[]]> {
   const groups = new Map<string, MarketingItemDto[]>()
   for (const item of items) {
-    const key = item.group || 'Ohne Gruppe'
+    const key = item.group || t('Ohne Gruppe')
     groups.set(key, [...(groups.get(key) ?? []), item])
   }
   return [...groups.entries()].sort((a, b) => b[1].length - a[1].length)

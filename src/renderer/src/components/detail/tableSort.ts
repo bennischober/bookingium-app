@@ -1,3 +1,4 @@
+import { t, uiLocale } from '../../../../main/i18n/translate'
 // The pure half of the detail tables (RowTable / EventsTable), so the order and the
 // count line are testable without a DOM (vitest runs in a node environment here).
 
@@ -42,5 +43,8 @@ export function nextSort(current: TableSort | null, key: string): TableSort {
 
 /** "12 Events" / "1 Event" - the count line above a detail table */
 export function countLabel(count: number, singular: string, plural: string): string {
-  return `${count.toLocaleString('de-DE')} ${count === 1 ? singular : plural}`
+  return t('{{count}} {{noun}}', {
+    count: count.toLocaleString(uiLocale()),
+    noun: count === 1 ? singular : plural
+  })
 }

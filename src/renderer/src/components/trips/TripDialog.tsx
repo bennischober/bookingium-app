@@ -42,6 +42,7 @@ import type { TripDto, TripFields } from '../../../../main/api/schemas/trip.sche
 import { amountText } from '@/components/receipts/receiptForm'
 import { parseAmount } from '@/lib/invoiceLabels'
 import { toCents } from '../../../../main/einvoice/amounts'
+import { t } from '../../../../main/i18n/translate'
 
 // #225 step 2: one business trip - the facts, the meals provided per day, the live allowances,
 // its receipts, and the report that goes to DATEV.
@@ -145,39 +146,39 @@ export function TripDialog({
       setId(saved.id)
       setDirty(false)
       refresh()
-      toast.success('Reise gespeichert')
+      toast.success(t('Reise gespeichert'))
     },
-    onError: failed('Reise konnte nicht gespeichert werden')
+    onError: failed(t('Reise konnte nicht gespeichert werden'))
   })
   const update = trpcReact.trip.update.useMutation({
     onSuccess: () => {
       setDirty(false)
       refresh()
-      toast.success('Reise gespeichert')
+      toast.success(t('Reise gespeichert'))
     },
-    onError: failed('Reise konnte nicht gespeichert werden')
+    onError: failed(t('Reise konnte nicht gespeichert werden'))
   })
   const assign = trpcReact.trip.assignReceipt.useMutation({
     onSuccess: refresh,
-    onError: failed('Beleg konnte nicht zugeordnet werden')
+    onError: failed(t('Beleg konnte nicht zugeordnet werden'))
   })
   const build = trpcReact.trip.buildReport.useMutation({
     onSuccess: () => {
       refresh()
-      toast.success('Abrechnung erstellt')
+      toast.success(t('Abrechnung erstellt'))
     },
-    onError: failed('Abrechnung konnte nicht erstellt werden')
+    onError: failed(t('Abrechnung konnte nicht erstellt werden'))
   })
   const openFile = trpcReact.receipt.open.useMutation({
-    onError: failed('Datei konnte nicht geöffnet werden')
+    onError: failed(t('Datei konnte nicht geöffnet werden'))
   })
   const send = trpcReact.receipt.sendToDatev.useMutation({
     onSuccess: (result) => {
       refresh()
-      if (result.success) toast.success('An DATEV übergeben', { description: result.to })
-      else toast.error('Nicht an DATEV übergeben', { description: result.error })
+      if (result.success) toast.success(t('An DATEV übergeben'), { description: result.to })
+      else toast.error(t('Nicht an DATEV übergeben'), { description: result.error })
     },
-    onError: failed('Nicht an DATEV übergeben')
+    onError: failed(t('Nicht an DATEV übergeben'))
   })
 
   const timesError = fields ? tripTimesError(fields.startAt, fields.endAt) : null
@@ -200,7 +201,7 @@ export function TripDialog({
   const save = () => {
     if (!fields) return
     if (!fields.travellerName.trim()) {
-      toast.error('Bitte die reisende Person angeben')
+      toast.error(t('Bitte die reisende Person angeben'))
       return
     }
     if (timesError) {
@@ -213,7 +214,7 @@ export function TripDialog({
       const partial = parseAmount(abroad.partial)
       const full = parseAmount(abroad.full)
       if (partial === null || full === null) {
-        toast.error('Bitte beide Pauschalen des Landes angeben (BMF-Tabelle)')
+        toast.error(t('Bitte beide Pauschalen des Landes angeben (BMF-Tabelle)'))
         return
       }
       ratePartialCents = toCents(partial)
@@ -227,15 +228,16 @@ export function TripDialog({
   const sendReport = async () => {
     if (!trip?.report) return
     if (dirty) {
-      toast.error('Bitte zuerst speichern und die Abrechnung neu erstellen')
+      toast.error(t('Bitte zuerst speichern und die Abrechnung neu erstellen'))
       return
     }
     if (trip.report.datev !== 'none') {
       const again = await confirmAction({
-        title: 'Noch einmal an DATEV übergeben?',
-        description:
-          'Die Abrechnung ist schon übergeben. Ein zweites Mal wird sie in DATEV ein zweiter Beleg.',
-        confirmLabel: 'Trotzdem übergeben'
+        title: t('Noch einmal an DATEV übergeben?'),
+        description: t(
+          'Die Abrechnung ist schon übergeben. Ein zweites Mal wird sie in DATEV ein zweiter Beleg.'
+        ),
+        confirmLabel: t('Trotzdem übergeben')
       })
       if (!again) return
     }
@@ -249,21 +251,22 @@ export function TripDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col">
         <DialogHeader>
-          <DialogTitle>{id === null ? 'Neue Reise' : 'Reise bearbeiten'}</DialogTitle>
+          <DialogTitle>{id === null ? t('Neue Reise') : t('Reise bearbeiten')}</DialogTitle>
           <DialogDescription>
-            Verpflegungspauschalen 2026 im Inland: 14 € ab mehr als 8 Stunden und für An- und
-            Abreisetag, 28 € pro vollem Tag. Gestellte Mahlzeiten werden gekürzt.
+            {t(
+              'Verpflegungspauschalen 2026 im Inland: 14 € ab mehr als 8 Stunden und für An- und Abreisetag, 28 € pro vollem Tag. Gestellte Mahlzeiten werden gekürzt.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        {!fields && <p className="py-6 text-sm text-muted-foreground">Wird geladen…</p>}
+        {!fields && <p className="py-6 text-sm text-muted-foreground">{t('Wird geladen…')}</p>}
         {fields && (
           <div className="-mx-6 grid flex-1 gap-6 overflow-y-auto px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="min-w-0 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="trip-person" className="mb-1 block">
-                    Reisende Person
+                    {t('Reisende Person')}
                   </Label>
                   <SearchableSelect<number>
                     id="trip-person"
@@ -281,14 +284,14 @@ export function TripDialog({
                       value: p.id,
                       label: `${p.firstName} ${p.lastName}`.trim()
                     }))}
-                    noneLabel="Keine Person aus Bookingium"
-                    placeholder="Person wählen"
-                    searchPlaceholder="Person suchen…"
+                    noneLabel={t('Keine Person aus Bookingium')}
+                    placeholder={t('Person wählen')}
+                    searchPlaceholder={t('Person suchen…')}
                   />
                 </div>
                 <div>
                   <Label htmlFor="trip-traveller" className="mb-1 block">
-                    Name auf der Abrechnung
+                    {t('Name auf der Abrechnung')}
                   </Label>
                   <Input
                     id="trip-traveller"
@@ -298,18 +301,18 @@ export function TripDialog({
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="trip-purpose" className="mb-1 block">
-                    Anlass
+                    {t('Anlass')}
                   </Label>
                   <Input
                     id="trip-purpose"
-                    placeholder="z. B. Tourbegleitung April Art, Herbst 2026"
+                    placeholder={t('z. B. Tourbegleitung April Art, Herbst 2026')}
                     value={fields.purpose}
                     onChange={(e) => set({ purpose: e.target.value })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="trip-destination" className="mb-1 block">
-                    Reiseziel
+                    {t('Reiseziel')}
                   </Label>
                   <Input
                     id="trip-destination"
@@ -319,7 +322,7 @@ export function TripDialog({
                 </div>
                 <div>
                   <Label htmlFor="trip-country" className="mb-1 block">
-                    Land
+                    {t('Land')}
                   </Label>
                   <Input
                     id="trip-country"
@@ -330,7 +333,7 @@ export function TripDialog({
                 </div>
                 <div>
                   <Label htmlFor="trip-start" className="mb-1 block">
-                    Beginn
+                    {t('Beginn')}
                   </Label>
                   <Input
                     id="trip-start"
@@ -341,7 +344,7 @@ export function TripDialog({
                 </div>
                 <div>
                   <Label htmlFor="trip-end" className="mb-1 block">
-                    Ende
+                    {t('Ende')}
                   </Label>
                   <Input
                     id="trip-end"
@@ -360,17 +363,18 @@ export function TripDialog({
                     checked={fields.overnight}
                     onChange={(e) => set({ overnight: e.target.checked })}
                   />
-                  Mit Übernachtung (sonst über Mitternacht ohne Übernachtung: eine Pauschale)
+                  {t('Mit Übernachtung (sonst über Mitternacht ohne Übernachtung: eine Pauschale)')}
                 </label>
               )}
               {fields.countryCode !== 'DE' && (
                 <div className="grid grid-cols-2 gap-3 rounded-md border border-dashed p-3">
                   <p className="col-span-2 text-xs text-muted-foreground">
-                    Auslandsreise: die Pauschalen des Landes aus der BMF-Tabelle des Jahres. Leer
-                    gelassen gelten die Inlandssätze.
+                    {t(
+                      'Auslandsreise: die Pauschalen des Landes aus der BMF-Tabelle des Jahres. Leer gelassen gelten die Inlandssätze.'
+                    )}
                   </p>
                   <div>
-                    <Label className="mb-1 block text-xs">An-/Abreisetag, über 8 Std.</Label>
+                    <Label className="mb-1 block text-xs">{t('An-/Abreisetag, über 8 Std.')}</Label>
                     <Input
                       inputMode="decimal"
                       value={abroad.partial}
@@ -381,7 +385,7 @@ export function TripDialog({
                     />
                   </div>
                   <div>
-                    <Label className="mb-1 block text-xs">Voller Tag (24 Std.)</Label>
+                    <Label className="mb-1 block text-xs">{t('Voller Tag (24 Std.)')}</Label>
                     <Input
                       inputMode="decimal"
                       value={abroad.full}
@@ -396,16 +400,16 @@ export function TripDialog({
 
               {days.length > 0 && (
                 <div>
-                  <p className="mb-1 text-sm font-medium">Gestellte Mahlzeiten</p>
+                  <p className="mb-1 text-sm font-medium">{t('Gestellte Mahlzeiten')}</p>
                   <table className="w-full text-sm">
                     <thead className="text-xs text-muted-foreground">
                       <tr>
-                        <th className="py-1 text-left font-normal">Tag</th>
-                        <th className="py-1 text-left font-normal">Art</th>
-                        <th className="py-1 font-normal">Frühstück</th>
-                        <th className="py-1 font-normal">Mittag</th>
-                        <th className="py-1 font-normal">Abend</th>
-                        <th className="py-1 text-right font-normal">Pauschale</th>
+                        <th className="py-1 text-left font-normal">{t('Tag')}</th>
+                        <th className="py-1 text-left font-normal">{t('Art')}</th>
+                        <th className="py-1 font-normal">{t('Frühstück')}</th>
+                        <th className="py-1 font-normal">{t('Mittag')}</th>
+                        <th className="py-1 font-normal">{t('Abend')}</th>
+                        <th className="py-1 text-right font-normal">{t('Pauschale')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -435,9 +439,9 @@ export function TripDialog({
                                   className="h-4 w-4 accent-primary"
                                   aria-label={`${formatShortDate(day.date)} ${
                                     {
-                                      breakfast: 'Frühstück',
-                                      lunch: 'Mittagessen',
-                                      dinner: 'Abendessen'
+                                      breakfast: t('Frühstück'),
+                                      lunch: t('Mittagessen'),
+                                      dinner: t('Abendessen')
                                     }[meal]
                                   } gestellt`}
                                   checked={meals[meal]}
@@ -457,7 +461,7 @@ export function TripDialog({
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label htmlFor="trip-km" className="mb-1 block">
-                    Gefahrene km (eigenes Fahrzeug)
+                    {t('Gefahrene km (eigenes Fahrzeug)')}
                   </Label>
                   <Input
                     id="trip-km"
@@ -470,7 +474,7 @@ export function TripDialog({
                 </div>
                 <div>
                   <Label htmlFor="trip-vehicle" className="mb-1 block">
-                    Fahrzeug
+                    {t('Fahrzeug')}
                   </Label>
                   <Select
                     value={fields.vehicle}
@@ -480,8 +484,8 @@ export function TripDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="car">Pkw (0,30 €/km)</SelectItem>
-                      <SelectItem value="other">Anderes Kfz (0,20 €/km)</SelectItem>
+                      <SelectItem value="car">{t('Pkw (0,30 €/km)')}</SelectItem>
+                      <SelectItem value="other">{t('Anderes Kfz (0,20 €/km)')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -507,7 +511,7 @@ export function TripDialog({
                 </div>
                 <div className="col-span-3">
                   <Label htmlFor="trip-company" className="mb-1 block">
-                    Eigene Firma
+                    {t('Eigene Firma')}
                   </Label>
                   <SearchableSelect<number>
                     id="trip-company"
@@ -520,17 +524,21 @@ export function TripDialog({
                         value: DEFAULT_COMPANY,
                         label:
                           id === null
-                            ? `Standardfirma${defaultCompany.data ? ` (${defaultCompany.data.name})` : ''}`
-                            : `Unverändert (${trip?.companyName || 'keine'})`
+                            ? t('Standardfirma{{value}}', {
+                                value: defaultCompany.data ? ` (${defaultCompany.data.name})` : ''
+                              })
+                            : t('Unverändert ({{value}})', {
+                                value: trip?.companyName || t('keine')
+                              })
                       },
                       ...(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))
                     ]}
-                    searchPlaceholder="Firma suchen…"
+                    searchPlaceholder={t('Firma suchen…')}
                   />
                 </div>
                 <div className="col-span-3">
                   <Label htmlFor="trip-notes" className="mb-1 block">
-                    Anmerkung
+                    {t('Anmerkung')}
                   </Label>
                   <Textarea
                     id="trip-notes"
@@ -543,13 +551,13 @@ export function TripDialog({
 
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium">Belege der Reise</p>
+                  <p className="text-sm font-medium">{t('Belege der Reise')}</p>
                   {id === null ? (
-                    <span className="text-xs text-muted-foreground">Nach dem Speichern</span>
+                    <span className="text-xs text-muted-foreground">{t('Nach dem Speichern')}</span>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       <SearchableSelect<number>
-                        aria-label="Vorhandenen Beleg zuordnen"
+                        aria-label={t('Vorhandenen Beleg zuordnen')}
                         value={null}
                         onChange={(receiptId) => {
                           if (receiptId !== null) assign.mutate({ receiptId, tripId: id })
@@ -563,9 +571,9 @@ export function TripDialog({
                             .filter(Boolean)
                             .join(' · ')
                         }))}
-                        placeholder="Vorhandenen Beleg zuordnen"
-                        searchPlaceholder="Beleg suchen…"
-                        emptyText="Keine freien Belege"
+                        placeholder={t('Vorhandenen Beleg zuordnen')}
+                        searchPlaceholder={t('Beleg suchen…')}
+                        emptyText={t('Keine freien Belege')}
                       />
                       <Button
                         variant="outline"
@@ -575,13 +583,15 @@ export function TripDialog({
                           setQueue(paths.map((path) => ({ kind: 'file' as const, path })))
                         }}
                       >
-                        <Plus className="h-4 w-4" /> Neue Belege…
+                        <Plus className="h-4 w-4" /> {t('Neue Belege…')}
                       </Button>
                     </div>
                   )}
                 </div>
                 {(trip?.receipts ?? []).length === 0 && id !== null && (
-                  <p className="text-sm text-muted-foreground">Noch keine Belege zugeordnet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('Noch keine Belege zugeordnet.')}
+                  </p>
                 )}
                 {(trip?.receipts ?? []).map((r) => (
                   <div
@@ -600,8 +610,8 @@ export function TripDialog({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Beleg von der Reise lösen"
-                      title="Von der Reise lösen"
+                      aria-label={t('Beleg von der Reise lösen')}
+                      title={t('Von der Reise lösen')}
                       onClick={() => assign.mutate({ receiptId: r.id, tripId: null })}
                     >
                       <Trash2 />
@@ -612,21 +622,21 @@ export function TripDialog({
             </div>
 
             <div className="min-w-0 space-y-3 rounded-md border p-4 text-sm">
-              <p className="font-medium">Erstattung</p>
+              <p className="font-medium">{t('Erstattung')}</p>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Verpflegung</span>
+                <span className="text-muted-foreground">{t('Verpflegung')}</span>
                 <span className="tabular-nums">{euro(allowances?.allowancesCents ?? 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Kilometer</span>
+                <span className="text-muted-foreground">{t('Kilometer')}</span>
                 <span className="tabular-nums">{euro(allowances?.mileageCents ?? 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Belege (EUR)</span>
+                <span className="text-muted-foreground">{t('Belege (EUR)')}</span>
                 <span className="tabular-nums">{euro(trip?.receiptsCents ?? 0)}</span>
               </div>
               <div className="flex justify-between border-t pt-2 font-semibold">
-                <span>Gesamt</span>
+                <span>{t('Gesamt')}</span>
                 <span className="tabular-nums">
                   {euro(
                     (allowances?.allowancesCents ?? 0) +
@@ -637,30 +647,30 @@ export function TripDialog({
               </div>
 
               <div className="space-y-2 border-t pt-3">
-                <p className="font-medium">Abrechnung</p>
+                <p className="font-medium">{t('Abrechnung')}</p>
                 {trip?.report ? (
                   <p className="text-xs text-muted-foreground">
                     {trip.report.fileName}{' '}
                     {trip.report.datev === 'sent' ? (
-                      <Badge variant="secondary">an DATEV übergeben</Badge>
+                      <Badge variant="secondary">{t('an DATEV übergeben')}</Badge>
                     ) : trip.report.datev === 'pending' ? (
-                      <Badge variant="outline">wird bestätigt</Badge>
+                      <Badge variant="outline">{t('wird bestätigt')}</Badge>
                     ) : null}
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Ein PDF: Übersicht und dahinter die Belege der Reise.
+                    {t('Ein PDF: Übersicht und dahinter die Belege der Reise.')}
                   </p>
                 )}
                 <Button
                   variant="outline"
                   className="w-full"
                   disabled={id === null || dirty || build.isPending}
-                  title={dirty ? 'Zuerst speichern' : undefined}
+                  title={dirty ? t('Zuerst speichern') : undefined}
                   onClick={() => id !== null && build.mutate({ id })}
                 >
                   <FileText className="h-4 w-4" />
-                  {trip?.report ? 'Abrechnung neu erstellen' : 'Abrechnung erstellen'}
+                  {trip?.report ? t('Abrechnung neu erstellen') : t('Abrechnung erstellen')}
                 </Button>
                 {trip?.report && (
                   <>
@@ -669,14 +679,14 @@ export function TripDialog({
                       className="w-full"
                       onClick={() => openFile.mutate({ id: trip.report!.receiptId })}
                     >
-                      <ExternalLink className="h-4 w-4" /> Abrechnung öffnen
+                      <ExternalLink className="h-4 w-4" /> {t('Abrechnung öffnen')}
                     </Button>
                     <Button
                       className="w-full"
                       disabled={send.isPending}
                       onClick={() => void sendReport()}
                     >
-                      <Landmark className="h-4 w-4" /> An DATEV übergeben
+                      <Landmark className="h-4 w-4" /> {t('An DATEV übergeben')}
                     </Button>
                   </>
                 )}
@@ -687,10 +697,10 @@ export function TripDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Schließen
+            {t('Schließen')}
           </Button>
           <Button onClick={save} disabled={!fields || saving || !dirty}>
-            {saving ? 'Wird gespeichert…' : 'Speichern'}
+            {saving ? t('Wird gespeichert…') : t('Speichern')}
           </Button>
         </DialogFooter>
       </DialogContent>

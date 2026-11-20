@@ -19,6 +19,7 @@ import type {
   OpSummary,
   SearchResult
 } from '../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 export type MoveTarget =
   | { kind: 'delete' }
@@ -29,19 +30,19 @@ const MOVE_TEXTS: Record<
   { done: (folder: string) => string; many: (n: number, folder: string) => string; failed: string }
 > = {
   delete: {
-    done: () => 'In den Papierkorb verschoben',
-    many: (n) => `${n} E-Mails in den Papierkorb verschoben`,
-    failed: 'Löschen fehlgeschlagen'
+    done: () => t('In den Papierkorb verschoben'),
+    many: (n) => t('{{n}} E-Mails in den Papierkorb verschoben', { n }),
+    failed: t('Löschen fehlgeschlagen')
   },
   archive: {
-    done: () => 'Archiviert',
-    many: (n) => `${n} E-Mails archiviert`,
-    failed: 'Archivieren fehlgeschlagen'
+    done: () => t('Archiviert'),
+    many: (n) => t('{{n}} E-Mails archiviert', { n }),
+    failed: t('Archivieren fehlgeschlagen')
   },
   folder: {
-    done: (folder) => `Nach „${folder}“ verschoben`,
-    many: (n, folder) => `${n} E-Mails nach „${folder}“ verschoben`,
-    failed: 'Verschieben fehlgeschlagen'
+    done: (folder) => t('Nach „{{folder}}“ verschoben', { folder }),
+    many: (n, folder) => t('{{n}} E-Mails nach „{{folder}}“ verschoben', { n, folder }),
+    failed: t('Verschieben fehlgeschlagen')
   }
 }
 
@@ -119,7 +120,9 @@ export function useMessageActions({
       .then(afterFlags)
       .catch(
         failed(
-          read ? 'Als gelesen markieren fehlgeschlagen' : 'Als ungelesen markieren fehlgeschlagen'
+          read
+            ? t('Als gelesen markieren fehlgeschlagen')
+            : t('Als ungelesen markieren fehlgeschlagen')
         )
       )
   }
@@ -127,7 +130,7 @@ export function useMessageActions({
     mailApi
       .markFlagged(ids, flagged, accountId)
       .then(afterFlags)
-      .catch(failed('Markierung fehlgeschlagen'))
+      .catch(failed(t('Markierung fehlgeschlagen')))
   }
 
   // Moves the mails, moves the selection on if it held them, then reports how
@@ -167,14 +170,14 @@ export function useMessageActions({
     const undo =
       done.length > 0
         ? {
-            label: 'Rückgängig',
+            label: t('Rückgängig'),
             onClick: () => {
               void (async () => {
                 try {
                   // Last move first, so each mail goes back the way it came
                   for (const op of [...done].reverse()) await mailApi.undoOp(op.id, accountId)
                 } catch (error) {
-                  failed('Rückgängig machen fehlgeschlagen')(error)
+                  failed(t('Rückgängig machen fehlgeschlagen'))(error)
                 }
                 refreshLists()
               })()
@@ -197,12 +200,16 @@ export function useMessageActions({
       // show it again rather than hiding a mail that has not actually moved
       unhideMails(ids)
       const reason = notDone.some((op) => op.state === 'pending')
-        ? 'Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.'
+        ? t('Der Server war nicht erreichbar; es wird beim nächsten Start erneut versucht.')
         : (notDone.find((op) => op.error)?.error ?? undefined)
       toast.error(texts.failed, {
         description:
           ids.length > 1
-            ? `${notDone.length} von ${ids.length} E-Mails wurden nicht verschoben.${reason ? ` ${reason}` : ''}`
+            ? t('{{length}} von {{length2}} E-Mails wurden nicht verschoben.{{value}}', {
+                length: notDone.length,
+                length2: ids.length,
+                value: reason ? ` ${reason}` : ''
+              })
             : reason,
         action: undo
       })
@@ -217,9 +224,12 @@ export function useMessageActions({
   const expunge = async (ids: number[]) => {
     const count = ids.length
     const confirmed = await confirmAction({
-      title: count > 1 ? `${count} E-Mails endgültig löschen?` : 'Diese E-Mail endgültig löschen?',
-      description: 'Das kann nicht rückgängig gemacht werden.',
-      confirmLabel: 'Endgültig löschen',
+      title:
+        count > 1
+          ? t('{{count}} E-Mails endgültig löschen?', { count })
+          : t('Diese E-Mail endgültig löschen?'),
+      description: t('Das kann nicht rückgängig gemacht werden.'),
+      confirmLabel: t('Endgültig löschen'),
       destructive: true
     })
     if (!confirmed) return
@@ -232,24 +242,26 @@ export function useMessageActions({
       await mailApi.expungeFromTrash(ids, accountId)
     } catch (error) {
       unhideMails(ids)
-      failed('Endgültig löschen fehlgeschlagen')(error)
+      failed(t('Endgültig löschen fehlgeschlagen'))(error)
       return
     }
     refreshLists()
-    toast.success(count > 1 ? `${count} E-Mails endgültig gelöscht` : 'Endgültig gelöscht')
+    toast.success(
+      count > 1 ? t('{{count}} E-Mails endgültig gelöscht', { count }) : t('Endgültig gelöscht')
+    )
   }
 
   // B5: "Papierkorb leeren" from the folder's context menu
   const emptyTrash = async (trash: FolderNode) => {
     const total = trash.totalCount ?? 0
     if (total === 0) {
-      toast.info('Der Papierkorb ist leer.')
+      toast.info(t('Der Papierkorb ist leer.'))
       return
     }
     const confirmed = await confirmAction({
-      title: `${total.toLocaleString('de-DE')} E-Mails endgültig löschen?`,
-      description: 'Das kann nicht rückgängig gemacht werden.',
-      confirmLabel: 'Papierkorb leeren',
+      title: t('{{total}} E-Mails endgültig löschen?', { total: total.toLocaleString(uiLocale()) }),
+      description: t('Das kann nicht rückgängig gemacht werden.'),
+      confirmLabel: t('Papierkorb leeren'),
       destructive: true
     })
     if (!confirmed) return
@@ -273,13 +285,15 @@ export function useMessageActions({
     } catch (error) {
       // whatever has not been deleted comes back
       unhideMails(ids)
-      failed('Papierkorb leeren fehlgeschlagen')(error)
+      failed(t('Papierkorb leeren fehlgeschlagen'))(error)
       refreshLists()
       return
     }
     setSelection(EMPTY_SELECTION)
     refreshLists()
-    toast.success(`${total.toLocaleString('de-DE')} E-Mails endgültig gelöscht`)
+    toast.success(
+      t('{{total}} E-Mails endgültig gelöscht', { total: total.toLocaleString(uiLocale()) })
+    )
   }
 
   /** Every mail of a folder, page by page (the core takes ids, not folders) */
@@ -298,7 +312,7 @@ export function useMessageActions({
     try {
       const unread = (await folderMails(folder)).filter((m) => !m.isRead).map((m) => m.id)
       if (unread.length === 0) {
-        toast.info('Alle E-Mails in diesem Ordner sind schon gelesen.')
+        toast.info(t('Alle E-Mails in diesem Ordner sind schon gelesen.'))
         return
       }
       for (let i = 0; i < unread.length; i += PAGE_SIZE) {
@@ -307,12 +321,14 @@ export function useMessageActions({
       refreshLists()
       toast.success(
         unread.length > 1
-          ? `${unread.length.toLocaleString('de-DE')} E-Mails als gelesen markiert`
-          : 'Als gelesen markiert'
+          ? t('{{length}} E-Mails als gelesen markiert', {
+              length: unread.length.toLocaleString(uiLocale())
+            })
+          : t('Als gelesen markiert')
       )
     } catch (error) {
       refreshLists()
-      failed('Als gelesen markieren fehlgeschlagen')(error)
+      failed(t('Als gelesen markieren fehlgeschlagen'))(error)
     }
   }
 
@@ -320,13 +336,18 @@ export function useMessageActions({
   const emptyFolder = async (folder: FolderNode, label: string) => {
     const total = folder.totalCount ?? 0
     if (total === 0) {
-      toast.info(`„${label}“ ist leer.`)
+      toast.info(t('„{{label}}“ ist leer.', { label }))
       return
     }
     const confirmed = await confirmAction({
-      title: `${total.toLocaleString('de-DE')} E-Mails in den Papierkorb verschieben?`,
-      description: `Alle E-Mails in „${label}“ kommen in den Papierkorb. Dort lassen sie sich wiederherstellen, bis er geleert wird.`,
-      confirmLabel: 'In den Papierkorb',
+      title: t('{{total}} E-Mails in den Papierkorb verschieben?', {
+        total: total.toLocaleString(uiLocale())
+      }),
+      description: t(
+        'Alle E-Mails in „{{label}}“ kommen in den Papierkorb. Dort lassen sie sich wiederherstellen, bis er geleert wird.',
+        { label }
+      ),
+      confirmLabel: t('In den Papierkorb'),
       destructive: true
     })
     if (!confirmed) return
@@ -340,12 +361,16 @@ export function useMessageActions({
     } catch (error) {
       unhideMails(ids)
       refreshLists()
-      failed('Ordner leeren fehlgeschlagen')(error)
+      failed(t('Ordner leeren fehlgeschlagen'))(error)
       return
     }
     setSelection(EMPTY_SELECTION)
     refreshLists()
-    toast.success(`${ids.length.toLocaleString('de-DE')} E-Mails in den Papierkorb verschoben`)
+    toast.success(
+      t('{{length}} E-Mails in den Papierkorb verschoben', {
+        length: ids.length.toLocaleString(uiLocale())
+      })
+    )
   }
 
   return {

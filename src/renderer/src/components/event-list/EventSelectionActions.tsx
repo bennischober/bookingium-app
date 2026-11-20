@@ -13,6 +13,7 @@ import {
 import { STATUS_LABELS } from '@/components/event-hub/constants'
 import { DealMemoStatus } from '../../../../main/api/schemas/deal_memo.schema'
 import { eventCount } from './eventCount'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #200: what can be done with the events picked in the list - one status for all, or archive
@@ -40,9 +41,12 @@ export function EventSelectionActions({
     const label = STATUS_LABELS[status]
     if (
       !(await confirmAction({
-        title: `${eventCount(ids.length)} auf „${label}“ setzen?`,
-        description: 'Der Status jedes ausgewählten Events wird geändert.',
-        confirmLabel: 'Status setzen'
+        title: t('{{eventCount}} auf „{{label}}“ setzen?', {
+          eventCount: eventCount(ids.length),
+          label
+        }),
+        description: t('Der Status jedes ausgewählten Events wird geändert.'),
+        confirmLabel: t('Status setzen')
       }))
     ) {
       return
@@ -55,23 +59,23 @@ export function EventSelectionActions({
       const changed = before.changes.length
       toast.success(
         changed === 0
-          ? `Alle hatten schon „${label}“`
-          : `${eventCount(changed)} auf „${label}“ gesetzt`,
+          ? t('Alle hatten schon „{{label}}“', { label })
+          : t('{{eventCount}} auf „{{label}}“ gesetzt', { eventCount: eventCount(changed), label }),
         changed === 0
           ? undefined
           : {
               action: {
-                label: 'Rückgängig',
+                label: t('Rückgängig'),
                 onClick: () =>
                   setStatuses.mutate(before, {
                     onError: (error) =>
-                      toast.error('Rückgängig fehlgeschlagen', { description: error.message })
+                      toast.error(t('Rückgängig fehlgeschlagen'), { description: error.message })
                   })
               }
             }
       )
     } catch (error) {
-      toast.error('Status konnte nicht gesetzt werden', {
+      toast.error(t('Status konnte nicht gesetzt werden'), {
         description: error instanceof Error ? error.message : String(error)
       })
     }
@@ -81,9 +85,10 @@ export function EventSelectionActions({
     if (
       !(await confirmAction({
         title: `${eventCount(ids.length)} archivieren?`,
-        description:
-          'Die Events verschwinden aus den Listen und dem Kalender. Rechnungen, Dokumente und Wiedervorlagen bleiben erhalten, und sie lassen sich jederzeit wiederherstellen.',
-        confirmLabel: 'Archivieren'
+        description: t(
+          'Die Events verschwinden aus den Listen und dem Kalender. Rechnungen, Dokumente und Wiedervorlagen bleiben erhalten, und sie lassen sich jederzeit wiederherstellen.'
+        ),
+        confirmLabel: t('Archivieren')
       }))
     ) {
       return
@@ -93,20 +98,20 @@ export function EventSelectionActions({
       onDone()
       toast.success(`${eventCount(archived.ids.length)} archiviert`, {
         action: {
-          label: 'Rückgängig',
+          label: t('Rückgängig'),
           onClick: () =>
             archived.ids.length > 0 &&
             restoreMany.mutate(
               { ids: archived.ids },
               {
                 onError: (error) =>
-                  toast.error('Rückgängig fehlgeschlagen', { description: error.message })
+                  toast.error(t('Rückgängig fehlgeschlagen'), { description: error.message })
               }
             )
         }
       })
     } catch (error) {
-      toast.error('Events konnten nicht archiviert werden', {
+      toast.error(t('Events konnten nicht archiviert werden'), {
         description: error instanceof Error ? error.message : String(error)
       })
     }
@@ -116,8 +121,8 @@ export function EventSelectionActions({
     <>
       {/* value stays empty: picking a status is the action, not a filter */}
       <Select value="" onValueChange={(value) => void setStatus(value as DealMemoStatus)}>
-        <SelectTrigger className="h-8 w-44" aria-label="Status setzen" disabled={busy}>
-          <SelectValue placeholder="Status setzen…" />
+        <SelectTrigger className="h-8 w-44" aria-label={t('Status setzen')} disabled={busy}>
+          <SelectValue placeholder={t('Status setzen…')} />
         </SelectTrigger>
         <SelectContent>
           {DealMemoStatus.options.map((status) => (
@@ -128,7 +133,7 @@ export function EventSelectionActions({
         </SelectContent>
       </Select>
       <Button variant="outline" size="sm" onClick={() => void archive()} disabled={busy}>
-        <Archive className="h-4 w-4" /> Archivieren
+        <Archive className="h-4 w-4" /> {t('Archivieren')}
       </Button>
     </>
   )

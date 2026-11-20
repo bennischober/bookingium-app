@@ -32,6 +32,7 @@ import { Tip } from '@/components/Tip'
 import { ReadOnlyField } from './ReadOnlyField'
 import { formatCapacity } from '../../../../main/api/schemas/capacity'
 import { MarketingActions } from '@/components/band/marketing/MarketingActions'
+import { t } from '../../../../main/i18n/translate'
 export interface OverviewTabProps {
   event: DealMemoDetailDto
   isEditing: boolean
@@ -128,23 +129,23 @@ export function OverviewTab({
       utils.dealMemo.getAllPaginated.invalidate()
       void utils.tourImport.tours.invalidate()
       if (updated.status === 'pending') {
-        void nudgeFollowUp('Event aktualisiert', {
+        void nudgeFollowUp(t('Event aktualisiert'), {
           record: { type: 'event', id: updated.id, name: updated.name },
-          note: 'Zusage einholen'
+          note: t('Zusage einholen')
         })
       } else {
-        toast.success('Event aktualisiert')
+        toast.success(t('Event aktualisiert'))
       }
       onSaved()
     },
-    onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Speichern fehlgeschlagen'), { description: e.message })
   })
 
   const handleSave = () => {
     // One save for the whole tab: an invalid clause holds back the other fields too, and says so
     if (radiusDirty && !radiusParsed.ok) {
-      toast.error('Übersicht nicht gespeichert', {
-        description: `Gebietsschutz ungültig – ${radiusParsed.error}`
+      toast.error(t('Übersicht nicht gespeichert'), {
+        description: t('Gebietsschutz ungültig – {{error}}', { error: radiusParsed.error })
       })
       return
     }
@@ -191,13 +192,13 @@ export function OverviewTab({
       {/* ── Who takes part: one row each, changed in place ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Beteiligte
+          {t('Beteiligte')}
         </h3>
         <div className="divide-y rounded-lg border">
           <SwappableEntityCard
             compact
             icon={<Music2 className="h-3.5 w-3.5" />}
-            title="Band"
+            title={t('Band')}
             currentName={event.bandName}
             currentDetail={event.band?.genre || null}
             currentId={event.bandId}
@@ -207,16 +208,18 @@ export function OverviewTab({
             isSaving={updateMutation.isPending}
             nullable={false}
             href={`/band/${event.bandId}`}
-            empty="Keine Band zugewiesen"
+            empty={t('Keine Band zugewiesen')}
           />
           <SwappableEntityCard
             compact
             icon={<MapPin className="h-3.5 w-3.5" />}
-            title="Club / Festival"
+            title={t('Club / Festival')}
             currentName={event.venueName}
             currentDetail={
               event.venue?.capacity
-                ? `Kapazität: ${formatCapacity(event.venue.capacityMin, event.venue.capacity)}`
+                ? t('Kapazität: {{formatCapacity}}', {
+                    formatCapacity: formatCapacity(event.venue.capacityMin, event.venue.capacity)
+                  })
                 : null
             }
             currentId={event.venueId}
@@ -226,7 +229,7 @@ export function OverviewTab({
             isSaving={updateMutation.isPending}
             nullable={true}
             href={event.venueId ? `/venues/${event.venueId}` : undefined}
-            empty="Kein Club / Festival zugewiesen"
+            empty={t('Kein Club / Festival zugewiesen')}
           />
           <SwappableEntityCard
             compact
@@ -244,7 +247,7 @@ export function OverviewTab({
             isSaving={updateMutation.isPending}
             nullable={true}
             href={event.loProPersonId ? `/persons/${event.loProPersonId}` : undefined}
-            empty="Kein Kontakt zugewiesen"
+            empty={t('Kein Kontakt zugewiesen')}
           />
           <SwappableEntityCard
             compact
@@ -258,7 +261,7 @@ export function OverviewTab({
             isSaving={updateMutation.isPending}
             nullable={true}
             href={event.loProCompanyId ? `/companies/${event.loProCompanyId}` : undefined}
-            empty="Keine Firma zugewiesen"
+            empty={t('Keine Firma zugewiesen')}
           />
         </div>
       </div>
@@ -268,24 +271,24 @@ export function OverviewTab({
       {/* ── Event Details ── */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-          Eventdetails
+          {t('Eventdetails')}
         </h3>
 
         {isEditing ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Eventname</Label>
+                <Label htmlFor="name">{t('Eventname')}</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Eventname…"
+                  placeholder={t('Eventname…')}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="eventDate">Datum</Label>
+                <Label htmlFor="eventDate">{t('Datum')}</Label>
                 <Input
                   id="eventDate"
                   type="date"
@@ -295,27 +298,27 @@ export function OverviewTab({
               </div>
 
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label>{t('Status')}</Label>
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Ausstehend</SelectItem>
-                    <SelectItem value="confirmed">Bestätigt</SelectItem>
-                    <SelectItem value="cancelled">Storniert</SelectItem>
+                    <SelectItem value="pending">{t('Ausstehend')}</SelectItem>
+                    <SelectItem value="confirmed">{t('Bestätigt')}</SelectItem>
+                    <SelectItem value="cancelled">{t('Storniert')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="eventTour">Tour</Label>
+                <Label htmlFor="eventTour">{t('Tour')}</Label>
                 <Input
                   id="eventTour"
                   list="event-tours"
                   value={tour}
                   onChange={(e) => setTour(e.target.value)}
-                  placeholder="z. B. Frühjahr 2027"
+                  placeholder={t('z. B. Frühjahr 2027')}
                   maxLength={200}
                 />
                 <datalist id="event-tours">
@@ -327,7 +330,7 @@ export function OverviewTab({
 
               {mapPreview.enabled && inheritedRadius && (
                 <div className="space-y-2">
-                  <Label>Gebietsschutz</Label>
+                  <Label>{t('Gebietsschutz')}</Label>
                   <RadiusFields
                     id="event-radius"
                     value={radiusDraft}
@@ -340,8 +343,10 @@ export function OverviewTab({
                     error={radiusParsed.ok ? undefined : radiusParsed.error}
                     inheritedFrom={
                       hasOverride(event.venue)
-                        ? 'den Club bzw. das Festival'
-                        : `den Standard für ${event.venue?.kind === 'festival' ? 'Festivals' : 'Clubs'}`
+                        ? t('den Club bzw. das Festival')
+                        : t('den Standard für {{value}}', {
+                            value: event.venue?.kind === 'festival' ? t('Festivals') : t('Clubs')
+                          })
                     }
                   />
                 </div>
@@ -349,29 +354,37 @@ export function OverviewTab({
             </div>
 
             <div className="space-y-2">
-              <Label>Anmerkungen</Label>
+              <Label>{t('Anmerkungen')}</Label>
               <Textarea
                 value={notes ?? ''}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={6}
-                placeholder="Zusätzliche Anmerkungen zu diesem Event…"
+                placeholder={t('Zusätzliche Anmerkungen zu diesem Event…')}
               />
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name, date and status are in the page header; they are edited here */}
-            <ReadOnlyField label="Anmerkungen" value={notes} placeholder="Keine Anmerkungen" />
-            <ReadOnlyField label="Tour" value={tour} placeholder="Keiner Tour zugeordnet" />
+            <ReadOnlyField
+              label={t('Anmerkungen')}
+              value={notes}
+              placeholder={t('Keine Anmerkungen')}
+            />
+            <ReadOnlyField
+              label={t('Tour')}
+              value={tour}
+              placeholder={t('Keiner Tour zugeordnet')}
+            />
             {mapPreview.enabled && inheritedRadius && (
               <ReadOnlyField
-                label="Gebietsschutz"
+                label={t('Gebietsschutz')}
                 value={`${formatClause(inheritClause(event, inheritedRadius))} (${
                   hasOverride(event)
-                    ? 'für dieses Event angepasst'
+                    ? t('für dieses Event angepasst')
                     : hasOverride(event.venue)
-                      ? 'vom Club/Festival'
-                      : 'Standard'
+                      ? t('vom Club/Festival')
+                      : t('Standard')
                 })`}
               />
             )}
@@ -384,7 +397,7 @@ export function OverviewTab({
       {/* Maßnahmen (radio spots, posters …) booked for this show */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-          Marketing
+          {t('Marketing')}
         </h3>
         <MarketingActions
           scope={{ dealMemoId: event.id }}

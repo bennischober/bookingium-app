@@ -25,6 +25,7 @@ import { MarketingTab } from '@/components/band/marketing/MarketingTab'
 import { EventsTable } from '@/components/detail/DetailParts'
 import { eventPlace } from '@/components/event-list/pastEvent'
 import type { BandDto } from '../../../main/api/schemas/band.schema'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * Overview: the band's data in one sheet, its members, the next shows and what is still unpaid.
@@ -64,12 +65,12 @@ function OverviewTab({ band }: { band: BandDto }) {
       <FactSheet
         groups={[
           {
-            title: 'Band',
+            title: t('Band'),
             facts: [
-              ['Genre', band.genre],
-              ['Gegründet', band.founded && formatLooseDate(band.founded)],
+              [t('Genre'), band.genre],
+              [t('Gegründet'), band.founded && formatLooseDate(band.founded)],
               [
-                'Technischer Leiter',
+                t('Technischer Leiter'),
                 responsible && (
                   <Link
                     to="/persons/$personId"
@@ -83,28 +84,28 @@ function OverviewTab({ band }: { band: BandDto }) {
             ]
           },
           {
-            title: 'Firma und Management',
+            title: t('Firma und Management'),
             facts: [
-              ['Firma der Band', companyLink(band.companyId)],
+              [t('Firma der Band'), companyLink(band.companyId)],
               [
-                'Management',
+                t('Management'),
                 companyLink(band.managementCompanyId) ?? (
-                  <span className="text-muted-foreground">Standardfirma</span>
+                  <span className="text-muted-foreground">{t('Standardfirma')}</span>
                 )
               ]
             ]
           },
           {
-            title: 'Anmerkungen',
+            title: t('Anmerkungen'),
             facts: [
-              ['Notiz', band.notes && <span className="whitespace-pre-wrap">{band.notes}</span>]
+              [t('Notiz'), band.notes && <span className="whitespace-pre-wrap">{band.notes}</span>]
             ]
           }
         ]}
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <LinkList
-          title="Nächste Shows"
+          title={t('Nächste Shows')}
           items={eventItems(next)}
           action={
             <button
@@ -112,12 +113,12 @@ function OverviewTab({ band }: { band: BandDto }) {
               className="text-sm text-primary hover:underline"
               onClick={() => toTab('events')}
             >
-              Alle Events
+              {t('Alle Events')}
             </button>
           }
         />
         <LinkList
-          title="Offene Rechnungen"
+          title={t('Offene Rechnungen')}
           items={invoiceItems}
           action={
             <button
@@ -125,12 +126,12 @@ function OverviewTab({ band }: { band: BandDto }) {
               className="text-sm text-primary hover:underline"
               onClick={() => toTab('invoices')}
             >
-              Verträge & Rechnungen
+              {t('Verträge & Rechnungen')}
             </button>
           }
         />
       </div>
-      <TabSection id="section-members" title="Mitglieder">
+      <TabSection id="section-members" title={t('Mitglieder')}>
         <MembersPanel entityType="band" entityId={band.id} />
       </TabSection>
     </div>
@@ -142,10 +143,10 @@ function EventsTab({ bandId }: { bandId: number }) {
   const events = trpcReact.dealMemo.listByBand.useQuery(bandId)
   return (
     <EventsTable
-      label="Events der Band"
+      label={t('Events der Band')}
       query={events}
-      empty="Noch keine Events für diese Band."
-      columns={[{ header: 'Club / Festival, Ort', cell: (event) => eventPlace(event) }]}
+      empty={t('Noch keine Events für diese Band.')}
+      columns={[{ header: t('Club / Festival, Ort'), cell: (event) => eventPlace(event) }]}
     />
   )
 }
@@ -155,14 +156,14 @@ function MoneyTab({ bandId }: { bandId: number }) {
   const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
   return (
     <div className="space-y-10">
-      <TabSection id="section-contracts" title="Managementverträge">
+      <TabSection id="section-contracts" title={t('Managementverträge')}>
         <ManagementContractPanel bandId={bandId} />
       </TabSection>
-      <TabSection title="Rechnungen">
+      <TabSection title={t('Rechnungen')}>
         <RecordInvoicesTable
-          label="Rechnungen der Band"
+          label={t('Rechnungen der Band')}
           query={invoices}
-          empty="Keine Rechnungen zu Events der Band oder an die Band."
+          empty={t('Keine Rechnungen zu Events der Band oder an die Band.')}
         />
       </TabSection>
     </div>
@@ -186,7 +187,7 @@ export default function BandDetailPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.band,
     utils: utils.band,
-    noun: 'Band',
+    noun: t('Band'),
     label: (band: BandDto) => band.name,
     deleteInput: (band) => band.id,
     onSaved: sheet.close,
@@ -199,13 +200,17 @@ export default function BandDetailPage() {
     <RecordDetailPage
       id={id}
       query={band}
-      loading="Band wird geladen…"
-      notFound={{ text: 'Band nicht gefunden.', backLabel: 'Zurück zu den Bands', onBack: toList }}
+      loading={t('Band wird geladen…')}
+      notFound={{
+        text: t('Band nicht gefunden.'),
+        backLabel: t('Zurück zu den Bands'),
+        onBack: toList
+      }}
     >
       {(band) => (
         <RecordDetail
           record={{ type: 'band', id: band.id, name: band.name }}
-          back={{ label: 'Alle Bands', onBack: toList }}
+          back={{ label: t('Alle Bands'), onBack: toList }}
           subtitle={band.genre}
           onEdit={() => sheet.openEdit(band)}
           onDelete={() => mutations.deleteNow(band)}
@@ -213,29 +218,29 @@ export default function BandDetailPage() {
           isTab={isBandTab}
           aliases={BAND_TAB_ALIASES}
           tabs={[
-            { id: 'overview', label: 'Übersicht', content: <OverviewTab band={band} /> },
+            { id: 'overview', label: t('Übersicht'), content: <OverviewTab band={band} /> },
             {
               id: 'events',
-              label: 'Events',
+              label: t('Events'),
               count: counts.events,
               hideWhenEmpty: true,
               content: <EventsTab bandId={band.id} />
             },
             {
               id: 'marketing',
-              label: 'Marketing',
+              label: t('Marketing'),
               content: <MarketingTab bandId={band.id} bandName={band.name} />
             },
             {
               id: 'invoices',
-              label: 'Verträge & Rechnungen',
+              label: t('Verträge & Rechnungen'),
               count: sumCounts(counts.contracts, counts.invoices),
               content: <MoneyTab bandId={band.id} />
             }
           ]}
           documents={{
             count: counts.documents,
-            title: 'Dokumente der Band',
+            title: t('Dokumente der Band'),
             // The band's own documents above (editable), its events' documents below,
             // filtered by category and event
             extra: <BandDocumentsView bandId={band.id} />
@@ -245,8 +250,8 @@ export default function BandDetailPage() {
             isOpen={sheet.isOpen}
             onClose={sheet.close}
             mode="edit"
-            title="Band bearbeiten"
-            description="Bandinformationen aktualisieren."
+            title={t('Band bearbeiten')}
+            description={t('Bandinformationen aktualisieren.')}
           >
             <BandForm
               mode="edit"

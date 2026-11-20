@@ -5,6 +5,7 @@ import { mailApi } from '@/lib/mailApi'
 import { folderErrorMap } from '@/components/mail/syncActivity'
 import { folderLabel } from '@/components/mail/format'
 import type { FolderNode } from '../../../main/mailclient/core/types'
+import { t } from '../../../main/i18n/translate'
 
 /** #156: how long a folder stays open before it is synced (clicking through starts no sync each) */
 const OPEN_SYNC_DELAY_MS = 300
@@ -67,20 +68,24 @@ export function useMailSyncStatus({
   const retryFolder = async (path: string) => {
     const f = allFolders.find((x) => x.path === path)
     if (!f) {
-      toast.error('Den Ordner gibt es nicht mehr', { description: path })
+      toast.error(t('Den Ordner gibt es nicht mehr'), { description: path })
       return
     }
     try {
       const result = await mailApi.syncOpenedFolder(f.id, accountId)
       if (result === 'synced') toast.success(`${folderLabel(f)} synchronisiert`)
-      else if (result === 'queued') toast.info(`${folderLabel(f)} wird als Nächstes synchronisiert`)
+      else if (result === 'queued')
+        toast.info(
+          t('{{folderLabel}} wird als Nächstes synchronisiert', { folderLabel: folderLabel(f) })
+        )
       else if (result === 'skipped')
-        toast.warning('Gerade nicht möglich', {
-          description: 'Der Ordner wird schon abgeglichen, oder die Verbindung steht nicht.'
+        toast.warning(t('Gerade nicht möglich'), {
+          description: t('Der Ordner wird schon abgeglichen, oder die Verbindung steht nicht.')
         })
-      else toast.error(`${folderLabel(f)} konnte nicht synchronisiert werden`)
+      else
+        toast.error(t('{{folder}} konnte nicht synchronisiert werden', { folder: folderLabel(f) }))
     } catch (error) {
-      failed('Synchronisierung fehlgeschlagen')(error)
+      failed(t('Synchronisierung fehlgeschlagen'))(error)
     }
     await syncStatus.refetch()
   }

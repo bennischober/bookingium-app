@@ -4,6 +4,7 @@ import type {
   SyncStatus
 } from '../../../../main/mailclient/core/types'
 import { pacingText } from './syncProgress'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /**
  * #159: the text of the sync activity panel behind the sync bar: the last passes and the sync
@@ -12,17 +13,17 @@ import { pacingText } from './syncProgress'
 
 /** What started the pass, in the words of the sync bar's buttons */
 export function passTitle(pass: PassSummary): string {
-  if (pass.trigger === 'auto') return 'Automatischer Abgleich'
-  if (pass.kind === 'full') return 'Alle Ordner prüfen'
+  if (pass.trigger === 'auto') return t('Automatischer Abgleich')
+  if (pass.kind === 'full') return t('Alle Ordner prüfen')
   // the sync button while the first download is not complete runs over every folder
-  return 'Synchronisieren'
+  return t('Synchronisieren')
 }
 
 const time = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  new Date(iso).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })
 
 const dateTime = (iso: string): string =>
-  new Date(iso).toLocaleString('de-DE', {
+  new Date(iso).toLocaleString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -31,36 +32,39 @@ const dateTime = (iso: string): string =>
 
 /** "1,2 s", "3 Min. 5 s" */
 export function durationText(ms: number): string {
-  if (ms < 60_000) return `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`
+  if (ms < 60_000)
+    return `${(ms / 1000).toLocaleString(uiLocale(), { maximumFractionDigits: 1 })} s`
   const total = Math.round(ms / 1000)
   const min = Math.floor(total / 60)
   const sec = total % 60
-  return sec ? `${min} Min. ${sec} s` : `${min} Min.`
+  return sec ? t('{{min}} Min. {{sec}} s', { min, sec }) : `${min} Min.`
 }
 
 const count = (n: number, one: string, many: string): string =>
-  `${n.toLocaleString('de-DE')} ${n === 1 ? one : many}`
+  `${n.toLocaleString(uiLocale())} ${n === 1 ? one : many}`
 
 /** How the pass ended, when not as planned */
 export function passOutcome(pass: PassSummary): string | null {
   if (pass.phase === 'idle')
-    return pass.connection === 'online' ? null : 'Verbindung danach getrennt'
-  if (pass.phase === 'paused') return 'Pausiert'
-  if (pass.phase === 'disk-full') return 'Speicherplatz voll'
-  return 'Vorzeitig beendet'
+    return pass.connection === 'online' ? null : t('Verbindung danach getrennt')
+  if (pass.phase === 'paused') return t('Pausiert')
+  if (pass.phase === 'disk-full') return t('Speicherplatz voll')
+  return t('Vorzeitig beendet')
 }
 
 /** The facts of one pass, in one line: "12:03 · 4,2 s · 276 Ordner geprüft · …" */
 export function passFacts(pass: PassSummary): string {
   const parts = [time(pass.at), durationText(pass.totalMs)]
   if (pass.foldersChecked > 0)
-    parts.push(`${count(pass.foldersChecked, 'Ordner', 'Ordner')} geprüft`)
-  parts.push(`${count(pass.foldersSynced, 'Ordner', 'Ordner')} synchronisiert`)
-  if (pass.newMessages) parts.push(count(pass.newMessages, 'neue E-Mail', 'neue E-Mails'))
+    parts.push(
+      t('{{count}} geprüft', { count: count(pass.foldersChecked, t('Ordner'), t('Ordner')) })
+    )
+  parts.push(`${count(pass.foldersSynced, t('Ordner'), t('Ordner'))} synchronisiert`)
+  if (pass.newMessages) parts.push(count(pass.newMessages, t('neue E-Mail'), t('neue E-Mails')))
   if (pass.flagChanges)
-    parts.push(count(pass.flagChanges, 'Markierung geändert', 'Markierungen geändert'))
-  if (pass.expunged) parts.push(count(pass.expunged, 'E-Mail entfernt', 'E-Mails entfernt'))
-  if (pass.errors) parts.push(count(pass.errors, 'Fehler', 'Fehler'))
+    parts.push(count(pass.flagChanges, t('Markierung geändert'), t('Markierungen geändert')))
+  if (pass.expunged) parts.push(count(pass.expunged, t('E-Mail entfernt'), t('E-Mails entfernt')))
+  if (pass.errors) parts.push(count(pass.errors, t('Fehler'), t('Fehler')))
   return parts.join(' · ')
 }
 
@@ -71,29 +75,29 @@ export function passFacts(pass: PassSummary): string {
 const KNOWN_ERRORS: [RegExp, string][] = [
   [
     /login rejected/i,
-    'Der Server hat die Anmeldung abgelehnt. Bitte die Zugangsdaten im Konto prüfen.'
+    t('Der Server hat die Anmeldung abgelehnt. Bitte die Zugangsdaten im Konto prüfen.')
   ],
   [
     /circuit/i,
-    'Zu viele Fehler hintereinander. Bookingium wartet kurz, bevor es den Server wieder fragt.'
+    t('Zu viele Fehler hintereinander. Bookingium wartet kurz, bevor es den Server wieder fragt.')
   ],
-  [/quota|over ?quota/i, 'Der Speicherplatz des Postfachs auf dem Server ist voll.'],
+  [/quota|over ?quota/i, t('Der Speicherplatz des Postfachs auf dem Server ist voll.')],
   [
     /doesn'?t exist|does not exist|nonexistent|no such mailbox|mailbox not found|unknown mailbox/i,
-    'Den Ordner gibt es auf dem Server nicht (mehr).'
+    t('Den Ordner gibt es auf dem Server nicht (mehr).')
   ],
-  [/timed? ?out|timeout|etimedout/i, 'Der Server hat nicht rechtzeitig geantwortet.'],
+  [/timed? ?out|timeout|etimedout/i, t('Der Server hat nicht rechtzeitig geantwortet.')],
   [
     /enotfound|eai_again|econnrefused|ehostunreach|enetunreach|getaddrinfo/i,
-    'Der Server ist nicht erreichbar.'
+    t('Der Server ist nicht erreichbar.')
   ],
   [
     /econnreset|epipe|socket|connection (?:was )?(?:closed|reset|lost|ended)|not connected|closed unexpectedly/i,
-    'Die Verbindung zum Server wurde unterbrochen.'
+    t('Die Verbindung zum Server wurde unterbrochen.')
   ],
-  [/no folder answered/i, 'Kein Ordner hat geantwortet.'],
-  [/safety gate/i, 'Die Ordnerliste des Servers war leer und wurde nicht übernommen.'],
-  [/\b(?:NO|BAD)\b|command failed/, 'Der Server hat einen Befehl abgelehnt.']
+  [/no folder answered/i, t('Kein Ordner hat geantwortet.')],
+  [/safety gate/i, t('Die Ordnerliste des Servers war leer und wurde nicht übernommen.')],
+  [/\b(?:NO|BAD)\b|command failed/, t('Der Server hat einen Befehl abgelehnt.')]
 ]
 
 /** The German text of a sync error, or null when it is not one of the known ones */
@@ -107,13 +111,20 @@ export function syncErrorWhere(
   entry: SyncErrorEntry,
   folderName: (path: string) => string
 ): string {
-  return entry.path === null ? 'Synchronisierung' : folderName(entry.path)
+  return entry.path === null ? t('Synchronisierung') : folderName(entry.path)
 }
 
 /** "seit 12:03, 3×" */
 export function syncErrorSeen(entry: SyncErrorEntry): string {
   if (entry.count === 1) return dateTime(entry.lastAt)
-  return `${count(entry.count, 'Mal', 'Mal')} seit ${dateTime(entry.firstAt)}, zuletzt ${time(entry.lastAt)}`
+  return t('{{count}} seit {{dateTime}}, zuletzt {{time}}', {
+    count:
+      entry.count === 1
+        ? t('1 Mal')
+        : t('{{count}} Mal', { count: entry.count.toLocaleString(uiLocale()) }),
+    dateTime: dateTime(entry.firstAt),
+    time: time(entry.lastAt)
+  })
 }
 
 /** The sync errors of the status, also for a core that sent only the last pass's (before #159) */
@@ -146,8 +157,8 @@ export function syncErrorReport(
   const german = syncErrorText(entry.message)
   return [
     `${syncErrorWhere(entry, folderName)}: ${german ?? entry.message}`,
-    ...(german ? [`Meldung: ${entry.message}`] : []),
-    `Gesehen: ${syncErrorSeen(entry)}`
+    ...(german ? [t('Meldung: {{message}}', { message: entry.message })] : []),
+    t('Gesehen: {{syncErrorSeen}}', { syncErrorSeen: syncErrorSeen(entry) })
   ].join('\n')
 }
 
@@ -157,12 +168,21 @@ export function syncActivityReport(
   folderName: (path: string) => string,
   now = new Date()
 ): string {
-  const lines = [`Bookingium E-Mail: Synchronisierung, Stand ${dateTime(now.toISOString())}`]
+  const lines = [
+    t('Bookingium E-Mail: Synchronisierung, Stand {{dateTime}}', {
+      dateTime: dateTime(now.toISOString())
+    })
+  ]
   lines.push(
-    `Verbindung: ${status.connection}${status.lastSyncAt ? `, zuletzt synchronisiert ${dateTime(status.lastSyncAt)}` : ''}`
+    t('Verbindung: {{connection}}{{value}}', {
+      connection: status.connection,
+      value: status.lastSyncAt
+        ? t(', zuletzt synchronisiert {{when}}', { when: dateTime(status.lastSyncAt) })
+        : ''
+    })
   )
   const errors = syncErrorsOf(status)
-  lines.push('', errors.length ? 'Fehler:' : 'Keine Fehler.')
+  lines.push('', errors.length ? t('Fehler:') : t('Keine Fehler.'))
   for (const e of errors)
     lines.push(
       ...syncErrorReport(e, folderName)
@@ -171,10 +191,12 @@ export function syncActivityReport(
     )
   const passes = status.passHistory ?? (status.lastPass ? [status.lastPass] : [])
   if (passes.length) {
-    lines.push('', 'Letzte Durchläufe:')
+    lines.push('', t('Letzte Durchläufe:'))
     for (const p of passes) {
       const outcome = passOutcome(p)
-      const census = p.listStatus ? 'LIST-STATUS' : `STATUS, Pause ${p.censusPauseMs} ms`
+      const census = p.listStatus
+        ? 'LIST-STATUS'
+        : t('STATUS, Pause {{censusPauseMs}} ms', { censusPauseMs: p.censusPauseMs })
       const pacing = pacingText(p)
       lines.push(
         `- ${passTitle(p)}: ${passFacts(p)} (${census})${pacing ? ` · ${pacing}` : ''}${outcome ? ` · ${outcome}` : ''}`

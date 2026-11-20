@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
 import { duplicateOf } from './duplicateEvent'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #199 "Event duplizieren": the event wizard, opened with what the event `sourceId` shares with a
@@ -28,8 +29,10 @@ export function DuplicateEventWizard({
     <CreateEventWizard
       isOpen={ready}
       onClose={onClose}
-      title="Event duplizieren"
-      description="Band, Deal, LoPro, Preise und Notizen sind übernommen. Datum und Club / Festival bitte neu wählen."
+      title={t('Event duplizieren')}
+      description={t(
+        'Band, Deal, LoPro, Preise und Notizen sind übernommen. Datum und Club / Festival bitte neu wählen.'
+      )}
       prefill={duplicate?.prefill}
       carry={duplicate?.carry}
       onSuccess={(memo) => {

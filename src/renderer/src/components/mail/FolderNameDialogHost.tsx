@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPendingFolderName, settleFolderName, subscribeFolderName } from '@/lib/folderName'
+import { t } from '../../../../main/i18n/translate'
 
 /** Rendered once at the app root, next to ConfirmDialogHost */
 export function FolderNameDialogHost() {
@@ -39,9 +40,9 @@ export function FolderNameDialogHost() {
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{request?.title ?? 'Ordner'}</DialogTitle>
+          <DialogTitle>{request?.title ?? t('Ordner')}</DialogTitle>
           <DialogDescription>
-            Der Name darf kein „/“ enthalten und nicht leer sein.
+            {t('Der Name darf kein „/“ enthalten und nicht leer sein.')}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -51,7 +52,7 @@ export function FolderNameDialogHost() {
             submit()
           }}
         >
-          <Label htmlFor="folder-name">Name</Label>
+          <Label htmlFor="folder-name">{t('Name')}</Label>
           <Input
             id="folder-name"
             value={value}
@@ -67,10 +68,10 @@ export function FolderNameDialogHost() {
               setDraft(null)
             }}
           >
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button disabled={value.trim() === ''} onClick={submit}>
-            Speichern
+            {t('Speichern')}
           </Button>
         </DialogFooter>
       </DialogContent>

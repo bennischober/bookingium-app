@@ -12,6 +12,7 @@ import {
   parseClauseDraft,
   type RadiusDefaults
 } from '@/components/map/radiusDisplay'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * "Karte (experimentell)" (Einstellungen › Allgemein): the map preview (#102) with events,
@@ -26,10 +27,10 @@ export function MapPreviewSwitchCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   const { defaults } = useMapPreview()
@@ -37,10 +38,11 @@ export function MapPreviewSwitchCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Karte (experimentell)</CardTitle>
+        <CardTitle>{t('Karte (experimentell)')}</CardTitle>
         <CardDescription>
-          Events, Clubs und Festivals auf einer Karte, mit dem Gebietsschutz jedes Events: wo die
-          Band frei ist und was eine Anfrage blockieren würde.
+          {t(
+            'Events, Clubs und Festivals auf einer Karte, mit dem Gebietsschutz jedes Events: wo die Band frei ist und was eine Anfrage blockieren würde.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -52,13 +54,12 @@ export function MapPreviewSwitchCard() {
               onCheckedChange={(checked) => updateSettings.mutate({ mapPreview: checked })}
               disabled={settings.isLoading || updateSettings.isPending}
             />
-            <Label htmlFor="settings-map-preview">Karte einschalten</Label>
+            <Label htmlFor="settings-map-preview">{t('Karte einschalten')}</Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Noch in Erprobung. Adressen werden nur offline über die Postleitzahl verortet (DACH),
-            nichts verlässt den Rechner. Die Kartenbilder kommen von OpenStreetMap; dabei sieht der
-            Kartenanbieter, welcher Ausschnitt angezeigt wird. Eingeschaltet erscheint „Karte“ im
-            Menü.
+            {t(
+              'Noch in Erprobung. Adressen werden nur offline über die Postleitzahl verortet (DACH), nichts verlässt den Rechner. Die Kartenbilder kommen von OpenStreetMap; dabei sieht der Kartenanbieter, welcher Ausschnitt angezeigt wird. Eingeschaltet erscheint „Karte“ im Menü.'
+            )}
           </p>
         </div>
         {settings.data?.mapPreview && defaults && (
@@ -106,15 +107,15 @@ function RadiusDefaultsForm({
   return (
     <div className="space-y-4 border-t pt-4">
       <div>
-        <h4 className="text-sm font-medium">Gebietsschutz (Standard)</h4>
+        <h4 className="text-sm font-medium">{t('Gebietsschutz (Standard)')}</h4>
         <p className="text-xs text-muted-foreground">
-          Wie weit um ein Event und wie lange davor und danach die Band nicht anderswo spielen soll.
-          Gilt, solange der Club, das Festival oder das Event nichts Eigenes angibt. Ausstehende
-          Events zeigen das Risiko, blockieren aber nicht.
+          {t(
+            'Wie weit um ein Event und wie lange davor und danach die Band nicht anderswo spielen soll. Gilt, solange der Club, das Festival oder das Event nichts Eigenes angibt. Ausstehende Events zeigen das Risiko, blockieren aber nicht.'
+          )}
         </p>
       </div>
       <div className="space-y-1">
-        <Label className="text-sm">Clubs</Label>
+        <Label className="text-sm">{t('Clubs')}</Label>
         <RadiusFields
           id="settings-radius-club"
           value={club}
@@ -124,7 +125,7 @@ function RadiusDefaultsForm({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-sm">Festivals</Label>
+        <Label className="text-sm">{t('Festivals')}</Label>
         <RadiusFields
           id="settings-radius-festival"
           value={festival}
@@ -135,7 +136,7 @@ function RadiusDefaultsForm({
       </div>
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
-          Speichern
+          {t('Speichern')}
         </Button>
       </div>
     </div>

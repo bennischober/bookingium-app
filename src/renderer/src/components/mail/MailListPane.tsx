@@ -21,6 +21,7 @@ import type {
   SyncStatus,
   ThreadSummary
 } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The mail page's list pane: the folder picker of narrow windows, the search bar and the list of
@@ -79,13 +80,13 @@ export function MailListPane({
       // The reader keeps at least a third of the window
       className="flex max-w-[45vw] shrink-0 flex-col"
       style={{ width: listWidth }}
-      aria-label="Postfachliste"
+      aria-label={t('Postfachliste')}
     >
       <div className="space-y-2 border-b p-2">
         {/* Narrow windows: a folder picker instead of the tree */}
         <Select value={folderId ?? undefined} onValueChange={(id) => chooseFolder(id as string)}>
-          <SelectTrigger className="w-full lg:hidden" aria-label="Ordner wählen">
-            <SelectValue placeholder="Ordner" />
+          <SelectTrigger className="w-full lg:hidden" aria-label={t('Ordner wählen')}>
+            <SelectValue placeholder={t('Ordner')} />
           </SelectTrigger>
           <SelectContent>
             {allFolders.map((f) => (
@@ -146,10 +147,10 @@ export function MailListPane({
             onLoadMore={() => void (searching ? results.fetchNextPage() : messages.fetchNextPage())}
             emptyText={
               searching
-                ? 'Keine Treffer.'
+                ? t('Keine Treffer.')
                 : syncStatus.data?.running
-                  ? 'Wird synchronisiert…'
-                  : 'Dieser Ordner ist leer.'
+                  ? t('Wird synchronisiert…')
+                  : t('Dieser Ordner ist leer.')
             }
           />
         )}

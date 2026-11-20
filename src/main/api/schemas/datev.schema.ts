@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { t } from '../../i18n/translate'
 
 /**
  * DATEV hand-over of documents (Belege) to DATEV Unternehmen online by "DATEV Upload Mail":
@@ -23,11 +24,11 @@ export type DatevCategory = z.infer<typeof DatevCategory>
 
 /** The categories as DATEV names them */
 export const DATEV_CATEGORY_LABELS: Record<DatevCategory, string> = {
-  outgoing: 'Rechnungsausgang',
-  incoming: 'Rechnungseingang',
-  cash: 'Kasse',
-  other: 'Sonstige',
-  credit_card: 'Kreditkartenbelege'
+  outgoing: t('Rechnungsausgang'),
+  incoming: t('Rechnungseingang'),
+  cash: t('Kasse'),
+  other: t('Sonstige'),
+  credit_card: t('Kreditkartenbelege')
 }
 
 /** Upload address per category, '' for none */

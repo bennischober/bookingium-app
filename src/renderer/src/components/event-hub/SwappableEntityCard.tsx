@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { InlineCombobox, type InlineComboboxItem } from '@/components/ui/inline-combobox'
 import { ExternalLink, Pencil, X } from 'lucide-react'
+import { t } from '../../../../main/i18n/translate'
 
 export interface SwappableEntityCardProps {
   icon: React.ReactNode
@@ -41,7 +42,7 @@ export function SwappableEntityCard({
   isSaving,
   nullable = false,
   href,
-  empty = 'Nicht zugewiesen',
+  empty = t('Nicht zugewiesen'),
   compact = false
 }: SwappableEntityCardProps) {
   const [editing, setEditing] = useState(false)
@@ -58,8 +59,8 @@ export function SwappableEntityCard({
         items={items}
         value={currentId}
         onChange={handleSwap}
-        placeholder={`${title} auswählen…`}
-        searchPlaceholder={`${title} suchen…`}
+        placeholder={t('{{title}} auswählen…', { title })}
+        searchPlaceholder={t('{{title}} suchen…', { title })}
         isLoading={itemsLoading}
       />
       {nullable && hasValue && (
@@ -107,10 +108,12 @@ export function SwappableEntityCard({
           className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
           onClick={() => setEditing((value) => !value)}
           disabled={isSaving}
-          aria-label={editing ? `${title}: abbrechen` : `${title} ändern`}
+          aria-label={
+            editing ? t('{{title}}: abbrechen', { title }) : t('{{title}} ändern', { title })
+          }
         >
           {editing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
-          {editing ? 'Abbrechen' : hasValue ? 'Ändern' : 'Zuweisen'}
+          {editing ? t('Abbrechen') : hasValue ? t('Ändern') : t('Zuweisen')}
         </Button>
       </div>
     )
@@ -129,7 +132,7 @@ export function SwappableEntityCard({
               <Link to={href}>
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  Ansehen
+                  {t('Ansehen')}
                 </Button>
               </Link>
             )}
@@ -141,7 +144,7 @@ export function SwappableEntityCard({
                 onClick={() => setEditing(false)}
               >
                 <X className="h-3 w-3" />
-                Abbrechen
+                {t('Abbrechen')}
               </Button>
             ) : (
               <Button
@@ -152,7 +155,7 @@ export function SwappableEntityCard({
                 disabled={isSaving}
               >
                 <Pencil className="h-3 w-3" />
-                {hasValue ? 'Ändern' : 'Zuweisen'}
+                {hasValue ? t('Ändern') : t('Zuweisen')}
               </Button>
             )}
           </div>
@@ -165,8 +168,8 @@ export function SwappableEntityCard({
               items={items}
               value={currentId}
               onChange={handleSwap}
-              placeholder={`${title} auswählen…`}
-              searchPlaceholder={`${title} suchen…`}
+              placeholder={t('{{title}} auswählen…', { title })}
+              searchPlaceholder={t('{{title}} suchen…', { title })}
               isLoading={itemsLoading}
             />
             {nullable && hasValue && (

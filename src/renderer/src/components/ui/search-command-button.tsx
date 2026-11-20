@@ -36,6 +36,7 @@ import { useRecentRecords } from '@/hooks/useRecentRecords'
 import { RECENT_RECORD_KIND_LABELS, type RecentRecordKind } from '@/lib/recentRecords'
 import { SETTINGS_TAB_LABELS, type SettingsTab } from '@/components/settings/constants'
 import type { ListSearch } from '@/hooks/useListSearchActions'
+import { t } from '../../../../main/i18n/translate'
 
 type StaticRoute = (typeof ROUTES)[keyof typeof ROUTES]['path']
 
@@ -69,39 +70,39 @@ const MAIL_RESULT_LIMIT = 5
 
 // Palette texts per page; titles, icons and order come from the menu config
 const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string[] }> = {
-  '/': { description: 'Übersicht und KPIs öffnen', aliases: ['home', 'landing', 'overview'] },
-  '/calendar': { description: 'Terminkalender öffnen', aliases: ['agenda', 'schedule'] },
+  '/': { description: t('Übersicht und KPIs öffnen'), aliases: ['home', 'landing', 'overview'] },
+  '/calendar': { description: t('Terminkalender öffnen'), aliases: ['agenda', 'schedule'] },
   '/events': {
-    description: 'Alle Events und Deal Memos öffnen',
+    description: t('Alle Events und Deal Memos öffnen'),
     aliases: ['gigs', 'shows', 'event hub']
   },
   '/invoices': {
-    description: 'Rechnungen und Nummerierung öffnen',
+    description: t('Rechnungen und Nummerierung öffnen'),
     aliases: ['invoices', 'rechnung', 'billing']
   },
-  '/band': { description: 'Bandverzeichnis öffnen', aliases: ['artists'] },
+  '/band': { description: t('Bandverzeichnis öffnen'), aliases: ['artists'] },
   '/persons': {
-    description: 'Personen-Stammdaten öffnen',
+    description: t('Personen-Stammdaten öffnen'),
     aliases: ['contacts', 'people', 'kontakte']
   },
-  '/companies': { description: 'Firmen-Stammdaten öffnen', aliases: ['companies'] },
-  '/clubs': { description: 'Clubs öffnen', aliases: ['locations', 'venues', 'spielstätten'] },
-  '/festivals': { description: 'Festivals öffnen', aliases: ['locations', 'open air'] },
-  '/hotels': { description: 'Hotelverzeichnis öffnen', aliases: ['accommodation'] },
+  '/companies': { description: t('Firmen-Stammdaten öffnen'), aliases: ['companies'] },
+  '/clubs': { description: t('Clubs öffnen'), aliases: ['locations', 'venues', 'spielstätten'] },
+  '/festivals': { description: t('Festivals öffnen'), aliases: ['locations', 'open air'] },
+  '/hotels': { description: t('Hotelverzeichnis öffnen'), aliases: ['accommodation'] },
   '/map': {
-    description: 'Events, Clubs und Festivals auf der Karte',
+    description: t('Events, Clubs und Festivals auf der Karte'),
     aliases: ['karte', 'tourplanung', 'gebietsschutz', 'radius']
   },
   '/tours': {
-    description: 'Advancing und Ticketverkäufe aller Shows einer Tour',
+    description: t('Advancing und Ticketverkäufe aller Shows einer Tour'),
     aliases: ['tour', 'advancing', 'tickets', 'kontingent', 'vorverkauf', 'ticketkontingent']
   },
   '/trips': {
-    description: 'Dienstreisen, Verpflegungspauschalen und Kilometergeld',
+    description: t('Dienstreisen, Verpflegungspauschalen und Kilometergeld'),
     aliases: ['reise', 'reisekosten', 'dienstreise', 'spesen', 'verpflegung', 'kilometer']
   },
   '/receipts': {
-    description: 'Eingangsrechnungen, Kreditkarten- und Kassenbelege für DATEV',
+    description: t('Eingangsrechnungen, Kreditkarten- und Kassenbelege für DATEV'),
     aliases: [
       'beleg',
       'quittung',
@@ -113,16 +114,16 @@ const ROUTE_DETAILS: Record<StaticRoute, { description: string; aliases?: string
     ]
   },
   '/contact-lists': {
-    description: 'Empfänger für Rundmails und Newsletter',
+    description: t('Empfänger für Rundmails und Newsletter'),
     aliases: ['newsletter', 'mailing', 'rundmail', 'verteiler']
   },
   '/mail': {
-    description: 'Postfach lesen und durchsuchen',
+    description: t('Postfach lesen und durchsuchen'),
     aliases: ['mail', 'email', 'inbox', 'posteingang', 'postfach']
   },
-  '/banks': { description: 'Bankverbindungen öffnen', aliases: ['banks'] },
+  '/banks': { description: t('Bankverbindungen öffnen'), aliases: ['banks'] },
   '/settings': {
-    description: 'Allgemein, Rechnungen, E-Mail, Kalender und Daten',
+    description: t('Allgemein, Rechnungen, E-Mail, Kalender und Daten'),
     aliases: ['settings', 'optionen']
   }
 }
@@ -136,31 +137,31 @@ const SETTINGS_COMMANDS: Array<{
 }> = [
   {
     tab: 'general',
-    label: 'Eigene Firma und Standardland',
+    label: t('Eigene Firma und Standardland'),
     icon: Building2,
     aliases: ['own company', 'land', 'country']
   },
   {
     tab: 'invoices',
-    label: 'Rechnungsnummern und E-Rechnung',
+    label: t('Rechnungsnummern und E-Rechnung'),
     icon: FileText,
     aliases: ['nummernkreis', 'invoice number', 'zugferd', 'xrechnung', 'qr-code', 'girocode']
   },
   {
     tab: 'email',
-    label: 'E-Mail-Vorlagen und Mailprogramm',
+    label: t('E-Mail-Vorlagen und Mailprogramm'),
     icon: Mail,
     aliases: ['email template', 'outlook', 'thunderbird']
   },
   {
     tab: 'calendar',
-    label: 'Kalender-Datei',
+    label: t('Kalender-Datei'),
     icon: CalendarDays,
     aliases: ['ics', 'abonnieren', 'calendar feed', 'subscribe']
   },
   {
     tab: 'data',
-    label: 'Import, Export und Sicherung',
+    label: t('Import, Export und Sicherung'),
     icon: DatabaseBackup,
     aliases: ['backup', 'csv', 'excel', 'datenordner', 'data folder']
   }
@@ -330,10 +331,12 @@ const SearchButton = () => {
 
   const emptyMessage = useMemo(() => {
     if (!hasTypedQuery)
-      return `Mindestens ${MIN_SEARCH_LENGTH} Zeichen eingeben, um Einträge zu suchen.`
-    if (isAnyLoading) return 'Suche läuft…'
-    if (!hasRecordMatches) return 'Keine passenden Einträge gefunden.'
-    return 'Keine Ergebnisse gefunden.'
+      return t('Mindestens {{MIN_SEARCH_LENGTH}} Zeichen eingeben, um Einträge zu suchen.', {
+        MIN_SEARCH_LENGTH
+      })
+    if (isAnyLoading) return t('Suche läuft…')
+    if (!hasRecordMatches) return t('Keine passenden Einträge gefunden.')
+    return t('Keine Ergebnisse gefunden.')
   }, [hasTypedQuery, isAnyLoading, hasRecordMatches])
   return (
     <div className="flex flex-col gap-4">
@@ -343,18 +346,18 @@ const SearchButton = () => {
         type="button"
         onClick={() => setOpen(true)}
         className="group flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md border border-input bg-transparent text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-72 lg:justify-start lg:px-3"
-        aria-label="Alles suchen (Ctrl+K)"
-        title="Alles suchen (Ctrl+K)"
+        aria-label={t('Alles suchen (Ctrl+K)')}
+        title={t('Alles suchen (Ctrl+K)')}
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-70" />
-        <span className="hidden flex-1 truncate lg:inline">Alles suchen…</span>
+        <span className="hidden flex-1 truncate lg:inline">{t('Alles suchen…')}</span>
         <kbd className="pointer-events-none hidden rounded border border-muted-foreground/30 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground group-hover:bg-background lg:inline">
           Ctrl+K
         </kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Seiten, Einträge oder Aktionen suchen…"
+          placeholder={t('Seiten, Einträge oder Aktionen suchen…')}
           value={query}
           onValueChange={setQuery}
         />
@@ -362,7 +365,7 @@ const SearchButton = () => {
           <CommandEmpty>{emptyMessage}</CommandEmpty>
           {recentRecords.length > 0 && (
             <>
-              <CommandGroup heading="Zuletzt geöffnet">
+              <CommandGroup heading={t('Zuletzt geöffnet')}>
                 {recentRecords.map((record) => {
                   const Icon = RECENT_RECORD_ICONS[record.kind]
                   const kindLabel = RECENT_RECORD_KIND_LABELS[record.kind]
@@ -384,7 +387,7 @@ const SearchButton = () => {
           )}
           {shownRecents.length > 0 && (
             <>
-              <CommandGroup heading="Letzte Befehle">
+              <CommandGroup heading={t('Letzte Befehle')}>
                 {shownRecents.map((recent) => (
                   <CommandItem
                     key={recent.id}
@@ -416,7 +419,7 @@ const SearchButton = () => {
                   >
                     <Calendar />
                     <span>{recent.label}</span>
-                    <CommandShortcut>Letzte</CommandShortcut>
+                    <CommandShortcut>{t('Letzte')}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -441,21 +444,21 @@ const SearchButton = () => {
               >
                 <route.icon />
                 <span>{route.title}</span>
-                <CommandShortcut>Öffnen</CommandShortcut>
+                <CommandShortcut>{t('Öffnen')}</CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Aktionen">
+          <CommandGroup heading={t('Aktionen')}>
             <CommandItem
               value="Neues Event anlegen create new event"
               keywords={['add event', 'new gig']}
               onSelect={() =>
                 runAndClose(() => navigate({ to: '/events', search: { create: true } }), {
                   id: 'route:/events:create',
-                  label: 'Neues Event anlegen',
+                  label: t('Neues Event anlegen'),
                   type: 'route',
                   path: '/events',
                   search: { create: true }
@@ -463,8 +466,8 @@ const SearchButton = () => {
               }
             >
               <CirclePlus />
-              <span>Neues Event anlegen</span>
-              <CommandShortcut>Events</CommandShortcut>
+              <span>{t('Neues Event anlegen')}</span>
+              <CommandShortcut>{t('Events')}</CommandShortcut>
             </CommandItem>
             <CommandItem
               value="Neue Rechnung anlegen create new invoice"
@@ -472,7 +475,7 @@ const SearchButton = () => {
               onSelect={() =>
                 runAndClose(() => navigate({ to: '/invoices', search: { create: true } }), {
                   id: 'route:/invoices:create',
-                  label: 'Neue Rechnung anlegen',
+                  label: t('Neue Rechnung anlegen'),
                   type: 'route',
                   path: '/invoices',
                   search: { create: true }
@@ -480,18 +483,21 @@ const SearchButton = () => {
               }
             >
               <CirclePlus />
-              <span>Neue Rechnung anlegen</span>
-              <CommandShortcut>Rechnungen</CommandShortcut>
+              <span>{t('Neue Rechnung anlegen')}</span>
+              <CommandShortcut>{t('Rechnungen')}</CommandShortcut>
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Einstellungen">
+          <CommandGroup heading={t('Einstellungen')}>
             {SETTINGS_COMMANDS.map((command) => (
               <CommandItem
                 key={command.tab}
-                value={`${command.label} Einstellungen ${SETTINGS_TAB_LABELS[command.tab]}`}
+                value={t('{{label}} Einstellungen {{value}}', {
+                  label: command.label,
+                  value: SETTINGS_TAB_LABELS[command.tab]
+                })}
                 keywords={['settings', ...command.aliases]}
                 onSelect={() =>
                   runAndClose(() => navigate({ to: '/settings', search: { tab: command.tab } }), {
@@ -514,7 +520,7 @@ const SearchButton = () => {
             <>
               <CommandSeparator />
 
-              <CommandGroup heading="Einträge: Events">
+              <CommandGroup heading={t('Einträge: Events')}>
                 {eventsQuickList.map((event) => (
                   <CommandItem
                     key={`event-${event.id}`}
@@ -536,7 +542,7 @@ const SearchButton = () => {
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Einträge: Personen">
+              <CommandGroup heading={t('Einträge: Personen')}>
                 {personsQuickList.map((person) => (
                   <CommandItem
                     key={`person-${person.id}`}
@@ -553,12 +559,14 @@ const SearchButton = () => {
                   >
                     <User />
                     <span>{person.label}</span>
-                    <CommandShortcut>Personen</CommandShortcut>
+                    <CommandShortcut>{t('Personen')}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
 
-              <CommandGroup heading="Einträge: Firmen / Bands / Clubs / Festivals / Hotels / Rechnungen">
+              <CommandGroup
+                heading={t('Einträge: Firmen / Bands / Clubs / Festivals / Hotels / Rechnungen')}
+              >
                 {companiesQuickList.map((company) => (
                   <CommandItem
                     key={`company-${company.id}`}
@@ -575,7 +583,7 @@ const SearchButton = () => {
                   >
                     <Building2 />
                     <span>{company.label}</span>
-                    <CommandShortcut>Firmen</CommandShortcut>
+                    <CommandShortcut>{t('Firmen')}</CommandShortcut>
                   </CommandItem>
                 ))}
 
@@ -592,7 +600,7 @@ const SearchButton = () => {
                   >
                     <Guitar />
                     <span>{band.label}</span>
-                    <CommandShortcut>Bands</CommandShortcut>
+                    <CommandShortcut>{t('Bands')}</CommandShortcut>
                   </CommandItem>
                 ))}
 
@@ -609,7 +617,7 @@ const SearchButton = () => {
                   >
                     <MapPin />
                     <span>{venue.label}</span>
-                    <CommandShortcut>Club / Festival</CommandShortcut>
+                    <CommandShortcut>{t('Club / Festival')}</CommandShortcut>
                   </CommandItem>
                 ))}
                 {hotelsQuickList.map((hotel) => (
@@ -623,7 +631,7 @@ const SearchButton = () => {
                   >
                     <Hotel />
                     <span>{hotel.label}</span>
-                    <CommandShortcut>Hotels</CommandShortcut>
+                    <CommandShortcut>{t('Hotels')}</CommandShortcut>
                   </CommandItem>
                 ))}
 
@@ -644,7 +652,7 @@ const SearchButton = () => {
                   >
                     <FileText />
                     <span>{invoice.label}</span>
-                    <CommandShortcut>{invoice.sublabel ?? 'Rechnungen'}</CommandShortcut>
+                    <CommandShortcut>{invoice.sublabel ?? t('Rechnungen')}</CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -664,7 +672,7 @@ const SearchButton = () => {
                       }
                     >
                       <Mail />
-                      <span className="truncate">{mail.subject || '(ohne Betreff)'}</span>
+                      <span className="truncate">{mail.subject || t('(ohne Betreff)')}</span>
                       <CommandShortcut>{mail.fromName || mail.fromEmail}</CommandShortcut>
                     </CommandItem>
                   ))}
@@ -674,7 +682,7 @@ const SearchButton = () => {
               {/* D2: a found file opens directly; its record would only make the user look
                   for it a second time. The sublabel already names that record. */}
               {documents.length > 0 && (
-                <CommandGroup heading="Dokumente">
+                <CommandGroup heading={t('Dokumente')}>
                   {documents.map((document) => (
                     <CommandItem
                       key={`document-${document.id}`}
@@ -688,7 +696,7 @@ const SearchButton = () => {
                     >
                       <FileText />
                       <span className="truncate">{document.label}</span>
-                      <CommandShortcut>{document.sublabel ?? 'Dokumente'}</CommandShortcut>
+                      <CommandShortcut>{document.sublabel ?? t('Dokumente')}</CommandShortcut>
                     </CommandItem>
                   ))}
                 </CommandGroup>

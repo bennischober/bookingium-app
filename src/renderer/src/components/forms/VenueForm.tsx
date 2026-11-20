@@ -31,6 +31,7 @@ import {
   capacityInputText,
   parseCapacityRange
 } from '../../../../main/api/schemas/capacity'
+import { t } from '../../../../main/i18n/translate'
 
 const KIND_OPTIONS = VenueKind.options.map((kind) => ({
   value: kind,
@@ -102,12 +103,14 @@ export function VenueForm({
   return (
     <>
       <FormBody form={form} disabled={isSubmitting}>
-        <form.AppField name="name" validators={{ onChange: required('Name') }}>
-          {(field) => <field.TextField label="Name" required placeholder="Namen eingeben" />}
+        <form.AppField name="name" validators={{ onChange: required(t('Name')) }}>
+          {(field) => (
+            <field.TextField label={t('Name')} required placeholder={t('Namen eingeben')} />
+          )}
         </form.AppField>
 
         <form.AppField name="kind">
-          {(field) => <field.SelectField label="Art" options={KIND_OPTIONS} />}
+          {(field) => <field.SelectField label={t('Art')} options={KIND_OPTIONS} />}
         </form.AppField>
 
         <form.AppField
@@ -118,10 +121,10 @@ export function VenueForm({
         >
           {(field) => (
             <field.TextField
-              label="Kapazität"
+              label={t('Kapazität')}
               inputMode="numeric"
-              placeholder="z. B. 1200 oder 500-1000"
-              hint="Eine Zahl oder eine Spanne von–bis, je nach Bestuhlung oder Raum."
+              placeholder={t('z. B. 1200 oder 500-1000')}
+              hint={t('Eine Zahl oder eine Spanne von–bis, je nach Bestuhlung oder Raum.')}
             />
           )}
         </form.AppField>
@@ -129,8 +132,10 @@ export function VenueForm({
         <form.AppField name="genres">
           {(field) => (
             <field.FieldRow
-              label="Genres"
-              hint="Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt."
+              label={t('Genres')}
+              hint={t(
+                'Mit Komma trennen, bekannte Genres werden vorgeschlagen; wird für die Verteiler genutzt.'
+              )}
             >
               <GenreField
                 id={field.name}
@@ -145,15 +150,19 @@ export function VenueForm({
 
         <form.AppField name="notes">
           {(field) => (
-            <field.TextareaField label="Anmerkungen" placeholder="Weitere Details" rows={4} />
+            <field.TextareaField
+              label={t('Anmerkungen')}
+              placeholder={t('Weitere Details')}
+              rows={4}
+            />
           )}
         </form.AppField>
 
         <form.AppField name="companyId">
           {(field) => (
-            <field.FieldRow label="Verknüpfte Firma (optional)">
+            <field.FieldRow label={t('Verknüpfte Firma (optional)')}>
               {companies.isLoading ? (
-                <p className="text-sm text-muted-foreground">Firmen werden geladen…</p>
+                <p className="text-sm text-muted-foreground">{t('Firmen werden geladen…')}</p>
               ) : (
                 <SearchableSelect
                   id={field.name}
@@ -163,11 +172,11 @@ export function VenueForm({
                     value: company.id,
                     label: company.name
                   }))}
-                  noneLabel="Keine"
-                  searchPlaceholder="Firma suchen…"
-                  emptyText="Keine Firma gefunden."
+                  noneLabel={t('Keine')}
+                  searchPlaceholder={t('Firma suchen…')}
+                  emptyText={t('Keine Firma gefunden.')}
                   onCreateNew={setNewCompanyName}
-                  createNewLabel="Neue Firma anlegen"
+                  createNewLabel={t('Neue Firma anlegen')}
                   disabled={isSubmitting}
                 />
               )}
@@ -189,13 +198,15 @@ export function VenueForm({
               >
                 {(field) => (
                   <div className="space-y-2">
-                    <Label>Gebietsschutz</Label>
+                    <Label>{t('Gebietsschutz')}</Label>
                     <RadiusFields
                       id="venue-radius"
                       value={field.state.value}
                       onChange={field.handleChange}
                       inherited={defaultClause(mapPreview.defaults!, kind)}
-                      inheritedFrom={`den Standard für ${kind === 'festival' ? 'Festivals' : 'Clubs'}`}
+                      inheritedFrom={t('den Standard für {{value}}', {
+                        value: kind === 'festival' ? t('Festivals') : t('Clubs')
+                      })}
                       error={field.state.meta.errors[0]?.toString()}
                       disabled={isSubmitting}
                     />
@@ -213,7 +224,7 @@ export function VenueForm({
         <ContactFormFields form={form} showNoAdvertising />
 
         <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-          {mode === 'create' ? 'Anlegen' : 'Speichern'}
+          {mode === 'create' ? t('Anlegen') : t('Speichern')}
         </FormFooter>
       </FormBody>
 

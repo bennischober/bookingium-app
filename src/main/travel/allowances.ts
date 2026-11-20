@@ -1,3 +1,4 @@
+import { t } from '../i18n/translate'
 // Reisekostenabrechnung (#225, step 2): per diem allowances (Verpflegungsmehraufwand, § 9 Abs. 4a
 // EStG), meal deductions and the mileage allowance of a business trip. Pure: the trip dialog
 // shows the same numbers live that the report prints. All amounts are integer cents.
@@ -155,8 +156,8 @@ export function tripAllowances(input: TripInput): TripAllowances {
 }
 
 export const TRIP_DAY_LABELS: Record<TripDayKind, string> = {
-  single: 'Eintägig',
-  arrival: 'Anreisetag',
-  full: 'Ganzer Tag',
-  departure: 'Abreisetag'
+  single: t('Eintägig'),
+  arrival: t('Anreisetag'),
+  full: t('Ganzer Tag'),
+  departure: t('Abreisetag')
 }

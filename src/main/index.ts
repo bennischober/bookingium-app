@@ -9,6 +9,7 @@ import { setUpMailWatch, startMailClient, startMailLinking } from './app/mailSer
 import { migrateDatabase } from './app/migrateDatabase'
 import { checkForUpdates, startUpdates } from './app/updates'
 import { setUpReminders } from './app/reminders'
+import { setUpLanguage } from './app/language'
 import { keepInTray, setUpTray } from './app/tray'
 import {
   createMainWindow,
@@ -47,6 +48,8 @@ if (process.env.BOOKINGIUM_USER_DATA) {
   app.setPath('userData', join(app.getPath('appData'), 'bookingum-app'))
 }
 startErrorLogging()
+// #254: the UI language of this computer, before any window loads
+setUpLanguage()
 // One app per data folder: a second one would open the same database and mail
 // store. The lock is taken per userData, so tests with their own folder still run
 // next to the app. A second start brings the running window to the front instead.

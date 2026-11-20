@@ -1,3 +1,4 @@
+import { t } from '../../../main/i18n/translate'
 // Records opened lately (event, band, person, ...), newest first, for "Zuletzt geöffnet" in
 // the search palette. Detail pages add themselves when they show a record and drop
 // themselves when the record is gone. Kept in localStorage, so they survive a restart.
@@ -12,12 +13,12 @@ export type RecentRecord = {
 }
 
 export const RECENT_RECORD_KIND_LABELS: Record<RecentRecordKind, string> = {
-  event: 'Event',
-  band: 'Band',
-  company: 'Firma',
-  person: 'Person',
-  venue: 'Club / Festival',
-  invoice: 'Rechnung'
+  event: t('Event'),
+  band: t('Band'),
+  company: t('Firma'),
+  person: t('Person'),
+  venue: t('Club / Festival'),
+  invoice: t('Rechnung')
 }
 
 const STORAGE_KEY = 'bookingium-recent-records'

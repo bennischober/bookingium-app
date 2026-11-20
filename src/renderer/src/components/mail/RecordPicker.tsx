@@ -8,6 +8,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { RECORD_LABELS, RECORD_TYPES, type RecordChoice, type RecordType } from './recordChoices'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The type select, the name search and the matches. The record is picked by NAME, not
@@ -59,11 +60,14 @@ export function RecordPicker({
           id={`${idPrefix}-search`}
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Name eingeben…"
+          placeholder={t('Name eingeben…')}
           autoComplete="off"
         />
         {/* The matches, so the record is picked by name instead of by number */}
-        <ul aria-label="Treffer" className="max-h-48 overflow-auto rounded-md border empty:hidden">
+        <ul
+          aria-label={t('Treffer')}
+          className="max-h-48 overflow-auto rounded-md border empty:hidden"
+        >
           {choices.map((choice) => {
             const active = selected?.id === choice.id
             return (
@@ -82,7 +86,11 @@ export function RecordPicker({
             )
           })}
         </ul>
-        {selected && <p className="text-xs text-muted-foreground">Ausgewählt: {selected.label}</p>}
+        {selected && (
+          <p className="text-xs text-muted-foreground">
+            {t('Ausgewählt:')} {selected.label}
+          </p>
+        )}
       </div>
     </>
   )

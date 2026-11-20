@@ -5,6 +5,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import type { ExportList } from '../../../../main/api/schemas/export.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** "Exportieren" on a list page: the whole list as shown (search, filter, order) */
 export function ExportButton({
@@ -22,24 +23,24 @@ export function ExportButton({
   const showResult = useExportToast()
   const exportList = trpcReact.dataExport.exportList.useMutation({
     onSuccess: showResult,
-    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Export fehlgeschlagen'), { description: error.message })
   })
 
   return (
     <Button
       variant="outline"
-      aria-label="Exportieren"
+      aria-label={t('Exportieren')}
       onClick={() => exportList.mutate({ list, search: search || undefined, kind, ...sort })}
       disabled={exportList.isPending}
       title={
         search || kind
-          ? 'Gefilterte Liste als CSV-Datei speichern'
-          : 'Liste als CSV-Datei speichern'
+          ? t('Gefilterte Liste als CSV-Datei speichern')
+          : t('Liste als CSV-Datei speichern')
       }
     >
       <Download className="h-4 w-4" />
       {/* Icon only in narrow windows; the name stays for screen readers */}
-      <span className="hidden lg:inline">Exportieren</span>
+      <span className="hidden lg:inline">{t('Exportieren')}</span>
     </Button>
   )
 }

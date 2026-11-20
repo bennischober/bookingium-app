@@ -4,15 +4,16 @@ import { cn } from '@/lib/utils'
 import type { MapMarkerDto } from '../../../../main/api/schemas/map.schema'
 import { agencyLabel, germanDate } from './mapDisplay'
 import { nextSort, showRows, sortShows, type ShowSort, type ShowSortKey } from './showRows'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 const COLUMNS: Array<{ key: ShowSortKey; label: string; className?: string }> = [
-  { key: 'date', label: 'Datum', className: 'w-28' },
-  { key: 'name', label: 'Event' },
-  { key: 'band', label: 'Band' },
-  { key: 'kind', label: 'Art', className: 'w-24' },
-  { key: 'tour', label: 'Tour' },
-  { key: 'km', label: 'Gebietsschutz' },
-  { key: 'conflicts', label: 'Überschneidungen' }
+  { key: 'date', label: t('Datum'), className: 'w-28' },
+  { key: 'name', label: t('Event') },
+  { key: 'band', label: t('Band') },
+  { key: 'kind', label: t('Art'), className: 'w-24' },
+  { key: 'tour', label: t('Tour') },
+  { key: 'km', label: t('Gebietsschutz') },
+  { key: 'conflicts', label: t('Überschneidungen') }
 ]
 
 /**
@@ -94,16 +95,18 @@ export function ShowTable({
                   </span>
                 )}
                 {!row.located && (
-                  <span className="block text-xs text-muted-foreground">nicht auf der Karte</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('nicht auf der Karte')}
+                  </span>
                 )}
               </td>
               <td className="px-3 py-2 align-top">{row.band || '–'}</td>
               <td className="px-3 py-2 align-top">
-                {row.kind === 'festival' ? 'Festival' : 'Club'}
+                {row.kind === 'festival' ? t('Festival') : t('Club')}
               </td>
               <td className="px-3 py-2 align-top">{row.tour || '–'}</td>
               <td className="whitespace-nowrap px-3 py-2 align-top">
-                {row.km !== null ? `${row.km.toLocaleString('de-DE')} km` : '–'}
+                {row.km !== null ? `${row.km.toLocaleString(uiLocale())} km` : '–'}
                 {row.from && row.to && (
                   <span className="block text-xs text-muted-foreground">
                     {germanDate(row.from)} – {germanDate(row.to)}

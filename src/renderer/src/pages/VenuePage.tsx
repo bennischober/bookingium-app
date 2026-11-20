@@ -25,6 +25,7 @@ import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
 import { formatCapacity } from '../../../main/api/schemas/capacity'
+import { t } from '../../../main/i18n/translate'
 
 /** The Clubs list or the Festivals list: the same venue table, one kind each */
 export default function VenuePage({ kind }: { kind: VenueKind }) {
@@ -70,22 +71,22 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
   const columns: ColumnDef<VenueDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: t('Name'),
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>
     },
     {
       accessorKey: 'company',
-      header: 'Firma',
+      header: t('Firma'),
       cell: ({ row }) => row.original.company?.name || '-'
     },
     {
       accessorKey: 'address',
-      header: 'Stadt',
+      header: t('Stadt'),
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
       accessorKey: 'capacity',
-      header: 'Kapazität',
+      header: t('Kapazität'),
       cell: ({ row }) =>
         row.original.capacity
           ? formatCapacity(row.original.capacityMin, row.original.capacity)
@@ -93,7 +94,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
     },
     {
       accessorKey: 'notes',
-      header: 'Anmerkungen',
+      header: t('Anmerkungen'),
       cell: ({ row }) => {
         const value = row.original.notes
         return value ? (value.length > 60 ? `${value.slice(0, 60)}...` : value) : '-'
@@ -101,24 +102,24 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={Users}
-            label="Ansprechpartner"
+            label={t('Ansprechpartner')}
             onClick={() =>
               setMembersEntity({ type: 'venue', id: row.original.id, name: row.original.name })
             }
           />
           <RowActionButton
             icon={Pencil}
-            label="Bearbeiten"
+            label={t('Bearbeiten')}
             onClick={() => formSheet.openEdit(row.original)}
           />
           <RowActionButton
             icon={Trash2}
-            label="Löschen"
+            label={t('Löschen')}
             destructive
             onClick={() => void mutations.remove(row.original)}
           />
@@ -133,8 +134,8 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         title={copy.plural}
         description={
           kind === 'festival'
-            ? 'Alle Festivals und ihre Kapazitäten verwalten.'
-            : 'Alle Clubs, Hallen und ihre Kapazitäten verwalten.'
+            ? t('Alle Festivals und ihre Kapazitäten verwalten.')
+            : t('Alle Clubs, Hallen und ihre Kapazitäten verwalten.')
         }
       />
 
@@ -150,7 +151,7 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder={`${copy.plural} filtern…`}
+        searchPlaceholder={t('{{plural}} filtern…', { plural: copy.plural })}
         // A click opens the venue page; the pencil keeps the quick-edit sheet
         onRowClick={(venue) =>
           navigate({ to: venueDetailPath(kind), params: { venueId: String(venue.id) } })
@@ -188,8 +189,8 @@ export default function VenuePage({ kind }: { kind: VenueKind }) {
         }
         description={
           formSheet.mode === 'create'
-            ? `${copy.Neuen} im Verzeichnis anlegen.`
-            : 'Angaben aktualisieren.'
+            ? t('{{Neuen}} im Verzeichnis anlegen.', { Neuen: copy.Neuen })
+            : t('Angaben aktualisieren.')
         }
       >
         <VenueForm

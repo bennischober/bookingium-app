@@ -25,6 +25,7 @@ import {
 } from '../../../../main/api/schemas/document.schema'
 import { RecordPicker } from './RecordPicker'
 import { isRecordType, useRecordChoices, type RecordChoice } from './recordChoices'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * F9: "Als Dokument speichern" for one attachment.
@@ -81,13 +82,15 @@ export function AttachmentToDocumentDialog({
       // One toast for the whole batch, not one per file
       if (saved.current === parts.length) {
         toast.success(
-          parts.length === 1 ? 'Als Dokument gespeichert' : `${parts.length} Dokumente gespeichert`
+          parts.length === 1
+            ? t('Als Dokument gespeichert')
+            : t('{{length}} Dokumente gespeichert', { length: parts.length })
         )
         onOpenChange(false)
       }
     },
     onError: (error) =>
-      toast.error('Anhang konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Anhang konnte nicht gespeichert werden'), { description: error.message })
   })
   const saved = useRef(0)
 
@@ -95,15 +98,17 @@ export function AttachmentToDocumentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Als Dokument speichern</DialogTitle>
+          <DialogTitle>{t('Als Dokument speichern')}</DialogTitle>
           <DialogDescription>
-            {parts.length === 1 ? parts[0].filename || 'Anhang' : `${parts.length} Anhänge`}
+            {parts.length === 1
+              ? parts[0].filename || t('Anhang')
+              : t('{{length}} Anhänge', { length: parts.length })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <RecordPicker
             idPrefix="attachment-owner"
-            typeLabel="Zuordnung"
+            typeLabel={t('Zuordnung')}
             type={ownerType}
             onTypeChange={(type) => {
               setOwnerType(type)
@@ -117,7 +122,7 @@ export function AttachmentToDocumentDialog({
           />
 
           <div className="space-y-1.5">
-            <Label htmlFor="attachment-document-type">Dokumententyp</Label>
+            <Label htmlFor="attachment-document-type">{t('Dokumententyp')}</Label>
             <Select value={documentType} onValueChange={setDocumentType}>
               <SelectTrigger id="attachment-document-type">
                 <SelectValue />
@@ -134,7 +139,7 @@ export function AttachmentToDocumentDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             disabled={!selected || save.isPending}
@@ -155,7 +160,7 @@ export function AttachmentToDocumentDialog({
               }
             }}
           >
-            Speichern
+            {t('Speichern')}
           </Button>
         </DialogFooter>
       </DialogContent>
