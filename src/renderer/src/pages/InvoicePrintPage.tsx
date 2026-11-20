@@ -29,6 +29,7 @@ import { suggestDocumentLang } from '../../../main/invoice/taxSummary'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceDatevButton } from '@/components/invoice/InvoiceDatevButton'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
+import { t } from '../../../main/i18n/translate'
 
 // The words of the PDF's file name, in the document's language
 const FILE_NAME_WORDS: Record<
@@ -55,9 +56,9 @@ const FILE_NAME_WORDS: Record<
 async function saveXRechnung(invoiceId: number, fileName: string) {
   const result = await window.api.saveEInvoiceXml(invoiceId, `${fileName}.xml`)
   if (!result.success) {
-    toast.error('XRechnung konnte nicht gespeichert werden', { description: result.error })
+    toast.error(t('XRechnung konnte nicht gespeichert werden'), { description: result.error })
   } else if (!result.canceled && result.filePath) {
-    toast.success('XRechnung gespeichert', { description: result.filePath })
+    toast.success(t('XRechnung gespeichert'), { description: result.filePath })
   }
 }
 
@@ -118,7 +119,7 @@ export default function InvoicePrintPage() {
   if (printQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Rechnung wird geladen…
+        {t('Rechnung wird geladen…')}
       </div>
     )
   }
@@ -126,9 +127,9 @@ export default function InvoicePrintPage() {
   if (printQuery.isError || !data) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Rechnung nicht gefunden.</p>
+        <p className="text-muted-foreground">{t('Rechnung nicht gefunden.')}</p>
         <Button variant="outline" onClick={() => navigate({ to: '/invoices' })}>
-          <ArrowLeft className="h-4 w-4" /> Zurück zu den Rechnungen
+          <ArrowLeft className="h-4 w-4" /> {t('Zurück zu den Rechnungen')}
         </Button>
       </div>
     )
@@ -157,12 +158,15 @@ export default function InvoicePrintPage() {
           variant="outline"
           onClick={() => (canGoBack ? router.history.back() : navigate({ to: '/invoices' }))}
         >
-          <ArrowLeft className="h-4 w-4" /> Zurück
+          <ArrowLeft className="h-4 w-4" /> {t('Zurück')}
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Select value={layout} onValueChange={(value) => setLayout(value as InvoiceLayout)}>
-            <SelectTrigger className={`w-[160px] ${TOOLBAR_SELECT_CLASS}`} aria-label="Vorlage">
-              <SelectValue placeholder="Vorlage" />
+            <SelectTrigger
+              className={`w-[160px] ${TOOLBAR_SELECT_CLASS}`}
+              aria-label={t('Vorlage')}
+            >
+              <SelectValue placeholder={t('Vorlage')} />
             </SelectTrigger>
             <SelectContent>
               {INVOICE_LAYOUTS.map((option) => (
@@ -175,7 +179,7 @@ export default function InvoicePrintPage() {
           <DocumentLanguageSelect value={lang} onChange={setLang} />
           {eInvoice.data?.xrechnung && eInvoice.data.state === 'ready' && (
             <Button variant="outline" onClick={() => void saveXRechnung(invoice.id, fileName)}>
-              <FileCode className="h-4 w-4" /> XRechnung (XML)
+              <FileCode className="h-4 w-4" /> {t('XRechnung (XML)')}
             </Button>
           )}
           {/* Drafts have no number yet and are not sent */}
@@ -189,7 +193,7 @@ export default function InvoicePrintPage() {
           )}
           {invoice.status !== 'draft' && invoice.createdInDatev && (
             <span className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm text-muted-foreground">
-              In DATEV erstellt
+              {t('In DATEV erstellt')}
             </span>
           )}
           {invoice.status !== 'draft' && !invoice.createdInDatev && (

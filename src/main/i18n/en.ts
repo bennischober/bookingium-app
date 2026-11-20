@@ -35,6 +35,7 @@ import { membersSheetEn } from './en/membersSheetEn'
 import { openItemsEn } from './en/openItemsEn'
 import { pagesEn } from './en/pagesEn'
 import { personEn } from './en/personEn'
+import { printEn } from './en/printEn'
 import { quickCreateEn } from './en/quickCreateEn'
 import { receiptsEn } from './en/receiptsEn'
 import { settingsEn } from './en/settingsEn'
@@ -90,6 +91,10 @@ const COMMON: Record<string, string> = {
   ' seit {{date}}': ' since {{date}}',
   ' an {{to}}': ' to {{to}}',
   '{{amount}} netto': '{{amount}} net',
+  'Den Steuerschlüssel ändern Sie je Position unter „Bearbeiten“.':
+    'You change the tax code per line item under “Edit”.',
+  'Eine gestellte Rechnung ändern Sie per Storno und neuer Rechnung.':
+    'An issued invoice is changed by cancelling it and creating a new one.',
   '1 Mal': 'once',
   '{{count}} Mal': '{{count}} times',
   Abbrechen: 'Cancel',
@@ -144,6 +149,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...openItemsEn,
   ...pagesEn,
   ...personEn,
+  ...printEn,
   ...quickCreateEn,
   ...receiptsEn,
   ...settingsEn,

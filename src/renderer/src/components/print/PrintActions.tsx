@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FileDown, Printer } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Toolbar actions of the print pages.
@@ -28,23 +29,25 @@ export function PrintActions({ fileName, invoiceId }: { fileName: string; invoic
     try {
       const result = await window.api.savePrintPdf(`${fileName}.pdf`, invoiceId)
       if (!result.success) {
-        toast.error('PDF konnte nicht gespeichert werden', { description: result.error })
+        toast.error(t('PDF konnte nicht gespeichert werden'), { description: result.error })
       } else if (!result.canceled && result.filePath) {
         const filePath = result.filePath
-        const open = { label: 'Öffnen', onClick: () => void window.api.openSavedPdf(filePath) }
+        const open = { label: t('Öffnen'), onClick: () => void window.api.openSavedPdf(filePath) }
         const eInvoice = result.eInvoice
         if (eInvoice?.state === 'incomplete') {
-          toast.warning('PDF ohne E-Rechnung gespeichert', {
-            description: `Für die E-Rechnung fehlt: ${eInvoice.missing.join('; ')}`,
+          toast.warning(t('PDF ohne E-Rechnung gespeichert'), {
+            description: t('Für die E-Rechnung fehlt: {{missing}}', {
+              missing: eInvoice.missing.join('; ')
+            }),
             action: open
           })
         } else {
           toast.success(
             eInvoice?.state === 'ready'
-              ? 'PDF mit E-Rechnung gespeichert'
+              ? t('PDF mit E-Rechnung gespeichert')
               : eInvoice?.state === 'draft'
-                ? 'PDF gespeichert – Entwurf, ohne E-Rechnung'
-                : 'PDF gespeichert',
+                ? t('PDF gespeichert – Entwurf, ohne E-Rechnung')
+                : t('PDF gespeichert'),
             { description: filePath, action: open }
           )
         }
@@ -57,10 +60,10 @@ export function PrintActions({ fileName, invoiceId }: { fileName: string; invoic
   return (
     <>
       <Button variant="outline" onClick={() => void savePdf()} disabled={saving}>
-        <FileDown className="h-4 w-4" /> Als PDF speichern
+        <FileDown className="h-4 w-4" /> {t('Als PDF speichern')}
       </Button>
       <Button onClick={() => window.print()}>
-        <Printer className="h-4 w-4" /> Drucken
+        <Printer className="h-4 w-4" /> {t('Drucken')}
       </Button>
     </>
   )
