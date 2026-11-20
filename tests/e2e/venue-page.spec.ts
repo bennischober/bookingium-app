@@ -48,9 +48,11 @@ test('venue page shows overview, contacts, events and documents', async () => {
   await expect(page.getByText('Veranstalter')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Live Music Berlin GmbH' })).toBeVisible()
 
-  // The contacts are part of the overview
-  await expect(page.getByRole('button', { name: 'Person hinzufügen' })).toBeVisible()
-  await expect(page.getByText('Tom Manager')).toBeVisible()
+  // The contacts are part of the overview; the club's own, since a linked company (here the
+  // promoter) brings a second contacts section with its own "Person hinzufügen"
+  const contacts = page.locator('#section-contacts')
+  await expect(contacts.getByRole('button', { name: 'Person hinzufügen' })).toBeVisible()
+  await expect(contacts.getByText('Tom Manager')).toBeVisible()
 
   await page.getByRole('tab', { name: 'Events' }).click()
   const events = page.getByRole('table', { name: 'Events des Clubs' })
