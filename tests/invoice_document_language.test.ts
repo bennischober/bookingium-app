@@ -94,9 +94,10 @@ function sheet(layout: keyof typeof LAYOUTS, lang: Lang, data: InvoicePrintDto):
   )
   return markup
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
+    // &amp; last, so an escaped "&amp;quot;" does not turn into a quote
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
 }
 

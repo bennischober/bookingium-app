@@ -28,7 +28,7 @@ const party = (overrides: Partial<ContractParty> = {}): ContractParty => ({
   bankName: 'Example Bank',
   accountHolder: 'Example Artist GbR',
   iban: 'DE02 1203 0000 0000 2020 51',
-  bic: 'BYLADEM1001',
+  bic: 'BYLADEM0001',
   signaturePath: '',
   representative: '',
   ...overrides
