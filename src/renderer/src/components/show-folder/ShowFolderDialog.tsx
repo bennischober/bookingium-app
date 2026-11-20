@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, FileText, FolderOpen, FolderInput, Upload } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
@@ -39,10 +39,19 @@ type FileChoice = { include: boolean; owner: 'event' | 'venue' }
  */
 export function ShowFolderDialog({
   eventId,
+  documentId = null,
+  closeWhenEmpty = false,
   open,
   onOpenChange
 }: {
   eventId: number
+  /**
+   * "Vertrag einlesen": a contract already filed at the event is read right away; applying
+   * links it to the promoter, its contact, the band and the club or festival
+   */
+  documentId?: number | null
+  /** Opened by itself after an upload: a contract with nothing to take over closes again */
+  closeWhenEmpty?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -53,6 +62,11 @@ export function ShowFolderDialog({
 
   const analyze = trpcReact.showFolder.analyze.useMutation({
     onSuccess: (next) => {
+      if (closeWhenEmpty && next.documentId !== null && next.suggestions.length === 0) {
+        toast.info(t('Im Vertrag steht nichts, was nicht schon gespeichert ist.'))
+        close()
+        return
+      }
       setPlan(next)
       setFiles(
         Object.fromEntries(
@@ -65,13 +79,30 @@ export function ShowFolderDialog({
       setTicked(new Set(next.suggestions.filter((s) => s.include).map((s) => s.id)))
     },
     onError: (error) =>
-      toast.error(t('Show-Ordner konnte nicht gelesen werden'), { description: error.message })
+      toast.error(
+        documentId !== null
+          ? t('Vertrag konnte nicht gelesen werden')
+          : t('Show-Ordner konnte nicht gelesen werden'),
+        { description: error.message }
+      )
   })
+  // a filed contract is read as soon as the dialog opens
+  const { mutate: analyzeNow } = analyze
+  useEffect(() => {
+    if (open && documentId !== null) analyzeNow({ eventId, paths: [], documentId })
+  }, [open, documentId, eventId, analyzeNow])
   const apply = trpcReact.showFolder.apply.useMutation({
     onSuccess: (result) => {
       void utils.invalidate()
       if (result.problems.length > 0) {
         toast.warning(t('Nicht alles übernommen'), { description: result.problems.join('\n') })
+      } else if (documentId !== null) {
+        toast.success(t('Vertrag übernommen'), {
+          description: t('{{changes}} Angaben gespeichert, Vertrag {{links}}× zugeordnet.', {
+            changes: result.changes,
+            links: result.links
+          })
+        })
       } else {
         toast.success(t('Show-Ordner übernommen'), {
           description: t('{{changes}} Angaben und {{documents}} Dateien gespeichert.', {
@@ -131,7 +162,8 @@ export function ShowFolderDialog({
         owner: files[file.path].owner,
         documentType: file.documentType
       })),
-      actions: chosenSuggestions.map((s) => s.action)
+      actions: chosenSuggestions.map((s) => s.action),
+      documentId
     })
   }
 
@@ -146,19 +178,30 @@ export function ShowFolderDialog({
     >
       <DialogContent className="flex max-h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-4xl flex-col">
         <DialogHeader>
-          <DialogTitle>{t('Show-Ordner einlesen')}</DialogTitle>
+          <DialogTitle>
+            {documentId !== null ? t('Vertrag einlesen') : t('Show-Ordner einlesen')}
+          </DialogTitle>
           <DialogDescription>
-            {plan
-              ? t(
-                  'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.'
-                )
-              : t(
-                  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-/Festival-Infos, Mails, Pläne, Vertrag, Abrechnung.'
-                )}
+            {documentId !== null && !plan
+              ? t('Der Vertrag wird gelesen…')
+              : plan
+                ? t(
+                    'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.'
+                  )
+                : t(
+                    'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-/Festival-Infos, Mails, Pläne, Vertrag, Abrechnung.'
+                  )}
           </DialogDescription>
         </DialogHeader>
 
-        {!plan && (
+        {!plan && documentId !== null && (
+          <div className="flex min-h-40 flex-1 items-center justify-center gap-3">
+            <Spinner className="size-6" />
+            <p className="text-sm text-muted-foreground">{t('Der Vertrag wird gelesen…')}</p>
+          </div>
+        )}
+
+        {!plan && documentId === null && (
           <div
             className="relative flex min-h-64 flex-1 flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-6 text-center"
             {...dropProps}
@@ -255,91 +298,105 @@ export function ShowFolderDialog({
               </section>
             ))}
 
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">{t('Dateien ablegen')}</h3>
-              <ul className="divide-y rounded-md border">
-                {plan.files.map((file) => {
-                  const choice = files[file.path]
-                  return (
-                    <li
-                      key={file.path}
-                      className={cn(
-                        'flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm',
-                        !choice?.include && 'text-muted-foreground'
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label={t('{{name}} ablegen', { name: file.name })}
-                        className="h-4 w-4 accent-primary"
-                        checked={choice?.include ?? false}
-                        onChange={(e) =>
-                          setFiles((current) => ({
-                            ...current,
-                            [file.path]: { ...current[file.path], include: e.target.checked }
-                          }))
-                        }
-                      />
-                      <span className="min-w-0 flex-1 truncate" title={file.path}>
-                        {file.name}
-                      </span>
-                      <Badge variant="outline" className="font-normal">
-                        {SHOW_FILE_KIND_LABELS[file.kind]}
-                      </Badge>
-                      <Select
-                        value={choice?.owner ?? 'event'}
-                        onValueChange={(owner) =>
-                          setFiles((current) => ({
-                            ...current,
-                            [file.path]: {
-                              ...current[file.path],
-                              owner: owner as 'event' | 'venue'
-                            }
-                          }))
-                        }
-                        disabled={!choice?.include}
+            {plan.documentId !== null && (
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  'Der Vertrag bleibt beim Event und wird beim Übernehmen auch dem Veranstalter, seinem Ansprechpartner, der Band und dem Club bzw. Festival zugeordnet.'
+                )}
+              </p>
+            )}
+
+            {plan.files.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">{t('Dateien ablegen')}</h3>
+                <ul className="divide-y rounded-md border">
+                  {plan.files.map((file) => {
+                    const choice = files[file.path]
+                    return (
+                      <li
+                        key={file.path}
+                        className={cn(
+                          'flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm',
+                          !choice?.include && 'text-muted-foreground'
+                        )}
                       >
-                        <SelectTrigger
-                          className="h-7 w-auto gap-1 text-xs"
-                          aria-label={t('Ablage')}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="event">{t('beim Event')}</SelectItem>
-                          <SelectItem value="venue" disabled={!plan.venueName}>
-                            {!plan.venueName
-                              ? t('beim Club / Festival')
-                              : plan.venueKind === 'festival'
-                                ? t('beim Festival {{name}}', { name: plan.venueName })
-                                : t('beim Club {{name}}', { name: plan.venueName })}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {file.note && (
-                        <span className="basis-full pl-7 text-xs text-muted-foreground">
-                          {file.note}
+                        <input
+                          type="checkbox"
+                          aria-label={t('{{name}} ablegen', { name: file.name })}
+                          className="h-4 w-4 accent-primary"
+                          checked={choice?.include ?? false}
+                          onChange={(e) =>
+                            setFiles((current) => ({
+                              ...current,
+                              [file.path]: { ...current[file.path], include: e.target.checked }
+                            }))
+                          }
+                        />
+                        <span className="min-w-0 flex-1 truncate" title={file.path}>
+                          {file.name}
                         </span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
+                        <Badge variant="outline" className="font-normal">
+                          {SHOW_FILE_KIND_LABELS[file.kind]}
+                        </Badge>
+                        <Select
+                          value={choice?.owner ?? 'event'}
+                          onValueChange={(owner) =>
+                            setFiles((current) => ({
+                              ...current,
+                              [file.path]: {
+                                ...current[file.path],
+                                owner: owner as 'event' | 'venue'
+                              }
+                            }))
+                          }
+                          disabled={!choice?.include}
+                        >
+                          <SelectTrigger
+                            className="h-7 w-auto gap-1 text-xs"
+                            aria-label={t('Ablage')}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="event">{t('beim Event')}</SelectItem>
+                            <SelectItem value="venue" disabled={!plan.venueName}>
+                              {!plan.venueName
+                                ? t('beim Club / Festival')
+                                : plan.venueKind === 'festival'
+                                  ? t('beim Festival {{name}}', { name: plan.venueName })
+                                  : t('beim Club {{name}}', { name: plan.venueName })}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {file.note && (
+                          <span className="basis-full pl-7 text-xs text-muted-foreground">
+                            {file.note}
+                          </span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            )}
           </div>
         )}
 
         {plan && (
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => setPlan(null)}
-              disabled={apply.isPending}
-              className="gap-1.5"
-            >
-              <FolderInput className="h-4 w-4" />
-              {t('Andere Dateien')}
-            </Button>
+            {documentId === null ? (
+              <Button
+                variant="ghost"
+                onClick={() => setPlan(null)}
+                disabled={apply.isPending}
+                className="gap-1.5"
+              >
+                <FolderInput className="h-4 w-4" />
+                {t('Andere Dateien')}
+              </Button>
+            ) : (
+              <span />
+            )}
             <Button onClick={submit} disabled={nothingChosen || apply.isPending}>
               {apply.isPending && <Spinner className="size-4" />}
               {nothingChosen

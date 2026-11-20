@@ -46,5 +46,30 @@ export const documentsEn: Record<string, string> = {
   'Art von {{shownName}}': 'Type of {{shownName}}',
   'Im Ordner anzeigen': 'Show in folder',
   '{{shownName}} löschen': 'Delete {{shownName}}',
-  '„{{shownName}}“ löschen?': 'Delete “{{shownName}}”?'
+  '„{{shownName}}“ löschen?': 'Delete “{{shownName}}”?',
+  // Zuordnen (document_link) and Verträge & Dokumente
+  'Zuordnung konnte nicht gespeichert werden': 'Assignment could not be saved',
+  '„{{name}}“ zuordnen': 'Assign “{{name}}”',
+  'Die Datei bleibt, wo sie liegt. Zugeordnete Firmen, Personen, Clubs, Festivals, Bands und Events zeigen sie unter „Verträge & Dokumente“.':
+    'The file stays where it is. Assigned companies, people, clubs, festivals, bands and events show it under “Contracts & documents”.',
+  Zugeordnet: 'Assigned',
+  'Noch nichts zugeordnet.': 'Nothing assigned yet.',
+  '{{name}} entfernen': 'Remove {{name}}',
+  'Suchen: Firma, Person, Club, Festival, Band, Event…':
+    'Search: company, person, club, festival, band, event…',
+  'Eintrag zum Zuordnen suchen': 'Search for an entry to assign',
+  'Nichts gefunden.': 'Nothing found.',
+  Suchergebnisse: 'Search results',
+  '{{kind}} {{name}} – hierher zugeordnet': '{{kind}} {{name}} – assigned here',
+  'hier abgelegt': 'filed here',
+  'Zuordnen: Firmen, Personen, Clubs, Festivals …': 'Assign: companies, people, clubs, festivals …',
+  '{{shownName}} zuordnen': 'Assign {{shownName}}',
+  'Verträge & Dokumente': 'Contracts & documents',
+  '({{shown}} von {{total}})': '({{shown}} of {{total}})',
+  '1 Vertrag': '1 contract',
+  '{{count}} Verträge': '{{count}} contracts',
+  'Zugeordnete Dateien und Dateien der Events, an denen dieser Eintrag beteiligt ist. Sie liegen dort, wo sie abgelegt wurden (Spalte „Quelle“).':
+    'Assigned files and files of the events this entry takes part in. They stay where they were filed (column “Source”).',
+  'Suchen: Name, Event, Firma…': 'Search: name, event, company…',
+  'Verträge & Dokumente durchsuchen': 'Search contracts & documents'
 }

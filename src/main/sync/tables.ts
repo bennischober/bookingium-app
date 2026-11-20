@@ -69,6 +69,13 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
   band_genre: [{ columns: ['band_id', 'genre_id'] }],
   company_invoice_settings: [{ columns: ['company_id'] }],
   itinerary: [{ columns: ['deal_memo_id'] }],
+  document_link: [
+    { columns: ['document_id', 'deal_memo_id'] },
+    { columns: ['document_id', 'band_id'] },
+    { columns: ['document_id', 'company_id'] },
+    { columns: ['document_id', 'venue_id'] },
+    { columns: ['document_id', 'person_id'] }
+  ],
   contact_list_member: [
     { columns: ['contact_list_id', 'person_id'] },
     { columns: ['contact_list_id', 'company_id'] },

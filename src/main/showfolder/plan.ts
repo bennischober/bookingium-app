@@ -83,6 +83,12 @@ export interface ShowFolderCurrent {
   /** A stored hotel with the sheet's hotel name */
   hotelByName: { id: number; name: string } | null
   loproPersonId: number | null
+  /** The event's promoter company (LoPro) */
+  loproCompany: { id: number; name: string } | null
+  /** A stored company with the contract's promoter name */
+  companyByName: { id: number; name: string } | null
+  /** Persons already Ansprechpartner of that company (or of the LoPro company) */
+  companyMemberIds: ReadonlySet<number>
   localContactId: number | null
   /** Persons by lower-cased e-mail */
   personsByEmail: ReadonlyMap<string, { id: number; name: string }>
@@ -325,6 +331,11 @@ export function planSuggestions(
   const pending = pendingVenueOf(facts, current)
   if (pending) out.push(venueAssignSuggestion(facts, pending, sources.venue))
 
+  // the contract's promoter
+  const company = promoterCompanyOf(facts, current)
+  const companySuggestion = promoterSuggestion(facts, current, sources.contract || sources.mail)
+  if (companySuggestion) out.push(companySuggestion)
+
   // the hotel
   const hotel = facts.hotel
   if (hotel.name && (!current.hotel || keyOf(current.hotel.name) !== keyOf(hotel.name))) {
@@ -359,7 +370,7 @@ export function planSuggestions(
 
   // contacts: the club's people and the promoter; the band's own crew is left out
   for (const contact of facts.contacts) {
-    const suggestion = personSuggestion(contact, current, pending, sources)
+    const suggestion = personSuggestion(contact, current, pending, company, sources)
     if (suggestion) out.push(suggestion)
   }
 
@@ -420,10 +431,73 @@ function venueAssignSuggestion(
   }
 }
 
+/**
+ * The company a contract names as the promoter: the event's LoPro company when it is that
+ * one, else a stored company of that name, else a new one
+ */
+export function promoterCompanyOf(
+  facts: ShowFacts,
+  current: Pick<ShowFolderCurrent, 'loproCompany' | 'companyByName'>
+): { id: number | null; name: string } | null {
+  const promoter = facts.promoter
+  if (!promoter?.name) return null
+  if (current.loproCompany && keyOf(current.loproCompany.name) === keyOf(promoter.name))
+    return current.loproCompany
+  return current.companyByName ?? { id: null, name: promoter.name }
+}
+
+/** Create or pick the promoter company and enter it as the event's LoPro */
+function promoterSuggestion(
+  facts: ShowFacts,
+  current: ShowFolderCurrent,
+  source: string
+): ShowFolderSuggestionDto | null {
+  const promoter = facts.promoter
+  const company = promoterCompanyOf(facts, current)
+  if (!promoter || !company) return null
+  // already the event's promoter: nothing to set
+  if (company.id !== null && current.loproCompany?.id === company.id) return null
+  const { street, streetNumber } = splitStreet(promoter.street)
+  const known = company.id !== null
+  return {
+    id: 'company.promoter',
+    group: 'Vertragspartner',
+    label: known
+      ? `Veranstalter ${company.name} eintragen (schon angelegt)`
+      : `Veranstalter ${company.name} anlegen und eintragen`,
+    current: current.loproCompany?.name ?? '',
+    proposed: [
+      company.name,
+      [promoter.street, `${promoter.zipCode} ${promoter.city}`.trim()].filter(Boolean).join(', '),
+      promoter.vatId ? `USt-IdNr. ${promoter.vatId}` : '',
+      promoter.email,
+      promoter.phone
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    include: current.loproCompany === null,
+    source,
+    action: {
+      type: 'company',
+      companyId: company.id,
+      name: company.name,
+      street,
+      streetNumber,
+      zipCode: promoter.zipCode,
+      city: promoter.city,
+      email: promoter.email,
+      phone: promoter.phone,
+      vatId: promoter.vatId,
+      lopro: true
+    }
+  }
+}
+
 function personSuggestion(
   contact: ContactFact,
   current: ShowFolderCurrent,
   pending: PendingVenue | null,
+  company: { id: number | null; name: string } | null,
   sources: { sheet: string; venue: string; mail: string }
 ): ShowFolderSuggestionDto | null {
   if (contact.side !== 'venue' && contact.side !== 'promoter') return null
@@ -434,11 +508,16 @@ function personSuggestion(
   const venueMember = venue && !(known && current.venueMemberIds.has(known.id))
   const localContact = contact.side === 'venue' && contact.onSite && current.localContactId === null
   const lopro = contact.side === 'promoter' && current.loproPersonId === null
+  const companyMember =
+    contact.side === 'promoter' &&
+    company !== null &&
+    !(known && current.companyMemberIds.has(known.id))
   // nothing to link (already linked, or no club and no free role): nothing to offer
-  if (!venueMember && !localContact && !lopro) return null
+  if (!venueMember && !localContact && !lopro && !companyMember) return null
 
   const roles = [
     venueMember ? `Ansprechpartner von ${place?.name}` : '',
+    companyMember ? `Ansprechpartner von ${company?.name}` : '',
     localContact ? 'Kontakt vor Ort' : '',
     lopro ? 'LoPro-Kontakt' : ''
   ].filter(Boolean)
@@ -469,7 +548,8 @@ function personSuggestion(
       role: contact.role,
       venueMember,
       localContact,
-      lopro
+      lopro,
+      companyMember
     }
   }
 }

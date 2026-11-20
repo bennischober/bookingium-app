@@ -14,6 +14,8 @@ import { schema } from '../src/main/db/schema'
 import { ShowFolderService } from '../src/main/services/ShowFolderService'
 import { CompanyService } from '../src/main/services/CompanyService'
 import { VenueService } from '../src/main/services/VenueService'
+import { DocumentService } from '../src/main/services/DocumentService'
+import { DocumentLinkService } from '../src/main/services/DocumentLinkService'
 import { setStorageBasePath } from '../src/main/utils/fileStorage'
 import { setupTestDb } from './helpers/setup'
 
@@ -59,6 +61,23 @@ Kapazität: 15.000
 Wristbands und Akkreditierung am Artist Village, Camping für Crew, Shuttle vom Hotel.
 CONTACTS:
 Artist Care:   Anna Beispiel   +49 151 000 0003   anna@festival.example.test
+`
+
+const contract = `GASTSPIELVERTRAG
+zwischen
+Muster Konzerte GmbH
+Musterweg 11
+12345 Musterstadt
+vertreten durch den Geschäftsführer Max Promo
+Tel.: +49 40 000 0001
+E-Mail: max@muster-konzerte.example.test
+USt-IdNr.: DE123456789
+– nachfolgend „Veranstalter“ genannt –
+und
+Beispiel Booking
+– nachfolgend „Agentur“ genannt –
+§ 1 Die Agentur stellt die Künstler Beispielband.
+Garantie: 1.500,00 € netto
 `
 
 const mail = [
@@ -336,5 +355,58 @@ describe('show folder service', { timeout: 60_000 }, () => {
     await service.apply({ eventId, files: [], actions: [kind!.action] })
     const venue = db.select().from(schema.venue).where(eq(schema.venue.id, venueId)).get()
     expect(venue?.kind).toBe('festival')
+  })
+
+  it('reads a filed contract: creates the promoter, its contact, and links the contract', async () => {
+    const { eventId, venueId } = await setup()
+    const path = join(root, 'Vertrag Beispielband.txt')
+    writeFileSync(path, contract)
+    const filed = await container
+      .resolve(DocumentService)
+      .upload({ ownerType: 'event', ownerId: eventId, sourcePath: path, documentType: 'contract' })
+
+    const plan = await service.analyze({ eventId, paths: [], documentId: filed.id })
+    expect(plan.documentId).toBe(filed.id)
+    expect(plan.files).toEqual([])
+    const company = plan.suggestions.find((s) => s.id === 'company.promoter')
+    expect(company).toMatchObject({ group: 'Vertragspartner', include: true })
+    expect(company?.label).toBe('Veranstalter Muster Konzerte GmbH anlegen und eintragen')
+    const person = plan.suggestions.find((s) => s.group === 'Kontakte' && /Max Promo/.test(s.label))
+    expect(person?.proposed).toMatch(/Ansprechpartner von Muster Konzerte GmbH/)
+    expect(person?.proposed).toMatch(/LoPro-Kontakt/)
+    const guarantee = plan.suggestions.find((s) => s.id === 'event.guarantee')
+    expect(guarantee?.proposed).toBe('1.500,00 €')
+
+    const result = await service.apply({
+      eventId,
+      files: [],
+      actions: [company!.action, person!.action],
+      documentId: filed.id
+    })
+    expect(result.problems).toEqual([])
+
+    const event = db.select().from(schema.deal_memo).where(eq(schema.deal_memo.id, eventId)).get()
+    const promoter = db
+      .select()
+      .from(schema.company)
+      .where(eq(schema.company.id, event!.lopro_company_id!))
+      .get()
+    expect(promoter).toMatchObject({ name: 'Muster Konzerte GmbH', vat_id: 'DE123456789' })
+    expect(event?.lopro_person_id).not.toBeNull()
+    const members = db
+      .select()
+      .from(schema.company_member)
+      .where(eq(schema.company_member.company_id, promoter!.id))
+      .all()
+    expect(members.map((m) => m.person_id)).toEqual([event!.lopro_person_id])
+
+    // the contract shows at the promoter, its contact, the band and the club
+    const links = container.resolve(DocumentLinkService).list(filed.id)
+    expect(links.map((l) => l.kind).sort()).toEqual(['band', 'company', 'person', 'venue'])
+    expect(links.find((l) => l.kind === 'venue')?.id).toBe(venueId)
+
+    // read again: the promoter is the event's now, nothing to enter twice
+    const again = await service.analyze({ eventId, paths: [], documentId: filed.id })
+    expect(again.suggestions.some((s) => s.id === 'company.promoter')).toBe(false)
   })
 })
