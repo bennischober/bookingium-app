@@ -13,6 +13,9 @@ import { VenueKind } from '../api/schemas/venue.schema'
 import {
   TourImportField,
   type TourImportPreview,
+  type SaveTourInput,
+  type SaveTourResult,
+  type TourCandidateDto,
   type TourImportRequest,
   type TourImportResult,
   type TourImportSuggestion
@@ -127,5 +130,15 @@ export class TourImportService {
   /** The tours the events name, for the filters (map, event list) */
   tours(): string[] {
     return this.repository.tours()
+  }
+
+  /** Active events the tour dialog offers */
+  tourCandidates(): TourCandidateDto[] {
+    return this.repository.tourCandidates()
+  }
+
+  /** Renames a tour and sets its shows */
+  saveTour(input: SaveTourInput): SaveTourResult {
+    return this.repository.saveTour(input)
   }
 }

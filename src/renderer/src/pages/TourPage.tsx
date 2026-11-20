@@ -3,7 +3,9 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { cn, formatShortDate } from '@/lib/utils'
+import { Pencil, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -14,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { ListPageHeader } from '@/components/ListPageHeader'
 import { UtilizationBar } from '@/components/event-hub/TicketsTab'
+import { TourEditDialog } from '@/components/tour/TourEditDialog'
 import { soldOf } from '../../../main/advancing/advancing'
 import {
   ADVANCING_STATUS_LABELS,
@@ -85,6 +88,8 @@ export default function TourPage() {
   const tours = trpcReact.tourImport.tours.useQuery()
   const tourNames = tours.data ?? []
   const tour = search.tour && tourNames.includes(search.tour) ? search.tour : (tourNames[0] ?? '')
+  // "Tour bearbeiten" edits the selected tour, "Neue Tour" starts from '' (null = closed)
+  const [editing, setEditing] = useState<string | null>(null)
   const shows = trpcReact.advancing.tour.useQuery({ tour, bandId: null }, { enabled: tour !== '' })
   const list = shows.data ?? []
   const upcoming = list.filter((show) => show.eventStatus !== 'cancelled')
@@ -122,13 +127,32 @@ export default function TourPage() {
             </SelectContent>
           </Select>
         )}
+        {tour && (
+          <Button variant="outline" size="sm" onClick={() => setEditing(tour)}>
+            <Pencil className="h-4 w-4" />
+            {t('Bearbeiten')}
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={() => setEditing('')}>
+          <Plus className="h-4 w-4" />
+          {t('Neue Tour')}
+        </Button>
       </ListPageHeader>
+
+      <TourEditDialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null)
+        }}
+        tour={editing ?? ''}
+        onSaved={(name) => void navigate({ to: '/tours', search: { tour: name } })}
+      />
 
       {tours.isLoading && <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>}
       {!tours.isLoading && tourNames.length === 0 && (
         <p className="max-w-xl text-sm text-muted-foreground">
           {t(
-            'Noch keine Tour. Eine Tour entsteht, wenn Events eine Tour haben – im Event unter „Tour“ oder beim Import der Tourdaten (oben rechts „Import“).'
+            'Noch keine Tour. Mit „Neue Tour“ Shows zu einer Tour zusammenstellen – oder im Event unter „Tour“ bzw. beim Import der Tourdaten (oben rechts „Import“).'
           )}
         </p>
       )}
