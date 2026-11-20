@@ -38,6 +38,16 @@ export class VenueService {
     return result
   }
 
+  /** Companies that probably run the venue (same name, promoters of its events) */
+  companySuggestions(venueId: number) {
+    return this.venueRepository.companySuggestions(venueId)
+  }
+
+  /** Links the venue to the company that runs it; its contacts then show on the venue page */
+  linkCompany(venueId: number, companyId: number | null): void {
+    this.venueRepository.linkCompany(venueId, companyId)
+  }
+
   async deleteVenue(id: number) {
     await this.venueRepository.delete(id)
     // Rows go with the owner (trigger); the files are removed here

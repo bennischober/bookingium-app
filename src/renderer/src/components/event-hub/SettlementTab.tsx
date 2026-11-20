@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSyncedState, useSyncedStateByKey } from '@/hooks/useSyncedState'
+import { useFileDrop } from '@/hooks/useFileDrop'
 import { useNavigate } from '@tanstack/react-router'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Plus, Receipt, Trash2 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -9,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DropOverlay } from '@/components/ui/drop-overlay'
 import {
   Select,
   SelectContent,
@@ -37,6 +39,7 @@ import {
   rateText,
   SETTLEMENT_CURRENCIES
 } from './settlementForm'
+import { SETTLEMENT_REPORT_NOTE } from '../../../../main/advancing/advancing'
 import { t, uiLocale } from '../../../../main/i18n/translate'
 
 // #228: the promoter's settlement of the show (Konzertabrechnung) - read from the agency's Excel
@@ -145,10 +148,13 @@ const emptyLine = (): SettlementTicketLine => ({
   wkzCents: 0
 })
 
-/** #235: the promoter's last sales report beside the tickets settled, a large gap pointed out */
+/**
+ * #235: the promoter's last sales report beside the tickets settled, a large gap pointed out.
+ * The report the saved settlement wrote itself is no promoter report and is skipped.
+ */
 function LastTicketReport({ eventId, settled }: { eventId: number; settled: number }) {
   const show = trpcReact.advancing.get.useQuery({ eventId })
-  const report = show.data?.reports[0]
+  const report = show.data?.reports.find((r) => r.note !== SETTLEMENT_REPORT_NOTE)
   if (!report) return null
   const gap = settled > 0 ? Math.abs(settled - report.sold) / Math.max(settled, report.sold) : 0
   return (
@@ -207,7 +213,13 @@ export function SettlementTab({ eventId }: { eventId: number }) {
       setPendingFile(null)
       setDirty(false)
       void utils.settlement.get.invalidate({ eventId })
-      toast.success(t('Abrechnung gespeichert'))
+      // the tickets settled became the show day's sales report (Tickets tab, tour overview)
+      void utils.advancing.invalidate()
+      toast.success(t('Abrechnung gespeichert'), {
+        description: t(
+          'Die abgerechneten Tickets stehen jetzt auch als Verkaufsmeldung beim Event.'
+        )
+      })
     },
     onError: failed(t('Abrechnung konnte nicht gespeichert werden'))
   })
@@ -241,8 +253,8 @@ export function SettlementTab({ eventId }: { eventId: number }) {
       lines: (input?.lines ?? []).map((line, i) => (i === index ? { ...line, ...patch } : line))
     })
 
-  const importExcel = async () => {
-    const path = await window.api.pickSettlementFile()
+  const importExcel = async (droppedPath?: string) => {
+    const path = droppedPath ?? (await window.api.pickSettlementFile())
     if (!path) return
     const sheet = await readFile.mutateAsync({ path }).catch(() => null)
     if (!sheet) return
@@ -251,6 +263,12 @@ export function SettlementTab({ eventId }: { eventId: number }) {
     setPendingFile({ path, sheet })
     setDirty(true)
   }
+  const { dragging, dropProps } = useFileDrop({
+    extensions: ['xlsx'],
+    single: true,
+    disabled: readFile.isPending,
+    onFiles: ([path]) => importExcel(path)
+  })
 
   if (query.isLoading) return <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
 
@@ -262,14 +280,19 @@ export function SettlementTab({ eventId }: { eventId: number }) {
       : null
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6" {...dropProps}>
+      <DropOverlay
+        show={dragging}
+        title={t('Abrechnung hier ablegen')}
+        hint={t('Die Excel-Datei des Veranstalters (.xlsx) wird eingelesen.')}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{t('Abrechnung des Veranstalters')}</h2>
           <p className="text-sm text-muted-foreground">
             {sourceFileName
               ? t('Aus „{{sourceFileName}}“', { sourceFileName })
-              : t('Noch keine Abrechnung erfasst.')}
+              : t('Noch keine Abrechnung erfasst. Die Excel-Datei lässt sich auch hierher ziehen.')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

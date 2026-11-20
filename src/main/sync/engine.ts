@@ -56,11 +56,19 @@ export type RunResult = {
 
 export const newDeviceId = () => randomBytes(6).toString('hex')
 
+/**
+ * How often a running computer refreshes its device file (lastSeenAt). Rarely enough that the
+ * cloud client does not upload all the time, often enough that "zuletzt gesehen" means something.
+ */
+export const HEARTBEAT_MS = 10 * 60_000
+
 export class SyncEngine {
   private sqlite: Sqlite
   private transport: SyncTransport
   private now: () => Date
   private announced = false
+  /** When this session last wrote the device file (ms), 0 for not yet */
+  private lastHeartbeat = 0
 
   constructor(private options: EngineOptions) {
     this.sqlite = options.sqlite
@@ -128,9 +136,11 @@ export class SyncEngine {
       name: this.options.deviceName,
       prefix: this.prefix,
       createdAt: getMeta(this.sqlite, 'created_at') ?? this.now().toISOString(),
-      appVersion: this.options.appVersion
+      appVersion: this.options.appVersion,
+      lastSeenAt: this.now().toISOString()
     }
     await this.transport.writeDevice(info)
+    this.lastHeartbeat = this.now().getTime()
   }
 
   /**
@@ -149,7 +159,9 @@ export class SyncEngine {
     }
     // the others find this computer by its device file (after a join or a new identity)
     // #243: and again when its entry was removed from the folder as an earlier one
-    if (!this.announced || !(await this.transport.hasDevice(this.deviceId))) {
+    // and every few minutes, so the others see when it was last there (lastSeenAt)
+    const heartbeatDue = this.now().getTime() - this.lastHeartbeat >= HEARTBEAT_MS
+    if (!this.announced || heartbeatDue || !(await this.transport.hasDevice(this.deviceId))) {
       await this.writeDeviceInfo()
       this.announced = true
     }

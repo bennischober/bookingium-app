@@ -1,6 +1,8 @@
 // #254: English UI texts of mail, keyed by the German source string (see ../translate.ts)
 
 export const mailEn: Record<string, string> = {
+  'Als Anhang ablegen': 'Drop as attachment',
+  'Die Dateien werden an diese E-Mail angehängt.': 'The files are attached to this email.',
   'Als Dokument gespeichert': 'Saved as document',
   '{{length}} Dokumente gespeichert': '{{length}} documents saved',
   'Anhang konnte nicht gespeichert werden': 'Attachment could not be saved',

@@ -67,6 +67,12 @@ export type DeviceInfo = {
   prefix: number
   createdAt: string
   appVersion: string
+  /**
+   * When the computer last ran a sync (ISO), refreshed every few minutes: the others see a
+   * computer that is quiet, or a folder that no longer receives its files. Missing in files of
+   * versions before 1.7.
+   */
+  lastSeenAt?: string
 }
 
 /** The starting point a computer joins from: a full copy of one computer's data */
@@ -81,3 +87,7 @@ export type SnapshotInfo = {
   createdAt: string
   appVersion: string
 }
+
+/** The later of two ISO times, null when both are missing */
+export const latestOf = (a: string | null, b: string | null): string | null =>
+  a === null ? b : b === null ? a : a > b ? a : b

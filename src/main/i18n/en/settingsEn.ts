@@ -1,6 +1,16 @@
 // #254: English UI texts of settings, keyed by the German source string (see ../translate.ts)
 
 export const settingsEn: Record<string, string> = {
+  'Doppelte Einträge': 'Duplicate entries',
+  'Einträge mit gleichem Namen (bei Firmen ohne Rechtsform, also „Beispiel GmbH“ = „Beispiel“). Zusammenführen übernimmt Events, Rechnungen, Kontakte und Dokumente in einen Eintrag.':
+    'Entries with the same name (for companies without the legal form, so “Example Ltd” = “Example”). Merging moves events, invoices, contacts and documents into one entry.',
+  'Wird gesucht…': 'Searching…',
+  'Keine doppelten Namen gefunden.': 'No duplicate names found.',
+  '1 Name kommt mehrfach vor.': '1 name occurs more than once.',
+  '{{count}} Namen kommen mehrfach vor.': '{{count}} names occur more than once.',
+  ' · zuletzt gesehen: {{when}}': ' · last seen: {{when}}',
+  'Von den anderen Computern ist seit {{since}} nichts mehr angekommen. Wurde dort inzwischen gearbeitet, gleicht OneDrive, Dropbox oder Google Drive den Ordner auf diesem Computer vermutlich nicht mehr ab – bitte dort nachsehen (Anmeldung, Speicherplatz, angehaltene Synchronisierung).':
+    'Nothing has arrived from the other computers since {{since}}. If they have been used since, OneDrive, Dropbox or Google Drive is probably no longer syncing the folder on this computer – please check there (sign-in, storage space, paused sync).',
   'Weiterleitung: {{address}}': 'Forwarding: {{address}}',
   'Ordner und Regel angelegt': 'Folder and rule created',
   'Neue Mails an diese Adresse landen ab jetzt in ihrem Ordner.':

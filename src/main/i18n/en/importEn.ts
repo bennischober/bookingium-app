@@ -1,6 +1,9 @@
 // #254: English UI texts of import, keyed by the German source string (see ../translate.ts)
 
 export const importEn: Record<string, string> = {
+  'Liste hier ablegen': 'Drop the list here',
+  'Excel (.xlsx) oder CSV': 'Excel (.xlsx) or CSV',
+  'oder die Datei hierher ziehen': 'or drag the file here',
   'Excel-Liste importieren': 'Import Excel list',
   'Daten importieren': 'Import data',
   'Eine CSV-Liste mit Clubs, Festivals, Bands, Firmen oder Personen übernehmen.':

@@ -40,6 +40,7 @@ import { mailRuleRouter } from './routers/mail_rule.router'
 import { mailTemplateRouter } from './routers/mail_template.router'
 import { mapRouter } from './routers/map.router'
 import { settlementRouter } from './routers/settlement.router'
+import { showFolderRouter } from './routers/show_folder.router'
 import { advancingRouter } from './routers/advancing.router'
 import { eventStepRouter } from './routers/event_step.router'
 import { companyEnrichmentRouter } from './routers/company_enrichment.router'
@@ -97,6 +98,7 @@ export const router = t.router({
   mailTemplate: mailTemplateRouter,
   map: mapRouter,
   settlement: settlementRouter,
+  showFolder: showFolderRouter,
   advancing: advancingRouter,
   eventStep: eventStepRouter,
   companyEnrichment: companyEnrichmentRouter,

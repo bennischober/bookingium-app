@@ -1,6 +1,11 @@
 // #254: English UI texts of hooks, keyed by the German source string (see ../translate.ts)
 
 export const hooksEn: Record<string, string> = {
+  'Diese Datei passt hier nicht': 'This file does not fit here',
+  '{{count}} Dateien passen hier nicht': '{{count}} files do not fit here',
+  'Möglich sind: {{allowed}}': 'Possible are: {{allowed}}',
+  'Nur die erste Datei wird gelesen': 'Only the first file is read',
+  'Hier geht jeweils eine Datei.': 'One file at a time here.',
   'Konnte nicht gespeichert werden': 'Could not be saved',
   '„{{folderLabel}}“ nach „{{folderLabel2}}“ verschoben':
     '“{{folderLabel}}” moved to “{{folderLabel2}}”',

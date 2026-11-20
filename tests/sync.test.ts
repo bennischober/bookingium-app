@@ -20,7 +20,7 @@ import {
 import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { schema } from '../src/main/db/schema'
-import { SyncEngine, createGroup } from '../src/main/sync/engine'
+import { HEARTBEAT_MS, SyncEngine, createGroup } from '../src/main/sync/engine'
 import { prepareJoin } from '../src/main/sync/join'
 import { FolderTransport } from '../src/main/sync/transport'
 import { configureRowIds, idRange } from '../src/main/sync/ids'
@@ -495,5 +495,29 @@ describe('two computers', { timeout: 60_000 }, () => {
     expect(names(b2, 'band')).toContain('Danach')
     a2.sqlite.close()
     b2.sqlite.close()
+  })
+})
+
+describe('device heartbeat', { timeout: 60_000 }, () => {
+  const deviceFile = (c: Computer) =>
+    JSON.parse(
+      readFileSync(join(shared, 'geraete', c.engine!.deviceId, 'geraet.json'), 'utf-8')
+    ) as { lastSeenAt?: string; appVersion: string }
+
+  it('refreshes lastSeenAt every few minutes, not on every run', async () => {
+    const a = openComputer('a')
+    await setUp(a)
+    await sync(a)
+    const first = deviceFile(a).lastSeenAt
+    expect(first).toBeTruthy()
+
+    // a run right after leaves the file alone (no upload for the cloud client)
+    await sync(a)
+    expect(deviceFile(a).lastSeenAt).toBe(first)
+
+    clockMs += HEARTBEAT_MS
+    await sync(a)
+    const next = deviceFile(a).lastSeenAt!
+    expect(next > first!).toBe(true)
   })
 })

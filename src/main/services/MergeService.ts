@@ -2,6 +2,7 @@ import { inject, injectable } from 'tsyringe'
 import { MergeRepository } from '../repositories/MergeRepository'
 import { scheduleCalendarUpdate, scheduleFollowUpCalendarUpdate } from './CalendarFeedService'
 import type {
+  DuplicateGroupDto,
   MergeCandidateDto,
   MergeInput,
   MergeKind,
@@ -24,6 +25,10 @@ export class MergeService {
     scheduleCalendarUpdate()
     scheduleFollowUpCalendarUpdate()
     return id
+  }
+
+  duplicateGroups(kind: MergeKind): DuplicateGroupDto[] {
+    return this.repository.duplicateGroups(kind)
   }
 
   candidates(kind: MergeKind, id: number): MergeCandidateDto[] {

@@ -1,6 +1,16 @@
 // #254: English UI texts of pages, keyed by the German source string (see ../translate.ts)
 
 export const pagesEn: Record<string, string> = {
+  'Day-/Infosheet, Club-Infos, Mails und Pläne der Agentur einlesen':
+    "Read the agency's day/info sheet, club info, mails and plans",
+  'Show-Ordner': 'Show folder',
+  'Ansprechpartner bei {{name}}': 'Contacts at {{name}}',
+  'Firma verknüpft': 'Company linked',
+  'Ihre Ansprechpartner stehen jetzt auch hier.': 'Its contacts now show here too.',
+  'Firma konnte nicht verknüpft werden': 'Company could not be linked',
+  'Es gibt eine Firma mit dem Namen dieses Eintrags. Ist das die Firma des Clubs? Verknüpft stehen ihre Ansprechpartner und Angaben auch hier.':
+    "There is a company with this entry's name. Is it the club's company? Once linked, its contacts and details show here too.",
+  '{{name}} verknüpfen': 'Link {{name}}',
   Gegründet: 'Founded',
   'Technischer Leiter': 'Technical lead',
   'Firma und Management': 'Company and management',

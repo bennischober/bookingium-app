@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { ExternalLink, FileText, Landmark, Plus, Trash2 } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
+import { useFileDrop } from '@/hooks/useFileDrop'
+import { DropOverlay } from '@/components/ui/drop-overlay'
 import { confirmAction } from '@/lib/confirm'
 import { formatShortDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -43,6 +45,9 @@ import { amountText } from '@/components/receipts/receiptForm'
 import { parseAmount } from '@/lib/invoiceLabels'
 import { toCents } from '../../../../main/einvoice/amounts'
 import { t } from '../../../../main/i18n/translate'
+
+/** What a receipt can be (as in the picker, receipt:pickFiles) */
+const RECEIPT_EXTENSIONS = ['pdf', 'xml', 'jpg', 'jpeg', 'png'] as const
 
 // #225 step 2: one business trip - the facts, the meals provided per day, the live allowances,
 // its receipts, and the report that goes to DATEV.
@@ -120,6 +125,12 @@ export function TripDialog({
   const [abroad, setAbroad] = useState({ partial: '', full: '' })
   const [dirty, setDirty] = useState(tripId === null)
   const [queue, setQueue] = useState<ReceiptSource[]>([])
+  // Receipts dropped onto the section go the same way as "Neue Belege…" (after saving only)
+  const receiptDrop = useFileDrop({
+    extensions: RECEIPT_EXTENSIONS,
+    disabled: id === null,
+    onFiles: (paths) => setQueue(paths.map((path) => ({ kind: 'file' as const, path })))
+  })
 
   // The stored trip fills the form once it is loaded
   if (fields === null && trip) {
@@ -549,7 +560,12 @@ export function TripDialog({
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="relative space-y-2 rounded-md" {...receiptDrop.dropProps}>
+                <DropOverlay
+                  show={receiptDrop.dragging}
+                  title={t('Belege hier ablegen')}
+                  hint={t('PDF, E-Rechnung (XML), JPG oder PNG')}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium">{t('Belege der Reise')}</p>
                   {id === null ? (

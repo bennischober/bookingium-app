@@ -1,6 +1,20 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Show-Ordner einlesen: Am Event den Ordner der Agentur (Day-/Infosheet, Club-Infos, Mails, Pläne) hineinziehen. Tagesablauf, Ticketpreis, Kapazität, Hotel und Ansprechpartner werden zum Übernehmen vorgeschlagen, die Dateien beim Event oder Club abgelegt.':
+    "Read show folder: drag the agency's folder (day/info sheet, club info, mails, plans) onto the event. Schedule, ticket price, capacity, hotel and contacts are suggested to take over, the files are filed at the event or the club.",
+  'Dateien lassen sich überall hineinziehen, wo man sie auswählen kann: Importe, Abrechnung, Logo und Unterschrift, Mail-Anhänge und Reisebelege.':
+    'Files can be dragged in wherever they can be chosen: imports, statement, logo and signature, mail attachments and trip receipts.',
+  'Englische Oberfläche: Einstellungen › Allgemein › Darstellung schaltet je Computer auf Englisch um. Rechnungen und Verträge lassen sich beim Drucken auf Deutsch oder Englisch ausgeben.':
+    'English interface: Settings › General › Appearance switches to English per computer. Invoices and contracts can be printed in German or English.',
+  'Eine gespeicherte Abrechnung trägt die abgerechneten Tickets auch als Verkaufsmeldung ein.':
+    'A saved statement also records the tickets settled as a sales report.',
+  'Events: neue Spalte „Ort“, vergangene Events heller. Vertrag, Vorkasse, Rechnung, Hotel, Advancing und Ticketmeldung lassen sich als „extern erledigt“ abhaken.':
+    'Events: new “City” column, past events lighter. Contract, advance payment, invoice, hotel, advancing and ticket report can be ticked as “done externally”.',
+  'Clubs zeigen die Ansprechpartner ihrer Firma; eine gleichnamige Firma lässt sich mit einem Klick verknüpfen. Einstellungen › Daten listet doppelte Einträge zum Zusammenführen.':
+    'Clubs show the contacts of their company; a company of the same name can be linked with one click. Settings › Data lists duplicate entries to merge.',
+  'Abgleich: Jeder Computer zeigt „zuletzt gesehen“. Kommt von den anderen lange nichts an, weist ein Hinweis auf OneDrive, Dropbox oder Google Drive hin.':
+    'Sync: every computer shows “last seen”. When nothing arrives from the others for a long time, a hint points to OneDrive, Dropbox or Google Drive.',
   'Diese Aktion kann nicht rückgängig gemacht werden.': 'This action cannot be undone.',
   'Component stack:{{componentStack}}': 'Component stack:{{componentStack}}',
   Morgen: 'Tomorrow',
