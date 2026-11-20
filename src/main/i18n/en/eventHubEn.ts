@@ -42,6 +42,7 @@ export const eventHubEn: Record<string, string> = {
   Vorkasse: 'Advance payment',
   Hotel: 'Hotel',
   Ticketmeldung: 'Ticket report',
+  '{{label}} extern erledigt': '{{label}} done externally',
   Gespeichert: 'Saved',
   'Entwurf für dieses Event angelegt': 'Draft for this event created',
   '{{bandManagementName}} (Management der Band)': "{{bandManagementName}} (band's management)",

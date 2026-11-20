@@ -62,6 +62,15 @@ describe('steps done outside the program', () => {
     ])
   })
 
+  it('ticks the settlement as done externally without touching the open points', async () => {
+    const id = event({ contract_sent_at: '2026-11-01', status: 'confirmed', date: '2026-11-10' })
+    const before = await kinds(id)
+    expect(steps().set({ eventId: id, step: 'settlement', done: true })).toMatchObject([
+      { step: 'settlement' }
+    ])
+    expect(await kinds(id)).toEqual(before)
+  })
+
   it('refuses an unknown event', () => {
     expect(() => steps().set({ eventId: 999_999, step: 'hotel', done: true })).toThrow(
       'Event nicht gefunden'
