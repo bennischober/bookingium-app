@@ -466,15 +466,37 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
   `tests/e2e/__screenshots__/` — inspect the PDF, not just the screenshot.
 - Issuing a draft re-takes both snapshots, so an invoice freezes the
   parties as they are when it gets its number.
-- **Invoice templates** (`InvoiceDocument.tsx` catalog, chosen next to the
-  print buttons): „Geschäftsbrief“ (`LetterInvoiceTemplate.tsx`, the layout
-  of an accounting-software letter: logo top right, sender line and info
-  block, items with unit price and VAT rate, „Summe / x % USt. auf EUR … /
-  Endbetrag“ from `letterFormat.ts`, legal data in four footer columns),
-  „Standard“ and „Agentur“ (DE/EN). The page suggests the Geschäftsbrief
-  for German or unknown recipients and „Agentur (Englisch)“ for foreign
-  ones, until a template is picked. Its footer flows after the content like
+- **Invoice layouts** (`INVOICE_LAYOUTS` in `InvoiceDocument.tsx`, chosen
+  next to the print buttons): „Geschäftsbrief“ (`LetterInvoiceTemplate.tsx`,
+  the layout of an accounting-software letter: logo top right, sender line
+  and info block, items with unit price and VAT rate, „Summe / x % USt. auf
+  EUR … / Endbetrag“ from `letterFormat.ts`, legal data in four footer
+  columns), „Standard“ and „Agentur“. Its footer flows after the content like
   every template's (no pinned page footer, see `PagedDocument`).
+- **Document language** is separate from the layout and from the UI
+  language: every layout prints in German and English (each template keeps
+  its words in a `Record<Lang, …>` dictionary; shared parts and
+  `taxSummary.ts` take `lang`). Neither is stored: the print page picks the
+  language with `DocumentLanguageSelect` (`components/print/`), starting
+  from `suggestDocumentLang` (English for a recipient outside the
+  German-speaking countries). Watermark, file name and the email the
+  document is sent with follow the document language. Documents for third
+  parties never go through the UI translation.
+- **Invoices abroad**: `foreignRecipientHint` (`taxSummary.ts`) and
+  `ForeignRecipientHint.tsx` on the print page point out the tax code that
+  usually fits (EU business with VAT ID: reverse charge; outside the EU:
+  not taxable) and warn when reverse charge lacks the buyer's VAT ID. They
+  never change the invoice; the tax advisor decides.
+- **Contract language**: both contract print pages have the same DE/EN
+  switch, and the contract email and file name follow it. Each contract
+  has an English twin (`ContractDocumentEn.tsx`,
+  `ManagementContractDocumentEn.tsx`) with the same sections, numbering and
+  data as the German one; the shared building blocks are in
+  `concertContractParts.tsx` / `managementContractParts.tsx`. The English
+  wording comes from the user's English templates where a clause matches;
+  everything else is translated from the German contract.
+  `docs/CONTRACT_TRANSLATIONS.md` lists those passages for legal review. A
+  change to a German clause needs the same change in the English twin.
 - **Concert contract sections** (`contract/contractSections.ts`): the
   numbers come from `contractSectionNumbers`, never from literals. An
   optional section is left out entirely and every later one moves up, so

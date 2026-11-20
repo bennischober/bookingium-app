@@ -147,15 +147,15 @@ export function DocumentTemplates() {
           <p className="pt-3 text-xs text-muted-foreground">
             {kind.value === 'contract' ? (
               <>
-                Für Konzert- und Managementverträge; die Sprache wird beim Senden gewählt
-                (vorgeschlagen nach dem Land des Vertragspartners). Platzhalter:{' '}
+                Für Konzert- und Managementverträge; die Sprache ist die des Vertrags auf der
+                Druckseite (vorgeschlagen nach dem Land des Vertragspartners). Platzhalter:{' '}
                 <Placeholders names={CONTRACT_EMAIL_PLACEHOLDERS} />.{' '}
                 <code className="rounded bg-muted px-1">{'{Datum}'}</code> ist das Konzertdatum bzw.
                 der Vertragsbeginn. Die E-Mail geht an den Veranstalter bzw. die Firma der Band.
               </>
             ) : (
               <>
-                Die englischen Vorlagen gelten für Rechnungen mit der Vorlage „Agentur (Englisch)“.
+                Die englischen Vorlagen gelten für Rechnungen, die auf Englisch gedruckt werden.
                 Platzhalter: <Placeholders names={INVOICE_EMAIL_PLACEHOLDERS} />.{' '}
                 <code className="rounded bg-muted px-1">{'{Frist}'}</code> ist das Datum in 7 Tagen,
                 die Zahlungsfrist in Erinnerung und Mahnung. Die E-Mail geht an die Kontakt-E-Mail

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -6,6 +7,12 @@ import { PrintActions } from '@/components/print/PrintActions'
 import { buildFileName } from '@/lib/fileName'
 import { ManagementContractDocument } from '@/components/contract/ManagementContractDocument'
 import { ContractEmailButton } from '@/components/contract/ContractEmailButton'
+import { CONTRACT_FILE_NAMES } from '@/components/contract/contractLanguage'
+import {
+  DocumentLanguageSelect,
+  type DocumentLang
+} from '@/components/print/DocumentLanguageSelect'
+import { contractEmailLang } from '../../../main/mail/contractEmail'
 import { useStoredImageUrl } from '@/hooks/useStoredImageUrl'
 
 export default function ManagementContractPrintPage() {
@@ -24,6 +31,9 @@ export default function ManagementContractPrintPage() {
   const data = printQuery.data
   const letterhead = useStoredImageUrl(data?.managementLogoPath || undefined)
   const signature = useStoredImageUrl(data?.management?.signaturePath || undefined)
+  // Contract language: from the band company's country until one is picked; the email follows it
+  const [pickedLang, setLang] = useState<DocumentLang | null>(null)
+  const lang = pickedLang ?? contractEmailLang(data?.artist?.country)
 
   if (printQuery.isLoading) {
     return (
@@ -46,7 +56,7 @@ export default function ManagementContractPrintPage() {
 
   // e.g. "Managementvertrag_April Art_2026-10-18"
   const fileName = buildFileName([
-    'Managementvertrag',
+    CONTRACT_FILE_NAMES.management[lang],
     data.band.name,
     data.contract.startDate ?? data.contract.createdAt.slice(0, 10)
   ])
@@ -62,18 +72,15 @@ export default function ManagementContractPrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-2">
-          <ContractEmailButton
-            contract="management"
-            id={id}
-            fileName={fileName}
-            recipientCountry={data.artist?.country}
-          />
+          <DocumentLanguageSelect value={lang} onChange={setLang} />
+          <ContractEmailButton contract="management" id={id} fileName={fileName} lang={lang} />
           <PrintActions fileName={fileName} />
         </div>
       </div>
 
       <ManagementContractDocument
         data={data}
+        lang={lang}
         letterheadUrl={letterhead ?? undefined}
         managementSignatureUrl={signature ?? undefined}
       />
