@@ -152,7 +152,9 @@ test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
 
   await page.waitForURL(/invoices\/\d+\/print/)
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
-  // A foreign recipient is suggested the English agency template; the checks name theirs
+  // A foreign recipient is suggested English; the checks read the German texts of each layout
+  await page.getByRole('combobox', { name: 'Sprache des Dokuments' }).click()
+  await page.getByRole('option', { name: 'Deutsch (DE)' }).click()
   await page.getByRole('combobox').first().click()
   await page.getByRole('option', { name: 'Standard', exact: true }).click()
   await expect(page.locator('.paged-source')).toContainText('STORNORECHNUNG')
@@ -169,7 +171,7 @@ test('cancelling creates a Stornorechnung with its own e-invoice', async () => {
 
   // Agency template: the (negative) VAT line, not the reverse charge note
   await page.getByRole('combobox').first().click()
-  await page.getByRole('option', { name: 'Agentur (Deutsch)' }).click()
+  await page.getByRole('option', { name: 'Agentur', exact: true }).click()
   await expect(page.locator('.paged-source')).toContainText('zzgl. 19 % USt.:')
   await expect(page.locator('.paged-source')).not.toContainText('Reverse Charge')
   await expect(page.locator('.paged-source')).toContainText(

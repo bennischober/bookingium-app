@@ -15,30 +15,40 @@ import {
 } from '@/components/ui/select'
 import {
   InvoiceDocument,
-  INVOICE_TEMPLATES,
-  type InvoiceTemplate
+  INVOICE_LAYOUTS,
+  type InvoiceLayout
 } from '@/components/invoice/InvoiceDocument'
+import { ForeignRecipientHint } from '@/components/invoice/ForeignRecipientHint'
+import {
+  DocumentLanguageSelect,
+  TOOLBAR_SELECT_CLASS,
+  type DocumentLang
+} from '@/components/print/DocumentLanguageSelect'
 import type { InvoicePrintDto, ReminderKind } from '../../../main/api/schemas/invoice.schema'
+import { suggestDocumentLang } from '../../../main/invoice/taxSummary'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceDatevButton } from '@/components/invoice/InvoiceDatevButton'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 
-// Display labels for the template dropdown (DB/template values stay untouched)
-const TEMPLATE_LABELS: Record<InvoiceTemplate, string> = {
-  letter: 'Geschäftsbrief',
-  standard: 'Standard',
-  'agency-de': 'Agentur (Deutsch)',
-  'agency-en': 'Agentur (Englisch)'
-}
-
-// Suggests a template from the recipient's country snapshot: the Geschäftsbrief for German
-// (and unknown) recipients, the English agency template for foreign ones
-function suggestTemplate(data: InvoicePrintDto | undefined): InvoiceTemplate {
-  const country = data?.recipient?.country?.toLowerCase()
-  if (country && !country.includes('germany') && !country.includes('deutschland')) {
-    return 'agency-en'
+// The words of the PDF's file name, in the document's language
+const FILE_NAME_WORDS: Record<
+  DocumentLang,
+  { invoice: string; cancellation: string; draft: string; share: string; cancelled: string }
+> = {
+  de: {
+    invoice: 'Rechnung',
+    cancellation: 'Stornorechnung',
+    draft: 'Entwurf',
+    share: 'Managementbeteiligung',
+    cancelled: 'storniert'
+  },
+  en: {
+    invoice: 'Invoice',
+    cancellation: 'Cancellation invoice',
+    draft: 'Draft',
+    share: 'Management share',
+    cancelled: 'cancelled'
   }
-  return 'letter'
 }
 
 /** Saves the bare XRechnung XML (upload portals of public-sector buyers) */
@@ -70,19 +80,19 @@ export default function InvoicePrintPage() {
   })
   const settings = trpcReact.settings.get.useQuery()
 
-  // Default template once data arrives; the user can override afterwards via
-  // the dropdown (state adjustment during render, per "You Might Not Need an
-  // Effect")
-  const [suggestedTemplate, setSuggestedTemplate] = useState<InvoiceTemplate>('letter')
+  // Layout and language are picked here and never stored. The layout starts as the
+  // Geschäftsbrief; the language follows the recipient's country (English abroad, except
+  // German-speaking countries) until one is picked (state adjustment during render, per
+  // "You Might Not Need an Effect")
+  const [layout, setLayout] = useState<InvoiceLayout>('letter')
+  const [suggestedLang, setSuggestedLang] = useState<DocumentLang>('de')
   const [suggestedFor, setSuggestedFor] = useState<InvoicePrintDto | undefined>(undefined)
   if (data && suggestedFor !== data) {
     setSuggestedFor(data)
-    setSuggestedTemplate(suggestTemplate(data))
+    setSuggestedLang(suggestDocumentLang(data))
   }
-  // The suggestion follows the data until a template is picked in the dropdown (it used to be
-  // read once, before the data had arrived, so every invoice opened as "Standard")
-  const [pickedTemplate, setTemplate] = useState<InvoiceTemplate | null>(null)
-  const template = pickedTemplate ?? suggestedTemplate
+  const [pickedLang, setLang] = useState<DocumentLang | null>(null)
+  const lang = pickedLang ?? suggestedLang
 
   // Logo resolution is async IPC, so clearing on path change happens during
   // render, loading stays in an effect
@@ -126,13 +136,15 @@ export default function InvoicePrintPage() {
 
   // e.g. "Rechnung_1040_Soundwave Records", "Rechnung_Entwurf_Soundwave Records",
   // "Rechnung_2026783_The New Roses_Managementbeteiligung 4. Quartal 2025"
+  // English documents get an English file name ("Invoice_1040_Soundwave Records")
   const { invoice } = data
+  const words = FILE_NAME_WORDS[lang]
   const fileName = buildFileName([
-    invoice.kind === 'cancellation' ? 'Stornorechnung' : 'Rechnung',
-    invoice.invoiceNumber ?? 'Entwurf',
+    invoice.kind === 'cancellation' ? words.cancellation : words.invoice,
+    invoice.invoiceNumber ?? words.draft,
     data.managementShare?.bandName || data.recipient?.legalName || invoice.recipientName,
-    data.managementShare ? `Managementbeteiligung ${invoice.periodLabel}` : null,
-    invoice.status === 'cancelled' ? 'storniert' : null
+    data.managementShare ? `${words.share} ${invoice.periodLabel}` : null,
+    invoice.status === 'cancelled' ? words.cancelled : null
   ])
 
   return (
@@ -148,19 +160,19 @@ export default function InvoicePrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <Select value={template} onValueChange={(value) => setTemplate(value as InvoiceTemplate)}>
-            {/* Looks like the outline buttons next to it */}
-            <SelectTrigger className="h-8 w-[190px] rounded-lg border-border bg-background font-medium shadow-none hover:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50">
+          <Select value={layout} onValueChange={(value) => setLayout(value as InvoiceLayout)}>
+            <SelectTrigger className={`w-[160px] ${TOOLBAR_SELECT_CLASS}`} aria-label="Vorlage">
               <SelectValue placeholder="Vorlage" />
             </SelectTrigger>
             <SelectContent>
-              {INVOICE_TEMPLATES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {TEMPLATE_LABELS[t.value]}
+              {INVOICE_LAYOUTS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <DocumentLanguageSelect value={lang} onChange={setLang} />
           {eInvoice.data?.xrechnung && eInvoice.data.state === 'ready' && (
             <Button variant="outline" onClick={() => void saveXRechnung(invoice.id, fileName)}>
               <FileCode className="h-4 w-4" /> XRechnung (XML)
@@ -171,7 +183,7 @@ export default function InvoicePrintPage() {
             <InvoiceEmailButton
               invoiceId={invoice.id}
               fileName={fileName}
-              lang={template === 'agency-en' ? 'en' : 'de'}
+              lang={lang}
               kind={reminder}
             />
           )}
@@ -197,9 +209,19 @@ export default function InvoicePrintPage() {
         </div>
       )}
 
+      <div className="mx-auto mb-4 w-[210mm] empty:hidden print:hidden">
+        <ForeignRecipientHint
+          data={data}
+          lang={lang}
+          suggestedLang={suggestedLang}
+          onUseLang={setLang}
+        />
+      </div>
+
       <InvoiceDocument
         data={data}
-        template={template}
+        layout={layout}
+        lang={lang}
         logoUrl={logoUrl}
         paymentQr={settings.data?.paymentQr ?? true}
       />

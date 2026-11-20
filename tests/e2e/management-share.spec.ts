@@ -75,7 +75,10 @@ test('prints the draft like the reference invoice', async () => {
   await page.waitForURL(/invoices\/\d+\/print/)
 
   await page.getByRole('combobox').first().click()
-  await page.getByRole('option', { name: 'Agentur (Deutsch)' }).click()
+  await page.getByRole('option', { name: 'Agentur', exact: true }).click()
+  // The band's company is abroad, so English is suggested; the reference invoice is German
+  await page.getByRole('combobox', { name: 'Sprache des Dokuments' }).click()
+  await page.getByRole('option', { name: 'Deutsch (DE)' }).click()
   await page.waitForSelector('canvas[data-page="1"]', { timeout: 30_000 })
   // One A4 page, no blank second one
   await expect(page.getByText(/DIN A4 · 1 Seite/)).toBeVisible()

@@ -17,8 +17,11 @@ English.
    `aria-label` attributes.
 3. **Keep the domain's anglicisms:** Event, Band, Booking, Deal, Deal Memo,
    Rider, Stageplot, Showtime, Local Promoter.
-4. **Exception:** the English agency invoice template (`AGENCY_STRINGS.en` in
-   `AgencyInvoiceTemplate.tsx`) stays English.
+4. **Exception:** documents for third parties (invoices, contracts) are
+   printed in the document language picked on their print page, not in the
+   UI language. Their English words (`AGENCY_STRINGS.en`,
+   `LETTER_STRINGS.en`, `STANDARD_STRINGS.en`, the `en` labels of
+   `taxSummary.ts`) stay English and never go through the UI translation.
 5. Formal address ("Sie") where the app speaks to the user („Bitte legen Sie
    zuerst eine Firma an.“, „Geben Sie mindestens eine Bedingung an.“). Page
    and sheet descriptions are not addressed to anyone: they name the task in

@@ -1,24 +1,26 @@
 import type { InvoicePrintDto } from '../../../../main/api/schemas/invoice.schema'
+import type { Lang } from '../../../../main/invoice/taxSummary'
 import { PagedDocument } from '../print/PagedDocument'
 import { AgencyTemplate } from './AgencyInvoiceTemplate'
 import { LetterTemplate } from './LetterInvoiceTemplate'
 import { StandardTemplate } from './StandardInvoiceTemplate'
+import { watermarkOf } from './invoiceFormat'
 
 // Templates: LetterInvoiceTemplate.tsx, StandardInvoiceTemplate.tsx and AgencyInvoiceTemplate.tsx, built
-// from InvoiceParts.tsx and the helpers in invoiceFormat.ts
+// from InvoiceParts.tsx and the helpers in invoiceFormat.ts. Every layout prints in German and
+// English; layout and language are picked on the print page and never stored.
 
 // ========================================
-// Template catalog (hardcoded by design)
+// Layout and language catalog (hardcoded by design)
 // ========================================
 
-export const INVOICE_TEMPLATES = [
+export const INVOICE_LAYOUTS = [
   { value: 'letter', label: 'Geschäftsbrief' },
   { value: 'standard', label: 'Standard' },
-  { value: 'agency-de', label: 'Agentur (Deutsch)' },
-  { value: 'agency-en', label: 'Agentur (Englisch)' }
+  { value: 'agency', label: 'Agentur' }
 ] as const
 
-export type InvoiceTemplate = (typeof INVOICE_TEMPLATES)[number]['value']
+export type InvoiceLayout = (typeof INVOICE_LAYOUTS)[number]['value']
 
 // ========================================
 // Document shell (A4 sheet + draft watermark)
@@ -26,27 +28,20 @@ export type InvoiceTemplate = (typeof INVOICE_TEMPLATES)[number]['value']
 
 export function InvoiceDocument({
   data,
-  template,
+  layout,
+  lang,
   logoUrl,
   paymentQr = true
 }: {
   data: InvoicePrintDto
-  template: InvoiceTemplate
+  layout: InvoiceLayout
+  lang: Lang
   logoUrl?: string
   /** EPC payment QR code on payable invoices (setting) */
   paymentQr?: boolean
 }) {
   // Drafts and cancelled invoices carry a watermark on every print
-  const watermark =
-    data.invoice.status === 'draft'
-      ? template === 'agency-en'
-        ? 'DRAFT'
-        : 'ENTWURF'
-      : data.invoice.status === 'cancelled'
-        ? template === 'agency-en'
-          ? 'CANCELLED'
-          : 'STORNIERT'
-        : null
+  const watermark = watermarkOf(data.invoice.status, lang)
 
   return (
     <PagedDocument>
@@ -61,15 +56,12 @@ export function InvoiceDocument({
         </div>
       )}
 
-      {template === 'letter' && (
-        <LetterTemplate data={data} logoUrl={logoUrl} paymentQr={paymentQr} />
+      {layout === 'letter' && (
+        <LetterTemplate data={data} lang={lang} logoUrl={logoUrl} paymentQr={paymentQr} />
       )}
-      {template === 'standard' && <StandardTemplate data={data} paymentQr={paymentQr} />}
-      {template === 'agency-de' && (
-        <AgencyTemplate data={data} lang="de" logoUrl={logoUrl} paymentQr={paymentQr} />
-      )}
-      {template === 'agency-en' && (
-        <AgencyTemplate data={data} lang="en" logoUrl={logoUrl} paymentQr={paymentQr} />
+      {layout === 'standard' && <StandardTemplate data={data} lang={lang} paymentQr={paymentQr} />}
+      {layout === 'agency' && (
+        <AgencyTemplate data={data} lang={lang} logoUrl={logoUrl} paymentQr={paymentQr} />
       )}
     </PagedDocument>
   )

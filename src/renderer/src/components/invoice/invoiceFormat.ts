@@ -1,6 +1,7 @@
 import type { InvoicePrintDto } from '../../../../main/api/schemas/invoice.schema'
 import type { Lang } from '../../../../main/invoice/taxSummary'
 import { formatMoney as formatAmount } from '../../../../main/invoice/money'
+import { unitLabelOf } from '../../../../main/einvoice/codes'
 
 // Formatting helpers and the shared hatch style of the invoice print templates
 
@@ -26,6 +27,33 @@ export function formatQuantity(value: number, lang: Lang = 'de'): string {
 /** "19 %" in German, "19%" in English */
 export function formatRate(rate: number, lang: Lang): string {
   return lang === 'en' ? `${formatQuantity(rate, lang)}%` : `${formatQuantity(rate)} %`
+}
+
+// English labels of the stored units (the German ones are INVOICE_UNITS' labels)
+const UNIT_LABELS_EN: Record<string, string> = {
+  service: 'Lump sum',
+  piece: 'Piece',
+  hour: 'Hour',
+  day: 'Day',
+  month: 'Month',
+  km: 'Kilometre'
+}
+
+/** Printed label of a stored unit ("service" -> "Pauschale" / "Lump sum"); free text as is */
+export function unitLabel(unit: string, lang: Lang): string {
+  return lang === 'en' ? (UNIT_LABELS_EN[unit] ?? unit) : unitLabelOf(unit)
+}
+
+const WATERMARKS: Record<Lang, { draft: string; cancelled: string }> = {
+  de: { draft: 'ENTWURF', cancelled: 'STORNIERT' },
+  en: { draft: 'DRAFT', cancelled: 'CANCELLED' }
+}
+
+/** The watermark across every page of a draft or cancelled invoice, in its language */
+export function watermarkOf(status: string, lang: Lang): string | null {
+  if (status === 'draft') return WATERMARKS[lang].draft
+  if (status === 'cancelled') return WATERMARKS[lang].cancelled
+  return null
 }
 
 // Stornorechnung: number and date of the invoice it cancels

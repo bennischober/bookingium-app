@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate, useRouter, useCanGoBack } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
@@ -6,6 +7,12 @@ import { PrintActions } from '@/components/print/PrintActions'
 import { buildFileName } from '@/lib/fileName'
 import { ContractDocument } from '@/components/contract/ContractDocument'
 import { ContractEmailButton } from '@/components/contract/ContractEmailButton'
+import { CONTRACT_FILE_NAMES } from '@/components/contract/contractLanguage'
+import {
+  DocumentLanguageSelect,
+  type DocumentLang
+} from '@/components/print/DocumentLanguageSelect'
+import { contractEmailLang } from '../../../main/mail/contractEmail'
 import { useStoredImageUrl } from '@/hooks/useStoredImageUrl'
 
 export default function ContractPrintPage() {
@@ -28,6 +35,9 @@ export default function ContractPrintPage() {
   // company), falling back to the band company's signature
   const signaturePath = data?.representative?.signaturePath || data?.artist?.signaturePath || ''
   const artistSignature = useStoredImageUrl(signaturePath || undefined)
+  // Contract language: from the promoter's country until one is picked; the email follows it
+  const [pickedLang, setLang] = useState<DocumentLang | null>(null)
+  const lang = pickedLang ?? contractEmailLang(data?.promoter?.country)
 
   if (contractQuery.isLoading) {
     return (
@@ -50,7 +60,7 @@ export default function ContractPrintPage() {
 
   // e.g. "Auftrittsvertrag_Pretty Wild_Berghain_2026-10-21"
   const fileName = buildFileName([
-    'Auftrittsvertrag',
+    CONTRACT_FILE_NAMES.concert[lang],
     data.band?.name,
     data.venue?.name,
     data.dealMemo.date
@@ -73,18 +83,15 @@ export default function ContractPrintPage() {
           <ArrowLeft className="h-4 w-4" /> Zurück
         </Button>
         <div className="flex items-center gap-2">
-          <ContractEmailButton
-            contract="concert"
-            id={id}
-            fileName={fileName}
-            recipientCountry={data.promoter?.country}
-          />
+          <DocumentLanguageSelect value={lang} onChange={setLang} />
+          <ContractEmailButton contract="concert" id={id} fileName={fileName} lang={lang} />
           <PrintActions fileName={fileName} />
         </div>
       </div>
 
       <ContractDocument
         data={data}
+        lang={lang}
         letterheadUrl={letterhead ?? undefined}
         artistSignatureUrl={artistSignature ?? undefined}
       />
