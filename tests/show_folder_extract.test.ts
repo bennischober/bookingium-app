@@ -9,6 +9,8 @@ import {
   joinDigits,
   mergeShowFacts,
   moneyOf,
+  placeKindOfName,
+  placeKindOfText,
   timeOf
 } from '../src/main/showfolder/extract'
 
@@ -280,5 +282,34 @@ describe('show folder: facts', () => {
     expect(merged.hotel.name).toBe('Hotel am Deich')
     expect(merged.tickets.presaleCents).toBe(3870)
     expect(merged.contacts.filter((c) => c.name === 'Erika Muster')).toHaveLength(1)
+  })
+})
+
+describe('club or festival', () => {
+  it('reads the kind from a name that says it', () => {
+    expect(placeKindOfName('Muster Open Air')).toBe('festival')
+    expect(placeKindOfName('Beispiel Festival 2027')).toBe('festival')
+    expect(placeKindOfName('Musterstadtfest')).toBe('festival')
+    expect(placeKindOfName('Club Beispiel')).toBe('venue')
+    expect(placeKindOfName('Halle Nord')).toBe('venue')
+    expect(placeKindOfName('Muster')).toBeNull()
+  })
+
+  it('needs clearly more festival than club words in a text', () => {
+    expect(placeKindOfText('Wristbands at the artist village, camping for crew')).toBe('festival')
+    expect(placeKindOfText('Hausinfo: Halle mit Theke und Tresen')).toBe('venue')
+    expect(placeKindOfText('Festival im Club')).toBeNull()
+  })
+
+  it('takes a "Festival:" label as the name and the kind, and files a festival guide as info', () => {
+    const file = {
+      name: 'Festival Guide 2027.pdf',
+      text: 'Festival: Muster\nOrt: 12345 Musterstadt\nArtist Care: Anna Beispiel anna@fest.example.test',
+      links: []
+    }
+    expect(classifyShowFile(file, [])).toBe('venue_spec')
+    const facts = extractShowFacts(file, 'venue_spec', BAND)
+    expect(facts.venue).toMatchObject({ name: 'Muster', kind: 'festival' })
+    expect(facts.contacts[0]).toMatchObject({ name: 'Anna Beispiel', side: 'venue' })
   })
 })

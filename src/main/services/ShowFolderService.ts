@@ -6,6 +6,7 @@ import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { DocumentService } from './DocumentService'
 import { PersonService } from './PersonService'
 import { HotelService } from './HotelService'
+import { VenueService } from './VenueService'
 import { ItineraryService } from './ItineraryService'
 import { SettlementService } from './SettlementService'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
@@ -20,6 +21,7 @@ import {
   type ShowFileKind
 } from '../showfolder/extract'
 import {
+  pendingVenueOf,
   planFiles,
   planSuggestions,
   settlementSuggestion,
@@ -124,7 +126,8 @@ export class ShowFolderService {
     @inject(PersonService) private persons: PersonService,
     @inject(HotelService) private hotels: HotelService,
     @inject(ItineraryService) private itineraries: ItineraryService,
-    @inject(SettlementService) private settlements: SettlementService
+    @inject(SettlementService) private settlements: SettlementService,
+    @inject(VenueService) private venues: VenueService
   ) {}
 
   /** One file's text: PDF, mail, plain text; an Excel sheet only says whether it is a settlement */
@@ -206,18 +209,26 @@ export class ShowFolderService {
     const current = this.repository.current(
       input.eventId,
       facts.hotel.name,
-      facts.contacts.map((contact) => contact.email)
+      facts.contacts.map((contact) => contact.email),
+      facts.venue.name
     )
     if (!current) throw new Error('Event nicht gefunden')
+    const pending = pendingVenueOf(facts, current)
 
     const suggestions = planSuggestions(facts, current, sources)
     const settlement = settlementSuggestion(settlementFile, current.hasSettlement)
     if (settlement) suggestions.push(settlement)
 
     const hints: string[] = []
-    if (!current.venue)
+    if (!current.venue && !pending)
       hints.push(
-        'Das Event hat keinen Club: Angaben zum Club (Kapazität, Adresse, Ansprechpartner) werden erst vorgeschlagen, wenn einer zugeordnet ist.'
+        'Das Event hat keinen Club und kein Festival, und die Dateien nennen keins: Kapazität, Adresse und Ansprechpartner werden erst vorgeschlagen, wenn eins zugeordnet ist.'
+      )
+    if (current.venue && facts.venue.kind && facts.venue.kind !== current.venue.kind)
+      hints.push(
+        facts.venue.kind === 'festival'
+          ? `Die Dateien beschreiben ein Festival, ${current.venue.name} ist aber als Club gespeichert.`
+          : `Die Dateien beschreiben einen Club, ${current.venue.name} ist aber als Festival gespeichert.`
       )
     if (!bandName)
       hints.push(
@@ -234,8 +245,9 @@ export class ShowFolderService {
     return {
       eventId: input.eventId,
       bandName,
-      venueName: current.venue?.name ?? '',
-      files: planFiles(read, current),
+      venueName: current.venue?.name ?? pending?.name ?? '',
+      venueKind: current.venue?.kind ?? pending?.kind ?? 'venue',
+      files: planFiles(read, current, pending),
       suggestions,
       hints
     }
@@ -269,10 +281,47 @@ export class ShowFolderService {
     if (times.length > 0)
       await attempt('Tagesablauf', () => this.itineraries.upsert(itinerary).then(() => {}))
 
-    const venueId = event.venueId
+    // the club or festival first: the venue's data, people and files below go to it
+    let venueId = event.venueId
+    for (const action of input.actions) {
+      if (action.type !== 'venueAssign' || venueId !== null) continue
+      await attempt(action.name, async () => {
+        let id = action.venueId
+        if (id === null) {
+          const created = await this.venues.createVenue({
+            name: action.name,
+            kind: action.kind,
+            capacity: action.capacity,
+            genres: '',
+            notes: action.notes,
+            address: {
+              street: action.street,
+              streetNumber: action.streetNumber,
+              addressSuffix: '',
+              zipCode: action.zipCode,
+              city: action.city,
+              state: '',
+              country: '',
+              countryCode: ''
+            }
+          })
+          id = created.id
+        }
+        this.repository.setVenue(input.eventId, id)
+        venueId = id
+      })
+    }
+
     for (const action of input.actions) {
       switch (action.type) {
         case 'itinerary':
+        case 'venueAssign':
+          break
+        case 'venueKind':
+          if (venueId !== null) {
+            const id = venueId
+            await attempt('Club / Festival', () => this.repository.setVenueKind(id, action.kind))
+          }
           break
         case 'eventPresale':
           await attempt('Ticketpreis', () =>
@@ -286,26 +335,28 @@ export class ShowFolderService {
           await attempt('Deal', () => this.repository.setDeal(input.eventId, action.text))
           break
         case 'venueCapacity':
-          if (venueId !== null)
-            await attempt('Kapazität', () =>
-              this.repository.setVenueCapacity(venueId, action.value)
-            )
+          if (venueId !== null) {
+            const id = venueId
+            await attempt('Kapazität', () => this.repository.setVenueCapacity(id, action.value))
+          }
           break
         case 'venueAddress':
-          if (venueId !== null)
-            await attempt('Adresse des Clubs', () =>
-              this.repository.setVenueAddress(venueId, action)
-            )
+          if (venueId !== null) {
+            const id = venueId
+            await attempt('Adresse', () => this.repository.setVenueAddress(id, action))
+          }
           break
         case 'venueNotes':
-          if (venueId !== null)
-            await attempt('Infos zum Club', () =>
+          if (venueId !== null) {
+            const id = venueId
+            await attempt('Infos', () =>
               this.repository.appendVenueNotes(
-                venueId,
+                id,
                 `Aus dem Show-Ordner (${new Date().toLocaleDateString('de-DE')}):`,
                 action.lines
               )
             )
+          }
           break
         case 'hotel':
           await attempt(`Hotel ${action.name}`, async () => {
@@ -370,14 +421,12 @@ export class ShowFolderService {
 
     let documents = 0
     for (const file of input.files) {
-      const ownerId = file.owner === 'venue' ? venueId : input.eventId
-      if (ownerId === null) {
-        problems.push(`${basename(file.path)}: Das Event hat keinen Club.`)
-        continue
-      }
+      // a venue's file goes to the event when the event has no club or festival after all
+      const ownerType = file.owner === 'venue' && venueId !== null ? 'venue' : 'event'
+      const ownerId = ownerType === 'venue' && venueId !== null ? venueId : input.eventId
       try {
         await this.documents.upload({
-          ownerType: file.owner,
+          ownerType,
           ownerId,
           sourcePath: file.path,
           documentType: file.documentType

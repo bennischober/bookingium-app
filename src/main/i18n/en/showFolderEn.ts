@@ -2,7 +2,7 @@
 
 export const showFolderEn: Record<string, string> = {
   'Day-/Infosheet': 'Day/info sheet',
-  'Club-Infos / Technik': 'Club info / technical',
+  'Club-/Festival-Infos / Technik': 'Club/festival info / technical',
   'Bühnen- / Lichtplan': 'Stage / light plot',
   Genehmigung: 'Permit',
   'Doppelt (gleiche Datei als PDF)': 'Duplicate (same file as PDF)',
@@ -15,8 +15,8 @@ export const showFolderEn: Record<string, string> = {
   'Show-Ordner einlesen': 'Read show folder',
   'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.':
     'Check what is taken over. Suggestions that would replace a stored value are not ticked.',
-  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-Infos, Mails, Pläne, Vertrag, Abrechnung.':
-    "Drag the agency's folder for this show (Dropbox or similar) or single files here: day/info sheet, club info, mails, plans, contract, statement.",
+  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-/Festival-Infos, Mails, Pläne, Vertrag, Abrechnung.':
+    "Drag the agency's folder for this show (Dropbox or similar) or single files here: day/info sheet, club/festival info, mails, plans, contract, statement.",
   'Ordner oder Dateien': 'Folders or files',
   'Dateien werden gelesen…': 'Reading files…',
   'Ordner oder Dateien hierher ziehen. Gelesen werden PDF, E-Mails (.eml) und die Abrechnung (.xlsx); alles andere wird nur abgelegt. Nichts wird geändert, bevor Sie die Vorschläge bestätigen.':
@@ -28,7 +28,8 @@ export const showFolderEn: Record<string, string> = {
   Ablage: 'Filed at',
   'beim Event': 'at the event',
   'beim Club {{name}}': 'at the club {{name}}',
-  'beim Club': 'at the club',
+  'beim Festival {{name}}': 'at the festival {{name}}',
+  'beim Club / Festival': 'at the club / festival',
   'Andere Dateien': 'Other files',
   'Nichts ausgewählt': 'Nothing selected',
   'Übernehmen ({{suggestions}} Angaben, {{files}} Dateien)':

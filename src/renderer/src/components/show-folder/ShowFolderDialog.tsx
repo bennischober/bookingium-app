@@ -153,7 +153,7 @@ export function ShowFolderDialog({
                   'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.'
                 )
               : t(
-                  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-Infos, Mails, Pläne, Vertrag, Abrechnung.'
+                  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-/Festival-Infos, Mails, Pläne, Vertrag, Abrechnung.'
                 )}
           </DialogDescription>
         </DialogHeader>
@@ -308,9 +308,11 @@ export function ShowFolderDialog({
                         <SelectContent>
                           <SelectItem value="event">{t('beim Event')}</SelectItem>
                           <SelectItem value="venue" disabled={!plan.venueName}>
-                            {plan.venueName
-                              ? t('beim Club {{name}}', { name: plan.venueName })
-                              : t('beim Club')}
+                            {!plan.venueName
+                              ? t('beim Club / Festival')
+                              : plan.venueKind === 'festival'
+                                ? t('beim Festival {{name}}', { name: plan.venueName })
+                                : t('beim Club {{name}}', { name: plan.venueName })}
                           </SelectItem>
                         </SelectContent>
                       </Select>

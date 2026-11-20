@@ -24,7 +24,7 @@ export type ShowFileKind = (typeof SHOW_FILE_KINDS)[number]
 
 export const SHOW_FILE_KIND_LABELS: Record<ShowFileKind, string> = {
   daysheet: t('Day-/Infosheet'),
-  venue_spec: t('Club-Infos / Technik'),
+  venue_spec: t('Club-/Festival-Infos / Technik'),
   stage_plot: t('Bühnen- / Lichtplan'),
   contract: t('Vertrag'),
   settlement: t('Abrechnung'),
@@ -53,6 +53,9 @@ export type ItineraryKey = (typeof ITINERARY_KEYS)[number]
 
 export type ContactSide = 'venue' | 'band' | 'promoter' | 'unknown'
 
+/** Club ('venue') or festival, as stored in venue.kind (VenueKind) */
+export type PlaceKind = 'venue' | 'festival'
+
 export interface ContactFact {
   /** The role as the sheet writes it ("Venue", "Booking / Production", "Local Promoter") */
   role: string
@@ -80,6 +83,8 @@ export interface ShowFacts {
     merchFeeCents: number | null
     /** Facts for the venue's notes ("Bühne: 11,6 × 8,2 m", "Parken: …") */
     notes: string[]
+    /** Club or festival as far as the files tell (festivalKindOf); null when they do not */
+    kind: PlaceKind | null
   }
   hotel: PlaceFact & { notes: string[] }
   tickets: {
@@ -111,7 +116,8 @@ export const emptyFacts = (): ShowFacts => ({
     city: '',
     capacity: null,
     merchFeeCents: null,
-    notes: []
+    notes: [],
+    kind: null
   },
   hotel: { name: '', street: '', zipCode: '', city: '', notes: [] },
   tickets: { presaleCents: null, baseCents: null, extraCents: null, wkzCents: null },
@@ -231,6 +237,59 @@ function labelled(segment: string): [string, string] | null {
   return match ? [keyOf(match[1]), cleanText(match[2])] : null
 }
 
+/** A festival's own info sheet for the acts ("Artist Info", "Festival Guide", "Künstlerinfo") */
+const FESTIVAL_SHEET =
+  /festival ?info|festival ?guide|artist ?info|artist ?guide|artist ?handbook|kuenstler ?info|produktionsinfo|production ?info/
+
+/** Words only a festival's papers use: the site, the artists' area, wristbands, camping */
+const FESTIVAL_WORDS = [
+  'festival',
+  'open air',
+  'openair',
+  'festivalgelaende',
+  'gelaende',
+  'artist village',
+  'artist area',
+  'artist care',
+  'artist relations',
+  'backstage village',
+  'wristband',
+  'baendchen',
+  'akkreditierung',
+  'accreditation',
+  'camping',
+  'line up',
+  'lineup',
+  'shuttle'
+]
+
+/** Words of a club's papers: the house, the hall, the bar */
+const CLUB_WORDS = ['club', 'hausinfo', 'haus info', 'halle', 'saal', 'theke', 'tresen']
+
+/** A name that says what it is: "Muster Open Air", "Beispiel Festival", "Club Beispiel" */
+export function placeKindOfName(name: string): PlaceKind | null {
+  const key = keyOf(name)
+  if (!key) return null
+  if (/\b(festival|open ?air|openair|fest)\b|festival$|fest$/.test(key)) return 'festival'
+  if (/\b(club|klub|halle|saal|bar|kneipe|keller|kantine|cafe|theater)\b/.test(key)) return 'venue'
+  return null
+}
+
+/**
+ * Club or festival from what a file says: a "Festival:" label or a name that says so decides,
+ * else the festival words have to clearly outweigh the club words (two more at least)
+ */
+export function placeKindOfText(text: string): PlaceKind | null {
+  const key = ` ${keyOf(text.slice(0, 20000))} `
+  const count = (words: readonly string[]) =>
+    words.filter((word) => key.includes(` ${word} `)).length
+  const festival = count(FESTIVAL_WORDS)
+  const club = count(CLUB_WORDS)
+  if (festival >= club + 2) return 'festival'
+  if (club >= festival + 2) return 'venue'
+  return null
+}
+
 /** Roles of the venue's person on the day */
 const ON_SITE = /vor ort|\bvenue\b|day of show|on site|local contact|\bdos\b/
 
@@ -267,6 +326,7 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
     return 'daysheet'
   if (/venue spec|venue info|technical spec|hausinfo|haus info|specifications|tech spec/.test(name))
     return 'venue_spec'
+  if (FESTIVAL_SHEET.test(name)) return 'venue_spec'
   if (/licht|light|stage ?plot|buehnenplan|lichtplot|floor ?plan/.test(name)) return 'stage_plot'
   if (/vertrag|contract|agreement|gastspiel/.test(name)) return 'contract'
   if (/rider/.test(name)) return 'rider'
@@ -277,6 +337,8 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
   const timeLabels = ['get in', 'soundcheck', 'doors', 'einlass', 'curfew', 'load in', 'dinner']
   if (timeLabels.filter((label) => text.includes(label)).length >= 3) return 'daysheet'
   if (/venue information|technical specs|stage width|main pa/.test(text)) return 'venue_spec'
+  if (/festival information|artist information|artist village|kuenstlerinformation/.test(text))
+    return 'venue_spec'
   if (/gastspielvertrag|konzertvertrag|vertragspartner|kuenstler|engagement/.test(text))
     return 'contract'
   return 'other'
@@ -382,7 +444,7 @@ function sideOf(role: string, kind: ShowFileKind, bandKey: string): ContactSide 
   )
     return 'band'
   if (
-    /venue|club|vor ort|production|produktion|booking|haus|halle|technik|executive|director|event/.test(
+    /venue|club|festival|artist care|artist relations|artist liaison|gelaende|\bsite\b|stage manager|vor ort|production|produktion|booking|haus|halle|technik|executive|director|event/.test(
       key
     )
   )
@@ -487,11 +549,21 @@ export function extractShowFacts(
       const [label, value] = pair
       if (
         section !== 'hotel' &&
-        startsWithAny(label, ['venue', 'club', 'location', 'spielstaette']) &&
+        startsWithAny(label, [
+          'venue',
+          'club',
+          'location',
+          'spielstaette',
+          'festival',
+          'festivalgelaende',
+          'veranstaltungsort'
+        ]) &&
         value &&
         !/http/.test(value)
       ) {
         facts.venue.name ||= stripRemark(value)
+        if (startsWithAny(label, ['festival', 'festivalgelaende'])) facts.venue.kind ??= 'festival'
+        else if (startsWithAny(label, ['club'])) facts.venue.kind ??= 'venue'
       } else if (startsWithAny(label, ['street', 'strasse', 'str', 'adresse', 'address'])) {
         target.street ||= stripRemark(value)
       } else if (
@@ -650,6 +722,7 @@ export function extractShowFacts(
     if (split) parts.push(`${split[1]} % ${cleanText(split[2])}`)
     facts.deal.text = parts.join(' vs. ')
   }
+  facts.venue.kind ??= placeKindOfName(facts.venue.name) ?? placeKindOfText(file.text)
   return facts
 }
 
@@ -676,6 +749,7 @@ export function mergeShowFacts(
       else merged.venue[key] ||= facts.venue[key]
       merged.hotel[key] ||= facts.hotel[key]
     }
+    merged.venue.kind ??= facts.venue.kind
     merged.venue.capacity ??= facts.venue.capacity
     merged.venue.merchFeeCents ??= facts.venue.merchFeeCents
     for (const note of facts.venue.notes)
@@ -690,5 +764,9 @@ export function mergeShowFacts(
     merged.deal.text ||= facts.deal.text
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
+  // a name that says festival ("… Open Air") decides; a club-like name ("Halle …") only fills in,
+  // since festivals take place in halls too
+  const byName = placeKindOfName(merged.venue.name)
+  merged.venue.kind = byName === 'festival' ? byName : (merged.venue.kind ?? byName)
   return merged
 }
