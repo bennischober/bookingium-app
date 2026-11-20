@@ -1,6 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, ArrowUpDown, FileText, FolderOpen, Pencil, Trash2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  FileText,
+  FolderOpen,
+  Link2,
+  Pencil,
+  ScanText,
+  Trash2
+} from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +31,12 @@ import {
   type DocumentDto,
   type EventDocumentDto
 } from '../../../../main/api/schemas/document.schema'
+import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
 import { openDocument, revealDocument } from './documentFiles'
+import { DocumentLinksDialog } from './DocumentLinksDialog'
+import { isReadableContract, LINK_KIND_LABELS, linkLabel } from './documentLinks'
+import { RecordLink } from './RecordLink'
+import { ShowFolderDialog } from '@/components/show-folder/ShowFolderDialog'
 import {
   DEFAULT_DOCUMENT_SORT,
   fileNameExtension,
@@ -35,8 +49,17 @@ import {
 } from './documentSort'
 import { t } from '../../../../main/i18n/translate'
 
-/** Where a document came from: the record itself (null) or one of a band's gigs */
-export type DocumentSource = { id: number; name: string; date: string } | null
+/**
+ * Where a document lies when it is not the record's own (null): one of a band's gigs, or the
+ * record a linked document is filed at (kind, default event). `via` says why it is listed.
+ */
+export type DocumentSource = {
+  id: number
+  name: string
+  date: string | null
+  kind?: DocumentOwnerType
+  via?: 'linked' | 'event'
+} | null
 
 export type DocumentRow = { doc: DocumentDto | EventDocumentDto; event: DocumentSource }
 
@@ -81,6 +104,10 @@ export function DocumentTable({
   // still the old state: this keeps that blur from saving a second time, or from
   // saving what Escape threw away
   const closed = useRef(false)
+  // the document whose further records are being edited ("Zuordnen")
+  const [linking, setLinking] = useState<DocumentDto | null>(null)
+  // the event contract being read ("Vertrag einlesen")
+  const [reading, setReading] = useState<DocumentDto | null>(null)
 
   const sorted = useMemo(() => sortDocuments(rows, sort, DOCUMENT_TYPE_LABELS), [rows, sort])
 
@@ -267,19 +294,24 @@ export function DocumentTable({
               </td>
               <td className="max-w-52 px-3 py-2">
                 {event ? (
-                  <Link
-                    to="/events/$eventId"
-                    params={{ eventId: String(event.id) }}
-                    search={{ tab: 'documents' }}
+                  <RecordLink
+                    record={{ kind: event.kind ?? 'event', id: event.id }}
                     className="block max-w-full"
-                    title={`${formatShortDate(event.date)} ${event.name}`}
+                    title={
+                      event.via === 'linked'
+                        ? t('{{kind}} {{name}} – hierher zugeordnet', {
+                            kind: LINK_KIND_LABELS[event.kind ?? 'event'],
+                            name: linkLabel(event)
+                          })
+                        : linkLabel(event)
+                    }
                   >
                     <Badge variant="outline" className="max-w-full truncate">
-                      {formatShortDate(event.date)} {event.name}
+                      {linkLabel(event)}
                     </Badge>
-                  </Link>
+                  </RecordLink>
                 ) : (
-                  <span className="text-xs text-muted-foreground">{t('Band')}</span>
+                  <span className="text-xs text-muted-foreground">{t('hier abgelegt')}</span>
                 )}
               </td>
               <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
@@ -288,6 +320,28 @@ export function DocumentTable({
               <td className="px-3 py-2 whitespace-nowrap">{formatShortDate(doc.uploadedAt)}</td>
               <td className="px-3 py-2">
                 <div className="flex items-center justify-end gap-1">
+                  {!readOnly && isReadableContract(doc) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title={t(
+                        'Vertrag einlesen: Veranstalter, Ansprechpartner und Deal übernehmen'
+                      )}
+                      aria-label={t('{{shownName}} einlesen', { shownName: shownName(doc) })}
+                      onClick={() => setReading(doc)}
+                    >
+                      <ScanText className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title={t('Zuordnen: Firmen, Personen, Clubs, Festivals …')}
+                    aria-label={t('{{shownName}} zuordnen', { shownName: shownName(doc) })}
+                    onClick={() => setLinking(doc)}
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -327,6 +381,25 @@ export function DocumentTable({
           ))}
         </tbody>
       </table>
+      {reading && (
+        <ShowFolderDialog
+          eventId={reading.ownerId}
+          documentId={reading.id}
+          open
+          onOpenChange={(open) => {
+            if (!open) setReading(null)
+          }}
+        />
+      )}
+      {linking && (
+        <DocumentLinksDialog
+          document={linking}
+          open
+          onOpenChange={(open) => {
+            if (!open) setLinking(null)
+          }}
+        />
+      )}
     </div>
   )
 }

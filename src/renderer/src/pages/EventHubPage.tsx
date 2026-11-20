@@ -38,6 +38,7 @@ import { AdvancingTab } from '@/components/event-hub/AdvancingTab'
 import { TicketsTab } from '@/components/event-hub/TicketsTab'
 import { ItineraryTab } from '@/components/event-hub/ItineraryTab'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
+import { RelatedDocumentsSection } from '@/components/documents/RelatedDocumentsSection'
 import { BandDocumentsList } from '@/components/documents/BandDocumentsList'
 import { EVENT_TAB_ALIASES, isEventTab } from '@/components/event-hub/constants'
 import { MoreActions } from '@/components/detail/MoreActions'
@@ -334,6 +335,7 @@ export function EventHubPage() {
 
         <TabsContent value="documents" className="space-y-8">
           <DocumentsPanel ownerType="event" ownerId={event.id} />
+          <RelatedDocumentsSection kind="event" id={event.id} />
           {/* D1: the band's own documents, read-only here - the rider or tech spec is
               needed on the gig without a second upload */}
           <BandDocumentsList bandId={event.bandId} bandName={event.bandName} />

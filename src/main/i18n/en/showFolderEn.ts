@@ -33,5 +33,19 @@ export const showFolderEn: Record<string, string> = {
   'Andere Dateien': 'Other files',
   'Nichts ausgewählt': 'Nothing selected',
   'Übernehmen ({{suggestions}} Angaben, {{files}} Dateien)':
-    'Take over ({{suggestions}} details, {{files}} files)'
+    'Take over ({{suggestions}} details, {{files}} files)',
+  // Vertrag einlesen
+  'Vertrag einlesen: Veranstalter, Ansprechpartner und Deal übernehmen':
+    'Read contract: take over promoter, contact and deal',
+  '{{shownName}} einlesen': 'Read {{shownName}}',
+  'Vertrag konnte nicht gelesen werden': 'Contract could not be read',
+  'Vertrag übernommen': 'Contract taken over',
+  '{{changes}} Angaben gespeichert, Vertrag {{links}}× zugeordnet.':
+    '{{changes}} details saved, contract assigned {{links}}×.',
+  'Vertrag einlesen': 'Read contract',
+  'Der Vertrag wird gelesen…': 'Reading the contract…',
+  'Der Vertrag bleibt beim Event und wird beim Übernehmen auch dem Veranstalter, seinem Ansprechpartner, der Band und dem Club bzw. Festival zugeordnet.':
+    'The contract stays with the event and, when taken over, is also assigned to the promoter, its contact, the band and the club or festival.',
+  'Im Vertrag steht nichts, was nicht schon gespeichert ist.':
+    'The contract contains nothing that is not already saved.'
 }

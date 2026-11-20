@@ -7,6 +7,11 @@ import { DocumentService } from './DocumentService'
 import { PersonService } from './PersonService'
 import { HotelService } from './HotelService'
 import { VenueService } from './VenueService'
+import { CompanyService } from './CompanyService'
+import { CreateCompanyInput } from '../api/schemas/company.schema'
+import { DocumentLinkService } from './DocumentLinkService'
+import { extractContractParty } from '../showfolder/contractParty'
+import type { DocumentOwnerType } from '../api/schemas/document.schema'
 import { ItineraryService } from './ItineraryService'
 import { SettlementService } from './SettlementService'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
@@ -127,7 +132,9 @@ export class ShowFolderService {
     @inject(HotelService) private hotels: HotelService,
     @inject(ItineraryService) private itineraries: ItineraryService,
     @inject(SettlementService) private settlements: SettlementService,
-    @inject(VenueService) private venues: VenueService
+    @inject(VenueService) private venues: VenueService,
+    @inject(CompanyService) private companies: CompanyService,
+    @inject(DocumentLinkService) private documentLinks: DocumentLinkService
   ) {}
 
   /** One file's text: PDF, mail, plain text; an Excel sheet only says whether it is a settlement */
@@ -169,9 +176,16 @@ export class ShowFolderService {
   }
 
   async analyze(input: ShowFolderAnalyzeInput): Promise<ShowFolderPlanDto> {
+    // callers inside main pass the input unparsed, without the default
+    const documentId = input.documentId ?? null
     const event = this.repository.event(input.eventId)
     if (!event) throw new Error('Event nicht gefunden')
-    const paths = await expandPaths(input.paths)
+    let paths = await expandPaths(input.paths)
+    if (documentId !== null) {
+      const filed = await this.documents.getFullPath(documentId)
+      if (!filed) throw new Error('Dokument nicht gefunden')
+      paths = [filed.filePath]
+    }
     if (paths.length === 0) throw new Error('Keine Dateien gefunden.')
     const names = paths.map((path) => basename(path))
     const bandName = event.bandName ?? ''
@@ -187,12 +201,28 @@ export class ShowFolderService {
         kind = 'settlement'
         settlementFile ??= { path, name: file.name }
       }
+      // a filed contract is read as one, whatever its name says
+      if (documentId !== null && kind !== 'settlement') kind = 'contract'
+      const facts = extractShowFacts(file, kind, bandName)
+      if (kind === 'contract') {
+        facts.promoter = extractContractParty(file.text, file.links)
+        const party = facts.promoter
+        if (party?.contactName && (party.email || party.phone))
+          facts.contacts.push({
+            role: party.contactRole,
+            name: party.contactName,
+            email: party.email,
+            phone: party.phone,
+            side: 'promoter',
+            onSite: false
+          })
+      }
       read.push({
         path,
         name: file.name,
         kind,
         readable: file.text.trim().length > 0,
-        facts: extractShowFacts(file, kind, bandName)
+        facts
       })
     }
 
@@ -210,7 +240,8 @@ export class ShowFolderService {
       input.eventId,
       facts.hotel.name,
       facts.contacts.map((contact) => contact.email),
-      facts.venue.name
+      facts.venue.name,
+      facts.promoter?.name ?? ''
     )
     if (!current) throw new Error('Event nicht gefunden')
     const pending = pendingVenueOf(facts, current)
@@ -244,10 +275,12 @@ export class ShowFolderService {
 
     return {
       eventId: input.eventId,
+      documentId,
       bandName,
       venueName: current.venue?.name ?? pending?.name ?? '',
       venueKind: current.venue?.kind ?? pending?.kind ?? 'venue',
-      files: planFiles(read, current, pending),
+      // a filed contract stays where it is; only dropped files are filed
+      files: documentId !== null ? [] : planFiles(read, current, pending),
       suggestions,
       hints
     }
@@ -258,6 +291,7 @@ export class ShowFolderService {
    * that fails is reported, the others still run.
    */
   async apply(input: ShowFolderApplyInput): Promise<ShowFolderApplyResultDto> {
+    const documentId = input.documentId ?? null
     const event = this.repository.event(input.eventId)
     if (!event) throw new Error('Event nicht gefunden')
     const problems: string[] = []
@@ -312,10 +346,46 @@ export class ShowFolderService {
       })
     }
 
+    // the contract's promoter company: persons below become its Ansprechpartner
+    let companyId: number | null = null
+    for (const action of input.actions) {
+      if (action.type !== 'company') continue
+      await attempt(action.name, async () => {
+        let id = action.companyId
+        if (id === null) {
+          const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email) ? action.email : ''
+          const created = await this.companies.createCompany(
+            CreateCompanyInput.parse({
+              name: action.name,
+              vatId: action.vatId,
+              notes: 'Angelegt aus dem Vertrag.',
+              address: {
+                street: action.street,
+                streetNumber: action.streetNumber,
+                addressSuffix: '',
+                zipCode: action.zipCode,
+                city: action.city,
+                state: '',
+                country: '',
+                countryCode: ''
+              },
+              contact: { email, phone: action.phone, mobilePhone: '', homepage: '' }
+            })
+          )
+          id = created.id
+        }
+        if (action.lopro) this.repository.setLoproCompany(input.eventId, id)
+        companyId = id
+      })
+    }
+
+    // the persons the ticked suggestions name, for the contract's links
+    const personIds: number[] = []
     for (const action of input.actions) {
       switch (action.type) {
         case 'itinerary':
         case 'venueAssign':
+        case 'company':
           break
         case 'venueKind':
           if (venueId !== null) {
@@ -404,6 +474,9 @@ export class ShowFolderService {
               this.repository.addVenueMember(venueId, personId, action.role)
             if (action.localContact) this.repository.setLocalContact(input.eventId, personId)
             if (action.lopro) this.repository.setLopro(input.eventId, personId)
+            if (action.companyMember && companyId !== null)
+              this.repository.addCompanyMember(companyId, personId, action.role)
+            personIds.push(personId)
           })
           break
         case 'settlement':
@@ -439,7 +512,29 @@ export class ShowFolderService {
       }
     }
 
+    // the read contract belongs to the records it names, not only to the event
+    let links = 0
+    if (documentId !== null) {
+      const targets: Array<{ kind: DocumentOwnerType; id: number }> = [
+        { kind: 'event', id: input.eventId },
+        ...(event.bandId !== null ? [{ kind: 'band' as const, id: event.bandId }] : []),
+        ...(venueId !== null ? [{ kind: 'venue' as const, id: venueId }] : []),
+        ...(companyId !== null ? [{ kind: 'company' as const, id: companyId }] : []),
+        ...personIds.map((id) => ({ kind: 'person' as const, id }))
+      ]
+      try {
+        const document = await this.documents.getById(documentId)
+        const others = targets.filter(
+          (target) => !(document?.owner_type === target.kind && document.owner_id === target.id)
+        )
+        this.documentLinks.linkAll(documentId, others)
+        links = others.length
+      } catch (error) {
+        problems.push(`Vertrag zuordnen: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
     if (changes > 0) scheduleCalendarUpdate()
-    return { documents, changes, problems }
+    return { documents, changes, links, problems }
   }
 }

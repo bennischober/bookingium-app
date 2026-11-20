@@ -1023,6 +1023,45 @@ export const document = sqliteTable(
   ]
 )
 
+// A document that also belongs to other records than its owner: the contract filed at the
+// event is the promoter's, its contact's and the festival's too. One row per further record,
+// with a real foreign key each (like contact_list_member), so deleting either side removes the
+// link and the sync maps it without help. The file stays where its owner keeps it.
+export const document_link = sqliteTable(
+  'document_link',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    document_id: integer('document_id')
+      .notNull()
+      .references(() => document.id, { onDelete: 'cascade' }),
+    deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'cascade' }),
+    band_id: integer('band_id').references(() => band.id, { onDelete: 'cascade' }),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'cascade' }),
+    venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'cascade' }),
+    person_id: integer('person_id').references(() => person.id, { onDelete: 'cascade' }),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    // NULLs are distinct in SQLite, so each index only binds rows of its kind
+    uniqueIndex('document_link_event_idx').on(table.document_id, table.deal_memo_id),
+    uniqueIndex('document_link_band_idx').on(table.document_id, table.band_id),
+    uniqueIndex('document_link_company_idx').on(table.document_id, table.company_id),
+    uniqueIndex('document_link_venue_idx').on(table.document_id, table.venue_id),
+    uniqueIndex('document_link_person_idx').on(table.document_id, table.person_id),
+    index('document_link_deal_memo_id_idx').on(table.deal_memo_id),
+    index('document_link_band_id_idx').on(table.band_id),
+    index('document_link_company_id_idx').on(table.company_id),
+    index('document_link_venue_id_idx').on(table.venue_id),
+    index('document_link_person_id_idx').on(table.person_id),
+    check(
+      'document_link_one_record',
+      sql`(${table.deal_memo_id} IS NOT NULL) + (${table.band_id} IS NOT NULL) + (${table.company_id} IS NOT NULL) + (${table.venue_id} IS NOT NULL) + (${table.person_id} IS NOT NULL) = 1`
+    )
+  ]
+)
+
 // Links between a mail and a record of this app (C2). The mail store stays
 // rebuildable, so the link names the mail by its Message-ID (or a fallback hash) and
 // the account - never the store's row id or message_key. No FK to the entity: like
@@ -1752,6 +1791,7 @@ export const schema = {
   deal_memo_deposit,
   itinerary,
   document,
+  document_link,
   company_invoice_settings,
   invoice,
   invoice_party_snapshot,
