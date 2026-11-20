@@ -3,14 +3,15 @@ import type { EventStep } from '../../../../main/api/schemas/event_step.schema'
 import type { DocumentType } from '../../../../main/api/schemas/document.schema'
 import { t } from '../../../../main/i18n/translate'
 
-/** What the tick says: "<label> extern erledigt" */
+/** What the tick says: "<label> extern erledigt" (externalDoneLabel) */
 export const EXTERNAL_STEP_LABELS: Record<EventStep, string> = {
   contract: t('Vertrag'),
   deposit: t('Vorkasse'),
   invoice: t('Rechnung'),
   hotel: t('Hotel'),
   advancing: t('Advancing'),
-  tickets: t('Ticketmeldung')
+  tickets: t('Ticketmeldung'),
+  settlement: t('Abrechnung')
 }
 
 /** The value of a status tile for a step ticked as done outside the program */
@@ -23,7 +24,8 @@ export const EXTERNAL_DONE_VALUE = 'extern erledigt'
 export const EXTERNAL_STEP_DOCUMENT_TYPES: Partial<Record<EventStep, DocumentType>> = {
   contract: 'contract',
   deposit: 'deposit',
-  invoice: 'invoice'
+  invoice: 'invoice',
+  settlement: 'settlement'
 }
 
 /** How many files of the event belong to a step (by its document type) */

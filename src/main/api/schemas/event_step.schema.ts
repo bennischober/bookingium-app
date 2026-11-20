@@ -4,10 +4,11 @@ import { OpenItemKind } from './open_items.schema'
 /**
  * The steps of a show that the app tracks and that can be done outside the program
  * ("extern erledigt"): the contract signed on paper, deposits and the invoice settled by the
- * accounting, a hotel booked by the band, advancing by phone, ticket sales known elsewhere.
- * They are the kinds of open points, so a ticked step is no open point any more.
+ * accounting, a hotel booked by the band, advancing by phone, ticket sales known elsewhere,
+ * the promoter's settlement done by the accounting. All but the settlement are the kinds of
+ * open points, so a ticked step is no open point any more.
  */
-export const EventStep = OpenItemKind
+export const EventStep = z.enum([...OpenItemKind.options, 'settlement'])
 export type EventStep = z.infer<typeof EventStep>
 
 /** One ticked step of a show */

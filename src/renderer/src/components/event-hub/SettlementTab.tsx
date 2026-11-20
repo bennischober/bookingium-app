@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ExternalDoneToggle } from './ExternalDoneToggle'
 import { DropOverlay } from '@/components/ui/drop-overlay'
 import {
   Select,
@@ -249,6 +250,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
               ? t('Aus „{{sourceFileName}}“', { sourceFileName })
               : t('Noch keine Abrechnung erfasst. Die Excel-Datei lässt sich auch hierher ziehen.')}
           </p>
+          <ExternalDoneToggle eventId={eventId} step="settlement" className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

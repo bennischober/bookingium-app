@@ -48,7 +48,7 @@ export function ExternalDoneToggle({
         })}
       />
       <label htmlFor={id} className="cursor-pointer font-normal select-none">
-        {EXTERNAL_STEP_LABELS[step]} extern erledigt
+        {t('{{label}} extern erledigt', { label: EXTERNAL_STEP_LABELS[step] })}
       </label>
       {checked && (
         <span className="inline-flex items-center gap-1 text-xs">
