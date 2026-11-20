@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
 import { droppedFilePaths } from './documentFiles'
 import { DocumentTable } from './DocumentTable'
+import { looksLikeContract } from './documentLinks'
+import { ShowFolderDialog } from '@/components/show-folder/ShowFolderDialog'
 import { t } from '../../../../main/i18n/translate'
 
 /**
@@ -32,6 +34,8 @@ export function DocumentsPanel({
   // overlay from flickering while the pointer crosses the table
   const dragDepth = useRef(0)
   const owner = { ownerType, ownerId }
+  // a contract just uploaded to an event is read right away ("Vertrag einlesen")
+  const [readingId, setReadingId] = useState<number | null>(null)
 
   // Files dropped outside the panel must not open in the window
   useEffect(() => {
@@ -59,9 +63,16 @@ export function DocumentsPanel({
   const uploadFiles = async (paths: string[]) => {
     setIsUploading(true)
     let uploaded = 0
+    let contractId: number | null = null
     for (const sourcePath of paths) {
       try {
-        await upload.mutateAsync({ ...owner, sourcePath })
+        const contract = ownerType === 'event' && looksLikeContract(sourcePath)
+        const document = await upload.mutateAsync({
+          ...owner,
+          sourcePath,
+          ...(contract ? { documentType: 'contract' } : {})
+        })
+        if (contract) contractId ??= document.id
         uploaded++
       } catch (error) {
         toast.error(
@@ -81,6 +92,7 @@ export function DocumentsPanel({
           : t('{{uploaded}} Dokumente hochgeladen', { uploaded })
       )
     }
+    if (contractId !== null) setReadingId(contractId)
   }
 
   const handleSelectFiles = async () => {
@@ -188,6 +200,17 @@ export function DocumentsPanel({
           error={documentsQuery.error}
           onRetry={() => void documentsQuery.refetch()}
           onChanged={() => void invalidate()}
+        />
+      )}
+      {readingId !== null && (
+        <ShowFolderDialog
+          eventId={ownerId}
+          documentId={readingId}
+          closeWhenEmpty
+          open
+          onOpenChange={(open) => {
+            if (!open) setReadingId(null)
+          }}
         />
       )}
     </div>

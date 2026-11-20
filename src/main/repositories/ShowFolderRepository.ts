@@ -28,7 +28,8 @@ export class ShowFolderRepository {
         presaleCents: schema.deal_memo.ticket_price_vvk_cents,
         guaranteeCents: schema.deal_memo.guarantee_cents,
         deal: schema.deal_memo.deal,
-        loproPersonId: schema.deal_memo.lopro_person_id
+        loproPersonId: schema.deal_memo.lopro_person_id,
+        loproCompanyId: schema.deal_memo.lopro_company_id
       })
       .from(schema.deal_memo)
       .leftJoin(schema.band, eq(schema.band.id, schema.deal_memo.band_id))
@@ -61,7 +62,8 @@ export class ShowFolderRepository {
     eventId: number,
     hotelName: string,
     emails: string[],
-    venueName = ''
+    venueName = '',
+    promoterName = ''
   ): ShowFolderCurrent | null {
     const event = this.event(eventId)
     if (!event) return null
@@ -166,6 +168,7 @@ export class ShowFolderRepository {
       hotel: hotel ?? null,
       hotelByName: hotelByName ?? null,
       loproPersonId: event.loproPersonId,
+      ...this.promoterOf(event.loproCompanyId, promoterName),
       localContactId: advancing?.localContactId ?? null,
       personsByEmail: this.personsByEmail(emails),
       venueMemberIds: new Set(members),
@@ -229,6 +232,71 @@ export class ShowFolderRepository {
       .set({ deal: text, updated_at: now })
       .where(eq(schema.deal_memo.id, eventId))
       .run()
+  }
+
+  /** The event's LoPro company, a company of the contract's promoter name, their members */
+  private promoterOf(
+    loproCompanyId: number | null,
+    promoterName: string
+  ): Pick<ShowFolderCurrent, 'loproCompany' | 'companyByName' | 'companyMemberIds'> {
+    const loproCompany =
+      loproCompanyId !== null
+        ? db
+            .select({ id: schema.company.id, name: schema.company.name })
+            .from(schema.company)
+            .where(eq(schema.company.id, loproCompanyId))
+            .get()
+        : undefined
+    const key = keyOf(promoterName)
+    const companyByName = key
+      ? db
+          .select({ id: schema.company.id, name: schema.company.name })
+          .from(schema.company)
+          .all()
+          .find((row) => keyOf(row.name) === key)
+      : undefined
+    const companyIds = [loproCompany?.id, companyByName?.id].filter(
+      (id): id is number => id !== undefined
+    )
+    const members =
+      companyIds.length === 0
+        ? []
+        : db
+            .select({ personId: schema.company_member.person_id })
+            .from(schema.company_member)
+            .where(inArray(schema.company_member.company_id, companyIds))
+            .all()
+            .map((row) => row.personId)
+    return {
+      loproCompany: loproCompany ?? null,
+      companyByName: companyByName ?? null,
+      companyMemberIds: new Set(members)
+    }
+  }
+
+  /** The event's promoter company (LoPro) */
+  setLoproCompany(eventId: number, companyId: number): void {
+    db.update(schema.deal_memo)
+      .set({ lopro_company_id: companyId, updated_at: now })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+  }
+
+  addCompanyMember(companyId: number, personId: number, role: string): void {
+    const exists = db
+      .select({ id: schema.company_member.id })
+      .from(schema.company_member)
+      .where(
+        and(
+          eq(schema.company_member.company_id, companyId),
+          eq(schema.company_member.person_id, personId)
+        )
+      )
+      .get()
+    if (!exists)
+      db.insert(schema.company_member)
+        .values({ company_id: companyId, person_id: personId, role: role || null })
+        .run()
   }
 
   /** The event's club or festival */

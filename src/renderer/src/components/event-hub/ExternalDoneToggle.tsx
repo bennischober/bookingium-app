@@ -8,6 +8,8 @@ import { cn, formatShortDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { EventStep } from '../../../../main/api/schemas/event_step.schema'
 import { EXTERNAL_STEP_DOCUMENT_TYPES, EXTERNAL_STEP_LABELS, stepFileCount } from './externalSteps'
+import { isReadableContract } from '@/components/documents/documentLinks'
+import { ShowFolderDialog } from '@/components/show-folder/ShowFolderDialog'
 import { t } from '../../../../main/i18n/translate'
 
 /**
@@ -88,6 +90,8 @@ function StepFiles({
   const documents = trpcReact.document.listByOwner.useQuery(owner)
   const upload = trpcReact.document.upload.useMutation()
   const [isUploading, setIsUploading] = useState(false)
+  // the signed contract just attached is read right away ("Vertrag einlesen")
+  const [readingId, setReadingId] = useState<number | null>(null)
   const count = stepFileCount(step, documents.data ?? [])
   const label = EXTERNAL_STEP_LABELS[step]
 
@@ -96,13 +100,15 @@ function StepFiles({
     if (picked.canceled || !picked.filePaths?.length) return
     setIsUploading(true)
     let uploaded = 0
+    let contractId: number | null = null
     for (const sourcePath of picked.filePaths) {
       try {
-        await upload.mutateAsync({
+        const document = await upload.mutateAsync({
           ...owner,
           sourcePath,
           documentType: EXTERNAL_STEP_DOCUMENT_TYPES[step]
         })
+        if (step === 'contract' && isReadableContract(document)) contractId ??= document.id
         uploaded++
       } catch (error) {
         toast.error(
@@ -124,6 +130,7 @@ function StepFiles({
         { description: t('Sie liegt unter „Dokumente“.') }
       )
     }
+    if (contractId !== null) setReadingId(contractId)
   }
 
   return (
@@ -155,6 +162,17 @@ function StepFiles({
         >
           {count === 1 ? t('1 Datei') : t('{{count}} Dateien', { count })}
         </button>
+      )}
+      {readingId !== null && (
+        <ShowFolderDialog
+          eventId={eventId}
+          documentId={readingId}
+          closeWhenEmpty
+          open
+          onOpenChange={(open) => {
+            if (!open) setReadingId(null)
+          }}
+        />
       )}
     </span>
   )

@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import { z } from 'zod'
 import { shell } from 'electron'
 import { DocumentService } from '../../services/DocumentService'
+import { DocumentLinkService } from '../../services/DocumentLinkService'
 import { mailClient } from '../../mailclient/MailClientService'
 import { DocumentMapper } from '../mappers/document.mapper'
 import {
@@ -10,9 +11,16 @@ import {
   UpdateDocumentInput,
   UploadDocumentInput
 } from '../schemas/document.schema'
+import {
+  DocumentLinksInput,
+  LinkTargetSearchInput,
+  RelatedDocumentsInput,
+  SetDocumentLinkInput
+} from '../schemas/document_link.schema'
 
 const t = initTRPC.create()
 const documentService = container.resolve(DocumentService)
+const linkService = container.resolve(DocumentLinkService)
 
 const badRequest = (error: unknown, fallback: string) =>
   new TRPCError({
@@ -21,6 +29,30 @@ const badRequest = (error: unknown, fallback: string) =>
   })
 
 export const documentRouter = t.router({
+  /** Further records a document belongs to besides its owner */
+  links: t.procedure
+    .input(DocumentLinksInput)
+    .query(({ input }) => linkService.list(input.documentId)),
+
+  /** Links or unlinks a document and a record; returns the document's links */
+  setLink: t.procedure.input(SetDocumentLinkInput).mutation(async ({ input }) => {
+    try {
+      return await linkService.set(input)
+    } catch (error) {
+      throw badRequest(error, 'Zuordnung fehlgeschlagen')
+    }
+  }),
+
+  /** Documents of other records that concern this one (linked, or filed at its events) */
+  related: t.procedure
+    .input(RelatedDocumentsInput)
+    .query(({ input }) => linkService.related(input.kind, input.id)),
+
+  /** Records to link a document to, by name */
+  linkTargets: t.procedure
+    .input(LinkTargetSearchInput)
+    .query(({ input }) => linkService.searchTargets(input.query)),
+
   /** Documents of one record (event, band, company, venue, person) */
   listByOwner: t.procedure.input(DocumentOwnerInput).query(async ({ input }) => {
     const documents = await documentService.listByOwner(input.ownerType, input.ownerId)

@@ -7,6 +7,7 @@
 import { toCents } from '../einvoice/amounts'
 import { cleanText } from '../import/normalize'
 import { t } from '../i18n/translate'
+import type { ContractPartyFact } from './contractParty'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -96,6 +97,8 @@ export interface ShowFacts {
   }
   deal: { guaranteeCents: number | null; text: string }
   contacts: ContactFact[]
+  /** The promoter of a contract (contractParty.ts); null when no contract names one */
+  promoter: ContractPartyFact | null
 }
 
 export interface ShowFileInput {
@@ -122,7 +125,8 @@ export const emptyFacts = (): ShowFacts => ({
   hotel: { name: '', street: '', zipCode: '', city: '', notes: [] },
   tickets: { presaleCents: null, baseCents: null, extraCents: null, wkzCents: null },
   deal: { guaranteeCents: null, text: '' },
-  contacts: []
+  contacts: [],
+  promoter: null
 })
 
 // ----------------------------------------
@@ -556,7 +560,9 @@ export function extractShowFacts(
           'spielstaette',
           'festival',
           'festivalgelaende',
-          'veranstaltungsort'
+          'veranstaltungsort',
+          'spielort',
+          'auffuehrungsort'
         ]) &&
         value &&
         !/http/.test(value)
@@ -762,6 +768,7 @@ export function mergeShowFacts(
     merged.tickets.wkzCents ??= facts.tickets.wkzCents
     merged.deal.guaranteeCents ??= facts.deal.guaranteeCents
     merged.deal.text ||= facts.deal.text
+    merged.promoter ??= facts.promoter
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
   // a name that says festival ("… Open Air") decides; a club-like name ("Halle …") only fills in,

@@ -73,6 +73,8 @@ export const MERGE_ORDER: readonly string[] = [
   'marketing_item',
   'marketing_action',
   'document',
+  // further records a document belongs to; after the document and every record it names
+  'document_link',
   'contact_list',
   'contact_list_member',
   'follow_up',
@@ -204,6 +206,15 @@ export function keyOf(table: string, row: Row): string | null {
       return key(row.owner_type, row.owner_id, n(row.file_name), row.file_size)
     case 'contact_list_member':
       return key(row.contact_list_id, row.person_id, row.company_id, row.venue_id)
+    case 'document_link':
+      return key(
+        row.document_id,
+        row.deal_memo_id,
+        row.band_id,
+        row.company_id,
+        row.venue_id,
+        row.person_id
+      )
     case 'follow_up':
       return key(
         row.due_date,

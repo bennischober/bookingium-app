@@ -11,6 +11,7 @@ import { Tip } from '@/components/Tip'
 import { confirmDelete } from '@/lib/confirm'
 import { TabCount } from '@/components/detail/DetailParts'
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel'
+import { RelatedDocumentsSection } from '@/components/documents/RelatedDocumentsSection'
 import { MailHistoryPanel } from '@/components/mail/MailHistoryPanel'
 import { FollowUpButton, RecordFollowUps } from '@/components/follow-ups/RecordFollowUps'
 import { useDetailTab } from '@/hooks/useDetailTab'
@@ -171,6 +172,7 @@ export function RecordDetail<TTab extends string>({
       content: (
         <>
           <DocumentsPanel ownerType={record.type} ownerId={record.id} title={documents.title} />
+          <RelatedDocumentsSection kind={record.type} id={record.id} />
           {documents.extra}
           {hasMailAccount && (
             <section className="space-y-3">

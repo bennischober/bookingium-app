@@ -9,7 +9,12 @@ import { ITINERARY_KEYS, SHOW_FILE_KINDS } from '../../showfolder/extract'
 export const ShowFolderAnalyzeInput = z.object({
   eventId: z.number().int().positive(),
   /** Dropped or picked files and folders; folders are read two levels deep */
-  paths: z.array(z.string().min(1)).min(1).max(200)
+  paths: z.array(z.string().min(1)).max(200).default([]),
+  /**
+   * "Vertrag einlesen": a document already filed (the contract at the event) is read instead
+   * of paths; applying links it to the records it names
+   */
+  documentId: z.number().int().positive().nullable().default(null)
 })
 export type ShowFolderAnalyzeInput = z.infer<typeof ShowFolderAnalyzeInput>
 
@@ -80,6 +85,20 @@ export const ShowFolderAction = z.discriminatedUnion('type', [
     /** Kontakt vor Ort of the event */
     localContact: z.boolean(),
     /** LoPro contact of the event */
+    lopro: z.boolean(),
+    /** Ansprechpartner of the contract's promoter company */
+    companyMember: z.boolean().default(false)
+  }),
+  z.object({
+    type: z.literal('company'),
+    /** An existing company of that name, else one is created with the data below */
+    companyId: z.number().nullable(),
+    name: z.string().min(1),
+    ...Address,
+    email: z.string(),
+    phone: z.string(),
+    vatId: z.string(),
+    /** Entered as the event's promoter (LoPro) */
     lopro: z.boolean()
   }),
   z.object({ type: z.literal('settlement'), path: z.string().min(1) })
@@ -89,6 +108,7 @@ export type ShowFolderAction = z.infer<typeof ShowFolderAction>
 export const SHOW_FOLDER_GROUPS = [
   'Tagesablauf',
   'Tickets & Deal',
+  'Vertragspartner',
   'Club',
   'Festival',
   'Hotel',
@@ -114,6 +134,8 @@ export type ShowFolderSuggestionDto = z.infer<typeof ShowFolderSuggestionDto>
 
 export const ShowFolderPlanDto = z.object({
   eventId: z.number(),
+  /** The filed contract that was read ("Vertrag einlesen"), null for dropped files */
+  documentId: z.number().nullable(),
   bandName: z.string(),
   /** The event's club or festival, or the one the plan offers to assign; '' for none */
   venueName: z.string(),
@@ -136,13 +158,17 @@ export const ShowFolderApplyInput = z.object({
       })
     )
     .max(200),
-  actions: z.array(ShowFolderAction).max(300)
+  actions: z.array(ShowFolderAction).max(300),
+  /** The filed contract that was read: linked to the records the ticked suggestions name */
+  documentId: z.number().int().positive().nullable().default(null)
 })
 export type ShowFolderApplyInput = z.infer<typeof ShowFolderApplyInput>
 
 export const ShowFolderApplyResultDto = z.object({
   documents: z.number(),
   changes: z.number(),
+  /** Records the read contract was linked to */
+  links: z.number().default(0),
   /** What could not be done, one line each */
   problems: z.array(z.string())
 })
