@@ -52,3 +52,37 @@ test('reads the promoter settlement, checks and saves it', async () => {
   await page.getByRole('tab', { name: /Dokumente/ }).click()
   await expect(page.getByText('Veranstaltungsabrechnung Beispielband.xlsx')).toBeVisible()
 })
+
+test('keeps a settlement from abroad in its currency with the rate to euros', async () => {
+  const { page } = h
+  await page.getByRole('tab', { name: 'Geld' }).click()
+  const section = page.locator('#section-settlement')
+  await expect(section.getByText('Aus „Veranstaltungsabrechnung Beispielband.xlsx“')).toBeVisible()
+
+  // A tour in England: the same sheet in pounds
+  await section.getByLabel('Währung der Abrechnung').click()
+  await page.getByRole('option', { name: 'GBP', exact: true }).click()
+  await expect(section.getByText('4.671,96 GBP')).toBeVisible()
+  await expect(
+    section.getByText('Alle Beträge dieser Abrechnung sind in GBP.', { exact: false })
+  ).toBeVisible()
+
+  await section.getByLabel('Kurs: Euro für 1 GBP').fill('1,17')
+  await section.getByLabel('Kurs vom').fill('2026-11-20')
+  await section.getByLabel('Kurs vom').press('Tab')
+  await section.getByRole('button', { name: 'Speichern' }).click()
+  // The first test's toast may still be there
+  await expect(page.getByText('Abrechnung gespeichert').last()).toBeVisible()
+  await section.getByText('Währung', { exact: true }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: join(shots, 'settlement-currency.png') })
+
+  // Stored: after a reload the settlement is still in pounds with its rate
+  await page.reload()
+  await page.getByRole('tab', { name: 'Geld' }).click()
+  await expect(page.locator('#section-settlement').getByText('4.671,96 GBP')).toBeVisible({
+    timeout: 15_000
+  })
+  await expect(page.locator('#section-settlement').getByLabel('Kurs: Euro für 1 GBP')).toHaveValue(
+    '1,17'
+  )
+})

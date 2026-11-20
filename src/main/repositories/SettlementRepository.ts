@@ -4,7 +4,13 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { InvoiceRepository } from './InvoiceRepository'
 import { fromCents } from '../einvoice/amounts'
-import { computeSettlement, managementFee } from '../settlement/settlement'
+import {
+  computeSettlement,
+  gageInEuroCents,
+  isForeignCurrency,
+  managementFee
+} from '../settlement/settlement'
+import { formatMoney } from '../invoice/money'
 import { SettlementInputSchema } from '../api/schemas/settlement.schema'
 
 // #228: a show's settlement (one per event) and the management fee invoice made from it
@@ -17,6 +23,10 @@ const germanDate = (iso: string): string => {
 
 const euro = (cents: number): string =>
   `${fromCents(cents).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+/** 1.17 → "1,17", 1.168234 → "1,168234" */
+const rateText = (rate: number): string =>
+  rate.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 
 @injectable()
 export class SettlementRepository {
@@ -140,14 +150,25 @@ export class SettlementRepository {
 
       const input = SettlementInputSchema.parse(JSON.parse(settlement.data))
       const result = computeSettlement(input)
+      // The fee is always billed in euros: a settlement in another currency needs its rate
+      const gageEuroCents = gageInEuroCents(result.gageCents, input)
+      if (gageEuroCents === null)
+        throw new Error(
+          `Die Abrechnung ist in ${input.currency}: Für die Managementbeteiligung fehlt der Umrechnungskurs in Euro`
+        )
       const fee = managementFee(
-        result.gageCents,
+        gageEuroCents,
         contract.agencyPercent,
         contract.commissionPercent,
         vatRate
       )
       if (fee.netCents <= 0) throw new Error('Die Beteiligung beträgt 0,00 € – die Gage fehlt')
       const show = [event.venueName, event.city].filter(Boolean).join(', ')
+      // "Gage netto 3.600,00 £ zum Kurs 1,17 (13.11.2026) = 4.212,00 €"
+      const base = isForeignCurrency(input)
+        ? `${formatMoney(fromCents(result.gageCents), input.currency)} zum Kurs ${rateText(input.eurRate ?? 0)}` +
+          `${input.eurRateDate ? ` (${germanDate(input.eurRateDate)})` : ''} = ${euro(fee.baseCents)}`
+        : euro(fee.baseCents)
       const issueDate = new Date().toISOString().slice(0, 10)
       const due = new Date(Date.parse(`${issueDate}T00:00:00Z`) + contract.paymentDays * 86_400_000)
         .toISOString()
@@ -167,7 +188,7 @@ export class SettlementRepository {
           {
             description:
               `Managementbeteiligung Konzert ${show ? `${show} ` : ''}am ${germanDate(event.date)}: ` +
-              `Gage netto ${euro(fee.baseCents)} abzgl. ${contract.agencyPercent} % Agentur = ` +
+              `Gage netto ${base} abzgl. ${contract.agencyPercent} % Agentur = ` +
               `${euro(fee.afterAgencyCents)}, davon ${contract.commissionPercent} %`,
             quantity: 1,
             unit: 'service',

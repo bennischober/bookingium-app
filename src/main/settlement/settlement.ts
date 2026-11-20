@@ -12,8 +12,12 @@
 //
 // The management fee is taken on the gage only - never on WKZ or reimbursed costs: gage net,
 // less the booking agency's commission, times the management commission, plus VAT.
+//
+// A settlement from abroad comes in its own currency (a tour in England in GBP): every amount of
+// the input is in that currency, and the management fee, always billed in euros, is taken on
+// the gage converted at the rate the user enters (gageInEuroCents).
 
-import { fromCents, toCents, vatCents } from '../einvoice/amounts'
+import { convertCents, fromCents, toCents, vatCents } from '../einvoice/amounts'
 
 export interface SettlementTicketLine {
   /** "CTS EVENTIM", "Abendkasse" */
@@ -58,6 +62,12 @@ export interface SettlementInput {
   supportFeeCents: number
   supportVatRate: number
   advances: { gageCents: number; wkzCents: number; costsCents: number; supportCents: number }
+  /** ISO 4217 code of every amount above; 'EUR' for a settlement in euros */
+  currency: string
+  /** Euros for one unit of `currency` (1.17 for GBP), null until entered; unused for EUR */
+  eurRate: number | null
+  /** ISO date the rate is from (the payment or the ECB reference rate), '' for none */
+  eurRateDate: string
 }
 
 export interface SettlementPosition {
@@ -223,5 +233,26 @@ export const EMPTY_SETTLEMENT: SettlementInput = {
   costsVatRate: 19,
   supportFeeCents: 0,
   supportVatRate: 7,
-  advances: { gageCents: 0, wkzCents: 0, costsCents: 0, supportCents: 0 }
+  advances: { gageCents: 0, wkzCents: 0, costsCents: 0, supportCents: 0 },
+  currency: 'EUR',
+  eurRate: null,
+  eurRateDate: ''
+}
+
+/** Whether the settlement is in a currency other than euros */
+export function isForeignCurrency(input: Pick<SettlementInput, 'currency'>): boolean {
+  return input.currency !== 'EUR'
+}
+
+/**
+ * The gage net in euro cents, the base of the management fee: as it is for a settlement in
+ * euros, converted at the entered rate otherwise; null while the rate of a foreign currency is
+ * missing.
+ */
+export function gageInEuroCents(
+  gageCents: number,
+  input: Pick<SettlementInput, 'currency' | 'eurRate'>
+): number | null {
+  if (!isForeignCurrency(input)) return gageCents
+  return input.eurRate !== null && input.eurRate > 0 ? convertCents(gageCents, input.eurRate) : null
 }

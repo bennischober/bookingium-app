@@ -34,7 +34,20 @@ export const SettlementInputSchema = z.object({
     wkzCents: cents.min(0),
     costsCents: cents.min(0),
     supportCents: cents.min(0)
-  })
+  }),
+  // A settlement from abroad: the currency of all its amounts and the rate the management fee is
+  // converted at (euros for one unit). Settlements stored before have none and read as EUR.
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{3}$/)
+    .default('EUR'),
+  eurRate: z.number().positive().max(100_000).nullable().default(null),
+  eurRateDate: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/)
+    .default('')
 })
 export type SettlementInputSchema = z.infer<typeof SettlementInputSchema>
 

@@ -77,5 +77,18 @@ export const settlementEn: Record<string, string> = {
   '{{invoiceNumberLabel}} öffnen': 'Open {{invoiceNumberLabel}}',
   'Zuerst die Abrechnung speichern': 'Save the statement first',
   'Managementbeteiligung erstellen': 'Create management share',
-  'Die letzte Rechnung ist storniert': 'The last invoice is cancelled'
+  'Die letzte Rechnung ist storniert': 'The last invoice is cancelled',
+  // Settlements in a foreign currency
+  'Währung der Abrechnung': 'Statement currency',
+  'Kurs: 1 {{currency}} =': 'Rate: 1 {{currency}} =',
+  'Kurs: Euro für 1 {{currency}}': 'Rate: euros for 1 {{currency}}',
+  'Kurs vom': 'Rate as of',
+  'Alle Beträge dieser Abrechnung sind in {{currency}}. Die Managementbeteiligung wird in Euro berechnet: mit dem Kurs vom Zahlungseingang oder dem EZB-Referenzkurs. Kurs und Datum stehen auf der Rechnung.':
+    'All amounts of this statement are in {{currency}}. The management share is calculated in euros: at the rate of the payment received or the ECB reference rate. Rate and date appear on the invoice.',
+  'Eine Abrechnung aus dem Ausland (z. B. in Pfund) hier auf ihre Währung stellen.':
+    'Set a statement from abroad (e.g. in pounds) to its currency here.',
+  'Die Abrechnung ist in {{currency}}. Für die Managementbeteiligung in Euro fehlt noch der Kurs (oben unter „Währung“).':
+    'The statement is in {{currency}}. The rate is still missing for the management share in euros (above under “Currency”).',
+  'Gage netto in {{currency}}': 'Fee net in {{currency}}',
+  'Gage netto in Euro (Kurs {{rate}})': 'Fee net in euros (rate {{rate}})'
 }

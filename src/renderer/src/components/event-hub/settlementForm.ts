@@ -25,3 +25,40 @@ export function parsePercent(text: string): number | null {
 
 /** 422150 → "4.221,50 €" */
 export const euroText = (cents: number): string => `${centsText(cents)} €`
+
+/** An amount in the settlement's currency: "4.221,50 €", "3.600,00 GBP" */
+export const moneyText = (cents: number, currency: string): string =>
+  currency === 'EUR' ? euroText(cents) : `${centsText(cents)} ${currency}`
+
+/** The currencies offered for a settlement; EUR first, the others of tours abroad */
+export const SETTLEMENT_CURRENCIES = [
+  'EUR',
+  'GBP',
+  'CHF',
+  'USD',
+  'DKK',
+  'SEK',
+  'NOK',
+  'PLN',
+  'CZK'
+] as const
+
+/** 1.17 → "1,17"; '' for none */
+export function rateText(rate: number | null): string {
+  return rate === null
+    ? ''
+    : rate.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+}
+
+/**
+ * "1,17" or "1.17" → 1.17 (a rate has no thousands, so a single dot is the decimal point);
+ * '' → null (no rate yet); undefined when it is no positive number
+ */
+export function parseRate(text: string): number | null | undefined {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const value = Number(
+    trimmed.includes(',') ? trimmed.replace(/\./g, '').replace(',', '.') : trimmed
+  )
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
