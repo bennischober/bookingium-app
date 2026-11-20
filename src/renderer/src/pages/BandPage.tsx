@@ -26,6 +26,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { t } from '../../../main/i18n/translate'
 
 export default function BandPage() {
   const { sorting, setSorting, sortInput } = useListSorting('bands', { id: 'name', desc: false })
@@ -60,7 +61,7 @@ export default function BandPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.band,
     utils: utils.band,
-    noun: 'Band',
+    noun: t('Band'),
     label: (band: BandDto) => band.name,
     deleteInput: (band) => band.id,
     onSaved: sheet.close
@@ -70,22 +71,22 @@ export default function BandPage() {
   const columns: ColumnDef<BandDto>[] = [
     {
       accessorKey: 'name',
-      header: 'Name',
+      header: t('Name'),
       cell: (info) => <span className="font-medium">{info.getValue() as string}</span>
     },
     {
       accessorKey: 'genre',
-      header: 'Genre',
+      header: t('Genre'),
       cell: (info) => info.getValue()
     },
     {
       accessorKey: 'founded',
-      header: 'Gründung',
+      header: t('Gründung'),
       cell: (info) => formatLooseDate((info.getValue() as string | null) ?? '') || '-'
     },
     {
       accessorKey: 'notes',
-      header: 'Anmerkungen',
+      header: t('Anmerkungen'),
       cell: (info) => {
         const value = info.getValue() as string
         return value ? (value.length > 50 ? value.substring(0, 50) + '...' : value) : '-'
@@ -93,29 +94,29 @@ export default function BandPage() {
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => {
         const band = row.original
         return (
           <RowActions>
             <RowActionButton
               icon={Users}
-              label="Mitglieder"
+              label={t('Mitglieder')}
               onClick={() => setMembersEntity({ type: 'band', id: band.id, name: band.name })}
             />
             <RowActionButton
               icon={FileSignature}
-              label="Managementvertrag"
+              label={t('Managementvertrag')}
               onClick={() => setContractBand({ id: band.id, name: band.name })}
             />
             <RowActionButton
               icon={Pencil}
-              label="Bearbeiten"
+              label={t('Bearbeiten')}
               onClick={() => sheet.openEdit(band)}
             />
             <RowActionButton
               icon={Trash2}
-              label="Löschen"
+              label={t('Löschen')}
               destructive
               onClick={() => void mutations.remove(band)}
             />
@@ -127,12 +128,12 @@ export default function BandPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
-      <ListPageHeader title="Bands" description="Bands und Kontakte verwalten." />
+      <ListPageHeader title={t('Bands')} description={t('Bands und Kontakte verwalten.')} />
 
       <DataTable
         columns={columns}
         data={listRows(bands.data)}
-        itemLabel={{ singular: 'Band', plural: 'Bands' }}
+        itemLabel={{ singular: t('Band'), plural: t('Bands') }}
         hasMore={bands.hasNextPage ?? false}
         isLoadingMore={bands.isFetchingNextPage}
         onLoadMore={() => void bands.fetchNextPage()}
@@ -141,7 +142,7 @@ export default function BandPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Bands filtern…"
+        searchPlaceholder={t('Bands filtern…')}
         // A click opens the band page; the pencil keeps the quick-edit sheet
         onRowClick={(band) =>
           navigate({ to: '/band/$bandId', params: { bandId: String(band.id) } })
@@ -151,7 +152,7 @@ export default function BandPage() {
         onRetry={() => void bands.refetch()}
         total={listTotal(bands.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Band" onCreate={sheet.openCreate}>
+          <ListToolbar createLabel={t('+ Neue Band')} onCreate={sheet.openCreate}>
             <ExportButton list="bands" sort={sortInput} search={search} />
             <ImportButton target="bands" />
           </ListToolbar>
@@ -174,11 +175,11 @@ export default function BandPage() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode={sheet.mode}
-        title={sheet.mode === 'create' ? 'Neue Band anlegen' : 'Band bearbeiten'}
+        title={sheet.mode === 'create' ? t('Neue Band anlegen') : t('Band bearbeiten')}
         description={
           sheet.mode === 'create'
-            ? 'Details ausfüllen, um eine neue Band anzulegen.'
-            : 'Änderungen am Bandprofil vornehmen.'
+            ? t('Details ausfüllen, um eine neue Band anzulegen.')
+            : t('Änderungen am Bandprofil vornehmen.')
         }
       >
         <BandForm

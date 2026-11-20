@@ -23,6 +23,7 @@ import {
 } from './syncActivity'
 import { pacingText } from './syncProgress'
 import type { SyncErrorEntry, SyncStatus } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #159: the panel behind "Synchronisiert HH:MM" and "· N Fehler": the sync errors still standing,
@@ -52,8 +53,8 @@ export function SyncActivityPanel({
   const copy = (text: string) =>
     void navigator.clipboard
       .writeText(text)
-      .then(() => toast.success('In die Zwischenablage kopiert'))
-      .catch(() => toast.error('Kopieren fehlgeschlagen'))
+      .then(() => toast.success(t('In die Zwischenablage kopiert')))
+      .catch(() => toast.error(t('Kopieren fehlgeschlagen')))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -62,24 +63,28 @@ export function SyncActivityPanel({
         data-testid="mail-sync-panel"
       >
         <SheetHeader>
-          <SheetTitle>Synchronisierung</SheetTitle>
+          <SheetTitle>{t('Synchronisierung')}</SheetTitle>
           <SheetDescription>
-            Was der Abgleich mit dem Server zuletzt getan hat. Nur Zahlen und Ordner, keine Inhalte.
+            {t(
+              'Was der Abgleich mit dem Server zuletzt getan hat. Nur Zahlen und Ordner, keine Inhalte.'
+            )}
           </SheetDescription>
         </SheetHeader>
 
         <section className="mt-4 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium">Fehler</h3>
+            <h3 className="text-sm font-medium">{t('Fehler')}</h3>
             <div className="flex items-center gap-1">
               <Button
                 size="xs"
                 variant="ghost"
                 onClick={() => copy(syncActivityReport(status, folderName))}
-                title="Fehler und letzte Durchläufe als Text kopieren, etwa für eine Supportanfrage"
+                title={t(
+                  'Fehler und letzte Durchläufe als Text kopieren, etwa für eine Supportanfrage'
+                )}
               >
                 <Copy />
-                Alles kopieren
+                {t('Alles kopieren')}
               </Button>
               {errors.length > 0 && onDismiss && (
                 <Button
@@ -89,14 +94,14 @@ export function SyncActivityPanel({
                   data-testid="mail-sync-errors-dismiss-all"
                 >
                   <EyeOff />
-                  Alle ausblenden
+                  {t('Alle ausblenden')}
                 </Button>
               )}
             </div>
           </div>
           {errors.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="mail-sync-no-errors">
-              Keine Fehler.
+              {t('Keine Fehler.')}
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -115,9 +120,9 @@ export function SyncActivityPanel({
         </section>
 
         <section className="mt-6 flex flex-col gap-2">
-          <h3 className="text-sm font-medium">Letzte Durchläufe</h3>
+          <h3 className="text-sm font-medium">{t('Letzte Durchläufe')}</h3>
           {passes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Seit dem Start noch keiner.</p>
+            <p className="text-sm text-muted-foreground">{t('Seit dem Start noch keiner.')}</p>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {passes.map((pass) => {
@@ -211,7 +216,7 @@ function ErrorRow({
             className="self-start text-xs text-muted-foreground underline underline-offset-2"
             onClick={() => setDetails(true)}
           >
-            Details
+            {t('Details')}
           </button>
         ))}
       <div className="flex flex-wrap items-center gap-2">
@@ -224,12 +229,12 @@ function ErrorRow({
             data-testid="mail-sync-error-retry"
           >
             <RefreshCw />
-            Ordner erneut synchronisieren
+            {t('Ordner erneut synchronisieren')}
           </Button>
         )}
         <Button size="xs" variant="ghost" onClick={onCopy}>
           <Copy />
-          Kopieren
+          {t('Kopieren')}
         </Button>
         {onDismiss && (
           <Button
@@ -239,7 +244,7 @@ function ErrorRow({
             data-testid="mail-sync-error-dismiss"
           >
             <EyeOff />
-            Ausblenden
+            {t('Ausblenden')}
           </Button>
         )}
         {busy && <Spinner className="size-3.5" />}

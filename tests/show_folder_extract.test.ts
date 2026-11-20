@@ -20,7 +20,7 @@ Town: 12345 Musterstadt
 Venue: Halle Nord ( new adress!! )
 Google Link Venue:   https://maps.example/abc
 Town: 12345 Musterstadt
-Street: Hafenweg 11
+Street: Musterweg 11
 Get In Beispielband:   13:00
 Get in Vorband Eins:   15:30
 Soundcheck Beispielband:   15:30 - 17:00
@@ -34,14 +34,14 @@ Load Out   22:45 - 23:30
 Backstage Curfew   00:30
 CONTACTS:
 Venue:   Erika Muster   +49 151 000 0001   erika.muster@ Y halle-nord.example
-Tourmanager BB:   Max Beispiel   +49 170 000 0002   max@band.example
+Tourmanager BB:   Max Beispiel   +49 170 000 0002   max@band.example.test
 ADDITIONAL INFORMATION:
 the vans can be parked at the venue.
 `
 
 const infosheet = `Datum: 14.11.26
 Venue: Halle Nord ( neue Location!! )
-Ansprechpartner vor Ort: Erika Muster -   erika.muster@halle-nord.example   - +49 151 000 0001
+Ansprechpartner vor Ort: Erika Muster -   erika.muster@halle-nord.example.test   - +49 151 000 0001
 Abfahrt Hotel:   09:00   |   reine Fahrzeit 3,5 h
 Get In Beispielband:   13:00   |
 Load In:   13:30   |   TM: Max
@@ -51,7 +51,7 @@ Beispielband Get Together   19:45 - 20:45   |   Toiletten im Backstage:
 Beispielband   21:15 - 22:45   |   Merchverkauf:   Merchfee 75€
 Backstage Curfew   00:30   |
 Hotel: Hotel am Deich
-Straße: Deichstraße 77
+Straße: Beispielstraße 77
 Stadt: 54321 Nebenort
 Gebuchte Zimmer:   7 EZ. 2 DZ (ohne Frühstück)
 Check In:   15:00   - Check Out:   11:00
@@ -59,18 +59,18 @@ Sonstiges:
 Schlüssel vorab abholen.
 `
 
-const venueSpec = `Halle Nord GmbH      Kaiweg 1      12345 Musterstadt
+const venueSpec = `Halle Nord GmbH      Musterallee 1      12345 Musterstadt
 VENUE SPECIFICATIONS 202   6
 VENUE INFORMATION & TECHNICAL SPECS
 NAME   Halle Nord
-ADDRESS   Hafenweg 11   (new location!)
+ADDRESS   Musterweg 11   (new location!)
 ZIP CODE / CITY   12345   Musterstadt
 CAPACITY   standing capacity   9 00   (guestlist   excl   .)   /   seating capacity   4 24
 Executive Director:
 Hans Leiter
 Booking   /Production   :
 Paula Planer
-mail:   booking@halle-nord.example   /   production@halle-nord.example
+mail:   booking@halle-nord.example.test   /   production@halle-nord.example.test
 phone:   +49 40 0000000   / +49 160 0000000
 PARKING
 NIGHTLINER   & TRUCKS   parking in front of the building - parking permit required in advance!
@@ -84,8 +84,8 @@ SOUN   D
 MAIN PA   12 x LINE SOURCE
 `
 
-const mail = `Von: Paul Promo <paul.promo@promoter.example>
-An: Agentur <info@agentur.example>
+const mail = `Von: Paul Promo <paul.promo@promoter.example.test>
+An: Agentur <info@agentur.example.test>
 Betreff: AW: Beispielband 2026 Musterstadt
 
 Hi,
@@ -97,7 +97,7 @@ Paul
 
 ---------------------------------
 Paul Promo | Local Promoter
-Promoter GmbH | Hauptstr. 1 | 12345 Musterstadt
+Promoter GmbH | Beispielstr. 1 | 12345 Musterstadt
 ph: +49.40.0000.852 | fx: +49.40.0000.999
 
 Wir gehen von folgenden Zeiten aus:
@@ -143,9 +143,9 @@ describe('show folder: helpers', () => {
 
   it('repairs an e-mail broken by a ligature from the link of the same name', () => {
     expect(
-      emailOf('erika.muster@ Y halle-nord.example', ['mailto:erika.muster@fk-halle.example'])
-    ).toBe('erika.muster@fk-halle.example')
-    expect(emailOf('max@band.example', [])).toBe('max@band.example')
+      emailOf('erika.muster@ Y halle-nord.example', ['mailto:erika.muster@fk-halle.example.test'])
+    ).toBe('erika.muster@fk-halle.example.test')
+    expect(emailOf('max@band.example.test', [])).toBe('max@band.example.test')
   })
 })
 
@@ -185,7 +185,7 @@ describe('show folder: facts', () => {
     })
     expect(facts.venue).toMatchObject({
       name: 'Halle Nord',
-      street: 'Hafenweg 11',
+      street: 'Musterweg 11',
       zipCode: '12345',
       city: 'Musterstadt'
     })
@@ -203,7 +203,7 @@ describe('show folder: facts', () => {
     expect(facts.venue.merchFeeCents).toBe(7500)
     expect(facts.hotel).toEqual({
       name: 'Hotel am Deich',
-      street: 'Deichstraße 77',
+      street: 'Beispielstraße 77',
       zipCode: '54321',
       city: 'Nebenort',
       notes: ['Gebuchte Zimmer: 7 EZ. 2 DZ (ohne Frühstück)', 'Check In: 15:00 - Check Out: 11:00']
@@ -216,7 +216,7 @@ describe('show folder: facts', () => {
     const facts = extractShowFacts(file('Venue Specs.pdf', venueSpec), 'venue_spec', BAND)
     expect(facts.venue).toMatchObject({
       name: 'Halle Nord',
-      street: 'Hafenweg 11',
+      street: 'Musterweg 11',
       zipCode: '12345',
       capacity: 900,
       merchFeeCents: 7500
@@ -231,7 +231,7 @@ describe('show folder: facts', () => {
     expect(facts.contacts).toEqual([
       expect.objectContaining({
         name: 'Paula Planer',
-        email: 'booking@halle-nord.example',
+        email: 'booking@halle-nord.example.test',
         side: 'venue'
       })
     ])
@@ -250,7 +250,7 @@ describe('show folder: facts', () => {
     expect(facts.venue.capacity).toBe(900)
     expect(facts.contacts[0]).toMatchObject({
       name: 'Paul Promo',
-      email: 'paul.promo@promoter.example',
+      email: 'paul.promo@promoter.example.test',
       role: 'Local Promoter',
       side: 'promoter',
       phone: '+49 40 0000 852'

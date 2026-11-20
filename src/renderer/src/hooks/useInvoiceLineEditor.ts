@@ -6,6 +6,7 @@ import {
   saveLine,
   type InvoiceLineDraft
 } from '@/components/invoice/invoiceFormState'
+import { t } from '../../../main/i18n/translate'
 
 export type InvoiceLineEditor = ReturnType<typeof useInvoiceLineEditor>
 
@@ -37,7 +38,7 @@ export function useInvoiceLineEditor(
     },
     save: () => {
       if (!line.description.trim()) {
-        toast.error('Bitte eine Positionsbeschreibung eingeben')
+        toast.error(t('Bitte eine Positionsbeschreibung eingeben'))
         return
       }
       onChange(saveLine(lines, editingIndex, line))

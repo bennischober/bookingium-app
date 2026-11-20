@@ -1,3 +1,4 @@
+import { t } from '../../../main/i18n/translate'
 // Promise-based confirmation dialog, replacing window.confirm():
 //   if (await confirmAction({ title: 'Löschen?', destructive: true })) { ... }
 // Rendered by <ConfirmDialogHost />, mounted once at the app root.
@@ -49,8 +50,8 @@ export function settleConfirm(confirmed: boolean): void {
 export function confirmDelete(title: string): Promise<boolean> {
   return confirmAction({
     title,
-    description: 'Diese Aktion kann nicht rückgängig gemacht werden.',
-    confirmLabel: 'Löschen',
+    description: t('Diese Aktion kann nicht rückgängig gemacht werden.'),
+    confirmLabel: t('Löschen'),
     destructive: true
   })
 }

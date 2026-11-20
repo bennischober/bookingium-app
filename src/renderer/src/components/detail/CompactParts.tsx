@@ -2,6 +2,7 @@
 // short link lists instead of a tab per relation, and titled sections inside a tab
 import { useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { t } from '../../../../main/i18n/translate'
 
 /** One row of a fact sheet; a null/empty value leaves the row out */
 export type Fact = [label: string, value: ReactNode]
@@ -23,7 +24,7 @@ export function FactSheet({ groups, empty }: { groups: FactGroup[]; empty?: stri
   if (shown.length === 0)
     return (
       <p className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
-        {empty ?? 'Noch keine Angaben.'}
+        {empty ?? t('Noch keine Angaben.')}
       </p>
     )
   return (
@@ -91,7 +92,7 @@ export function LinkList({
           className="mt-1.5 text-sm text-primary underline-offset-2 hover:underline"
           onClick={() => setAll((value) => !value)}
         >
-          {all ? 'Weniger zeigen' : `Alle ${items.length} zeigen`}
+          {all ? t('Weniger zeigen') : t('Alle {{length}} zeigen', { length: items.length })}
         </button>
       )}
     </div>
@@ -137,7 +138,7 @@ const TONES = {
 export function StatusLine({ items }: { items: StatusItem[] }) {
   if (items.length === 0) return null
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-label="Stand">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-label={t('Stand')}>
       {items.map((item) => {
         const body = (
           <>

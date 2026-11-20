@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QuickCreateDialog } from '@/components/quick-create/QuickCreateDialog'
 import type { PersonPrefill } from '@/components/quick-create/personPrefill'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * A person with name and e-mail. Mount it per opening (see the event wizard),
@@ -28,11 +29,12 @@ export function PersonQuickCreateDialog({
   const createPerson = trpcReact.person.create.useMutation({
     onSuccess: (person) => {
       const label = `${person.firstName} ${person.lastName}`
-      toast.success(`Person "${label}" erstellt`)
+      toast.success(t('Person "{{label}}" erstellt', { label }))
       onCreated(person.id, label)
       onClose()
     },
-    onError: (e) => toast.error('Person konnte nicht erstellt werden', { description: e.message })
+    onError: (e) =>
+      toast.error(t('Person konnte nicht erstellt werden'), { description: e.message })
   })
 
   const handleSubmit = () => {
@@ -48,15 +50,15 @@ export function PersonQuickCreateDialog({
   return (
     <QuickCreateDialog
       isOpen={isOpen}
-      title="Neue Person anlegen"
-      submitLabel="Anlegen"
+      title={t('Neue Person anlegen')}
+      submitLabel={t('Anlegen')}
       submitDisabled={!firstName.trim() || !lastName.trim() || createPerson.isPending}
       onSubmit={handleSubmit}
       onClose={onClose}
     >
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label htmlFor="person-first">Vorname *</Label>
+          <Label htmlFor="person-first">{t('Vorname *')}</Label>
           <Input
             id="person-first"
             value={firstName}
@@ -65,7 +67,7 @@ export function PersonQuickCreateDialog({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="person-last">Nachname *</Label>
+          <Label htmlFor="person-last">{t('Nachname *')}</Label>
           <Input id="person-last" value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </div>
       </div>

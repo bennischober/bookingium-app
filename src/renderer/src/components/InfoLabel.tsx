@@ -1,6 +1,7 @@
 import { Info } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '../../../main/i18n/translate'
 
 // Label with an (i) info icon that shows explanatory text in a tooltip.
 // Used to keep forms compact: short label on the line, details on hover.
@@ -24,7 +25,7 @@ export function InfoLabel({
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label={`Info: ${text}`}
+              aria-label={t('Info: {{text}}', { text })}
               className="text-muted-foreground transition-colors hover:text-foreground"
               onClick={(e) => e.preventDefault()}
             >

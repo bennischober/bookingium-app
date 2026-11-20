@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { t } from '../../../../main/i18n/translate'
 
 /** A name being typed: for a new list, or for renaming the list with `id` */
 export type ContactListNameDraft = { id?: number; name: string }
@@ -42,29 +43,31 @@ export function ContactListNameDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{renaming ? 'Verteiler umbenennen' : 'Verteiler speichern'}</DialogTitle>
+            <DialogTitle>
+              {renaming ? t('Verteiler umbenennen') : t('Verteiler speichern')}
+            </DialogTitle>
             <DialogDescription>
               {renaming && memberList
-                ? 'Die Kontakte des Verteilers bleiben gleich.'
-                : 'Gespeichert werden die Filter, nicht die Adressen.'}
+                ? t('Die Kontakte des Verteilers bleiben gleich.')
+                : t('Gespeichert werden die Filter, nicht die Adressen.')}
             </DialogDescription>
           </DialogHeader>
           <div className="my-4 space-y-2">
-            <Label htmlFor="contact-list-name">Name</Label>
+            <Label htmlFor="contact-list-name">{t('Name')}</Label>
             <Input
               id="contact-list-name"
               autoFocus
               value={draft?.name ?? ''}
               onChange={(event) => draft && onDraftChange({ ...draft, name: event.target.value })}
-              placeholder="z. B. Clubs Süddeutschland"
+              placeholder={t('z. B. Clubs Süddeutschland')}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onDraftChange(null)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
             <Button type="submit" disabled={!draft?.name.trim() || saving}>
-              Speichern
+              {t('Speichern')}
             </Button>
           </DialogFooter>
         </form>

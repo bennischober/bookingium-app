@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { formatListDate } from './format'
 import { newestMessageId, threadRows } from './threadView'
 import type { ThreadSummary } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The mails of one folder grouped into threads, newest first, as the core's
@@ -51,7 +52,7 @@ export function ThreadList({
   }, [hasMore, loadingMore, threads.length])
 
   return (
-    <ul ref={listRef} className="divide-y" aria-label="Unterhaltungen">
+    <ul ref={listRef} className="divide-y" aria-label={t('Unterhaltungen')}>
       {threadRows(threads).map((thread) => (
         <li key={thread.threadId} className="px-3 py-2 text-sm">
           <button
@@ -65,7 +66,7 @@ export function ThreadList({
           >
             <span className="flex size-4 shrink-0 items-center justify-center self-center">
               {thread.unread > 0 && (
-                <span className="size-2 rounded-full bg-primary" aria-label="Ungelesen" />
+                <span className="size-2 rounded-full bg-primary" aria-label={t('Ungelesen')} />
               )}
             </span>
             <span className={cn('min-w-0 flex-1 truncate', thread.unread > 0 && 'font-semibold')}>
@@ -73,14 +74,17 @@ export function ThreadList({
             </span>
             <ReplyStateIcons answered={thread.answered} forwarded={thread.forwarded} />
             {thread.hasAttachments && (
-              <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Anhang" />
+              <Paperclip
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-label={t('Anhang')}
+              />
             )}
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {formatListDate(thread.date)}
             </span>
           </button>
           <div className={cn('truncate', thread.unread > 0 && 'font-medium', 'pl-6')}>
-            {thread.subject || '(Kein Betreff)'}
+            {thread.subject || t('(Kein Betreff)')}
           </div>
           <div className="flex items-center gap-2 pl-6">
             {thread.countLabel && (
@@ -95,7 +99,7 @@ export function ThreadList({
       {hasMore && (
         <li ref={moreRef} className="p-2 text-center">
           <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loadingMore}>
-            {loadingMore ? 'Wird geladen…' : 'Weitere laden'}
+            {loadingMore ? t('Wird geladen…') : t('Weitere laden')}
           </Button>
         </li>
       )}

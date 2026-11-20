@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ROUTES } from '@/lib/routing'
 import { TERMS } from '../../../../main/api/terms'
+import { t } from '../../../../main/i18n/translate'
 
 // What can be created from anywhere, in menu order; each opens the "new"
 // form on its list page (?create=true, see useListSearchActions)
@@ -53,12 +54,16 @@ export function QuickCreateMenu() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" aria-label="Neu anlegen" title="Neu anlegen (Alt + „+“ oder Ctrl+N)">
-          + Neu
+        <Button
+          size="sm"
+          aria-label={t('Neu anlegen')}
+          title={t('Neu anlegen (Alt + „+“ oder Ctrl+N)')}
+        >
+          {t('+ Neu')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-48 p-1">
-        <div role="menu" aria-label="Neu anlegen" className="flex flex-col">
+        <div role="menu" aria-label={t('Neu anlegen')} className="flex flex-col">
           {CREATE_ITEMS.map(({ label, route }) => (
             <button
               key={route.path}

@@ -11,6 +11,7 @@ import {
   CommandList,
   CommandSeparator
 } from '@/components/ui/command'
+import { t } from '../../../../main/i18n/translate'
 
 export interface SearchableSelectOption<T extends string | number = number> {
   value: T
@@ -51,15 +52,15 @@ export function SearchableSelect<T extends string | number = number>({
   value,
   onChange,
   options,
-  placeholder = 'Auswählen…',
+  placeholder = t('Auswählen…'),
   noneLabel,
-  searchPlaceholder = 'Suchen…',
-  emptyText = 'Keine Treffer.',
+  searchPlaceholder = t('Suchen…'),
+  emptyText = t('Keine Treffer.'),
   disabled = false,
   className,
   'aria-label': ariaLabel,
   onCreateNew,
-  createNewLabel = 'Neu anlegen'
+  createNewLabel = t('Neu anlegen')
 }: SearchableSelectProps<T>) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')

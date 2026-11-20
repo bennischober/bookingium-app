@@ -1,6 +1,7 @@
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { openFollowUpDialog, type FollowUpDialogRequest } from '@/lib/followUpDialog'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * A success toast that offers "Wiedervorlage setzen" for a record saved
@@ -19,7 +20,7 @@ export function useFollowUpNudge() {
         ? undefined
         : {
             action: {
-              label: 'Wiedervorlage setzen',
+              label: t('Wiedervorlage setzen'),
               onClick: () => openFollowUpDialog(request)
             }
           }

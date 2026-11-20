@@ -4,10 +4,11 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { UpdateStatusDto } from '../../../../main/api/schemas/updates.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "28.10.2026, 14:30" */
 const formatDateTime = (iso: string): string =>
-  new Date(iso).toLocaleString('de-DE', {
+  new Date(iso).toLocaleString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -18,19 +19,25 @@ const formatDateTime = (iso: string): string =>
 function phaseText(status: UpdateStatusDto): string {
   switch (status.phase) {
     case 'unsupported':
-      return 'Updates gibt es nur für die installierte App.'
+      return t('Updates gibt es nur für die installierte App.')
     case 'idle':
-      return 'Bookingium sucht kurz nach dem Start nach Updates.'
+      return t('Bookingium sucht kurz nach dem Start nach Updates.')
     case 'checking':
-      return 'Sucht nach Updates…'
+      return t('Sucht nach Updates…')
     case 'current':
-      return 'Bookingium ist auf dem neuesten Stand.'
+      return t('Bookingium ist auf dem neuesten Stand.')
     case 'downloading':
-      return `Version ${status.version} wird heruntergeladen${status.percent !== null ? ` (${status.percent} %)` : ''}…`
+      return t('Version {{version}} wird heruntergeladen{{value}}…', {
+        version: status.version,
+        value: status.percent !== null ? ` (${status.percent} %)` : ''
+      })
     case 'ready':
-      return `Version ${status.version} ist bereit und wird beim Schließen von Bookingium installiert.`
+      return t(
+        'Version {{version}} ist bereit und wird beim Schließen von Bookingium installiert.',
+        { version: status.version }
+      )
     case 'error':
-      return status.error ?? 'Die Suche nach Updates ist fehlgeschlagen.'
+      return status.error ?? t('Die Suche nach Updates ist fehlgeschlagen.')
   }
 }
 
@@ -48,32 +55,33 @@ export function UpdatesCard() {
   const check = trpcReact.updates.check.useMutation({
     onSuccess: (next) => {
       utils.updates.status.setData(undefined, next)
-      if (next.phase === 'current') toast.success('Bookingium ist auf dem neuesten Stand')
+      if (next.phase === 'current') toast.success(t('Bookingium ist auf dem neuesten Stand'))
       else if (next.phase === 'error')
-        toast.error('Suche fehlgeschlagen', { description: next.error ?? undefined })
+        toast.error(t('Suche fehlgeschlagen'), { description: next.error ?? undefined })
     },
-    onError: (error) => toast.error('Suche fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Suche fehlgeschlagen'), { description: error.message })
   })
   const install = trpcReact.updates.install.useMutation({
     onError: (error) =>
-      toast.error('Update kann nicht installiert werden', { description: error.message })
+      toast.error(t('Update kann nicht installiert werden'), { description: error.message })
   })
 
   const data = status.data
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Version und Updates</CardTitle>
+        <CardTitle>{t('Version und Updates')}</CardTitle>
         <CardDescription>
-          Neue Versionen lädt Bookingium selbst herunter und installiert sie beim Schließen. Die
-          Daten bleiben dabei erhalten. Mit dem Abgleich sollten alle Computer dieselbe Version
-          haben.
+          {t(
+            'Neue Versionen lädt Bookingium selbst herunter und installiert sie beim Schließen. Die Daten bleiben dabei erhalten. Mit dem Abgleich sollten alle Computer dieselbe Version haben.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1 text-sm">
           <p>
-            Installierte Version: <span className="font-medium">{data?.currentVersion ?? '…'}</span>
+            {t('Installierte Version:')}{' '}
+            <span className="font-medium">{data?.currentVersion ?? '…'}</span>
           </p>
           {data && (
             <p className={data.phase === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
@@ -82,7 +90,7 @@ export function UpdatesCard() {
           )}
           {data?.lastCheckAt && (
             <p className="text-xs text-muted-foreground">
-              Zuletzt gesucht: {formatDateTime(data.lastCheckAt)}
+              {t('Zuletzt gesucht:')} {formatDateTime(data.lastCheckAt)}
             </p>
           )}
         </div>
@@ -95,11 +103,11 @@ export function UpdatesCard() {
                 check.isPending || data.phase === 'checking' || data.phase === 'downloading'
               }
             >
-              <RefreshCw className="h-4 w-4" /> Nach Updates suchen
+              <RefreshCw className="h-4 w-4" /> {t('Nach Updates suchen')}
             </Button>
             {data.phase === 'ready' && (
               <Button onClick={() => install.mutate()} disabled={install.isPending}>
-                <Download className="h-4 w-4" /> Jetzt neu starten und installieren
+                <Download className="h-4 w-4" /> {t('Jetzt neu starten und installieren')}
               </Button>
             )}
           </div>

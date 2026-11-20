@@ -36,15 +36,16 @@ import {
 } from '../../../../main/api/schemas/external_booking.schema'
 import { germanDate } from '@/components/map/mapDisplay'
 import { ImportFileStep } from '@/components/import/ImportFileStep'
+import { t } from '../../../../main/i18n/translate'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
 type Table = NonNullable<ImportFile['table']>
 
 const ACTION_LABELS: Record<ExternalBookingImportAction, string> = {
   new: 'neu',
-  update: 'geändert',
-  unchanged: 'unverändert',
-  skipped: 'übersprungen'
+  update: t('geändert'),
+  unchanged: t('unverändert'),
+  skipped: t('übersprungen')
 }
 
 /** Spreadsheet column letter: 0 → A, 26 → AA */
@@ -107,14 +108,14 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
     try {
       const response = await window.api.pickImportFile(droppedPath)
       if (!response.success) {
-        toast.error('Datei konnte nicht gelesen werden', { description: response.error })
+        toast.error(t('Datei konnte nicht gelesen werden'), { description: response.error })
         return
       }
       if (response.canceled || !response.file) return
       const picked = response.file.table
       if (!picked) {
-        toast.error('Keine Daten gefunden', {
-          description: 'Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.'
+        toast.error(t('Keine Daten gefunden'), {
+          description: t('Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.')
         })
         return
       }
@@ -130,7 +131,7 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
       setRemoveMissing(false)
       setStep('mapping')
     } catch (error) {
-      toast.error('Datei konnte nicht gelesen werden', {
+      toast.error(t('Datei konnte nicht gelesen werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     } finally {
@@ -166,7 +167,7 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
       void utils.externalBooking.invalidate()
       void utils.map.invalidate()
     },
-    onError: (error) => toast.error('Import fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Import fehlgeschlagen'), { description: error.message })
   })
 
   // Single-value fields move to the newly chosen column; notes may take several
@@ -194,8 +195,8 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
   )
 
   const missingColumns = [
-    !mapping.includes('band') && 'Band',
-    !mapping.includes('date') && 'Datum'
+    !mapping.includes('band') && t('Band'),
+    !mapping.includes('date') && t('Datum')
   ].filter(Boolean)
   const previewData = preview.data
   const writes = previewData
@@ -215,15 +216,21 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
     >
       <DialogContent className="flex h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col">
         <DialogHeader>
-          <DialogTitle>Agenturbuchungen importieren</DialogTitle>
+          <DialogTitle>{t('Agenturbuchungen importieren')}</DialogTitle>
           <DialogDescription>
             {step === 'file' &&
-              'Shows Ihrer Bands, die eine andere Agentur gebucht hat, aus deren Export übernehmen.'}
+              t(
+                'Shows Ihrer Bands, die eine andere Agentur gebucht hat, aus deren Export übernehmen.'
+              )}
             {step === 'mapping' &&
-              'Agentur angeben und die Spalten prüfen. Band und Datum sind Pflicht; die Band muss angelegt sein.'}
+              t(
+                'Agentur angeben und die Spalten prüfen. Band und Datum sind Pflicht; die Band muss angelegt sein.'
+              )}
             {step === 'preview' &&
-              'Bekannte Buchungen (gleiche Agentur und Buchungs-Nr., sonst Band, Datum und Ort) werden aktualisiert.'}
-            {step === 'done' && 'Der Import ist abgeschlossen.'}
+              t(
+                'Bekannte Buchungen (gleiche Agentur und Buchungs-Nr., sonst Band, Datum und Ort) werden aktualisiert.'
+              )}
+            {step === 'done' && t('Der Import ist abgeschlossen.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -232,7 +239,9 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
           <ImportFileStep
             picking={picking}
             onPick={pickFile}
-            description="Eine Zeile pro Show, mit Spalten wie Band, Datum, Club, PLZ, Ort und Status. Agenturbuchungen sind schreibgeschützt: Sie zählen für Terminkonflikte und den Gebietsschutz, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder Wiedervorlagen. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt."
+            description={t(
+              'Eine Zeile pro Show, mit Spalten wie Band, Datum, Club, PLZ, Ort und Status. Agenturbuchungen sind schreibgeschützt: Sie zählen für Terminkonflikte und den Gebietsschutz, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder Wiedervorlagen. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt.'
+            )}
           />
         )}
 
@@ -241,13 +250,13 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label htmlFor="agency-import-agency">Agentur</Label>
+                <Label htmlFor="agency-import-agency">{t('Agentur')}</Label>
                 <Input
                   id="agency-import-agency"
                   list="agency-import-agencies"
                   value={agency}
                   onChange={(event) => setAgency(event.target.value)}
-                  placeholder="Name der Agentur"
+                  placeholder={t('Name der Agentur')}
                   maxLength={200}
                 />
                 <datalist id="agency-import-agencies">
@@ -257,7 +266,7 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                 </datalist>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="agency-import-kind">Art, wenn keine angegeben</Label>
+                <Label htmlFor="agency-import-kind">{t('Art, wenn keine angegeben')}</Label>
                 <Select
                   value={defaultKind}
                   onValueChange={(value) => setDefaultKind(value as ExternalBookingKind)}
@@ -275,11 +284,11 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                 </Select>
               </div>
               <div className="min-w-0 space-y-1.5">
-                <Label>Datei</Label>
+                <Label>{t('Datei')}</Label>
                 <p className="truncate py-2 text-sm" title={fileName}>
                   {fileName}{' '}
                   <span className="text-muted-foreground">
-                    ({table.rows.length} {table.rows.length === 1 ? 'Zeile' : 'Zeilen'})
+                    ({table.rows.length} {table.rows.length === 1 ? t('Zeile') : t('Zeilen')})
                   </span>
                 </p>
               </div>
@@ -287,14 +296,15 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
 
             {remembered && (
               <p className="text-sm text-muted-foreground">
-                Agentur und Zuordnung vom letzten Import eines Exports mit diesen Spalten
-                übernommen.
+                {t(
+                  'Agentur und Zuordnung vom letzten Import eines Exports mit diesen Spalten übernommen.'
+                )}
               </p>
             )}
             {missingColumns.length > 0 && (
               <p className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Noch keine Spalte für: {missingColumns.join(', ')}
+                {t('Noch keine Spalte für:')} {missingColumns.join(', ')}
               </p>
             )}
 
@@ -302,9 +312,9 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-muted text-left">
                   <tr>
-                    <th className="px-3 py-2 font-medium">Spalte</th>
-                    <th className="px-3 py-2 font-medium">Beispielwerte</th>
-                    <th className="w-64 px-3 py-2 font-medium">Übernehmen als</th>
+                    <th className="px-3 py-2 font-medium">{t('Spalte')}</th>
+                    <th className="px-3 py-2 font-medium">{t('Beispielwerte')}</th>
+                    <th className="w-64 px-3 py-2 font-medium">{t('Übernehmen als')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -320,7 +330,7 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                         <span className="mr-2 font-mono text-xs text-muted-foreground">
                           {columnLetter(column)}
                         </span>
-                        <span className="font-medium">{header || '(ohne Überschrift)'}</span>
+                        <span className="font-medium">{header || t('(ohne Überschrift)')}</span>
                       </td>
                       <td className="max-w-0 px-3 py-2 align-top">
                         <span className="block truncate" title={samples[column]?.join(' · ')}>
@@ -336,7 +346,9 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                         >
                           <SelectTrigger
                             className="h-8"
-                            aria-label={`Spalte ${columnLetter(column)} übernehmen als`}
+                            aria-label={t('Spalte {{columnLetter}} übernehmen als', {
+                              columnLetter: columnLetter(column)
+                            })}
                           >
                             <SelectValue />
                           </SelectTrigger>
@@ -370,10 +382,10 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
               <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 {(
                   [
-                    ['new', 'Neu'],
-                    ['update', 'Geändert'],
-                    ['unchanged', 'Unverändert'],
-                    ['skipped', 'Übersprungen']
+                    ['new', t('Neu')],
+                    ['update', t('Geändert')],
+                    ['unchanged', t('Unverändert')],
+                    ['skipped', t('Übersprungen')]
                   ] as const
                 ).map(([key, label]) => (
                   <div key={key} className="rounded-lg border px-3 py-2">
@@ -395,8 +407,8 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                   />
                   {previewData.missing.length}{' '}
                   {previewData.missing.length === 1
-                    ? 'Buchung dieser Agentur steht nicht mehr in der Datei – entfernen'
-                    : 'Buchungen dieser Agentur stehen nicht mehr in der Datei – entfernen'}
+                    ? t('Buchung dieser Agentur steht nicht mehr in der Datei – entfernen')
+                    : t('Buchungen dieser Agentur stehen nicht mehr in der Datei – entfernen')}
                 </label>
                 <ul className="max-h-24 overflow-y-auto text-muted-foreground">
                   {previewData.missing.map((entry) => (
@@ -412,20 +424,20 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
 
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
               {preview.isLoading ? (
-                <p className="p-4 text-sm text-muted-foreground">Vorschau wird erstellt…</p>
+                <p className="p-4 text-sm text-muted-foreground">{t('Vorschau wird erstellt…')}</p>
               ) : preview.error ? (
                 <p className="p-4 text-sm text-destructive">{preview.error.message}</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-muted text-left">
                     <tr>
-                      <th className="w-16 px-3 py-2 font-medium">Zeile</th>
-                      <th className="px-3 py-2 font-medium">Datum</th>
-                      <th className="px-3 py-2 font-medium">Band</th>
-                      <th className="px-3 py-2 font-medium">Club / Festival</th>
-                      <th className="px-3 py-2 font-medium">Ort</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
-                      <th className="px-3 py-2 font-medium">Import</th>
+                      <th className="w-16 px-3 py-2 font-medium">{t('Zeile')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Datum')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Band')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Club / Festival')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Ort')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Status')}</th>
+                      <th className="px-3 py-2 font-medium">{t('Import')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -478,9 +490,10 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <CheckCircle2 className="h-12 w-12 text-green-600" />
             <p className="text-sm">
-              {result.created} neu · {result.updated} aktualisiert · {result.unchanged} unverändert
-              {result.removed > 0 && ` · ${result.removed} entfernt`}
-              {result.skipped > 0 && ` · ${result.skipped} übersprungen`}
+              {result.created} {t('neu ·')} {result.updated} {t('aktualisiert ·')}{' '}
+              {result.unchanged} {t('unverändert')}
+              {result.removed > 0 && t(' · {{removed}} entfernt', { removed: result.removed })}
+              {result.skipped > 0 && t(' · {{skipped}} übersprungen', { skipped: result.skipped })}
             </p>
           </div>
         )}
@@ -489,13 +502,13 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
           {step === 'mapping' && (
             <>
               <Button variant="outline" onClick={reset}>
-                Andere Datei
+                {t('Andere Datei')}
               </Button>
               <Button
                 onClick={() => setStep('preview')}
                 disabled={!agency.trim() || missingColumns.length > 0}
               >
-                Weiter zur Vorschau
+                {t('Weiter zur Vorschau')}
               </Button>
             </>
           )}
@@ -506,7 +519,7 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                 onClick={() => setStep('mapping')}
                 disabled={commit.isPending}
               >
-                Zurück
+                {t('Zurück')}
               </Button>
               <Button
                 onClick={() => request && commit.mutate(request)}
@@ -518,11 +531,11 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
                   (writes === 0 && previewData.counts.unchanged === 0)
                 }
               >
-                {commit.isPending ? 'Wird importiert…' : 'Importieren'}
+                {commit.isPending ? t('Wird importiert…') : t('Importieren')}
               </Button>
             </>
           )}
-          {step === 'done' && <Button onClick={close}>Schließen</Button>}
+          {step === 'done' && <Button onClick={close}>{t('Schließen')}</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

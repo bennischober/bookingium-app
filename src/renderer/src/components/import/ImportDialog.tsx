@@ -26,6 +26,7 @@ import { ImportFileStep } from './ImportFileStep'
 import { ImportMappingStep } from './ImportMappingStep'
 import { ImportPreviewStep } from './ImportPreviewStep'
 import { ImportDoneStep } from './ImportDoneStep'
+import { t } from '../../../../main/i18n/translate'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
 
@@ -110,13 +111,13 @@ export function ImportDialog({
     try {
       const response = await window.api.pickImportFile(droppedPath)
       if (!response.success) {
-        toast.error('Datei konnte nicht gelesen werden', { description: response.error })
+        toast.error(t('Datei konnte nicht gelesen werden'), { description: response.error })
         return
       }
       if (response.canceled || !response.file) return
       if (!response.file.table) {
-        toast.error('Keine Daten gefunden', {
-          description: 'Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.'
+        toast.error(t('Keine Daten gefunden'), {
+          description: t('Die Datei enthält keine Kopfzeile mit Datenzeilen darunter.')
         })
         return
       }
@@ -166,7 +167,7 @@ export function ImportDialog({
       void utils.contactList.invalidate()
     },
     onError: (error) => {
-      toast.error('Import fehlgeschlagen', { description: error.message })
+      toast.error(t('Import fehlgeschlagen'), { description: error.message })
     }
   })
 
@@ -206,14 +207,16 @@ export function ImportDialog({
     >
       <DialogContent className="flex h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col">
         <DialogHeader>
-          <DialogTitle>Daten importieren</DialogTitle>
+          <DialogTitle>{t('Daten importieren')}</DialogTitle>
           <DialogDescription>
             {step === 'file' &&
-              'Eine CSV-Liste mit Clubs, Festivals, Bands, Firmen oder Personen übernehmen.'}
+              t('Eine CSV-Liste mit Clubs, Festivals, Bands, Firmen oder Personen übernehmen.')}
             {step === 'mapping' && IMPORT_TARGET_DESCRIPTIONS[target]}
             {step === 'preview' &&
-              'Vorhandene Einträge (gleicher Name) werden nur ergänzt, nie überschrieben. Zeilen abwählen, um sie auszulassen.'}
-            {step === 'done' && 'Der Import ist abgeschlossen.'}
+              t(
+                'Vorhandene Einträge (gleicher Name) werden nur ergänzt, nie überschrieben. Zeilen abwählen, um sie auszulassen.'
+              )}
+            {step === 'done' && t('Der Import ist abgeschlossen.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -268,9 +271,9 @@ export function ImportDialog({
           {step === 'mapping' && (
             <>
               <Button variant="outline" onClick={reset}>
-                <ArrowLeft className="h-4 w-4" /> Andere Datei
+                <ArrowLeft className="h-4 w-4" /> {t('Andere Datei')}
               </Button>
-              <Button onClick={() => setStep('preview')}>Weiter zur Vorschau</Button>
+              <Button onClick={() => setStep('preview')}>{t('Weiter zur Vorschau')}</Button>
             </>
           )}
           {step === 'preview' && (
@@ -280,7 +283,7 @@ export function ImportDialog({
                 onClick={() => setStep('mapping')}
                 disabled={commit.isPending}
               >
-                <ArrowLeft className="h-4 w-4" /> Zuordnung
+                <ArrowLeft className="h-4 w-4" /> {t('Zuordnung')}
               </Button>
               <Button
                 onClick={() =>
@@ -304,13 +307,15 @@ export function ImportDialog({
                   commit.isPending
                 }
               >
-                {commit.isPending ? 'Importiert…' : `${importableRows} Zeilen importieren`}
+                {commit.isPending
+                  ? t('Importiert…')
+                  : t('{{importableRows}} Zeilen importieren', { importableRows })}
               </Button>
             </>
           )}
           {step === 'done' && (
             <Button className="sm:ml-auto" onClick={close}>
-              Schließen
+              {t('Schließen')}
             </Button>
           )}
         </DialogFooter>

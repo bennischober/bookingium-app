@@ -44,6 +44,7 @@ import { MoreActions } from '@/components/detail/MoreActions'
 import { TabSection } from '@/components/detail/CompactParts'
 import { confirmDelete } from '@/lib/confirm'
 import { EventOpenItems } from '@/components/open-items/EventOpenItems'
+import { t } from '../../../main/i18n/translate'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
@@ -66,10 +67,10 @@ export function EventHubPage() {
     onSuccess: async () => {
       await navigate({ to: '/events' })
       void utils.dealMemo.invalidate()
-      toast.success('Event gelöscht')
+      toast.success(t('Event gelöscht'))
     },
     onError: (error) => {
-      toast.error('Event konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Event konnte nicht gelöscht werden'), { description: error.message })
     }
   })
 
@@ -101,9 +102,11 @@ export function EventHubPage() {
       isEditing &&
       current.pathname !== next.pathname &&
       !(await confirmAction({
-        title: 'Änderungen verwerfen?',
-        description: 'Das Event wird gerade bearbeitet. Ungespeicherte Änderungen gehen verloren.',
-        confirmLabel: 'Verwerfen',
+        title: t('Änderungen verwerfen?'),
+        description: t(
+          'Das Event wird gerade bearbeitet. Ungespeicherte Änderungen gehen verloren.'
+        ),
+        confirmLabel: t('Verwerfen'),
         destructive: true
       })),
     enableBeforeUnload: false
@@ -117,7 +120,7 @@ export function EventHubPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Event wird geladen…</p>
+        <p className="text-muted-foreground">{t('Event wird geladen…')}</p>
       </div>
     )
   }
@@ -129,9 +132,9 @@ export function EventHubPage() {
   if (!event) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-muted-foreground">Event nicht gefunden.</p>
+        <p className="text-muted-foreground">{t('Event nicht gefunden.')}</p>
         <Button variant="outline" onClick={() => navigate({ to: '/events' })}>
-          Zurück zu den Events
+          {t('Zurück zu den Events')}
         </Button>
       </div>
     )
@@ -148,7 +151,7 @@ export function EventHubPage() {
           onClick={() => navigate({ to: '/events' })}
         >
           <ArrowLeft className="h-4 w-4" />
-          Alle Events
+          {t('Alle Events')}
         </Button>
 
         <div className="flex items-start justify-between gap-4">
@@ -180,11 +183,11 @@ export function EventHubPage() {
               <>
                 <Button size="sm" variant="outline" onClick={handleDiscard} className="gap-1.5">
                   <X className="h-3.5 w-3.5" />
-                  Verwerfen
+                  {t('Verwerfen')}
                 </Button>
                 <Button size="sm" onClick={handleSaveAll} className="gap-1.5">
                   <Check className="h-3.5 w-3.5" />
-                  Alles speichern
+                  {t('Alles speichern')}
                 </Button>
               </>
             ) : (
@@ -194,10 +197,10 @@ export function EventHubPage() {
                   variant="outline"
                   className="gap-1.5"
                   onClick={() => setReadingFolder(true)}
-                  title="Day-/Infosheet, Club-Infos, Mails und Pläne der Agentur einlesen"
+                  title={t('Day-/Infosheet, Club-Infos, Mails und Pläne der Agentur einlesen')}
                 >
                   <FolderInput className="h-3.5 w-3.5" />
-                  Show-Ordner
+                  {t('Show-Ordner')}
                 </Button>
                 <Button
                   size="sm"
@@ -209,33 +212,33 @@ export function EventHubPage() {
                       params: { eventId: String(event.id) }
                     })
                   }
-                  title="Auftrittsvertrag drucken / als PDF speichern"
+                  title={t('Auftrittsvertrag drucken / als PDF speichern')}
                 >
                   <FileSignature className="h-3.5 w-3.5" />
-                  Vertrag
+                  {t('Vertrag')}
                 </Button>
                 <FollowUpButton record={{ type: 'event', id: event.id, name: event.name }} />
                 <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />
-                  Bearbeiten
+                  {t('Bearbeiten')}
                 </Button>
                 <MoreActions
                   actions={[
                     {
-                      label: 'Duplizieren…',
+                      label: t('Duplizieren…'),
                       icon: <Copy className="h-3.5 w-3.5" />,
-                      title: 'Neues Datum mit Band, Deal und LoPro dieses Events',
+                      title: t('Neues Datum mit Band, Deal und LoPro dieses Events'),
                       onSelect: () => setDuplicating(true)
                     },
                     {
-                      label: 'Löschen…',
+                      label: t('Löschen…'),
                       icon: <Trash2 className="h-3.5 w-3.5" />,
                       destructive: true,
                       disabled: deleteEvent.isPending,
                       onSelect: () =>
-                        void confirmDelete(`Event „${event.name}“ löschen?`).then(
-                          (ok) => ok && deleteEvent.mutate(event.id)
-                        )
+                        void confirmDelete(
+                          t('Event „{{name}}“ löschen?', { name: event.name })
+                        ).then((ok) => ok && deleteEvent.mutate(event.id))
                     }
                   ]}
                 />
@@ -247,7 +250,7 @@ export function EventHubPage() {
         {isEditing && (
           <p className="mt-3 text-xs text-muted-foreground bg-muted/50 border rounded-md px-3 py-2 inline-flex items-center gap-1.5">
             <Pencil className="h-3 w-3" />
-            Bearbeitungsmodus – Änderungen in allen Tabs werden gemeinsam gespeichert.
+            {t('Bearbeitungsmodus – Änderungen in allen Tabs werden gemeinsam gespeichert.')}
           </p>
         )}
       </div>
@@ -277,11 +280,11 @@ export function EventHubPage() {
       >
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Übersicht</TabsTrigger>
-          <TabsTrigger value="itinerary">Ablauf</TabsTrigger>
-          <TabsTrigger value="financials">Geld</TabsTrigger>
+          <TabsTrigger value="overview">{t('Übersicht')}</TabsTrigger>
+          <TabsTrigger value="itinerary">{t('Ablauf')}</TabsTrigger>
+          <TabsTrigger value="financials">{t('Geld')}</TabsTrigger>
           <TabsTrigger value="documents">
-            {hasMailAccount ? 'Dokumente & E-Mails' : 'Dokumente'}
+            {hasMailAccount ? t('Dokumente & E-Mails') : t('Dokumente')}
             <TabCount count={counts.documents} />
           </TabsTrigger>
         </TabsList>
@@ -298,7 +301,7 @@ export function EventHubPage() {
 
         {/* Ablauf: the day itself and its preparation with the local promoter */}
         <TabsContent value="itinerary" className="space-y-10">
-          <TabSection title="Tagesablauf">
+          <TabSection title={t('Tagesablauf')}>
             <ItineraryTab
               event={event}
               isEditing={isEditing}
@@ -306,14 +309,14 @@ export function EventHubPage() {
               cancelSignal={cancelSignal}
             />
           </TabSection>
-          <TabSection id="section-advancing" title="Advancing">
+          <TabSection id="section-advancing" title={t('Advancing')}>
             <AdvancingTab eventId={event.id} />
           </TabSection>
         </TabsContent>
 
         {/* Geld: deal and contract, ticket sales, and the settlement after the show */}
         <TabsContent value="financials" className="space-y-10">
-          <TabSection title="Deal & Vertrag">
+          <TabSection title={t('Deal & Vertrag')}>
             <FinancialsTab
               event={event}
               isEditing={isEditing}
@@ -321,10 +324,10 @@ export function EventHubPage() {
               cancelSignal={cancelSignal}
             />
           </TabSection>
-          <TabSection id="section-tickets" title="Tickets">
+          <TabSection id="section-tickets" title={t('Tickets')}>
             <TicketsTab eventId={event.id} />
           </TabSection>
-          <TabSection id="section-settlement" title="Abrechnung">
+          <TabSection id="section-settlement" title={t('Abrechnung')}>
             <SettlementTab eventId={event.id} />
           </TabSection>
         </TabsContent>

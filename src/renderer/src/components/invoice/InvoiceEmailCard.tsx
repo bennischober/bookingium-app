@@ -10,6 +10,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { readingActions } from '@/components/mail/readingActions'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * "Per E-Mail senden" (Einstellungen › E-Mail): the account invoices, reminders, dunning
@@ -23,10 +24,10 @@ export function InvoiceEmailCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   // I7 (MR-12): the account is chosen here, never guessed - only accounts that may send
@@ -40,16 +41,16 @@ export function InvoiceEmailCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Per E-Mail senden</CardTitle>
+        <CardTitle>{t('Per E-Mail senden')}</CardTitle>
         <CardDescription>
-          „Per E-Mail senden“ auf Rechnungen, Zahlungserinnerungen, Mahnungen und Verträgen öffnet
-          die E-Mail mit dem PDF im Anhang. Sie prüfen und senden sie in Bookingium; eine gesendete
-          Rechnung gilt danach als versendet.
+          {t(
+            '„Per E-Mail senden“ auf Rechnungen, Zahlungserinnerungen, Mahnungen und Verträgen öffnet die E-Mail mit dem PDF im Anhang. Sie prüfen und senden sie in Bookingium; eine gesendete Rechnung gilt danach als versendet.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="max-w-sm space-y-2">
-          <Label htmlFor="settings-invoice-mail-account">Senden von</Label>
+          <Label htmlFor="settings-invoice-mail-account">{t('Senden von')}</Label>
           <Select
             value={
               sendingAccounts.some((account) => account.id === invoiceMailAccountId)
@@ -60,7 +61,7 @@ export function InvoiceEmailCard() {
             disabled={disabled || sendingAccounts.length === 0}
           >
             <SelectTrigger id="settings-invoice-mail-account">
-              <SelectValue placeholder="Konto wählen" />
+              <SelectValue placeholder={t('Konto wählen')} />
             </SelectTrigger>
             <SelectContent>
               {sendingAccounts.map((account) => (
@@ -72,7 +73,9 @@ export function InvoiceEmailCard() {
           </Select>
           {mailAccounts.isSuccess && sendingAccounts.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Noch kein E-Mail-Konto, das senden kann – unten unter „E-Mail-Konten“ hinzufügen.
+              {t(
+                'Noch kein E-Mail-Konto, das senden kann – unten unter „E-Mail-Konten“ hinzufügen.'
+              )}
             </p>
           )}
         </div>

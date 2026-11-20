@@ -1,5 +1,6 @@
 import { useTheme } from 'next-themes'
 import { Toaster as Sonner } from 'sonner'
+import { t } from '../../../../main/i18n/translate'
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
@@ -18,7 +19,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // Every toast can be closed; how long one stays is set in lib/toast.ts
       closeButton
       toastOptions={{
-        closeButtonAriaLabel: 'Schließen',
+        closeButtonAriaLabel: t('Schließen'),
         classNames: {
           // The × sits top right (sonner's default is top left)
           toast:

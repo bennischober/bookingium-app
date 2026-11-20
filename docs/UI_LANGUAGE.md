@@ -1,8 +1,42 @@
 # UI language
 
-The app is German-only, with no i18n framework: user-visible strings are plain
-German literals. Code, identifiers, comments, commit messages and docs are
-English.
+German is the app's source language and its default. Code, identifiers,
+comments, commit messages and docs are English.
+
+## English UI (#254)
+
+The UI can be switched to English in Einstellungen › Darstellung (per computer,
+stored in `<userData>/ui-language.json`, not in the synced database).
+
+- A UI string is still written as German text, wrapped in `t()` from
+  `src/main/i18n/translate.ts`: `t('Kalender')`. The German text is the key, so
+  a string on screen can still be found by searching for its German wording,
+  and a missing translation shows German.
+- Values go in as `{{placeholders}}`, never by concatenation:
+  `t('{{count}} {{noun}} ausgewählt', { count, noun })`. Values go in as they
+  would in a template literal; a number that needs grouping is formatted by the
+  caller with `uiLocale()`. Singular and plural stay two literals in a ternary.
+- Pass the literal itself to `t()` (or a ternary of literals);
+  `tests/i18n_guard.test.ts` checks every one has an English entry, every entry
+  is used, and both name the same placeholders.
+- The language is set before the first renderer module runs and switching it
+  reloads the window, so module-level label maps may call `t()` directly.
+- Dates and numbers in the UI use `uiLocale()` (`de-DE` or `en-GB`), not a
+  literal `'de-DE'`. Documents for third parties (contracts, invoices,
+  e-invoices, reminders, email templates) keep their own language, and so do
+  input fields that parse German decimals, until they are converted.
+- `TERMS` gives the nouns of the current language (`TERMS_DE`, `TERMS_EN`);
+  `AVOIDED_WORDS_EN` keeps competing English words out of `en.ts`.
+- The English texts live in `src/main/i18n/en/<area>.ts`, one module per
+  renderer folder; texts of the shell and shared fragments stay in `en.ts`.
+- Label maps in `src/main/api/schemas` (`VENUE_KIND_LABELS`, `DATEV_CATEGORY_LABELS`, …)
+  call `t()` too. The main process evaluates them before it reads the language,
+  so CSV exports, the calendar file and mails built in main stay German.
+- Text that ends up on a document or in stored data stays German literal, not
+  `t()`: `TAX_CODE_LABELS` and the invoice units (printed on invoices; the
+  invoice editor has its own `TAX_CODE_UI_LABELS`), the default line item text.
+- Not translated yet: messages built in the main process (zod errors, errors
+  from services). They reach the UI in German.
 
 ## Rules
 

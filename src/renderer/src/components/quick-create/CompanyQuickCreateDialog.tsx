@@ -4,6 +4,7 @@ import { toast } from '@/lib/toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QuickCreateDialog } from '@/components/quick-create/QuickCreateDialog'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * A company with its name and city, opened from a Firma picker ("Neue Firma
@@ -37,13 +38,13 @@ export function CompanyQuickCreateDialog({
 
   const createCompany = trpcReact.company.create.useMutation({
     onSuccess: (company) => {
-      toast.success(`„${company.name}“ angelegt`)
+      toast.success(t('„{{name}}“ angelegt', { name: company.name }))
       // The pickers and the company list
       void utils.company.invalidate()
       onCreated(company.id, company.name)
       onClose()
     },
-    onError: (e) => toast.error('Firma konnte nicht angelegt werden', { description: e.message })
+    onError: (e) => toast.error(t('Firma konnte nicht angelegt werden'), { description: e.message })
   })
 
   const handleSubmit = () => {
@@ -57,29 +58,29 @@ export function CompanyQuickCreateDialog({
   return (
     <QuickCreateDialog
       isOpen={isOpen}
-      title="Neue Firma anlegen"
-      submitLabel="Anlegen"
+      title={t('Neue Firma anlegen')}
+      submitLabel={t('Anlegen')}
       submitDisabled={!name.trim() || createCompany.isPending}
       onSubmit={handleSubmit}
       onClose={onClose}
     >
       <div className="space-y-2">
-        <Label htmlFor="company-quick-name">Firmenname *</Label>
+        <Label htmlFor="company-quick-name">{t('Firmenname *')}</Label>
         <Input
           id="company-quick-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="z. B. Muster Booking GmbH"
+          placeholder={t('z. B. Muster Booking GmbH')}
           autoFocus
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="company-quick-city">Stadt</Label>
+        <Label htmlFor="company-quick-city">{t('Stadt')}</Label>
         <Input
           id="company-quick-city"
           value={city}
           onChange={(e) => setCity(e.target.value)}
-          placeholder="z. B. Berlin"
+          placeholder={t('z. B. Berlin')}
         />
       </div>
     </QuickCreateDialog>

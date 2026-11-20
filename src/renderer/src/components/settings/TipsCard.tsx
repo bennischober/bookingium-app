@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/lib/toast'
+import { t } from '../../../../main/i18n/translate'
 
 /** #253: tips on or off, and the clicked-away ones back (this computer only) */
 export function TipsCard() {
@@ -17,11 +18,12 @@ export function TipsCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="h-4 w-4" />
-          Tipps
+          {t('Tipps')}
         </CardTitle>
         <CardDescription>
-          Kurze Hinweise an vielen Stellen erklären, was eine Funktion macht. Gilt nur auf diesem
-          Computer.
+          {t(
+            'Kurze Hinweise an vielen Stellen erklären, was eine Funktion macht. Gilt nur auf diesem Computer.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -31,7 +33,7 @@ export function TipsCard() {
             checked={!state.off}
             onCheckedChange={(checked) => setTipState((current) => ({ ...current, off: !checked }))}
           />
-          <Label htmlFor="settings-tips">Tipps anzeigen</Label>
+          <Label htmlFor="settings-tips">{t('Tipps anzeigen')}</Label>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -40,13 +42,15 @@ export function TipsCard() {
             disabled={!state.off && hidden === 0}
             onClick={() => {
               setTipState(reset)
-              toast.success('Alle Tipps werden wieder angezeigt')
+              toast.success(t('Alle Tipps werden wieder angezeigt'))
             }}
           >
-            Alle Tipps wieder anzeigen
+            {t('Alle Tipps wieder anzeigen')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            {hidden === 0 ? `${total} Tipps` : `${hidden} von ${total} Tipps ausgeblendet`}
+            {hidden === 0
+              ? t('{{total}} Tipps', { total })
+              : t('{{hidden}} von {{total}} Tipps ausgeblendet', { hidden, total })}
           </span>
         </div>
       </CardContent>

@@ -83,13 +83,13 @@ describe('show folder plan', () => {
       {
         role: 'Venue',
         name: 'Erika Muster',
-        email: 'erika@halle.example',
+        email: 'erika@halle.example.test',
         phone: '',
         side: 'venue',
         onSite: true
       }
     ]
-    const known = new Map([['erika@halle.example', { id: 7, name: 'Erika Muster' }]])
+    const known = new Map([['erika@halle.example.test', { id: 7, name: 'Erika Muster' }]])
     const [first] = planSuggestions(facts, current({ personsByEmail: known }), sources)
     expect(first.action).toMatchObject({
       type: 'person',

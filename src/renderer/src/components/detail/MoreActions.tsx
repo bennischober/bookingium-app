@@ -3,6 +3,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { t } from '../../../../main/i18n/translate'
 
 export type MoreAction = {
   label: string
@@ -24,7 +25,7 @@ export function MoreActions({ actions }: { actions: MoreAction[] }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="ghost" className="px-2" aria-label="Weitere Aktionen">
+        <Button size="sm" variant="ghost" className="px-2" aria-label={t('Weitere Aktionen')}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </PopoverTrigger>

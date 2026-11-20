@@ -25,6 +25,7 @@ import { MessageAttachments } from './MessageAttachments'
 import { MessageBody } from './MessageBody'
 import { MessageHeaderFields } from './MessageHeaderFields'
 import { MailShowsBar } from './MailShowsBar'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Reading pane. HTML mail is already sanitized by the core and shown in a
@@ -113,7 +114,7 @@ export function MessageView({
   if (detail.isError || !detail.data) {
     return (
       <p className="p-6 text-sm text-destructive">
-        Die E-Mail konnte nicht geladen werden.
+        {t('Die E-Mail konnte nicht geladen werden.')}
         {detail.error instanceof Error && ` ${detail.error.message}`}
       </p>
     )
@@ -127,7 +128,7 @@ export function MessageView({
     try {
       setWithImages(await mailApi.loadRemoteImages(message.id, message.remoteImages, accountId))
     } catch (error) {
-      toast.error('Bilder konnten nicht geladen werden', {
+      toast.error(t('Bilder konnten nicht geladen werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     } finally {
@@ -174,9 +175,9 @@ export function MessageView({
       const result = await whole(() =>
         trpcVanilla.mail.attachments.open.mutate(attachmentInput(partId))
       )
-      if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
+      if (result.saved) toast.success(t('Anhang gespeichert'), { description: result.name })
     } catch (error) {
-      toast.error('Anhang konnte nicht geöffnet werden', {
+      toast.error(t('Anhang konnte nicht geöffnet werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -186,17 +187,17 @@ export function MessageView({
   const saveAllAttachments = () =>
     whole(async (done) => {
       for (const a of done.attachments.filter((a) => !a.isInline)) await saveFile(a.partId)
-    }).catch(failed('Anhänge konnten nicht geladen werden'))
+    }).catch(failed(t('Anhänge konnten nicht geladen werden')))
 
   const saveAttachmentAs = (partId: string) =>
-    whole(() => saveFile(partId)).catch(failed('Anhang konnte nicht gespeichert werden'))
+    whole(() => saveFile(partId)).catch(failed(t('Anhang konnte nicht gespeichert werden')))
 
   const saveFile = async (partId: string) => {
     try {
       const result = await trpcVanilla.mail.attachments.saveAs.mutate(attachmentInput(partId))
-      if (result.saved) toast.success('Anhang gespeichert', { description: result.name })
+      if (result.saved) toast.success(t('Anhang gespeichert'), { description: result.name })
     } catch (error) {
-      toast.error('Anhang konnte nicht gespeichert werden', {
+      toast.error(t('Anhang konnte nicht gespeichert werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -206,12 +207,12 @@ export function MessageView({
   const toDocuments = (pick: (done: MessageDetail) => MessageDetail['attachments']) =>
     whole((done) =>
       setToDocument(pick(done).map((a) => ({ partId: a.partId, filename: a.filename })))
-    ).catch(failed('Anhang konnte nicht geladen werden'))
+    ).catch(failed(t('Anhang konnte nicht geladen werden')))
 
   /** #222: main reads the attachment, so the message is downloaded before the dialog opens */
   const companyFromAttachment = (partId: string) =>
     whole(() => setToCompany({ kind: 'attachment', ...attachmentInput(partId) })).catch(
-      failed('Anhang konnte nicht geladen werden')
+      failed(t('Anhang konnte nicht geladen werden'))
     )
 
   /** #225: the same for "Als Beleg speichern"; the receipt keeps the mail's Message-ID */
@@ -222,11 +223,13 @@ export function MessageView({
         ...attachmentInput(partId),
         storeMessageId: message.messageId ?? null
       })
-    ).catch(failed('Anhang konnte nicht geladen werden'))
+    ).catch(failed(t('Anhang konnte nicht geladen werden')))
 
   /** A forward carries the files: offline it stops here, never a forward without them */
   const forward = (compose: NonNullable<typeof onCompose>) =>
-    whole((done) => compose(done, 'forward')).catch(failed('Anhänge konnten nicht geladen werden'))
+    whole((done) => compose(done, 'forward')).catch(
+      failed(t('Anhänge konnten nicht geladen werden'))
+    )
 
   /** #71: reads the invitation part and opens the appointment dialog with it */
   const takeInvitation = async (partId: string) => {
@@ -234,7 +237,7 @@ export function MessageView({
       const bytes = await whole(() => mailApi.getAttachment(message.id, partId, accountId))
       const parsed = parseInvitation(calendarText(bytes))
       if (!parsed.ok) {
-        toast.error('Einladung kann nicht übernommen werden', { description: parsed.error })
+        toast.error(t('Einladung kann nicht übernommen werden'), { description: parsed.error })
         return
       }
       const existing = parsed.invitation.uid
@@ -242,7 +245,7 @@ export function MessageView({
         : null
       setTakingInvitation({ invitation: withTitle(parsed.invitation, message.subject), existing })
     } catch (error) {
-      toast.error('Einladung konnte nicht gelesen werden', {
+      toast.error(t('Einladung konnte nicht gelesen werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -258,7 +261,7 @@ export function MessageView({
         'message/rfc822'
       )
     } catch (error) {
-      toast.error('E-Mail konnte nicht gespeichert werden', {
+      toast.error(t('E-Mail konnte nicht gespeichert werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -271,7 +274,7 @@ export function MessageView({
             subject into a column a few letters wide */}
         <div className="flex flex-col-reverse gap-2 @xl:flex-row @xl:items-start">
           <h2 className="min-w-0 flex-1 text-lg font-semibold break-words">
-            {message.subject || '(Kein Betreff)'}
+            {message.subject || t('(Kein Betreff)')}
           </h2>
           <MessageActions
             message={message}
@@ -313,7 +316,10 @@ export function MessageView({
         {downloading && (
           <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm">
             <Spinner className="shrink-0" aria-hidden />
-            <span role="status">Nachricht wird geladen ({formatSize(message.sizeBytes)})…</span>
+            <span role="status">
+              {t('Nachricht wird geladen (')}
+              {formatSize(message.sizeBytes)})…
+            </span>
           </div>
         )}
 
@@ -322,7 +328,9 @@ export function MessageView({
             <ImageOff className="size-4 shrink-0 text-muted-foreground" />
             <span className="flex-1">
               {message.remoteImageCount}{' '}
-              {message.remoteImageCount === 1 ? 'externes Bild wurde' : 'externe Bilder wurden'}{' '}
+              {message.remoteImageCount === 1
+                ? t('externes Bild wurde')
+                : t('externe Bilder wurden')}{' '}
               blockiert.
             </span>
             <Button
@@ -333,9 +341,12 @@ export function MessageView({
             >
               {loadingImages
                 ? imageProgress
-                  ? `Lädt… ${imageProgress.done} von ${imageProgress.total}`
-                  : 'Wird geladen…'
-                : 'Bilder laden'}
+                  ? t('Lädt… {{done}} von {{total}}', {
+                      done: imageProgress.done,
+                      total: imageProgress.total
+                    })
+                  : t('Wird geladen…')
+                : t('Bilder laden')}
             </Button>
           </div>
         )}

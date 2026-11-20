@@ -1,16 +1,17 @@
 import { formatSize } from '@/components/mail/format'
 import type { PassSummary, SyncStatus } from '../../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "noch ca. 25 Min." from the core's estimate; rounded so it does not flicker each second */
 export function remainingText(seconds: number | null | undefined): string | null {
   if (!seconds || seconds <= 0) return null
   const minutes = Math.ceil(seconds / 60)
-  if (minutes < 2) return 'noch ca. 1 Min.'
-  if (minutes < 60) return `noch ca. ${minutes} Min.`
+  if (minutes < 2) return t('noch ca. 1 Min.')
+  if (minutes < 60) return t('noch ca. {{minutes}} Min.', { minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `noch ca. ${hours} Std.`
+  if (hours < 24) return t('noch ca. {{hours}} Std.', { hours })
   const days = Math.round(hours / 24)
-  return `noch ca. ${days} ${days === 1 ? 'Tag' : 'Tage'}`
+  return `noch ca. ${days} ${days === 1 ? t('Tag') : t('Tage')}`
 }
 
 /**
@@ -21,13 +22,14 @@ export function remainingText(seconds: number | null | undefined): string | null
  */
 export function syncProgressText(status: SyncStatus): string {
   const folders = `${status.foldersSynced} / ${status.foldersTotal}`
-  if (status.changePass === 'priority') return `Wichtige Ordner · ${folders}`
-  if (status.changePass === 'check') return `Wichtige Ordner aktuell · ${folders} Ordner geprüft`
+  if (status.changePass === 'priority') return t('Wichtige Ordner · {{folders}}', { folders })
+  if (status.changePass === 'check')
+    return t('Wichtige Ordner aktuell · {{folders}} Ordner geprüft', { folders })
   const initial = status.phase === 'initial' || status.phase === 'paused'
-  if (!initial || status.messagesDone === undefined) return `${folders} Ordner`
+  if (!initial || status.messagesDone === undefined) return t('{{folders}} Ordner', { folders })
   const parts = [
-    `${status.messagesDone.toLocaleString('de-DE')}${
-      status.messagesTotal ? ` / ${status.messagesTotal.toLocaleString('de-DE')}` : ''
+    `${status.messagesDone.toLocaleString(uiLocale())}${
+      status.messagesTotal ? ` / ${status.messagesTotal.toLocaleString(uiLocale())}` : ''
     } E-Mails`
   ]
   if (status.bytesTotal) parts.push(`ca. ${formatSize(status.bytesTotal)}`)
@@ -37,14 +39,14 @@ export function syncProgressText(status: SyncStatus): string {
 }
 
 const PASS_KIND: Record<PassSummary['kind'], string> = {
-  changes: 'Synchronisieren',
-  all: 'Synchronisieren (alle Ordner, Abgleich noch nicht vollständig)',
-  full: 'Alle Ordner prüfen'
+  changes: t('Synchronisieren'),
+  all: t('Synchronisieren (alle Ordner, Abgleich noch nicht vollständig)'),
+  full: t('Alle Ordner prüfen')
 }
 
 /** "1,2 s" */
 const seconds = (ms: number): string =>
-  `${(ms / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} s`
+  `${(ms / 1000).toLocaleString(uiLocale(), { maximumFractionDigits: 1 })} s`
 
 /**
  * #157: what the pacer did in a pass, when it slowed down at all ("Vom Server gebremst: 2 Signale,
@@ -53,8 +55,11 @@ const seconds = (ms: number): string =>
 export function pacingText(pass: PassSummary): string | null {
   const p = pass.pacing
   if (!p || (p.signals === 0 && p.maxPauseMs === 0)) return null
-  const signals = p.signals === 1 ? '1 Signal' : `${p.signals} Signale`
-  return `Vom Server gebremst: ${signals}, Pause bis ${p.maxPauseMs} ms`
+  const signals = p.signals === 1 ? t('1 Signal') : t('{{signals}} Signale', { signals: p.signals })
+  return t('Vom Server gebremst: {{signals}}, Pause bis {{maxPauseMs}} ms', {
+    signals,
+    maxPauseMs: p.maxPauseMs
+  })
 }
 
 /**
@@ -62,19 +67,29 @@ export function pacingText(pass: PassSummary): string | null {
  * the STATUS census pacing against a real server. Counts and times only, never folder names.
  */
 export function passSummaryText(pass: PassSummary): string {
-  const at = new Date(pass.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const at = new Date(pass.at).toLocaleTimeString(uiLocale(), {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
   const census = pass.listStatus
-    ? 'mit einem LIST-STATUS'
-    : `einzeln per STATUS, Pause ${pass.censusPauseMs} ms`
+    ? t('mit einem LIST-STATUS')
+    : t('einzeln per STATUS, Pause {{censusPauseMs}} ms', { censusPauseMs: pass.censusPauseMs })
   const lines = [
-    `Zuletzt: ${PASS_KIND[pass.kind]} um ${at}`,
-    `${pass.foldersChecked} Ordner geprüft in ${seconds(pass.censusMs)} (${census})`,
-    `${pass.foldersSynced} Ordner synchronisiert, gesamt ${seconds(pass.totalMs)}`,
-    `${pass.errors} Fehler`
+    t('Zuletzt: {{value}} um {{at}}', { value: PASS_KIND[pass.kind], at }),
+    t('{{foldersChecked}} Ordner geprüft in {{seconds}} ({{census}})', {
+      foldersChecked: pass.foldersChecked,
+      seconds: seconds(pass.censusMs),
+      census
+    }),
+    t('{{foldersSynced}} Ordner synchronisiert, gesamt {{seconds}}', {
+      foldersSynced: pass.foldersSynced,
+      seconds: seconds(pass.totalMs)
+    }),
+    t('{{errors}} Fehler', { errors: pass.errors })
   ]
   const pacing = pacingText(pass)
   if (pacing) lines.push(pacing)
-  if (pass.phase !== 'idle') lines.push('Vorzeitig beendet')
-  if (pass.connection !== 'online') lines.push('Verbindung danach getrennt')
+  if (pass.phase !== 'idle') lines.push(t('Vorzeitig beendet'))
+  if (pass.connection !== 'online') lines.push(t('Verbindung danach getrennt'))
   return lines.join('\n')
 }

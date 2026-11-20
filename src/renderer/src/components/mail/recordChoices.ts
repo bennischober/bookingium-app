@@ -4,6 +4,7 @@ import {
   DOCUMENT_OWNER_TYPES,
   type DocumentOwnerType
 } from '../../../../main/api/schemas/document.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The records a mail's attachment can be saved to (F9) and a mail can be linked to by
@@ -13,11 +14,11 @@ export type RecordType = DocumentOwnerType
 export const RECORD_TYPES = DOCUMENT_OWNER_TYPES
 
 export const RECORD_LABELS: Record<RecordType, string> = {
-  event: 'Event',
-  band: 'Band',
-  company: 'Firma',
-  venue: 'Club / Festival',
-  person: 'Person'
+  event: t('Event'),
+  band: t('Band'),
+  company: t('Firma'),
+  venue: t('Club / Festival'),
+  person: t('Person')
 }
 
 /** One record the picker can offer */
@@ -56,7 +57,8 @@ export function useRecordChoices(type: RecordType, search: string, enabled = tru
       case 'person':
         return (persons.data?.items ?? []).map((r) => ({
           id: r.id,
-          label: [r.firstName, r.lastName].filter(Boolean).join(' ') || `Person ${r.id}`
+          label:
+            [r.firstName, r.lastName].filter(Boolean).join(' ') || t('Person {{id}}', { id: r.id })
         }))
       case 'company':
         return (companies.data?.items ?? []).map((r) => ({ id: r.id, label: r.name }))

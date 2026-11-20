@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label'
 import { quotaOf, soldOf } from '../../../../main/advancing/advancing'
 import type { ShowAdvancingDto } from '../../../../main/api/schemas/advancing.schema'
 import { ExternalDoneToggle } from './ExternalDoneToggle'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 const today = (): string => new Date().toISOString().slice(0, 10)
-const count = (value: number): string => value.toLocaleString('de-DE')
+const count = (value: number): string => value.toLocaleString(uiLocale())
 
 /** The quota as typed: a number, or what stands instead ("warten auf Bestätigung") */
 const quotaText = (show: ShowAdvancingDto): string =>
@@ -25,7 +26,7 @@ export function UtilizationBar({ percent }: { percent: number | null }) {
     <div
       className="h-2 w-full overflow-hidden rounded-full bg-muted"
       role="meter"
-      aria-label="Auslastung"
+      aria-label={t('Auslastung')}
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -58,20 +59,20 @@ export function TicketsTab({ eventId }: { eventId: number }) {
   const saveQuota = trpcReact.advancing.saveQuota.useMutation({
     onSuccess: (saved) => {
       onSaved(saved)
-      toast.success('Kontingent gespeichert')
+      toast.success(t('Kontingent gespeichert'))
     },
     onError: (error) =>
-      toast.error('Kontingent konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Kontingent konnte nicht gespeichert werden'), { description: error.message })
   })
   const saveReport = trpcReact.advancing.saveReport.useMutation({
     onSuccess: (saved) => {
       onSaved(saved)
       setSold('')
       setNote('')
-      toast.success('Verkaufsmeldung gespeichert')
+      toast.success(t('Verkaufsmeldung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Meldung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Meldung konnte nicht gespeichert werden'), { description: error.message })
   })
   const deleteReport = trpcReact.advancing.deleteReport.useMutation({
     onSuccess: () => {
@@ -80,7 +81,7 @@ export function TicketsTab({ eventId }: { eventId: number }) {
   })
 
   if (show.isLoading || !loaded) {
-    return <p className="text-sm text-muted-foreground">Wird geladen…</p>
+    return <p className="text-sm text-muted-foreground">{t('Wird geladen…')}</p>
   }
   if (show.error) return <p className="text-sm text-destructive">{show.error.message}</p>
 
@@ -90,9 +91,12 @@ export function TicketsTab({ eventId }: { eventId: number }) {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <section className="grid gap-4 rounded-lg border p-4 md:grid-cols-3" aria-label="Kontingent">
+      <section
+        className="grid gap-4 rounded-lg border p-4 md:grid-cols-3"
+        aria-label={t('Kontingent')}
+      >
         <div className="space-y-1.5">
-          <Label htmlFor="ticket-quota">Kontingent</Label>
+          <Label htmlFor="ticket-quota">{t('Kontingent')}</Label>
           <div className="flex gap-2">
             <Input
               id="ticket-quota"
@@ -108,37 +112,39 @@ export function TicketsTab({ eventId }: { eventId: number }) {
                 saveQuota.mutate({ eventId, quota: parsed.quota, quotaNote: parsed.note })
               }}
             >
-              Speichern
+              {t('Speichern')}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Eine Zahl, oder was gilt („warten auf Bestätigung“)
+            {t('Eine Zahl, oder was gilt („warten auf Bestätigung“)')}
           </p>
         </div>
         <div className="space-y-2 md:col-span-2">
-          <p className="text-sm text-muted-foreground">Verkauft</p>
+          <p className="text-sm text-muted-foreground">{t('Verkauft')}</p>
           <p className="text-2xl font-semibold tabular-nums">
             {loaded.sold === null ? '–' : count(loaded.sold)}
             {loaded.quota !== null && (
               <span className="text-base font-normal text-muted-foreground">
                 {' '}
-                von {count(loaded.quota)}
+                {t('von')} {count(loaded.quota)}
                 {loaded.utilization !== null && ` · ${loaded.utilization} %`}
-                {remaining !== null && remaining >= 0 && ` · ${count(remaining)} übrig`}
+                {remaining !== null &&
+                  remaining >= 0 &&
+                  t(' · {{remaining}} übrig', { remaining: count(remaining) })}
               </span>
             )}
           </p>
           <UtilizationBar percent={loaded.utilization} />
           {loaded.reports[0] && (
             <p className="text-xs text-muted-foreground">
-              Stand {formatShortDate(loaded.reports[0].reportDate)}
+              {t('Stand')} {formatShortDate(loaded.reports[0].reportDate)}
             </p>
           )}
         </div>
       </section>
 
-      <section className="space-y-3 rounded-lg border p-4" aria-label="Verkaufsmeldungen">
-        <h3 className="font-semibold">Verkaufsmeldungen</h3>
+      <section className="space-y-3 rounded-lg border p-4" aria-label={t('Verkaufsmeldungen')}>
+        <h3 className="font-semibold">{t('Verkaufsmeldungen')}</h3>
         <ExternalDoneToggle eventId={eventId} step="tickets" />
         <form
           className="flex flex-wrap items-end gap-2"
@@ -149,7 +155,7 @@ export function TicketsTab({ eventId }: { eventId: number }) {
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="report-date">Stand vom</Label>
+            <Label htmlFor="report-date">{t('Stand vom')}</Label>
             <Input
               id="report-date"
               type="date"
@@ -159,7 +165,7 @@ export function TicketsTab({ eventId }: { eventId: number }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="report-sold">Verkauft</Label>
+            <Label htmlFor="report-sold">{t('Verkauft')}</Label>
             <Input
               id="report-sold"
               inputMode="numeric"
@@ -169,32 +175,32 @@ export function TicketsTab({ eventId }: { eventId: number }) {
             />
           </div>
           <div className="min-w-48 flex-1 space-y-1.5">
-            <Label htmlFor="report-note">Notiz</Label>
+            <Label htmlFor="report-note">{t('Notiz')}</Label>
             <Input
               id="report-note"
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder="z. B. inkl. Gästeliste"
+              placeholder={t('z. B. inkl. Gästeliste')}
             />
           </div>
           <Button
             type="submit"
             disabled={parsedSold === null || !reportDate || saveReport.isPending}
           >
-            Meldung hinzufügen
+            {t('Meldung hinzufügen')}
           </Button>
         </form>
 
         {loaded.reports.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch keine Verkaufsmeldung.</p>
+          <p className="text-sm text-muted-foreground">{t('Noch keine Verkaufsmeldung.')}</p>
         ) : (
-          <table className="w-full text-sm" aria-label="Meldungen">
+          <table className="w-full text-sm" aria-label={t('Meldungen')}>
             <thead className="text-left text-muted-foreground">
               <tr>
-                <th className="py-1.5 font-medium">Stand</th>
-                <th className="py-1.5 text-right font-medium">Verkauft</th>
-                <th className="py-1.5 text-right font-medium">seit davor</th>
-                <th className="py-1.5 pl-4 font-medium">Notiz</th>
+                <th className="py-1.5 font-medium">{t('Stand')}</th>
+                <th className="py-1.5 text-right font-medium">{t('Verkauft')}</th>
+                <th className="py-1.5 text-right font-medium">{t('seit davor')}</th>
+                <th className="py-1.5 pl-4 font-medium">{t('Notiz')}</th>
                 <th />
               </tr>
             </thead>
@@ -214,7 +220,9 @@ export function TicketsTab({ eventId }: { eventId: number }) {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Meldung vom ${formatShortDate(report.reportDate)} löschen`}
+                        aria-label={t('Meldung vom {{formatShortDate}} löschen', {
+                          formatShortDate: formatShortDate(report.reportDate)
+                        })}
                         onClick={() => deleteReport.mutate({ id: report.id })}
                       >
                         <Trash2 />

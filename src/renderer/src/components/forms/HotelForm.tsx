@@ -16,6 +16,7 @@ import type {
   HotelDto,
   UpdateHotelInput
 } from '../../../../main/api/schemas/hotel.schema'
+import { t } from '../../../../main/i18n/translate'
 
 interface HotelFormProps {
   mode: FormMode
@@ -58,15 +59,17 @@ export function HotelForm({
 
   return (
     <FormBody form={form} disabled={isSubmitting}>
-      <form.AppField name="name" validators={{ onChange: required('Name') }}>
-        {(field) => <field.TextField label="Name" required placeholder="Hotelnamen eingeben" />}
+      <form.AppField name="name" validators={{ onChange: required(t('Name')) }}>
+        {(field) => (
+          <field.TextField label={t('Name')} required placeholder={t('Hotelnamen eingeben')} />
+        )}
       </form.AppField>
 
       <form.AppField name="notes">
         {(field) => (
           <field.TextareaField
-            label="Anmerkungen"
-            placeholder="Weitere Details zu diesem Hotel"
+            label={t('Anmerkungen')}
+            placeholder={t('Weitere Details zu diesem Hotel')}
             rows={4}
           />
         )}
@@ -79,7 +82,7 @@ export function HotelForm({
       <ContactFormFields form={form} showOtherEmails={false} />
 
       <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {mode === 'create' ? 'Anlegen' : 'Speichern'}
+        {mode === 'create' ? t('Anlegen') : t('Speichern')}
       </FormFooter>
     </FormBody>
   )

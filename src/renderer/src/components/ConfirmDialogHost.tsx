@@ -14,6 +14,7 @@ import {
   subscribeConfirm,
   type ConfirmOptions
 } from '@/lib/confirm'
+import { t } from '../../../main/i18n/translate'
 
 /** Renders the dialog for confirmAction(); mount once at the app root */
 export function ConfirmDialogHost() {
@@ -35,13 +36,13 @@ export function ConfirmDialogHost() {
         {/* Cancel comes first, so it holds the initial focus */}
         <DialogFooter>
           <Button variant="outline" onClick={() => settleConfirm(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button
             variant={options?.destructive ? 'destructive' : 'default'}
             onClick={() => settleConfirm(true)}
           >
-            {options?.confirmLabel ?? 'Bestätigen'}
+            {options?.confirmLabel ?? t('Bestätigen')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -21,6 +21,7 @@ import {
 import { VENUE_KIND_LABELS, VenueKind } from '../../../../main/api/schemas/venue.schema'
 import { COMPANY_KIND_LABELS, CompanyKind } from '../../../../main/api/schemas/company.schema'
 import { columnLetter } from './importLabels'
+import { t } from '../../../../main/i18n/translate'
 
 const NO_COUNTRY = 'none'
 
@@ -80,7 +81,7 @@ export function ImportMappingStep({
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
-          <Label htmlFor="import-target">Liste enthält</Label>
+          <Label htmlFor="import-target">{t('Liste enthält')}</Label>
           <Select value={target} onValueChange={(value) => onTargetChange(value as ImportTarget)}>
             <SelectTrigger id="import-target">
               <SelectValue />
@@ -95,17 +96,17 @@ export function ImportMappingStep({
           </Select>
         </div>
         <div className="min-w-0 space-y-1.5">
-          <Label>Datei</Label>
+          <Label>{t('Datei')}</Label>
           <p className="truncate py-2 text-sm" title={file.fileName}>
             {file.fileName}{' '}
             <span className="text-muted-foreground">
-              ({table.rows.length} {table.rows.length === 1 ? 'Zeile' : 'Zeilen'})
+              ({table.rows.length} {table.rows.length === 1 ? t('Zeile') : t('Zeilen')})
             </span>
           </p>
         </div>
         {target === 'venues' && (
           <div className="space-y-1.5">
-            <Label htmlFor="import-kind">Importieren als</Label>
+            <Label htmlFor="import-kind">{t('Importieren als')}</Label>
             <Select value={kind} onValueChange={(value) => onKindChange(value as VenueKind)}>
               <SelectTrigger id="import-kind">
                 <SelectValue />
@@ -123,7 +124,7 @@ export function ImportMappingStep({
         {(target === 'companies' || target === 'persons') && (
           <div className="space-y-1.5">
             <Label htmlFor="import-company-kind">
-              {target === 'companies' ? 'Firmen sind' : 'Firmen der Personen sind'}
+              {target === 'companies' ? t('Firmen sind') : t('Firmen der Personen sind')}
             </Label>
             <Select
               value={companyKind}
@@ -144,18 +145,18 @@ export function ImportMappingStep({
         )}
         {usesGenres && (
           <div className="space-y-1.5">
-            <Label htmlFor="import-genres">Genres für alle</Label>
+            <Label htmlFor="import-genres">{t('Genres für alle')}</Label>
             <Input
               id="import-genres"
               value={genres}
               onChange={(event) => onGenresChange(event.target.value)}
-              placeholder="z. B. Metal, Rock"
+              placeholder={t('z. B. Metal, Rock')}
             />
           </div>
         )}
         {usesAddress && (
           <div className="space-y-1.5">
-            <Label htmlFor="import-country">Land, wenn keins angegeben</Label>
+            <Label htmlFor="import-country">{t('Land, wenn keins angegeben')}</Label>
             <Select
               value={defaultCountry || NO_COUNTRY}
               onValueChange={(value) => onDefaultCountryChange(value === NO_COUNTRY ? '' : value)}
@@ -164,7 +165,7 @@ export function ImportMappingStep({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_COUNTRY}>Keins</SelectItem>
+                <SelectItem value={NO_COUNTRY}>{t('Keins')}</SelectItem>
                 {IMPORT_COUNTRY_OPTIONS.map((country) => (
                   <SelectItem key={country.code} value={country.code}>
                     {country.label}
@@ -178,7 +179,7 @@ export function ImportMappingStep({
 
       {showRemembered && (
         <p className="text-sm text-muted-foreground">
-          Zuordnung vom letzten Import einer Liste mit diesen Spalten übernommen.
+          {t('Zuordnung vom letzten Import einer Liste mit diesen Spalten übernommen.')}
         </p>
       )}
 
@@ -186,9 +187,9 @@ export function ImportMappingStep({
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-muted text-left">
             <tr>
-              <th className="px-3 py-2 font-medium">Spalte</th>
-              <th className="px-3 py-2 font-medium">Beispielwerte</th>
-              <th className="w-64 px-3 py-2 font-medium">Übernehmen als</th>
+              <th className="px-3 py-2 font-medium">{t('Spalte')}</th>
+              <th className="px-3 py-2 font-medium">{t('Beispielwerte')}</th>
+              <th className="w-64 px-3 py-2 font-medium">{t('Übernehmen als')}</th>
             </tr>
           </thead>
           <tbody>
@@ -201,7 +202,7 @@ export function ImportMappingStep({
                   <span className="mr-2 font-mono text-xs text-muted-foreground">
                     {columnLetter(column)}
                   </span>
-                  <span className="font-medium">{header || '(ohne Überschrift)'}</span>
+                  <span className="font-medium">{header || t('(ohne Überschrift)')}</span>
                 </td>
                 <td className="max-w-0 px-3 py-2 align-top">
                   <span className="block truncate" title={samples[column]?.join(' · ')}>
@@ -215,7 +216,9 @@ export function ImportMappingStep({
                   >
                     <SelectTrigger
                       className="h-8"
-                      aria-label={`Spalte ${columnLetter(column)} übernehmen als`}
+                      aria-label={t('Spalte {{columnLetter}} übernehmen als', {
+                        columnLetter: columnLetter(column)
+                      })}
                     >
                       <SelectValue />
                     </SelectTrigger>

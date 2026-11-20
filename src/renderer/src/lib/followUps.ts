@@ -1,3 +1,4 @@
+import { t, uiLocale } from '../../../main/i18n/translate'
 // Dates for follow-ups (Wiedervorlagen). Due dates are plain local dates
 // ("2026-10-21"), so "today" is the local calendar day, not UTC.
 
@@ -19,10 +20,10 @@ export const germanDate = (iso: string): string => iso.split('-').reverse().join
 
 /** Quick picks in the dialog, counted from today */
 export const DUE_PRESETS = [
-  { label: 'Morgen', days: 1 },
-  { label: 'In 3 Tagen', days: 3 },
-  { label: 'In 1 Woche', days: 7 },
-  { label: 'In 2 Wochen', days: 14 }
+  { label: t('Morgen'), days: 1 },
+  { label: t('In 3 Tagen'), days: 3 },
+  { label: t('In 1 Woche'), days: 7 },
+  { label: t('In 2 Wochen'), days: 14 }
 ] as const
 
 export type DueState = 'overdue' | 'today' | 'upcoming'
@@ -36,11 +37,14 @@ export function dueState(dueDate: string, today: string = localIsoDate()): DueSt
 /** "Überfällig seit 18.10.", "Heute", "Morgen" or "Fr, 24.10.2026" */
 export function dueLabel(dueDate: string, today: string = localIsoDate()): string {
   const state = dueState(dueDate, today)
-  if (state === 'overdue') return `Überfällig seit ${germanDate(dueDate)}`
-  if (state === 'today') return 'Heute'
-  if (dueDate === addDays(today, 1)) return 'Morgen'
+  if (state === 'overdue')
+    return t('Überfällig seit {{germanDate}}', { germanDate: germanDate(dueDate) })
+  if (state === 'today') return t('Heute')
+  if (dueDate === addDays(today, 1)) return t('Morgen')
   const [year, month, day] = dueDate.split('-').map(Number)
-  const weekday = new Date(year, month - 1, day).toLocaleDateString('de-DE', { weekday: 'short' })
+  const weekday = new Date(year, month - 1, day).toLocaleDateString(uiLocale(), {
+    weekday: 'short'
+  })
   return `${weekday}, ${germanDate(dueDate)}`
 }
 
@@ -53,13 +57,15 @@ function localDayOf(utc: string): string | null {
 /** done_at (SQLite UTC, "2026-11-06 09:30:00") -> "Erledigt am 06.11.2026", in local time */
 export function doneLabel(doneAt: string): string {
   const day = localDayOf(doneAt)
-  return day ? `Erledigt am ${germanDate(day)}` : 'Erledigt'
+  return day ? t('Erledigt am {{germanDate}}', { germanDate: germanDate(day) }) : t('Erledigt')
 }
 
 /** #121: replied_at (SQLite UTC) -> "Antwort erhalten am 06.11.2026", in local time */
 export function repliedLabel(repliedAt: string): string {
   const day = localDayOf(repliedAt)
-  return day ? `Antwort erhalten am ${germanDate(day)}` : 'Antwort erhalten'
+  return day
+    ? t('Antwort erhalten am {{germanDate}}', { germanDate: germanDate(day) })
+    : t('Antwort erhalten')
 }
 
 /**

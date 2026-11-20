@@ -1,4 +1,5 @@
 import type { FolderNode } from '../../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 export const messageKey = (accountId: string, id: number) => ['mail', accountId, 'message', id]
 
@@ -10,16 +11,16 @@ export const FOLDER_DRAG_TYPE = 'application/x-bookingum-folder'
 // Display names for the standard folders (IMAP SPECIAL-USE); other folders
 // keep the name they have on the server
 const SPECIAL_FOLDER_NAMES: Array<[string, string]> = [
-  ['Inbox', 'Posteingang'],
-  ['Drafts', 'Entwürfe'],
-  ['Sent', 'Gesendet'],
-  ['Archive', 'Archiv'],
-  ['Junk', 'Spam'],
-  ['Trash', 'Papierkorb']
+  ['Inbox', t('Posteingang')],
+  ['Drafts', t('Entwürfe')],
+  ['Sent', t('Gesendet')],
+  ['Archive', t('Archiv')],
+  ['Junk', t('Spam')],
+  ['Trash', t('Papierkorb')]
 ]
 
 export function folderLabel(folder: FolderNode): string {
-  if (folder.path.toUpperCase() === 'INBOX') return 'Posteingang'
+  if (folder.path.toUpperCase() === 'INBOX') return t('Posteingang')
   const special = SPECIAL_FOLDER_NAMES.find(([use]) => folder.specialUse?.includes(use))
   return special ? special[1] : folder.name
 }
@@ -46,9 +47,9 @@ export function formatListDate(iso: string | null): string {
   const date = new Date(iso)
   const now = new Date()
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString('de-DE', {
+  return date.toLocaleDateString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: date.getFullYear() === now.getFullYear() ? undefined : '2-digit'
@@ -57,15 +58,15 @@ export function formatListDate(iso: string | null): string {
 
 export function formatFullDate(iso: string | null): string {
   return iso
-    ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' })
-    : 'Unbekannt'
+    ? new Date(iso).toLocaleString(uiLocale(), { dateStyle: 'full', timeStyle: 'short' })
+    : t('Unbekannt')
 }
 
 export function formatSize(bytes: number): string {
   if (bytes >= 1e9)
-    return `${(bytes / 1e9).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`
+    return `${(bytes / 1e9).toLocaleString(uiLocale(), { maximumFractionDigits: 1 })} GB`
   if (bytes >= 1e6)
-    return `${(bytes / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB`
+    return `${(bytes / 1e6).toLocaleString(uiLocale(), { maximumFractionDigits: 1 })} MB`
   if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`
   return `${bytes} B`
 }
@@ -100,7 +101,9 @@ export function snippetParts(snippet: string): Array<{ text: string; hit: boolea
 
 /** #158: the search note for folders that sync only when opened and were never opened */
 export function notDownloadedNote(count: number): string {
-  return `Nicht geöffnete Ordner werden nicht durchsucht (${count.toLocaleString('de-DE')} Ordner).`
+  return t('Nicht geöffnete Ordner werden nicht durchsucht ({{count}} Ordner).', {
+    count: count.toLocaleString(uiLocale())
+  })
 }
 
 /** Saves bytes through the browser's download (Electron asks where) */

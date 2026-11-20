@@ -4,6 +4,7 @@
 
 import type { RadiusClause, RadiusOverrideDto } from '../../../../main/api/schemas/radius.schema'
 import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../../../../main/map/radius'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 // The defaults and their resolution per kind are the main process's (pure module)
 export { defaultClause, type RadiusDefaults } from '../../../../main/map/radius'
@@ -37,8 +38,12 @@ export function hasOverride(override: RadiusOverrideDto | null | undefined): boo
 
 /** "100 km · 4 Wochen vorher, 4 nachher" */
 export function formatClause(clause: RadiusClause): string {
-  const weeks = (n: number) => (n === 1 ? '1 Woche' : `${n} Wochen`)
-  return `${clause.km.toLocaleString('de-DE')} km · ${weeks(clause.weeksBefore)} vorher, ${clause.weeksAfter} nachher`
+  const weeks = (n: number) => (n === 1 ? t('1 Woche') : t('{{n}} Wochen', { n }))
+  return t('{{km}} km · {{weeks}} vorher, {{weeksAfter}} nachher', {
+    km: clause.km.toLocaleString(uiLocale()),
+    weeks: weeks(clause.weeksBefore),
+    weeksAfter: clause.weeksAfter
+  })
 }
 
 export function draftFromOverride(override: RadiusOverrideDto | null | undefined): RadiusDraft {
@@ -63,7 +68,7 @@ function parseField(text: string, min: number, max: number): number | null | str
   if (!trimmed) return null
   const value = Number(trimmed)
   if (!Number.isInteger(value) || value < min || value > max) {
-    return `ganze Zahl von ${min} bis ${max.toLocaleString('de-DE')}`
+    return t('ganze Zahl von {{min}} bis {{max}}', { min, max: max.toLocaleString(uiLocale()) })
   }
   return value
 }
@@ -84,9 +89,11 @@ export function parseOverrideDraft(draft: RadiusDraft): ParsedOverride {
   const km = parseField(draft.km, 1, RADIUS_KM_MAX)
   const before = parseField(draft.weeksBefore, 0, RADIUS_WEEKS_MAX)
   const after = parseField(draft.weeksAfter, 0, RADIUS_WEEKS_MAX)
-  if (typeof km === 'string') return { ok: false, error: `Radius: ${km}` }
-  if (typeof before === 'string') return { ok: false, error: `Wochen vorher: ${before}` }
-  if (typeof after === 'string') return { ok: false, error: `Wochen nachher: ${after}` }
+  if (typeof km === 'string') return { ok: false, error: t('Radius: {{km}}', { km }) }
+  if (typeof before === 'string')
+    return { ok: false, error: t('Wochen vorher: {{before}}', { before }) }
+  if (typeof after === 'string')
+    return { ok: false, error: t('Wochen nachher: {{after}}', { after }) }
   return { ok: true, value: { radiusKm: km, radiusWeeksBefore: before, radiusWeeksAfter: after } }
 }
 
@@ -98,7 +105,7 @@ export function parseClauseDraft(
   if (!parsed.ok) return parsed
   const { radiusKm, radiusWeeksBefore, radiusWeeksAfter } = parsed.value
   if (radiusKm === null || radiusWeeksBefore === null || radiusWeeksAfter === null) {
-    return { ok: false, error: 'Alle drei Felder ausfüllen' }
+    return { ok: false, error: t('Alle drei Felder ausfüllen') }
   }
   return {
     ok: true,

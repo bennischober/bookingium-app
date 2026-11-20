@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import type { useMailSearch } from '@/hooks/useMailSearch'
 import { folderLabel, notDownloadedNote } from './format'
 import type { FolderNode } from '../../../../main/mailclient/core/types'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /**
  * Above the mail list: the search field, the filters, the thread switch and, while searching, the
@@ -51,8 +52,8 @@ export function MailSearchBar({
               setFacetFolderId(null)
             }}
             onKeyDown={(e) => e.key === 'Escape' && clearSearch()}
-            placeholder="Suchen (/)"
-            aria-label="E-Mails durchsuchen"
+            placeholder={t('Suchen (/)')}
+            aria-label={t('E-Mails durchsuchen')}
             className="pl-8"
           />
         </div>
@@ -62,7 +63,7 @@ export function MailSearchBar({
           onClick={() => setShowFilters((v) => !v)}
           aria-expanded={showFilters}
         >
-          Filter
+          {t('Filter')}
         </Button>
         {/* Groups the list into threads; off, the list is one row per mail */}
         {!searching && (
@@ -71,13 +72,13 @@ export function MailSearchBar({
             size="sm"
             onClick={() => setThreads((v) => !v)}
             aria-pressed={threads}
-            title="Mails zu Unterhaltungen gruppieren"
+            title={t('Mails zu Unterhaltungen gruppieren')}
           >
-            Unterhaltungen
+            {t('Unterhaltungen')}
           </Button>
         )}
         {searching && (
-          <Button variant="ghost" size="icon-sm" onClick={clearSearch} title="Suche beenden">
+          <Button variant="ghost" size="icon-sm" onClick={clearSearch} title={t('Suche beenden')}>
             <X />
           </Button>
         )}
@@ -88,11 +89,11 @@ export function MailSearchBar({
             className="col-span-2"
             value={filters.from}
             onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-            placeholder="Von (Name oder Adresse)"
-            aria-label="Von"
+            placeholder={t('Von (Name oder Adresse)')}
+            aria-label={t('Von')}
           />
           <label className="flex flex-col gap-1">
-            ab
+            {t('ab')}
             <Input
               type="date"
               value={filters.after}
@@ -100,7 +101,7 @@ export function MailSearchBar({
             />
           </label>
           <label className="flex flex-col gap-1">
-            bis
+            {t('bis')}
             <Input
               type="date"
               value={filters.before}
@@ -113,7 +114,7 @@ export function MailSearchBar({
               checked={filters.unread}
               onChange={(e) => setFilters({ ...filters, unread: e.target.checked })}
             />
-            Nur ungelesene
+            {t('Nur ungelesene')}
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -121,7 +122,7 @@ export function MailSearchBar({
               checked={filters.flagged}
               onChange={(e) => setFilters({ ...filters, flagged: e.target.checked })}
             />
-            Nur markierte
+            {t('Nur markierte')}
           </label>
           <label className="col-span-2 flex items-center gap-2">
             <input
@@ -129,14 +130,15 @@ export function MailSearchBar({
               checked={filters.hasAttachment}
               onChange={(e) => setFilters({ ...filters, hasAttachment: e.target.checked })}
             />
-            Nur mit Anhang
+            {t('Nur mit Anhang')}
           </label>
         </div>
       )}
       {searching && firstResult && (
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">
-            {firstResult.total.toLocaleString('de-DE')} Treffer · {firstResult.elapsedMs} ms
+            {firstResult.total.toLocaleString(uiLocale())} {t('Treffer ·')} {firstResult.elapsedMs}{' '}
+            ms
           </p>
           {/* #158: a folder synced only on open has no local mail until it is opened */}
           {(firstResult.notDownloadedFolders ?? 0) > 0 && (
@@ -145,7 +147,7 @@ export function MailSearchBar({
             </p>
           )}
           {firstResult.facets && firstResult.facets.length > 1 && (
-            <div className="flex flex-wrap gap-1" aria-label="Treffer nach Ordner">
+            <div className="flex flex-wrap gap-1" aria-label={t('Treffer nach Ordner')}>
               {firstResult.facets.slice(0, 8).map((facet) => {
                 const f = allFolders.find((x) => x.id === facet.folderId)
                 const active = facetFolderId === facet.folderId

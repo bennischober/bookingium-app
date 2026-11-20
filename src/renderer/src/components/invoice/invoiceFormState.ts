@@ -12,6 +12,7 @@ import {
   lineNetCents,
   vatCents
 } from '../../../../main/einvoice/amounts'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The invoice form's state as plain data, and the rules that turn it into the
@@ -41,10 +42,10 @@ export const INVOICE_RECIPIENT_KINDS: InvoiceRecipientKind[] = [
 ]
 
 export const RECIPIENT_KIND_LABELS: Record<InvoiceRecipientKind, string> = {
-  company: 'Firma',
-  band: 'Band',
-  person: 'Person',
-  other: 'Sonstige'
+  company: t('Firma'),
+  band: t('Band'),
+  person: t('Person'),
+  other: t('Sonstige')
 }
 
 export const EMPTY_LINE: InvoiceLineDraft = {
@@ -82,11 +83,12 @@ export function recipientOfKind(kind: InvoiceRecipientKind): RecipientDraft {
 
 /** Why the recipient cannot be saved, or null */
 export function recipientError(recipient: RecipientDraft): string | null {
-  if (recipient.kind === 'band' && !recipient.bandId) return 'Bitte eine Empfänger-Band auswählen'
+  if (recipient.kind === 'band' && !recipient.bandId)
+    return t('Bitte eine Empfänger-Band auswählen')
   if (recipient.kind === 'person' && !recipient.personId)
-    return 'Bitte eine Empfänger-Person auswählen'
+    return t('Bitte eine Empfänger-Person auswählen')
   if (recipient.kind === 'other' && !recipient.nameOverride.trim())
-    return 'Bitte einen Empfängernamen eingeben'
+    return t('Bitte einen Empfängernamen eingeben')
   return null
 }
 
@@ -111,6 +113,7 @@ export function initialLines(invoice: InvoiceDto | undefined): InvoiceLineDraft[
     return [
       {
         ...EMPTY_LINE,
+        // Printed on the invoice: stays German whatever the UI language is (#254)
         description: 'Leistungsposition',
         unitPriceNet: String(invoice.totalAmount),
         taxRate: '0'
@@ -133,7 +136,7 @@ export function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemIn
       const quantity = Math.max(0.000001, parseNumber(line.quantity, 1))
       const unitPriceNet = Math.max(0, parseNumber(line.unitPriceNet, 0))
       const taxRate = Math.max(0, Math.min(100, parseNumber(line.taxRate, 0)))
-      const description = line.description.trim() || 'Leistungsposition'
+      const description = line.description.trim() || t('Leistungsposition')
 
       return {
         description,
@@ -150,6 +153,7 @@ export function normalizeLineItems(lines: InvoiceLineDraft[]): InvoiceLineItemIn
     ? normalized
     : [
         {
+          // Printed on the invoice: stays German whatever the UI language is (#254)
           description: 'Leistungsposition',
           quantity: 1,
           unit: 'service',

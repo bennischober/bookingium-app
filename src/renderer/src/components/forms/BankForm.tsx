@@ -3,6 +3,7 @@ import { FormBody } from './FormFields'
 import { useAppForm } from './appForm'
 import type { z } from 'zod'
 import type { BankDto, CreateBankInput } from '../../../../main/api/schemas/bank.schema'
+import { t } from '../../../../main/i18n/translate'
 
 interface BankFormProps {
   bank?: BankDto
@@ -26,10 +27,10 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
   return (
     <FormBody form={form} className="space-y-4">
       <form.AppField name="bankName">
-        {(field) => <field.TextField label="Bankname" required />}
+        {(field) => <field.TextField label={t('Bankname')} required />}
       </form.AppField>
       <form.AppField name="accountHolder">
-        {(field) => <field.TextField label="Kontoinhaber" required />}
+        {(field) => <field.TextField label={t('Kontoinhaber')} required />}
       </form.AppField>
       <form.AppField name="iban">
         {(field) => <field.TextField label="IBAN" required placeholder="DE89370400440532013000" />}
@@ -38,7 +39,7 @@ export function BankForm({ bank, onSubmit, onCancel }: BankFormProps) {
         {(field) => <field.TextField label="BIC/SWIFT" required placeholder="COBADEFFXXX" />}
       </form.AppField>
 
-      <FormFooter onCancel={onCancel}>{bank ? 'Speichern' : 'Anlegen'}</FormFooter>
+      <FormFooter onCancel={onCancel}>{bank ? t('Speichern') : t('Anlegen')}</FormFooter>
     </FormBody>
   )
 }

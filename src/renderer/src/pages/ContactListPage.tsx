@@ -26,6 +26,7 @@ import type {
   ContactListRecipientDto,
   ContactListSource
 } from '../../../main/api/schemas/contactList.schema'
+import { t } from '../../../main/i18n/translate'
 
 export default function ContactListPage() {
   const [filters, setFilters] = useState<ContactListFilters>(EMPTY_FILTERS)
@@ -61,48 +62,54 @@ export default function ContactListPage() {
       setSavedId(result.id)
       setNameDialog(null)
       void utils.contactList.listSaved.invalidate()
-      toast.success(`Verteiler „${result.name}“ gespeichert`)
+      toast.success(t('Verteiler „{{name}}“ gespeichert', { name: result.name }))
     },
     onError: (error) =>
-      toast.error('Verteiler konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Verteiler konnte nicht gespeichert werden'), { description: error.message })
   })
 
   const deleteMutation = trpcReact.contactList.deleteSaved.useMutation({
     onSuccess: () => {
       setSavedId(null)
       void utils.contactList.listSaved.invalidate()
-      toast.success('Verteiler gelöscht')
+      toast.success(t('Verteiler gelöscht'))
     },
     onError: (error) =>
-      toast.error('Verteiler konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Verteiler konnte nicht gelöscht werden'), { description: error.message })
   })
 
   const removeMemberMutation = trpcReact.contactList.removeMember.useMutation({
     onSuccess: () => void utils.contactList.build.invalidate(),
     onError: (error) =>
-      toast.error('Kontakt konnte nicht entfernt werden', { description: error.message })
+      toast.error(t('Kontakt konnte nicht entfernt werden'), { description: error.message })
   })
 
   const removeMember = async (row: ContactListRecipientDto) => {
     if (
       memberList &&
       (await confirmAction({
-        title: `${row.name || row.email} aus „${memberList.name}“ entfernen?`,
-        description: 'Der Kontakt selbst bleibt erhalten.',
-        confirmLabel: 'Entfernen',
+        title: t('{{value}} aus „{{name}}“ entfernen?', {
+          value: row.name || row.email,
+          name: memberList.name
+        }),
+        description: t('Der Kontakt selbst bleibt erhalten.'),
+        confirmLabel: t('Entfernen'),
         destructive: true
       }))
     ) {
       removeMemberMutation.mutate(
         { listId: memberList.id, email: row.email },
-        { onSuccess: () => toast.success(`${row.email} aus dem Verteiler entfernt`) }
+        {
+          onSuccess: () =>
+            toast.success(t('{{email}} aus dem Verteiler entfernt', { email: row.email }))
+        }
       )
     }
   }
 
   const noAdvertisingMutation = trpcReact.contactList.setNoAdvertising.useMutation({
     onSuccess: () => void utils.contactList.build.invalidate(),
-    onError: (error) => toast.error('Änderung fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Änderung fehlgeschlagen'), { description: error.message })
   })
 
   const setNoAdvertising = (email: string, noAdvertising: boolean) =>
@@ -111,9 +118,9 @@ export default function ContactListPage() {
       {
         onSuccess: () =>
           noAdvertising
-            ? toast.success(`${email}: Keine Werbung`, {
-                description: 'Die Adresse kommt in keinen Verteiler mehr.',
-                action: { label: 'Rückgängig', onClick: () => setNoAdvertising(email, false) }
+            ? toast.success(t('{{email}}: Keine Werbung', { email }), {
+                description: t('Die Adresse kommt in keinen Verteiler mehr.'),
+                action: { label: t('Rückgängig'), onClick: () => setNoAdvertising(email, false) }
               })
             : toast.success(`${email} wieder aufgenommen`)
       }
@@ -147,11 +154,11 @@ export default function ContactListPage() {
     if (
       saved &&
       (await confirmAction({
-        title: `Verteiler „${saved.name}“ löschen?`,
+        title: t('Verteiler „{{name}}“ löschen?', { name: saved.name }),
         description: memberList
-          ? 'Nur der Verteiler wird gelöscht, die Kontakte bleiben erhalten.'
-          : 'Nur die gespeicherten Filter werden gelöscht, keine Kontakte.',
-        confirmLabel: 'Löschen',
+          ? t('Nur der Verteiler wird gelöscht, die Kontakte bleiben erhalten.')
+          : t('Nur die gespeicherten Filter werden gelöscht, keine Kontakte.'),
+        confirmLabel: t('Löschen'),
         destructive: true
       }))
     ) {
@@ -168,11 +175,15 @@ export default function ContactListPage() {
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Verteiler</h1>
+          <h1 className="text-2xl font-bold mb-2">{t('Verteiler')}</h1>
           <p className="text-sm text-muted-foreground">
             {memberList
-              ? 'Feste Kontakte, z. B. aus einer importierten Liste. Es gilt jeweils die Haupt-E-Mail des Kontakts.'
-              : 'Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe und Buchungen zusammenstellen.'}
+              ? t(
+                  'Feste Kontakte, z. B. aus einer importierten Liste. Es gilt jeweils die Haupt-E-Mail des Kontakts.'
+                )
+              : t(
+                  'Empfänger für Rundmails aus Clubs, Festivals und Radio/Medien nach Region, Genre, Größe und Buchungen zusammenstellen.'
+                )}
           </p>
         </div>
         <SavedListControls
@@ -209,7 +220,7 @@ export default function ContactListPage() {
             columns={columns}
             data={recipients}
             total={recipients.length}
-            itemLabel={{ singular: 'Adresse', plural: 'Adressen' }}
+            itemLabel={{ singular: t('Adresse'), plural: t('Adressen') }}
             isLoading={list.isLoading}
             error={list.error}
             onRetry={() => void list.refetch()}
@@ -226,11 +237,13 @@ export default function ContactListPage() {
             <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
               <span>
                 {recipients.length > LARGE_LIST &&
-                  'Für große Verteiler besser die CSV in einen Newsletter-Dienst laden (Brevo, CleverReach, Mailchimp): Mail-Anbieter begrenzen die Empfänger pro E-Mail.'}
+                  t(
+                    'Für große Verteiler besser die CSV in einen Newsletter-Dienst laden (Brevo, CleverReach, Mailchimp): Mail-Anbieter begrenzen die Empfänger pro E-Mail.'
+                  )}
               </span>
               {excluded.length > 0 && (
                 <Button variant="link" className="h-auto p-0" onClick={() => setShowExcluded(true)}>
-                  {addresses(excluded.length)} mit „Keine Werbung“ ausgeschlossen
+                  {addresses(excluded.length)} {t('mit „Keine Werbung“ ausgeschlossen')}
                 </Button>
               )}
             </div>

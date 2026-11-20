@@ -5,13 +5,14 @@ import {
   FollowUpRecord,
   type CreateFollowUpInput
 } from '../../../../main/api/schemas/followUp.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** The choices next to "Senden"; 'none' (the default) leaves no follow-up */
 export const FOLLOW_UP_CHOICES = [
-  { value: 'none', label: 'Keine' },
-  { value: '3', label: 'In 3 Tagen' },
-  { value: '7', label: 'In 1 Woche' },
-  { value: '14', label: 'In 2 Wochen' }
+  { value: 'none', label: t('Keine') },
+  { value: '3', label: t('In 3 Tagen') },
+  { value: '7', label: t('In 1 Woche') },
+  { value: '14', label: t('In 2 Wochen') }
 ] as const
 export type FollowUpChoice = (typeof FOLLOW_UP_CHOICES)[number]['value']
 
@@ -28,7 +29,9 @@ export function followUpForSend(input: {
   const subject = input.subject.trim()
   return {
     dueDate: addDays(input.today ?? localIsoDate(), Number(input.choice)),
-    note: subject ? `Antwort auf „${subject}“` : 'Antwort auf eine E-Mail ohne Betreff',
+    note: subject
+      ? t('Antwort auf „{{subject}}“', { subject })
+      : t('Antwort auf eine E-Mail ohne Betreff'),
     ...(input.record ? { record: input.record } : {}),
     mail: { accountId: input.accountId, messageId: input.messageId }
   }

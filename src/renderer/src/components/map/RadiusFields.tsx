@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label'
 import type { RadiusClause } from '../../../../main/api/schemas/radius.schema'
 import { RADIUS_KM_MAX, RADIUS_WEEKS_MAX } from '../../../../main/map/radius'
 import { formatClause, type RadiusDraft } from './radiusDisplay'
+import { t } from '../../../../main/i18n/translate'
 
 interface RadiusFieldsProps {
   /** Prefix for the input ids */
@@ -18,9 +19,9 @@ interface RadiusFieldsProps {
 }
 
 const FIELDS = [
-  { key: 'km', label: 'Radius (km)', min: 1, max: RADIUS_KM_MAX },
-  { key: 'weeksBefore', label: 'Wochen vorher', min: 0, max: RADIUS_WEEKS_MAX },
-  { key: 'weeksAfter', label: 'Wochen nachher', min: 0, max: RADIUS_WEEKS_MAX }
+  { key: 'km', label: t('Radius (km)'), min: 1, max: RADIUS_KM_MAX },
+  { key: 'weeksBefore', label: t('Wochen vorher'), min: 0, max: RADIUS_WEEKS_MAX },
+  { key: 'weeksAfter', label: t('Wochen nachher'), min: 0, max: RADIUS_WEEKS_MAX }
 ] as const
 
 /** The three inputs of a radius clause (Gebietsschutz), side by side */
@@ -60,7 +61,8 @@ export function RadiusFields({
       ) : (
         inherited && (
           <p className="text-xs text-muted-foreground">
-            Leere Felder übernehmen {inheritedFrom ?? 'den Standard'}: {formatClause(inherited)}.
+            {t('Leere Felder übernehmen')} {inheritedFrom ?? t('den Standard')}:{' '}
+            {formatClause(inherited)}.
           </p>
         )
       )}

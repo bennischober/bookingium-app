@@ -28,6 +28,7 @@ import {
   type ShowFolderPlanDto
 } from '../../../../main/api/schemas/show_folder.schema'
 import { SHOW_FILE_KIND_LABELS } from '../../../../main/showfolder/extract'
+import { t } from '../../../../main/i18n/translate'
 
 type FileChoice = { include: boolean; owner: 'event' | 'venue' }
 
@@ -64,29 +65,24 @@ export function ShowFolderDialog({
       setTicked(new Set(next.suggestions.filter((s) => s.include).map((s) => s.id)))
     },
     onError: (error) =>
-      toast.error('Show-Ordner konnte nicht gelesen werden', { description: error.message })
+      toast.error(t('Show-Ordner konnte nicht gelesen werden'), { description: error.message })
   })
   const apply = trpcReact.showFolder.apply.useMutation({
     onSuccess: (result) => {
       void utils.invalidate()
-      const parts = [
-        result.changes > 0
-          ? `${result.changes} ${result.changes === 1 ? 'Angabe' : 'Angaben'}`
-          : '',
-        result.documents > 0
-          ? `${result.documents} ${result.documents === 1 ? 'Dokument' : 'Dokumente'}`
-          : ''
-      ].filter(Boolean)
       if (result.problems.length > 0) {
-        toast.warning('Nicht alles übernommen', { description: result.problems.join('\n') })
+        toast.warning(t('Nicht alles übernommen'), { description: result.problems.join('\n') })
       } else {
-        toast.success('Show-Ordner übernommen', {
-          description: parts.length ? `${parts.join(' und ')} gespeichert.` : undefined
+        toast.success(t('Show-Ordner übernommen'), {
+          description: t('{{changes}} Angaben und {{documents}} Dateien gespeichert.', {
+            changes: result.changes,
+            documents: result.documents
+          })
         })
       }
       close()
     },
-    onError: (error) => toast.error('Übernahme fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Übernahme fehlgeschlagen'), { description: error.message })
   })
 
   const close = () => {
@@ -150,11 +146,15 @@ export function ShowFolderDialog({
     >
       <DialogContent className="flex max-h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-4xl flex-col">
         <DialogHeader>
-          <DialogTitle>Show-Ordner einlesen</DialogTitle>
+          <DialogTitle>{t('Show-Ordner einlesen')}</DialogTitle>
           <DialogDescription>
             {plan
-              ? 'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.'
-              : 'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-Infos, Mails, Pläne, Vertrag, Abrechnung.'}
+              ? t(
+                  'Prüfen, was übernommen wird. Vorschläge, die einen gespeicherten Wert ersetzen würden, sind nicht angehakt.'
+                )
+              : t(
+                  'Den Ordner der Agentur zu dieser Show (Dropbox o. ä.) oder einzelne Dateien hierher ziehen: Day-/Infosheet, Club-Infos, Mails, Pläne, Vertrag, Abrechnung.'
+                )}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,19 +164,23 @@ export function ShowFolderDialog({
             {...dropProps}
             data-testid="show-folder-drop"
           >
-            <DropOverlay show={dragging} title="Hier ablegen" hint="Ordner oder Dateien" />
+            <DropOverlay
+              show={dragging}
+              title={t('Hier ablegen')}
+              hint={t('Ordner oder Dateien')}
+            />
             {analyze.isPending ? (
               <>
                 <Spinner className="size-8" />
-                <p className="text-sm text-muted-foreground">Dateien werden gelesen…</p>
+                <p className="text-sm text-muted-foreground">{t('Dateien werden gelesen…')}</p>
               </>
             ) : (
               <>
                 <Upload className="h-10 w-10 text-muted-foreground" />
                 <p className="max-w-md text-sm text-muted-foreground">
-                  Ordner oder Dateien hierher ziehen. Gelesen werden PDF, E-Mails (.eml) und die
-                  Abrechnung (.xlsx); alles andere wird nur abgelegt. Nichts wird geändert, bevor
-                  Sie die Vorschläge bestätigen.
+                  {t(
+                    'Ordner oder Dateien hierher ziehen. Gelesen werden PDF, E-Mails (.eml) und die Abrechnung (.xlsx); alles andere wird nur abgelegt. Nichts wird geändert, bevor Sie die Vorschläge bestätigen.'
+                  )}
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button
@@ -184,14 +188,14 @@ export function ShowFolderDialog({
                     onClick={async () => read(await window.api.pickShowFolder('folder'))}
                   >
                     <FolderOpen className="h-4 w-4" />
-                    Ordner wählen…
+                    {t('Ordner wählen…')}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={async () => read(await window.api.pickShowFolder('files'))}
                   >
                     <FileText className="h-4 w-4" />
-                    Dateien wählen…
+                    {t('Dateien wählen…')}
                   </Button>
                 </div>
               </>
@@ -240,7 +244,7 @@ export function ShowFolderDialog({
                           </span>
                           {s.source && (
                             <span className="block text-xs text-muted-foreground">
-                              aus „{s.source}“
+                              {t('aus „{{source}}“', { source: s.source })}
                             </span>
                           )}
                         </span>
@@ -252,7 +256,7 @@ export function ShowFolderDialog({
             ))}
 
             <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Dateien ablegen</h3>
+              <h3 className="text-sm font-semibold">{t('Dateien ablegen')}</h3>
               <ul className="divide-y rounded-md border">
                 {plan.files.map((file) => {
                   const choice = files[file.path]
@@ -266,7 +270,7 @@ export function ShowFolderDialog({
                     >
                       <input
                         type="checkbox"
-                        aria-label={`${file.name} ablegen`}
+                        aria-label={t('{{name}} ablegen', { name: file.name })}
                         className="h-4 w-4 accent-primary"
                         checked={choice?.include ?? false}
                         onChange={(e) =>
@@ -295,13 +299,18 @@ export function ShowFolderDialog({
                         }
                         disabled={!choice?.include}
                       >
-                        <SelectTrigger className="h-7 w-auto gap-1 text-xs" aria-label="Ablage">
+                        <SelectTrigger
+                          className="h-7 w-auto gap-1 text-xs"
+                          aria-label={t('Ablage')}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="event">beim Event</SelectItem>
+                          <SelectItem value="event">{t('beim Event')}</SelectItem>
                           <SelectItem value="venue" disabled={!plan.venueName}>
-                            {plan.venueName ? `beim Club ${plan.venueName}` : 'beim Club'}
+                            {plan.venueName
+                              ? t('beim Club {{name}}', { name: plan.venueName })
+                              : t('beim Club')}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -327,13 +336,16 @@ export function ShowFolderDialog({
               className="gap-1.5"
             >
               <FolderInput className="h-4 w-4" />
-              Andere Dateien
+              {t('Andere Dateien')}
             </Button>
             <Button onClick={submit} disabled={nothingChosen || apply.isPending}>
               {apply.isPending && <Spinner className="size-4" />}
               {nothingChosen
-                ? 'Nichts ausgewählt'
-                : `Übernehmen (${chosenSuggestions.length} ${chosenSuggestions.length === 1 ? 'Angabe' : 'Angaben'}, ${chosenFiles.length} ${chosenFiles.length === 1 ? 'Datei' : 'Dateien'})`}
+                ? t('Nichts ausgewählt')
+                : t('Übernehmen ({{suggestions}} Angaben, {{files}} Dateien)', {
+                    suggestions: chosenSuggestions.length,
+                    files: chosenFiles.length
+                  })}
             </Button>
           </DialogFooter>
         )}

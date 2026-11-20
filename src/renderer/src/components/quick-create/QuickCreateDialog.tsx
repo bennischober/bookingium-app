@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The shell of a quick-create dialog: a small form with only the essential
@@ -45,14 +46,14 @@ export function QuickCreateDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.
+            {t('Nur die wichtigsten Angaben – den Rest können Sie später ergänzen.')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {children}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
             <Button type="submit" disabled={submitDisabled}>
               {submitLabel}

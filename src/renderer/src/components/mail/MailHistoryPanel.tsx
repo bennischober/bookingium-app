@@ -9,6 +9,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { formatListDate } from '@/components/mail/format'
 import type { MailLinkRow } from '../../../../main/api/routers/mail_link.router'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * C3: the mails of one record, newest first.
@@ -41,29 +42,29 @@ export function MailHistoryPanel({
       void links.refetch()
     },
     onError: (error) =>
-      toast.error('Zuordnung konnte nicht wiederhergestellt werden', {
+      toast.error(t('Zuordnung konnte nicht wiederhergestellt werden'), {
         description: error.message
       })
   })
   const dismiss = trpcReact.mailLink.dismiss.useMutation({
     onSuccess: (_data, { id }) => {
       void links.refetch()
-      toast.success('Zuordnung entfernt', {
-        description: 'Die E-Mail bleibt im Postfach.',
-        action: { label: 'Rückgängig', onClick: () => restore.mutate({ id }) }
+      toast.success(t('Zuordnung entfernt'), {
+        description: t('Die E-Mail bleibt im Postfach.'),
+        action: { label: t('Rückgängig'), onClick: () => restore.mutate({ id }) }
       })
     },
     onError: (error, { id }) => {
       // The row was hidden right away; it is still linked, so it shows again
       showAgain(id)
-      toast.error('Zuordnung konnte nicht entfernt werden', {
+      toast.error(t('Zuordnung konnte nicht entfernt werden'), {
         description: error.message
       })
     }
   })
 
   if (links.isLoading) {
-    return <LoadingRow>E-Mails werden geladen…</LoadingRow>
+    return <LoadingRow>{t('E-Mails werden geladen…')}</LoadingRow>
   }
   if (links.isError) {
     return <ErrorState error={links.error} onRetry={() => void links.refetch()} />
@@ -75,14 +76,15 @@ export function MailHistoryPanel({
   if (rows.length === 0) {
     return (
       <EmptyState className="space-y-1">
-        <p>Keine E-Mails zugeordnet.</p>
+        <p>{t('Keine E-Mails zugeordnet.')}</p>
         <p>
-          E-Mails werden über die E-Mail-Adressen der Kontakte automatisch zugeordnet. Andere ordnen
-          Sie unter{' '}
+          {t(
+            'E-Mails werden über die E-Mail-Adressen der Kontakte automatisch zugeordnet. Andere ordnen Sie unter'
+          )}{' '}
           <Link to="/mail" className="underline underline-offset-2 hover:text-foreground">
             E-Mail
           </Link>{' '}
-          mit „Zuordnen…“ zu.
+          {t('mit „Zuordnen…“ zu.')}
         </p>
       </EmptyState>
     )
@@ -94,8 +96,8 @@ export function MailHistoryPanel({
     }
   }
   const title = (row: MailLinkRow) => {
-    if (row.storeId !== null) return row.subject || '(kein Betreff)'
-    return unavailable ? 'Postfach gerade nicht erreichbar' : 'Nicht mehr im Postfach'
+    if (row.storeId !== null) return row.subject || t('(kein Betreff)')
+    return unavailable ? t('Postfach gerade nicht erreichbar') : t('Nicht mehr im Postfach')
   }
   // A mail that is no longer in the store has no read state of its own; it is
   // shown as read rather than inventing an unread dot
@@ -105,7 +107,7 @@ export function MailHistoryPanel({
     <div className="space-y-2">
       {unavailable && (
         <p className="text-sm text-muted-foreground">
-          Postfach gerade nicht erreichbar, Betreff und Absender fehlen.
+          {t('Postfach gerade nicht erreichbar, Betreff und Absender fehlen.')}
         </p>
       )}
       <ul className="divide-y rounded-md border" aria-label="E-Mails">
@@ -114,7 +116,7 @@ export function MailHistoryPanel({
             {/* The same order as the /mail list: unread dot, sender, icons, date */}
             <span className="flex size-4 shrink-0 items-center justify-center self-center">
               {!isRead(row) && (
-                <span className="size-2 rounded-full bg-primary" aria-label="Ungelesen" />
+                <span className="size-2 rounded-full bg-primary" aria-label={t('Ungelesen')} />
               )}
             </span>
             <div className="min-w-0 flex-1">
@@ -125,7 +127,7 @@ export function MailHistoryPanel({
                 {row.hasAttachments && (
                   <Paperclip
                     className="size-3.5 shrink-0 text-muted-foreground"
-                    aria-label="Anhang"
+                    aria-label={t('Anhang')}
                   />
                 )}
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -155,7 +157,7 @@ export function MailHistoryPanel({
                   {row.source === 'manual'
                     ? 'zugeordnet'
                     : row.source === 'rule'
-                      ? 'per Regel'
+                      ? t('per Regel')
                       : 'automatisch'}
                 </span>
               </p>
@@ -164,8 +166,8 @@ export function MailHistoryPanel({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Zuordnung entfernen"
-              title="Zuordnung entfernen"
+              aria-label={t('Zuordnung entfernen')}
+              title={t('Zuordnung entfernen')}
               onClick={() => {
                 setRemoved((current) => new Set(current).add(row.id))
                 dismiss.mutate({ id: row.id })
@@ -184,7 +186,7 @@ export function MailHistoryPanel({
           disabled={links.isFetchingNextPage}
           onClick={() => void links.fetchNextPage()}
         >
-          {links.isFetchingNextPage ? 'Wird geladen…' : 'Mehr laden'}
+          {links.isFetchingNextPage ? t('Wird geladen…') : t('Mehr laden')}
         </Button>
       )}
     </div>

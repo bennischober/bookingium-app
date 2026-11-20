@@ -42,6 +42,7 @@ import { PAGE_SIZE } from '@/components/mail/paging'
 import { isDrafts, isInbox, isTrash, messageKey } from '@/components/mail/format'
 import type { MessageDetail, MessageListItem } from '../../../main/mailclient/core/types'
 import type { QuickActions } from '@/components/mail/MessageList'
+import { t } from '../../../main/i18n/translate'
 
 // Pane widths in px; the user can drag them, see PaneResizer
 const FOLDER_PANE = { initial: 224, min: 160, max: 480 }
@@ -59,7 +60,7 @@ function MailClient() {
   // #214: "Absender immer als Spam" is an ordinary mail rule
   const saveRule = trpcReact.mailRule.save.useMutation({
     onError: (error) =>
-      toast.error('Regel konnte nicht angelegt werden', { description: error.message })
+      toast.error(t('Regel konnte nicht angelegt werden'), { description: error.message })
   })
   const accounts = trpcReact.mail.accounts.list.useQuery()
   // Each account's INBOX unread in the picker, the menu badge's numbers (#88)
@@ -218,7 +219,7 @@ function MailClient() {
         .then((draft) => {
           if (openedId.current === id) startCompose(fromSavedDraft(draft), id)
         })
-        .catch(failed('Entwurf konnte nicht geöffnet werden'))
+        .catch(failed(t('Entwurf konnte nicht geöffnet werden')))
     }
   }
 
@@ -253,15 +254,15 @@ function MailClient() {
                 complete: () => mailApi.completeMessage(id, accountId),
                 busy: (on) =>
                   on
-                    ? toast.loading('Nachricht wird geladen…', { id: `complete-${id}` })
+                    ? toast.loading(t('Nachricht wird geladen…'), { id: `complete-${id}` })
                     : toast.dismiss(`complete-${id}`),
                 adopt: (whole) => queryClient.setQueryData(messageKey(accountId, id), whole)
               },
               (whole) => composeFrom(whole, kind)
-            ).catch(failed('Anhänge konnten nicht geladen werden'))
+            ).catch(failed(t('Anhänge konnten nicht geladen werden')))
           : composeFrom(message, kind)
       )
-      .catch(failed('Die E-Mail konnte nicht geladen werden'))
+      .catch(failed(t('Die E-Mail konnte nicht geladen werden')))
   }
 
   // What the menu and the bulk pane offer for the selected mails
@@ -279,15 +280,16 @@ function MailClient() {
     const item = listItems.find((m) => m.id === id)
     const rule = item && junk ? blockRule(accountId, item.fromEmail, scope, junk) : null
     if (!item || !rule) {
-      toast.error('Für diesen Absender lässt sich keine Regel anlegen')
+      toast.error(t('Für diesen Absender lässt sich keine Regel anlegen'))
       return
     }
     saveRule.mutate(rule, {
       onSuccess: () => {
         void utils.mailRule.list.invalidate()
-        toast.success('Regel angelegt', {
-          description:
+        toast.success(t('Regel angelegt'), {
+          description: t(
             'Neue Mails dieses Absenders landen ab jetzt im Spam-Ordner. Ändern oder löschen unter Einstellungen › E-Mail › E-Mail-Regeln.'
+          )
         })
         if (item.folderId !== junk?.id && junk)
           void moveAway([id], { kind: 'folder', folder: junk })
@@ -349,7 +351,7 @@ function MailClient() {
           ? (m) =>
               archiveableIds([m], allFolders).length > 0
                 ? void moveAway([m.id], { kind: 'archive' })
-                : toast.info('Diese E-Mail ist schon im Archiv.')
+                : toast.info(t('Diese E-Mail ist schon im Archiv.'))
           : undefined,
         trash: (m) =>
           isTrash(folderOf(m)) ? void expunge([m.id]) : void moveAway([m.id], { kind: 'delete' }),
@@ -417,8 +419,8 @@ function MailClient() {
     if (!state) return
     const target = canWrite ? account : accounts.data?.find((a) => readingActions(a).canWrite)
     if (!target) {
-      toast.error('Kein E-Mail-Konto, das senden kann', {
-        description: 'Konten unter Einstellungen › E-Mail.'
+      toast.error(t('Kein E-Mail-Konto, das senden kann'), {
+        description: t('Konten unter Einstellungen › E-Mail.')
       })
       return
     }
@@ -489,9 +491,11 @@ function MailClient() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <h1 className="text-2xl font-bold">E-Mail</h1>
-        <p className="text-sm text-muted-foreground">Es ist noch kein Postfach eingerichtet.</p>
+        <p className="text-sm text-muted-foreground">
+          {t('Es ist noch kein Postfach eingerichtet.')}
+        </p>
         <Button onClick={() => void navigate({ to: '/settings', search: { tab: 'email' } })}>
-          Postfach einrichten
+          {t('Postfach einrichten')}
         </Button>
       </div>
     )
@@ -589,7 +593,7 @@ function MailClient() {
         />
 
         <PaneResizer
-          label="Breite der Ordnerliste"
+          label={t('Breite der Ordnerliste')}
           className="hidden lg:block"
           width={folderWidth}
           defaultWidth={FOLDER_PANE.initial}
@@ -622,7 +626,7 @@ function MailClient() {
           syncStatus={syncStatus}
         />
         <PaneResizer
-          label="Breite der Nachrichtenliste"
+          label={t('Breite der Nachrichtenliste')}
           width={listWidth}
           defaultWidth={LIST_PANE.initial}
           min={LIST_PANE.min}

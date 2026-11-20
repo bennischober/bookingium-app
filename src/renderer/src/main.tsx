@@ -1,3 +1,5 @@
+// #254: first, so the language is set before any module with labels is evaluated
+import './i18nSetup'
 import './assets/index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'

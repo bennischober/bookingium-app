@@ -4,6 +4,7 @@ import { toast } from '@/lib/toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { QuickCreateDialog } from '@/components/quick-create/QuickCreateDialog'
+import { t } from '../../../../main/i18n/translate'
 
 /** A club or festival with its name; the city goes into the notes */
 export function VenueQuickCreateDialog({
@@ -22,17 +23,17 @@ export function VenueQuickCreateDialog({
 
   const createVenue = trpcReact.venue.create.useMutation({
     onSuccess: (venue) => {
-      toast.success(`"${venue.name}" angelegt`)
+      toast.success(t('"{{name}}" angelegt', { name: venue.name }))
       onCreated(venue.id, venue.name)
       onClose()
     },
     onError: (e) =>
-      toast.error('Club / Festival konnte nicht angelegt werden', { description: e.message })
+      toast.error(t('Club / Festival konnte nicht angelegt werden'), { description: e.message })
   })
 
   const handleSubmit = () => {
     if (!name.trim()) return
-    createVenue.mutate({ name: name.trim(), notes: city ? `Stadt: ${city}` : '' })
+    createVenue.mutate({ name: name.trim(), notes: city ? t('Stadt: {{city}}', { city }) : '' })
   }
 
   if (isOpen && name !== prefillName && prefillName) {
@@ -42,29 +43,29 @@ export function VenueQuickCreateDialog({
   return (
     <QuickCreateDialog
       isOpen={isOpen}
-      title="Neuen Club / Festival anlegen"
-      submitLabel="Anlegen"
+      title={t('Neuen Club / Festival anlegen')}
+      submitLabel={t('Anlegen')}
       submitDisabled={!name.trim() || createVenue.isPending}
       onSubmit={handleSubmit}
       onClose={onClose}
     >
       <div className="space-y-2">
-        <Label htmlFor="venue-name">Name *</Label>
+        <Label htmlFor="venue-name">{t('Name *')}</Label>
         <Input
           id="venue-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="z. B. Zenith München"
+          placeholder={t('z. B. Zenith München')}
           autoFocus
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="venue-city">Stadt</Label>
+        <Label htmlFor="venue-city">{t('Stadt')}</Label>
         <Input
           id="venue-city"
           value={city}
           onChange={(e) => setCity(e.target.value)}
-          placeholder="z. B. Berlin"
+          placeholder={t('z. B. Berlin')}
         />
       </div>
     </QuickCreateDialog>

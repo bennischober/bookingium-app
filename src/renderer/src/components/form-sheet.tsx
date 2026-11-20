@@ -9,6 +9,7 @@ import { useCallback, useRef } from 'react'
 import type { FormMode } from '@/hooks/useFormSheet'
 import { confirmAction } from '@/lib/confirm'
 import { UnsavedChangesContext } from './formGuard'
+import { t } from '../../../main/i18n/translate'
 
 interface FormSheetProps {
   isOpen: boolean
@@ -20,11 +21,11 @@ interface FormSheetProps {
 }
 
 export function FormSheet({ isOpen, onClose, mode, title, description, children }: FormSheetProps) {
-  const defaultTitle = mode === 'create' ? 'Neu anlegen' : 'Bearbeiten'
+  const defaultTitle = mode === 'create' ? t('Neu anlegen') : t('Bearbeiten')
   const defaultDescription =
     mode === 'create'
-      ? 'Details ausfüllen, um einen neuen Eintrag anzulegen.'
-      : 'Änderungen am Eintrag vornehmen.'
+      ? t('Details ausfüllen, um einen neuen Eintrag anzulegen.')
+      : t('Änderungen am Eintrag vornehmen.')
 
   // the forms in the sheet that hold unsaved changes (see formGuard.ts)
   const unsavedForms = useRef(new Set<string>())
@@ -39,9 +40,9 @@ export function FormSheet({ isOpen, onClose, mode, title, description, children 
     if (
       unsavedForms.current.size > 0 &&
       !(await confirmAction({
-        title: 'Änderungen verwerfen?',
-        description: 'Was hier eingegeben wurde, ist noch nicht gespeichert und geht verloren.',
-        confirmLabel: 'Verwerfen',
+        title: t('Änderungen verwerfen?'),
+        description: t('Was hier eingegeben wurde, ist noch nicht gespeichert und geht verloren.'),
+        confirmLabel: t('Verwerfen'),
         destructive: true
       }))
     ) {

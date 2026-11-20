@@ -13,12 +13,22 @@ import {
 } from '@/components/ui/select'
 import { lineAmounts, type InvoiceLineDraft } from '@/components/invoice/invoiceFormState'
 import type { InvoiceTaxCode } from '../../../../main/api/schemas/invoice.schema'
-import {
-  INVOICE_UNITS,
-  TAX_CODES,
-  TAX_CODE_LABELS,
-  unitLabelOf
-} from '../../../../main/einvoice/codes'
+import { INVOICE_UNITS, TAX_CODES, unitLabelOf } from '../../../../main/einvoice/codes'
+import { t } from '../../../../main/i18n/translate'
+
+// #254: the tax codes in the UI language. TAX_CODE_LABELS (einvoice/codes.ts) stays German:
+// it is printed on German invoices whatever the UI language is.
+const TAX_CODE_UI_LABELS: Record<InvoiceTaxCode, string> = {
+  standard: t('Regelsatz'),
+  reduced: t('ermäßigt'),
+  zero_rated: t('Nullsatz'),
+  reverse_charge: t('Reverse Charge'),
+  exempt: t('steuerfrei'),
+  intra_community: t('innergemeinschaftliche Lieferung'),
+  export: t('Ausfuhr (Drittland)'),
+  not_taxable: t('nicht steuerbar'),
+  other: t('sonstig')
+}
 
 /**
  * The invoice's line items as cards, and one editor below them that adds a
@@ -38,10 +48,10 @@ export function InvoiceLineItems({
   return (
     <>
       <div className="flex items-center justify-between">
-        <Label>Positionen</Label>
+        <Label>{t('Positionen')}</Label>
         <Button type="button" variant="outline" size="sm" onClick={editor.reset}>
           <Plus className="h-4 w-4 mr-1" />
-          Position hinzufügen
+          {t('Position hinzufügen')}
         </Button>
       </div>
 
@@ -54,13 +64,15 @@ export function InvoiceLineItems({
               className="border rounded-md p-3 flex items-start justify-between gap-3"
             >
               <div>
-                <p className="font-medium text-sm">{line.description || 'Ohne Bezeichnung'}</p>
+                <p className="font-medium text-sm">{line.description || t('Ohne Bezeichnung')}</p>
                 <p className="text-xs text-muted-foreground">
                   {quantity} {unitLabelOf(line.unit)} x {formatMoney(unitPrice, currency)} (
-                  {taxRate}% MwSt., {TAX_CODE_LABELS[line.taxCode]})
+                  {taxRate}
+                  {t('% MwSt.,')} {TAX_CODE_UI_LABELS[line.taxCode]})
                 </p>
                 <p className="text-xs mt-1">
-                  Netto {formatMoney(net, currency)} · Brutto {formatMoney(gross, currency)}
+                  {t('Netto')} {formatMoney(net, currency)} {t('· Brutto')}{' '}
+                  {formatMoney(gross, currency)}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -70,7 +82,7 @@ export function InvoiceLineItems({
                   size="sm"
                   onClick={() => editor.openEdit(index)}
                 >
-                  Bearbeiten
+                  {t('Bearbeiten')}
                 </Button>
                 <Button
                   type="button"
@@ -78,7 +90,7 @@ export function InvoiceLineItems({
                   size="sm"
                   onClick={() => editor.remove(index)}
                 >
-                  Entfernen
+                  {t('Entfernen')}
                 </Button>
               </div>
             </div>
@@ -89,20 +101,20 @@ export function InvoiceLineItems({
       <div className="border rounded-md p-3 space-y-3">
         <p className="text-sm font-medium">
           {editingIndex === null
-            ? 'Position hinzufügen'
-            : `Position #${editingIndex + 1} bearbeiten`}
+            ? t('Position hinzufügen')
+            : t('Position #{{value}} bearbeiten', { value: editingIndex + 1 })}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1 md:col-span-2">
-            <Label>Beschreibung</Label>
+            <Label>{t('Beschreibung')}</Label>
             <Input
               value={draft.description}
               onChange={(e) => setField({ description: e.target.value })}
             />
           </div>
           <div className="space-y-1">
-            <Label>Menge</Label>
+            <Label>{t('Menge')}</Label>
             <Input
               type="number"
               step="0.01"
@@ -112,7 +124,7 @@ export function InvoiceLineItems({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="invoice-line-unit">Einheit</Label>
+            <Label htmlFor="invoice-line-unit">{t('Einheit')}</Label>
             <Select value={draft.unit} onValueChange={(value) => setField({ unit: value })}>
               <SelectTrigger id="invoice-line-unit">
                 <SelectValue />
@@ -131,7 +143,7 @@ export function InvoiceLineItems({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Netto-Einzelpreis</Label>
+            <Label>{t('Netto-Einzelpreis')}</Label>
             <Input
               type="number"
               step="0.01"
@@ -141,7 +153,7 @@ export function InvoiceLineItems({
             />
           </div>
           <div className="space-y-1">
-            <Label>MwSt. %</Label>
+            <Label>{t('MwSt. %')}</Label>
             <Input
               type="number"
               step="0.01"
@@ -152,7 +164,7 @@ export function InvoiceLineItems({
             />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>Steuerschlüssel</Label>
+            <Label>{t('Steuerschlüssel')}</Label>
             <Select
               value={draft.taxCode}
               onValueChange={(value) => setField({ taxCode: value as InvoiceTaxCode })}
@@ -163,7 +175,7 @@ export function InvoiceLineItems({
               <SelectContent>
                 {TAX_CODES.map((code) => (
                   <SelectItem key={code} value={code}>
-                    {TAX_CODE_LABELS[code]}
+                    {TAX_CODE_UI_LABELS[code]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -173,10 +185,10 @@ export function InvoiceLineItems({
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={editor.reset}>
-            Zurücksetzen
+            {t('Zurücksetzen')}
           </Button>
           <Button type="button" onClick={editor.save}>
-            {editingIndex === null ? 'Position hinzufügen' : 'Position speichern'}
+            {editingIndex === null ? t('Position hinzufügen') : t('Position speichern')}
           </Button>
         </div>
       </div>

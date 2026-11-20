@@ -9,6 +9,7 @@ import {
   type InvoiceListItemDto
 } from '../../../../main/api/schemas/invoice.schema'
 import { confirmAction } from '@/lib/confirm'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Open / print / delete buttons of an invoice row (invoice list and an
@@ -32,17 +33,17 @@ export function InvoiceRowActions({
       void utils.invoice.invalidate()
       void utils.dealMemo.getById.invalidate()
       void utils.dashboard.invalidate()
-      toast.success('Entwurf gelöscht')
+      toast.success(t('Entwurf gelöscht'))
     },
     onError: (error) =>
-      toast.error('Rechnung konnte nicht gelöscht werden', { description: error.message })
+      toast.error(t('Rechnung konnte nicht gelöscht werden'), { description: error.message })
   })
 
   return (
     <RowActions>
       <RowActionButton
         icon={locked ? Eye : Pencil}
-        label={locked ? 'Anzeigen' : 'Bearbeiten'}
+        label={locked ? t('Anzeigen') : t('Bearbeiten')}
         onClick={() =>
           locked
             ? navigate({ to: '/invoices/$invoiceId', params: { invoiceId: String(invoice.id) } })
@@ -51,7 +52,7 @@ export function InvoiceRowActions({
       />
       <RowActionButton
         icon={Printer}
-        label="Drucken / Als PDF speichern"
+        label={t('Drucken / Als PDF speichern')}
         onClick={() =>
           navigate({
             to: '/invoices/$invoiceId/print',
@@ -61,20 +62,22 @@ export function InvoiceRowActions({
       />
       <RowActionButton
         icon={Trash2}
-        label="Entwurf löschen"
+        label={t('Entwurf löschen')}
         destructive
         disabled={locked || deleteMutation.isPending}
         disabledReason={
           locked
-            ? 'Gestellte Rechnungen können nicht gelöscht werden – bitte stornieren'
+            ? t('Gestellte Rechnungen können nicht gelöscht werden – bitte stornieren')
             : undefined
         }
         onClick={async () => {
           if (
             await confirmAction({
-              title: `${invoiceNumberLabel(invoice.invoiceNumber)} löschen?`,
-              description: 'Der Entwurf wird endgültig entfernt.',
-              confirmLabel: 'Löschen',
+              title: t('{{invoiceNumberLabel}} löschen?', {
+                invoiceNumberLabel: invoiceNumberLabel(invoice.invoiceNumber)
+              }),
+              description: t('Der Entwurf wird endgültig entfernt.'),
+              confirmLabel: t('Löschen'),
               destructive: true
             })
           ) {

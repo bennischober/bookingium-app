@@ -9,20 +9,21 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { ROUTE_SHORTCUTS } from '@/lib/routing'
+import { t } from '../../../main/i18n/translate'
 
 // Global keyboard shortcuts, listed in one place so the help dialog and the
 // bindings can't drift apart. The Alt+digit jumps follow the menu order
 // (ROUTE_SHORTCUTS); Ctrl+K (search) is registered in search-command-button,
 // Alt + „+“ / Ctrl+N (new) in quick-create-menu.
 const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
-  { keys: ['Ctrl', 'K'], description: 'Alles suchen öffnen' },
-  { keys: ['Alt', '+'], description: 'Neu anlegen (auf Listen: deren Art, sonst Auswahl)' },
-  { keys: ['Ctrl', 'N'], description: 'Neu anlegen (wie Alt + „+“)' },
-  { keys: ['Alt', '←'], description: 'Zurück' },
-  { keys: ['Alt', '→'], description: 'Vorwärts' },
+  { keys: ['Ctrl', 'K'], description: t('Alles suchen öffnen') },
+  { keys: ['Alt', '+'], description: t('Neu anlegen (auf Listen: deren Art, sonst Auswahl)') },
+  { keys: ['Ctrl', 'N'], description: t('Neu anlegen (wie Alt + „+“)') },
+  { keys: ['Alt', '←'], description: t('Zurück') },
+  { keys: ['Alt', '→'], description: t('Vorwärts') },
   ...ROUTE_SHORTCUTS.map(({ key, route }) => ({ keys: ['Alt', key], description: route.title })),
-  { keys: ['?'], description: 'Diese Hilfe anzeigen' },
-  { keys: ['Esc'], description: 'Dialoge schließen' }
+  { keys: ['?'], description: t('Diese Hilfe anzeigen') },
+  { keys: ['Esc'], description: t('Dialoge schließen') }
 ]
 
 export function ShortcutsHelp() {
@@ -58,8 +59,8 @@ export function ShortcutsHelp() {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        title="Tastaturkürzel (?)"
-        aria-label="Tastaturkürzel anzeigen"
+        title={t('Tastaturkürzel (?)')}
+        aria-label={t('Tastaturkürzel anzeigen')}
       >
         <Keyboard className="h-4 w-4" />
       </button>
@@ -67,8 +68,8 @@ export function ShortcutsHelp() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Tastaturkürzel</DialogTitle>
-            <DialogDescription>Schneller durch die App mit der Tastatur.</DialogDescription>
+            <DialogTitle>{t('Tastaturkürzel')}</DialogTitle>
+            <DialogDescription>{t('Schneller durch die App mit der Tastatur.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             {SHORTCUTS.map((shortcut) => (

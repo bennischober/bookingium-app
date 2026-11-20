@@ -25,6 +25,7 @@ import { ComposeFormatBar } from './ComposeFormatBar'
 import { ComposeHeaderFields } from './ComposeHeaderFields'
 import { type ComposeBusy, ComposeToolbar } from './ComposeToolbar'
 import { ComposeUnclearBanner } from './ComposeUnclearBanner'
+import { t } from '../../../../main/i18n/translate'
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : undefined)
 
@@ -39,7 +40,7 @@ function readBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).split(',', 2)[1] ?? '')
-    reader.onerror = () => reject(reader.error ?? new Error('Datei konnte nicht gelesen werden'))
+    reader.onerror = () => reject(reader.error ?? new Error(t('Datei konnte nicht gelesen werden')))
     reader.readAsDataURL(file)
   })
 }
@@ -133,7 +134,7 @@ export function ComposeView({
     draftSaveAllowed(phaseRef.current) && draftDirtyKey(mailRef.current) !== savedKey.current
   const save = (): Promise<void> => {
     if (!draftSaveAllowed(phaseRef.current)) {
-      return Promise.reject(new Error('Die E-Mail wird gerade gesendet'))
+      return Promise.reject(new Error(t('Die E-Mail wird gerade gesendet')))
     }
     // I17 (write path L7): the session key ties the saves of this editor together in the journal
     const input = { ...toDraftInput(mailRef.current), sendKey: sendKey.current }
@@ -170,11 +171,13 @@ export function ComposeView({
       if (closed.current || !isDirty()) return
       save().then(
         () => {
-          toast.success('Als Entwurf gespeichert')
+          toast.success(t('Als Entwurf gespeichert'))
           onStoredRef.current()
         },
         (error) =>
-          toast.error('Entwurf konnte nicht gespeichert werden', { description: errorText(error) })
+          toast.error(t('Entwurf konnte nicht gespeichert werden'), {
+            description: errorText(error)
+          })
       )
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,9 +208,10 @@ export function ComposeView({
         (error) => {
           closed.current = true
           leaving = false
-          toast.error('Entwurf konnte nicht gespeichert werden', {
-            description:
-              `${errorText(error) ?? ''} Erneut schließen verwirft die Änderungen.`.trim()
+          toast.error(t('Entwurf konnte nicht gespeichert werden'), {
+            description: t('{{value}} Erneut schließen verwirft die Änderungen.', {
+              value: errorText(error) ?? ''
+            }).trim()
           })
         }
       )
@@ -269,7 +273,7 @@ export function ComposeView({
       setSavedAt(new Date())
       onStored()
     } catch (error) {
-      toast.error('Entwurf konnte nicht gespeichert werden', { description: errorText(error) })
+      toast.error(t('Entwurf konnte nicht gespeichert werden'), { description: errorText(error) })
     } finally {
       setBusy(null)
     }
@@ -279,9 +283,9 @@ export function ComposeView({
   // click failing with a toast. null means "sendable".
   const sendBlocked = (() => {
     const all = [...mail.to, ...mail.cc, ...mail.bcc]
-    if (all.length === 0) return 'Bitte mindestens einen Empfänger angeben'
+    if (all.length === 0) return t('Bitte mindestens einen Empfänger angeben')
     const bad = all.find((a) => !isValidEmail(a.email))
-    return bad ? `„${bad.email}“ ist keine gültige Adresse` : null
+    return bad ? t('„{{email}}“ ist keine gültige Adresse', { email: bad.email }) : null
   })()
 
   const send = async () => {
@@ -301,19 +305,19 @@ export function ComposeView({
     // The button is disabled while sendBlocked, but Ctrl+Enter calls send() directly, so this
     // guard is still reachable - it is not redundant with the disabled state.
     if (!current.to.length && !current.cc.length && !current.bcc.length) {
-      toast.error('Bitte mindestens einen Empfänger angeben')
+      toast.error(t('Bitte mindestens einen Empfänger angeben'))
       return
     }
     const invalid = [...current.to, ...current.cc, ...current.bcc].find(
       (a) => !isValidEmail(a.email)
     )
     if (invalid) {
-      toast.error(`„${invalid.email}“ ist keine gültige Adresse`)
+      toast.error(t('„{{email}}“ ist keine gültige Adresse', { email: invalid.email }))
       return
     }
     if (
       !current.subject.trim() &&
-      !(await confirmAction({ title: 'Ohne Betreff senden?', confirmLabel: 'Senden' }))
+      !(await confirmAction({ title: t('Ohne Betreff senden?'), confirmLabel: t('Senden') }))
     ) {
       return
     }
@@ -337,12 +341,12 @@ export function ComposeView({
         // I2 (MR-03): the server may have the mail. "fehlgeschlagen" would invite a second
         // send, so the editor locks and says what is known.
         setPhase('unclear')
-        toast.warning('Versand unklar', {
-          description: 'Die E-Mail ist vielleicht schon unterwegs. Bitte erst prüfen.'
+        toast.warning(t('Versand unklar'), {
+          description: t('Die E-Mail ist vielleicht schon unterwegs. Bitte erst prüfen.')
         })
       } else {
         setPhase('idle')
-        toast.error('Senden fehlgeschlagen', { description: errorText(error) })
+        toast.error(t('Senden fehlgeschlagen'), { description: errorText(error) })
       }
     } finally {
       setBusy(null)
@@ -368,10 +372,10 @@ export function ComposeView({
         await trpcVanilla.followUp.create.mutate(followUp)
         filed = true
       } catch (error) {
-        toast.error('Wiedervorlage nicht angelegt', { description: errorText(error) })
+        toast.error(t('Wiedervorlage nicht angelegt'), { description: errorText(error) })
       }
     }
-    toast.success('Gesendet', filed ? { description: 'Wiedervorlage angelegt' } : undefined)
+    toast.success(t('Gesendet'), filed ? { description: t('Wiedervorlage angelegt') } : undefined)
     onStored()
     onClose()
   }
@@ -391,8 +395,8 @@ export function ComposeView({
         return
       }
       if (!op || check !== 'probe') {
-        toast.info('Versand weiter unklar', {
-          description: 'Bitte im Ordner Gesendet nachsehen.'
+        toast.info(t('Versand weiter unklar'), {
+          description: t('Bitte im Ordner Gesendet nachsehen.')
         })
         return
       }
@@ -400,12 +404,12 @@ export function ComposeView({
       if (result.outcome === 'done' || result.outcome === 'noop') {
         await finishSent(op.messageId)
       } else {
-        toast.warning('Nicht im Ordner Gesendet gefunden', {
-          description: 'Die E-Mail kann trotzdem zugestellt worden sein.'
+        toast.warning(t('Nicht im Ordner Gesendet gefunden'), {
+          description: t('Die E-Mail kann trotzdem zugestellt worden sein.')
         })
       }
     } catch (error) {
-      toast.error('Prüfen fehlgeschlagen', { description: errorText(error) })
+      toast.error(t('Prüfen fehlgeschlagen'), { description: errorText(error) })
     } finally {
       setBusy(null)
     }
@@ -415,10 +419,11 @@ export function ComposeView({
   const sendAsNew = async () => {
     if (
       !(await confirmAction({
-        title: 'Als neue E-Mail senden?',
-        description:
-          'Wenn die erste E-Mail doch angekommen ist, erhalten die Empfänger sie zweimal.',
-        confirmLabel: 'Senden'
+        title: t('Als neue E-Mail senden?'),
+        description: t(
+          'Wenn die erste E-Mail doch angekommen ist, erhalten die Empfänger sie zweimal.'
+        ),
+        confirmLabel: t('Senden')
       }))
     ) {
       return
@@ -433,9 +438,9 @@ export function ComposeView({
     if (
       (isDirty() || stored) &&
       !(await confirmAction({
-        title: 'Entwurf verwerfen?',
-        description: stored ? 'Der gespeicherte Entwurf kommt in den Papierkorb.' : undefined,
-        confirmLabel: 'Verwerfen',
+        title: t('Entwurf verwerfen?'),
+        description: stored ? t('Der gespeicherte Entwurf kommt in den Papierkorb.') : undefined,
+        confirmLabel: t('Verwerfen'),
         destructive: true
       }))
     ) {
@@ -446,7 +451,7 @@ export function ComposeView({
     try {
       await queue.current
     } catch (error) {
-      toast.error('Entwurf konnte nicht gelöscht werden', { description: errorText(error) })
+      toast.error(t('Entwurf konnte nicht gelöscht werden'), { description: errorText(error) })
     }
     // G4: the editor closes now, not after the server has answered. Deleting a draft used to
     // await the whole write - connect, LOGIN, SELECT, UID MOVE, LOGOUT - so the click looked
@@ -459,7 +464,7 @@ export function ComposeView({
         .discardDraft(uid, accountId)
         .then(() => onStored())
         .catch((error) =>
-          toast.error('Entwurf konnte nicht gelöscht werden', { description: errorText(error) })
+          toast.error(t('Entwurf konnte nicht gelöscht werden'), { description: errorText(error) })
         )
     }
     onClose()
@@ -470,8 +475,10 @@ export function ComposeView({
     if (!files?.length || phaseRef.current !== 'idle') return
     // B7: checked against the file sizes before anything is read into memory
     if (!attachmentsFit(mailRef.current.attachments, [...files])) {
-      toast.error('Anhänge zu groß', {
-        description: `Zusammen höchstens ${formatSize(MAX_ATTACHMENT_BYTES)}.`
+      toast.error(t('Anhänge zu groß'), {
+        description: t('Zusammen höchstens {{formatSize}}.', {
+          formatSize: formatSize(MAX_ATTACHMENT_BYTES)
+        })
       })
       return
     }
@@ -488,7 +495,7 @@ export function ComposeView({
       edited.current = true
       setMail((m) => ({ ...m, attachments: [...m.attachments, ...added] }))
     } catch (error) {
-      toast.error('Datei konnte nicht angehängt werden', { description: errorText(error) })
+      toast.error(t('Datei konnte nicht angehängt werden'), { description: errorText(error) })
     }
   }
 
@@ -541,7 +548,7 @@ export function ComposeView({
       onDragLeaveCapture={attachDrop.dropProps.onDragLeave}
       onDropCapture={attachDrop.dropProps.onDrop}
       className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-      aria-label="E-Mail verfassen"
+      aria-label={t('E-Mail verfassen')}
       // I2 (MR-04): no implicit submit. Enter in Betreff or a recipient field used to send a
       // half-written mail; the editor sends only via the button and Ctrl+Enter.
       onSubmit={(e) => e.preventDefault()}
@@ -555,8 +562,8 @@ export function ComposeView({
     >
       <DropOverlay
         show={attachDrop.dragging}
-        title="Als Anhang ablegen"
-        hint="Die Dateien werden an diese E-Mail angehängt."
+        title={t('Als Anhang ablegen')}
+        hint={t('Die Dateien werden an diese E-Mail angehängt.')}
       />
       <ComposeToolbar
         busy={busy}
@@ -608,7 +615,7 @@ export function ComposeView({
         contentEditable={!locked}
         aria-readonly={locked}
         role="textbox"
-        aria-label="Text"
+        aria-label={t('Text')}
         aria-multiline="true"
         ref={body}
         onInput={onBodyInput}

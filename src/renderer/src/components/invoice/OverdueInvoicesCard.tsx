@@ -15,6 +15,7 @@ import {
   nextReminderKind,
   type OverdueInvoiceDto
 } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 /** "Mahnung am 15.10.2026, 14:32" for the latest reminder, '' before the first */
 function lastReminderLabel(emails: OverdueInvoiceDto['emails']): string {
@@ -23,10 +24,10 @@ function lastReminderLabel(emails: OverdueInvoiceDto['emails']): string {
   const dunnings = emails.filter((email) => email.kind === 'dunning').length
   const noun =
     last.kind === 'reminder'
-      ? 'Zahlungserinnerung'
+      ? t('Zahlungserinnerung')
       : dunnings > 1
         ? `${dunnings}. Mahnung`
-        : 'Mahnung'
+        : t('Mahnung')
   return `${noun} am ${invoiceMomentLabel(last.createdAt)}`
 }
 
@@ -46,7 +47,7 @@ export function OverdueInvoicesCard() {
   return (
     <Card role="region" aria-labelledby="overdue-invoices-title">
       <CardHeader>
-        <CardTitle id="overdue-invoices-title">Überfällige Rechnungen</CardTitle>
+        <CardTitle id="overdue-invoices-title">{t('Überfällige Rechnungen')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
@@ -65,8 +66,10 @@ export function OverdueInvoicesCard() {
                     {[
                       // Marked by hand, the due date may not have passed
                       invoice.dueDate && invoice.dueDate < today
-                        ? `Fällig seit ${germanDate(invoice.dueDate)}`
-                        : 'Als überfällig markiert',
+                        ? t('Fällig seit {{germanDate}}', {
+                            germanDate: germanDate(invoice.dueDate)
+                          })
+                        : t('Als überfällig markiert'),
                       lastReminderLabel(invoice.emails)
                     ]
                       .filter(Boolean)
@@ -93,7 +96,7 @@ export function OverdueInvoicesCard() {
                     </Button>
                   )}
                   <Button variant="outline" onClick={() => openInvoice(invoice)}>
-                    Rechnung öffnen
+                    {t('Rechnung öffnen')}
                   </Button>
                 </div>
               </li>

@@ -6,6 +6,7 @@
 
 import { toCents } from '../einvoice/amounts'
 import { cleanText } from '../import/normalize'
+import { t } from '../i18n/translate'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -22,16 +23,16 @@ export const SHOW_FILE_KINDS = [
 export type ShowFileKind = (typeof SHOW_FILE_KINDS)[number]
 
 export const SHOW_FILE_KIND_LABELS: Record<ShowFileKind, string> = {
-  daysheet: 'Day-/Infosheet',
-  venue_spec: 'Club-Infos / Technik',
-  stage_plot: 'Bühnen- / Lichtplan',
-  contract: 'Vertrag',
-  settlement: 'Abrechnung',
-  mail: 'E-Mail',
-  permit: 'Genehmigung',
-  rider: 'Rider',
-  duplicate: 'Doppelt (gleiche Datei als PDF)',
-  other: 'Sonstiges'
+  daysheet: t('Day-/Infosheet'),
+  venue_spec: t('Club-Infos / Technik'),
+  stage_plot: t('Bühnen- / Lichtplan'),
+  contract: t('Vertrag'),
+  settlement: t('Abrechnung'),
+  mail: t('E-Mail'),
+  permit: t('Genehmigung'),
+  rider: t('Rider'),
+  duplicate: t('Doppelt (gleiche Datei als PDF)'),
+  other: t('Sonstiges')
 }
 
 /** The itinerary fields a sheet can fill (itinerary table, HH:MM; showLength in minutes) */

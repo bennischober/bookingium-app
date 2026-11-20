@@ -9,10 +9,11 @@ import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { SyncFolderDto, SyncStatusDto } from '../../../../main/api/schemas/sync.schema'
 import { othersQuietSince } from './syncQuiet'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "28.10.2026, 14:30" */
 const formatDateTime = (iso: string): string =>
-  new Date(iso).toLocaleString('de-DE', {
+  new Date(iso).toLocaleString(uiLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -21,52 +22,61 @@ const formatDateTime = (iso: string): string =>
   })
 
 function SyncState({ status }: { status: SyncStatusDto }) {
-  if (status.running) return <p className="text-sm text-muted-foreground">Wird abgeglichen…</p>
+  if (status.running)
+    return <p className="text-sm text-muted-foreground">{t('Wird abgeglichen…')}</p>
   return (
     <div className="space-y-1 text-sm">
       {status.lastError ? (
         <p className="text-destructive">
-          Abgleich fehlgeschlagen
+          {t('Abgleich fehlgeschlagen')}
           {status.lastRunAt ? ` (${formatDateTime(status.lastRunAt)})` : ''}: {status.lastError}
         </p>
       ) : (
         <p className="text-muted-foreground">
           {status.lastSuccessAt
-            ? `Zuletzt abgeglichen: ${formatDateTime(status.lastSuccessAt)}`
-            : 'Noch nicht abgeglichen.'}
+            ? t('Zuletzt abgeglichen: {{formatDateTime}}', {
+                formatDateTime: formatDateTime(status.lastSuccessAt)
+              })
+            : t('Noch nicht abgeglichen.')}
         </p>
       )}
       {status.lastError && status.lastSuccessAt && (
         <p className="text-muted-foreground">
-          Zuletzt erfolgreich: {formatDateTime(status.lastSuccessAt)}
+          {t('Zuletzt erfolgreich:')} {formatDateTime(status.lastSuccessAt)}
         </p>
       )}
       {status.pendingChanges > 0 && (
         <p className="text-muted-foreground">
           {status.pendingChanges === 1
-            ? '1 Änderung dieses Computers wartet auf den nächsten Abgleich.'
-            : `${status.pendingChanges} Änderungen dieses Computers warten auf den nächsten Abgleich.`}
+            ? t('1 Änderung dieses Computers wartet auf den nächsten Abgleich.')
+            : t(
+                '{{pendingChanges}} Änderungen dieses Computers warten auf den nächsten Abgleich.',
+                { pendingChanges: status.pendingChanges }
+              )}
         </p>
       )}
       {status.waitingFiles > 0 && (
         <p className="text-muted-foreground">
-          {status.waitingFiles === 1 ? '1 Dokument' : `${status.waitingFiles} Dokumente`} vom
-          anderen Computer {status.waitingFiles === 1 ? 'ist' : 'sind'} noch nicht im Ordner
-          angekommen.
+          {status.waitingFiles === 1
+            ? t('1 Dokument')
+            : t('{{waitingFiles}} Dokumente', { waitingFiles: status.waitingFiles })}{' '}
+          {t('vom anderen Computer')} {status.waitingFiles === 1 ? 'ist' : 'sind'}{' '}
+          {t('noch nicht im Ordner angekommen.')}
         </p>
       )}
       {status.newerVersionElsewhere && (
         <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          Ein anderer Computer hat eine neuere Version von Bookingium. Seine Änderungen kommen an,
-          sobald Bookingium auf diesem Computer aktualisiert ist; das Update wird schon gesucht
-          (siehe „Version und Updates“).
+          {t(
+            'Ein anderer Computer hat eine neuere Version von Bookingium. Seine Änderungen kommen an, sobald Bookingium auf diesem Computer aktualisiert ist; das Update wird schon gesucht (siehe „Version und Updates“).'
+          )}
         </p>
       )}
       {status.reidentifiedAt && (
         <p className="text-muted-foreground">
-          Seit dem Wiederherstellen einer Sicherung ({formatDateTime(status.reidentifiedAt)}) holt
-          dieser Computer die neueren Änderungen der anderen wieder herein.
+          {t('Seit dem Wiederherstellen einer Sicherung (')}
+          {formatDateTime(status.reidentifiedAt)}
+          {t(') holt dieser Computer die neueren Änderungen der anderen wieder herein.')}
         </p>
       )}
     </div>
@@ -89,46 +99,50 @@ export function SyncCard() {
     toast.error(title, { description: error.message })
 
   const chooseFolder = trpcReact.sync.chooseFolder.useMutation({
-    onError: onError('Ordner kann nicht verwendet werden')
+    onError: onError(t('Ordner kann nicht verwendet werden'))
   })
   const setUp = trpcReact.sync.setUp.useMutation({
     onSuccess: (next) => {
       setStatus(next)
-      toast.success('Abgleich eingerichtet', {
-        description:
+      toast.success(t('Abgleich eingerichtet'), {
+        description: t(
           'Auf dem anderen Computer jetzt unter Einstellungen › Daten denselben Ordner wählen und beitreten.'
+        )
       })
     },
-    onError: onError('Abgleich konnte nicht eingerichtet werden')
+    onError: onError(t('Abgleich konnte nicht eingerichtet werden'))
   })
   const join = trpcReact.sync.join.useMutation({
     onSuccess: (result) =>
-      toast.success('Daten zusammengeführt', {
-        description: `${result.matched} gemeinsame Einträge erkannt, ${result.inserted} Einträge dieses Computers hinzugefügt. Bookingium startet neu.`,
+      toast.success(t('Daten zusammengeführt'), {
+        description: t(
+          '{{matched}} gemeinsame Einträge erkannt, {{inserted}} Einträge dieses Computers hinzugefügt. Bookingium startet neu.',
+          { matched: result.matched, inserted: result.inserted }
+        ),
         duration: 10000
       }),
-    onError: onError('Beitreten fehlgeschlagen')
+    onError: onError(t('Beitreten fehlgeschlagen'))
   })
   const runNow = trpcReact.sync.runNow.useMutation({
     onSuccess: (next) => {
       setStatus(next)
-      if (next.lastError) toast.error('Abgleich fehlgeschlagen', { description: next.lastError })
-      else toast.success('Abgeglichen')
+      if (next.lastError) toast.error(t('Abgleich fehlgeschlagen'), { description: next.lastError })
+      else toast.success(t('Abgeglichen'))
     },
-    onError: onError('Abgleich fehlgeschlagen')
+    onError: onError(t('Abgleich fehlgeschlagen'))
   })
   const leave = trpcReact.sync.leave.useMutation({
     onSuccess: (next) => {
       setStatus(next)
-      toast.success('Abgleich auf diesem Computer beendet')
+      toast.success(t('Abgleich auf diesem Computer beendet'))
     },
-    onError: onError('Abgleich konnte nicht beendet werden')
+    onError: onError(t('Abgleich konnte nicht beendet werden'))
   })
   const inspect = trpcReact.sync.inspectFolder.useMutation({
-    onError: onError('Ordner kann nicht verwendet werden')
+    onError: onError(t('Ordner kann nicht verwendet werden'))
   })
   const openFolder = trpcReact.sync.openFolder.useMutation({
-    onError: onError('Ordner konnte nicht geöffnet werden')
+    onError: onError(t('Ordner konnte nicht geöffnet werden'))
   })
 
   const start = async () => {
@@ -140,29 +154,36 @@ export function SyncCard() {
 
   const confirmSetUp = async (folder: SyncFolderDto) => {
     const ok = await confirmAction({
-      title: 'Abgleich hier einrichten?',
-      description: `In „${folder.folder}“ ist noch kein Abgleich. Dieser Computer wird der erste: Seine Daten und Dokumente werden dort als gemeinsamer Startstand abgelegt. Weitere Computer wählen danach denselben Ordner und treten bei.`,
-      confirmLabel: 'Einrichten'
+      title: t('Abgleich hier einrichten?'),
+      description: t(
+        'In „{{folder}}“ ist noch kein Abgleich. Dieser Computer wird der erste: Seine Daten und Dokumente werden dort als gemeinsamer Startstand abgelegt. Weitere Computer wählen danach denselben Ordner und treten bei.',
+        { folder: folder.folder }
+      ),
+      confirmLabel: t('Einrichten')
     })
     if (ok) setUp.mutate(folder.folder)
   }
 
   const confirmJoin = async (folder: SyncFolderDto) => {
-    const others = folder.devices.length > 0 ? folder.devices.join(', ') : 'ein anderer Computer'
+    const others = folder.devices.length > 0 ? folder.devices.join(', ') : t('ein anderer Computer')
     const ok = await confirmAction({
-      title: 'Dem Abgleich beitreten?',
-      description: `Dabei: ${others}. Die Daten dieses Computers werden mit denen der anderen zusammengeführt; Einträge, die es auf beiden gibt (gleiche Band, Person, Firma, gleiches Event, gleiche Rechnungsnummer …), werden erkannt und nur einmal übernommen. Der aktuelle Stand wird vorher gesichert. Bookingium startet dazu neu.`,
-      confirmLabel: 'Zusammenführen und neu starten'
+      title: t('Dem Abgleich beitreten?'),
+      description: t(
+        'Dabei: {{others}}. Die Daten dieses Computers werden mit denen der anderen zusammengeführt; Einträge, die es auf beiden gibt (gleiche Band, Person, Firma, gleiches Event, gleiche Rechnungsnummer …), werden erkannt und nur einmal übernommen. Der aktuelle Stand wird vorher gesichert. Bookingium startet dazu neu.',
+        { others }
+      ),
+      confirmLabel: t('Zusammenführen und neu starten')
     })
     if (ok) join.mutate(folder.folder)
   }
 
   const confirmLeave = async () => {
     const ok = await confirmAction({
-      title: 'Abgleich beenden?',
-      description:
-        'Dieser Computer bekommt dann keine Änderungen der anderen mehr und gibt seine nicht mehr weiter. Die Daten bleiben hier erhalten. Später lässt er sich wieder anschließen: Beim erneuten Beitreten werden die Daten wieder zusammengeführt.',
-      confirmLabel: 'Beenden',
+      title: t('Abgleich beenden?'),
+      description: t(
+        'Dieser Computer bekommt dann keine Änderungen der anderen mehr und gibt seine nicht mehr weiter. Die Daten bleiben hier erhalten. Später lässt er sich wieder anschließen: Beim erneuten Beitreten werden die Daten wieder zusammengeführt.'
+      ),
+      confirmLabel: t('Beenden'),
       destructive: true
     })
     if (ok) leave.mutate()
@@ -187,13 +208,11 @@ export function SyncCard() {
   return (
     <Card id="settings-sync">
       <CardHeader>
-        <CardTitle>Abgleich mit anderen Computern</CardTitle>
+        <CardTitle>{t('Abgleich mit anderen Computern')}</CardTitle>
         <CardDescription>
-          Mehrere Computer arbeiten mit denselben Daten: Jede Änderung, auch an Dokumenten, kommt
-          nach wenigen Sekunden auf den anderen an – automatisch, solange Bookingium offen ist.
-          Ausgetauscht wird über einen Ordner, auf den alle Zugriff haben, zum Beispiel einen
-          geteilten Ordner in OneDrive oder Google Drive. E-Mail-Konten und E-Mails gleicht jeder
-          Computer selbst mit dem Mailserver ab.
+          {t(
+            'Mehrere Computer arbeiten mit denselben Daten: Jede Änderung, auch an Dokumenten, kommt nach wenigen Sekunden auf den anderen an – automatisch, solange Bookingium offen ist. Ausgetauscht wird über einen Ordner, auf den alle Zugriff haben, zum Beispiel einen geteilten Ordner in OneDrive oder Google Drive. E-Mail-Konten und E-Mails gleicht jeder Computer selbst mit dem Mailserver ab.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -205,12 +224,12 @@ export function SyncCard() {
               onCheckedChange={(checked) => void toggle(checked)}
               disabled={busy || leave.isPending}
             />
-            <Label htmlFor="settings-sync-enabled">Mit anderen Computern abgleichen</Label>
+            <Label htmlFor="settings-sync-enabled">{t('Mit anderen Computern abgleichen')}</Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Auf dem ersten Computer einen leeren Ordner wählen, auf jedem weiteren denselben. Beim
-            Beitreten werden die Daten zusammengeführt, ohne dass etwas doppelt vorkommt; der Stand
-            davor wird gesichert.
+            {t(
+              'Auf dem ersten Computer einen leeren Ordner wählen, auf jedem weiteren denselben. Beim Beitreten werden die Daten zusammengeführt, ohne dass etwas doppelt vorkommt; der Stand davor wird gesichert.'
+            )}
           </p>
         </div>
 
@@ -221,47 +240,47 @@ export function SyncCard() {
               <div
                 key={found.folder}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:bg-amber-950"
-                aria-label="Gefundener Abgleich"
+                aria-label={t('Gefundener Abgleich')}
               >
                 <div className="flex min-w-0 items-start gap-2">
                   <CloudAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                   <div className="min-w-0">
-                    <p className="font-medium">Abgleich in diesem Ordner gefunden</p>
+                    <p className="font-medium">{t('Abgleich in diesem Ordner gefunden')}</p>
                     <p className="truncate font-mono text-xs" title={found.folder}>
                       {found.folder}
                     </p>
                     {found.devices.length > 0 && (
                       <p className="text-muted-foreground">
-                        Dabei: {[...new Set(found.devices)].join(', ')}
+                        {t('Dabei:')} {[...new Set(found.devices)].join(', ')}
                       </p>
                     )}
                   </div>
                 </div>
                 <Button onClick={() => void confirmJoin(found)} disabled={busy}>
-                  Beitreten
+                  {t('Beitreten')}
                 </Button>
               </div>
             ))}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Gemeinsamer Ordner</p>
+            <p className="font-medium">{t('Gemeinsamer Ordner')}</p>
             <p
               className="truncate font-mono text-xs text-muted-foreground"
               title={folder || undefined}
             >
-              {folder || 'Kein Ordner gewählt'}
+              {folder || t('Kein Ordner gewählt')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {folder && (
               <Button variant="ghost" onClick={() => openFolder.mutate()}>
-                <FolderOpen className="h-4 w-4" /> Öffnen
+                <FolderOpen className="h-4 w-4" /> {t('Öffnen')}
               </Button>
             )}
             {!enabled && (
               <Button variant="outline" onClick={() => void start()} disabled={busy}>
-                {busy ? 'Bitte warten…' : folder ? 'Anderer Ordner…' : 'Ordner wählen…'}
+                {busy ? t('Bitte warten…') : folder ? t('Anderer Ordner…') : t('Ordner wählen…')}
               </Button>
             )}
           </div>
@@ -282,7 +301,7 @@ export function SyncCard() {
                 onClick={() => runNow.mutate()}
                 disabled={data.running || runNow.isPending || !data.active}
               >
-                <RefreshCw className="h-4 w-4" /> Jetzt abgleichen
+                <RefreshCw className="h-4 w-4" /> {t('Jetzt abgleichen')}
               </Button>
             )}
           </div>
@@ -294,7 +313,7 @@ export function SyncCard() {
 
         {enabled && data && data.conflicts.length > 0 && (
           <div className="space-y-2">
-            <p className="font-medium">Nicht übernommene Änderungen</p>
+            <p className="font-medium">{t('Nicht übernommene Änderungen')}</p>
             <ul className="space-y-1 text-sm">
               {data.conflicts.map((conflict) => (
                 <li key={conflict.id} className="flex items-start gap-1.5">
@@ -330,10 +349,10 @@ function SyncDevices({
   const remove = trpcReact.sync.removeDevice.useMutation({
     onSuccess: (next) => {
       onChanged(next)
-      toast.success('Früheren Eintrag entfernt')
+      toast.success(t('Früheren Eintrag entfernt'))
     },
     onError: (error) =>
-      toast.error('Eintrag konnte nicht entfernt werden', { description: error.message })
+      toast.error(t('Eintrag konnte nicht entfernt werden'), { description: error.message })
   })
   const current = devices.filter((device) => !device.superseded)
   const quietSince = othersQuietSince(devices, new Date())
@@ -350,16 +369,24 @@ function SyncDevices({
     >
       <Monitor className="h-4 w-4 text-muted-foreground" />
       <span>{device.name}</span>
-      {device.self && <span className="text-muted-foreground">(dieser Computer)</span>}
-      <span className="text-xs text-muted-foreground">Version {device.appVersion}</span>
+      {device.self && <span className="text-muted-foreground">{t('(dieser Computer)')}</span>}
+      <span className="text-xs text-muted-foreground">
+        {t('Version')} {device.appVersion}
+      </span>
       <span className="text-xs text-muted-foreground">
         {device.superseded
-          ? `· früherer Eintrag vom ${formatDateTime(device.createdAt)}, wird nicht mehr genutzt`
+          ? t('· früherer Eintrag vom {{formatDateTime}}, wird nicht mehr genutzt', {
+              formatDateTime: formatDateTime(device.createdAt)
+            })
           : device.lastBatchAt
-            ? `· zuletzt Änderungen abgelegt: ${formatDateTime(device.lastBatchAt)}`
-            : `· seit ${formatDateTime(device.createdAt)} dabei, noch keine Änderungen abgelegt`}
+            ? t('· zuletzt Änderungen abgelegt: {{formatDateTime}}', {
+                formatDateTime: formatDateTime(device.lastBatchAt)
+              })
+            : t('· seit {{formatDateTime}} dabei, noch keine Änderungen abgelegt', {
+                formatDateTime: formatDateTime(device.createdAt)
+              })}
         {!device.superseded && !device.self && device.lastSeenAt
-          ? ` · zuletzt gesehen: ${formatDateTime(device.lastSeenAt)}`
+          ? t(' · zuletzt gesehen: {{when}}', { when: formatDateTime(device.lastSeenAt) })
           : ''}
       </span>
       {device.superseded && device.lastBatchAt === null && (
@@ -370,15 +397,16 @@ function SyncDevices({
           disabled={remove.isPending}
           onClick={async () => {
             const confirmed = await confirmAction({
-              title: `Früheren Eintrag von „${device.name}“ entfernen?`,
-              description:
-                'Er hat nie Änderungen abgelegt, es geht also nichts verloren. Der aktuelle Eintrag dieses Computers bleibt.',
-              confirmLabel: 'Entfernen'
+              title: t('Früheren Eintrag von „{{name}}“ entfernen?', { name: device.name }),
+              description: t(
+                'Er hat nie Änderungen abgelegt, es geht also nichts verloren. Der aktuelle Eintrag dieses Computers bleibt.'
+              ),
+              confirmLabel: t('Entfernen')
             })
             if (confirmed) remove.mutate({ id: device.id })
           }}
         >
-          Entfernen
+          {t('Entfernen')}
         </Button>
       )}
     </li>
@@ -386,7 +414,7 @@ function SyncDevices({
 
   return (
     <div className="space-y-2">
-      <p className="font-medium">Computer im Abgleich</p>
+      <p className="font-medium">{t('Computer im Abgleich')}</p>
       <ul className="space-y-1 text-sm">{current.map(row)}</ul>
       {quietSince && (
         <div
@@ -395,10 +423,10 @@ function SyncDevices({
         >
           <CloudAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Von den anderen Computern ist seit {formatDateTime(quietSince)} nichts mehr angekommen.
-            Wurde dort inzwischen gearbeitet, gleicht OneDrive, Dropbox oder Google Drive den Ordner
-            auf diesem Computer vermutlich nicht mehr ab – bitte dort nachsehen (Anmeldung,
-            Speicherplatz, angehaltene Synchronisierung).
+            {t(
+              'Von den anderen Computern ist seit {{since}} nichts mehr angekommen. Wurde dort inzwischen gearbeitet, gleicht OneDrive, Dropbox oder Google Drive den Ordner auf diesem Computer vermutlich nicht mehr ab – bitte dort nachsehen (Anmeldung, Speicherplatz, angehaltene Synchronisierung).',
+              { since: formatDateTime(quietSince) }
+            )}
           </span>
         </div>
       )}
@@ -411,17 +439,20 @@ function SyncDevices({
             onClick={() => setShowEarlier((open) => !open)}
           >
             {showEarlier
-              ? 'Frühere Einträge ausblenden'
+              ? t('Frühere Einträge ausblenden')
               : earlier.length === 1
-                ? '1 früherer Eintrag ausgeblendet – anzeigen'
-                : `${earlier.length} frühere Einträge ausgeblendet – anzeigen`}
+                ? t('1 früherer Eintrag ausgeblendet – anzeigen')
+                : t('{{length}} frühere Einträge ausgeblendet – anzeigen', {
+                    length: earlier.length
+                  })}
           </Button>
           {showEarlier && (
             <>
               <ul className="space-y-1 text-sm">{earlier.map(row)}</ul>
               <p className="text-xs text-muted-foreground">
-                Frühere Einträge entstehen, wenn ein Computer neu beitritt. Einträge mit abgelegten
-                Änderungen bleiben im Ordner, damit kein anderer Computer etwas verpasst.
+                {t(
+                  'Frühere Einträge entstehen, wenn ein Computer neu beitritt. Einträge mit abgelegten Änderungen bleiben im Ordner, damit kein anderer Computer etwas verpasst.'
+                )}
               </p>
             </>
           )}

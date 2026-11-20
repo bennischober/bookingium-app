@@ -3,6 +3,13 @@ import { exposeElectronTRPC } from 'electron-trpc/main'
 
 // Custom APIs for renderer
 const api = {
+  /** #254: the UI language, read synchronously before the renderer's first module runs */
+  getLanguage: (): string => ipcRenderer.sendSync('i18n:getLanguage'),
+
+  /** #254: stores the UI language and reloads this window */
+  setLanguage: (language: 'de' | 'en'): Promise<void> =>
+    ipcRenderer.invoke('i18n:setLanguage', language),
+
   // Local path of a dropped file (File.path no longer exists since Electron 32)
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 

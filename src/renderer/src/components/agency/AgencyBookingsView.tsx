@@ -30,6 +30,7 @@ import {
   EXTERNAL_BOOKING_STATUS_LABELS,
   type ExternalBookingDto
 } from '../../../../main/api/schemas/external_booking.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const STATUS_STYLES: Record<ExternalBookingDto['status'], string> = {
   confirmed: 'bg-green-100 text-green-800 border-green-200',
@@ -80,30 +81,35 @@ export function AgencyBookingsView() {
   const deleteMutation = trpcReact.externalBooking.delete.useMutation({
     onSuccess: () => {
       invalidate()
-      toast.success('Agenturbuchung entfernt')
+      toast.success(t('Agenturbuchung entfernt'))
     },
     onError: (e) =>
-      toast.error('Agenturbuchung konnte nicht entfernt werden', { description: e.message })
+      toast.error(t('Agenturbuchung konnte nicht entfernt werden'), { description: e.message })
   })
 
   const deleteAgencyMutation = trpcReact.externalBooking.deleteAgency.useMutation({
     onSuccess: (count) => {
       setAgency(ALL_AGENCIES)
       invalidate()
-      toast.success(`${count} ${count === 1 ? 'Agenturbuchung' : 'Agenturbuchungen'} entfernt`)
+      toast.success(
+        `${count} ${count === 1 ? t('Agenturbuchung') : t('Agenturbuchungen')} entfernt`
+      )
     },
     onError: (e) =>
-      toast.error('Agenturbuchungen konnten nicht entfernt werden', { description: e.message })
+      toast.error(t('Agenturbuchungen konnten nicht entfernt werden'), { description: e.message })
   })
 
   const handleDelete = async (booking: ExternalBookingDto) => {
     if (
       await confirmAction({
-        title: `Agenturbuchung vom ${germanDate(booking.date)} entfernen?`,
-        description: `${booking.bandName}${
-          booking.venueName ? `, ${booking.venueName}` : ''
-        }. Der nächste Import der Agentur legt sie wieder an, wenn ihre Liste sie noch enthält.`,
-        confirmLabel: 'Entfernen',
+        title: t('Agenturbuchung vom {{germanDate}} entfernen?', {
+          germanDate: germanDate(booking.date)
+        }),
+        description: t(
+          '{{booking}}. Der nächste Import der Agentur legt sie wieder an, wenn ihre Liste sie noch enthält.',
+          { booking: `${booking.bandName}${booking.venueName ? `, ${booking.venueName}` : ''}` }
+        ),
+        confirmLabel: t('Entfernen'),
         destructive: true
       })
     ) {
@@ -115,11 +121,12 @@ export function AgencyBookingsView() {
     const count = agencies.data?.find((entry) => entry.agency === name)?.count ?? 0
     if (
       await confirmAction({
-        title: `Alle Buchungen von „${name}“ entfernen?`,
-        description: `${count} ${
-          count === 1 ? 'Agenturbuchung wird' : 'Agenturbuchungen werden'
-        } entfernt. Das lässt sich nicht rückgängig machen, außer durch einen neuen Import.`,
-        confirmLabel: 'Alle entfernen',
+        title: t('Alle Buchungen von „{{name}}“ entfernen?', { name }),
+        description: t(
+          '{{count}} {{value}} entfernt. Das lässt sich nicht rückgängig machen, außer durch einen neuen Import.',
+          { count, value: count === 1 ? t('Agenturbuchung wird') : t('Agenturbuchungen werden') }
+        ),
+        confirmLabel: t('Alle entfernen'),
         destructive: true
       })
     ) {
@@ -130,17 +137,17 @@ export function AgencyBookingsView() {
   const columns: ColumnDef<ExternalBookingDto>[] = [
     {
       accessorKey: 'date',
-      header: 'Datum',
+      header: t('Datum'),
       cell: (info) => germanDate(info.getValue() as string)
     },
     {
       accessorKey: 'bandName',
-      header: 'Band',
+      header: t('Band'),
       cell: (info) => <span className="font-medium">{info.getValue() as string}</span>
     },
     {
       accessorKey: 'venueName',
-      header: 'Club / Festival',
+      header: t('Club / Festival'),
       cell: ({ row }) => (
         <span title={row.original.notes || undefined}>
           {row.original.venueName || '-'}
@@ -152,37 +159,37 @@ export function AgencyBookingsView() {
     },
     {
       accessorKey: 'city',
-      header: 'Ort',
+      header: t('Ort'),
       cell: ({ row }) => [row.original.zipCode, row.original.city].filter(Boolean).join(' ') || '-'
     },
     {
       accessorKey: 'agency',
-      header: 'Agentur',
+      header: t('Agentur'),
       cell: (info) => info.getValue() as string
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: t('Status'),
       cell: ({ row }) => (
         <span className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className={cn(STATUS_STYLES[row.original.status])}>
             {EXTERNAL_BOOKING_STATUS_LABELS[row.original.status]}
           </Badge>
           <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-800">
-            Agenturbuchung
+            {t('Agenturbuchung')}
           </Badge>
         </span>
       )
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       enableSorting: false,
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={Trash2}
-            label="Entfernen"
+            label={t('Entfernen')}
             destructive
             onClick={() => void handleDelete(row.original)}
           />
@@ -192,17 +199,16 @@ export function AgencyBookingsView() {
   ]
 
   return (
-    <section aria-label="Agenturbuchungen" className="flex min-h-0 flex-1 flex-col gap-3">
+    <section aria-label={t('Agenturbuchungen')} className="flex min-h-0 flex-1 flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        Shows Ihrer Bands, die andere Agenturen gebucht haben. Sie sind schreibgeschützt und zählen
-        für Terminkonflikte, den Kalender und den Gebietsschutz auf der Karte, aber nie für
-        Rechnungen, Verträge, Abrechnungen, Verteiler oder Wiedervorlagen. Ändern lassen sie sich
-        nur durch einen neuen Import.
+        {t(
+          'Shows Ihrer Bands, die andere Agenturen gebucht haben. Sie sind schreibgeschützt und zählen für Terminkonflikte, den Kalender und den Gebietsschutz auf der Karte, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder Wiedervorlagen. Ändern lassen sie sich nur durch einen neuen Import.'
+        )}
       </p>
       <DataTable
         columns={columns}
         data={listRows(bookings.data)}
-        itemLabel={{ singular: 'Agenturbuchung', plural: 'Agenturbuchungen' }}
+        itemLabel={{ singular: t('Agenturbuchung'), plural: t('Agenturbuchungen') }}
         hasMore={bookings.hasNextPage ?? false}
         isLoadingMore={bookings.isFetchingNextPage}
         onLoadMore={() => void bookings.fetchNextPage()}
@@ -211,7 +217,7 @@ export function AgencyBookingsView() {
         filtered={Boolean(search) || (agencyKnown && agencyFilter !== undefined)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Agenturbuchungen filtern…"
+        searchPlaceholder={t('Agenturbuchungen filtern…')}
         isLoading={bookings.isLoading}
         error={bookings.error}
         onRetry={() => void bookings.refetch()}
@@ -220,11 +226,11 @@ export function AgencyBookingsView() {
           <div className="flex flex-wrap items-center gap-2">
             {(agencies.data ?? []).length > 1 && (
               <Select value={agencyKnown ? agency : ALL_AGENCIES} onValueChange={setAgency}>
-                <SelectTrigger className="w-48" aria-label="Agentur">
+                <SelectTrigger className="w-48" aria-label={t('Agentur')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_AGENCIES}>Alle Agenturen</SelectItem>
+                  <SelectItem value={ALL_AGENCIES}>{t('Alle Agenturen')}</SelectItem>
                   {(agencies.data ?? []).map((entry) => (
                     <SelectItem key={entry.agency} value={entry.agency}>
                       {entry.agency} ({entry.count})
@@ -239,7 +245,7 @@ export function AgencyBookingsView() {
                 onClick={() => void handleDeleteAgency(agencyFilter)}
                 disabled={deleteAgencyMutation.isPending}
               >
-                <Trash2 className="h-4 w-4" /> Agentur entfernen
+                <Trash2 className="h-4 w-4" /> {t('Agentur entfernen')}
               </Button>
             ) : (
               (agencies.data ?? []).length === 1 && (
@@ -248,12 +254,12 @@ export function AgencyBookingsView() {
                   onClick={() => void handleDeleteAgency(agencies.data![0].agency)}
                   disabled={deleteAgencyMutation.isPending}
                 >
-                  <Trash2 className="h-4 w-4" /> Alle entfernen
+                  <Trash2 className="h-4 w-4" /> {t('Alle entfernen')}
                 </Button>
               )
             )}
             <Button onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" /> Importieren
+              <Upload className="h-4 w-4" /> {t('Importieren')}
             </Button>
           </div>
         }

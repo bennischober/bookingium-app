@@ -19,6 +19,7 @@ import { OverdueInvoicesCard } from '@/components/invoice/OverdueInvoicesCard'
 import { DatevPendingCard } from '@/components/invoice/DatevPendingCard'
 import { ReceiptPendingCard } from '@/components/receipts/ReceiptPendingCard'
 import { OpenItemsCard } from '@/components/open-items/OpenItemsCard'
+import { t } from '../../../main/i18n/translate'
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.split('-')
@@ -46,34 +47,34 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col w-full h-full p-6 gap-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="text-2xl font-bold">{t('Dashboard')}</h1>
       <Tip id="dashboard" />
 
       <StatusLine
         items={[
           {
-            label: 'Events nächste 7 Tage',
+            label: t('Events nächste 7 Tage'),
             value: String(stats?.upcomingNext7Days.length ?? '–'),
             onClick: () => navigate({ to: '/calendar' })
           },
           {
-            label: 'Events diesen Monat',
+            label: t('Events diesen Monat'),
             value: String(stats?.eventsThisMonthCount ?? '–'),
             onClick: () => navigate({ to: '/calendar' })
           },
           {
-            label: 'Unbestätigt',
+            label: t('Unbestätigt'),
             value: String(stats?.pendingEventsCount ?? '–'),
             tone: stats?.pendingEventsCount ? 'warn' : undefined,
             onClick: () => navigate({ to: '/events' })
           },
           {
-            label: 'Offene Rechnungen',
+            label: t('Offene Rechnungen'),
             value: `${stats?.openInvoicesCount ?? '–'} · ${formatMoney(stats?.openInvoiceAmount ?? 0, 'EUR')}`,
             onClick: () => navigate({ to: '/invoices' })
           },
           {
-            label: 'Davon überfällig',
+            label: t('Davon überfällig'),
             value: String(stats?.overdueInvoicesCount ?? '–'),
             tone: stats?.overdueInvoicesCount ? 'warn' : 'ok',
             onClick: () => navigate({ to: '/invoices' })
@@ -91,17 +92,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Nächste 7 Tage</CardTitle>
+            <CardTitle>{t('Nächste 7 Tage')}</CardTitle>
             <Button variant="outline" size="sm" onClick={() => navigate({ to: '/calendar' })}>
-              Kalender öffnen
+              {t('Kalender öffnen')}
             </Button>
           </CardHeader>
           <CardContent>
             {statsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Anstehende Events werden geladen…</p>
+              <p className="text-sm text-muted-foreground">
+                {t('Anstehende Events werden geladen…')}
+              </p>
             ) : !stats || stats.upcomingNext7Days.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine anstehenden Events in den nächsten 7 Tagen.
+                {t('Keine anstehenden Events in den nächsten 7 Tagen.')}
               </p>
             ) : (
               <ul className="divide-y rounded-lg border">
@@ -134,16 +137,18 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Neueste Rechnungen</CardTitle>
+            <CardTitle>{t('Neueste Rechnungen')}</CardTitle>
             <Button variant="outline" size="sm" onClick={() => navigate({ to: '/invoices' })}>
-              Rechnungen öffnen
+              {t('Rechnungen öffnen')}
             </Button>
           </CardHeader>
           <CardContent>
             {latestInvoicesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Rechnungen werden geladen…</p>
+              <p className="text-sm text-muted-foreground">{t('Rechnungen werden geladen…')}</p>
             ) : latestInvoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Noch keine Rechnungen vorhanden.</p>
+              <p className="text-sm text-muted-foreground">
+                {t('Noch keine Rechnungen vorhanden.')}
+              </p>
             ) : (
               <ul className="divide-y rounded-lg border">
                 {latestInvoices.map((invoice) => (
@@ -159,7 +164,9 @@ export default function DashboardPage() {
                         </span>
                         <span className="block truncate text-sm text-muted-foreground">
                           {formatDate(invoice.issueDate)}
-                          {invoice.dueDate ? ` · fällig am ${formatDate(invoice.dueDate)}` : ''}
+                          {invoice.dueDate
+                            ? t(' · fällig am {{date}}', { date: formatDate(invoice.dueDate) })
+                            : ''}
                         </span>
                       </span>
                       <span className="flex shrink-0 items-center gap-3">

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from '@/lib/toast'
+import { t } from '../../../main/i18n/translate'
 
 // Dropping files from the file manager onto an area, the same everywhere a file can be picked:
 // the area shows an overlay while files are dragged over it, and a drop hands over the local
@@ -127,14 +128,14 @@ export function useFileDrop({
           const allowed = (extensions ?? []).map((ext) => `.${ext}`).join(', ')
           toast.error(
             rejected.length === 1
-              ? 'Diese Datei passt hier nicht'
-              : `${rejected.length} Dateien passen hier nicht`,
-            { description: `Möglich sind: ${allowed}` }
+              ? t('Diese Datei passt hier nicht')
+              : t('{{count}} Dateien passen hier nicht', { count: rejected.length }),
+            { description: t('Möglich sind: {{allowed}}', { allowed }) }
           )
         }
         if (extra > 0) {
-          toast.info('Nur die erste Datei wird gelesen', {
-            description: 'Hier geht jeweils eine Datei.'
+          toast.info(t('Nur die erste Datei wird gelesen'), {
+            description: t('Hier geht jeweils eine Datei.')
           })
         }
         if (accepted.length === 0) return

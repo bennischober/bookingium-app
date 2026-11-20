@@ -23,6 +23,7 @@ import {
   type EInvoicePartyPreview,
   type EInvoicePartySource
 } from '../../../../main/api/schemas/einvoice_party.schema'
+import { t, uiLocale } from '../../../../main/i18n/translate'
 
 // #222: a company and its people from a received e-invoice. The file is picked, dropped
 // or handed over from a mail attachment; the user checks and completes what was read,
@@ -39,8 +40,8 @@ type PersonRow = Party['persons'][number] & {
 
 const MATCH_LABELS: Record<NonNullable<EInvoicePartyMatch>['by'], string> = {
   vatId: 'USt-IdNr.',
-  taxNumber: 'Steuernummer',
-  name: 'Namen',
+  taxNumber: t('Steuernummer'),
+  name: t('Namen'),
   email: 'E-Mail-Adresse'
 }
 
@@ -87,12 +88,17 @@ function Field({
 }
 
 function PersonStatus({ row, companyMatched }: { row: PersonRow; companyMatched: boolean }) {
-  if (row.match === undefined) return <Badge variant="outline">hinzugefügt</Badge>
+  if (row.match === undefined) return <Badge variant="outline">{t('hinzugefügt')}</Badge>
   if (row.match === null) return <Badge variant="secondary">neu</Badge>
   const label =
-    row.isMember && companyMatched ? 'bereits zugeordnet' : `vorhanden (${row.match.name})`
+    row.isMember && companyMatched
+      ? 'bereits zugeordnet'
+      : t('vorhanden ({{name}})', { name: row.match.name })
   return (
-    <Badge variant="outline" title={`Gefunden über ${MATCH_LABELS[row.match.by]}`}>
+    <Badge
+      variant="outline"
+      title={t('Gefunden über {{value}}', { value: MATCH_LABELS[row.match.by] })}
+    >
       {label}
     </Badge>
   )
@@ -125,7 +131,7 @@ export function EInvoiceCompanyDialog({
       setPersons(rowsOf(result))
     },
     onError: (error) =>
-      toast.error('E-Rechnung konnte nicht gelesen werden', { description: error.message })
+      toast.error(t('E-Rechnung konnte nicht gelesen werden'), { description: error.message })
   })
 
   const apply = trpcReact.einvoiceParty.apply.useMutation({
@@ -135,15 +141,15 @@ export function EInvoiceCompanyDialog({
       void utils.relation.invalidate()
       const people =
         result.personsCreated + result.membersAdded > 0
-          ? ` · ${result.membersAdded} ${result.membersAdded === 1 ? 'Person' : 'Personen'} zugeordnet`
+          ? ` · ${result.membersAdded} ${result.membersAdded === 1 ? t('Person') : t('Personen')} zugeordnet`
           : ''
-      toast.success(result.companyCreated ? 'Firma angelegt' : 'Firma ergänzt', {
+      toast.success(result.companyCreated ? t('Firma angelegt') : t('Firma ergänzt'), {
         description: `${party?.name ?? ''}${people}`
       })
       onOpenChange(false)
       onSaved?.(result.companyId)
     },
-    onError: (error) => toast.error('Speichern fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Speichern fehlgeschlagen'), { description: error.message })
   })
 
   // A new source (or reopening) starts over
@@ -177,9 +183,10 @@ export function EInvoiceCompanyDialog({
     setDragging(false)
     const [path] = droppedFilePaths(e)
     if (!path) {
-      toast.error('Datei konnte nicht gelesen werden', {
-        description:
+      toast.error(t('Datei konnte nicht gelesen werden'), {
+        description: t(
           'Diese Drag-Quelle stellt keine lokale Datei bereit. Bitte „Datei wählen…“ verwenden.'
+        )
       })
       return
     }
@@ -202,13 +209,20 @@ export function EInvoiceCompanyDialog({
   const addPerson = () =>
     setPersons((rows) => [
       ...rows,
-      { key: nextKey++, firstName: '', lastName: '', email: '', phone: '', role: 'Geschäftsführer' }
+      {
+        key: nextKey++,
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        role: t('Geschäftsführer')
+      }
     ])
 
   const save = () => {
     if (!party) return
     if (!party.name.trim()) {
-      toast.error('Bitte einen Firmennamen angeben')
+      toast.error(t('Bitte einen Firmennamen angeben'))
       return
     }
     // Rows left completely empty are dropped; a row with data needs a first name
@@ -216,7 +230,7 @@ export function EInvoiceCompanyDialog({
       [row.firstName, row.lastName, row.email, row.phone].some((value) => value.trim())
     )
     if (filled.some((row) => !row.firstName.trim())) {
-      toast.error('Bitte bei jeder Person einen Vornamen angeben')
+      toast.error(t('Bitte bei jeder Person einen Vornamen angeben'))
       return
     }
     apply.mutate({
@@ -238,16 +252,17 @@ export function EInvoiceCompanyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col">
         <DialogHeader>
-          <DialogTitle>Firma aus E-Rechnung</DialogTitle>
+          <DialogTitle>{t('Firma aus E-Rechnung')}</DialogTitle>
           <DialogDescription>
-            Liest den Rechnungssteller aus einer E-Rechnung (ZUGFeRD, Factur-X oder XRechnung). Sie
-            prüfen die Angaben, bevor etwas gespeichert wird.
+            {t(
+              'Liest den Rechnungssteller aus einer E-Rechnung (ZUGFeRD, Factur-X oder XRechnung). Sie prüfen die Angaben, bevor etwas gespeichert wird.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
         {read.isPending && (
           <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground" role="status">
-            <Spinner /> E-Rechnung wird gelesen…
+            <Spinner /> {t('E-Rechnung wird gelesen…')}
           </div>
         )}
 
@@ -273,9 +288,9 @@ export function EInvoiceCompanyDialog({
             onDrop={onDrop}
           >
             <Upload className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm">E-Rechnung (PDF oder XML) hier ablegen</p>
+            <p className="text-sm">{t('E-Rechnung (PDF oder XML) hier ablegen')}</p>
             <Button variant="outline" onClick={() => void pickFile()}>
-              Datei wählen…
+              {t('Datei wählen…')}
             </Button>
           </div>
         )}
@@ -285,33 +300,39 @@ export function EInvoiceCompanyDialog({
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <FileText className="h-4 w-4" />
               {preview.fileName && <span>{preview.fileName}</span>}
-              {preview.invoiceNumber && <span>· Rechnung {preview.invoiceNumber}</span>}
+              {preview.invoiceNumber && (
+                <span>
+                  {t('· Rechnung')} {preview.invoiceNumber}
+                </span>
+              )}
               {preview.issueDate && (
-                <span>· {new Date(preview.issueDate).toLocaleDateString('de-DE')}</span>
+                <span>· {new Date(preview.issueDate).toLocaleDateString(uiLocale())}</span>
               )}
             </div>
 
             <section className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-medium">Firma</h3>
+                <h3 className="font-medium">{t('Firma')}</h3>
                 {company ? (
                   <Badge variant="outline">
-                    Vorhanden: {company.name} (gefunden über {MATCH_LABELS[company.by]})
+                    {t('Vorhanden:')} {company.name} {t('(gefunden über')}{' '}
+                    {MATCH_LABELS[company.by]})
                   </Badge>
                 ) : (
-                  <Badge variant="secondary">wird neu angelegt</Badge>
+                  <Badge variant="secondary">{t('wird neu angelegt')}</Badge>
                 )}
               </div>
               {company && (
                 <p className="text-xs text-muted-foreground">
-                  Bei der vorhandenen Firma werden nur leere Felder ergänzt; was dort schon steht,
-                  bleibt.
+                  {t(
+                    'Bei der vorhandenen Firma werden nur leere Felder ergänzt; was dort schon steht, bleibt.'
+                  )}
                 </p>
               )}
               <div className="grid grid-cols-6 gap-3">
                 <Field
                   className="col-span-6"
-                  label="Firmenname"
+                  label={t('Firmenname')}
                   value={party.name}
                   onChange={(v) => set('name', v)}
                 />
@@ -323,19 +344,19 @@ export function EInvoiceCompanyDialog({
                 />
                 <Field
                   className="col-span-3"
-                  label="Steuernummer"
+                  label={t('Steuernummer')}
                   value={party.taxNumber}
                   onChange={(v) => set('taxNumber', v)}
                 />
                 <Field
                   className="col-span-3"
-                  label="Handelsregister"
+                  label={t('Handelsregister')}
                   value={party.commercialRegisterNo}
                   onChange={(v) => set('commercialRegisterNo', v)}
                 />
                 <Field
                   className="col-span-3"
-                  label="Registergericht"
+                  label={t('Registergericht')}
                   value={party.registerCourt}
                   onChange={(v) => set('registerCourt', v)}
                 />
@@ -347,25 +368,25 @@ export function EInvoiceCompanyDialog({
                 />
                 <Field
                   className="col-span-3"
-                  label="Telefon"
+                  label={t('Telefon')}
                   value={party.phone}
                   onChange={(v) => set('phone', v)}
                 />
                 <Field
                   className="col-span-4"
-                  label="Straße"
+                  label={t('Straße')}
                   value={party.address.street}
                   onChange={(v) => setAddress('street', v)}
                 />
                 <Field
                   className="col-span-2"
-                  label="Hausnummer"
+                  label={t('Hausnummer')}
                   value={party.address.streetNumber}
                   onChange={(v) => setAddress('streetNumber', v)}
                 />
                 <Field
                   className="col-span-6"
-                  label="Adresszusatz"
+                  label={t('Adresszusatz')}
                   value={party.address.addressSuffix}
                   onChange={(v) => setAddress('addressSuffix', v)}
                 />
@@ -377,13 +398,13 @@ export function EInvoiceCompanyDialog({
                 />
                 <Field
                   className="col-span-3"
-                  label="Ort"
+                  label={t('Ort')}
                   value={party.address.city}
                   onChange={(v) => setAddress('city', v)}
                 />
                 <Field
                   className="col-span-1"
-                  label="Land"
+                  label={t('Land')}
                   value={party.address.countryCode}
                   placeholder="DE"
                   onChange={(v) => setAddress('countryCode', v)}
@@ -402,7 +423,7 @@ export function EInvoiceCompanyDialog({
                 />
                 <Field
                   className="col-span-6"
-                  label="Kontoinhaber"
+                  label={t('Kontoinhaber')}
                   value={party.bank.accountHolder}
                   onChange={(v) => setBank('accountHolder', v)}
                 />
@@ -411,20 +432,20 @@ export function EInvoiceCompanyDialog({
 
             <section className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-medium">Personen</h3>
+                <h3 className="font-medium">{t('Personen')}</h3>
                 <Button variant="outline" size="sm" onClick={addPerson}>
                   <Plus className="h-4 w-4" />
-                  Person hinzufügen
+                  {t('Person hinzufügen')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Der Ansprechpartner der Rechnung wird als „Kontakt“ übernommen, Geschäftsführer aus
-                den Rechtsangaben, soweit die Rechnung sie nennt. Weitere Personen tragen Sie hier
-                ein.
+                {t(
+                  'Der Ansprechpartner der Rechnung wird als „Kontakt“ übernommen, Geschäftsführer aus den Rechtsangaben, soweit die Rechnung sie nennt. Weitere Personen tragen Sie hier ein.'
+                )}
               </p>
               {persons.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Die E-Rechnung nennt keine Personen.
+                  {t('Die E-Rechnung nennt keine Personen.')}
                 </p>
               )}
               <datalist id={ROLE_LIST_ID}>
@@ -439,8 +460,8 @@ export function EInvoiceCompanyDialog({
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label="Person entfernen"
-                      title="Nicht übernehmen"
+                      aria-label={t('Person entfernen')}
+                      title={t('Nicht übernehmen')}
                       onClick={() => setPersons((rows) => rows.filter((r) => r.key !== row.key))}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -449,13 +470,13 @@ export function EInvoiceCompanyDialog({
                   <div className="grid grid-cols-6 gap-3">
                     <Field
                       className="col-span-2"
-                      label="Vorname"
+                      label={t('Vorname')}
                       value={row.firstName}
                       onChange={(v) => setPerson(row.key, 'firstName', v)}
                     />
                     <Field
                       className="col-span-2"
-                      label="Nachname"
+                      label={t('Nachname')}
                       value={row.lastName}
                       onChange={(v) => setPerson(row.key, 'lastName', v)}
                     />
@@ -464,7 +485,7 @@ export function EInvoiceCompanyDialog({
                         htmlFor={`einvoice-role-${row.key}`}
                         className="mb-1 block text-xs text-muted-foreground"
                       >
-                        Rolle
+                        {t('Rolle')}
                       </Label>
                       <Input
                         id={`einvoice-role-${row.key}`}
@@ -481,7 +502,7 @@ export function EInvoiceCompanyDialog({
                     />
                     <Field
                       className="col-span-3"
-                      label="Telefon"
+                      label={t('Telefon')}
                       value={row.phone}
                       onChange={(v) => setPerson(row.key, 'phone', v)}
                     />
@@ -504,14 +525,18 @@ export function EInvoiceCompanyDialog({
               }}
               disabled={apply.isPending}
             >
-              Andere Datei
+              {t('Andere Datei')}
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('Abbrechen')}
           </Button>
           <Button onClick={save} disabled={!party || apply.isPending}>
-            {apply.isPending ? 'Wird gespeichert…' : company ? 'Firma ergänzen' : 'Firma anlegen'}
+            {apply.isPending
+              ? t('Wird gespeichert…')
+              : company
+                ? t('Firma ergänzen')
+                : t('Firma anlegen')}
           </Button>
         </DialogFooter>
       </DialogContent>

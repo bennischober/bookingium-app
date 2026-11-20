@@ -7,6 +7,7 @@ import { askFolderName } from '@/lib/folderName'
 import type { FolderAction } from '@/components/mail/FolderTree'
 import { folderLabel, isInbox } from '@/components/mail/format'
 import type { FolderNode, FolderSyncMode } from '../../../main/mailclient/core/types'
+import { t } from '../../../main/i18n/translate'
 
 /** R4: the mail page's folder actions - create, rename, delete - and moving a folder by drag */
 export function useFolderActions({
@@ -35,11 +36,14 @@ export function useFolderActions({
       await folders.refetch()
       toast.success(
         target
-          ? `„${folderLabel(folder)}“ nach „${folderLabel(target)}“ verschoben`
-          : `„${folderLabel(folder)}“ nach oben verschoben`
+          ? t('„{{folderLabel}}“ nach „{{folderLabel2}}“ verschoben', {
+              folderLabel: folderLabel(folder),
+              folderLabel2: folderLabel(target)
+            })
+          : t('„{{folderLabel}}“ nach oben verschoben', { folderLabel: folderLabel(folder) })
       )
     } catch (error) {
-      toast.error('Ordner konnte nicht verschoben werden', {
+      toast.error(t('Ordner konnte nicht verschoben werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -55,30 +59,31 @@ export function useFolderActions({
     const title =
       action === 'create'
         ? parentPath
-          ? `Neuer Ordner in „${folderLabel(folder!)}“`
-          : 'Neuer Ordner'
+          ? t('Neuer Ordner in „{{folderLabel}}“', { folderLabel: folderLabel(folder!) })
+          : t('Neuer Ordner')
         : action === 'rename'
-          ? 'Ordner umbenennen'
-          : 'Ordner löschen'
+          ? t('Ordner umbenennen')
+          : t('Ordner löschen')
     const current = action === 'rename' && folder ? folder.path.split(delimiter).pop() : ''
     if (action === 'delete') {
       if (!folder) return
       const confirmed = await confirmAction({
-        title: `„${folderLabel(folder) || folder.name}“ löschen?`,
-        description:
-          'Der Ordner wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
-        confirmLabel: 'Löschen',
+        title: t('„{{value}}“ löschen?', { value: folderLabel(folder) || folder.name }),
+        description: t(
+          'Der Ordner wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.'
+        ),
+        confirmLabel: t('Löschen'),
         destructive: true
       })
       if (!confirmed) return
       try {
         await mailApi.deleteFolder(folder.path, accountId)
       } catch (error) {
-        failed('Ordner konnte nicht gelöscht werden')(error)
+        failed(t('Ordner konnte nicht gelöscht werden'))(error)
         return
       }
       refreshLists()
-      toast.success('Ordner gelöscht')
+      toast.success(t('Ordner gelöscht'))
       return
     }
     const name = await askFolderName({ title, initial: current })
@@ -89,13 +94,13 @@ export function useFolderActions({
     } catch (error) {
       failed(
         action === 'create'
-          ? 'Ordner konnte nicht angelegt werden'
-          : 'Ordner konnte nicht umbenannt werden'
+          ? t('Ordner konnte nicht angelegt werden')
+          : t('Ordner konnte nicht umbenannt werden')
       )(error)
       return
     }
     refreshLists()
-    toast.success(action === 'create' ? 'Ordner angelegt' : 'Ordner umbenannt')
+    toast.success(action === 'create' ? t('Ordner angelegt') : t('Ordner umbenannt'))
   }
 
   /** #158: the folder's sync setting; switching to "always" downloads a never-opened folder */
@@ -103,14 +108,16 @@ export function useFolderActions({
     try {
       await mailApi.setFolderSyncMode([folder.id], mode, accountId)
     } catch (error) {
-      failed('Einstellung konnte nicht gespeichert werden')(error)
+      failed(t('Einstellung konnte nicht gespeichert werden'))(error)
       return
     }
     await folders.refetch()
     toast.success(
       mode === 'always'
-        ? `„${folderLabel(folder)}“ wird immer synchronisiert`
-        : `„${folderLabel(folder)}“ wird nur beim Öffnen synchronisiert`
+        ? t('„{{folderLabel}}“ wird immer synchronisiert', { folderLabel: folderLabel(folder) })
+        : t('„{{folderLabel}}“ wird nur beim Öffnen synchronisiert', {
+            folderLabel: folderLabel(folder)
+          })
     )
   }
 

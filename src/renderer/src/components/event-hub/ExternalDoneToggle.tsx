@@ -8,6 +8,7 @@ import { cn, formatShortDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { EventStep } from '../../../../main/api/schemas/event_step.schema'
 import { EXTERNAL_STEP_DOCUMENT_TYPES, EXTERNAL_STEP_LABELS, stepFileCount } from './externalSteps'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * A tick for a step done outside the program ("extern erledigt"), e.g. the contract signed on
@@ -42,7 +43,9 @@ export function ExternalDoneToggle({
         checked={checked}
         disabled={isLoading || isSaving}
         onChange={(event) => set(step, event.target.checked)}
-        title={`${EXTERNAL_STEP_LABELS[step]}: außerhalb von Bookingium erledigt – kein offener Punkt mehr`}
+        title={t('{{value}}: außerhalb von Bookingium erledigt – kein offener Punkt mehr', {
+          value: EXTERNAL_STEP_LABELS[step]
+        })}
       />
       <label htmlFor={id} className="cursor-pointer font-normal select-none">
         {EXTERNAL_STEP_LABELS[step]} extern erledigt
@@ -102,9 +105,12 @@ function StepFiles({
         })
         uploaded++
       } catch (error) {
-        toast.error(`„${sourcePath.split(/[\\/]/).pop()}“ konnte nicht hochgeladen werden`, {
-          description: error instanceof Error ? error.message : undefined
-        })
+        toast.error(
+          t('„{{pop}}“ konnte nicht hochgeladen werden', { pop: sourcePath.split(/[\\/]/).pop() }),
+          {
+            description: error instanceof Error ? error.message : undefined
+          }
+        )
       }
     }
     setIsUploading(false)
@@ -113,9 +119,9 @@ function StepFiles({
       onAttached()
       toast.success(
         uploaded === 1
-          ? `${label}: Datei hinzugefügt`
-          : `${label}: ${uploaded} Dateien hinzugefügt`,
-        { description: 'Sie liegt unter „Dokumente“.' }
+          ? t('{{label}}: Datei hinzugefügt', { label })
+          : t('{{label}}: {{uploaded}} Dateien hinzugefügt', { label, uploaded }),
+        { description: t('Sie liegt unter „Dokumente“.') }
       )
     }
   }
@@ -129,11 +135,14 @@ function StepFiles({
         className="h-7 px-2 text-xs"
         disabled={isUploading}
         onClick={() => void attach()}
-        aria-label={`${label}: Datei hinzufügen`}
-        title={`Datei auswählen; sie kommt als „${label}“ unter „Dokumente“ und der Haken wird gesetzt`}
+        aria-label={t('{{label}}: Datei hinzufügen', { label })}
+        title={t(
+          'Datei auswählen; sie kommt als „{{label}}“ unter „Dokumente“ und der Haken wird gesetzt',
+          { label }
+        )}
       >
         <Paperclip className="h-3.5 w-3.5" aria-hidden />
-        {isUploading ? 'Wird hochgeladen…' : 'Datei hinzufügen'}
+        {isUploading ? t('Wird hochgeladen…') : t('Datei hinzufügen')}
       </Button>
       {count > 0 && (
         <button
@@ -142,9 +151,9 @@ function StepFiles({
           onClick={() =>
             navigate({ to: '.', search: { tab: 'documents' } as never, replace: true })
           }
-          title="Zu den Dokumenten des Events"
+          title={t('Zu den Dokumenten des Events')}
         >
-          {count === 1 ? '1 Datei' : `${count} Dateien`}
+          {count === 1 ? t('1 Datei') : t('{{count}} Dateien', { count })}
         </button>
       )}
     </span>

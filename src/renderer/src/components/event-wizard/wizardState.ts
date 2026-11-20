@@ -1,6 +1,7 @@
 // #61: the event wizard's form state and rules, out of the component.
 
 import type { ComboboxItem } from '@/components/ui/entity-combobox'
+import { t } from '../../../../main/i18n/translate'
 
 export interface WizardFormData {
   // Step 1
@@ -36,9 +37,9 @@ export interface WizardCarry {
 }
 
 export const WIZARD_STEPS = [
-  { label: 'Event & Band', required: true },
+  { label: t('Event & Band'), required: true },
   { label: 'LoPro', required: false },
-  { label: 'Deal-Details', required: false }
+  { label: t('Deal-Details'), required: false }
 ]
 
 export const LAST_WIZARD_STEP = WIZARD_STEPS.length

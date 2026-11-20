@@ -1,7 +1,8 @@
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
+import { t } from '../../../../main/i18n/translate'
 
 /** S1: what an attachment of a message stored without its large parts says about itself */
-export const NOT_LOADED_NOTE = 'wird beim Öffnen geladen'
+export const NOT_LOADED_NOTE = t('wird beim Öffnen geladen')
 
 /**
  * S1: runs `action` with the whole message. A message stored as its skeleton is downloaded

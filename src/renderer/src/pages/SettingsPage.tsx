@@ -48,6 +48,7 @@ import { SyncCard } from '@/components/settings/SyncCard'
 import { UpdatesCard } from '@/components/settings/UpdatesCard'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
+import { t, uiLocale } from '../../../main/i18n/translate'
 
 const NONE = 'none'
 
@@ -59,25 +60,25 @@ function GeneralCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Voreinstellungen</CardTitle>
+        <CardTitle>{t('Voreinstellungen')}</CardTitle>
         <CardDescription>
-          Gelten für Rechnungen, Verträge, Importe und die offenen Punkte.
+          {t('Gelten für Rechnungen, Verträge, Importe und die offenen Punkte.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <OwnCompanySettings />
 
         <div className="space-y-2">
-          <Label htmlFor="settings-country">Standardland</Label>
+          <Label htmlFor="settings-country">{t('Standardland')}</Label>
           <Select
             value={settings.data?.defaultCountry || NONE}
             onValueChange={(value) =>
@@ -89,7 +90,7 @@ function GeneralCard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>Keins</SelectItem>
+              <SelectItem value={NONE}>{t('Keins')}</SelectItem>
               {IMPORT_COUNTRY_OPTIONS.map((country) => (
                 <SelectItem key={country.code} value={country.code}>
                   {country.label}
@@ -98,12 +99,12 @@ function GeneralCard() {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Für importierte Einträge ohne Land (außer bei Tabellen namens „international“).
+            {t('Für importierte Einträge ohne Land (außer bei Tabellen namens „international“).')}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="settings-hotel-days">Hotel spätestens (Tage vor der Show)</Label>
+          <Label htmlFor="settings-hotel-days">{t('Hotel spätestens (Tage vor der Show)')}</Label>
           <Input
             // Remounted with the stored value, so a refused entry springs back
             key={settings.data?.openItemsHotelDays}
@@ -126,8 +127,9 @@ function GeneralCard() {
             }}
           />
           <p className="text-xs text-muted-foreground">
-            Eine bestätigte Show, die näher liegt und noch kein Hotel hat, steht unter „Offene
-            Punkte“ auf dem Dashboard.
+            {t(
+              'Eine bestätigte Show, die näher liegt und noch kein Hotel hat, steht unter „Offene Punkte“ auf dem Dashboard.'
+            )}
           </p>
         </div>
       </CardContent>
@@ -142,38 +144,38 @@ function CalendarCard() {
   const onStatus = (next: CalendarFeedStatusDto) => {
     utils.calendar.status.setData(undefined, next)
     if (next.error)
-      toast.error('Kalender-Datei konnte nicht geschrieben werden', { description: next.error })
+      toast.error(t('Kalender-Datei konnte nicht geschrieben werden'), { description: next.error })
   }
   const choose = trpcReact.calendar.chooseFeedFile.useMutation({
     onSuccess: (next) => {
       onStatus(next)
-      if (next.path && !next.error) toast.success('Kalender-Datei wird jetzt aktuell gehalten')
+      if (next.path && !next.error) toast.success(t('Kalender-Datei wird jetzt aktuell gehalten'))
     }
   })
   const update = trpcReact.calendar.updateFeed.useMutation({
     onSuccess: (next) => {
       onStatus(next)
-      if (!next.error) toast.success('Kalender-Datei aktualisiert')
+      if (!next.error) toast.success(t('Kalender-Datei aktualisiert'))
     }
   })
   const setFollowUps = trpcReact.calendar.setFeedFollowUps.useMutation({
     onSuccess: (next) => {
       onStatus(next)
       void utils.settings.get.invalidate()
-      if (!next.error) toast.success('Einstellung gespeichert')
+      if (!next.error) toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
   // #71: own appointments in the file, off by default
   const setAppointments = trpcReact.calendar.setFeedAppointments.useMutation({
     onSuccess: (next) => {
       onStatus(next)
       void utils.settings.get.invalidate()
-      if (!next.error) toast.success('Einstellung gespeichert')
+      if (!next.error) toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
   const disable = trpcReact.calendar.disableFeed.useMutation({ onSuccess: onStatus })
   const reveal = trpcReact.calendar.revealFeedFile.useMutation()
@@ -181,15 +183,24 @@ function CalendarCard() {
     onSuccess: (result) => {
       if (result.canceled) return
       const parts = [
-        `${result.events} Events`,
-        result.appointments > 0 && `${result.appointments} Termine`,
-        result.followUps > 0 && `${result.followUps} Wiedervorlagen`
+        t('{{events}} Events', { events: result.events }),
+        result.appointments > 0 &&
+          t('{{appointments}} Termine', { appointments: result.appointments }),
+        result.followUps > 0 && t('{{followUps}} Wiedervorlagen', { followUps: result.followUps })
       ].filter(Boolean)
       toast.success(
-        `${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} und ${parts.at(-1)}` : parts[0]} exportiert`
+        t('{{lists}} exportiert', {
+          lists:
+            parts.length > 1
+              ? t('{{first}} und {{last}}', {
+                  first: parts.slice(0, -1).join(', '),
+                  last: parts.at(-1)
+                })
+              : parts[0]
+        })
       )
     },
-    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Export fehlgeschlagen'), { description: error.message })
   })
 
   const feed = status.data
@@ -198,9 +209,11 @@ function CalendarCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Kalender</CardTitle>
+        <CardTitle>{t('Kalender')}</CardTitle>
         <CardDescription>
-          Alle Events als Kalender-Datei (.ics), die Bookingium bei jeder Änderung neu schreibt.
+          {t(
+            'Alle Events als Kalender-Datei (.ics), die Bookingium bei jeder Änderung neu schreibt.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -211,30 +224,41 @@ function CalendarCard() {
             </p>
             <p className="text-muted-foreground">
               {feed.lastWrittenAt
-                ? `Zuletzt geschrieben ${new Date(feed.lastWrittenAt).toLocaleString('de-DE')} · ${feed.events} Events${feed.includeAppointments ? ` · ${feed.appointments} Termine` : ''}${feed.includeFollowUps ? ` · ${feed.followUps} Wiedervorlagen` : ''}`
-                : 'Wird beim nächsten Ändern eines Events geschrieben.'}
+                ? t('Zuletzt geschrieben {{value}} · {{events}} Events{{value2}}{{value3}}', {
+                    value: new Date(feed.lastWrittenAt).toLocaleString(uiLocale()),
+                    events: feed.events,
+                    value2: feed.includeAppointments
+                      ? ` · ${t('{{appointments}} Termine', { appointments: feed.appointments })}`
+                      : '',
+                    value3: feed.includeFollowUps
+                      ? ` · ${t('{{followUps}} Wiedervorlagen', { followUps: feed.followUps })}`
+                      : ''
+                  })
+                : t('Wird beim nächsten Ändern eines Events geschrieben.')}
             </p>
             {feed.error && <p className="text-destructive">{feed.error}</p>}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Aus – keine Kalender-Datei festgelegt.</p>
+          <p className="text-sm text-muted-foreground">
+            {t('Aus – keine Kalender-Datei festgelegt.')}
+          </p>
         )}
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
             <CalendarDays className="h-4 w-4" />
-            {active ? 'Andere Datei…' : 'Datei festlegen…'}
+            {active ? t('Andere Datei…') : t('Datei festlegen…')}
           </Button>
           {active && (
             <>
               <Button variant="outline" onClick={() => update.mutate()} disabled={update.isPending}>
-                <RefreshCw className="h-4 w-4" /> Jetzt aktualisieren
+                <RefreshCw className="h-4 w-4" /> {t('Jetzt aktualisieren')}
               </Button>
               <Button variant="outline" onClick={() => reveal.mutate()}>
-                <FolderOpen className="h-4 w-4" /> Im Ordner zeigen
+                <FolderOpen className="h-4 w-4" /> {t('Im Ordner zeigen')}
               </Button>
               <Button variant="ghost" onClick={() => disable.mutate()}>
-                Ausschalten
+                {t('Ausschalten')}
               </Button>
             </>
           )}
@@ -243,7 +267,7 @@ function CalendarCard() {
             onClick={() => exportOnce.mutate()}
             disabled={exportOnce.isPending}
           >
-            <Download className="h-4 w-4" /> Einmalig exportieren…
+            <Download className="h-4 w-4" /> {t('Einmalig exportieren…')}
           </Button>
         </div>
 
@@ -256,12 +280,13 @@ function CalendarCard() {
               disabled={status.isLoading || setFollowUps.isPending}
             />
             <Label htmlFor="settings-calendar-follow-ups">
-              Offene Wiedervorlagen mit aufnehmen
+              {t('Offene Wiedervorlagen mit aufnehmen')}
             </Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Als ganztägige Einträge am Fälligkeitstag, mit der Notiz als Text. Erledigte fallen
-            heraus. Wer die Datei abonniert, sieht dann auch die Notizen.
+            {t(
+              'Als ganztägige Einträge am Fälligkeitstag, mit der Notiz als Text. Erledigte fallen heraus. Wer die Datei abonniert, sieht dann auch die Notizen.'
+            )}
           </p>
         </div>
 
@@ -273,19 +298,21 @@ function CalendarCard() {
               onCheckedChange={(checked) => setAppointments.mutate(checked)}
               disabled={status.isLoading || setAppointments.isPending}
             />
-            <Label htmlFor="settings-calendar-appointments">Eigene Termine mit aufnehmen</Label>
+            <Label htmlFor="settings-calendar-appointments">
+              {t('Eigene Termine mit aufnehmen')}
+            </Label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Mit Titel, Zeit, Ort und Notizen. Wer die Datei abonniert, sieht dann auch diese
-            Angaben; ohne den Schalter bleiben Termine nur in Bookingium.
+            {t(
+              'Mit Titel, Zeit, Ort und Notizen. Wer die Datei abonniert, sieht dann auch diese Angaben; ohne den Schalter bleiben Termine nur in Bookingium.'
+            )}
           </p>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Abonnieren: Thunderbird kann die Datei direkt abonnieren. Outlook und Google Kalender
-          brauchen eine Web-Adresse – z. B. die Datei in einem OneDrive- oder Dropbox-Ordner ablegen
-          und deren direkten Download-Link abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum
-          Importieren (ohne spätere Aktualisierung).
+          {t(
+            'Abonnieren: Thunderbird kann die Datei direkt abonnieren. Outlook und Google Kalender brauchen eine Web-Adresse – z. B. die Datei in einem OneDrive- oder Dropbox-Ordner ablegen und deren direkten Download-Link abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum Importieren (ohne spätere Aktualisierung).'
+          )}
         </p>
       </CardContent>
     </Card>
@@ -298,57 +325,58 @@ function DataCard() {
   const locations = trpcReact.settings.dataLocations.useQuery()
   const openDataFolder = trpcReact.settings.openDataFolder.useMutation({
     onError: (error) =>
-      toast.error('Ordner konnte nicht geöffnet werden', { description: error.message })
+      toast.error(t('Ordner konnte nicht geöffnet werden'), { description: error.message })
   })
   const openBackup = trpcReact.settings.openBackup.useMutation()
   const openErrorLog = trpcReact.settings.openErrorLog.useMutation({
     onError: (error) =>
-      toast.error('Fehlerprotokoll konnte nicht geöffnet werden', { description: error.message })
+      toast.error(t('Fehlerprotokoll konnte nicht geöffnet werden'), { description: error.message })
   })
   const showExport = useExportToast()
   const exportAll = trpcReact.dataExport.exportAll.useMutation({
     onSuccess: showExport,
-    onError: (error) => toast.error('Export fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Export fehlgeschlagen'), { description: error.message })
   })
   const createBackup = trpcReact.settings.createBackup.useMutation({
     onSuccess: (result) => {
       if (result.canceled || !result.folder) return
       const folder = result.folder
-      toast.success('Sicherung erstellt', {
+      toast.success(t('Sicherung erstellt'), {
         description: folder,
-        action: { label: 'Öffnen', onClick: () => openBackup.mutate(folder) }
+        action: { label: t('Öffnen'), onClick: () => openBackup.mutate(folder) }
       })
     },
-    onError: (error) => toast.error('Sicherung fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Sicherung fehlgeschlagen'), { description: error.message })
   })
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Daten</CardTitle>
+        <CardTitle>{t('Daten')}</CardTitle>
         <CardDescription>
-          Listen importieren und exportieren, Daten sichern und Speicherort.
+          {t('Listen importieren und exportieren, Daten sichern und Speicherort.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Import</p>
+            <p className="font-medium">{t('Import')}</p>
             <p className="text-sm text-muted-foreground">
-              CSV-Listen übernehmen, etwa aus Excel; vorhandene Einträge werden nur ergänzt.
+              {t('CSV-Listen übernehmen, etwa aus Excel; vorhandene Einträge werden nur ergänzt.')}
             </p>
           </div>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4" /> Daten importieren…
+            <Upload className="h-4 w-4" /> {t('Daten importieren…')}
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Export</p>
+            <p className="font-medium">{t('Export')}</p>
             <p className="text-sm text-muted-foreground">
-              Alle Listen als CSV-Dateien, eine Datei je Liste in einem neuen Ordner. Einzelne
-              Listen lassen sich auf ihrer Seite exportieren.
+              {t(
+                'Alle Listen als CSV-Dateien, eine Datei je Liste in einem neuen Ordner. Einzelne Listen lassen sich auf ihrer Seite exportieren.'
+              )}
             </p>
           </div>
           <Button
@@ -357,16 +385,17 @@ function DataCard() {
             disabled={exportAll.isPending}
           >
             <Download className="h-4 w-4" />
-            {exportAll.isPending ? 'Wird exportiert…' : 'Alles exportieren…'}
+            {exportAll.isPending ? t('Wird exportiert…') : t('Alles exportieren…')}
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Sicherung</p>
+            <p className="font-medium">{t('Sicherung')}</p>
             <p className="text-sm text-muted-foreground">
-              Kopiert Datenbank und Dokumente einmalig in einen neuen Ordner. Solche Sicherungen
-              werden nie automatisch gelöscht.
+              {t(
+                'Kopiert Datenbank und Dokumente einmalig in einen neuen Ordner. Solche Sicherungen werden nie automatisch gelöscht.'
+              )}
             </p>
           </div>
           <Button
@@ -375,13 +404,13 @@ function DataCard() {
             disabled={createBackup.isPending}
           >
             <DatabaseBackup className="h-4 w-4" />
-            {createBackup.isPending ? 'Wird gesichert…' : 'Sicherung erstellen…'}
+            {createBackup.isPending ? t('Wird gesichert…') : t('Sicherung erstellen…')}
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Speicherort</p>
+            <p className="font-medium">{t('Speicherort')}</p>
             <p
               className="truncate font-mono text-xs text-muted-foreground"
               title={locations.data?.dataFolder}
@@ -390,20 +419,21 @@ function DataCard() {
             </p>
           </div>
           <Button variant="outline" onClick={() => openDataFolder.mutate()}>
-            <FolderOpen className="h-4 w-4" /> Datenordner öffnen
+            <FolderOpen className="h-4 w-4" /> {t('Datenordner öffnen')}
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">Fehlerprotokoll</p>
+            <p className="font-medium">{t('Fehlerprotokoll')}</p>
             <p className="text-sm text-muted-foreground">
-              Unerwartete Fehler, nur auf diesem Rechner gespeichert, ohne Inhalte von E-Mails. Zum
-              Melden eines Problems die Datei mitschicken.
+              {t(
+                'Unerwartete Fehler, nur auf diesem Rechner gespeichert, ohne Inhalte von E-Mails. Zum Melden eines Problems die Datei mitschicken.'
+              )}
             </p>
           </div>
           <Button variant="outline" onClick={() => openErrorLog.mutate()}>
-            <ScrollText className="h-4 w-4" /> Fehlerprotokoll öffnen
+            <ScrollText className="h-4 w-4" /> {t('Fehlerprotokoll öffnen')}
           </Button>
         </div>
       </CardContent>
@@ -421,9 +451,9 @@ export default function SettingsPage() {
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
       <div>
-        <h1 className="mb-2 text-2xl font-bold">Einstellungen</h1>
+        <h1 className="mb-2 text-2xl font-bold">{t('Einstellungen')}</h1>
         <p className="text-sm text-muted-foreground">
-          Voreinstellungen, Darstellung, Rechnungen, E-Mail, Kalender und Datenverwaltung.
+          {t('Voreinstellungen, Darstellung, Rechnungen, E-Mail, Kalender und Datenverwaltung.')}
         </p>
       </div>
 

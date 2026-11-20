@@ -1,6 +1,7 @@
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import type { EventStep } from '../../../main/api/schemas/event_step.schema'
+import { t } from '../../../main/i18n/translate'
 
 /** The ticked steps of an event ("extern erledigt") and a way to tick or untick one */
 export function useEventSteps(eventId: number) {
@@ -29,7 +30,7 @@ export function useEventSteps(eventId: number) {
     },
     onError: (error, _input, context) => {
       utils.eventStep.list.setData({ eventId }, context?.previous)
-      toast.error('Konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Konnte nicht gespeichert werden'), { description: error.message })
     }
   })
   const done = new Map((steps.data ?? []).map((row) => [row.step, row.doneAt]))

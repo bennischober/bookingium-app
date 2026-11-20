@@ -16,6 +16,7 @@ import { SyncIndicator } from './SyncIndicator'
 import { UnreadCount } from './UnreadCount'
 import { accountName } from './format'
 import type { MailAccountDto } from '../../../../main/mailclient/accounts'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The mail page's top bar: the account (a picker with several), the read-only note, "Neue E-Mail",
@@ -56,7 +57,7 @@ export function MailHeader({
         <Select value={account.id} onValueChange={(id) => switchAccount(id as string)}>
           {/* #95: wide windows show every account in the folder pane; narrow ones have no
                 pane, so they keep the picker */}
-          <SelectTrigger className="w-64 lg:hidden" aria-label="Postfach">
+          <SelectTrigger className="w-64 lg:hidden" aria-label={t('Postfach')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -80,17 +81,17 @@ export function MailHeader({
           role="note"
           title={
             account?.writeRefusal ??
-            'Nichts wird am Server geändert: kein Lesen-Markieren, Löschen oder Verschieben.'
+            t('Nichts wird am Server geändert: kein Lesen-Markieren, Löschen oder Verschieben.')
           }
         >
           <Lock className="size-3" />
-          Nur lesen
+          {t('Nur lesen')}
         </span>
       )}
       {canWrite && (
         <Button size="sm" onClick={startNewMail}>
           <SquarePen />
-          Neue E-Mail
+          {t('Neue E-Mail')}
         </Button>
       )}
       <div className="ml-auto flex items-center gap-3">
@@ -112,13 +113,13 @@ export function MailHeader({
             void mailApi
               .triggerSync(false, accountId, folderId)
               .then(() => syncStatus.refetch())
-              .catch(failed('Synchronisierung fehlgeschlagen'))
+              .catch(failed(t('Synchronisierung fehlgeschlagen')))
           }
           onSyncAll={() =>
             void mailApi
               .triggerSync(true, accountId)
               .then(() => syncStatus.refetch())
-              .catch(failed('Synchronisierung fehlgeschlagen'))
+              .catch(failed(t('Synchronisierung fehlgeschlagen')))
           }
           folderName={folderNameOf}
           onRetryFolder={retryFolder}
@@ -126,7 +127,7 @@ export function MailHeader({
             void mailApi
               .dismissSyncErrors(keys, accountId)
               .then(() => syncStatus.refetch())
-              .catch(failed('Ausblenden fehlgeschlagen'))
+              .catch(failed(t('Ausblenden fehlgeschlagen')))
           }
         />
       </div>

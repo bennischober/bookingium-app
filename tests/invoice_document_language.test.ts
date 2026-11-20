@@ -92,13 +92,15 @@ function sheet(layout: keyof typeof LAYOUTS, lang: Lang, data: InvoicePrintDto):
   const markup = renderToStaticMarkup(
     createElement(LAYOUTS[layout], { data, lang, paymentQr: false })
   )
-  return markup
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#x27;/g, "'")
-    // &amp; last, so an escaped "&amp;quot;" does not turn into a quote
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
+  return (
+    markup
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      // &amp; last, so an escaped "&amp;quot;" does not turn into a quote
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+  )
 }
 
 // Words of the German sheets that must not appear on an English one

@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { useNavigate } from '@tanstack/react-router'
 import { showSendSetupError } from '@/components/mail/sendSetupToast'
 import type { ReminderKind } from '../../../../main/api/schemas/invoice.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const LABELS: Record<ReminderKind, string> = {
-  reminder: 'Zahlungserinnerung per E-Mail senden',
-  dunning: 'Mahnung per E-Mail senden'
+  reminder: t('Zahlungserinnerung per E-Mail senden'),
+  dunning: t('Mahnung per E-Mail senden')
 }
 
 /**
@@ -47,15 +48,17 @@ export function InvoiceEmailButton({
         return
       }
       if (!result.sent) {
-        toast.info('E-Mail nicht gesendet')
+        toast.info(t('E-Mail nicht gesendet'))
         return
       }
       invalidateInvoices()
       if (result.eInvoice?.state === 'incomplete') {
-        toast.warning('E-Mail gesendet', {
-          description: `PDF ohne E-Rechnung – es fehlt: ${result.eInvoice.missing.join('; ')}`
+        toast.warning(t('E-Mail gesendet'), {
+          description: t('PDF ohne E-Rechnung – es fehlt: {{missing}}', {
+            missing: result.eInvoice.missing.join('; ')
+          })
         })
-      } else toast.success('E-Mail gesendet')
+      } else toast.success(t('E-Mail gesendet'))
     } finally {
       setSending(false)
     }
@@ -63,7 +66,7 @@ export function InvoiceEmailButton({
 
   return (
     <Button variant={kind ? 'default' : 'outline'} onClick={() => void send()} disabled={sending}>
-      <Mail className="h-4 w-4" /> {kind ? LABELS[kind] : 'Per E-Mail senden'}
+      <Mail className="h-4 w-4" /> {kind ? LABELS[kind] : t('Per E-Mail senden')}
     </Button>
   )
 }

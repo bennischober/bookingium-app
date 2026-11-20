@@ -25,6 +25,7 @@ import {
   toDepositDrafts,
   type DepositDraft
 } from './depositDrafts'
+import { t } from '../../../../main/i18n/translate'
 
 export interface FinancialsTabProps {
   event: DealMemoDetailDto
@@ -114,9 +115,9 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
     onSuccess: () => {
       utils.dealMemo.getById.invalidate(event.id)
       utils.dashboard.openItems.invalidate()
-      toast.success('Gespeichert')
+      toast.success(t('Gespeichert'))
     },
-    onError: (e) => toast.error('Speichern fehlgeschlagen', { description: e.message })
+    onError: (e) => toast.error(t('Speichern fehlgeschlagen'), { description: e.message })
   })
 
   // Batched save triggered by "Save All" in the page header
@@ -152,10 +153,10 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       utils.dealMemo.getById.invalidate(event.id)
       utils.dashboard.invalidate()
       setOpenInvoiceId(created.id)
-      toast.success('Entwurf für dieses Event angelegt')
+      toast.success(t('Entwurf für dieses Event angelegt'))
     },
     onError: (error) => {
-      toast.error('Rechnung konnte nicht erstellt werden', { description: error.message })
+      toast.error(t('Rechnung konnte nicht erstellt werden'), { description: error.message })
     }
   })
 
@@ -164,12 +165,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
     (c) => c.id === event.band?.managementCompanyId
   )?.name
   const defaultRepresentationName = bandManagementName
-    ? `${bandManagementName} (Management der Band)`
-    : (defaultCompany.data?.name ?? 'keine Standard-Firma')
+    ? t('{{bandManagementName}} (Management der Band)', { bandManagementName })
+    : (defaultCompany.data?.name ?? t('keine Standard-Firma'))
   const representingCompanyName = companies.data?.find((c) => c.id === representingCompanyId)?.name
 
   const selectedInvoiceCompany = companies.data?.find((c) => c.id === invoiceCompanyId)
-  const defaultInvoiceCompanyName = defaultCompany.data?.name ?? 'Nicht konfiguriert'
+  const defaultInvoiceCompanyName = defaultCompany.data?.name ?? t('Nicht konfiguriert')
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -178,26 +179,26 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
         {/* ── Deal terms ── */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Deal
+            {t('Deal')}
           </h3>
           {isEditing ? (
             <div className="space-y-2">
-              <Label htmlFor="deal-terms">Konditionen</Label>
+              <Label htmlFor="deal-terms">{t('Konditionen')}</Label>
               <Input
                 id="deal-terms"
-                placeholder="z. B. 70/30, Pauschale 2 000 €, Garantie 1 500 € + 80 %…"
+                placeholder={t('z. B. 70/30, Pauschale 2 000 €, Garantie 1 500 € + 80 %…')}
                 value={deal}
                 onChange={(e) => setDeal(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Die finanzielle Aufteilung oder Gagenvereinbarung für diese Show.
+                {t('Die finanzielle Aufteilung oder Gagenvereinbarung für diese Show.')}
               </p>
             </div>
           ) : (
             <ReadOnlyField
-              label="Konditionen"
+              label={t('Konditionen')}
               value={deal}
-              placeholder="Keine Konditionen hinterlegt"
+              placeholder={t('Keine Konditionen hinterlegt')}
             />
           )}
         </div>
@@ -207,23 +208,27 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
         {/* ── Posters / marketing ── */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Marketing
+            {t('Marketing')}
           </h3>
           {isEditing ? (
             <div className="space-y-2">
-              <Label htmlFor="posters">Plakate</Label>
+              <Label htmlFor="posters">{t('Plakate')}</Label>
               <Input
                 id="posters"
-                placeholder="z. B. 50× A1, 100× A3 Flyer…"
+                placeholder={t('z. B. 50× A1, 100× A3 Flyer…')}
                 value={posters}
                 onChange={(e) => setPosters(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Welche Printmaterialien müssen für diese Show bereitgestellt werden?
+                {t('Welche Printmaterialien müssen für diese Show bereitgestellt werden?')}
               </p>
             </div>
           ) : (
-            <ReadOnlyField label="Plakate" value={posters} placeholder="Keine Plakat-Details" />
+            <ReadOnlyField
+              label={t('Plakate')}
+              value={posters}
+              placeholder={t('Keine Plakat-Details')}
+            />
           )}
         </div>
       </div>
@@ -232,12 +237,12 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
           <Euro className="h-4 w-4" />
-          Ticketpreise
+          {t('Ticketpreise')}
         </h3>
         {isEditing ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="vvk">Vorverkauf (VVK)</Label>
+              <Label htmlFor="vvk">{t('Vorverkauf (VVK)')}</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   €
@@ -255,7 +260,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ak">Abendkasse (AK)</Label>
+              <Label htmlFor="ak">{t('Abendkasse (AK)')}</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   €
@@ -276,14 +281,14 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
         ) : (
           <div className="space-y-4">
             <ReadOnlyField
-              label="Vorverkauf (VVK)"
+              label={t('Vorverkauf (VVK)')}
               value={vvk ? formatMoney(parseFloat(vvk), 'EUR') : null}
-              placeholder="Nicht festgelegt"
+              placeholder={t('Nicht festgelegt')}
             />
             <ReadOnlyField
-              label="Abendkasse (AK)"
+              label={t('Abendkasse (AK)')}
               value={ak ? formatMoney(parseFloat(ak), 'EUR') : null}
-              placeholder="Nicht festgelegt"
+              placeholder={t('Nicht festgelegt')}
             />
           </div>
         )}
@@ -295,7 +300,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <FileSignature className="h-4 w-4" />
-            Vertrag (Gage)
+            {t('Vertrag (Gage)')}
           </h3>
           <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2">
             <ExternalDoneToggle eventId={event.id} step="contract" />
@@ -304,7 +309,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
           {isEditing ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
               <div className="space-y-2">
-                <Label htmlFor="guarantee-amount">Garantiezahlung (netto, €)</Label>
+                <Label htmlFor="guarantee-amount">{t('Garantiezahlung (netto, €)')}</Label>
                 <Input
                   id="guarantee-amount"
                   type="number"
@@ -315,11 +320,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   onChange={(e) => setGuaranteeAmount(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Erscheint im Auftrittsvertrag als vereinbarte Gage
+                  {t('Erscheint im Auftrittsvertrag als vereinbarte Gage')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="guarantee-vat">MwSt.-Satz der Gage (%)</Label>
+                <Label htmlFor="guarantee-vat">{t('MwSt.-Satz der Gage (%)')}</Label>
                 <Input
                   id="guarantee-vat"
                   type="number"
@@ -330,12 +335,14 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   value={guaranteeVatRate}
                   onChange={(e) => setGuaranteeVatRate(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Leer oder 0 = keine MwSt. ausweisen</p>
+                <p className="text-xs text-muted-foreground">
+                  {t('Leer oder 0 = keine MwSt. ausweisen')}
+                </p>
               </div>
               <div className="space-y-2 md:col-span-2">
                 {/* A heading, not a <Label>: it labels no single control, and the inline
                     <label> put the add button next to it */}
-                <p className="text-sm font-medium leading-none">Vorkasse</p>
+                <p className="text-sm font-medium leading-none">{t('Vorkasse')}</p>
                 {deposits.map((deposit, index) => (
                   <div key={index} className="flex items-end gap-2">
                     <div className="flex-1 space-y-1">
@@ -343,7 +350,8 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         htmlFor={`deposit-${index}-amount`}
                         className="text-xs text-muted-foreground"
                       >
-                        {index + 1}. Vorkasse (netto, €)
+                        {index + 1}
+                        {t('. Vorkasse (netto, €)')}
                       </Label>
                       <Input
                         id={`deposit-${index}-amount`}
@@ -360,7 +368,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         htmlFor={`deposit-${index}-due`}
                         className="text-xs text-muted-foreground"
                       >
-                        Fällig am (leer = bei Vertragsabschluss)
+                        {t('Fällig am (leer = bei Vertragsabschluss)')}
                       </Label>
                       <Input
                         id={`deposit-${index}-due`}
@@ -374,7 +382,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         htmlFor={`deposit-${index}-paid`}
                         className="text-xs text-muted-foreground"
                       >
-                        Bezahlt am (leer = offen)
+                        {t('Bezahlt am (leer = offen)')}
                       </Label>
                       <Input
                         id={`deposit-${index}-paid`}
@@ -388,7 +396,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                       variant="ghost"
                       size="icon"
                       aria-label={`${index + 1}. Vorkasse entfernen`}
-                      title="Vorkasse entfernen"
+                      title={t('Vorkasse entfernen')}
                       onClick={() => setDeposits((rows) => rows.filter((_, i) => i !== index))}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -404,16 +412,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   }
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Vorkasse hinzufügen
+                  {t('Vorkasse hinzufügen')}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Mit einer Vorkasse erhält der Vertrag den Abschnitt „Vorkasse“ nach der
-                  Abrechnung; ohne entfällt er und die folgenden Punkte rücken auf. Zeilen ohne
-                  Betrag werden nicht gespeichert.
+                  {t(
+                    'Mit einer Vorkasse erhält der Vertrag den Abschnitt „Vorkasse“ nach der Abrechnung; ohne entfällt er und die folgenden Punkte rücken auf. Zeilen ohne Betrag werden nicht gespeichert.'
+                  )}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contract-sent-at">Vertrag verschickt am</Label>
+                <Label htmlFor="contract-sent-at">{t('Vertrag verschickt am')}</Label>
                 <Input
                   id="contract-sent-at"
                   type="date"
@@ -421,11 +429,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   onChange={(e) => setContractSentAt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Wird gesetzt, wenn der Vertrag aus Bookingium verschickt wird
+                  {t('Wird gesetzt, wenn der Vertrag aus Bookingium verschickt wird')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contract-returned-at">Unterschrieben zurück am</Label>
+                <Label htmlFor="contract-returned-at">{t('Unterschrieben zurück am')}</Label>
                 <Input
                   id="contract-returned-at"
                   type="date"
@@ -433,77 +441,84 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                   onChange={(e) => setContractReturnedAt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Bis dahin steht der Vertrag unter „Offene Punkte“
+                  {t('Bis dahin steht der Vertrag unter „Offene Punkte“')}
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="event-representing-company">Vertreten durch (Management)</Label>
+                <Label htmlFor="event-representing-company">
+                  {t('Vertreten durch (Management)')}
+                </Label>
                 <SearchableSelect
                   id="event-representing-company"
                   className="max-w-md"
                   value={representingCompanyId}
                   onChange={setRepresentingCompanyId}
                   options={companyOptions}
-                  noneLabel={`Standard: ${defaultRepresentationName}`}
-                  searchPlaceholder="Firma suchen…"
+                  noneLabel={t('Standard: {{defaultRepresentationName}}', {
+                    defaultRepresentationName
+                  })}
+                  searchPlaceholder={t('Firma suchen…')}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Vertritt die Band in diesem Vertrag (Briefkopf, „vertreten durch“, Unterschrift
-                  VP1). Nur setzen, wenn es vom Management der Band abweicht.
+                  {t(
+                    'Vertritt die Band in diesem Vertrag (Briefkopf, „vertreten durch“, Unterschrift VP1). Nur setzen, wenn es vom Management der Band abweicht.'
+                  )}
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="contract-notes">Sondervereinbarungen (Vertrag)</Label>
+                <Label htmlFor="contract-notes">{t('Sondervereinbarungen (Vertrag)')}</Label>
                 <Textarea
                   id="contract-notes"
                   rows={3}
-                  placeholder="Zusätzliche vertragliche Vereinbarungen für dieses Event…"
+                  placeholder={t('Zusätzliche vertragliche Vereinbarungen für dieses Event…')}
                   value={contractNotes}
                   onChange={(e) => setContractNotes(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Wird im Vertrag als Abschnitt „Sondervereinbarungen“ angehängt.
+                  {t('Wird im Vertrag als Abschnitt „Sondervereinbarungen“ angehängt.')}
                 </p>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
               <ReadOnlyField
-                label="Garantiezahlung (netto)"
+                label={t('Garantiezahlung (netto)')}
                 value={guaranteeAmount ? formatMoney(parseFloat(guaranteeAmount), 'EUR') : null}
-                placeholder="Nicht festgelegt"
+                placeholder={t('Nicht festgelegt')}
               />
               <ReadOnlyField
-                label="MwSt.-Satz der Gage"
+                label={t('MwSt.-Satz der Gage')}
                 value={guaranteeVatRate ? `${guaranteeVatRate} %` : null}
-                placeholder="Keine MwSt. ausgewiesen"
+                placeholder={t('Keine MwSt. ausgewiesen')}
               />
               <ReadOnlyField
-                label="Vertrag verschickt"
+                label={t('Vertrag verschickt')}
                 value={event.contractSentAt ? formatShortDate(event.contractSentAt) : null}
-                placeholder="Noch nicht verschickt"
+                placeholder={t('Noch nicht verschickt')}
               />
               <ReadOnlyField
-                label="Unterschrieben zurück"
+                label={t('Unterschrieben zurück')}
                 value={event.contractReturnedAt ? formatShortDate(event.contractReturnedAt) : null}
-                placeholder="Noch nicht zurück"
+                placeholder={t('Noch nicht zurück')}
               />
               <ReadOnlyField
-                label="Vorkasse (netto)"
+                label={t('Vorkasse (netto)')}
                 value={depositSummary(event.deposits)}
-                placeholder="Keine Vorkasse"
+                placeholder={t('Keine Vorkasse')}
                 className="md:col-span-2"
               />
               <ReadOnlyField
-                label="Vertreten durch (Management)"
+                label={t('Vertreten durch (Management)')}
                 value={representingCompanyName ?? null}
-                placeholder={`Standard: ${defaultRepresentationName}`}
+                placeholder={t('Standard: {{defaultRepresentationName}}', {
+                  defaultRepresentationName
+                })}
                 className="md:col-span-2"
               />
               <ReadOnlyField
-                label="Sondervereinbarungen"
+                label={t('Sondervereinbarungen')}
                 value={contractNotes}
-                placeholder="Keine Sondervereinbarungen"
+                placeholder={t('Keine Sondervereinbarungen')}
                 className="md:col-span-2"
               />
             </div>
@@ -514,32 +529,37 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Rechnungsstellung
+            {t('Rechnungsstellung')}
           </h3>
           <ExternalDoneToggle eventId={event.id} step="invoice" className="mb-4" />
 
           {isEditing ? (
             <div className="space-y-2 max-w-md">
-              <Label htmlFor="event-invoice-company">Rechnungssteller für dieses Event</Label>
+              <Label htmlFor="event-invoice-company">
+                {t('Rechnungssteller für dieses Event')}
+              </Label>
               <SearchableSelect
                 id="event-invoice-company"
                 value={invoiceCompanyId}
                 onChange={setInvoiceCompanyId}
                 options={companyOptions}
-                noneLabel="Keine explizite Auswahl (Standard-Fallback verwenden)"
-                searchPlaceholder="Firma suchen…"
+                noneLabel={t('Keine explizite Auswahl (Standard-Fallback verwenden)')}
+                searchPlaceholder={t('Firma suchen…')}
               />
               <p className="text-xs text-muted-foreground">
-                Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die
-                Standard-Firma zurück.
+                {t(
+                  'Ist kein Rechnungssteller explizit gesetzt, fällt die Rechnungserstellung auf die Standard-Firma zurück.'
+                )}
               </p>
             </div>
           ) : (
             <div className="space-y-2">
               <ReadOnlyField
-                label="Rechnungssteller"
+                label={t('Rechnungssteller')}
                 value={selectedInvoiceCompany?.name ?? null}
-                placeholder={`Standard: ${defaultInvoiceCompanyName}`}
+                placeholder={t('Standard: {{defaultInvoiceCompanyName}}', {
+                  defaultInvoiceCompanyName
+                })}
               />
             </div>
           )}
@@ -547,7 +567,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Rechnungen für dieses Event</CardTitle>
+            <CardTitle className="text-base">{t('Rechnungen für dieses Event')}</CardTitle>
             <Button
               size="sm"
               onClick={() =>
@@ -562,16 +582,16 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
               }
               disabled={createInvoiceMutation.isPending}
             >
-              + Rechnung erstellen
+              {t('+ Rechnung erstellen')}
             </Button>
           </CardHeader>
           <CardContent>
             {invoices.isLoading ? (
-              <p className="text-sm text-muted-foreground">Rechnungen werden geladen…</p>
+              <p className="text-sm text-muted-foreground">{t('Rechnungen werden geladen…')}</p>
             ) : (invoices.data?.length ?? 0) === 0 ? (
               <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Noch keine Rechnungen mit diesem Event verknüpft.
+                {t('Noch keine Rechnungen mit diesem Event verknüpft.')}
               </div>
             ) : (
               <div className="space-y-2">
@@ -585,7 +605,7 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                       type="button"
                       className="flex flex-1 items-center justify-between gap-3 py-1 text-left hover:opacity-80"
                       onClick={() => setOpenInvoiceId(invoice.id)}
-                      title="Rechnung öffnen"
+                      title={t('Rechnung öffnen')}
                     >
                       <div>
                         <p className="text-sm font-medium">
@@ -593,7 +613,11 @@ export function FinancialsTab({ event, isEditing, saveSignal, cancelSignal }: Fi
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatShortDate(invoice.issueDate)}{' '}
-                          {invoice.dueDate ? `· fällig am ${formatShortDate(invoice.dueDate)}` : ''}
+                          {invoice.dueDate
+                            ? t('· fällig am {{formatShortDate}}', {
+                                formatShortDate: formatShortDate(invoice.dueDate)
+                              })
+                            : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

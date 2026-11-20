@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fromCents } from '../../../../main/einvoice/amounts'
 import { RECEIPT_CATEGORY_LABELS } from '../../../../main/api/schemas/receipt.schema'
+import { t } from '../../../../main/i18n/translate'
 
 // At most this many on the Dashboard; the receipts page lists the rest
 const SHOWN = 5
@@ -23,10 +24,10 @@ export function ReceiptPendingCard() {
   const send = trpcReact.receipt.sendToDatev.useMutation({
     onSuccess: (result) => {
       void utils.receipt.invalidate()
-      if (result.success) toast.success('An DATEV übergeben', { description: result.to })
-      else toast.error('Nicht an DATEV übergeben', { description: result.error })
+      if (result.success) toast.success(t('An DATEV übergeben'), { description: result.to })
+      else toast.error(t('Nicht an DATEV übergeben'), { description: result.error })
     },
-    onError: (error) => toast.error('Nicht an DATEV übergeben', { description: error.message })
+    onError: (error) => toast.error(t('Nicht an DATEV übergeben'), { description: error.message })
   })
   const receipts = query.data ?? []
   if (receipts.length === 0) return null
@@ -34,9 +35,11 @@ export function ReceiptPendingCard() {
   return (
     <Card role="region" aria-labelledby="receipt-pending-title">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle id="receipt-pending-title">Belege noch nicht an DATEV übergeben</CardTitle>
+        <CardTitle id="receipt-pending-title">
+          {t('Belege noch nicht an DATEV übergeben')}
+        </CardTitle>
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/receipts' })}>
-          Alle Belege
+          {t('Alle Belege')}
         </Button>
       </CardHeader>
       <CardContent>
@@ -66,7 +69,7 @@ export function ReceiptPendingCard() {
                   onClick={() => send.mutate({ id: receipt.id })}
                 >
                   <Landmark className="h-4 w-4" />
-                  An DATEV übergeben
+                  {t('An DATEV übergeben')}
                 </Button>
               </div>
             </li>
@@ -74,7 +77,7 @@ export function ReceiptPendingCard() {
         </ul>
         {receipts.length > SHOWN && (
           <p className="mt-3 text-sm text-muted-foreground">
-            und {receipts.length - SHOWN} weitere
+            {t('und')} {receipts.length - SHOWN} {t('weitere')}
           </p>
         )}
       </CardContent>

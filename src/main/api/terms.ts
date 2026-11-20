@@ -1,4 +1,5 @@
-// The domain nouns the UI names, in one place (#105). German only, no i18n.
+// The domain nouns the UI names, in one place (#105). #254: in German and English; TERMS
+// gives the forms of the current UI language (src/main/i18n/translate.ts).
 // What derives from here: labels that are just the noun (ROUTES titles, quick
 // create, kind labels, export/import labels, CSV headers) and components that
 // render one of several nouns (a club or a festival list: VENUE_KIND_TERMS).
@@ -6,6 +7,8 @@
 // for it. AVOIDED_WORDS keeps competing words out (tests/terms_guard.test.ts).
 // Pure module: main imports it directly, the renderer by relative path like
 // the schemas.
+
+import { getLanguage } from '../i18n/translate'
 
 export type Gender = 'm' | 'f' | 'n'
 
@@ -138,8 +141,8 @@ function noun(spec: NounSpec): Term {
   }
 }
 
-/** Every business object the UI names. Stored values are not here: they go through label maps. */
-export const TERMS = {
+/** Every business object the UI names, in German. Stored values go through label maps. */
+export const TERMS_DE = {
   band: noun({ singular: 'Band', plural: 'Bands', gender: 'f' }),
   // A venue of kind 'venue' (#101)
   club: noun({ singular: 'Club', plural: 'Clubs', gender: 'm' }),
@@ -154,9 +157,70 @@ export const TERMS = {
   contract: noun({ singular: 'Vertrag', plural: 'Verträge', gender: 'm' })
 } as const satisfies Record<string, Term>
 
-export type TermKey = keyof typeof TERMS
+export type TermKey = keyof typeof TERMS_DE
 
-const VENUE_TERM = `${TERMS.club.singular} / ${TERMS.festival.singular}`
+/**
+ * #254: the same nouns in English. English has no grammatical gender or case, so the article
+ * keys keep their German names and carry the English phrase: `einen` -> "a club", `der` ->
+ * "the club", `des` -> "the club" (sentences write "of" themselves), `Neuer` -> "New club" as a
+ * label, `Neuen` -> "new club" after a verb ("Create new club"). Nouns inside a phrase are lower
+ * case; singular and plural stay capitalised for labels.
+ */
+function englishNoun(singular: string, plural: string, article: 'a' | 'an' = 'a'): Term {
+  const lower = singular.toLowerCase()
+  return {
+    singular,
+    plural,
+    gender: 'n',
+    genitive: singular,
+    pluralDative: plural,
+    der: `the ${lower}`,
+    den: `the ${lower}`,
+    dem: `the ${lower}`,
+    des: `the ${lower}`,
+    ein: `${article} ${lower}`,
+    einen: `${article} ${lower}`,
+    einem: `${article} ${lower}`,
+    eines: `${article} ${lower}`,
+    kein: `no ${lower}`,
+    keinen: `no ${lower}`,
+    Neuer: `New ${lower}`,
+    Neuen: `new ${lower}`
+  }
+}
+
+export const TERMS_EN = {
+  band: englishNoun('Band', 'Bands'),
+  club: englishNoun('Club', 'Clubs'),
+  festival: englishNoun('Festival', 'Festivals'),
+  company: englishNoun('Company', 'Companies'),
+  person: englishNoun('Person', 'People'),
+  event: englishNoun('Event', 'Events', 'an'),
+  invoice: englishNoun('Invoice', 'Invoices', 'an'),
+  contactList: englishNoun('Mailing list', 'Mailing lists'),
+  hotel: englishNoun('Hotel', 'Hotels'),
+  bank: englishNoun('Bank', 'Banks'),
+  contract: englishNoun('Contract', 'Contracts')
+} as const satisfies Record<TermKey, Term>
+
+/**
+ * The nouns in the current UI language. Each key is a getter, so a module that reads
+ * `TERMS.band.plural` gets the language that was set before it ran.
+ */
+export const TERMS: Readonly<Record<TermKey, Term>> = Object.defineProperties(
+  {},
+  Object.fromEntries(
+    (Object.keys(TERMS_DE) as TermKey[]).map((key) => [
+      key,
+      {
+        enumerable: true,
+        get: (): Term => (getLanguage() === 'en' ? TERMS_EN : TERMS_DE)[key]
+      }
+    ])
+  )
+) as Readonly<Record<TermKey, Term>>
+
+const VENUE_TERM = `${TERMS_DE.club.singular} / ${TERMS_DE.festival.singular}`
 
 /**
  * Words that compete with a term, and what to write instead. The guard test
@@ -174,22 +238,46 @@ export const AVOIDED_WORDS: Readonly<Record<string, string>> = {
   Locations: VENUE_TERM,
   Venue: VENUE_TERM,
   Venues: VENUE_TERM,
-  Gig: TERMS.event.singular,
-  Gigs: TERMS.event.plural,
-  Veranstaltung: TERMS.event.singular,
-  Veranstaltungen: TERMS.event.plural,
-  Künstler: TERMS.band.singular,
-  Künstlers: TERMS.band.genitive,
-  Unternehmen: TERMS.company.singular,
-  Kontaktliste: TERMS.contactList.singular,
-  Kontaktlisten: TERMS.contactList.plural,
-  Mailingliste: TERMS.contactList.singular,
-  Mailinglisten: TERMS.contactList.plural,
-  Verteilerliste: TERMS.contactList.singular,
-  Verteilerlisten: TERMS.contactList.plural,
-  Konzertvertrag: `${TERMS.contract.singular} (Auftrittsvertrag)`,
-  Konzertverträge: `${TERMS.contract.plural} (Auftrittsverträge)`,
-  Konzertverträgen: `${TERMS.contract.pluralDative} (Auftrittsverträgen)`
+  Gig: TERMS_DE.event.singular,
+  Gigs: TERMS_DE.event.plural,
+  Veranstaltung: TERMS_DE.event.singular,
+  Veranstaltungen: TERMS_DE.event.plural,
+  Künstler: TERMS_DE.band.singular,
+  Künstlers: TERMS_DE.band.genitive,
+  Unternehmen: TERMS_DE.company.singular,
+  Kontaktliste: TERMS_DE.contactList.singular,
+  Kontaktlisten: TERMS_DE.contactList.plural,
+  Mailingliste: TERMS_DE.contactList.singular,
+  Mailinglisten: TERMS_DE.contactList.plural,
+  Verteilerliste: TERMS_DE.contactList.singular,
+  Verteilerlisten: TERMS_DE.contactList.plural,
+  Konzertvertrag: `${TERMS_DE.contract.singular} (Auftrittsvertrag)`,
+  Konzertverträge: `${TERMS_DE.contract.plural} (Auftrittsverträge)`,
+  Konzertverträgen: `${TERMS_DE.contract.pluralDative} (Auftrittsverträgen)`
+}
+
+/**
+ * #254: the same for the English UI texts (src/main/i18n/en.ts); tests/i18n_guard.test.ts
+ * fails when one is a whole word in a translation.
+ */
+export const AVOIDED_WORDS_EN: Readonly<Record<string, string>> = {
+  Venue: `${TERMS_EN.club.singular} / ${TERMS_EN.festival.singular}`,
+  Venues: `${TERMS_EN.club.plural} / ${TERMS_EN.festival.plural}`,
+  venue: `${TERMS_EN.club.der} / ${TERMS_EN.festival.der}`,
+  venues: `${TERMS_EN.club.plural} / ${TERMS_EN.festival.plural}`,
+  Location: `${TERMS_EN.club.singular} / ${TERMS_EN.festival.singular}`,
+  Locations: `${TERMS_EN.club.plural} / ${TERMS_EN.festival.plural}`,
+  Gig: TERMS_EN.event.singular,
+  Gigs: TERMS_EN.event.plural,
+  gig: TERMS_EN.event.einen,
+  gigs: TERMS_EN.event.plural,
+  Artist: TERMS_EN.band.singular,
+  Artists: TERMS_EN.band.plural,
+  artist: TERMS_EN.band.einen,
+  artists: TERMS_EN.band.plural,
+  Organisation: TERMS_EN.company.singular,
+  Organization: TERMS_EN.company.singular,
+  Distribution: TERMS_EN.contactList.singular
 }
 
 /**

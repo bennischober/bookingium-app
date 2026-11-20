@@ -24,6 +24,7 @@ import {
   MarketingStatus,
   type MarketingItemDto
 } from '../../../../../main/api/schemas/marketing.schema'
+import { t } from '../../../../../main/i18n/translate'
 
 /** Categories whose entries can become a company or venue */
 const CONTACT_CATEGORIES = new Set(['radios', 'podcasts', 'presse', 'clubs', 'festivals'])
@@ -69,15 +70,15 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
   const refresh = () => utils.marketing.overview.invalidate(item.bandId)
   const update = trpcReact.marketing.update.useMutation({
     onSuccess: refresh,
-    onError: (error) => toast.error('Nicht gespeichert', { description: error.message })
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
   const link = trpcReact.marketing.linkContact.useMutation({
     onSuccess: async () => {
       await utils.invalidate()
-      toast.success(`„${item.name}“ ist jetzt im Adressbuch`)
+      toast.success(t('„{{name}}“ ist jetzt im Adressbuch', { name: item.name }))
     },
     onError: (error) =>
-      toast.error('Kontakt konnte nicht angelegt werden', { description: error.message })
+      toast.error(t('Kontakt konnte nicht angelegt werden'), { description: error.message })
   })
 
   return (
@@ -94,7 +95,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             'grid size-7 shrink-0 place-items-center rounded border text-sm font-semibold',
             PRIORITY_STYLES[item.priority]
           )}
-          title={`Priorität ${item.priority}`}
+          title={t('Priorität {{priority}}', { priority: item.priority })}
         >
           {item.priority}
         </span>
@@ -114,10 +115,10 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             {item.country && <span>{item.country}</span>}
             {item.type && <span>{item.type}</span>}
             <span>{MARKETING_QUALITY_LABELS[item.quality]}</span>
-            {!item.inAtlas && <span>nicht mehr im Atlas</span>}
+            {!item.inAtlas && <span>{t('nicht mehr im Atlas')}</span>}
             {item.actionStatus && (
               <span className="font-medium text-foreground">
-                Maßnahme: {MARKETING_ACTION_STATUS_LABELS[item.actionStatus]}
+                {t('Maßnahme:')} {MARKETING_ACTION_STATUS_LABELS[item.actionStatus]}
               </span>
             )}
           </span>
@@ -154,7 +155,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
                 onClick={() => link.mutate(item.id)}
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                Als Kontakt anlegen
+                {t('Als Kontakt anlegen')}
               </Button>
             )
           )}
@@ -165,7 +166,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             onClick={() => setPlanning(true)}
           >
             <Megaphone className="h-3.5 w-3.5" />
-            Maßnahme
+            {t('Maßnahme')}
           </Button>
           <Select
             value={item.status}
@@ -173,7 +174,10 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
               update.mutate({ id: item.id, status: status as MarketingStatus })
             }
           >
-            <SelectTrigger className="h-8 w-36" aria-label={`Status von ${item.name}`}>
+            <SelectTrigger
+              className="h-8 w-36"
+              aria-label={t('Status von {{name}}', { name: item.name })}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -191,25 +195,25 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
         <dl className="ml-10 mt-2 grid max-w-3xl grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
           {item.reason && (
             <>
-              <dt className="text-muted-foreground">Warum</dt>
+              <dt className="text-muted-foreground">{t('Warum')}</dt>
               <dd>{item.reason}</dd>
             </>
           )}
           {item.approach && (
             <>
-              <dt className="text-muted-foreground">Weg</dt>
+              <dt className="text-muted-foreground">{t('Weg')}</dt>
               <dd>{item.approach}</dd>
             </>
           )}
           {item.timing && (
             <>
-              <dt className="text-muted-foreground">Timing</dt>
+              <dt className="text-muted-foreground">{t('Timing')}</dt>
               <dd>{item.timing}</dd>
             </>
           )}
           {item.activeNote && (
             <>
-              <dt className="text-muted-foreground">Bisher</dt>
+              <dt className="text-muted-foreground">{t('Bisher')}</dt>
               <dd>
                 <Badge variant="secondary">{item.activeNote}</Badge>
               </dd>
@@ -217,7 +221,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
           )}
           {(item.contactEmail || item.contactUrl || item.contactNote) && (
             <>
-              <dt className="text-muted-foreground">Kontakt</dt>
+              <dt className="text-muted-foreground">{t('Kontakt')}</dt>
               <dd className="space-y-0.5">
                 {item.contactEmail && <span className="block select-all">{item.contactEmail}</span>}
                 {item.contactUrl && (
@@ -238,7 +242,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
           )}
           {item.sourceUrl && (
             <>
-              <dt className="text-muted-foreground">Quelle</dt>
+              <dt className="text-muted-foreground">{t('Quelle')}</dt>
               <dd>
                 <a
                   href={item.sourceUrl}
@@ -251,12 +255,12 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
               </dd>
             </>
           )}
-          <dt className="pt-1.5 text-muted-foreground">Notiz</dt>
+          <dt className="pt-1.5 text-muted-foreground">{t('Notiz')}</dt>
           <dd>
             <Input
               className="h-8"
-              aria-label={`Notiz zu ${item.name}`}
-              placeholder="z. B. Mail am 2.12. an die Musikredaktion"
+              aria-label={t('Notiz zu {{name}}', { name: item.name })}
+              placeholder={t('z. B. Mail am 2.12. an die Musikredaktion')}
               value={note}
               onChange={(event) => setNote(event.target.value)}
               onBlur={() =>
@@ -265,7 +269,7 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
             />
             {item.statusDate && (
               <span className="text-xs text-muted-foreground">
-                Status seit {item.statusDate.split('-').reverse().join('.')}
+                {t('Status seit')} {item.statusDate.split('-').reverse().join('.')}
               </span>
             )}
           </dd>

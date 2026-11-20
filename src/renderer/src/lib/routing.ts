@@ -20,6 +20,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { TERMS } from '../../../main/api/terms'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * A route information object containing the path, title, group and icon, and its Alt+digit
@@ -50,57 +51,63 @@ export type GroupedRoute = {
 export const ROUTES = {
   dashboard: {
     path: '/',
-    title: 'Dashboard',
-    group: 'Planung',
+    title: t('Dashboard'),
+    group: t('Planung'),
     icon: LayoutDashboard,
     shortcut: '1'
   },
   calendar: {
     path: '/calendar',
-    title: 'Kalender',
-    group: 'Planung',
+    title: t('Kalender'),
+    group: t('Planung'),
     icon: CalendarDays,
     shortcut: '2'
   },
   events: {
     path: '/events',
     title: TERMS.event.plural,
-    group: 'Planung',
+    group: t('Planung'),
     icon: Music2,
     shortcut: '3'
   },
   // #232: advancing and ticket sales of a tour's shows
-  tours: { path: '/tours', title: 'Touren', group: 'Planung', icon: ClipboardList, shortcut: '4' },
+  tours: {
+    path: '/tours',
+    title: t('Touren'),
+    group: t('Planung'),
+    icon: ClipboardList,
+    shortcut: '4'
+  },
   // Shown only while its switch in the settings is on (#102)
-  map: { path: '/map', title: 'Karte', group: 'Planung', icon: MapIcon },
+  map: { path: '/map', title: t('Karte'), group: t('Planung'), icon: MapIcon },
   invoices: {
     path: '/invoices',
     title: TERMS.invoice.plural,
-    group: 'Finanzen',
+    group: t('Finanzen'),
     icon: FileText,
     shortcut: '5'
   },
   // #225
-  receipts: { path: '/receipts', title: 'Belege', group: 'Finanzen', icon: Receipt },
-  trips: { path: '/trips', title: 'Reisekosten', group: 'Finanzen', icon: Plane },
+  receipts: { path: '/receipts', title: t('Belege'), group: t('Finanzen'), icon: Receipt },
+  trips: { path: '/trips', title: t('Reisekosten'), group: t('Finanzen'), icon: Plane },
   bands: {
     path: '/band',
     title: TERMS.band.plural,
-    group: 'Kontakte',
+    group: t('Kontakte'),
     icon: Guitar,
     shortcut: '6'
   },
   persons: {
     path: '/persons',
     title: TERMS.person.plural,
-    group: 'Kontakte',
+    group: t('Kontakte'),
     icon: Users,
     shortcut: '7'
   },
   companies: {
     path: '/companies',
     title: TERMS.company.plural,
-    group: 'Kontakte',
+    group: t('Kontakte'),
     icon: Building2,
     shortcut: '8'
   },
@@ -108,22 +115,28 @@ export const ROUTES = {
   clubs: {
     path: '/clubs',
     title: TERMS.club.plural,
-    group: 'Kontakte',
+    group: t('Kontakte'),
     icon: MapPin,
     shortcut: '9'
   },
-  festivals: { path: '/festivals', title: TERMS.festival.plural, group: 'Kontakte', icon: Tent },
-  hotels: { path: '/hotels', title: TERMS.hotel.plural, group: 'Kontakte', icon: Hotel },
-  mail: { path: '/mail', title: 'E-Mail', group: 'Kommunikation', icon: Inbox, shortcut: '0' },
+  festivals: { path: '/festivals', title: TERMS.festival.plural, group: t('Kontakte'), icon: Tent },
+  hotels: { path: '/hotels', title: TERMS.hotel.plural, group: t('Kontakte'), icon: Hotel },
+  mail: {
+    path: '/mail',
+    title: t('E-Mail'),
+    group: t('Kommunikation'),
+    icon: Inbox,
+    shortcut: '0'
+  },
   // Mailing lists: who gets a mailing, next to the mail it goes out with
   contactLists: {
     path: '/contact-lists',
     title: TERMS.contactList.plural,
-    group: 'Kommunikation',
+    group: t('Kommunikation'),
     icon: Mails
   },
-  banks: { path: '/banks', title: TERMS.bank.plural, group: 'Verwaltung', icon: Landmark },
-  settings: { path: '/settings', title: 'Einstellungen', group: 'Verwaltung', icon: Settings }
+  banks: { path: '/banks', title: TERMS.bank.plural, group: t('Verwaltung'), icon: Landmark },
+  settings: { path: '/settings', title: t('Einstellungen'), group: t('Verwaltung'), icon: Settings }
 } as const satisfies Record<string, RouteInfo>
 
 /**

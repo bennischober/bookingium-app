@@ -2,6 +2,7 @@
 import type { OpenItemDto } from '../../../../main/api/schemas/open_items.schema'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney } from '../../../../main/invoice/money'
+import { t } from '../../../../main/i18n/translate'
 
 /** The event tab where the point is resolved */
 export function openItemTab(
@@ -16,28 +17,56 @@ export function openItemTab(
 export function openItemText(item: OpenItemDto, today: string): string {
   switch (item.kind) {
     case 'contract':
-      return `Vertrag am ${formatShortDate(item.date)} verschickt, noch nicht unterschrieben zurück`
+      return t('Vertrag am {{formatShortDate}} verschickt, noch nicht unterschrieben zurück', {
+        formatShortDate: formatShortDate(item.date)
+      })
     case 'deposit': {
-      const what = `${item.depositPosition}. Vorkasse über ${formatMoney(item.depositAmount ?? 0, 'EUR')}`
+      const what = t('{{position}}. Vorkasse über {{amount}}', {
+        position: item.depositPosition,
+        amount: formatMoney(item.depositAmount ?? 0, 'EUR')
+      })
       return item.date < today
-        ? `${what} seit ${formatShortDate(item.date)} fällig, noch nicht bezahlt`
-        : `${what} heute fällig`
+        ? t('{{what}} seit {{formatShortDate}} fällig, noch nicht bezahlt', {
+            what,
+            formatShortDate: formatShortDate(item.date)
+          })
+        : t('{{what}} heute fällig', { what })
     }
     case 'invoice':
       return item.hasDraftInvoice
-        ? `Show am ${formatShortDate(item.date)} vorbei, Rechnung liegt noch als Entwurf vor`
-        : `Show am ${formatShortDate(item.date)} vorbei, noch keine Rechnung gestellt`
+        ? t('Show am {{formatShortDate}} vorbei, Rechnung liegt noch als Entwurf vor', {
+            formatShortDate: formatShortDate(item.date)
+          })
+        : t('Show am {{formatShortDate}} vorbei, noch keine Rechnung gestellt', {
+            formatShortDate: formatShortDate(item.date)
+          })
     case 'hotel':
-      return `Show am ${formatShortDate(item.date)}, noch kein Hotel eingetragen`
+      return t('Show am {{formatShortDate}}, noch kein Hotel eingetragen', {
+        formatShortDate: formatShortDate(item.date)
+      })
     case 'advancing':
       return item.advancingStatus === 'contacted'
-        ? `Show am ${formatShortDate(item.eventDate)}: Advancing ${item.advancingSince ? `seit ${formatShortDate(item.advancingSince)} ` : ''}angeschrieben, noch keine Antwort`
+        ? t('Show am {{formatShortDate}}: Advancing {{value}}angeschrieben, noch keine Antwort', {
+            formatShortDate: formatShortDate(item.eventDate),
+            value: item.advancingSince
+              ? t('seit {{date}} ', { date: formatShortDate(item.advancingSince) })
+              : ''
+          })
         : item.advancingStatus === 'in_progress'
-          ? `Show am ${formatShortDate(item.eventDate)}: Advancing im Austausch, noch nicht abgeschlossen`
-          : `Show am ${formatShortDate(item.eventDate)}: Advancing noch nicht begonnen`
+          ? t('Show am {{formatShortDate}}: Advancing im Austausch, noch nicht abgeschlossen', {
+              formatShortDate: formatShortDate(item.eventDate)
+            })
+          : t('Show am {{formatShortDate}}: Advancing noch nicht begonnen', {
+              formatShortDate: formatShortDate(item.eventDate)
+            })
     case 'tickets':
       return item.lastReportAt
-        ? `Show am ${formatShortDate(item.eventDate)}: letzte Ticketmeldung vom ${formatShortDate(item.lastReportAt)}`
-        : `Show am ${formatShortDate(item.eventDate)}: noch keine Ticketmeldung`
+        ? t('Show am {{formatShortDate}}: letzte Ticketmeldung vom {{formatShortDate2}}', {
+            formatShortDate: formatShortDate(item.eventDate),
+            formatShortDate2: formatShortDate(item.lastReportAt)
+          })
+        : t('Show am {{formatShortDate}}: noch keine Ticketmeldung', {
+            formatShortDate: formatShortDate(item.eventDate)
+          })
   }
 }

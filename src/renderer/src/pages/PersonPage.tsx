@@ -21,6 +21,7 @@ import { useListSearchActions } from '@/hooks/useListSearchActions'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { ListPageHeader, ListToolbar } from '@/components/ListPageHeader'
 import { RowActionButton, RowActions } from '@/components/row-action-button'
+import { t } from '../../../main/i18n/translate'
 
 export function PersonPage() {
   const { sorting, setSorting, sortInput } = useListSorting('persons', {
@@ -53,7 +54,7 @@ export function PersonPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.person,
     utils: utils.person,
-    noun: 'Person',
+    noun: t('Person'),
     label: (person: PersonDto) => `${person.firstName} ${person.lastName}`,
     deleteInput: (person) => ({ id: person.id }),
     onSaved: formSheet.close
@@ -63,11 +64,11 @@ export function PersonPage() {
   const columns: ColumnDef<PersonDto>[] = [
     {
       accessorKey: 'firstName',
-      header: 'Vorname'
+      header: t('Vorname')
     },
     {
       accessorKey: 'lastName',
-      header: 'Nachname'
+      header: t('Nachname')
     },
     {
       accessorKey: 'contact',
@@ -76,22 +77,22 @@ export function PersonPage() {
     },
     {
       accessorKey: 'address',
-      header: 'Stadt',
+      header: t('Stadt'),
       cell: ({ row }) => row.original.address?.city || '-'
     },
     {
       id: 'actions',
-      header: 'Aktionen',
+      header: t('Aktionen'),
       cell: ({ row }) => (
         <RowActions>
           <RowActionButton
             icon={Pencil}
-            label="Bearbeiten"
+            label={t('Bearbeiten')}
             onClick={() => formSheet.openEdit(row.original)}
           />
           <RowActionButton
             icon={Trash2}
-            label="Löschen"
+            label={t('Löschen')}
             destructive
             onClick={() => void mutations.remove(row.original)}
           />
@@ -103,14 +104,16 @@ export function PersonPage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col p-6">
       <ListPageHeader
-        title="Personen"
-        description="Stammdaten der Personen verwalten, einschließlich Kontaktinformationen und Adressen."
+        title={t('Personen')}
+        description={t(
+          'Stammdaten der Personen verwalten, einschließlich Kontaktinformationen und Adressen.'
+        )}
       />
 
       <DataTable
         columns={columns}
         data={listRows(persons.data)}
-        itemLabel={{ singular: 'Person', plural: 'Personen' }}
+        itemLabel={{ singular: t('Person'), plural: t('Personen') }}
         hasMore={persons.hasNextPage ?? false}
         isLoadingMore={persons.isFetchingNextPage}
         onLoadMore={() => void persons.fetchNextPage()}
@@ -119,7 +122,7 @@ export function PersonPage() {
         filtered={Boolean(search)}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Personen filtern…"
+        searchPlaceholder={t('Personen filtern…')}
         // A click opens the person page; the pencil keeps the quick-edit sheet
         onRowClick={(person) =>
           navigate({ to: '/persons/$personId', params: { personId: String(person.id) } })
@@ -129,7 +132,7 @@ export function PersonPage() {
         onRetry={() => void persons.refetch()}
         total={listTotal(persons.data)}
         actionButton={
-          <ListToolbar createLabel="+ Neue Person" onCreate={formSheet.openCreate}>
+          <ListToolbar createLabel={t('+ Neue Person')} onCreate={formSheet.openCreate}>
             <ExportButton list="persons" sort={sortInput} search={search} />
             <ImportButton target="persons" />
           </ListToolbar>
@@ -140,11 +143,11 @@ export function PersonPage() {
         isOpen={formSheet.isOpen}
         onClose={formSheet.close}
         mode={formSheet.mode}
-        title={formSheet.mode === 'create' ? 'Neue Person anlegen' : 'Person bearbeiten'}
+        title={formSheet.mode === 'create' ? t('Neue Person anlegen') : t('Person bearbeiten')}
         description={
           formSheet.mode === 'create'
-            ? 'Eine neue Person im System anlegen.'
-            : 'Personeninformationen aktualisieren.'
+            ? t('Eine neue Person im System anlegen.')
+            : t('Personeninformationen aktualisieren.')
         }
       >
         <PersonForm

@@ -3,6 +3,7 @@ import type { ImportResult, ImportTarget } from '../../../../main/api/schemas/im
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
 import type { CompanyKind } from '../../../../main/api/schemas/company.schema'
 import { SINGULAR, summaryEntities } from './importLabels'
+import { t } from '../../../../main/i18n/translate'
 
 interface ImportDoneStepProps {
   target: ImportTarget
@@ -21,14 +22,16 @@ export function ImportDoneStep({ target, kind, companyKind, result }: ImportDone
           <p key={entity}>
             <strong>{result[entity].created}</strong>{' '}
             {result[entity].created === 1 ? (SINGULAR[label] ?? label) : label} angelegt,{' '}
-            <strong>{result[entity].updated}</strong> ergänzt
+            <strong>{result[entity].updated}</strong> {t('ergänzt')}
           </p>
         ))}
         {result.contactList && (
           <p>
             <strong>{result.contactList.added}</strong>{' '}
-            {result.contactList.added === 1 ? 'Kontakt' : 'Kontakte'} in den Verteiler „
-            {result.contactList.name}“ aufgenommen
+            {result.contactList.added === 1 ? t('Kontakt') : t('Kontakte')}{' '}
+            {t('in den Verteiler „')}
+            {result.contactList.name}
+            {t('“ aufgenommen')}
           </p>
         )}
       </div>

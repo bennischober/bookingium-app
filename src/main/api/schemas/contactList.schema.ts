@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { t } from '../../i18n/translate'
 
 // Mailing lists (Verteiler): recipients are drawn from venues, festivals and
 // media (radio stations and the like), filtered by the source they belong to.
@@ -9,9 +10,9 @@ export const ListKind = z.enum(['venue', 'festival', 'media'])
 export type ListKind = z.infer<typeof ListKind>
 
 export const LIST_KIND_LABELS: Record<ListKind, string> = {
-  venue: 'Clubs',
-  festival: 'Festivals',
-  media: 'Radio/Medien'
+  venue: t('Clubs'),
+  festival: t('Festivals'),
+  media: t('Radio/Medien')
 }
 
 // Whose address it is, seen from the source. 'venue' is the source's own
@@ -20,10 +21,10 @@ export const RecipientType = z.enum(['venue', 'member', 'promoter', 'lopro'])
 export type RecipientType = z.infer<typeof RecipientType>
 
 export const RECIPIENT_TYPE_LABELS: Record<RecipientType, string> = {
-  venue: 'Hauptadresse',
-  member: 'Ansprechpartner',
-  promoter: 'Veranstalter',
-  lopro: 'LoPro'
+  venue: t('Hauptadresse'),
+  member: t('Ansprechpartner'),
+  promoter: t('Veranstalter'),
+  lopro: t('LoPro')
 }
 
 export const BookedFilter = z.enum(['all', 'booked', 'never'])

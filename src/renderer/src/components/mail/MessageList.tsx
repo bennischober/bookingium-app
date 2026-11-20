@@ -7,6 +7,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/component
 import type { MessageListItem } from '../../../../main/mailclient/core/types'
 import { MAIL_DRAG_TYPE, formatListDate, snippetParts } from './format'
 import { type Selection, clickSelection, moveSelection, selectAll, single } from './selection'
+import { t } from '../../../../main/i18n/translate'
 
 function Snippet({ text }: { text: string }) {
   return (
@@ -78,19 +79,19 @@ function RowQuickActions({
     <div
       className="absolute top-1.5 right-2 hidden items-center gap-0.5 rounded-md border bg-background/95 p-0.5 shadow-sm group-hover/row:flex"
       role="group"
-      aria-label="Schnellaktionen"
+      aria-label={t('Schnellaktionen')}
     >
       {actions.archive &&
-        button('Archivieren', () => actions.archive!(message), <Archive className="size-3.5" />)}
+        button(t('Archivieren'), () => actions.archive!(message), <Archive className="size-3.5" />)}
       {actions.trash &&
-        button('Löschen', () => actions.trash!(message), <Trash2 className="size-3.5" />)}
+        button(t('Löschen'), () => actions.trash!(message), <Trash2 className="size-3.5" />)}
       {button(
-        message.isRead ? 'Als ungelesen markieren' : 'Als gelesen markieren',
+        message.isRead ? t('Als ungelesen markieren') : t('Als gelesen markieren'),
         () => actions.toggleRead(message),
         message.isRead ? <Mail className="size-3.5" /> : <MailOpen className="size-3.5" />
       )}
       {button(
-        message.isFlagged ? 'Markierung entfernen' : 'Markieren',
+        message.isFlagged ? t('Markierung entfernen') : t('Markieren'),
         () => actions.toggleFlag(message),
         <Flag className={message.isFlagged ? 'size-3.5 text-orange-500' : 'size-3.5'} />
       )}
@@ -209,7 +210,7 @@ export function MessageList({
     <ul
       ref={listRef}
       role="listbox"
-      aria-label="Nachrichten"
+      aria-label={t('Nachrichten')}
       aria-multiselectable={multiple || undefined}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -267,7 +268,7 @@ export function MessageList({
                 <span className="flex size-4 shrink-0 items-center justify-center self-center">
                   <input
                     type="checkbox"
-                    aria-label="Auswählen"
+                    aria-label={t('Auswählen')}
                     checked={isSelected}
                     tabIndex={-1}
                     onClick={(event) => event.stopPropagation()}
@@ -286,7 +287,7 @@ export function MessageList({
                         'size-2 rounded-full bg-primary',
                         several ? 'hidden' : 'group-hover/row:hidden'
                       )}
-                      aria-label="Ungelesen"
+                      aria-label={t('Ungelesen')}
                     />
                   )}
                 </span>
@@ -294,7 +295,7 @@ export function MessageList({
                 !m.isRead && (
                   <span
                     className="size-2 shrink-0 self-center rounded-full bg-primary"
-                    aria-label="Ungelesen"
+                    aria-label={t('Ungelesen')}
                   />
                 )
               )}
@@ -303,12 +304,12 @@ export function MessageList({
               </span>
               <ReplyStateIcons answered={m.isAnswered} forwarded={m.isForwarded} />
               {m.isFlagged && (
-                <Flag className="size-3.5 shrink-0 text-orange-500" aria-label="Markiert" />
+                <Flag className="size-3.5 shrink-0 text-orange-500" aria-label={t('Markiert')} />
               )}
               {m.hasAttachments && (
                 <Paperclip
                   className="size-3.5 shrink-0 text-muted-foreground"
-                  aria-label="Anhang"
+                  aria-label={t('Anhang')}
                 />
               )}
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -316,7 +317,7 @@ export function MessageList({
               </span>
             </div>
             <div className={cn('truncate', !m.isRead && 'font-medium', multiple && 'pl-6')}>
-              {m.subject || '(Kein Betreff)'}
+              {m.subject || t('(Kein Betreff)')}
             </div>
             <div className={cn('line-clamp-2 text-xs text-muted-foreground', multiple && 'pl-6')}>
               {snippets?.[m.id] ? <Snippet text={snippets[m.id]} /> : m.snippet}
@@ -328,7 +329,7 @@ export function MessageList({
       {hasMore && (
         <li ref={moreRef} className="p-2 text-center">
           <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loadingMore}>
-            {loadingMore ? 'Wird geladen…' : 'Weitere laden'}
+            {loadingMore ? t('Wird geladen…') : t('Weitere laden')}
           </Button>
         </li>
       )}

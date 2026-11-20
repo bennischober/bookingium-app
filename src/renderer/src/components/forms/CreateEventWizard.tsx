@@ -32,6 +32,7 @@ import { VenueQuickCreateDialog } from '@/components/quick-create/VenueQuickCrea
 import { PersonQuickCreateDialog } from '@/components/quick-create/PersonQuickCreateDialog'
 import { personFromSearch, type PersonPrefill } from '@/components/quick-create/personPrefill'
 import type { DealMemoListItemDto } from 'src/main/api/schemas/deal_memo.schema'
+import { t } from '../../../../main/i18n/translate'
 
 interface CreateEventWizardProps {
   isOpen: boolean
@@ -64,7 +65,7 @@ export function CreateEventWizard({
   prefill,
   newPersonPrefill,
   description,
-  title = 'Neues Event anlegen',
+  title = t('Neues Event anlegen'),
   carry
 }: CreateEventWizardProps) {
   const [step, setStep] = useState(1)
@@ -104,18 +105,20 @@ export function CreateEventWizard({
     onSuccess: (memo) => {
       if (memo.status === 'pending') {
         // Not confirmed yet: offer a reminder to follow up on it
-        void nudgeFollowUp(`Event "${memo.name}" erstellt`, {
+        void nudgeFollowUp(t('Event "{{name}}" erstellt', { name: memo.name }), {
           record: { type: 'event', id: memo.id, name: memo.name },
-          note: 'Zusage einholen'
+          note: t('Zusage einholen')
         })
       } else {
-        toast.success('Event erstellt', { description: `"${form.name}" wurde hinzugefügt.` })
+        toast.success(t('Event erstellt'), {
+          description: t('"{{name}}" wurde hinzugefügt.', { name: form.name })
+        })
       }
       utils.dealMemo.getAllPaginated.invalidate()
       handleClose()
       onSuccess(memo as unknown as DealMemoListItemDto)
     },
-    onError: (e) => toast.error('Event konnte nicht erstellt werden', { description: e.message })
+    onError: (e) => toast.error(t('Event konnte nicht erstellt werden'), { description: e.message })
   })
 
   const handleClose = () => {
@@ -161,7 +164,9 @@ export function CreateEventWizard({
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               {description ??
-                'Erforderliche Felder ausfüllen. Optionale Schritte können später ergänzt werden.'}
+                t(
+                  'Erforderliche Felder ausfüllen. Optionale Schritte können später ergänzt werden.'
+                )}
             </DialogDescription>
           </DialogHeader>
 
@@ -203,7 +208,7 @@ export function CreateEventWizard({
             <div className="flex gap-2">
               {step > 1 && (
                 <Button type="button" variant="ghost" onClick={() => setStep(step - 1)}>
-                  Zurück
+                  {t('Zurück')}
                 </Button>
               )}
             </div>
@@ -212,7 +217,7 @@ export function CreateEventWizard({
                 <>
                   {step > 1 && (
                     <Button type="button" variant="outline" onClick={() => setStep(step + 1)}>
-                      Überspringen
+                      {t('Überspringen')}
                     </Button>
                   )}
                   <Button
@@ -220,7 +225,7 @@ export function CreateEventWizard({
                     onClick={() => setStep(step + 1)}
                     disabled={step === 1 && !step1Valid}
                   >
-                    Weiter
+                    {t('Weiter')}
                   </Button>
                 </>
               )}
@@ -230,7 +235,7 @@ export function CreateEventWizard({
                   onClick={handleSubmit}
                   disabled={!step1Valid || createMemo.isPending}
                 >
-                  {createMemo.isPending ? 'Wird erstellt…' : 'Event anlegen'}
+                  {createMemo.isPending ? t('Wird erstellt…') : t('Event anlegen')}
                 </Button>
               )}
               {step === 1 && step1Valid && (
@@ -240,7 +245,7 @@ export function CreateEventWizard({
                   onClick={handleSubmit}
                   disabled={createMemo.isPending}
                 >
-                  {createMemo.isPending ? 'Wird erstellt…' : 'Schnell anlegen'}
+                  {createMemo.isPending ? t('Wird erstellt…') : t('Schnell anlegen')}
                 </Button>
               )}
             </div>

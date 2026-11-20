@@ -19,6 +19,7 @@ import { confirmAction } from '@/lib/confirm'
 import { TabHeader } from '@/components/detail/DetailParts'
 import { CARD_GRID } from '@/components/detail/tabStyles'
 import { countLabel } from '@/components/detail/tableSort'
+import { t } from '../../../../main/i18n/translate'
 
 type MembershipType = 'band' | 'company' | 'venue'
 
@@ -35,25 +36,25 @@ const LABELS: Record<
   { entity: string; one: string; many: string; add: string; empty: string }
 > = {
   band: {
-    entity: 'Band',
-    one: 'Band',
-    many: 'Bands',
-    add: 'Zur Band hinzufügen',
-    empty: 'Kein Mitglied einer Band.'
+    entity: t('Band'),
+    one: t('Band'),
+    many: t('Bands'),
+    add: t('Zur Band hinzufügen'),
+    empty: t('Kein Mitglied einer Band.')
   },
   company: {
-    entity: 'Firma',
-    one: 'Firma',
-    many: 'Firmen',
-    add: 'Zur Firma hinzufügen',
-    empty: 'Keiner Firma zugeordnet.'
+    entity: t('Firma'),
+    one: t('Firma'),
+    many: t('Firmen'),
+    add: t('Zur Firma hinzufügen'),
+    empty: t('Keiner Firma zugeordnet.')
   },
   venue: {
-    entity: 'Club / Festival',
-    one: 'Club oder Festival',
-    many: 'Clubs und Festivals',
-    add: 'Zu Club / Festival hinzufügen',
-    empty: 'Keinem Club und keinem Festival zugeordnet.'
+    entity: t('Club / Festival'),
+    one: t('Club oder Festival'),
+    many: t('Clubs und Festivals'),
+    add: t('Zu Club / Festival hinzufügen'),
+    empty: t('Keinem Club und keinem Festival zugeordnet.')
   }
 }
 
@@ -150,30 +151,32 @@ export function PersonMembershipsPanel({
       toast.success(success)
     },
     onError: (error: { message: string }) =>
-      toast.error('Speichern fehlgeschlagen', { description: error.message })
+      toast.error(t('Speichern fehlgeschlagen'), { description: error.message })
   })
 
-  const addBand = trpcReact.relation.addBandMember.useMutation(handlers('Zur Band hinzugefügt'))
+  const addBand = trpcReact.relation.addBandMember.useMutation(handlers(t('Zur Band hinzugefügt')))
   const addCompany = trpcReact.relation.addCompanyMember.useMutation(
-    handlers('Zur Firma hinzugefügt')
+    handlers(t('Zur Firma hinzugefügt'))
   )
   const addVenue = trpcReact.relation.addVenueMember.useMutation(
-    handlers('Zu Club / Festival hinzugefügt')
+    handlers(t('Zu Club / Festival hinzugefügt'))
   )
   const updateBand = trpcReact.relation.updateBandMember.useMutation(
-    handlers('Zugehörigkeit aktualisiert')
+    handlers(t('Zugehörigkeit aktualisiert'))
   )
   const updateCompany = trpcReact.relation.updateCompanyMember.useMutation(
-    handlers('Zugehörigkeit aktualisiert')
+    handlers(t('Zugehörigkeit aktualisiert'))
   )
   const updateVenue = trpcReact.relation.updateVenueMember.useMutation(
-    handlers('Zugehörigkeit aktualisiert')
+    handlers(t('Zugehörigkeit aktualisiert'))
   )
-  const removeBand = trpcReact.relation.removeBandMember.useMutation(handlers('Entfernt', false))
+  const removeBand = trpcReact.relation.removeBandMember.useMutation(handlers(t('Entfernt'), false))
   const removeCompany = trpcReact.relation.removeCompanyMember.useMutation(
-    handlers('Entfernt', false)
+    handlers(t('Entfernt'), false)
   )
-  const removeVenue = trpcReact.relation.removeVenueMember.useMutation(handlers('Entfernt', false))
+  const removeVenue = trpcReact.relation.removeVenueMember.useMutation(
+    handlers(t('Entfernt'), false)
+  )
 
   const openAdd = () => {
     setEditingId(null)
@@ -194,11 +197,11 @@ export function PersonMembershipsPanel({
   const handleSave = () => {
     if (editingId === null) {
       if (!entityId) {
-        toast.error(`Bitte eine ${labels.entity} auswählen`)
+        toast.error(t('Bitte eine {{entity}} auswählen', { entity: labels.entity }))
         return
       }
       if (!role.trim()) {
-        toast.error('Bitte eine Rolle angeben')
+        toast.error(t('Bitte eine Rolle angeben'))
         return
       }
       const base = { personId, role: role.trim(), notes }
@@ -216,8 +219,8 @@ export function PersonMembershipsPanel({
 
   const handleRemove = async (row: MembershipRow) => {
     const confirmed = await confirmAction({
-      title: `Aus „${row.entityName}“ entfernen?`,
-      confirmLabel: 'Entfernen',
+      title: t('Aus „{{entityName}}“ entfernen?', { entityName: row.entityName }),
+      confirmLabel: t('Entfernen'),
       destructive: true
     })
     if (!confirmed) return
@@ -232,7 +235,7 @@ export function PersonMembershipsPanel({
         <TabHeader
           summary={
             relations.isLoading
-              ? 'Zugehörigkeiten werden geladen…'
+              ? t('Zugehörigkeiten werden geladen…')
               : rows.length === 0
                 ? labels.empty
                 : countLabel(rows.length, labels.one, labels.many)
@@ -262,8 +265,10 @@ export function PersonMembershipsPanel({
                     variant="ghost"
                     size="sm"
                     onClick={() => openEdit(row)}
-                    title="Rolle bearbeiten"
-                    aria-label={`Rolle von ${row.entityName} bearbeiten`}
+                    title={t('Rolle bearbeiten')}
+                    aria-label={t('Rolle von {{entityName}} bearbeiten', {
+                      entityName: row.entityName
+                    })}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -271,7 +276,7 @@ export function PersonMembershipsPanel({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemove(row)}
-                    title="Entfernen"
+                    title={t('Entfernen')}
                     aria-label={`${row.entityName} entfernen`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -287,7 +292,7 @@ export function PersonMembershipsPanel({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingId === null ? labels.add : 'Zugehörigkeit bearbeiten'}
+              {editingId === null ? labels.add : t('Zugehörigkeit bearbeiten')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -299,21 +304,21 @@ export function PersonMembershipsPanel({
                   value={entityId || null}
                   onChange={(value) => setEntityId(value ?? '')}
                   options={options}
-                  placeholder="Auswählen…"
+                  placeholder={t('Auswählen…')}
                 />
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="membership-role">Rolle</Label>
+              <Label htmlFor="membership-role">{t('Rolle')}</Label>
               <Input
                 id="membership-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                placeholder="z. B. Sänger, TL, Booker"
+                placeholder={t('z. B. Sänger, TL, Booker')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="membership-notes">Anmerkungen</Label>
+              <Label htmlFor="membership-notes">{t('Anmerkungen')}</Label>
               <Input
                 id="membership-notes"
                 value={notes}
@@ -323,9 +328,11 @@ export function PersonMembershipsPanel({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
-            <Button onClick={handleSave}>{editingId === null ? 'Hinzufügen' : 'Speichern'}</Button>
+            <Button onClick={handleSave}>
+              {editingId === null ? t('Hinzufügen') : t('Speichern')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -9,6 +9,7 @@ import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import type { CompanyDto } from '../../../../main/api/schemas/company.schema'
 import { ownCompanyGaps } from './ownCompanyGaps'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * Einstellungen › Allgemein › "Eigene Firma": the company that issues invoices and represents
@@ -28,21 +29,21 @@ export function OwnCompanySettings() {
     toast.success(message)
   }
   const failed = (error: { message: string }) =>
-    toast.error('Eigene Firma konnte nicht gespeichert werden', { description: error.message })
+    toast.error(t('Eigene Firma konnte nicht gespeichert werden'), { description: error.message })
 
   const setDefault = trpcReact.company.setDefaultForInvoicing.useMutation({
     onSuccess: () => {
       void utils.company.invalidate()
-      toast.success('Eigene Firma gespeichert')
+      toast.success(t('Eigene Firma gespeichert'))
     },
     onError: failed
   })
   const create = trpcReact.company.create.useMutation({
-    onSuccess: () => saved('Eigene Firma angelegt'),
+    onSuccess: () => saved(t('Eigene Firma angelegt')),
     onError: failed
   })
   const update = trpcReact.company.update.useMutation({
-    onSuccess: () => saved('Eigene Firma gespeichert'),
+    onSuccess: () => saved(t('Eigene Firma gespeichert')),
     onError: failed
   })
 
@@ -51,7 +52,7 @@ export function OwnCompanySettings() {
 
   return (
     <div className="space-y-2 md:col-span-2">
-      <Label htmlFor="settings-own-company">Eigene Firma</Label>
+      <Label htmlFor="settings-own-company">{t('Eigene Firma')}</Label>
       <div className="flex flex-wrap items-center gap-2">
         <SearchableSelect
           id="settings-own-company"
@@ -59,44 +60,45 @@ export function OwnCompanySettings() {
           value={company?.id ?? null}
           onChange={(value) => setDefault.mutate(value)}
           options={(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
-          noneLabel="Keine"
-          searchPlaceholder="Firma suchen…"
+          noneLabel={t('Keine')}
+          searchPlaceholder={t('Firma suchen…')}
           disabled={own.isLoading || setDefault.isPending}
         />
         <Button
           variant="outline"
           size="sm"
           disabled={!company}
-          aria-label="Eigene Firma bearbeiten"
+          aria-label={t('Eigene Firma bearbeiten')}
           onClick={() => company && sheet.openEdit(company)}
         >
           <Pencil className="h-3.5 w-3.5" />
-          Bearbeiten
+          {t('Bearbeiten')}
         </Button>
         <Button
           variant="outline"
           size="sm"
-          aria-label="Eigene Firma neu anlegen"
+          aria-label={t('Eigene Firma neu anlegen')}
           onClick={sheet.openCreate}
         >
           <Plus className="h-3.5 w-3.5" />
-          Neu anlegen
+          {t('Neu anlegen')}
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Stellt Rechnungen aus und vertritt Bands ohne eigenes Management in Verträgen. Ihre Daten,
-        das Logo und die Bankverbindung stehen auf jeder Rechnung.
+        {t(
+          'Stellt Rechnungen aus und vertritt Bands ohne eigenes Management in Verträgen. Ihre Daten, das Logo und die Bankverbindung stehen auf jeder Rechnung.'
+        )}
       </p>
       {company &&
         (gaps.length === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CircleCheck className="h-3.5 w-3.5 text-green-600" aria-hidden />
-            Alles da, was auf einer Rechnung steht.
+            {t('Alles da, was auf einer Rechnung steht.')}
           </p>
         ) : (
           <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-500">
             <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
-            Für Rechnungen fehlt noch: {gaps.join(', ')}.
+            {t('Für Rechnungen fehlt noch:')} {gaps.join(', ')}.
           </p>
         ))}
 
@@ -104,11 +106,11 @@ export function OwnCompanySettings() {
         isOpen={sheet.isOpen}
         onClose={sheet.close}
         mode={sheet.mode}
-        title={sheet.mode === 'create' ? 'Eigene Firma anlegen' : 'Eigene Firma bearbeiten'}
+        title={sheet.mode === 'create' ? t('Eigene Firma anlegen') : t('Eigene Firma bearbeiten')}
         description={
           sheet.mode === 'create'
-            ? 'Wird nach dem Speichern als eigene Firma gesetzt.'
-            : 'Diese Angaben stehen auf Rechnungen und Verträgen.'
+            ? t('Wird nach dem Speichern als eigene Firma gesetzt.')
+            : t('Diese Angaben stehen auf Rechnungen und Verträgen.')
         }
       >
         <CompanyForm

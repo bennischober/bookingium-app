@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { clampWidth as clamp } from '@/hooks/useStoredWidth'
+import { t } from '../../../../main/i18n/translate'
 
 const KEY_STEP = 16
 
@@ -74,7 +75,7 @@ export function PaneResizer({
       aria-valuemin={min}
       aria-valuemax={max}
       tabIndex={0}
-      title="Ziehen zum Ändern der Breite, Doppelklick setzt zurück"
+      title={t('Ziehen zum Ändern der Breite, Doppelklick setzt zurück')}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}

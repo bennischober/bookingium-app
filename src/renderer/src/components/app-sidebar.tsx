@@ -19,6 +19,7 @@ import { unreadBadgeLabel, unreadBadgeTitle } from '@/components/mail/unreadBadg
 import { countDue } from '@/lib/followUps'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
+import { t } from '../../../main/i18n/translate'
 // The app icon's source, so the sidebar always shows the same mark
 import logoUrl from '../../../../build/icon.svg'
 
@@ -42,7 +43,7 @@ export function AppSidebar({
     <Sidebar
       variant="sidebar"
       role="navigation"
-      aria-label="Hauptnavigation"
+      aria-label={t('Hauptnavigation')}
       data-collapsed={collapsed || undefined}
       className={cn(collapsed && 'w-14', className)}
       {...props}
@@ -57,7 +58,7 @@ export function AppSidebar({
         <Link
           to="/"
           className="flex w-fit items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          title="Zum Dashboard"
+          title={t('Zum Dashboard')}
         >
           <img src={logoUrl} alt="" className="size-7" />
           <h1 className={cn('text-lg font-bold', collapsed && 'sr-only')}>Bookingium</h1>
@@ -91,7 +92,12 @@ export function AppSidebar({
                       </SidebarMenuButton>
                       {item.path === '/' && dueCount > 0 && (
                         <SidebarMenuBadge
-                          title={`${dueCount} ${dueCount === 1 ? 'Wiedervorlage' : 'Wiedervorlagen'} fällig`}
+                          title={t(
+                            dueCount === 1
+                              ? '{{count}} Wiedervorlage fällig'
+                              : '{{count}} Wiedervorlagen fällig',
+                            { count: dueCount }
+                          )}
                           className={cn(
                             'bg-primary/15 text-primary',
                             collapsed &&
@@ -99,7 +105,7 @@ export function AppSidebar({
                           )}
                         >
                           {dueCount}
-                          <span className="sr-only"> Wiedervorlagen fällig</span>
+                          <span className="sr-only"> {t('Wiedervorlagen fällig')}</span>
                         </SidebarMenuBadge>
                       )}
                       {item.path === ROUTES.mail.path && unreadMail.total > 0 && (
@@ -112,7 +118,7 @@ export function AppSidebar({
                           )}
                         >
                           {unreadBadgeLabel(unreadMail.total)}
-                          <span className="sr-only"> ungelesen im Posteingang</span>
+                          <span className="sr-only"> {t('ungelesen im Posteingang')}</span>
                         </SidebarMenuBadge>
                       )}
                     </SidebarMenuItem>

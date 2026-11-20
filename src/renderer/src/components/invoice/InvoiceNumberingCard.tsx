@@ -16,9 +16,10 @@ import {
 } from '@/components/ui/select'
 import type { InvoiceNumberFormat } from '../../../../main/api/schemas/invoice.schema'
 import { previewNumber } from '../../../../main/invoice/numbering'
+import { t } from '../../../../main/i18n/translate'
 
 const FORMAT_LABELS: Record<InvoiceNumberFormat, string> = {
-  plain: 'Fortlaufend (1040, 1041, …)',
+  plain: t('Fortlaufend (1040, 1041, …)'),
   year: 'Jahr + laufende Nummer (2026813, …)'
 }
 
@@ -94,11 +95,11 @@ export function InvoiceNumberingCard() {
 
   const handleSave = async () => {
     if (settingsCompanyId === null) {
-      toast.error('Bitte zuerst eine Firma auswählen')
+      toast.error(t('Bitte zuerst eine Firma auswählen'))
       return
     }
     if (!valid) {
-      toast.error('Nächste Nummer muss eine ganze Zahl ≥ 1 sein, die Stellen 1 bis 9')
+      toast.error(t('Nächste Nummer muss eine ganze Zahl ≥ 1 sein, die Stellen 1 bis 9'))
       return
     }
     try {
@@ -110,9 +111,9 @@ export function InvoiceNumberingCard() {
       })
       await numberMutation.mutateAsync({ companyId: settingsCompanyId, nextInvoiceNumber: next })
       await utils.invoice.getCompanySettings.invalidate(settingsCompanyId)
-      toast.success('Rechnungsnummerierung aktualisiert')
+      toast.success(t('Rechnungsnummerierung aktualisiert'))
     } catch (error) {
-      toast.error('Einstellungen konnten nicht aktualisiert werden', {
+      toast.error(t('Einstellungen konnten nicht aktualisiert werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -123,17 +124,17 @@ export function InvoiceNumberingCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rechnungsnummerierung</CardTitle>
+        <CardTitle>{t('Rechnungsnummerierung')}</CardTitle>
         <CardDescription>
-          Wie die gestellten Rechnungen der gewählten Firma nummeriert werden. Beim Wechsel von
-          DATEV hier die Nummer eintragen, die auf DATEVs letzte Rechnung folgt. Das Rechnungsdatum
-          kann nicht vor dem der letzten gestellten Rechnung liegen.
+          {t(
+            'Wie die gestellten Rechnungen der gewählten Firma nummeriert werden. Beim Wechsel von DATEV hier die Nummer eintragen, die auf DATEVs letzte Rechnung folgt. Das Rechnungsdatum kann nicht vor dem der letzten gestellten Rechnung liegen.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-2">
-            <Label htmlFor="numbering-company">Firma</Label>
+            <Label htmlFor="numbering-company">{t('Firma')}</Label>
             <SearchableSelect
               id="numbering-company"
               value={settingsCompanyId}
@@ -142,12 +143,12 @@ export function InvoiceNumberingCard() {
                 value: company.id,
                 label: company.name
               }))}
-              placeholder="Firma auswählen"
-              searchPlaceholder="Firma suchen…"
+              placeholder={t('Firma auswählen')}
+              searchPlaceholder={t('Firma suchen…')}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="numbering-format">Format</Label>
+            <Label htmlFor="numbering-format">{t('Format')}</Label>
             <Select
               value={draft.format}
               onValueChange={(value) =>
@@ -172,7 +173,9 @@ export function InvoiceNumberingCard() {
         <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[12rem_8rem_minmax(0,1fr)_auto]">
           <div className="space-y-2">
             <Label htmlFor="numbering-next">
-              {draft.format === 'year' ? 'Nächste laufende Nummer' : 'Nächste Rechnungsnummer'}
+              {draft.format === 'year'
+                ? t('Nächste laufende Nummer')
+                : t('Nächste Rechnungsnummer')}
             </Label>
             <Input
               id="numbering-next"
@@ -187,7 +190,7 @@ export function InvoiceNumberingCard() {
           {draft.format === 'year' ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="numbering-digits">Stellen</Label>
+                <Label htmlFor="numbering-digits">{t('Stellen')}</Label>
                 <Input
                   id="numbering-digits"
                   type="number"
@@ -206,7 +209,7 @@ export function InvoiceNumberingCard() {
                   onCheckedChange={(checked) => setDraft({ ...draft, yearlyReset: checked })}
                   disabled={disabled}
                 />
-                <Label htmlFor="numbering-yearly-reset">Jedes Jahr bei 1 beginnen</Label>
+                <Label htmlFor="numbering-yearly-reset">{t('Jedes Jahr bei 1 beginnen')}</Label>
               </div>
             </>
           ) : (
@@ -216,14 +219,14 @@ export function InvoiceNumberingCard() {
             </>
           )}
           <Button onClick={() => void handleSave()} disabled={saving || disabled}>
-            Speichern
+            {t('Speichern')}
           </Button>
         </div>
 
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {preview !== null
-            ? `Die nächste gestellte Rechnung erhält die Nummer ${preview}.`
-            : 'Bitte gültige Werte eintragen.'}
+            ? t('Die nächste gestellte Rechnung erhält die Nummer {{preview}}.', { preview })
+            : t('Bitte gültige Werte eintragen.')}
         </p>
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@ import { awaitsReply, dueLabel, dueState, localIsoDate } from '@/lib/followUps'
 import { RowActionButton } from '@/components/row-action-button'
 import { FollowUpDialog } from './FollowUpDialog'
 import type { FollowUpDto } from '../../../../main/api/schemas/followUp.schema'
+import { t } from '../../../../main/i18n/translate'
 
 const DUE_STYLES = {
   overdue: 'text-red-700 dark:text-red-400 font-medium',
@@ -20,17 +21,17 @@ function useSetDone() {
   const utils = trpcReact.useUtils()
   const setDone = trpcReact.followUp.setDone.useMutation({
     onSuccess: () => void utils.followUp.invalidate(),
-    onError: (error) => toast.error('Änderung fehlgeschlagen', { description: error.message })
+    onError: (error) => toast.error(t('Änderung fehlgeschlagen'), { description: error.message })
   })
   return (followUp: FollowUpDto) =>
     setDone.mutate(
       { id: followUp.id, done: true },
       {
         onSuccess: () =>
-          toast.success('Wiedervorlage erledigt', {
+          toast.success(t('Wiedervorlage erledigt'), {
             description: followUp.note,
             action: {
-              label: 'Rückgängig',
+              label: t('Rückgängig'),
               onClick: () => setDone.mutate({ id: followUp.id, done: false })
             }
           })
@@ -107,8 +108,8 @@ export function FollowUpList({
           <li key={followUp.id} className="flex items-start gap-3 py-2 first:pt-0 last:pb-0">
             <button
               type="button"
-              title="Erledigt"
-              aria-label={`Erledigt: ${followUp.note}`}
+              title={t('Erledigt')}
+              aria-label={t('Erledigt: {{note}}', { note: followUp.note })}
               onClick={() => markDone(followUp)}
               className="group mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/50 hover:border-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -125,23 +126,23 @@ export function FollowUpList({
                     {' · '}
                     <span
                       className="font-medium text-red-700 dark:text-red-400"
-                      title="Auf die gesendete E-Mail kam bis heute keine Antwort"
+                      title={t('Auf die gesendete E-Mail kam bis heute keine Antwort')}
                     >
-                      Keine Antwort
+                      {t('Keine Antwort')}
                     </span>
                   </>
                 )}
                 {showRecord && (
                   <>
                     {' · '}
-                    {followUp.record ? <RecordLink record={followUp.record} /> : 'Allgemein'}
+                    {followUp.record ? <RecordLink record={followUp.record} /> : t('Allgemein')}
                   </>
                 )}
               </p>
             </div>
             <RowActionButton
               icon={Pencil}
-              label="Bearbeiten"
+              label={t('Bearbeiten')}
               onClick={() => {
                 setEditing(followUp)
                 setEditOpen(true)

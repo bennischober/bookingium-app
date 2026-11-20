@@ -35,6 +35,7 @@ import { eventItems, upcoming } from '@/components/detail/relatedLinks'
 import { VENUE_KIND_LABELS, type VenueDto } from '../../../main/api/schemas/venue.schema'
 import { formatCapacity } from '../../../main/api/schemas/capacity'
 import { VenueMarketingCard } from '@/components/band/marketing/MarketingLinksCard'
+import { t } from '../../../main/i18n/translate'
 
 /**
  * Overview: the club's or festival's data in one sheet, the next events, its marketing entries
@@ -54,14 +55,16 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
             title: VENUE_KIND_LABELS[venue.kind],
             facts: [
               [
-                'Kapazität',
+                t('Kapazität'),
                 venue.capacity
-                  ? `${formatCapacity(venue.capacityMin, venue.capacity)} Personen`
+                  ? t('{{formatCapacity}} Personen', {
+                      formatCapacity: formatCapacity(venue.capacityMin, venue.capacity)
+                    })
                   : null
               ],
-              ['Genres', venue.genres],
+              [t('Genres'), venue.genres],
               [
-                'Veranstalter',
+                t('Veranstalter'),
                 venue.company && (
                   <Link
                     to="/companies/$companyId"
@@ -73,31 +76,36 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
                 )
               ],
               [
-                'Gebietsschutz',
+                t('Gebietsschutz'),
                 mapPreview.enabled &&
                   mapPreview.defaults &&
                   `${formatClause(inheritClause(venue, defaultClause(mapPreview.defaults, venue.kind)))} (${
                     hasOverride(venue)
-                      ? 'eigene Angabe'
-                      : `Standard für ${venue.kind === 'festival' ? 'Festivals' : 'Clubs'}`
+                      ? t('eigene Angabe')
+                      : t('Standard für {{value}}', {
+                          value: venue.kind === 'festival' ? t('Festivals') : t('Clubs')
+                        })
                   })`
               ]
             ]
           },
           {
-            title: 'Kontakt',
-            facts: [...contactFacts(contact), ['Adresse', addressBlock(venue.address)]]
+            title: t('Kontakt'),
+            facts: [...contactFacts(contact), [t('Adresse'), addressBlock(venue.address)]]
           },
           {
-            title: 'Anmerkungen',
+            title: t('Anmerkungen'),
             facts: [
-              ['Notiz', venue.notes && <span className="whitespace-pre-wrap">{venue.notes}</span>]
+              [
+                t('Notiz'),
+                venue.notes && <span className="whitespace-pre-wrap">{venue.notes}</span>
+              ]
             ]
           }
         ]}
       />
       <LinkList
-        title="Nächste Events"
+        title={t('Nächste Events')}
         items={eventItems(upcoming(events.data), (event) => event.bandName)}
         action={
           <button
@@ -105,18 +113,18 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
             className="text-sm text-primary hover:underline"
             onClick={() => navigate({ to: '.', search: { tab: 'events' } as never, replace: true })}
           >
-            Alle Events
+            {t('Alle Events')}
           </button>
         }
       />
       <VenueMarketingCard venueId={venue.id} />
-      <TabSection id="section-contacts" title="Ansprechpartner">
+      <TabSection id="section-contacts" title={t('Ansprechpartner')}>
         <MembersPanel entityType="venue" entityId={venue.id} />
       </TabSection>
       {venue.company && (
         <TabSection
           id="section-company-contacts"
-          title={`Ansprechpartner bei ${venue.company.name}`}
+          title={t('Ansprechpartner bei {{name}}', { name: venue.company.name })}
         >
           <MembersPanel entityType="company" entityId={venue.company.id} />
         </TabSection>
@@ -139,12 +147,12 @@ function CompanySuggestion({ venue }: { venue: VenueDto }) {
     onSuccess: () => {
       void utils.venue.invalidate()
       void utils.company.invalidate()
-      toast.success('Firma verknüpft', {
-        description: 'Ihre Ansprechpartner stehen jetzt auch hier.'
+      toast.success(t('Firma verknüpft'), {
+        description: t('Ihre Ansprechpartner stehen jetzt auch hier.')
       })
     },
     onError: (error) =>
-      toast.error('Firma konnte nicht verknüpft werden', { description: error.message })
+      toast.error(t('Firma konnte nicht verknüpft werden'), { description: error.message })
   })
   if (venue.company || !suggestions.data?.length) return null
   return (
@@ -155,8 +163,9 @@ function CompanySuggestion({ venue }: { venue: VenueDto }) {
       <div className="flex items-start gap-2">
         <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <span>
-          Es gibt eine Firma mit dem Namen dieses Eintrags. Ist das die Firma des Clubs? Verknüpft
-          stehen ihre Ansprechpartner und Angaben auch hier.
+          {t(
+            'Es gibt eine Firma mit dem Namen dieses Eintrags. Ist das die Firma des Clubs? Verknüpft stehen ihre Ansprechpartner und Angaben auch hier.'
+          )}
         </span>
       </div>
       <div className="flex flex-wrap gap-2 pl-6">
@@ -168,7 +177,7 @@ function CompanySuggestion({ venue }: { venue: VenueDto }) {
             disabled={link.isPending}
             onClick={() => link.mutate({ venueId: venue.id, companyId: company.id })}
           >
-            {company.name} verknüpfen
+            {t('{{name}} verknüpfen', { name: company.name })}
           </Button>
         ))}
       </div>
@@ -181,10 +190,14 @@ function EventsTab({ venue }: { venue: VenueDto }) {
   const events = trpcReact.dealMemo.listByVenue.useQuery(venue.id)
   return (
     <EventsTable
-      label={`Events ${venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'}`}
+      label={t('Events {{value}}', {
+        value: venue.kind === 'festival' ? t('des Festivals') : t('des Clubs')
+      })}
       query={events}
-      empty={`Noch keine Events ${venue.kind === 'festival' ? 'auf diesem Festival' : 'in diesem Club'}.`}
-      columns={[{ header: 'Band', cell: (event) => event.bandName }]}
+      empty={t('Noch keine Events {{value}}.', {
+        value: venue.kind === 'festival' ? t('auf diesem Festival') : t('in diesem Club')
+      })}
+      columns={[{ header: t('Band'), cell: (event) => event.bandName }]}
     />
   )
 }
@@ -211,7 +224,7 @@ export default function VenueDetailPage() {
   const mutations = useRecordMutations({
     procedures: trpcReact.venue,
     utils: utils.venue,
-    noun: venue ? VENUE_KIND_TERMS[venue.kind].singular : 'Eintrag',
+    noun: venue ? VENUE_KIND_TERMS[venue.kind].singular : t('Eintrag'),
     label: (venue: VenueDto) => venue.name,
     deleteInput: (venue) => ({ id: venue.id }),
     onSaved: sheet.close,
@@ -236,21 +249,21 @@ export default function VenueDetailPage() {
     <RecordDetailPage
       id={id}
       query={query}
-      loading="Wird geladen…"
+      loading={t('Wird geladen…')}
       notFound={{
-        text: 'Club oder Festival nicht gefunden.',
-        backLabel: 'Zurück zu den Clubs',
+        text: t('Club oder Festival nicht gefunden.'),
+        backLabel: t('Zurück zu den Clubs'),
         onBack: () => navigate({ to: '/clubs' })
       }}
     >
       {(venue) => {
         const copy = VENUE_KIND_TERMS[venue.kind]
-        const ofVenue = venue.kind === 'festival' ? 'des Festivals' : 'des Clubs'
+        const ofVenue = venue.kind === 'festival' ? t('des Festivals') : t('des Clubs')
         return (
           <RecordDetail
             record={{ type: 'venue', id: venue.id, name: venue.name }}
             back={{
-              label: `Alle ${copy.plural}`,
+              label: t('Alle {{plural}}', { plural: copy.plural }),
               onBack: () => navigate({ to: venueListPath(venue.kind) })
             }}
             subtitle={[VENUE_KIND_LABELS[venue.kind], venue.address?.city]
@@ -262,23 +275,23 @@ export default function VenueDetailPage() {
             isTab={isVenueTab}
             aliases={VENUE_TAB_ALIASES}
             tabs={[
-              { id: 'overview', label: 'Übersicht', content: <OverviewTab venue={venue} /> },
+              { id: 'overview', label: t('Übersicht'), content: <OverviewTab venue={venue} /> },
               {
                 id: 'events',
-                label: 'Events',
+                label: t('Events'),
                 count: counts.events,
                 hideWhenEmpty: true,
                 content: <EventsTab venue={venue} />
               }
             ]}
-            documents={{ count: counts.documents, title: `Dokumente ${ofVenue}` }}
+            documents={{ count: counts.documents, title: t('Dokumente {{ofVenue}}', { ofVenue }) }}
           >
             <FormSheet
               isOpen={sheet.isOpen}
               onClose={sheet.close}
               mode="edit"
               title={`${copy.singular} bearbeiten`}
-              description="Angaben aktualisieren."
+              description={t('Angaben aktualisieren.')}
             >
               <VenueForm
                 mode="edit"

@@ -25,7 +25,7 @@ let folder: string
 const daysheet = `Date: 14.11.2026
 Venue: Halle Nord ( new adress!! )
 Town: 12345 Musterstadt
-Street: Hafenweg 11
+Street: Musterweg 11
 Get In Beispielband:   13:00
 Soundcheck Beispielband:   15:30 - 17:00
 Soundcheck Vorband Eins   17:00 - 18:00
@@ -34,27 +34,27 @@ Show   Vorband Eins   20:00 - 20:45
 Show Beispielband   21:15 - 22:45
 Backstage Curfew   00:30
 CONTACTS:
-Venue:   Erika Muster   +49 151 000 0001   erika.muster@halle-nord.example
-Tourmanager BB:   Max Beispiel   +49 170 000 0002   max@band.example
+Venue:   Erika Muster   +49 151 000 0001   erika.muster@halle-nord.example.test
+Tourmanager BB:   Max Beispiel   +49 170 000 0002   max@band.example.test
 `
 
 const infosheet = `Load In:   13:30   |   TM: Max
 Hotel: Hotel am Deich
-Straße: Deichstraße 77
+Straße: Beispielstraße 77
 Stadt: 54321 Nebenort
 Gebuchte Zimmer:   7 EZ. 2 DZ (ohne Frühstück)
 `
 
 const venueSpec = `NAME   Halle Nord
-ADDRESS   Hafenweg 11
+ADDRESS   Musterweg 11
 ZIP CODE / CITY   12345   Musterstadt
 CAPACITY   standing capacity   9 00
 MERCHANDISE FEE   75,00 € incl. VAT
 `
 
 const mail = [
-  'From: Paul Promo <paul.promo@promoter.example>',
-  'To: Agentur <info@agentur.example>',
+  'From: Paul Promo <paul.promo@promoter.example.test>',
+  'To: Agentur <info@agentur.example.test>',
   'Subject: AW: Beispielband 2026',
   'Content-Type: text/plain; charset=utf-8',
   '',
@@ -100,7 +100,7 @@ async function setup() {
     name: 'Halle Nord',
     kind: 'venue',
     address: {
-      street: 'Kaiweg',
+      street: 'Musterallee',
       streetNumber: '1',
       addressSuffix: '',
       zipCode: '12345',
@@ -149,8 +149,8 @@ describe('show folder service', () => {
     expect(byId.get('venue.capacity')).toMatchObject({ proposed: '900', include: true })
     // the stored address differs: offered, but not ticked
     expect(byId.get('venue.address')).toMatchObject({
-      current: 'Kaiweg 1, 12345 Musterstadt',
-      proposed: 'Hafenweg 11, 12345 Musterstadt',
+      current: 'Musterallee 1, 12345 Musterstadt',
+      proposed: 'Musterweg 11, 12345 Musterstadt',
       include: false
     })
     expect(byId.get('event.presale')?.proposed).toMatch(/^38,70 €/)
@@ -193,7 +193,7 @@ describe('show folder service', () => {
       .from(schema.address)
       .where(eq(schema.address.id, venue.address_id!))
       .get()
-    expect(address).toMatchObject({ street: 'Hafenweg', street_number: '11' })
+    expect(address).toMatchObject({ street: 'Musterweg', street_number: '11' })
     const hotel = db.select().from(schema.hotel).where(eq(schema.hotel.id, event.hotel_id!)).get()
     expect(hotel?.name).toBe('Hotel am Deich')
 

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { RouterHistory } from '@tanstack/react-router'
 import { ROUTES, isRouteActive } from '@/lib/routing'
+import { t } from '../../../main/i18n/translate'
 
 // ========================================
 // In-app back/forward history
@@ -66,9 +67,9 @@ export function setCurrentPageLabel(pathname: string, label: string): void {
 }
 
 const PRINT_LABELS: Array<[RegExp, string]> = [
-  [/^\/invoices\/\d+\/print/, 'Rechnung (Druckansicht)'],
-  [/^\/events\/\d+\/contract\/print/, 'Vertrag (Druckansicht)'],
-  [/^\/management-contracts\/\d+\/print/, 'Managementvertrag (Druckansicht)']
+  [/^\/invoices\/\d+\/print/, t('Rechnung (Druckansicht)')],
+  [/^\/events\/\d+\/contract\/print/, t('Vertrag (Druckansicht)')],
+  [/^\/management-contracts\/\d+\/print/, t('Managementvertrag (Druckansicht)')]
 ]
 
 /** Whether back/forward has somewhere to go (no leaving the app at either end) */

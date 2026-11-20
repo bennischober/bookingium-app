@@ -45,6 +45,7 @@ import { useInvoiceEInvoiceCheck } from '@/hooks/useInvoiceEInvoiceCheck'
 import { useInvoiceLineEditor } from '@/hooks/useInvoiceLineEditor'
 import { TAX_NOTE_PRESETS } from '../../../../main/einvoice/codes'
 import { INVOICE_CURRENCIES } from '../../../../main/invoice/money'
+import { t } from '../../../../main/i18n/translate'
 
 type InvoiceFormStep = 'basics' | 'lines' | 'finalize'
 
@@ -195,18 +196,23 @@ export function InvoiceForm({
     }
 
     if (status === 'issued' && createdInDatev && !/^d+$/.test(datevNumber.trim())) {
-      toast.error('Bitte die Rechnungsnummer aus DATEV eintragen (nur Ziffern).')
+      toast.error(t('Bitte die Rechnungsnummer aus DATEV eintragen (nur Ziffern).'))
       return
     }
 
     if (
       status === 'issued' &&
       !(await confirmAction({
-        title: 'Rechnung jetzt stellen?',
+        title: t('Rechnung jetzt stellen?'),
         description: createdInDatev
-          ? `Sie erhält die Nummer ${datevNumber.trim()} aus DATEV und kann danach nicht mehr bearbeitet oder gelöscht werden. An DATEV wird sie nicht mehr übergeben.`
-          : 'Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.',
-        confirmLabel: 'Rechnung stellen'
+          ? t(
+              'Sie erhält die Nummer {{datevNumber}} aus DATEV und kann danach nicht mehr bearbeitet oder gelöscht werden. An DATEV wird sie nicht mehr übergeben.',
+              { datevNumber: datevNumber.trim() }
+            )
+          : t(
+              'Sie erhält die nächste Rechnungsnummer und kann danach nicht mehr bearbeitet oder gelöscht werden.'
+            ),
+        confirmLabel: t('Rechnung stellen')
       }))
     ) {
       return
@@ -230,15 +236,15 @@ export function InvoiceForm({
     <div className="space-y-4">
       <Tabs value={step} onValueChange={(value) => setStep(value as InvoiceFormStep)}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basics">1. Grunddaten</TabsTrigger>
-          <TabsTrigger value="lines">2. Positionen</TabsTrigger>
-          <TabsTrigger value="finalize">3. Abschließen</TabsTrigger>
+          <TabsTrigger value="basics">{t('1. Grunddaten')}</TabsTrigger>
+          <TabsTrigger value="lines">{t('2. Positionen')}</TabsTrigger>
+          <TabsTrigger value="finalize">{t('3. Abschließen')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basics" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Rechnungsstatus</Label>
+              <Label>{t('Rechnungsstatus')}</Label>
               <Select value={status} onValueChange={(value) => setStatus(value as InvoiceStatus)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -253,8 +259,10 @@ export function InvoiceForm({
               </Select>
               <p className="text-xs text-muted-foreground">
                 {status === 'draft'
-                  ? 'Entwürfe bleiben bearbeitbar und erhalten noch keine Rechnungsnummer.'
-                  : 'Beim Stellen wird die nächste Rechnungsnummer vergeben; danach ist die Rechnung gesperrt.'}
+                  ? t('Entwürfe bleiben bearbeitbar und erhalten noch keine Rechnungsnummer.')
+                  : t(
+                      'Beim Stellen wird die nächste Rechnungsnummer vergeben; danach ist die Rechnung gesperrt.'
+                    )}
               </p>
               {status === 'issued' && (
                 <div className="space-y-2 rounded-md border p-3">
@@ -266,16 +274,17 @@ export function InvoiceForm({
                       onChange={(e) => setCreatedInDatev(e.target.checked)}
                     />
                     <span>
-                      Rechnung schon in DATEV erstellt
+                      {t('Rechnung schon in DATEV erstellt')}
                       <span className="block text-xs text-muted-foreground">
-                        Sie bekommt die Nummer aus DATEV und wird nicht mehr an DATEV übergeben.
-                        Bookingium zählt danach oberhalb dieser Nummer weiter.
+                        {t(
+                          'Sie bekommt die Nummer aus DATEV und wird nicht mehr an DATEV übergeben. Bookingium zählt danach oberhalb dieser Nummer weiter.'
+                        )}
                       </span>
                     </span>
                   </label>
                   {createdInDatev && (
                     <div className="space-y-1">
-                      <Label htmlFor="invoice-datev-number">Rechnungsnummer aus DATEV</Label>
+                      <Label htmlFor="invoice-datev-number">{t('Rechnungsnummer aus DATEV')}</Label>
                       <Input
                         id="invoice-datev-number"
                         inputMode="numeric"
@@ -290,7 +299,7 @@ export function InvoiceForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Währung</Label>
+              <Label>{t('Währung')}</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger>
                   <SelectValue />
@@ -308,18 +317,18 @@ export function InvoiceForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Rechnungsdatum</Label>
+              <Label>{t('Rechnungsdatum')}</Label>
               <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Fälligkeitsdatum</Label>
+              <Label>{t('Fälligkeitsdatum')}</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="invoice-event">Event-Verknüpfung (optional)</Label>
+              <Label htmlFor="invoice-event">{t('Event-Verknüpfung (optional)')}</Label>
               <SearchableSelect
                 id="invoice-event"
                 value={dealMemoId}
@@ -329,18 +338,20 @@ export function InvoiceForm({
                   label: event.name,
                   hint: event.date
                 }))}
-                noneLabel="Keine Event-Verknüpfung"
-                searchPlaceholder="Event suchen…"
+                noneLabel={t('Keine Event-Verknüpfung')}
+                searchPlaceholder={t('Event suchen…')}
               />
             </div>
 
             <div className="space-y-2">
               <InfoLabel
-                text="Rechnungssteller"
-                info="Wer bekommt das Geld? Dessen Bankdaten und Fußzeile erscheinen auf der Rechnung."
+                text={t('Rechnungssteller')}
+                info={t(
+                  'Wer bekommt das Geld? Dessen Bankdaten und Fußzeile erscheinen auf der Rechnung.'
+                )}
               />
               <SearchableSelect<string>
-                aria-label="Rechnungssteller"
+                aria-label={t('Rechnungssteller')}
                 value={
                   companyId !== undefined
                     ? companyId === null
@@ -354,11 +365,11 @@ export function InvoiceForm({
                   else setCompanyId(Number(value))
                 }}
                 options={[
-                  { value: 'auto', label: 'Auto (Event/Standard)' },
-                  { value: 'none', label: 'Keine explizite Auswahl' },
+                  { value: 'auto', label: t('Auto (Event/Standard)') },
+                  { value: 'none', label: t('Keine explizite Auswahl') },
                   ...(companies.data ?? []).map((c) => ({ value: c.id.toString(), label: c.name }))
                 ]}
-                searchPlaceholder="Firma suchen…"
+                searchPlaceholder={t('Firma suchen…')}
               />
             </div>
           </div>
@@ -367,7 +378,7 @@ export function InvoiceForm({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Zeitraum von</Label>
+              <Label>{t('Zeitraum von')}</Label>
               <Input
                 type="date"
                 value={periodStartDate}
@@ -375,7 +386,7 @@ export function InvoiceForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>Zeitraum bis</Label>
+              <Label>{t('Zeitraum bis')}</Label>
               <Input
                 type="date"
                 value={periodEndDate}
@@ -383,7 +394,7 @@ export function InvoiceForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>Zeitraum-Bezeichnung</Label>
+              <Label>{t('Zeitraum-Bezeichnung')}</Label>
               <Input
                 placeholder="z. B. Q4 2025"
                 value={periodLabel}
@@ -403,7 +414,7 @@ export function InvoiceForm({
 
           <FormActions>
             <Button type="button" onClick={() => setStep('lines')}>
-              Weiter: Positionen
+              {t('Weiter: Positionen')}
             </Button>
           </FormActions>
         </TabsContent>
@@ -413,10 +424,10 @@ export function InvoiceForm({
 
           <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('basics')}>
-              Zurück
+              {t('Zurück')}
             </Button>
             <Button type="button" onClick={() => setStep('finalize')}>
-              Weiter: Abschließen
+              {t('Weiter: Abschließen')}
             </Button>
           </FormActions>
         </TabsContent>
@@ -425,25 +436,27 @@ export function InvoiceForm({
           <InvoiceTotals totals={totals} currency={currency} />
 
           <div className="space-y-2">
-            <Label>Zahlungsbedingungen</Label>
+            <Label>{t('Zahlungsbedingungen')}</Label>
             <Input
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
-              placeholder="z. B. Zahlbar innerhalb von 14 Tagen"
+              placeholder={t('z. B. Zahlbar innerhalb von 14 Tagen')}
             />
           </div>
 
           <div className="space-y-2">
             <InfoLabel
               htmlFor="invoice-tax-note"
-              text="Steuerhinweis"
-              info="Steht auf der Rechnung, z. B. „Steuerschuldnerschaft des Leistungsempfängers“ oder der Grund einer Steuerbefreiung (§ 4 Nr. 20 a UStG). Die E-Rechnung übernimmt ihn als Befreiungsgrund."
+              text={t('Steuerhinweis')}
+              info={t(
+                'Steht auf der Rechnung, z. B. „Steuerschuldnerschaft des Leistungsempfängers“ oder der Grund einer Steuerbefreiung (§ 4 Nr. 20 a UStG). Die E-Rechnung übernimmt ihn als Befreiungsgrund.'
+              )}
             />
             <Input
               id="invoice-tax-note"
               value={reverseChargeNote}
               onChange={(e) => setReverseChargeNote(e.target.value)}
-              placeholder="Reverse Charge oder Grund der Steuerbefreiung"
+              placeholder={t('Reverse Charge oder Grund der Steuerbefreiung')}
             />
             <div className="flex flex-wrap gap-2">
               {TAX_NOTE_PRESETS.map((preset) => (
@@ -462,7 +475,7 @@ export function InvoiceForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Anmerkungen</Label>
+            <Label>{t('Anmerkungen')}</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
 
@@ -470,18 +483,18 @@ export function InvoiceForm({
 
           <FormActions className="justify-between">
             <Button type="button" variant="outline" onClick={() => setStep('lines')}>
-              Zurück
+              {t('Zurück')}
             </Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-                Abbrechen
+                {t('Abbrechen')}
               </Button>
               <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
                 {status === 'issued'
-                  ? 'Rechnung stellen'
+                  ? t('Rechnung stellen')
                   : mode === 'create'
-                    ? 'Entwurf anlegen'
-                    : 'Entwurf speichern'}
+                    ? t('Entwurf anlegen')
+                    : t('Entwurf speichern')}
               </Button>
             </div>
           </FormActions>

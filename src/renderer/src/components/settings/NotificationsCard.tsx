@@ -3,6 +3,7 @@ import { trpcReact } from '@/lib/trpc'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * #142 "Benachrichtigungen" (Einstellungen › Allgemein): the daily reminder of due follow-ups (on
@@ -16,18 +17,18 @@ export function NotificationsCard() {
   const updateSettings = trpcReact.settings.update.useMutation({
     onSuccess: (saved) => {
       utils.settings.get.setData(undefined, saved)
-      toast.success('Einstellung gespeichert')
+      toast.success(t('Einstellung gespeichert'))
     },
     onError: (error) =>
-      toast.error('Einstellung konnte nicht gespeichert werden', { description: error.message })
+      toast.error(t('Einstellung konnte nicht gespeichert werden'), { description: error.message })
   })
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Benachrichtigungen</CardTitle>
+        <CardTitle>{t('Benachrichtigungen')}</CardTitle>
         <CardDescription>
-          Erinnerungen an Termine und fällige Wiedervorlagen, und der Infobereich.
+          {t('Erinnerungen an Termine und fällige Wiedervorlagen, und der Infobereich.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -43,7 +44,7 @@ export function NotificationsCard() {
                 disabled={updateSettings.isPending}
               />
               <Label htmlFor="settings-reminder-notifications">
-                Erinnerungen an Termine und fällige Wiedervorlagen
+                {t('Erinnerungen an Termine und fällige Wiedervorlagen')}
               </Label>
             </div>
             <div className="flex items-center gap-3">
@@ -54,16 +55,13 @@ export function NotificationsCard() {
                 disabled={updateSettings.isPending}
               />
               <Label htmlFor="settings-close-to-tray">
-                Beim Schließen im Infobereich weiterlaufen
+                {t('Beim Schließen im Infobereich weiterlaufen')}
               </Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Einmal am Tag, beim ersten Start ab 8 Uhr, meldet Bookingium, wie viele Wiedervorlagen
-              heute fällig oder überfällig sind; nur die Anzahl, keine Notiz. Termine mit Erinnerung
-              meldet es zur gewählten Zeit, mit Tag und Uhrzeit, aber ohne Titel. Ist Bookingium im
-              Hintergrund, meldet es Windows, sonst erscheint ein Hinweis im Fenster. Läuft
-              Bookingium im Infobereich weiter, kommen Erinnerungen und E-Mails auch bei
-              geschlossenem Fenster; beendet wird es dann über das Symbol im Infobereich.
+              {t(
+                'Einmal am Tag, beim ersten Start ab 8 Uhr, meldet Bookingium, wie viele Wiedervorlagen heute fällig oder überfällig sind; nur die Anzahl, keine Notiz. Termine mit Erinnerung meldet es zur gewählten Zeit, mit Tag und Uhrzeit, aber ohne Titel. Ist Bookingium im Hintergrund, meldet es Windows, sonst erscheint ein Hinweis im Fenster. Läuft Bookingium im Infobereich weiter, kommen Erinnerungen und E-Mails auch bei geschlossenem Fenster; beendet wird es dann über das Symbol im Infobereich.'
+              )}
             </p>
           </div>
         )}

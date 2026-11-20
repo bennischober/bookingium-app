@@ -5,6 +5,7 @@ import { CreateEventWizard } from '@/components/forms/CreateEventWizard'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { eventPrefillFromMail } from './eventPrefill'
 import { contactPrefillFromSender } from './senderContact'
+import { t } from '../../../../main/i18n/translate'
 
 /** The words of an HTML-only mail, for finding a date in it. An inert document: nothing loads. */
 const textOfHtml = (html: string | null): string | null =>
@@ -57,14 +58,14 @@ export function EventFromMail({
         entityId: event.id
       })
       void utils.mailLink.invalidate()
-      toast.success('Mail dem Event zugeordnet', {
+      toast.success(t('Mail dem Event zugeordnet'), {
         description: event.name,
         action: onOpenEvent
-          ? { label: 'Event öffnen', onClick: () => onOpenEvent(event.id) }
+          ? { label: t('Event öffnen'), onClick: () => onOpenEvent(event.id) }
           : undefined
       })
     } catch (error) {
-      toast.error('Mail konnte dem Event nicht zugeordnet werden', {
+      toast.error(t('Mail konnte dem Event nicht zugeordnet werden'), {
         description: error instanceof Error ? error.message : undefined
       })
     }
@@ -77,7 +78,9 @@ export function EventFromMail({
       onSuccess={(memo) => void linkMail(memo)}
       prefill={prefill}
       newPersonPrefill={!knownSender && sender.email ? sender : undefined}
-      description="Aus der E-Mail vorausgefüllt – bitte prüfen. Die Mail wird dem Event zugeordnet."
+      description={t(
+        'Aus der E-Mail vorausgefüllt – bitte prüfen. Die Mail wird dem Event zugeordnet.'
+      )}
     />
   )
 }

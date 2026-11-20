@@ -15,6 +15,7 @@ import {
   useNavigationHistory,
   type HistoryEntry
 } from '@/lib/navigationHistory'
+import { t } from '../../../../main/i18n/translate'
 
 // Mouse side buttons ("back"/"forward" thumb buttons)
 const MOUSE_BACK = 3
@@ -38,7 +39,7 @@ function HistoryButton({
 }) {
   const isBack = direction === 'back'
   const Icon = isBack ? ArrowLeft : ArrowRight
-  const label = isBack ? 'Zurück' : 'Vorwärts'
+  const label = isBack ? t('Zurück') : t('Vorwärts')
   const keys = isBack ? 'Alt+←' : 'Alt+→'
 
   return (
@@ -51,14 +52,17 @@ function HistoryButton({
           disabled={disabled}
           onClick={onClick}
           aria-label={label}
-          title={`${label} (${keys}) – Rechtsklick zeigt den Verlauf`}
+          title={t('{{label}} ({{keys}}) – Rechtsklick zeigt den Verlauf', { label, keys })}
         >
           <Icon className="h-4 w-4" />
         </Button>
       </ContextMenuTrigger>
-      <ContextMenuContent className="max-w-80" aria-label={`Verlauf ${label.toLowerCase()}`}>
+      <ContextMenuContent
+        className="max-w-80"
+        aria-label={t('Verlauf {{toLowerCase}}', { toLowerCase: label.toLowerCase() })}
+      >
         <ContextMenuLabel className="text-xs font-normal text-muted-foreground">
-          {isBack ? 'Zuletzt geöffnet' : 'Weiter zu'}
+          {isBack ? t('Zuletzt geöffnet') : t('Weiter zu')}
         </ContextMenuLabel>
         {entries.slice(0, 15).map((entry) => (
           <ContextMenuItem key={entry.index} onSelect={() => onJump(entry.index - current)}>
@@ -114,7 +118,7 @@ export function HistoryNav() {
   }, [router])
 
   return (
-    <nav aria-label="Verlauf" className="-ml-1 flex shrink-0 items-center">
+    <nav aria-label={t('Verlauf')} className="-ml-1 flex shrink-0 items-center">
       <HistoryButton
         direction="back"
         entries={backEntries}

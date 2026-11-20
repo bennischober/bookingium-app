@@ -2,6 +2,7 @@
 import type { DealMemoDeposit } from '../../../../main/api/schemas/deal_memo.schema'
 import { formatShortDate } from '@/lib/utils'
 import { formatMoney } from '../../../../main/invoice/money'
+import { t } from '../../../../main/i18n/translate'
 
 /** One row as typed: the raw input values, '' for empty */
 export interface DepositDraft {
@@ -50,9 +51,11 @@ export function depositSummary(deposits: DealMemoDeposit[]): string {
   return deposits
     .map(
       (deposit, index) =>
-        `${index + 1}. ${formatMoney(deposit.amount, 'EUR')}, fällig ${
-          deposit.dueDate ? `am ${formatShortDate(deposit.dueDate)}` : 'bei Vertragsabschluss'
-        }${deposit.paidAt ? `, bezahlt am ${formatShortDate(deposit.paidAt)}` : ''}`
+        `${index + 1}. ${formatMoney(deposit.amount, 'EUR')}, ${
+          deposit.dueDate
+            ? t('fällig am {{date}}', { date: formatShortDate(deposit.dueDate) })
+            : t('fällig bei Vertragsabschluss')
+        }${deposit.paidAt ? t(', bezahlt am {{formatShortDate}}', { formatShortDate: formatShortDate(deposit.paidAt) }) : ''}`
     )
     .join('\n')
 }

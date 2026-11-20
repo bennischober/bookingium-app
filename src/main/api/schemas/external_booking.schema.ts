@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createPaginatedResponse } from './base.schema'
 import { ImportRow } from './import.schema'
+import { t } from '../../i18n/translate'
 
 // ========================================
 // Agency bookings (Agenturbuchungen), #103
@@ -18,14 +19,14 @@ export const ExternalBookingStatus = z.enum(['confirmed', 'pending', 'cancelled'
 export type ExternalBookingStatus = z.infer<typeof ExternalBookingStatus>
 
 export const EXTERNAL_BOOKING_STATUS_LABELS: Record<ExternalBookingStatus, string> = {
-  confirmed: 'Bestätigt',
-  pending: 'Option',
-  cancelled: 'Abgesagt'
+  confirmed: t('Bestätigt'),
+  pending: t('Option'),
+  cancelled: t('Abgesagt')
 }
 
 export const EXTERNAL_BOOKING_KIND_LABELS: Record<ExternalBookingKind, string> = {
-  venue: 'Club',
-  festival: 'Festival'
+  venue: t('Club'),
+  festival: t('Festival')
 }
 
 export const ExternalBookingDto = z.object({
@@ -94,21 +95,21 @@ export const ExternalBookingField = z.enum([
 export type ExternalBookingField = z.infer<typeof ExternalBookingField>
 
 export const EXTERNAL_BOOKING_FIELD_LABELS: Record<ExternalBookingField, string> = {
-  ignore: 'Nicht importieren',
-  band: 'Band',
-  date: 'Datum',
-  venueName: 'Club / Festival',
-  street: 'Straße',
-  zipCode: 'PLZ',
-  city: 'Ort',
-  country: 'Land',
-  kind: 'Art (Club / Festival)',
-  status: 'Status',
-  sourceKey: 'Buchungs-Nr. / ID',
-  radiusKm: 'Gebietsschutz: km',
-  radiusWeeksBefore: 'Gebietsschutz: Wochen davor',
-  radiusWeeksAfter: 'Gebietsschutz: Wochen danach',
-  notes: 'Anmerkung'
+  ignore: t('Nicht importieren'),
+  band: t('Band'),
+  date: t('Datum'),
+  venueName: t('Club / Festival'),
+  street: t('Straße'),
+  zipCode: t('PLZ'),
+  city: t('Ort'),
+  country: t('Land'),
+  kind: t('Art (Club / Festival)'),
+  status: t('Status'),
+  sourceKey: t('Buchungs-Nr. / ID'),
+  radiusKm: t('Gebietsschutz: km'),
+  radiusWeeksBefore: t('Gebietsschutz: Wochen davor'),
+  radiusWeeksAfter: t('Gebietsschutz: Wochen danach'),
+  notes: t('Anmerkung')
 }
 
 /** Fields a column can map to, in menu order */

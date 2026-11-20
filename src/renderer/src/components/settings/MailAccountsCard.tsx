@@ -11,15 +11,16 @@ import type { MailAccountDto } from '../../../../main/mailclient/accounts'
 import { allowsPlainLogin } from '../../../../main/mailclient/core/imap_options'
 import { MailAccountDialog } from '@/components/settings/MailAccountDialog'
 import { MailFolderSyncDialog } from '@/components/settings/MailFolderSyncDialog'
+import { t } from '../../../../main/i18n/translate'
 
 /**
  * The badge in the list: read-only, refused by the write guard (stored with a cleartext login),
  * the local test server, or nothing for a normal account
  */
 function accountBadge(account: MailAccountDto): string | null {
-  if (account.readOnly) return 'Nur lesen'
-  if (account.writeRefusal) return 'Schreiben gesperrt'
-  return allowsPlainLogin(account.host) ? 'Test-Server (lokal)' : null
+  if (account.readOnly) return t('Nur lesen')
+  if (account.writeRefusal) return t('Schreiben gesperrt')
+  return allowsPlainLogin(account.host) ? t('Test-Server (lokal)') : null
 }
 
 /** IMAP accounts for the built-in mail client */
@@ -36,10 +37,10 @@ export function MailAccountsCard() {
   const remove = trpcReact.mail.accounts.delete.useMutation({
     onSuccess: () => {
       void utils.mail.invalidate()
-      toast.success('E-Mail-Konto entfernt')
+      toast.success(t('E-Mail-Konto entfernt'))
     },
     onError: (error) =>
-      toast.error('Konto konnte nicht entfernt werden', { description: error.message })
+      toast.error(t('Konto konnte nicht entfernt werden'), { description: error.message })
   })
 
   const openDialog = (account: MailAccountDto | null) => {
@@ -50,9 +51,10 @@ export function MailAccountsCard() {
   const confirmRemove = async (account: MailAccountDto) => {
     const confirmed = await confirmAction({
       title: `${account.email} entfernen?`,
-      description:
-        'Entfernt die Zugangsdaten aus Bookingium. Das Postfach auf dem Server bleibt unverändert.',
-      confirmLabel: 'Entfernen',
+      description: t(
+        'Entfernt die Zugangsdaten aus Bookingium. Das Postfach auf dem Server bleibt unverändert.'
+      ),
+      confirmLabel: t('Entfernen'),
       destructive: true
     })
     if (confirmed) remove.mutate({ id: account.id })
@@ -63,15 +65,16 @@ export function MailAccountsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Postfächer</CardTitle>
+        <CardTitle>{t('Postfächer')}</CardTitle>
         <CardDescription>
-          IMAP-Konten für die E-Mail-Seite. Bookingium lädt die E-Mails herunter und durchsucht sie
-          auf diesem Computer.
+          {t(
+            'IMAP-Konten für die E-Mail-Seite. Bookingium lädt die E-Mails herunter und durchsucht sie auf diesem Computer.'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch kein Postfach eingerichtet.</p>
+          <p className="text-sm text-muted-foreground">{t('Noch kein Postfach eingerichtet.')}</p>
         ) : (
           <ul className="divide-y rounded-md border" aria-label="E-Mail-Konten">
             {list.map((account) => (
@@ -98,8 +101,8 @@ export function MailAccountsCard() {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => setFoldersOf(account)}
-                  title="Ordner auswählen"
-                  aria-label={`Ordner von ${account.email} auswählen`}
+                  title={t('Ordner auswählen')}
+                  aria-label={t('Ordner von {{email}} auswählen', { email: account.email })}
                 >
                   <FolderCog />
                 </Button>
@@ -107,7 +110,7 @@ export function MailAccountsCard() {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => openDialog(account)}
-                  title="Bearbeiten"
+                  title={t('Bearbeiten')}
                   aria-label={`${account.email} bearbeiten`}
                 >
                   <Pencil />
@@ -116,7 +119,7 @@ export function MailAccountsCard() {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => void confirmRemove(account)}
-                  title="Entfernen"
+                  title={t('Entfernen')}
                   aria-label={`${account.email} entfernen`}
                 >
                   <Trash2 />
@@ -133,7 +136,7 @@ export function MailAccountsCard() {
         )}
 
         <Button variant="outline" onClick={() => openDialog(null)}>
-          <Plus className="h-4 w-4" /> Postfach hinzufügen…
+          <Plus className="h-4 w-4" /> {t('Postfach hinzufügen…')}
         </Button>
       </CardContent>
 

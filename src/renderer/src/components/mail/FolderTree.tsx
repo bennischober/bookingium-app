@@ -28,6 +28,7 @@ import {
 import type { FolderNode, FolderSyncMode } from '../../../../main/mailclient/core/types'
 import { folderLabel, isDrafts, isInbox, isTrash, FOLDER_DRAG_TYPE } from './format'
 import { isProtectedFolder } from '../../../../main/mailclient/core/folders'
+import { t } from '../../../../main/i18n/translate'
 
 // Hovering a dragged mail over a closed folder opens it after this delay
 const EXPAND_DELAY_MS = 700
@@ -238,10 +239,10 @@ function FolderItem({
             className="shrink-0 text-muted-foreground"
             title={
               folder.notDownloaded
-                ? 'Nur beim Öffnen synchronisiert, noch nicht heruntergeladen'
-                : 'Nur beim Öffnen synchronisiert'
+                ? t('Nur beim Öffnen synchronisiert, noch nicht heruntergeladen')
+                : t('Nur beim Öffnen synchronisiert')
             }
-            aria-label="Nur beim Öffnen synchronisiert"
+            aria-label={t('Nur beim Öffnen synchronisiert')}
             data-testid="mail-folder-on-open"
           >
             <RefreshCwOff className="size-3.5" />
@@ -251,8 +252,8 @@ function FolderItem({
         {syncError && (
           <span
             className="shrink-0 text-destructive"
-            title={`Synchronisierung fehlgeschlagen: ${syncError}`}
-            aria-label="Synchronisierung fehlgeschlagen"
+            title={t('Synchronisierung fehlgeschlagen: {{syncError}}', { syncError })}
+            aria-label={t('Synchronisierung fehlgeschlagen')}
             data-testid="mail-folder-sync-error"
           >
             <AlertTriangle className="size-3.5" />
@@ -284,14 +285,14 @@ function FolderItem({
                   onSelect={() => onFolderAction('rename', folder)}
                 >
                   <Pencil className="size-4 shrink-0 text-muted-foreground" />
-                  Umbenennen…
+                  {t('Umbenennen…')}
                 </ContextMenuItem>
                 <ContextMenuItem
                   className="gap-2"
                   onSelect={() => onFolderAction('delete', folder)}
                 >
                   <Trash2 className="size-4 shrink-0 text-muted-foreground" />
-                  Löschen…
+                  {t('Löschen…')}
                 </ContextMenuItem>
                 <ContextMenuSeparator />
               </>
@@ -299,25 +300,25 @@ function FolderItem({
             {onFolderAction && (
               <ContextMenuItem className="gap-2" onSelect={() => onFolderAction('create', folder)}>
                 <FolderPlus className="size-4 shrink-0 text-muted-foreground" />
-                Neuer Ordner…
+                {t('Neuer Ordner…')}
               </ContextMenuItem>
             )}
             {onMarkFolderRead && (
               <ContextMenuItem className="gap-2" onSelect={() => onMarkFolderRead(folder)}>
                 <MailOpen className="size-4 shrink-0 text-muted-foreground" />
-                Alle als gelesen markieren
+                {t('Alle als gelesen markieren')}
               </ContextMenuItem>
             )}
             {onEmptyTrash && isTrash(folder) && (
               <ContextMenuItem className="gap-2" onSelect={() => onEmptyTrash(folder)}>
                 <Trash2 className="size-4 shrink-0 text-muted-foreground" />
-                Papierkorb leeren
+                {t('Papierkorb leeren')}
               </ContextMenuItem>
             )}
             {onEmptyFolder && !isTrash(folder) && !isDrafts(folder) && (
               <ContextMenuItem className="gap-2" onSelect={() => onEmptyFolder(folder, label)}>
                 <Eraser className="size-4 shrink-0 text-muted-foreground" />
-                {folder.specialUse?.includes('Junk') ? 'Spam leeren' : 'Ordner leeren'}
+                {folder.specialUse?.includes('Junk') ? t('Spam leeren') : t('Ordner leeren')}
               </ContextMenuItem>
             )}
             {/* #158: INBOX and the special-use folders always sync */}
@@ -327,12 +328,12 @@ function FolderItem({
                 {folder.syncMode === 'on_open' ? (
                   <ContextMenuItem className="gap-2" onSelect={() => onSyncMode(folder, 'always')}>
                     <RefreshCw className="size-4 shrink-0 text-muted-foreground" />
-                    Immer synchronisieren
+                    {t('Immer synchronisieren')}
                   </ContextMenuItem>
                 ) : (
                   <ContextMenuItem className="gap-2" onSelect={() => onSyncMode(folder, 'on_open')}>
                     <RefreshCwOff className="size-4 shrink-0 text-muted-foreground" />
-                    Nur beim Öffnen synchronisieren
+                    {t('Nur beim Öffnen synchronisieren')}
                   </ContextMenuItem>
                 )}
               </>
@@ -389,7 +390,7 @@ export function FolderTree({
   onFolderAction,
   onSyncMode,
   syncErrors,
-  label = 'Ordner'
+  label = t('Ordner')
 }: {
   folders: FolderNode[]
   selectedId: string | null
@@ -482,7 +483,7 @@ export function FolderTree({
           the whole list, so "beside the rows" is not a reachable target. */}
       {folderMove && (
         <li
-          aria-label="Ordner auf die oberste Ebene verschieben"
+          aria-label={t('Ordner auf die oberste Ebene verschieben')}
           className={cn(
             'mt-1 rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground',
             rootOver && 'border-primary bg-primary/10 text-foreground'
@@ -504,7 +505,7 @@ export function FolderTree({
             folderMove.onMove(null)
           }}
         >
-          Auf oberste Ebene ziehen
+          {t('Auf oberste Ebene ziehen')}
         </li>
       )}
     </ul>
