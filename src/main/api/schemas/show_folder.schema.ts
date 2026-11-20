@@ -46,6 +46,18 @@ export const ShowFolderAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('venueCapacity'), value: z.number().int().positive() }),
   z.object({ type: z.literal('venueAddress'), ...Address }),
   z.object({ type: z.literal('venueNotes'), lines: z.array(z.string().min(1)).min(1) }),
+  /** The event's club is a festival after all, or the other way round */
+  z.object({ type: z.literal('venueKind'), kind: z.enum(['venue', 'festival']) }),
+  z.object({
+    type: z.literal('venueAssign'),
+    /** An existing club or festival of that name, else one is created with the data below */
+    venueId: z.number().nullable(),
+    name: z.string().min(1),
+    kind: z.enum(['venue', 'festival']),
+    ...Address,
+    capacity: z.number().int().positive().nullable(),
+    notes: z.string()
+  }),
   z.object({
     type: z.literal('hotel'),
     /** An existing hotel of that name, else one is created */
@@ -78,6 +90,7 @@ export const SHOW_FOLDER_GROUPS = [
   'Tagesablauf',
   'Tickets & Deal',
   'Club',
+  'Festival',
   'Hotel',
   'Kontakte',
   'Abrechnung'
@@ -102,7 +115,9 @@ export type ShowFolderSuggestionDto = z.infer<typeof ShowFolderSuggestionDto>
 export const ShowFolderPlanDto = z.object({
   eventId: z.number(),
   bandName: z.string(),
+  /** The event's club or festival, or the one the plan offers to assign; '' for none */
   venueName: z.string(),
+  venueKind: z.enum(['venue', 'festival']),
   files: z.array(ShowFolderFileDto),
   suggestions: z.array(ShowFolderSuggestionDto),
   /** Hints for the user ("Das Event hat keinen Club: …") */

@@ -52,6 +52,15 @@ CAPACITY   standing capacity   9 00
 MERCHANDISE FEE   75,00 € incl. VAT
 `
 
+const festivalSheet = `Festival: Muster Open Air
+Festivalgelände: Am Beispielsee 3
+Ort: 12345 Musterstadt
+Kapazität: 15.000
+Wristbands und Akkreditierung am Artist Village, Camping für Crew, Shuttle vom Hotel.
+CONTACTS:
+Artist Care:   Anna Beispiel   +49 151 000 0003   anna@festival.example.test
+`
+
 const mail = [
   'From: Paul Promo <paul.promo@promoter.example.test>',
   'To: Agentur <info@agentur.example.test>',
@@ -123,7 +132,8 @@ async function setup() {
   return { eventId: event.id, venueId: venue.id }
 }
 
-describe('show folder service', () => {
+// The first analyze loads pdf.js and mailparser; on the Windows runner that alone took ~18 s
+describe('show folder service', { timeout: 60_000 }, () => {
   const service = container.resolve(ShowFolderService)
 
   it('reads a folder, applies the ticked suggestions and offers nothing twice', async () => {
@@ -236,15 +246,95 @@ describe('show folder service', () => {
     expect(again.files.every((f) => !f.include)).toBe(true)
   })
 
-  it('offers nothing for the club when the event has none, and says why', async () => {
+  it('offers the club the files name to an event without one, and files to it', async () => {
     const { eventId } = await setup()
     db.update(schema.deal_memo)
       .set({ venue_id: null })
       .where(eq(schema.deal_memo.id, eventId))
       .run()
     const plan = await service.analyze({ eventId, paths: [folder] })
-    expect(plan.suggestions.some((s) => s.group === 'Club')).toBe(false)
-    expect(plan.hints.some((hint) => /keinen Club/.test(hint))).toBe(true)
-    expect(plan.files.find((f) => f.kind === 'venue_spec')?.owner).toBe('event')
+    const assign = plan.suggestions.find((s) => s.id === 'venue.assign')
+    expect(assign).toMatchObject({ group: 'Club', include: true })
+    expect(assign?.label).toMatch(/schon angelegt/)
+    expect(plan.venueName).toBe('Halle Nord')
+    expect(plan.venueKind).toBe('venue')
+    expect(plan.files.find((f) => f.kind === 'venue_spec')?.owner).toBe('venue')
+    const erika = plan.suggestions.find((s) => s.id.includes('erika'))
+    expect(erika?.proposed).toMatch(/Ansprechpartner von Halle Nord/)
+
+    const result = await service.apply({
+      eventId,
+      files: plan.files
+        .filter((f) => f.kind === 'venue_spec')
+        .map((f) => ({ path: f.path, owner: 'venue' as const, documentType: f.documentType })),
+      actions: [assign!.action, erika!.action]
+    })
+    expect(result.problems).toEqual([])
+    const event = db.select().from(schema.deal_memo).where(eq(schema.deal_memo.id, eventId)).get()
+    // the first stored club of that name
+    const first = db.select().from(schema.venue).where(eq(schema.venue.name, 'Halle Nord')).get()
+    expect(event?.venue_id).toBe(first?.id)
+    const members = db
+      .select()
+      .from(schema.venue_member)
+      .where(eq(schema.venue_member.venue_id, first!.id))
+      .all()
+    expect(members.length).toBeGreaterThan(0)
+  })
+
+  it('says why when the event has no club and the files name none', async () => {
+    const { eventId } = await setup()
+    db.update(schema.deal_memo)
+      .set({ venue_id: null })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+    const plan = await service.analyze({
+      eventId,
+      paths: [join(folder, 'Infosheet Show.txt')]
+    })
+    expect(plan.suggestions.some((s) => s.group === 'Club' || s.group === 'Festival')).toBe(false)
+    expect(plan.hints.some((hint) => /keinen Club und kein Festival/.test(hint))).toBe(true)
+  })
+
+  it('creates a festival the files describe, with its data', async () => {
+    const { eventId } = await setup()
+    db.update(schema.deal_memo)
+      .set({ venue_id: null })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+    const path = join(root, 'Artist Info Muster Open Air.txt')
+    writeFileSync(path, festivalSheet)
+    const plan = await service.analyze({ eventId, paths: [path] })
+    expect(plan.files[0]).toMatchObject({ kind: 'venue_spec', owner: 'venue' })
+    const assign = plan.suggestions.find((s) => s.id === 'venue.assign')
+    expect(assign).toMatchObject({ group: 'Festival' })
+    expect(assign?.label).toBe('Festival Muster Open Air anlegen und zuordnen')
+    expect(plan.venueKind).toBe('festival')
+    // the artist care person is the festival's
+    expect(plan.suggestions.some((s) => s.id.includes('anna'))).toBe(true)
+
+    await service.apply({ eventId, files: [], actions: [assign!.action] })
+    const event = db.select().from(schema.deal_memo).where(eq(schema.deal_memo.id, eventId)).get()
+    const festival = db
+      .select()
+      .from(schema.venue)
+      .where(eq(schema.venue.id, event!.venue_id!))
+      .get()
+    expect(festival).toMatchObject({ name: 'Muster Open Air', kind: 'festival' })
+  })
+
+  it('offers to make the stored club a festival when the files describe one', async () => {
+    const { eventId, venueId } = await setup()
+    const path = join(root, 'Festival Guide.txt')
+    writeFileSync(path, festivalSheet.replace('Festival: Muster Open Air', 'Festival: Halle Nord'))
+    const plan = await service.analyze({ eventId, paths: [path] })
+    const kind = plan.suggestions.find((s) => s.id === 'venue.kind')
+    expect(kind).toMatchObject({ group: 'Festival', current: 'Club', proposed: 'Festival' })
+    expect(kind?.include).toBe(false)
+    expect(plan.hints.some((hint) => /beschreiben ein Festival/.test(hint))).toBe(true)
+
+    await service.apply({ eventId, files: [], actions: [kind!.action] })
+    const venue = db.select().from(schema.venue).where(eq(schema.venue.id, venueId)).get()
+    expect(venue?.kind).toBe('festival')
   })
 })

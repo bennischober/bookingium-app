@@ -2,10 +2,13 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import { keyOf } from '../showfolder/extract'
+import { keyOf, type PlaceKind } from '../showfolder/extract'
 import type { ShowFolderCurrent } from '../showfolder/plan'
 
 const now = sql`(datetime('now'))`
+
+/** venue.kind as stored ('venue' | 'festival', CHECK) */
+const placeKind = (kind: string): PlaceKind => (kind === 'festival' ? 'festival' : 'venue')
 
 /**
  * "Show-Ordner einlesen": what is stored for an event, its club and hotel, and the single-column
@@ -38,6 +41,7 @@ export class ShowFolderRepository {
       .select({
         id: schema.venue.id,
         name: schema.venue.name,
+        kind: schema.venue.kind,
         capacity: schema.venue.capacity,
         notes: schema.venue.notes,
         addressId: schema.venue.address_id,
@@ -53,10 +57,24 @@ export class ShowFolderRepository {
   }
 
   /** What the plan compares against; null when the event does not exist */
-  current(eventId: number, hotelName: string, emails: string[]): ShowFolderCurrent | null {
+  current(
+    eventId: number,
+    hotelName: string,
+    emails: string[],
+    venueName = ''
+  ): ShowFolderCurrent | null {
     const event = this.event(eventId)
     if (!event) return null
     const venue = event.venueId !== null ? this.venue(event.venueId) : undefined
+    const venueKey = keyOf(venueName)
+    const venueByName =
+      !venue && venueKey
+        ? db
+            .select({ id: schema.venue.id, name: schema.venue.name, kind: schema.venue.kind })
+            .from(schema.venue)
+            .all()
+            .find((row) => keyOf(row.name) === venueKey)
+        : undefined
     const itinerary = db
       .select()
       .from(schema.itinerary)
@@ -135,6 +153,7 @@ export class ShowFolderRepository {
       venue: venue
         ? {
             name: venue.name,
+            kind: placeKind(venue.kind),
             capacity: venue.capacity,
             street: venue.street ?? '',
             streetNumber: venue.streetNumber ?? '',
@@ -143,6 +162,7 @@ export class ShowFolderRepository {
             notes: venue.notes
           }
         : null,
+      venueByName: venueByName ? { ...venueByName, kind: placeKind(venueByName.kind) } : null,
       hotel: hotel ?? null,
       hotelByName: hotelByName ?? null,
       loproPersonId: event.loproPersonId,
@@ -209,6 +229,19 @@ export class ShowFolderRepository {
       .set({ deal: text, updated_at: now })
       .where(eq(schema.deal_memo.id, eventId))
       .run()
+  }
+
+  /** The event's club or festival */
+  setVenue(eventId: number, venueId: number): void {
+    db.update(schema.deal_memo)
+      .set({ venue_id: venueId, updated_at: now })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+  }
+
+  /** Club or festival */
+  setVenueKind(venueId: number, kind: 'venue' | 'festival'): void {
+    db.update(schema.venue).set({ kind, updated_at: now }).where(eq(schema.venue.id, venueId)).run()
   }
 
   setHotel(eventId: number, hotelId: number): void {

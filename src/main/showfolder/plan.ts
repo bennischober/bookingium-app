@@ -16,6 +16,7 @@ import {
   keyOf,
   type ContactFact,
   type ItineraryKey,
+  type PlaceKind,
   type ShowFacts,
   type ShowFileKind
 } from './extract'
@@ -68,6 +69,7 @@ export interface ShowFolderCurrent {
   deal: string
   venue: {
     name: string
+    kind: PlaceKind
     capacity: number | null
     street: string
     streetNumber: string
@@ -75,6 +77,8 @@ export interface ShowFolderCurrent {
     city: string
     notes: string
   } | null
+  /** A stored club or festival with the files' venue name, for an event without one */
+  venueByName: { id: number; name: string; kind: PlaceKind } | null
   hotel: { id: number; name: string } | null
   /** A stored hotel with the sheet's hotel name */
   hotelByName: { id: number; name: string } | null
@@ -89,13 +93,38 @@ export interface ShowFolderCurrent {
   hasSettlement: boolean
 }
 
+/** "Club" or "Festival": the word for a venue of that kind, also the suggestion group */
+export const placeNoun = (kind: PlaceKind): 'Club' | 'Festival' =>
+  kind === 'festival' ? 'Festival' : 'Club'
+
+/**
+ * The club or festival the files name, for an event that has none yet: the stored one of that
+ * name, else a new one of the kind the files suggest (a club when they do not tell)
+ */
+export interface PendingVenue {
+  venueId: number | null
+  name: string
+  kind: PlaceKind
+}
+
+export function pendingVenueOf(
+  facts: ShowFacts,
+  current: Pick<ShowFolderCurrent, 'venue' | 'venueByName'>
+): PendingVenue | null {
+  if (current.venue || !facts.venue.name) return null
+  const known = current.venueByName
+  if (known) return { venueId: known.id, name: known.name, kind: known.kind }
+  return { venueId: null, name: facts.venue.name, kind: facts.venue.kind ?? 'venue' }
+}
+
 const euro = (cents: number): string =>
   `${(cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 /** Where each file goes, ticked unless it is the same sheet twice or already filed */
 export function planFiles(
   files: readonly ShowFileRead[],
-  current: Pick<ShowFolderCurrent, 'venue' | 'eventDocuments' | 'venueDocuments'>
+  current: Pick<ShowFolderCurrent, 'venue' | 'eventDocuments' | 'venueDocuments'>,
+  pending: PendingVenue | null = null
 ): ShowFolderFileDto[] {
   return files.map((file) => {
     const filing = filingOf(file.kind)
@@ -104,8 +133,12 @@ export function planFiles(
     let include = true
     let note = ''
     if (owner === 'venue' && !current.venue) {
-      owner = 'event'
-      note = 'Das Event hat keinen Club, deshalb beim Event abgelegt.'
+      if (pending) {
+        note = `Kommt zu ${pending.name} (${placeNoun(pending.kind)}), sobald es zugeordnet ist – sonst zum Event.`
+      } else {
+        owner = 'event'
+        note = 'Das Event hat keinen Club und kein Festival, deshalb beim Event abgelegt.'
+      }
     }
     if (file.kind === 'duplicate') {
       include = false
@@ -222,13 +255,26 @@ export function planSuggestions(
     })
   }
 
-  // the club
+  // the club or festival
   const venue = current.venue
   if (venue) {
+    const group = placeNoun(venue.kind)
+    const filesKind = facts.venue.kind
+    if (filesKind && filesKind !== venue.kind) {
+      add(
+        placeNoun(filesKind),
+        'venue.kind',
+        `${venue.name}: laut den Dateien ${filesKind === 'festival' ? 'ein Festival' : 'ein Club'}`,
+        placeNoun(venue.kind),
+        placeNoun(filesKind),
+        sources.venue,
+        { type: 'venueKind', kind: filesKind }
+      )
+    }
     const { capacity } = facts.venue
     if (capacity !== null && capacity !== venue.capacity) {
       add(
-        'Club',
+        group,
         'venue.capacity',
         `Kapazität ${venue.name}`,
         venue.capacity !== null ? String(venue.capacity) : '',
@@ -248,7 +294,7 @@ export function planSuggestions(
       const proposed =
         `${street} ${streetNumber}`.trim() + `, ${facts.venue.zipCode} ${facts.venue.city}`
       if (keyOf(stored) !== keyOf(proposed)) {
-        add('Club', 'venue.address', `Adresse ${venue.name}`, stored, proposed, sources.venue, {
+        add(group, 'venue.address', `Adresse ${venue.name}`, stored, proposed, sources.venue, {
           type: 'venueAddress',
           street,
           streetNumber,
@@ -266,7 +312,7 @@ export function planSuggestions(
     if (lines.length > 0) {
       out.push({
         id: 'venue.notes',
-        group: 'Club',
+        group,
         label: `Infos zu ${venue.name} (an die Notiz anhängen)`,
         current: '',
         proposed: lines.join(' · '),
@@ -276,6 +322,8 @@ export function planSuggestions(
       })
     }
   }
+  const pending = pendingVenueOf(facts, current)
+  if (pending) out.push(venueAssignSuggestion(facts, pending, sources.venue))
 
   // the hotel
   const hotel = facts.hotel
@@ -311,21 +359,78 @@ export function planSuggestions(
 
   // contacts: the club's people and the promoter; the band's own crew is left out
   for (const contact of facts.contacts) {
-    const suggestion = personSuggestion(contact, current, sources)
+    const suggestion = personSuggestion(contact, current, pending, sources)
     if (suggestion) out.push(suggestion)
   }
 
   return out
 }
 
+/** Assign the club or festival the files name to an event without one, creating it if new */
+function venueAssignSuggestion(
+  facts: ShowFacts,
+  pending: PendingVenue,
+  source: string
+): ShowFolderSuggestionDto {
+  const noun = placeNoun(pending.kind)
+  const { street, streetNumber } = splitStreet(facts.venue.street)
+  const notes = [
+    ...(facts.venue.merchFeeCents !== null
+      ? [`Merch-Fee: ${euro(facts.venue.merchFeeCents)}`]
+      : []),
+    ...facts.venue.notes
+  ]
+  const known = pending.venueId !== null
+  return {
+    id: 'venue.assign',
+    group: noun,
+    label: known
+      ? `${noun} ${pending.name} zuordnen (schon angelegt)`
+      : `${noun} ${pending.name} anlegen und zuordnen`,
+    current: '',
+    proposed: known
+      ? pending.name
+      : [
+          pending.name,
+          [facts.venue.street, `${facts.venue.zipCode} ${facts.venue.city}`.trim()]
+            .filter(Boolean)
+            .join(', '),
+          facts.venue.capacity !== null ? `Kapazität ${facts.venue.capacity}` : '',
+          ...notes
+        ]
+          .filter(Boolean)
+          .join(' · '),
+    include: true,
+    source,
+    action: {
+      type: 'venueAssign',
+      venueId: pending.venueId,
+      name: pending.name,
+      kind: pending.kind,
+      street,
+      streetNumber,
+      zipCode: facts.venue.zipCode,
+      city: facts.venue.city,
+      capacity: facts.venue.capacity,
+      notes:
+        notes.length > 0
+          ? ['Aus dem Show-Ordner:', ...notes.map((line) => `- ${line}`)].join('\n')
+          : ''
+    }
+  }
+}
+
 function personSuggestion(
   contact: ContactFact,
   current: ShowFolderCurrent,
+  pending: PendingVenue | null,
   sources: { sheet: string; venue: string; mail: string }
 ): ShowFolderSuggestionDto | null {
   if (contact.side !== 'venue' && contact.side !== 'promoter') return null
   const known = contact.email ? current.personsByEmail.get(contact.email.toLowerCase()) : undefined
-  const venue = contact.side === 'venue' && current.venue !== null
+  // the club or festival the person joins: the event's, or the one the plan assigns
+  const place = current.venue ?? pending
+  const venue = contact.side === 'venue' && place !== null
   const venueMember = venue && !(known && current.venueMemberIds.has(known.id))
   const localContact = contact.side === 'venue' && contact.onSite && current.localContactId === null
   const lopro = contact.side === 'promoter' && current.loproPersonId === null
@@ -333,7 +438,7 @@ function personSuggestion(
   if (!venueMember && !localContact && !lopro) return null
 
   const roles = [
-    venueMember ? `Ansprechpartner von ${current.venue?.name}` : '',
+    venueMember ? `Ansprechpartner von ${place?.name}` : '',
     localContact ? 'Kontakt vor Ort' : '',
     lopro ? 'LoPro-Kontakt' : ''
   ].filter(Boolean)
