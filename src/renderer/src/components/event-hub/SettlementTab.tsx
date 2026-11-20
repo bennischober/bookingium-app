@@ -20,12 +20,23 @@ import { invoiceNumberLabel } from '@/lib/invoiceLabels'
 import {
   computeSettlement,
   EMPTY_SETTLEMENT,
+  gageInEuroCents,
+  isForeignCurrency,
   managementFee,
   type SettlementInput,
   type SettlementTicketLine
 } from '../../../../main/settlement/settlement'
 import type { SettlementSheetDto } from '../../../../main/api/schemas/settlement.schema'
-import { centsText, euroText, parseCents, parsePercent } from './settlementForm'
+import {
+  centsText,
+  euroText,
+  moneyText,
+  parseCents,
+  parsePercent,
+  parseRate,
+  rateText,
+  SETTLEMENT_CURRENCIES
+} from './settlementForm'
 import { t, uiLocale } from '../../../../main/i18n/translate'
 
 // #228: the promoter's settlement of the show (Konzertabrechnung) - read from the agency's Excel
@@ -81,6 +92,35 @@ function PercentInput({
       onBlur={() => {
         const parsed = parsePercent(text)
         if (parsed === null) setText(String(value).replace('.', ','))
+        else onChange(parsed)
+      }}
+    />
+  )
+}
+
+/** The exchange rate: euros for one unit of the settlement's currency, taken when it leaves */
+function RateInput({
+  rate,
+  currency,
+  onChange
+}: {
+  rate: number | null
+  currency: string
+  onChange: (rate: number | null) => void
+}) {
+  const [text, setText] = useSyncedState(rateText(rate))
+  return (
+    <Input
+      id="settlement-rate"
+      aria-label={t('Kurs: Euro für 1 {{currency}}', { currency })}
+      inputMode="decimal"
+      className="w-28 text-right"
+      placeholder="1,17"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const parsed = parseRate(text)
+        if (parsed === undefined) setText(rateText(rate))
         else onChange(parsed)
       }}
     />
@@ -182,9 +222,14 @@ export function SettlementTab({ eventId }: { eventId: number }) {
 
   const result = useMemo(() => (input ? computeSettlement(input) : null), [input])
   const contract = query.data?.contract ?? null
+  // Amounts of the settlement in its own currency; the fee is always in euros
+  const currency = input?.currency ?? 'EUR'
+  const foreign = input ? isForeignCurrency(input) : false
+  const money = (cents: number): string => moneyText(cents, currency)
+  const gageEuroCents = result && input ? gageInEuroCents(result.gageCents, input) : null
   const fee =
-    result && contract
-      ? managementFee(result.gageCents, contract.agencyPercent, contract.commissionPercent, 19)
+    gageEuroCents !== null && contract
+      ? managementFee(gageEuroCents, contract.agencyPercent, contract.commissionPercent, 19)
       : null
 
   const update = (patch: Partial<SettlementInput>) => {
@@ -270,8 +315,8 @@ export function SettlementTab({ eventId }: { eventId: number }) {
               : t(
                   '– die Excel zeigt {{euroText}} netto, berechnet sind {{euroText2}}. Bitte prüfen.',
                   {
-                    euroText: euroText(pendingFile.sheet.sheet.totalNetCents ?? 0),
-                    euroText2: euroText(result?.totalOpenNetCents ?? 0)
+                    euroText: money(pendingFile.sheet.sheet.totalNetCents ?? 0),
+                    euroText2: money(result?.totalOpenNetCents ?? 0)
                   }
                 )}
           </span>
@@ -284,6 +329,87 @@ export function SettlementTab({ eventId }: { eventId: number }) {
       {input && result && (
         <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('Währung')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <Label htmlFor="settlement-currency" className="mb-1 block">
+                      {t('Währung der Abrechnung')}
+                    </Label>
+                    <Select
+                      value={currency}
+                      onValueChange={(value) =>
+                        update(
+                          value === 'EUR'
+                            ? { currency: value, eurRate: null, eurRateDate: '' }
+                            : { currency: value }
+                        )
+                      }
+                    >
+                      <SelectTrigger id="settlement-currency" className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* A currency read from a sheet that is not in the list stays choosable */}
+                        {[
+                          ...SETTLEMENT_CURRENCIES,
+                          ...((SETTLEMENT_CURRENCIES as readonly string[]).includes(currency)
+                            ? []
+                            : [currency])
+                        ].map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {foreign && (
+                    <>
+                      <div>
+                        <Label htmlFor="settlement-rate" className="mb-1 block">
+                          {t('Kurs: 1 {{currency}} =', { currency })}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <RateInput
+                            rate={input.eurRate}
+                            currency={currency}
+                            onChange={(rate) => update({ eurRate: rate })}
+                          />
+                          <span className="text-sm text-muted-foreground">EUR</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="settlement-rate-date" className="mb-1 block">
+                          {t('Kurs vom')}
+                        </Label>
+                        <Input
+                          id="settlement-rate-date"
+                          type="date"
+                          className="w-40"
+                          value={input.eurRateDate}
+                          onChange={(e) => update({ eurRateDate: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {foreign
+                    ? t(
+                        'Alle Beträge dieser Abrechnung sind in {{currency}}. Die Managementbeteiligung wird in Euro berechnet: mit dem Kurs vom Zahlungseingang oder dem EZB-Referenzkurs. Kurs und Datum stehen auf der Rechnung.',
+                        { currency }
+                      )
+                    : t(
+                        'Eine Abrechnung aus dem Ausland (z. B. in Pfund) hier auf ihre Währung stellen.'
+                      )}
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('Tickets')}</CardTitle>
@@ -454,7 +580,7 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                       />
                     </div>
                     <span className="ml-auto tabular-nums text-muted-foreground">
-                      {euroText(result.tierCents[index] ?? 0)}
+                      {money(result.tierCents[index] ?? 0)}
                     </span>
                   </div>
                 ))}
@@ -572,27 +698,27 @@ export function SettlementTab({ eventId }: { eventId: number }) {
               <CardContent>
                 <Row
                   label={t('Tickets ({{sold}}) brutto', { sold: result.sold })}
-                  value={euroText(result.ticketGrossCents)}
+                  value={money(result.ticketGrossCents)}
                 />
-                <Row label={t('Tickets netto')} value={euroText(result.ticketNetCents)} />
+                <Row label={t('Tickets netto')} value={money(result.ticketNetCents)} />
                 <Row
                   label={t('Gage netto ({{value}})', {
                     value: result.gageFrom === 'guarantee' ? t('Garantie') : t('Beteiligung')
                   })}
-                  value={euroText(result.gageCents)}
+                  value={money(result.gageCents)}
                 />
-                <Row label={t('Gage brutto, offen')} value={euroText(result.gage.openGrossCents)} />
-                <Row label={t('WKZ netto')} value={euroText(result.wkzNetCents)} />
-                <Row label={t('Nebenkosten netto')} value={euroText(result.costs.netCents)} />
+                <Row label={t('Gage brutto, offen')} value={money(result.gage.openGrossCents)} />
+                <Row label={t('WKZ netto')} value={money(result.wkzNetCents)} />
+                <Row label={t('Nebenkosten netto')} value={money(result.costs.netCents)} />
                 <div className="mt-2 border-t pt-2">
                   <Row
                     label={t('Offen netto (ohne Support)')}
-                    value={euroText(result.totalOpenNetCents)}
+                    value={money(result.totalOpenNetCents)}
                     strong
                   />
                   <Row
                     label={t('Offen brutto (ohne Support)')}
-                    value={euroText(result.totalOpenGrossCents)}
+                    value={money(result.totalOpenGrossCents)}
                     strong
                   />
                 </div>
@@ -611,13 +737,36 @@ export function SettlementTab({ eventId }: { eventId: number }) {
                     )}
                   </p>
                 )}
+                {contract && !fee && foreign && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    {t(
+                      'Die Abrechnung ist in {{currency}}. Für die Managementbeteiligung in Euro fehlt noch der Kurs (oben unter „Währung“).',
+                      { currency }
+                    )}
+                  </p>
+                )}
                 {contract && fee && (
                   <>
                     <p className="text-xs text-muted-foreground">
                       {contract.managementCompanyName || t('Management')}{' '}
                       {t('· nur auf die Gage, ohne WKZ und Nebenkosten')}
                     </p>
-                    <Row label={t('Gage netto')} value={euroText(fee.baseCents)} />
+                    {foreign && result && (
+                      <Row
+                        label={t('Gage netto in {{currency}}', { currency })}
+                        value={money(result.gageCents)}
+                      />
+                    )}
+                    <Row
+                      label={
+                        foreign
+                          ? t('Gage netto in Euro (Kurs {{rate}})', {
+                              rate: rateText(input?.eurRate ?? null)
+                            })
+                          : t('Gage netto')
+                      }
+                      value={euroText(fee.baseCents)}
+                    />
                     <Row
                       label={t('abzgl. {{agencyPercent}} % Agentur', {
                         agencyPercent: contract.agencyPercent

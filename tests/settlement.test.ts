@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   computeSettlement,
   EMPTY_SETTLEMENT,
+  gageInEuroCents,
+  isForeignCurrency,
   managementFee,
   tierAmount,
   type SettlementInput
 } from '../src/main/settlement/settlement'
 import { readSettlementSheet } from '../src/main/settlement/readSettlementSheet'
+import { SettlementInputSchema } from '../src/main/api/schemas/settlement.schema'
 import { SETTLEMENT_RECORDS as records } from './helpers/settlementSheet'
 
 // The numbers of a real settlement (#228), with made-up names
@@ -139,5 +142,51 @@ describe('the promoter settlement sheet', () => {
         ['01.05.2027', 'X']
       ])
     ).toBeNull()
+  })
+
+  it('reads a sheet in euros as EUR', () => {
+    expect(readSettlementSheet(records)!.input).toMatchObject({
+      currency: 'EUR',
+      eurRate: null,
+      eurRateDate: ''
+    })
+  })
+
+  it('takes the currency a sheet names and reads its amounts with the sign (a tour in England)', () => {
+    const pounds = records.map((record) =>
+      record[0] === 'Garantie lt. Vereinbarung' ? [...record.slice(0, 9), '£ 2.000,00'] : record
+    )
+    const sheet = readSettlementSheet(pounds)!
+    expect(sheet.input.currency).toBe('GBP')
+    expect(sheet.input.guaranteeCents).toBe(200000)
+  })
+})
+
+describe('a settlement in a foreign currency', () => {
+  it('converts the gage to euros at the entered rate, rounded once', () => {
+    const gbp = { currency: 'GBP', eurRate: 1.17 }
+    expect(gageInEuroCents(422150, gbp)).toBe(493916)
+    expect(gageInEuroCents(422150, { currency: 'EUR', eurRate: null })).toBe(422150)
+    // A foreign currency without a rate has no euro amount yet
+    expect(gageInEuroCents(422150, { currency: 'GBP', eurRate: null })).toBeNull()
+    expect(isForeignCurrency(gbp)).toBe(true)
+  })
+
+  it('reads a settlement stored before currencies as EUR', () => {
+    const stored = JSON.parse(JSON.stringify(show)) as Record<string, unknown>
+    delete stored.currency
+    delete stored.eurRate
+    delete stored.eurRateDate
+    expect(SettlementInputSchema.parse(stored)).toMatchObject({
+      currency: 'EUR',
+      eurRate: null,
+      eurRateDate: ''
+    })
+  })
+
+  it('refuses a currency that is no ISO code and a rate that is not positive', () => {
+    expect(SettlementInputSchema.safeParse({ ...show, currency: 'Pfund' }).success).toBe(false)
+    expect(SettlementInputSchema.safeParse({ ...show, currency: 'gbp' }).data?.currency).toBe('GBP')
+    expect(SettlementInputSchema.safeParse({ ...show, eurRate: 0 }).success).toBe(false)
   })
 })

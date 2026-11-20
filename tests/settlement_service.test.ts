@@ -10,7 +10,13 @@ import { BandRepository } from '../src/main/repositories/BandRepository'
 import { db } from '../src/main/db/index'
 import { schema } from '../src/main/db/schema'
 import { eq } from 'drizzle-orm'
-import { EMPTY_SETTLEMENT, type SettlementInput } from '../src/main/settlement/settlement'
+import {
+  computeSettlement,
+  EMPTY_SETTLEMENT,
+  managementFee,
+  type SettlementInput
+} from '../src/main/settlement/settlement'
+import { convertCents } from '../src/main/einvoice/amounts'
 import { setupTestDb } from './helpers/setup'
 
 setupTestDb()
@@ -98,5 +104,28 @@ describe('settlement service', () => {
     expect(invoice?.recipientSnapshot?.source_company_id).toBe(bandCompany.id)
     expect(settlements.get(event.id).feeInvoice).toMatchObject({ id: invoiceId, status: 'draft' })
     expect(() => settlements.createFeeInvoice(event.id)).toThrow(/schon erstellt/)
+  })
+
+  it('bills a settlement in pounds in euros, at the entered rate, and says so on the line', async () => {
+    const { event } = await setup()
+    const pounds: SettlementInput = { ...show, currency: 'GBP' }
+    settlements.save({ eventId: event.id, input: pounds, sourceFileName: '' })
+    // Without the rate there is no euro amount to bill
+    expect(() => settlements.createFeeInvoice(event.id)).toThrow(/GBP.*Umrechnungskurs/)
+
+    settlements.save({
+      eventId: event.id,
+      input: { ...pounds, eurRate: 1.17, eurRateDate: '2026-11-20' },
+      sourceFileName: ''
+    })
+    expect(settlements.get(event.id).input).toMatchObject({ currency: 'GBP', eurRate: 1.17 })
+
+    const invoice = await invoices.getInvoiceById(settlements.createFeeInvoice(event.id))
+    const gage = computeSettlement(pounds).gageCents
+    const expected = managementFee(convertCents(gage, 1.17), 15, 15, 19)
+    expect(invoice).toMatchObject({ currency: 'EUR', total_gross_cents: expected.grossCents })
+    // The invoice is in euros; the line names the pounds, the rate and its date
+    expect(invoice?.lineItems[0].description).toContain('zum Kurs 1,17 (20.11.2026)')
+    expect(invoice?.lineItems[0].description).toMatch(/4\.221,50\s£/)
   })
 })

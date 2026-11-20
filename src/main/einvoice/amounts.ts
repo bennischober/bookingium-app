@@ -46,6 +46,14 @@ export function lineNetCents(quantity: number, unitPriceNet: number): number {
   return toCents(quantity * unitPriceNet)
 }
 
+/**
+ * Cents of one currency in another at an exchange rate (target units for one source unit, e.g.
+ * 1.17 EUR for 1 GBP), rounded once (#228 settlements in a foreign currency)
+ */
+export function convertCents(cents: number, rate: number): number {
+  return roundHalfAway(cents * rate)
+}
+
 export function vatCents(netCents: number, rate: number): number {
   return roundHalfAway((netCents * rate) / 100)
 }

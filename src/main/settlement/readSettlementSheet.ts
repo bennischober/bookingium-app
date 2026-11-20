@@ -27,9 +27,12 @@ export interface SettlementSheet {
 const TICKET_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8]
 const TOTAL_COLUMN = 9
 
+/** Currency signs and codes a cell may carry around its number */
+const CURRENCY_MARKS = /\s|€|£|\$|\b(?:EUR|GBP|USD|CHF|DKK|SEK|NOK|PLN|CZK)\b/gi
+
 /** "4221,495327103", "0,07", "2000" (the import's number text) as a number; 0 for nothing */
 function numberOf(raw: string | undefined): number {
-  const text = cleanText(raw ?? '').replace(/\s|€/g, '')
+  const text = cleanText(raw ?? '').replace(CURRENCY_MARKS, '')
   if (!text) return 0
   const normalized = text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text
   const value = Number(normalized)
@@ -40,6 +43,26 @@ function numberOf(raw: string | undefined): number {
 const percentOf = (raw: string | undefined): number => {
   const value = numberOf(raw)
   return value > 0 && value < 1 ? Math.round(value * 10000) / 100 : value
+}
+
+// A sign or a code anywhere in the sheet names its currency: a tour in England settles in pounds.
+// The import reads cell values, not their number format, so only text that carries the sign
+// counts; without one the sheet is taken as euros and the user picks the currency.
+const CURRENCY_HINTS: ReadonlyArray<[RegExp, string]> = [
+  [/£|\bGBP\b/i, 'GBP'],
+  [/\bCHF\b|\bSFr\b/i, 'CHF'],
+  [/US\$|\bUSD\b|\$/i, 'USD'],
+  [/\bDKK\b/i, 'DKK'],
+  [/\bSEK\b/i, 'SEK'],
+  [/\bNOK\b/i, 'NOK'],
+  [/\bPLN\b|zł/i, 'PLN'],
+  [/\bCZK\b|Kč/i, 'CZK']
+]
+
+/** The currency a sheet's text names, 'EUR' when none other */
+export function currencyOfSheet(rows: string[][]): string {
+  const text = rows.map((row) => row.join(' ')).join('\n')
+  return CURRENCY_HINTS.find(([pattern]) => pattern.test(text))?.[1] ?? 'EUR'
 }
 
 /** Reads the sheet; null when it is not the settlement template */
@@ -143,7 +166,8 @@ export function readSettlementSheet(records: string[][]): SettlementSheet | null
       wkzCents: advanceAfter('Werbekostenzuschuss', positions),
       costsCents: advanceAfter('Nebenkosten', positions),
       supportCents: advanceAfter('Supportfee', positions)
-    }
+    },
+    currency: currencyOfSheet(rows)
   }
 
   const field = (label: string, column: number): string => {
