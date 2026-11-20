@@ -3,6 +3,26 @@ import { t } from '../../../main/i18n/translate'
 
 /** Highlights per minor version ("1.6"); a patch release shows its minor's list */
 export const WHATS_NEW: Record<string, string[]> = {
+  '1.8': [
+    t(
+      'Vertrag einlesen: Einen Vertrag beim Event hochladen, und Veranstalter (Firma, Adresse, USt-IdNr.), Ansprechpartner mit Telefon und E-Mail sowie die Gage werden zum Übernehmen vorgeschlagen. Neue Firmen und Personen werden angelegt und mit dem Event verbunden.'
+    ),
+    t(
+      'Verträge und Dokumente lassen sich Firmen, Personen, Clubs, Festivals, Bands und Events zuordnen („Zuordnen“ am Dokument). Deren Seiten zeigen sie unter „Verträge & Dokumente“, zusammen mit den Dateien ihrer Events – mit Suche.'
+    ),
+    t(
+      'Touren nachträglich bearbeiten: Auf der Tour-Seite umbenennen und per Häkchen Shows hinzufügen oder herausnehmen, „Neue Tour“ stellt eine Tour aus vorhandenen Shows zusammen.'
+    ),
+    t(
+      'Show-Ordner unterscheidet Club und Festival. Hat das Event noch keinen Club und kein Festival, wird das in den Dateien genannte zugeordnet oder mit Adresse und Kapazität angelegt.'
+    ),
+    t(
+      'Konzertabrechnungen in Fremdwährung (z. B. Pfund): Beträge in der Währung der Abrechnung, die Managementbeteiligung in Euro zum eingetragenen Kurs.'
+    ),
+    t(
+      'Auch die Abrechnung lässt sich als „extern erledigt“ abhaken, mit der Datei des Veranstalters.'
+    )
+  ],
   '1.7': [
     t(
       'Show-Ordner einlesen: Am Event den Ordner der Agentur (Day-/Infosheet, Club-Infos, Mails, Pläne) hineinziehen. Tagesablauf, Ticketpreis, Kapazität, Hotel und Ansprechpartner werden zum Übernehmen vorgeschlagen, die Dateien beim Event oder Club abgelegt.'
