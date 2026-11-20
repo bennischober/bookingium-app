@@ -1,6 +1,8 @@
-import type { ContractParty } from '../../../../main/api/schemas/contract.schema'
 import type { ManagementContractPrintData } from '../../../../main/api/schemas/management_contract.schema'
 import { PagedDocument } from '../print/PagedDocument'
+import type { DocumentLang } from '../print/DocumentLanguageSelect'
+import { ManagementContractDocumentEn } from './ManagementContractDocumentEn'
+import { PartyBlock, Section } from './managementContractParts'
 import { germanNumberWord, germanQuantity } from '@/lib/germanNumbers'
 
 // ========================================
@@ -16,44 +18,6 @@ function numberWithWord(n: number): string {
   return `${germanNumberWord(n)} (${n})`
 }
 
-function Section({
-  number,
-  title,
-  children
-}: {
-  number: number
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="mb-4">
-      <h3 className="mb-1 text-[11pt] font-bold">
-        § {number} {title}
-      </h3>
-      <div className="space-y-2 text-[10pt] leading-relaxed text-justify">{children}</div>
-    </div>
-  )
-}
-
-function PartyBlock({ party, fallback }: { party: ContractParty | null; fallback: string }) {
-  if (!party) return <div className="font-bold">{fallback}</div>
-  return (
-    <div className="leading-snug">
-      <div className="font-bold">{party.name}</div>
-      {(party.street || party.streetNumber) && (
-        <div>
-          {party.street} {party.streetNumber}
-        </div>
-      )}
-      {(party.zipCode || party.city) && (
-        <div>
-          {party.zipCode} {party.city}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ========================================
 // Management contract (wording from the agency's contract draft; the
 // variable terms come from the contract record)
@@ -61,13 +25,26 @@ function PartyBlock({ party, fallback }: { party: ContractParty | null; fallback
 
 export function ManagementContractDocument({
   data,
+  lang = 'de',
   letterheadUrl,
   managementSignatureUrl
 }: {
   data: ManagementContractPrintData
+  /** The contract's language: English renders ManagementContractDocumentEn */
+  lang?: DocumentLang
   letterheadUrl?: string
   managementSignatureUrl?: string
 }) {
+  if (lang === 'en') {
+    return (
+      <ManagementContractDocumentEn
+        data={data}
+        letterheadUrl={letterheadUrl}
+        managementSignatureUrl={managementSignatureUrl}
+      />
+    )
+  }
+
   const { contract: c, band, management, artist, members, representative } = data
   const artistName = band.name
 

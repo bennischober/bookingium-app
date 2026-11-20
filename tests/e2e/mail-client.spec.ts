@@ -1971,7 +1971,7 @@ test('an invoice is handed to DATEV by Upload Mail', async () => {
       await fetch(`http://${SANDBOX.host}:${MAILPIT.apiPort}/api/v1/message/${found[0].ID}`)
     ).json()) as { Attachments?: { FileName: string; Size: number }[] }
     expect(detail.Attachments).toHaveLength(1)
-    expect(detail.Attachments![0].FileName).toMatch(/^Rechnung_1040_.*\.pdf$/)
+    expect(detail.Attachments![0].FileName).toMatch(/^Invoice_1040_.*\.pdf$/)
     expect(detail.Attachments![0].Size).toBeGreaterThan(1000)
 
     // A second hand-over asks first, and cancelling sends nothing

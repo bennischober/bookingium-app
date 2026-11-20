@@ -2,43 +2,30 @@ import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { useNavigate } from '@tanstack/react-router'
 import { showSendSetupError } from '@/components/mail/sendSetupToast'
-import { contractEmailLang, type ContractDocument } from '../../../../main/mail/contractEmail'
-
-type Lang = 'de' | 'en'
-
-const LANGUAGES: Array<{ value: Lang; label: string }> = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'en', label: 'Englisch' }
-]
+import type { ContractDocument } from '../../../../main/mail/contractEmail'
+import type { DocumentLang } from '../print/DocumentLanguageSelect'
 
 /**
  * #120: "Per E-Mail senden" of a contract print page. Main prints the page, fills the
- * "Vertrag" template of the chosen language and opens bookingum's compose window on the
- * "Senden von" account (#136). The language starts from the recipient's country.
+ * "Vertrag" template and opens bookingum's compose window on the "Senden von" account
+ * (#136). The email is in the contract's language, picked on the print page (which starts
+ * from the recipient's country).
  */
 export function ContractEmailButton({
   contract,
   id,
   fileName,
-  recipientCountry
+  lang
 }: {
   contract: ContractDocument
   id: number
   fileName: string
-  recipientCountry: string | null | undefined
+  lang: DocumentLang
 }) {
   const [sending, setSending] = useState(false)
   const navigate = useNavigate()
-  const [lang, setLang] = useState<Lang>(() => contractEmailLang(recipientCountry))
 
   const send = async () => {
     setSending(true)
@@ -60,22 +47,8 @@ export function ContractEmailButton({
   }
 
   return (
-    <>
-      <Select value={lang} onValueChange={(value) => setLang(value as Lang)}>
-        <SelectTrigger className="w-[7.5rem]" aria-label="Sprache der E-Mail">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {LANGUAGES.map((language) => (
-            <SelectItem key={language.value} value={language.value}>
-              {language.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button variant="outline" onClick={() => void send()} disabled={sending}>
-        <Mail className="h-4 w-4" /> Per E-Mail senden
-      </Button>
-    </>
+    <Button variant="outline" onClick={() => void send()} disabled={sending}>
+      <Mail className="h-4 w-4" /> Per E-Mail senden
+    </Button>
   )
 }

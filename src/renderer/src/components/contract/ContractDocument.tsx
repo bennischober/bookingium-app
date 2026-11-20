@@ -1,5 +1,8 @@
-import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
+import type { ContractData } from '../../../../main/api/schemas/contract.schema'
 import { PagedDocument } from '../print/PagedDocument'
+import type { DocumentLang } from '../print/DocumentLanguageSelect'
+import { AddressLines, Section } from './concertContractParts'
+import { ContractDocumentEn } from './ContractDocumentEn'
 import { contractDeposits, contractSectionNumbers } from './contractSections'
 
 // ========================================
@@ -26,49 +29,6 @@ function formatVatRate(rate: number | null): string {
 }
 
 // ========================================
-// Section primitives
-// ========================================
-
-function Section({
-  number,
-  title,
-  children
-}: {
-  /** Null: the optional section is not printed (see contractSectionNumbers) */
-  number: number | null
-  title: string
-  children: React.ReactNode
-}) {
-  if (number === null) return null
-  return (
-    <div className="mb-3">
-      <h3 className="font-bold text-[12pt] underline mb-1">
-        {number}. {title}
-      </h3>
-      <div className="space-y-2 text-[10pt] leading-relaxed text-justify">{children}</div>
-    </div>
-  )
-}
-
-function AddressLines({ party }: { party: ContractParty }) {
-  return (
-    <div className="leading-snug">
-      <div className="font-bold">{party.name}</div>
-      {(party.street || party.streetNumber) && (
-        <div>
-          {party.street} {party.streetNumber}
-        </div>
-      )}
-      {(party.zipCode || party.city) && (
-        <div>
-          {party.zipCode} {party.city}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ========================================
 // Contract document (structure and wording from the old repo's PDFContract,
 // ported to the print-to-PDF renderer)
 // ========================================
@@ -77,14 +37,27 @@ export const CONTRACT_PADDING_MM = 20
 
 export function ContractDocument({
   data,
+  lang = 'de',
   letterheadUrl,
   artistSignatureUrl
 }: {
   data: ContractData
+  /** The contract's language: English renders ContractDocumentEn */
+  lang?: DocumentLang
   /** Logo of the issuing side (representing company, else the band company) */
   letterheadUrl?: string
   artistSignatureUrl?: string
 }) {
+  if (lang === 'en') {
+    return (
+      <ContractDocumentEn
+        data={data}
+        letterheadUrl={letterheadUrl}
+        artistSignatureUrl={artistSignatureUrl}
+      />
+    )
+  }
+
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
 
   const today = new Date()
