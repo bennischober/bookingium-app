@@ -1,6 +1,18 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Vertrag einlesen: Einen Vertrag beim Event hochladen, und Veranstalter (Firma, Adresse, USt-IdNr.), Ansprechpartner mit Telefon und E-Mail sowie die Gage werden zum Übernehmen vorgeschlagen. Neue Firmen und Personen werden angelegt und mit dem Event verbunden.':
+    'Read contract: upload a contract to the event, and the promoter (company, address, VAT ID), the contact with phone and e-mail and the fee are suggested to take over. New companies and people are created and linked to the event.',
+  'Verträge und Dokumente lassen sich Firmen, Personen, Clubs, Festivals, Bands und Events zuordnen („Zuordnen“ am Dokument). Deren Seiten zeigen sie unter „Verträge & Dokumente“, zusammen mit den Dateien ihrer Events – mit Suche.':
+    'Contracts and documents can be assigned to companies, people, clubs, festivals, bands and events (“Assign” on the document). Their pages show them under “Contracts & documents”, together with the files of their events – with a search.',
+  'Touren nachträglich bearbeiten: Auf der Tour-Seite umbenennen und per Häkchen Shows hinzufügen oder herausnehmen, „Neue Tour“ stellt eine Tour aus vorhandenen Shows zusammen.':
+    'Edit tours afterwards: rename them on the tour page and tick shows to add or remove them; “New tour” puts a tour together from existing shows.',
+  'Show-Ordner unterscheidet Club und Festival. Hat das Event noch keinen Club und kein Festival, wird das in den Dateien genannte zugeordnet oder mit Adresse und Kapazität angelegt.':
+    'The show folder tells clubs and festivals apart. If the event has no club or festival yet, the one named in the files is assigned or created with address and capacity.',
+  'Konzertabrechnungen in Fremdwährung (z. B. Pfund): Beträge in der Währung der Abrechnung, die Managementbeteiligung in Euro zum eingetragenen Kurs.':
+    'Statements in a foreign currency (e.g. pounds): amounts in the statement’s currency, the management share in euros at the entered rate.',
+  'Auch die Abrechnung lässt sich als „extern erledigt“ abhaken, mit der Datei des Veranstalters.':
+    'The statement can be ticked as “done externally” too, with the promoter’s file.',
   'Show-Ordner einlesen: Am Event den Ordner der Agentur (Day-/Infosheet, Club-Infos, Mails, Pläne) hineinziehen. Tagesablauf, Ticketpreis, Kapazität, Hotel und Ansprechpartner werden zum Übernehmen vorgeschlagen, die Dateien beim Event oder Club abgelegt.':
     "Read show folder: drag the agency's folder (day/info sheet, club info, mails, plans) onto the event. Schedule, ticket price, capacity, hotel and contacts are suggested to take over, the files are filed at the event or the club.",
   'Dateien lassen sich überall hineinziehen, wo man sie auswählen kann: Importe, Abrechnung, Logo und Unterschrift, Mail-Anhänge und Reisebelege.':
