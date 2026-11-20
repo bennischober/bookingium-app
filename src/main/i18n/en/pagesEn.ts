@@ -406,8 +406,8 @@ export const pagesEn: Record<string, string> = {
   'Verkauft heute {{value}}': 'Sold today {{value}}',
   'Advancing und Ticketverkäufe aller Shows einer Tour auf einen Blick.':
     'Advancing and ticket sales of all shows of a tour at a glance.',
-  'Noch keine Tour. Eine Tour entsteht, wenn Events eine Tour haben – im Event unter „Tour“ oder beim Import der Tourdaten (oben rechts „Import“).':
-    'No tour yet. A tour comes into being when events have a tour – in the event under “Tour” or when importing tour dates (“Import” at the top right).',
+  'Noch keine Tour. Mit „Neue Tour“ Shows zu einer Tour zusammenstellen – oder im Event unter „Tour“ bzw. beim Import der Tourdaten (oben rechts „Import“).':
+    'No tour yet. Use “New tour” to put shows together into a tour – or set “Tour” in the event, or import tour dates (“Import” at the top right).',
   'Tour-Summe': 'Tour total',
   Shows: 'Shows',
   'Advancing abgeschlossen': 'Advancing completed',

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { TourImportService } from '../../services/TourImportService'
-import { TourImportRequest } from '../schemas/tour_import.schema'
+import { SaveTourInput, TourImportRequest } from '../schemas/tour_import.schema'
 
 const t = initTRPC.create()
 const service = container.resolve(TourImportService)
@@ -35,5 +35,11 @@ export const tourImportRouter = t.router({
   }),
 
   /** The tours the events name, for the filters */
-  tours: t.procedure.query(() => service.tours())
+  tours: t.procedure.query(() => service.tours()),
+
+  /** Active events that can be put into a tour, for "Tour bearbeiten" */
+  candidates: t.procedure.query(() => service.tourCandidates()),
+
+  /** Renames a tour (or makes a new one) and sets which events belong to it */
+  save: t.procedure.input(SaveTourInput).mutation(({ input }) => service.saveTour(input))
 })

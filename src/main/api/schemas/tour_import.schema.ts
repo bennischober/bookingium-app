@@ -168,3 +168,42 @@ export const TourImportSuggestion = z.object({
   remembered: z.boolean()
 })
 export type TourImportSuggestion = z.infer<typeof TourImportSuggestion>
+
+// ========================================
+// Editing a tour: its name and which events belong to it
+// ========================================
+// A tour is no record of its own, only the name events share (deal_memo.tour). Editing one
+// renames that name everywhere (events, archived ones included, and marketing measures) and sets
+// which active events carry it.
+
+/** An active event that can be put into a tour, for the tour dialog */
+export const TourCandidateDto = z.object({
+  id: z.number(),
+  date: z.string(),
+  name: z.string(),
+  bandId: z.number(),
+  bandName: z.string(),
+  venueName: z.string(),
+  city: z.string(),
+  status: z.string(),
+  /** the tour it is in now, '' for none */
+  tour: z.string()
+})
+export type TourCandidateDto = z.infer<typeof TourCandidateDto>
+
+export const SaveTourInput = z.object({
+  /** the tour's name before, '' when a new tour is made */
+  previous: z.string().default(''),
+  name: z.string().trim().min(1, 'Name der Tour fehlt').max(200),
+  /** the active events in the tour afterwards; active events not listed leave it */
+  eventIds: z.array(z.number().int()).default([])
+})
+export type SaveTourInput = z.infer<typeof SaveTourInput>
+
+export const SaveTourResult = z.object({
+  name: z.string(),
+  added: z.number(),
+  removed: z.number(),
+  renamed: z.number()
+})
+export type SaveTourResult = z.infer<typeof SaveTourResult>

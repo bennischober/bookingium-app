@@ -44,6 +44,7 @@ import { settlementEn } from './en/settlementEn'
 import { shortcutsHelpEn } from './en/shortcutsHelpEn'
 import { taxCodesEn } from './en/taxCodesEn'
 import { tipEn } from './en/tipEn'
+import { tourEn } from './en/tourEn'
 import { tourImportEn } from './en/tourImportEn'
 import { tripsEn } from './en/tripsEn'
 import { uiEn } from './en/uiEn'
@@ -159,6 +160,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...shortcutsHelpEn,
   ...taxCodesEn,
   ...tipEn,
+  ...tourEn,
   ...tourImportEn,
   ...tripsEn,
   ...uiEn,

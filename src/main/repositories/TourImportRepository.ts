@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, desc, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import { notArchived } from './archiveFilter'
@@ -10,6 +10,11 @@ import type {
   TourShowState
 } from '../import/tourDates'
 import { AdvancingStatus } from '../api/schemas/advancing.schema'
+import type {
+  SaveTourInput,
+  SaveTourResult,
+  TourCandidateDto
+} from '../api/schemas/tour_import.schema'
 
 /** Tour import (Tourdaten): what a tour sheet is compared with, and writing its plan */
 @injectable()
@@ -121,6 +126,80 @@ export class TourImportRepository {
       .orderBy(asc(schema.deal_memo.tour))
       .all()
       .map((row) => row.tour)
+  }
+
+  /** Active events with band, club and city, by date: what the tour dialog offers */
+  tourCandidates(): TourCandidateDto[] {
+    return db
+      .select({
+        id: schema.deal_memo.id,
+        date: schema.deal_memo.date,
+        name: schema.deal_memo.name,
+        bandId: schema.deal_memo.band_id,
+        bandName: schema.band.name,
+        venueName: schema.venue.name,
+        city: schema.address.city,
+        status: schema.deal_memo.status,
+        tour: schema.deal_memo.tour
+      })
+      .from(schema.deal_memo)
+      .innerJoin(schema.band, eq(schema.deal_memo.band_id, schema.band.id))
+      .leftJoin(schema.venue, eq(schema.deal_memo.venue_id, schema.venue.id))
+      .leftJoin(schema.address, eq(schema.venue.address_id, schema.address.id))
+      .where(notArchived())
+      .orderBy(asc(schema.deal_memo.date), asc(schema.deal_memo.id))
+      .all()
+      .map((row) => ({ ...row, venueName: row.venueName ?? '', city: row.city ?? '' }))
+  }
+
+  /**
+   * Renames a tour (events, archived ones too, and marketing measures; a name another tour
+   * already has merges both) and makes exactly the given active events its shows, in one
+   * transaction
+   */
+  saveTour(input: SaveTourInput): SaveTourResult {
+    const name = input.name.trim()
+    const previous = input.previous.trim()
+    const now = sql`(datetime('now'))`
+    return db.transaction((tx) => {
+      let renamed = 0
+      if (previous && previous !== name) {
+        renamed = tx
+          .update(schema.deal_memo)
+          .set({ tour: name, updated_at: now })
+          .where(eq(schema.deal_memo.tour, previous))
+          .run().changes
+        tx.update(schema.marketing_action)
+          .set({ tour: name, updated_at: now })
+          .where(eq(schema.marketing_action.tour, previous))
+          .run()
+      }
+      const wanted = new Set(input.eventIds)
+      const members = tx
+        .select({ id: schema.deal_memo.id })
+        .from(schema.deal_memo)
+        .where(and(notArchived(), eq(schema.deal_memo.tour, name)))
+        .all()
+        .map((row) => row.id)
+      const memberSet = new Set(members)
+      const leave = members.filter((id) => !wanted.has(id))
+      const join = [...wanted].filter((id) => !memberSet.has(id))
+      if (leave.length > 0) {
+        tx.update(schema.deal_memo)
+          .set({ tour: '', updated_at: now })
+          .where(inArray(schema.deal_memo.id, leave))
+          .run()
+      }
+      let added = 0
+      if (join.length > 0) {
+        added = tx
+          .update(schema.deal_memo)
+          .set({ tour: name, updated_at: now })
+          .where(and(notArchived(), inArray(schema.deal_memo.id, join)))
+          .run().changes
+      }
+      return { name, added, removed: leave.length, renamed }
+    })
   }
 
   /** Writes the plan in one transaction (synchronous: better-sqlite3) */
