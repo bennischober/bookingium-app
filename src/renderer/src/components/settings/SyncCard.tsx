@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { SyncFolderDto, SyncStatusDto } from '../../../../main/api/schemas/sync.schema'
+import { othersQuietSince } from './syncQuiet'
 
 /** "28.10.2026, 14:30" */
 const formatDateTime = (iso: string): string =>
@@ -335,6 +336,7 @@ function SyncDevices({
       toast.error('Eintrag konnte nicht entfernt werden', { description: error.message })
   })
   const current = devices.filter((device) => !device.superseded)
+  const quietSince = othersQuietSince(devices, new Date())
   const earlier = devices.filter((device) => device.superseded)
 
   const row = (device: SyncDevice) => (
@@ -356,6 +358,9 @@ function SyncDevices({
           : device.lastBatchAt
             ? `· zuletzt Änderungen abgelegt: ${formatDateTime(device.lastBatchAt)}`
             : `· seit ${formatDateTime(device.createdAt)} dabei, noch keine Änderungen abgelegt`}
+        {!device.superseded && !device.self && device.lastSeenAt
+          ? ` · zuletzt gesehen: ${formatDateTime(device.lastSeenAt)}`
+          : ''}
       </span>
       {device.superseded && device.lastBatchAt === null && (
         <Button
@@ -383,6 +388,20 @@ function SyncDevices({
     <div className="space-y-2">
       <p className="font-medium">Computer im Abgleich</p>
       <ul className="space-y-1 text-sm">{current.map(row)}</ul>
+      {quietSince && (
+        <div
+          className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+          data-testid="sync-others-quiet"
+        >
+          <CloudAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Von den anderen Computern ist seit {formatDateTime(quietSince)} nichts mehr angekommen.
+            Wurde dort inzwischen gearbeitet, gleicht OneDrive, Dropbox oder Google Drive den Ordner
+            auf diesem Computer vermutlich nicht mehr ab – bitte dort nachsehen (Anmeldung,
+            Speicherplatz, angehaltene Synchronisierung).
+          </span>
+        </div>
+      )}
       {earlier.length > 0 && (
         <div className="space-y-1">
           <Button

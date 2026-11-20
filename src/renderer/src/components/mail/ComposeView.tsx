@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from '@/lib/toast'
+import { useFileDrop } from '@/hooks/useFileDrop'
+import { DropOverlay } from '@/components/ui/drop-overlay'
 import { mailApi } from '@/lib/mailApi'
 import { trpcVanilla } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -518,10 +520,27 @@ export function ComposeView({
     void addFiles(list)
   }
 
+  // Files dragged from the file manager become attachments wherever they are dropped. The
+  // capture phase runs before the editor, which would otherwise put an image into the body.
+  const attachDrop = useFileDrop({
+    disabled: locked,
+    onFiles: (_paths, files) =>
+      addFiles(
+        files.reduce((acc, file) => {
+          acc.items.add(file)
+          return acc
+        }, new DataTransfer()).files
+      )
+  })
+
   return (
     <form
       onPaste={onPaste}
-      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      onDragEnterCapture={attachDrop.dropProps.onDragEnter}
+      onDragOverCapture={attachDrop.dropProps.onDragOver}
+      onDragLeaveCapture={attachDrop.dropProps.onDragLeave}
+      onDropCapture={attachDrop.dropProps.onDrop}
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col"
       aria-label="E-Mail verfassen"
       // I2 (MR-04): no implicit submit. Enter in Betreff or a recipient field used to send a
       // half-written mail; the editor sends only via the button and Ctrl+Enter.
@@ -534,6 +553,11 @@ export function ComposeView({
         }
       }}
     >
+      <DropOverlay
+        show={attachDrop.dragging}
+        title="Als Anhang ablegen"
+        hint="Die Dateien werden an diese E-Mail angehängt."
+      />
       <ComposeToolbar
         busy={busy}
         sendBlocked={sendBlocked}

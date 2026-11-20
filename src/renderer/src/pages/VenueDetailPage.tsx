@@ -10,6 +10,9 @@ import { useEffect } from 'react'
 import { useParams, useNavigate, useRouterState, Link } from '@tanstack/react-router'
 import { useRecordMutations } from '@/hooks/useRecordMutations'
 import { trpcReact } from '@/lib/trpc'
+import { toast } from '@/lib/toast'
+import { Link2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { parseRecordId } from '@/lib/recordId'
 import { useVenueTabCounts } from '@/hooks/useTabCounts'
 import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
@@ -44,6 +47,7 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
   const events = trpcReact.dealMemo.listByVenue.useQuery(venue.id)
   return (
     <div className="space-y-6">
+      <CompanySuggestion venue={venue} />
       <FactSheet
         groups={[
           {
@@ -109,6 +113,65 @@ function OverviewTab({ venue }: { venue: VenueDto }) {
       <TabSection id="section-contacts" title="Ansprechpartner">
         <MembersPanel entityType="venue" entityId={venue.id} />
       </TabSection>
+      {venue.company && (
+        <TabSection
+          id="section-company-contacts"
+          title={`Ansprechpartner bei ${venue.company.name}`}
+        >
+          <MembersPanel entityType="company" entityId={venue.company.id} />
+        </TabSection>
+      )}
+    </div>
+  )
+}
+
+/**
+ * While the venue has no company: the club's own company (same name), linked with one click.
+ * Its contacts then show here too. The promoter (LoPro) stays on the events.
+ */
+function CompanySuggestion({ venue }: { venue: VenueDto }) {
+  const utils = trpcReact.useUtils()
+  const suggestions = trpcReact.venue.companySuggestions.useQuery(
+    { venueId: venue.id },
+    { enabled: !venue.company }
+  )
+  const link = trpcReact.venue.linkCompany.useMutation({
+    onSuccess: () => {
+      void utils.venue.invalidate()
+      void utils.company.invalidate()
+      toast.success('Firma verknüpft', {
+        description: 'Ihre Ansprechpartner stehen jetzt auch hier.'
+      })
+    },
+    onError: (error) =>
+      toast.error('Firma konnte nicht verknüpft werden', { description: error.message })
+  })
+  if (venue.company || !suggestions.data?.length) return null
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm"
+      data-testid="venue-company-suggestion"
+    >
+      <div className="flex items-start gap-2">
+        <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <span>
+          Es gibt eine Firma mit dem Namen dieses Eintrags. Ist das die Firma des Clubs? Verknüpft
+          stehen ihre Ansprechpartner und Angaben auch hier.
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2 pl-6">
+        {suggestions.data.map((company) => (
+          <Button
+            key={company.id}
+            size="sm"
+            variant="outline"
+            disabled={link.isPending}
+            onClick={() => link.mutate({ venueId: venue.id, companyId: company.id })}
+          >
+            {company.name} verknüpfen
+          </Button>
+        ))}
+      </div>
     </div>
   )
 }

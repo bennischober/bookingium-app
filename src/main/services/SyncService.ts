@@ -18,6 +18,7 @@ import { isInsideFolder } from '../backup/files'
 import { SyncEngine, createGroup, type EngineOptions, type RunResult } from '../sync/engine'
 import { prepareJoin } from '../sync/join'
 import { FolderTransport } from '../sync/transport'
+import { latestOf } from '../sync/format'
 import { cloudRoots, findSyncFolders } from '../sync/findFolders'
 import { configureRowIds } from '../sync/ids'
 import { dropSyncTriggers, getMeta, hasBookkeeping } from '../sync/store'
@@ -182,21 +183,25 @@ export class SyncService {
         const transport = new FolderTransport(state.folder)
         const listed = await transport.listDevices()
         devices = await Promise.all(
-          listed.map(async (d) => ({
-            id: d.id,
-            name: d.name,
-            self: d.id === state.deviceId,
-            appVersion: d.appVersion,
-            createdAt: d.createdAt,
-            lastBatchAt: await transport.deviceLastBatchAt(d.id),
-            // this computer is never an earlier entry, even next to a newer one of its name
-            superseded:
-              d.id !== state.deviceId &&
-              listed.some(
-                (other) =>
-                  other.id !== d.id && other.name === d.name && other.createdAt > d.createdAt
-              )
-          }))
+          listed.map(async (d) => {
+            const lastBatchAt = await transport.deviceLastBatchAt(d.id)
+            return {
+              id: d.id,
+              name: d.name,
+              self: d.id === state.deviceId,
+              appVersion: d.appVersion,
+              createdAt: d.createdAt,
+              lastBatchAt,
+              lastSeenAt: latestOf(d.lastSeenAt ?? null, lastBatchAt),
+              // this computer is never an earlier entry, even next to a newer one of its name
+              superseded:
+                d.id !== state.deviceId &&
+                listed.some(
+                  (other) =>
+                    other.id !== d.id && other.name === d.name && other.createdAt > d.createdAt
+                )
+            }
+          })
         )
       } catch {
         devices = []

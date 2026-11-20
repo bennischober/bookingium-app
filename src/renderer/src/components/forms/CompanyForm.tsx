@@ -11,6 +11,8 @@ import { AddressFormFields } from './AddressFormFields'
 import { ContactFormFields } from './ContactFormFields'
 import { addressDefaults, contactDefaults } from './formDefaults'
 import { trpcReact } from '@/lib/trpc'
+import { toast } from '@/lib/toast'
+import { useFileDrop } from '@/hooks/useFileDrop'
 import { InfoLabel } from '@/components/InfoLabel'
 import { isValidIban } from '../../../../main/payment/epcQr'
 
@@ -81,25 +83,39 @@ export function CompanyForm({
   // settings) only. That company always exists already, so a picked image is uploaded at once.
   const isMainCompany = company?.isDefaultForInvoicing === true
 
-  const pickImage = async (fallbackName: string): Promise<string | null> => {
+  /** Copies the chosen or dropped image into the storage folder; returns its relative path */
+  const uploadImage = async (sourcePath: string, fallbackName: string): Promise<string | null> => {
     if (!company) return null
-    const result = await window.api.showOpenDialog()
-    if (result.canceled || result.filePaths.length === 0) return null
-    const sourcePath = result.filePaths[0]
     const fileName = sourcePath.split(/[\\/]/).pop() || fallbackName
     const upload = await window.api.uploadLogo(company.id, sourcePath, fileName)
-    return upload.success && upload.relativePath ? upload.relativePath : null
+    if (!upload.success || !upload.relativePath) {
+      toast.error('Bild konnte nicht übernommen werden', { description: upload.error })
+      return null
+    }
+    return upload.relativePath
   }
 
-  const handleLogoSelect = async () => {
-    const path = await pickImage('logo')
-    if (path) setLogoPreview(path)
+  /** The file the hidden input picked: its local path, so no second dialog opens */
+  const pickedPath = (e: React.ChangeEvent<HTMLInputElement>): string | null => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    return file ? window.api.getPathForFile(file) || null : null
   }
 
-  const handleSignatureSelect = async () => {
-    const path = await pickImage('signature')
-    if (path) setSignaturePreview(path)
+  const setLogo = async (sourcePath: string | null) => {
+    const path = sourcePath ? await uploadImage(sourcePath, 'logo') : null
+    if (path) {
+      setLogoPreview(path)
+    }
   }
+
+  const setSignature = async (sourcePath: string | null) => {
+    const path = sourcePath ? await uploadImage(sourcePath, 'signature') : null
+    if (path) {
+      setSignaturePreview(path)
+    }
+  }
+
   const form = useAppForm({
     defaultValues: {
       name: company?.name || '',
@@ -220,19 +236,14 @@ export function CompanyForm({
                 type="file"
                 accept="image/png,image/jpeg,image/svg+xml"
                 className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void handleLogoSelect()
-                }}
+                onChange={(e) => void setLogo(pickedPath(e))}
               />
               <div className="flex items-center gap-3">
-                {logoPreview ? (
-                  <LogoPreview path={logoPreview} />
-                ) : (
-                  <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                    Kein Logo
-                  </div>
-                )}
+                <ImageDropBox
+                  path={logoPreview}
+                  empty="Kein Logo"
+                  onFile={(path) => void setLogo(path)}
+                />
                 <div className="flex flex-col gap-2">
                   <Button
                     type="button"
@@ -269,16 +280,14 @@ export function CompanyForm({
                 type="file"
                 accept="image/png,image/jpeg,image/svg+xml"
                 className="hidden"
-                onChange={() => void handleSignatureSelect()}
+                onChange={(e) => void setSignature(pickedPath(e))}
               />
               <div className="flex items-center gap-3">
-                {signaturePreview ? (
-                  <LogoPreview path={signaturePreview} />
-                ) : (
-                  <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">
-                    Keine Unterschrift
-                  </div>
-                )}
+                <ImageDropBox
+                  path={signaturePreview}
+                  empty="Keine Unterschrift"
+                  onFile={(path) => void setSignature(path)}
+                />
                 <div className="flex flex-col gap-2">
                   <Button
                     type="button"
@@ -389,5 +398,39 @@ export function CompanyForm({
         {company ? 'Speichern' : 'Anlegen'}
       </FormFooter>
     </FormBody>
+  )
+}
+
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg'] as const
+
+/** The logo or signature preview; an image dropped onto it replaces it */
+function ImageDropBox({
+  path,
+  empty,
+  onFile
+}: {
+  path: string
+  empty: string
+  onFile: (sourcePath: string) => void
+}) {
+  const { dragging, dropProps } = useFileDrop({
+    extensions: IMAGE_EXTENSIONS,
+    single: true,
+    onFiles: ([file]) => onFile(file)
+  })
+  return (
+    <div
+      className={`rounded ${dragging ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+      title="Bild hierher ziehen"
+      {...dropProps}
+    >
+      {path ? (
+        <LogoPreview path={path} />
+      ) : (
+        <div className="flex h-16 w-32 items-center justify-center rounded border border-dashed px-1 text-center text-xs text-muted-foreground">
+          {dragging ? 'Hier ablegen' : `${empty} · Bild hierher ziehen`}
+        </div>
+      )}
+    </div>
   )
 }

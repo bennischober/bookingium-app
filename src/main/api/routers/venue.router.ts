@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { initTRPC } from '@trpc/server'
+import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { VenueService } from '../../services/VenueService'
 import { VenueMapper } from '../mappers/venue.mapper'
@@ -46,6 +46,25 @@ export const venueRouter = t.router({
     const venue = await venueService.updateVenue(input)
     return VenueMapper.toDto(venue)
   }),
+
+  /** Companies that probably run the venue, while none is linked (venue page) */
+  companySuggestions: t.procedure
+    .input(z.object({ venueId: z.number() }))
+    .query(({ input }) => venueService.companySuggestions(input.venueId)),
+
+  /** Sets only the venue's company, from the suggestion on the venue page */
+  linkCompany: t.procedure
+    .input(z.object({ venueId: z.number(), companyId: z.number().nullable() }))
+    .mutation(({ input }) => {
+      try {
+        venueService.linkCompany(input.venueId, input.companyId)
+      } catch (error) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: error instanceof Error ? error.message : 'Firma konnte nicht verknüpft werden'
+        })
+      }
+    }),
 
   delete: t.procedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
     await venueService.deleteVenue(input.id)

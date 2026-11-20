@@ -2,6 +2,9 @@ import { inject, injectable } from 'tsyringe'
 import { readFile } from 'fs/promises'
 import { basename, extname } from 'path'
 import { SettlementRepository } from '../repositories/SettlementRepository'
+import { AdvancingRepository } from '../repositories/AdvancingRepository'
+import { SETTLEMENT_REPORT_NOTE } from '../advancing/advancing'
+import { computeSettlement } from '../settlement/settlement'
 import { DocumentService } from './DocumentService'
 import { readXlsx } from '../import/xlsx'
 import { readSettlementSheet } from '../settlement/readSettlementSheet'
@@ -21,7 +24,8 @@ export const NOT_A_SETTLEMENT =
 export class SettlementService {
   constructor(
     @inject(SettlementRepository) private repository: SettlementRepository,
-    @inject(DocumentService) private documents: DocumentService
+    @inject(DocumentService) private documents: DocumentService,
+    @inject(AdvancingRepository) private advancing: AdvancingRepository
   ) {}
 
   get(eventId: number): SettlementDto {
@@ -47,9 +51,25 @@ export class SettlementService {
     }
   }
 
+  /**
+   * Stores the settlement. The tickets settled become the sales report of the show day too, so
+   * the Tickets tab and the tour overview end on the final count instead of the last presale
+   * report; a second save replaces it (one report per show and day).
+   */
   save(input: SaveSettlementInput): SettlementDto {
-    if (!this.repository.event(input.eventId)) throw new Error('Event nicht gefunden')
+    const event = this.repository.event(input.eventId)
+    if (!event) throw new Error('Event nicht gefunden')
     this.repository.save(input.eventId, input.input, input.sourceFileName)
+    // the count the settlement shows as „Tickets (n)“
+    const { sold } = computeSettlement(input.input)
+    if (sold > 0 && event.date) {
+      this.advancing.saveReport({
+        eventId: input.eventId,
+        reportDate: event.date.slice(0, 10),
+        sold,
+        note: SETTLEMENT_REPORT_NOTE
+      })
+    }
     return this.get(input.eventId)
   }
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
@@ -35,6 +35,7 @@ import {
   type ExternalBookingImportResult
 } from '../../../../main/api/schemas/external_booking.schema'
 import { germanDate } from '@/components/map/mapDisplay'
+import { ImportFileStep } from '@/components/import/ImportFileStep'
 
 type Step = 'file' | 'mapping' | 'preview' | 'done'
 type Table = NonNullable<ImportFile['table']>
@@ -101,10 +102,10 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
     reset()
   }
 
-  const pickFile = async (): Promise<void> => {
+  const pickFile = async (droppedPath?: string): Promise<void> => {
     setPicking(true)
     try {
-      const response = await window.api.pickImportFile()
+      const response = await window.api.pickImportFile(droppedPath)
       if (!response.success) {
         toast.error('Datei konnte nicht gelesen werden', { description: response.error })
         return
@@ -228,18 +229,11 @@ export function AgencyImportDialog({ open, onOpenChange }: AgencyImportDialogPro
 
         {/* ---- Step 1: file ---- */}
         {step === 'file' && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
-            <p className="max-w-md text-sm text-muted-foreground">
-              Eine Zeile pro Show, mit Spalten wie Band, Datum, Club, PLZ, Ort und Status.
-              Agenturbuchungen sind schreibgeschützt: Sie zählen für Terminkonflikte und den
-              Gebietsschutz, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder
-              Wiedervorlagen. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt.
-            </p>
-            <Button onClick={() => void pickFile()} disabled={picking}>
-              {picking ? 'Datei wird gelesen…' : 'Datei auswählen…'}
-            </Button>
-          </div>
+          <ImportFileStep
+            picking={picking}
+            onPick={pickFile}
+            description="Eine Zeile pro Show, mit Spalten wie Band, Datum, Club, PLZ, Ort und Status. Agenturbuchungen sind schreibgeschützt: Sie zählen für Terminkonflikte und den Gebietsschutz, aber nie für Rechnungen, Verträge, Abrechnungen, Verteiler oder Wiedervorlagen. Excel-Dateien (.xlsx, erstes Blatt) und CSV gehen direkt."
+          />
         )}
 
         {/* ---- Step 2: agency + column mapping ---- */}

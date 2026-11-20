@@ -1,4 +1,5 @@
 import { and, eq, like, sql } from 'drizzle-orm'
+import { companyKey } from '../import/normalize'
 import { listOrder, listPage } from './listQuery'
 import { saveContactEmails, withContactEmails } from './contactEmails'
 import { deleteUnusedCompanions } from './companions'
@@ -120,6 +121,45 @@ export class VenueRepository {
         }))
       )
     )
+  }
+
+  /**
+   * The club's own company while none is linked: a company of the same name (legal form aside),
+   * e.g. created by an import or an invoice. The promoter (LoPro) of its events is no candidate:
+   * promoter and club are separate on every event. Empty once the venue has a company.
+   */
+  companySuggestions(venueId: number): Array<{ id: number; name: string }> {
+    const venue = db
+      .select({ name: schema.venue.name, companyId: schema.venue.company_id })
+      .from(schema.venue)
+      .where(eq(schema.venue.id, venueId))
+      .get()
+    if (!venue || venue.companyId !== null) return []
+    const key = companyKey(venue.name)
+    return db
+      .select({ id: schema.company.id, name: schema.company.name })
+      .from(schema.company)
+      .orderBy(schema.company.name)
+      .all()
+      .filter((company) => companyKey(company.name) === key)
+  }
+
+  /** Sets the company that runs the venue (venue.company_id); nothing else changes */
+  linkCompany(venueId: number, companyId: number | null): void {
+    if (companyId !== null) {
+      const company = db
+        .select({ id: schema.company.id })
+        .from(schema.company)
+        .where(eq(schema.company.id, companyId))
+        .get()
+      if (!company) throw new Error('Firma nicht gefunden')
+    }
+    const result = db
+      .update(schema.venue)
+      .set({ company_id: companyId, updated_at: sql`(datetime('now'))` })
+      .where(eq(schema.venue.id, venueId))
+      .run()
+    if (result.changes === 0) throw new Error('Club / Festival nicht gefunden')
   }
 
   async getById(id: number) {

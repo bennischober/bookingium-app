@@ -26,6 +26,7 @@ import type { ImportFile } from '../../../../main/api/schemas/import.schema'
 import type { DealMemoStatus } from '../../../../main/api/schemas/deal_memo.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
 import { detectTourMapping } from '../../../../main/import/tourDates'
+import { ImportFileStep } from '@/components/import/ImportFileStep'
 import {
   TOUR_IMPORT_FIELD_LABELS,
   TOUR_IMPORT_FIELDS,
@@ -161,10 +162,10 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
     setRemembered(suggestion.remembered)
   }
 
-  const pickFile = async (): Promise<void> => {
+  const pickFile = async (droppedPath?: string): Promise<void> => {
     setPicking(true)
     try {
-      const response = await window.api.pickImportFile()
+      const response = await window.api.pickImportFile(droppedPath)
       if (!response.success) {
         toast.error('Datei konnte nicht gelesen werden', { description: response.error })
         return
@@ -290,17 +291,11 @@ export function TourImportDialog({ open, onOpenChange }: TourImportDialogProps) 
 
         {/* ---- Step 1: file ---- */}
         {step === 'file' && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
-            <p className="max-w-md text-sm text-muted-foreground">
-              Eine Zeile pro Show: Datum, Ort, Club und gern Veranstalter, Ansprechpartner, Status
-              oder Gage. Eine Titelzeile über der Tabelle und fehlende Spaltenüberschriften sind in
-              Ordnung. Excel (.xlsx, jedes Blatt) und CSV.
-            </p>
-            <Button onClick={() => void pickFile()} disabled={picking}>
-              {picking ? 'Datei wird gelesen…' : 'Datei auswählen…'}
-            </Button>
-          </div>
+          <ImportFileStep
+            picking={picking}
+            onPick={pickFile}
+            description="Eine Zeile pro Show: Datum, Ort, Club und gern Veranstalter, Ansprechpartner, Status oder Gage. Eine Titelzeile über der Tabelle und fehlende Spaltenüberschriften sind in Ordnung. Excel (.xlsx, jedes Blatt) und CSV."
+          />
         )}
 
         {/* ---- Step 2: band, tour, defaults + columns ---- */}

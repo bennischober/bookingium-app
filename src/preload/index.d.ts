@@ -126,8 +126,8 @@ export interface DocumentAPI {
   openMailWindow: (accountId: string, messageId: number) => Promise<void>
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => void
-  /** Open dialog for a CSV file; returns its rows for the import dialog */
-  pickImportFile: () => Promise<{
+  /** Open dialog for a CSV/Excel file (skipped for a dropped path); returns its rows */
+  pickImportFile: (droppedPath?: string) => Promise<{
     success: boolean
     canceled?: boolean
     file?: ImportFile
@@ -139,6 +139,8 @@ export interface DocumentAPI {
   pickSettlementFile: () => Promise<string | null>
   /** #225: open dialog for receipts (PDF, XML, JPG, PNG), several at once; [] if canceled */
   pickReceiptFiles: () => Promise<string[]>
+  /** Show-Ordner: the folder of a show, or single files of it ([] when cancelled) */
+  pickShowFolder: (mode: 'folder' | 'files') => Promise<string[]>
   /** An error nothing caught, for the local error log (main scrubs it) */
   reportError: (report: { message: string; stack?: string }) => void
   /** New mail while the main window has focus: the popup's text (count and account only) */

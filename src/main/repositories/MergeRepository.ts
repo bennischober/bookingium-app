@@ -6,6 +6,7 @@ import { deleteUnusedCompanions } from './companions'
 import { deleteUnusedGenres } from './genres'
 import { companyKey, normalizeKey } from '../import/normalize'
 import type {
+  DuplicateGroupDto,
   MergeCandidateDto,
   MergeFieldDto,
   MergeInput,
@@ -414,6 +415,31 @@ export class MergeRepository {
   }
 
   /** Records that may be the same as this one, with the reason */
+  /**
+   * Every group of records of one kind with the same name (companies: legal form aside, so
+   * "Beispiel GmbH" and "Beispiel" match), largest groups first: the list behind
+   * "Doppelte Einträge", each group merged with the existing dialog
+   */
+  duplicateGroups(kind: MergeKind): DuplicateGroupDto[] {
+    const config = KINDS[kind]
+    const rows = getSqlite()
+      .prepare(`SELECT * FROM ${quote(config.table)}`)
+      .all() as Row[]
+    const groups = new Map<string, Array<{ id: number; name: string }>>()
+    for (const row of rows) {
+      const name = config.name(row)
+      const key = kind === 'company' ? companyKey(name) : normalizeKey(name)
+      if (!key) continue
+      const group = groups.get(key) ?? []
+      group.push({ id: Number(row.id), name })
+      groups.set(key, group)
+    }
+    return [...groups.entries()]
+      .filter(([, items]) => items.length > 1)
+      .map(([key, items]) => ({ key, items: items.sort((a, b) => a.id - b.id) }))
+      .sort((a, b) => b.items.length - a.items.length || a.key.localeCompare(b.key))
+  }
+
   candidates(kind: MergeKind, id: number): MergeCandidateDto[] {
     const sqlite = getSqlite()
     const emailsOf = (contactId: unknown): string[] =>

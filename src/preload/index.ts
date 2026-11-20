@@ -63,10 +63,11 @@ const api = {
   /** The draft is stored; close the window main was holding open */
   closeMailWindow: () => ipcRenderer.send('mail:closeWindow'),
 
-  pickImportFile: () => ipcRenderer.invoke('import:pickFile'),
+  pickImportFile: (droppedPath?: string) => ipcRenderer.invoke('import:pickFile', droppedPath),
   pickEInvoiceFile: () => ipcRenderer.invoke('einvoice:pickFile'),
   pickSettlementFile: () => ipcRenderer.invoke('settlement:pickFile'),
   pickReceiptFiles: () => ipcRenderer.invoke('receipt:pickFiles'),
+  pickShowFolder: (mode: 'folder' | 'files') => ipcRenderer.invoke('showFolder:pick', mode),
 
   /** An error nothing caught, for the local error log */
   reportError: (report: { message: string; stack?: string }) =>
