@@ -1,6 +1,20 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Mitarbeiterzugang: Einstellungen › Allgemein sperrt auf einem Computer die firmeninternen Bereiche (DATEV, eigene Firma und Rechnungseinstellungen, Import von Listen, Sicherung, Abgleich-Einrichtung), auf Wunsch mit PIN zum Entsperren.':
+    'Staff access: Settings › General locks the company-internal areas on a computer (DATEV, own company and invoice settings, list import, backup, sync setup), optionally with a PIN to unlock.',
+  'Mitarbeiter: Einstellungen › Daten › Mitarbeiter gibt jedem Mitarbeiter einen eigenen Abgleich-Ordner mit nur freigegebenen Daten – alle Kontakte, die Events freigegebener Bands und was einzeln freigegeben ist. Rechnungen legt er nur als Entwurf an.':
+    'Staff: Settings › Data › Staff gives every staff member a sync folder of their own with shared data only – all contacts, the events of shared bands and whatever is shared individually. They create invoices as drafts only.',
+  '„Mitarbeiter“ an Band, Event, Rechnung, Managementvertrag, Abrechnung und Dokument: pro Mitarbeiter freigeben oder als intern markieren. Managementverträge, Rechnungen und Abrechnungen bleiben intern, bis sie freigegeben werden.':
+    '“Staff” on bands, events, invoices, management contracts, settlements and documents: share per staff member or mark as internal. Management contracts, invoices and settlements stay internal until they are shared.',
+  'Booking-Archiv einlesen (Import-Menü): alte Booking-Ordner einer Band auf einmal. Events, Festivals und Firmen werden gefunden oder angelegt, bestehende nur in leeren Feldern ergänzt; wahlweise werden Verträge und Rechnungen abgelegt.':
+    "Read booking archive (Import menu): a band's old booking folders at once. Events, festivals and companies are found or created, existing ones only get empty fields filled; contracts and invoices can be filed too.",
+  'Show-Ordner und Vertrag lesen auch eigene Rechnungen (Rechnungsempfänger mit USt-IdNr. wird Rechnungsfirma), Word- und Pages-Dateien sowie KSK- und Steuernummer. Pässe, Tickets und Visa werden nie abgelegt.':
+    'Show folders and contracts also read your own invoices (the recipient with VAT ID becomes the billing company), Word and Pages files, and KSK and tax numbers. Passports, tickets and visas are never filed.',
+  'Verlags- und Labelverträge je Band (Band › Geld), auf Deutsch und Englisch, nach Mustervorlagen.':
+    'Publishing and label agreements per band (Band › Money), in German and English, from model templates.',
+  'Der englische Auftrittsvertrag folgt jetzt geprüften englischen Vorlagen (Concert Performance Agreement).':
+    'The English concert contract now follows reviewed English templates (Concert Performance Agreement).',
   'Vertrag einlesen: Einen Vertrag beim Event hochladen, und Veranstalter (Firma, Adresse, USt-IdNr.), Ansprechpartner mit Telefon und E-Mail sowie die Gage werden zum Übernehmen vorgeschlagen. Neue Firmen und Personen werden angelegt und mit dem Event verbunden.':
     'Read contract: upload a contract to the event, and the promoter (company, address, VAT ID), the contact with phone and e-mail and the fee are suggested to take over. New companies and people are created and linked to the event.',
   'Verträge und Dokumente lassen sich Firmen, Personen, Clubs, Festivals, Bands und Events zuordnen („Zuordnen“ am Dokument). Deren Seiten zeigen sie unter „Verträge & Dokumente“, zusammen mit den Dateien ihrer Events – mit Suche.':
