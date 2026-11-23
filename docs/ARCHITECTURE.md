@@ -489,14 +489,16 @@ utils: utils.x, noun, label, deleteInput, onSaved })`: the form gets
   never change the invoice; the tax advisor decides.
 - **Contract language**: both contract print pages have the same DE/EN
   switch, and the contract email and file name follow it. Each contract
-  has an English twin (`ContractDocumentEn.tsx`,
-  `ManagementContractDocumentEn.tsx`) with the same sections, numbering and
-  data as the German one; the shared building blocks are in
-  `concertContractParts.tsx` / `managementContractParts.tsx`. The English
-  wording comes from the user's English templates where a clause matches;
-  everything else is translated from the German contract.
-  `docs/CONTRACT_TRANSLATIONS.md` lists those passages for legal review. A
-  change to a German clause needs the same change in the English twin.
+  has an English version (`ContractDocumentEn.tsx`,
+  `ManagementContractDocumentEn.tsx`) worded from the user's legally
+  reviewed English templates, with nothing that names the templates'
+  authors. The management agreement keeps the German one's sections and
+  numbering (`managementContractParts.tsx`); the concert contract follows
+  the English concert template's layout (deal sheet, then general terms)
+  with the same data. Passages without a template counterpart are
+  translated from the German contract; `docs/CONTRACT_TRANSLATIONS.md`
+  lists them for legal review. A change to a German clause needs a look at
+  the English version.
 - **Concert contract sections** (`contract/contractSections.ts`): the
   numbers come from `contractSectionNumbers`, never from literals. An
   optional section is left out entirely and every later one moves up, so

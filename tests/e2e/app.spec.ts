@@ -48,7 +48,7 @@ test('contract print view renders the document', async () => {
     .evaluate((c: HTMLCanvasElement) => c.height / c.width)
   expect(ratio).toBeCloseTo(297 / 210, 2)
   // The window title doubles as the print job / PDF file name (English for a promoter abroad)
-  expect(await h.page.title()).toMatch(/^(Auftrittsvertrag|Guest appearance contract)_/)
+  expect(await h.page.title()).toMatch(/^(Auftrittsvertrag|Concert performance agreement)_/)
   // Save a screenshot for visual inspection
   await h.page.screenshot({ path: 'tests/e2e/__screenshots__/contract.png', fullPage: true })
 })

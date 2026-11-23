@@ -1,17 +1,21 @@
-import type { ContractData } from '../../../../main/api/schemas/contract.schema'
+import type { ContractData, ContractParty } from '../../../../main/api/schemas/contract.schema'
 import { PagedDocument } from '../print/PagedDocument'
-import { AddressLines, Section } from './concertContractParts'
-import { contractDeposits, contractSectionNumbers } from './contractSections'
+import { contractDeposits } from './contractSections'
 
 // ========================================
 // English concert contract
 // ========================================
 
-// Same sections, numbering and data as the German contract (ContractDocument.tsx). The
-// wording follows the English booking template the user provided ("Guest Appearance
-// Contract") where it has a matching clause, marked "Template:". Clauses without a
-// counterpart there are translations of the German contract, marked "Translated:". Both
-// are listed in docs/CONTRACT_TRANSLATIONS.md for legal review.
+// Built from the two English concert templates the user provided, which are legally reviewed:
+// a "Concert Performance Agreement" (the structure, the deal sheet and the general terms) and
+// a shorter guest appearance contract (tickets, helpers, stage, dressing room, merchandise).
+// Their wording is kept and marked "Template:", with the parties called Artist, Promoter and
+// Agent as in the templates; "Adapted:" marks a template clause whose fixed values (names,
+// numbers, places) gave way to the app's data. Everything identifying the templates' authors
+// is left out: names, addresses, the place of jurisdiction. German-only clauses without a
+// template counterpart are collected under "Additional Terms", marked "Translated:", and
+// listed in docs/CONTRACT_TRANSLATIONS.md for legal review. Unlike the German contract this
+// one is not numbered in the German contract's order; it follows the templates.
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '-'
@@ -37,6 +41,63 @@ function localIsoDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+// ========================================
+// Layout pieces (the template's deal sheet: headed blocks of label/value rows)
+// ========================================
+
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4 break-inside-avoid">
+      <h3 className="mb-1 border-b border-black text-[11pt] font-bold tracking-wide">{title}</h3>
+      <table className="w-full text-[10pt] leading-snug">
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <tr className="align-top">
+      <td className="w-[38mm] py-0.5 pr-3 font-semibold">{label}:</td>
+      <td className="py-0.5">{children}</td>
+    </tr>
+  )
+}
+
+function Term({
+  number,
+  title,
+  children
+}: {
+  number: number
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="mb-3">
+      <h3 className="mb-1 text-[10.5pt] font-bold">
+        {number}) {title}
+      </h3>
+      <div className="space-y-2 text-justify text-[9.5pt] leading-relaxed">{children}</div>
+    </div>
+  )
+}
+
+function PartyLines({ party }: { party: ContractParty }) {
+  const street = [party.street, party.streetNumber].filter(Boolean).join(' ')
+  const city = [party.zipCode, party.city].filter(Boolean).join(' ')
+  return (
+    <div className="leading-snug">
+      <div className="font-bold">{party.name}</div>
+      {street && <div>{street}</div>}
+      {city && <div>{city}</div>}
+      {party.country && <div>{party.country}</div>}
+      {party.vatId && <div>VAT ID: {party.vatId}</div>}
+    </div>
+  )
+}
+
 export function ContractDocumentEn({
   data,
   letterheadUrl,
@@ -47,20 +108,19 @@ export function ContractDocumentEn({
   artistSignatureUrl?: string
 }) {
   const { dealMemo, band, artist, representative, promoter, technician, venue, hotel } = data
-  const todayStr = formatDate(localIsoDate(new Date()))
+  const today = formatDate(localIsoDate(new Date()))
+  const artistName = band?.name ?? artist?.name ?? '-'
 
   const guarantee = dealMemo.guaranteeAmount
   const vatRate = dealMemo.guaranteeVatRate
   const guaranteeVat = guarantee !== null && vatRate !== null ? (guarantee * vatRate) / 100 : null
   const guaranteeGross = guarantee !== null ? guarantee + (guaranteeVat ?? 0) : null
-
-  // Optional sections are skipped entirely and the later ones move up a number
-  const deposits = contractDeposits(dealMemo)
-  const sections = contractSectionNumbers({
-    deposits: deposits.length > 0,
-    specialAgreements: Boolean(dealMemo.contractNotes)
-  })
   const plusVat = vatRate !== null && vatRate > 0 ? ` plus ${formatVatRate(vatRate)}% VAT` : ''
+  const deposits = contractDeposits(dealMemo)
+
+  // General terms are numbered in print order; the special agreements are optional
+  let term = 0
+  const next = () => ++term
 
   return (
     <PagedDocument>
@@ -73,447 +133,552 @@ export function ContractDocumentEn({
       )}
 
       {/* Template: title */}
-      <h1 className="text-center text-[16pt] font-bold underline mb-6 tracking-wide">
-        GUEST APPEARANCE CONTRACT
+      <h1 className="mb-6 text-center text-[16pt] font-bold tracking-wide">
+        CONCERT PERFORMANCE AGREEMENT
       </h1>
 
-      {/* Party blocks */}
-      <div className="text-[10pt] leading-relaxed">
-        <p className="font-bold">between Contracting Party 1 (CP1):</p>
-        <div className="mt-2 mb-1">{artist ? <AddressLines party={artist} /> : band?.name}</div>
-        <p className="font-bold mt-2">represented by:</p>
-        {representative ? (
-          <p className="italic">
-            {representative.name}, {representative.street} {representative.streetNumber},{' '}
-            {representative.zipCode} {representative.city}
-            <br />
-            {/* Template: "on behalf and on account of the bands" */}
-            (on behalf and on account of {band?.name ?? artist?.name ?? '-'})
-          </p>
-        ) : (
-          <p className="italic">{artist?.representative || artist?.name || '-'}</p>
+      {/* Template: parties */}
+      <div className="mb-6 space-y-3 text-[10pt]">
+        <p>
+          <span className="font-semibold">Contract/Agreement Date:</span> {today}
+        </p>
+        <p>by and between</p>
+        {artist ? <PartyLines party={artist} /> : <div className="font-bold">{artistName}</div>}
+        <p>(hereinafter referred to as “Artist”)</p>
+        <p>and</p>
+        {promoter ? <PartyLines party={promoter} /> : <div>-</div>}
+        {promoter?.representative && <p>Who signs: {promoter.representative}</p>}
+        <p>(hereinafter referred to as “Promoter”)</p>
+        {representative && (
+          <>
+            <p className="font-semibold">Represented by:</p>
+            <PartyLines party={representative} />
+            <p>(hereinafter referred to as “Agent”)</p>
+            <p className="text-justify">
+              It is made clear that Agent only acts as the duly authorised representative of Artist
+              within the context of the conclusion and execution of this agreement and that Agent
+              does not become a contractual party of Promoter and particularly does not owe Promoter
+              any artistic performance and/or service.
+            </p>
+          </>
         )}
-
-        <p className="font-bold mt-4">and Contracting Party 2 (CP2):</p>
-        <div className="mt-2 mb-1">{promoter ? <AddressLines party={promoter} /> : '-'}</div>
-        <p className="font-bold mt-2">represented by:</p>
-        <p className="italic">
-          {promoter?.representative || '-'}
-          {promoter?.phone || promoter?.email
-            ? `, ${[promoter?.phone, promoter?.email].filter(Boolean).join(', ')}`
-            : ''}
+        <p className="text-justify">
+          It is understood and mutually agreed that the Promoter engages the Artist to perform the
+          following engagement upon all the terms and conditions hereinafter set forth:
         </p>
-
-        {/* Translated: KSK number line */}
-        <p className="mt-3">
-          Künstlersozialkasse (German artists’ social insurance) number of CP2 (please enter if
-          known):{' '}
-          <span className="font-semibold">{promoter?.kskNumber || '_________________'}</span>
-        </p>
-
-        {/* Template: "The above named parties will enter into the following contract" */}
-        <p className="font-bold mt-4">The above named parties enter into the following contract:</p>
       </div>
 
-      {/* Translated */}
-      <Section number={sections.engagement} title="Engagement">
-        <p className="font-bold">
-          The subject matter of this contract is a concert by the group/artist {band?.name ?? '-'}{' '}
-          (CP1), organised by the local promoter (CP2), on {formatDate(dealMemo.date)} at the venue
-          &apos;{venue?.name ?? '-'}&apos; on the terms set out herein:
-        </p>
-        <p>
-          This agreement constitutes a written confirmation of the arrangements already made and
-          serves to settle in advance, with binding effect, all questions concerning the appearance
-          of the artist (CP1). CP1 provides the tour production, backline, artist transport and
-          touring personnel. CP2, as local promoter, bears all costs arising on site and the costs
-          of the stage rider, including but not limited to venue rent incl. ancillary costs, PA
-          &amp; lights, hotel, catering, advertising, security and stewarding services, GEMA, KSK,
-          insurance premiums for the insurance cover falling within its area of responsibility, and
-          taxes and duties within its area of responsibility. CP2 is solely liable for these and
-          indemnifies CP1 against any liability. Details are governed by CP1’s stage rider and
-          further clauses of this contract. No territorial or temporal exclusivity has been agreed.
-        </p>
-        <p>The programme is as follows:</p>
-        <p className="font-bold">
-          Show time: {dealMemo.performanceTime || '-'}
-          <br />
-          Set length: {dealMemo.performanceDuration || '-'}
-          <br />
-          Other: {dealMemo.performanceInformation || '-'}
-        </p>
-      </Section>
+      {/* Template: deal sheet */}
+      <Block title="SHOW INFORMATION">
+        <Row label="Artist">{artistName}</Row>
+        <Row label="Date of Performance">{formatDate(dealMemo.date)}</Row>
+        <Row label="Venue">{venue?.name || '-'}</Row>
+        {venue?.city && <Row label="City">{venue.city}</Row>}
+        {venue?.capacity ? <Row label="Venue Capacity">{venue.capacity} ppl</Row> : null}
+      </Block>
 
-      {/* Template § 2 (guarantee); the rest translated */}
-      <Section number={sections.fee} title="Fee / Production Costs">
-        <p>
-          The following fee has been agreed: CP1 receives {dealMemo.deal || 'the agreed terms'}.
-        </p>
-        {guarantee !== null && (
-          <p className="font-bold">
-            CP2 will pay CP1 a guarantee of {formatMoney(guarantee)}
-            {plusVat ? `${plusVat} (total: ${formatMoney(guaranteeGross ?? 0)})` : ''}.
-          </p>
+      <Block title="SCHEDULE">
+        <Row label="Show Time">{dealMemo.performanceTime || '-'}</Row>
+        <Row label="Set Length">{dealMemo.performanceDuration || '-'}</Row>
+        {dealMemo.performanceInformation && (
+          <Row label="Other">{dealMemo.performanceInformation}</Row>
         )}
-      </Section>
+      </Block>
 
-      {/* Translated; "costs that cannot be evidenced" and numbered tickets as in template §§ 2, 7 */}
-      <Section number={sections.billing} title="Accounting">
-        <p>
-          The fixed fee and any share of the door takings are to be paid by bank transfer to the
-          following account after receipt of the invoices.
-        </p>
-        <p className="font-bold not-italic">
-          Account holder: {artist?.accountHolder || artist?.name || '-'}
+      <Block title="DEAL">
+        <Row label="Deal">
+          {/* Template: "The Promoter agrees to pay for this performance …"; guarantee sentence
+              from the guest appearance contract */}
+          {guarantee !== null && (
+            <div className="font-bold">
+              The Promoter agrees to pay for this performance a guarantee of{' '}
+              {formatMoney(guarantee)}
+              {plusVat ? `${plusVat} (total: ${formatMoney(guaranteeGross ?? 0)})` : ''}.
+            </div>
+          )}
+          {dealMemo.deal && <div className="whitespace-pre-wrap">{dealMemo.deal}</div>}
+          {guarantee === null && !dealMemo.deal && '-'}
+        </Row>
+      </Block>
+
+      <Block title="TERMS OF PAYMENT">
+        {deposits.map((deposit, index) => (
+          <Row
+            key={index}
+            label={deposits.length > 1 ? `Advance Payment ${index + 1}` : 'Advance Payment'}
+          >
+            {formatMoney(deposit.amount)}
+            {plusVat}, due {deposit.dueDate ? `by ${formatDate(deposit.dueDate)}` : 'on signature'}
+          </Row>
+        ))}
+        <Row label="Payment">After invoices, by bank transfer.</Row>
+        <Row label="Bank Account">
+          {artist?.accountHolder || artist?.name || '-'}
           <br />
           Bank: {artist?.bankName || '-'}
           <br />
           IBAN: {artist?.iban || '-'}
           <br />
           BIC: {artist?.bic || '-'}
-        </p>
-        <p>
-          Where the artist (CP1) has a share of the door takings, the artist’s representative has
-          the right to inspect and monitor ticket allocations, advance sales and box office sales as
-          well as the list of local costs at any time. Costs that cannot be evidenced will not be
-          accepted. If the local promoter has not obtained the tickets via the tour promoter, the
-          printer’s original delivery notes must be presented to the tour manager before admission.
-          Only numbered tickets are to be sold! If printed tickets have been delivered to advance
-          sales outlets, this must be evidenced by a delivery note on the day of the event. Tickets
-          not returned are deemed sold.
-        </p>
-      </Section>
+        </Row>
+      </Block>
 
-      {/* Translated */}
-      {deposits.length > 0 && (
-        <Section number={sections.deposits} title="Advance Payment">
-          <p>
-            CP2 makes the following advance payments on the agreed fee to CP1 (bank details see
-            clause {sections.billing}):
-          </p>
-          <p className="font-bold">
-            {deposits.map((deposit, index) => (
-              <span key={index}>
-                {index > 0 && <br />}
-                {deposits.length > 1 ? `Advance payment ${index + 1}` : 'Advance payment'}:{' '}
-                {formatMoney(deposit.amount)}
-                {plusVat}, due{' '}
-                {deposit.dueDate
-                  ? `by ${formatDate(deposit.dueDate)}`
-                  : 'on conclusion of the contract'}
-              </span>
-            ))}
-          </p>
-          <p>
-            If an advance payment is not received by CP1 in time, only CP1 is entitled to withdraw
-            from the contract. CP1’s claims for damages remain unaffected.
-          </p>
-        </Section>
-      )}
-
-      {/* Translated */}
-      <Section number={sections.registration} title="Registrations, GEMA, KSK and Taxes">
-        <p>
-          CP2 is obliged to register the event with GEMA (German performing rights society). All
-          taxes, duties and GEMA fees arising from the event are to be paid in full (100%) by CP2.
-        </p>
-        <p>
-          The promoter (CP2) is responsible for reporting and paying the KSK contributions
-          (Künstlersozialkasse, German artists’ social insurance). The KSK contribution is not part
-          of CP1’s fee.
-        </p>
-        <p>
-          CP2 undertakes to register the concert with the competent authorities in due time and to
-          obtain all necessary permits.
-        </p>
-      </Section>
-
-      {/* Translated; the helpers' duties as in template § 10 */}
-      <Section number={sections.technics} title="Technical Equipment / Personnel">
-        <p>
-          The promoter provides the sound and lighting equipment and the qualified personnel
-          required to operate it in accordance with the attached stage rider (technical rider). CP2
-          ensures that the technician responsible for the production contacts CP1’s contact person
-          no later than 8–10 days before the event for mutual coordination.
-        </p>
-        <p className="font-bold">
-          Contact person CP1: {technician ? `${technician.firstName} ${technician.lastName}` : '-'}
-          {technician?.mobilePhone || technician?.email
-            ? `, ${[technician?.mobilePhone, technician?.email].filter(Boolean).join(', ')}`
-            : ''}
-        </p>
-        <p>
-          From the start of set-up, CP2 provides at least two sober, strong helpers of legal age to
-          transport the equipment (backline) from the truck/van to the stage and, after the concert,
-          from the stage back to the truck/van, and to be at the crew’s disposal for setting up,
-          changeovers and dismantling.
-        </p>
-      </Section>
-
-      {/* Template § 11 ("firmly fixed with a level and even surface"); the rest translated */}
-      <Section number={sections.stage} title="Stage">
-        <p>
-          CP2 provides a roofed stage in accordance with the attached stage rider. The stage must be
-          firmly fixed, level and clean, and the performance area must have a horizontally even (!!)
-          surface.
-        </p>
-      </Section>
-
-      {/* Translated */}
-      <Section number={sections.travel} title="Arrival / Access / Parking">
-        <p>
-          No later than 8 days before the event, CP2 sends CP1 exact directions and any access
-          permits. CP2 ensures logistically that CP1 can load its vehicles and leave the event site
-          at any time after arrival. From arrival, CP2 provides CP1 free of charge with sufficient
-          parking in the immediate vicinity of the venue.
-        </p>
-      </Section>
-
-      {/* Template § 4 ("overnight accommodation"); the rest translated */}
-      <Section number={sections.accommodation} title="Accommodation">
-        <p>
-          CP2 will provide and bear the costs of overnight accommodation with breakfast for{' '}
-          {dealMemo.amountOfPeople ?? '-'} persons in the following rooms:{' '}
-          {dealMemo.roomInformation || '-'}
+      {/* Template: production rows ("at Promoter's sole expense") */}
+      <Block title="PRODUCTION">
+        <Row label="Stage">
+          Provided by Promoter (at Promoter’s sole expense) according to Artist’s rider.
+        </Row>
+        <Row label="PA & Lights">
+          Provided by Promoter (at Promoter’s sole expense) according to Artist’s rider.
+        </Row>
+        <Row label="Backline">Provided by Artist.</Row>
+        <Row label="Catering/Hospitality">
+          Provided by Promoter (at Promoter’s sole expense) according to Artist’s rider.
+        </Row>
+        {/* Adapted: persons and rooms from the event */}
+        <Row label="Accommodation">
+          Hotel rooms incl. breakfast to be provided by Promoter (at Promoter’s sole expense) for{' '}
+          {dealMemo.amountOfPeople ?? '-'} persons
+          {dealMemo.roomInformation ? `: ${dealMemo.roomInformation}` : ''}
           {hotel ? `. Hotel: ${hotel.name}` : ''}.
-        </p>
-      </Section>
+        </Row>
+        {technician && (
+          <Row label="Artist’s Production Contact">
+            {technician.firstName} {technician.lastName}
+            {technician.mobilePhone || technician.email
+              ? `, ${[technician.mobilePhone, technician.email].filter(Boolean).join(', ')}`
+              : ''}
+          </Row>
+        )}
+      </Block>
 
-      {/* Translated */}
-      <Section number={sections.catering} title="Catering">
-        <p>
-          CP2 provides catering for the artist (CP1) and its crew in accordance with the attached
-          catering rider, or festival catering.
-        </p>
-      </Section>
+      <Block title="MISCELLANEOUS">
+        {dealMemo.posters && <Row label="Posters">{dealMemo.posters}</Row>}
+        {/* Adapted: at least ten, as in the German contract */}
+        <Row label="Guest List">
+          Artist is entitled to put at least 10 (ten) people on the guest list.
+        </Row>
+        <Row label="Filming & Streaming Rights">
+          Any filming, broadcasting, or streaming rights are subject to negotiation with Artist
+          resp. Artist’s label/publisher/rightsholder.
+        </Row>
+      </Block>
 
-      {/* Translated */}
-      <Section number={sections.artisticFreedom} title="Artistic Freedom">
-        <p>
-          The type and presentation of the performance are solely at the discretion of the artist
-          (CP1). The artist (CP1) is bound only by the provisions agreed in this contract.
-        </p>
-      </Section>
+      <h2 className="mb-3 mt-6 text-[12pt] font-bold tracking-wide">GENERAL TERMS</h2>
 
-      {/* Translated */}
-      <Section number={sections.associations} title="Associations, Sponsoring, Presentation">
+      <Term number={next()} title="RIDER">
         <p>
-          If CP2 is a political party, a company, an association, a registered society or an
-          organisation similar to a political party etc., this must be expressly disclosed before
-          the contract is concluded. The involvement of any sponsors, presenters or other
-          advertisers requires written agreement with the group. Any advertising material such as
-          banners, posters, flags and the like in the immediate stage area is generally not
-          permitted. CP2 further ensures that CP1 can hang a backdrop with its band logo (4 m x 3 m)
-          on the back wall of the stage during its performance.
+          Any Technical Rider, Hospitality Rider or Catering Rider provided by Artist or Agent will
+          become an essential part of this agreement, even if such Rider is communicated after the
+          conclusion of this contract.
         </p>
-      </Section>
+      </Term>
 
-      {/* Translated; dressing room and barriers as in template §§ 13, 15 */}
-      <Section number={sections.security} title="Organisation and Security">
+      <Term number={next()} title="PA / LIGHTS / STAGE">
         <p>
-          CP2 ensures that the entire event runs without organisational obstruction and is
-          responsible for safety and for compliance with all related official requirements. From the
-          start of set-up until the end of dismantling, CP2 is liable in full for any personal
-          injury and damage to property (instruments, equipment, vehicles etc.) caused to CP1 by CP2
-          or by third parties. CP2 provides sufficient sober stewards to secure the backstage,
-          stage, mixing desk and entrance areas. Depending on the size of the event, CP2 is obliged
-          to additionally protect the mixing desk position and the stage with barriers. CP2 further
-          ensures sufficient space directly behind/next to the stage, guarded by its security staff
-          or cordoned off, for the artist to set up and dismantle the instruments. From CP1’s
-          arrival at the venue, CP2 provides CP1 with a dressing room that is heated, lit and able
-          to be locked or guarded by its security staff, to which only CP1 and persons authorised by
-          CP1 have access. In addition to 4 white stage towels, it must be equipped with at least
-          one mirror and must not be visible from outside. CP2 is liable for all valuables of CP1
-          kept in the secured room. It is recommended that CP2 takes out liability insurance for
-          personal injury and damage to property as well as event liability insurance for the event.
-          CP2 indemnifies the artist (CP1) against any liability. The artist’s liability is limited
-          solely to damage caused directly by the artist or by persons acting on its behalf within
-          the meaning of § 823 (1) German Civil Code (BGB), provided that such damage is notified to
-          CP1 in writing within 5 days after the concert.
+          It is agreed and understood that the Promoter will provide and pay for an appropriate PA
+          and lighting system as set out in the Artist’s Technical Rider. The Promoter agrees to
+          provide a safe and level stage, suitable to the size and capacity of the venue. Any
+          specific needs from the Artist side have to be taken and fully complied with out of the
+          Technical Rider.
         </p>
         <p>
-          CP2 ensures that no weapons or weapon-like objects are brought into the venue. In the
-          event of disturbances, the concert may be stopped immediately. The resulting costs are
-          borne by CP2. At concerts there is a risk of damage to hearing and health due to the
-          volume. CP1 is not liable for any consequential damage. CP2 undertakes to put up a sign at
-          the entrance, from admission of the audience until the end of the event, clearly drawing
-          concert-goers’ attention to these risks.
+          The stage is to be firmly fixed with a level and even surface and is to be provided solely
+          for the use of the Artist and its equipment (unless otherwise agreed). In the case of open
+          air concerts the Promoter is to provide waterproof protection for the stage to allow for
+          an uninterrupted performance.
         </p>
-      </Section>
+      </Term>
 
-      {/* Translated */}
-      <Section number={sections.advertising} title="Advertising">
+      <Term number={next()} title="HOSPITALITY / CATERING">
         <p>
-          CP2 undertakes to take all reasonable measures to promote the concert to the public
-          (press, radio, posters, internet, etc.).
+          It is agreed and understood that the Promoter will provide and pay for the Artist’s
+          catering and hospitality according to the Artist’s Hospitality and Catering Rider.
         </p>
-        <p>
-          Announcements (posters, flyers etc.) may only use CP1’s photos and original logo, which
-          CP1 provides to CP2 in digital form. The use of other photos or logos requires prior
-          agreement.
-        </p>
-        <p className="font-bold">
-          Posters: CP2 orders / has ordered the following number of posters:{' '}
-          {dealMemo.posters || '-'}
-        </p>
-      </Section>
+      </Term>
 
-      {/* Translated; "act of God" as in template § 22. "Vertragsstrafe" stays a contractual
-          penalty (the template's "liquidated damage" is a different legal concept) */}
-      <Section
-        number={sections.cancellation}
-        title="Cancellation of the Concert / Contractual Penalty / Liquidated Damages"
-      >
-        <p className="font-bold">{sections.cancellation}.1.</p>
+      {/* Template; the template's fixed penalty per vehicle is left out */}
+      <Term number={next()} title="PARKING / VEHICLES">
         <p>
-          For each individual case in which, as a result of a culpable act or omission attributable
-          to the promoter (CP2), in particular breach of contract, withdrawal from the contract or
-          other circumstances for which the promoter (CP2) is responsible (e.g. the concert being
-          stopped because of rioting guests etc.), the agreed concert / one of the agreed concerts
-          or the appearance of the artist (CP1) does not take place or only takes place in part, the
-          promoter (CP2) undertakes to pay a contractual penalty in the amount of the agreed
-          fee/production costs per cancelled concert/appearance and compensates for expenses
-          incurred such as nightliner/hotel and expenses of third parties engaged by CP1. The above
-          lump-sum damages do not preclude claiming further damage.
+          Promoter will ensure that all touring vehicles are provided with a parking space and
+          electricity (1 x 32A per nightliner) near to the entrance/stage door. The costs are borne
+          by the Promoter.
         </p>
-        <p className="font-bold">{sections.cancellation}.2.</p>
-        <p>
-          Acts of God (force majeure), including illness of the artist (CP1), official measures,
-          strikes, operational disruptions, failure or delay of means of transport and all other
-          circumstances for which the artist (CP1) is not responsible and which make it impossible
-          or unreasonably difficult to provide the artist (CP1) or the equipment, release the artist
-          (CP1) from the obligation to perform the contract. No claims of any kind can be derived
-          from this. If CP2 cancels the event of its own accord or on the basis of an official order
-          while CP1 is already travelling to it, CP2 undertakes to bear all costs incurred by CP1
-          for the journey there and back.
-        </p>
-        <p>
-          If the artist (CP1) or members of the artist name an engagement in film, radio or
-          television for the date of the concert that only became known after the conclusion of the
-          contract, CP2 is obliged to release the artist (CP1) from this contract for the said
-          purposes. In this case the artist is obliged to notify the promoter as soon as possible.
-          Both parties bear their own costs incurred up to then and still to be incurred and will
-          endeavour to find an alternative date.
-        </p>
-      </Section>
+      </Term>
 
-      {/* Translated */}
-      <Section number={sections.merchandising} title="Merchandising">
+      <Term number={next()} title="STAFF">
         <p>
-          CP1 is entitled to sell the band’s own merchandise (CDs, T-shirts etc.) before, during and
-          after the concert. Immediately after arrival, CP2 gives CP1 the contact details of the
-          merchandise seller in charge so that CP1 can get in touch with them. If there is no
-          central seller, CP2 is obliged to provide CP1 with a sales area with two tables (1 sales
-          table, 1 table for the back wall) and one chair, which CP1 may use free of charge. The
-          sales area must be dry and well lit and have a 220 V power connection. It should be
-          located in a busy spot and must not be more than 30 metres from the stage.
+          Promoter makes sure to provide and pay for skilled technical staff as well as sober and
+          able-bodied stagehands, according to Artist’s Technical Rider. Staff members/stagehands
+          shall be present straight from the Artist’s arrival until load out is completely finished.
         </p>
-      </Section>
-
-      {/* Translated */}
-      <Section number={sections.recordings} title="Video and Audio Recordings and Broadcasts">
+        {/* Adapted: at least two helpers, as in the German contract */}
         <p>
-          CP1 is entitled to document its complete performance by photo, video and audio recording.
-          Video and audio recordings and broadcasts by third parties must be agreed in writing with
-          the group in advance.
+          The Promoter will provide at least two (2) strong helpers to transport equipment
+          (backline) to and from the truck and to set up and dismantle the equipment on stage.
         </p>
-      </Section>
+      </Term>
 
-      {/* Translated */}
-      <Section number={sections.guestList} title="Guest List / Free Tickets / Press Accreditation">
+      {/* Template; "e.g. GEMA in Germany" added */}
+      <Term number={next()} title="PERMITS / LICENCES / COLLECTING SOCIETIES">
         <p>
-          The guest list capacity is determined as follows and communicated to the representative of
-          the artist (CP1). It comprises, however, at least 10 (in words: ten) guest list places. In
-          addition, the artist (CP1) may put other promoters, record company representatives, media
-          partners, endorsement partners etc. on the guest list (independently of the actual
-          capacity).
+          Promoter will be committed to notify the authorities and any other concerned third party
+          of the contractual performance, if legally required; and to apply for all required
+          permissions and to bear any costs in respect to such permissions. Promoter shall be
+          obliged to notify the collecting society (e.g. GEMA in Germany) of the contractual
+          performance and the performed works in due time and to submit the respective forms to the
+          collecting society also in due time. For this purpose, Promoter will inform Artist in a
+          timely manner and explicitly request any and all information required by Promoter to
+          fulfil this obligation. All royalties resulting from this obligation shall be borne and
+          paid by Promoter. At the request of the Artist, the Promoter has to provide the respective
+          collecting society with proof of the notification and payment. Promoter shall indemnify
+          Artist and Crew against any damages, claims, costs, fees, penalties etc. incurred in
+          connection with any failure or delay by Promoter.
         </p>
-      </Section>
+      </Term>
 
-      {/* Translated */}
-      <Section number={sections.rider} title="Stage Rider">
+      <Term number={next()} title="TICKETS / SHOW COSTS">
         <p>
-          The attached stage rider including the catering/technical rider and, if applicable, a
-          nightliner rider form part of this contract. The costs arising from them are borne by CP2.
+          The Promoter has to arrange the advance bookings and bookings on the day. Only numbered
+          tickets are to be sold.
         </p>
-      </Section>
-
-      {/* Translated */}
-      <Section number={sections.legal} title="Legal Relationship">
         <p>
-          A legal relationship under this contract is established only between CP1 and the promoter
-          CP2
-          {representative ? `, but not between the promoter and ${representative.name}.` : '.'} The
-          legal relations of the contracting parties are governed by German law. Unless otherwise
-          agreed, all correspondence regarding this contract is to be addressed exclusively to{' '}
-          {artist?.name || '-'}, {artist?.street} {artist?.streetNumber}, {artist?.zipCode}{' '}
-          {artist?.city}.
+          Where the deal includes a share of the takings, the Promoter has to provide full
+          documentation and receipts for costs on the day of the concert or that item will not be
+          accepted as a show cost. In-built profits of the Promoter will not be accepted as
+          production costs.
         </p>
-      </Section>
+      </Term>
 
-      {/* Translated; changes in writing as in template § 23 */}
-      <Section number={sections.general} title="General Provisions">
-        <ul className="list-disc pl-5 space-y-2">
+      <Term number={next()} title="SECURITY / SAFETY">
+        <p>
+          Promoter is obliged to guarantee the security and safety of the Artist and its crew. It
+          includes safety for all instruments and equipment, costumes and personal property of
+          Artist and its crew during and after their performance. Security staff shall be located on
+          stage and in front of all entrances and exits to the dressing rooms. Promoter is obliged
+          to provide crash barriers in front of the stage and around the front of house (“FoH”). In
+          case of any damage of the Artist’s property, also in case of any personal damage to Artist
+          and crew members, Promoter shall be obliged to pay all damages, including collateral and
+          consequential damages and losses suffered by the Artist and/or its crew.
+        </p>
+        <p>
+          During setting up of equipment no unauthorised persons are to be allowed in the room and
+          on stage. The Promoter is to assure that the stage is not accessible to the audience
+          during the whole performance. The audience is only to be admitted after the Artist’s sound
+          check.
+        </p>
+        <p>
+          Promoter is responsible for the security of the backstage area. The Artist must be
+          provided with dressing-room facilities for its sole use during the performance. The
+          dressing room must be heated and able to be locked, but if this is not possible officials
+          are to be posted to guard the dressing room. In the dressing room at least one mirror and
+          at least one towel is to be provided per musician.
+        </p>
+      </Term>
+
+      <Term number={next()} title="PROMOTION">
+        <p>
+          Promoter agrees that it will promote the show to the best of its possibilities. The
+          Promoter receives free press material to ensure that the venue has an attendant audience
+          in keeping with its capacity. All promotional items must be approved by Artist, Agent or
+          the Artist’s management before being printed or published.
+        </p>
+      </Term>
+
+      <Term number={next()} title="MERCHANDISE">
+        <p>
+          The Artist is entitled to sell T-shirts and other merchandise articles before, during and
+          after the concert.
+        </p>
+      </Term>
+
+      <Term number={next()} title="PAYMENTS / SETTLEMENT">
+        <p>
+          All payments defined by this agreement shall not depend on the artistic success of
+          Artist’s contractual performance with the audience.
+        </p>
+        <p>
+          If Promoter fails to account for, prove and pay out the contractual remuneration as agreed
+          herein in due time, this breach of obligation shall be considered a compelling reason
+          under the law. In this case, the Artist may terminate this contract at any time and
+          without any notice. The Artist is therefore not obligated to fulfil its performance,
+          whereas Promoter shall be obliged to fully fulfil its payment obligations hereunder
+          (payment of fees, payment of commission of Agent, payment of expenses of Artist etc.). In
+          such case it shall be legally assumed that Promoter’s payment obligations hereunder equal
+          the amount of damages that Artist is legally entitled to.
+        </p>
+      </Term>
+
+      <Term number={next()} title="PRESENTATION / PERFORMANCE">
+        <p>
+          Promoter is familiar with the Artist’s artistic style and the way of its presentation and
+          performance. The type of performance and style is exclusively the responsibility of
+          Artist. Artist shall not be subject to the Promoter’s instructions concerning the
+          performance.
+        </p>
+      </Term>
+
+      <Term number={next()} title="CONCERT FAILURE / CANCELLATION">
+        <p>
+          In case Artist’s performance is prevented by reasons Promoter or any other representative
+          of Promoter shall be held responsible for, this breach of contract by Promoter shall also
+          be considered a compelling reason under the law. Promoter shall be obliged to fully fulfil
+          its payment obligations hereunder (payment of fees, commission, Agent, expenses of Artist
+          etc.). In such case it shall be legally assumed that Promoter’s payment obligations
+          hereunder equal the amount of damages that Artist is legally entitled to.
+        </p>
+        <p>
+          In case the contractual performance(s) may be cancelled at any time after the conclusion
+          of this agreement and due to reasons Artist cannot be found liable for (except for
+          cancellations due to force majeure events as defined below), Artist shall not be obliged
+          to fulfil the contractual obligations related to the cancelled performance(s). In such
+          case, Promoter is still obliged to pay to Artist the full amounts as agreed herein. Artist
+          shall be entitled to a general compensation of damages limited to all costs pursuant to
+          the contract incurred by Artist in connection with the contractual performance(s).
+          Artist’s further rights and claims in connection with an engagement being cancelled by
+          Promoter through no fault of the Artist shall remain unaffected.
+        </p>
+        <p>
+          Neither party shall be in breach of its obligations under this agreement or incur any
+          liability to the other party for any losses or damages of any nature whatsoever incurred
+          or suffered by that other party (otherwise than under any expressly mentioned indemnity in
+          this agreement), if and to the extent that it is prevented from carrying out those
+          obligations or such losses or damages are caused by a Force Majeure Event, except to the
+          extent that the relevant breach of its obligations would have occurred, or the relevant
+          losses or damages would have arisen, even if the Force Majeure Event had not occurred.
+        </p>
+        <p>Force Majeure Event means the occurrence of:</p>
+        <ol className="list-[lower-alpha] space-y-1 pl-6">
           <li>
-            CP2 confirms that it is of legal age, has legal capacity and is authorised to sign this
-            agreement.
+            an act of war (whether declared or not), hostilities, fights, terrorism or civil unrest;
           </li>
           <li>
-            Any changes or additions to this agreement and any special agreements are only valid
-            with the mutual consent of the contracting parties and must in every case be laid down
-            in writing. Should parts of this agreement be void or become legally invalid, the
-            remainder of the contract remains in force. The void or invalid parts shall then be
-            interpreted in such a way that the overall purpose of the agreement is preserved.
+            strikes or other industrial action or blockades or any other form of civil disturbance,
+            provided that the incident is beyond the reasonable control of Promoter;
           </li>
           <li>
-            If the contract has not been returned signed to CP1 within 21 days of receipt by the
-            local promoter CP2, all contract details stated by CP1 are deemed accepted by CP2.
+            specific incidents of exceptional adverse weather conditions: tempest, earthquake or any
+            other natural disaster;
+          </li>
+          <li>general discontinuation of electricity supply;</li>
+          <li>
+            other unforeseeable circumstances beyond the control of the parties against which it
+            would have been unreasonable for the affected party to take precautions and which the
+            affected party cannot avoid even by using its best efforts,
+          </li>
+        </ol>
+        <p>
+          which in each case directly causes either party to be unable to comply with all or a
+          material part of its obligations under this agreement.
+        </p>
+        <p>
+          As soon as reasonably practicable, any party invoking a Force Majeure Event shall submit
+          proof of the nature of the event and its effects on the execution of this agreement and
+          respective party’s obligations hereunder.
+        </p>
+        <p>
+          In case of any dangerous weather conditions, actual or threatening riots or civil
+          disorder, which in the Artist’s opinion may result in danger or injury to the Artist or
+          its staff or in damage to the Artist’s equipment as well as in case of any circumstances
+          which may cause danger to any persons, including but not limited to faulty, insufficient
+          or any other dangerous conditions, the Artist reserves the right to decline to perform or
+          shorten its performance without any impact and/or consequence on the Promoter’s obligation
+          to pay the full agreed fee(s) and remunerations as specified above.
+        </p>
+      </Term>
+
+      <Term number={next()} title="FILMING / BROADCASTING / STREAMING">
+        <p>
+          Any audio and/or audio-visual recording, filming, broadcasting, streaming etc. of the
+          contractual performance(s) and/or other footage (such as backstage/behind the scenes
+          footage of Artist and/or crew) by Promoter (or third parties) shall be strictly prohibited
+          unless subject to a separate agreement with Artist or Artist’s representative (e.g.
+          management, label and/or publisher). Promoter shall instruct its contractual partners,
+          service providers, employees etc. to comply with these terms and Promoter shall ensure
+          that no third party shall record, film, broadcast, stream and/or otherwise exploit the
+          contractual performance and/or other footage (as above). In any case such recordings by
+          Promoter and/or third party shall be delivered to Artist immediately but within one week
+          after the respective contractual performance at the latest. For clarification purposes
+          only, parties agree that any recording manufactured without the expressed consent of
+          Artist shall not be subject to any subsequent exploitation (if not agreed on in writing).
+        </p>
+        <p>
+          Artist may audio and/or audio-visually record, film, broadcast, stream the contractual
+          performance(s) (and/or backstage/behind the scenes footage) and/or commercially exploit
+          the recordings of contractual performance(s) and/or other backstage/behind the scenes
+          footage at its sole discretion (e.g. particularly by means of online streaming/gaming
+          services, sound/video carriers, such as DVDs, CDs, LPs, commercials etc.) without any
+          fees, charges etc. by Promoter or any third party. Any necessary consent and/or grant of
+          right by Promoter shall be deemed given. Promoter or respective third party shall have no
+          right to any further remuneration. This provision shall analogously apply in regard to any
+          prohibited footage/recordings by Promoter and/or third parties (as above) – Artist may use
+          and exploit such recordings without any further consent and/or without any further
+          remuneration, charges, fees etc.
+        </p>
+      </Term>
+
+      <Term number={next()} title="TAXES">
+        <p>
+          Unless otherwise agreed hereunder, all payments by Promoter to Artist shall in no event be
+          subject to taxes (especially withholding tax), social security, fees and charges
+          (including but not limited to any incidental transfer and transaction costs, especially
+          bank service charges and conversion charges). All pertinent taxes, the social security,
+          fees and charges (including but not limited to any incidental transfer and transaction
+          costs, especially bank service charges and conversion charges) shall be solely
+          (additionally) paid by Promoter on top of the agreed fees and remuneration and shall
+          therefore in no event be deducted from the agreed fees and remuneration. Any received
+          payments under this Agreement are non-refundable.
+        </p>
+        <p>
+          Notwithstanding the foregoing and only in the event that Promoter is required by law to
+          withhold/deduct and/or pay (income) tax for/on behalf of Artist with respect to the
+          Artist’s contractual performance(s), Promoter shall provide Artist with an internationally
+          acknowledged tax certificate, issued by the competent authority in the country of the
+          event, immediately but within four (4) months following the contractual performance(s) of
+          Artist at the latest. This obligation constitutes a material obligation under this
+          Agreement. If Promoter fails to provide Artist with such a tax certificate in due time,
+          Promoter shall be obliged to additionally refund the withheld/paid amount directly to
+          Artist.
+        </p>
+      </Term>
+
+      <Term number={next()} title="INJURY / PROPERTY DAMAGE">
+        <p>
+          Promoter hereby indemnifies and holds Artist, Artist’s travel party and/or Agent/other
+          vicarious agents of Artist free and harmless from and against any loss, damage or expense,
+          including reasonable attorney’s fees, incurred or suffered by or threatened against
+          Artist, Artist’s travel party and/or Agent/other vicarious agents of Artist in connection
+          with or as a result of any claim, particularly any claim for personal injury or property
+          damage or otherwise brought by or on behalf of any third party as a result of or in
+          connection with this agreement and/or the contractual performance, always under the
+          condition that such claim does not result from an act of intent or gross negligence of
+          Artist, Artist’s travel party and/or Agent/other vicarious agents of Artist.
+        </p>
+      </Term>
+
+      <Term number={next()} title="SPONSORING">
+        <p>
+          Artist may, at its sole discretion, announce and present commercial sponsoring partners
+          with regard to the contractual performance(s). Artist shall be allowed to present such
+          sponsoring partners, particularly visually display names, marks, logos, trademarks etc. of
+          such partners on stage, backstage, inside and outside the venue, also in regard to any
+          announcement or exploitation of audio/visual recordings (e.g. within a stream of the
+          concert performance) without any restriction and/or further consent by Promoter and/or
+          third party and also without any further charge, fee etc. at Artist’s sole discretion.
+        </p>
+      </Term>
+
+      {/* Translated: German-only clauses without a counterpart in the templates */}
+      <Term number={next()} title="ADDITIONAL TERMS">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            If an advance payment is not received by Artist in time, only Artist is entitled to
+            withdraw from the contract. Artist’s claims for damages remain unaffected.
           </li>
           <li>
-            No further side agreements have been made. In case of doubt, the customary practices for
-            concerts apply.
+            If Promoter is a political party, a company, an association or a similar organisation,
+            this must be expressly disclosed before the contract is concluded. The involvement of
+            any sponsors, presenters or other advertisers of Promoter requires written agreement
+            with Artist. Advertising material such as banners, posters or flags in the immediate
+            stage area is generally not permitted. Artist may hang a backdrop with its logo (4 m x 3
+            m) on the back wall of the stage during its performance.
           </li>
           <li>
-            Both contracting parties undertake to keep the content of this agreement confidential
-            towards all third parties.
+            If there is no central merchandise seller, Promoter provides Artist free of charge with
+            a dry, well-lit sales area with two tables, one chair and a 220 V power connection, in a
+            busy spot no more than 30 metres from the stage.
           </li>
           <li>
-            The signed contract, including the signed stage rider and the signed catering list as
-            parts of the contract, a city map and directions are to be returned signed to{' '}
-            {artist?.name ?? '-'} by email ({artist?.email || '-'}) or by post within two weeks of
-            receipt of the contract.
+            In addition to the guest list places, Artist may put other promoters, record company
+            representatives, media partners, endorsement partners etc. on the guest list.
+          </li>
+          <li>
+            Promoter ensures that no weapons or weapon-like objects are brought into the venue. At
+            concerts there is a risk of damage to hearing and health due to the volume; Promoter
+            puts up a sign at the entrance clearly drawing concert-goers’ attention to these risks.
+            Artist is not liable for any consequential damage.
+          </li>
+          <li>
+            If Artist or members of Artist are engaged in film, radio or television for the date of
+            the concert and this only became known after the conclusion of the contract, Promoter
+            releases Artist from this contract for that purpose. Artist notifies Promoter as soon as
+            possible; both parties bear their own costs and will endeavour to find an alternative
+            date.
+          </li>
+          <li>
+            The signed contract, including the signed rider, is to be returned to{' '}
+            {artist?.name ?? artistName}
+            {artist?.email ? ` (${artist.email})` : ''} within two weeks of receipt. If it has not
+            been returned within 21 days of receipt, all contract details stated by Artist are
+            deemed accepted by Promoter.
           </li>
         </ul>
-      </Section>
+      </Term>
+
+      {/* Template; without the template's place of jurisdiction */}
+      <Term number={next()} title="MISCELLANEOUS">
+        <p>
+          The parties herewith represent, warrant and undertake that they have the full right and
+          authority to enter into this agreement.
+        </p>
+        <p>
+          The Agreement is solely governed by and construed in accordance with the laws and
+          procedures of the Federal Republic of Germany, to the exclusion of the conflict of law
+          rules of German international private law and the provisions of the UN Sales Convention.
+        </p>
+        <p>
+          No variations of any of the terms or conditions hereof (including the written form
+          requirement set forth in this clause) and any additions may be made unless such variation
+          and/or addition is agreed in writing and signed by both parties hereto.
+        </p>
+        <p>
+          If any provision of the Agreement is held invalid, illegal or unenforceable, the validity,
+          legality or enforceability of the remaining provisions will not in any way be affected or
+          impaired thereby. The Parties hereto shall negotiate in good faith to replace any invalid,
+          illegal, unenforceable or incomplete provision with a valid provision, the effect of which
+          comes as close as possible to that of the intention of the Parties hereto.
+        </p>
+        <p>The right to ordinary termination by the Promoter shall be excluded.</p>
+        <p>
+          All conditions contained in this agreement are strictly confidential. All parties hereto
+          agree to keep confidential all conditions herein, and the obligation for absolute
+          confidentiality applies even after the Performance and/or termination of this Agreement.
+        </p>
+      </Term>
 
       {dealMemo.contractNotes && (
-        <Section number={sections.specialAgreements} title="Special Agreements">
+        <Term number={next()} title="SPECIAL AGREEMENTS">
           <p className="whitespace-pre-wrap">{dealMemo.contractNotes}</p>
-        </Section>
+        </Term>
       )}
 
-      {/* Signatures: never split, never alone on a page (template: "Signature/Stamp") */}
-      <div className="mt-12 flex break-before-avoid break-inside-avoid text-[10pt]">
-        <div className="w-1/2 pr-8">
-          <div className="w-4/5">
-            {representative?.city || artist?.city || '____________'}, {todayStr}
+      {/* Template: signatures. Never split, never alone on a page */}
+      <div className="mt-10 break-before-avoid break-inside-avoid text-[10pt]">
+        <p className="mb-4">Agreed to and accepted by and between:</p>
+        <div className="flex">
+          <div className="w-1/2 pr-8">
+            <div className="font-bold">Artist</div>
+            <div className="mt-2 w-4/5">
+              {representative?.city || artist?.city || '____________'}, {today}
+            </div>
+            <div className="mt-2 h-[15mm]">
+              {artistSignatureUrl && (
+                <img src={artistSignatureUrl} alt="" className="max-h-full object-contain" />
+              )}
+            </div>
+            <div className="mt-2 w-4/5 border-t-2 border-black pt-1">
+              Place, Date – Signature/Stamp
+              {representative && <div>p.p. {representative.name}</div>}
+            </div>
           </div>
-          <div className="mt-2 h-[15mm]">
-            {artistSignatureUrl && (
-              <img src={artistSignatureUrl} alt="" className="max-h-full object-contain" />
-            )}
-          </div>
-          <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
-            Contracting Party 1 – Signature/Stamp
-            {representative && <div>p.p. {representative.name}</div>}
-          </div>
-        </div>
-        {/* CP2 fills in place, date and signature by hand: nothing is prefilled */}
-        <div className="w-1/2 pr-8">
-          <div className="w-4/5">____________, ____________</div>
-          <div className="mt-2 h-[15mm]" />
-          <div className="border-t-2 border-black w-4/5 mt-2 pt-1">
-            Contracting Party 2 – Signature/Stamp
+          {/* The Promoter fills in place, date and signature by hand: nothing is prefilled */}
+          <div className="w-1/2 pr-8">
+            <div className="font-bold">Promoter</div>
+            <div className="mt-2 w-4/5">____________, ____________</div>
+            <div className="mt-2 h-[15mm]" />
+            <div className="mt-2 w-4/5 border-t-2 border-black pt-1">
+              Place, Date – Signature/Stamp
+            </div>
           </div>
         </div>
       </div>
