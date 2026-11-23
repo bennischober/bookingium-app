@@ -10,7 +10,8 @@
 //   that is printed from them), their itinerary, advancing and tickets, agency bookings,
 //   marketing. Money and management do not inherit: invoices, settlements (Abrechnungen),
 //   management contracts, receipts and travel expenses need a grant of their own.
-// - Documents filed at a visible event inherit; any record can be marked internal.
+// - Documents filed at a visible event inherit, except invoices and settlements as files;
+//   any record can be marked internal.
 // - What the employee created is always theirs to see (its id is in their range).
 // - Shared records may be changed, only own ones deleted. Invoices stay drafts.
 //
@@ -59,6 +60,9 @@ type Rule =
   /** visible with its parent row */
   | { kind: 'child'; parent: string; column: string }
   | { kind: 'custom'; visible: (row: Row, l: Lookup) => boolean }
+
+/** Document types that never come with a visible event (an invoice or settlement as PDF) */
+const MONEY_DOCUMENTS: ReadonlySet<string> = new Set(['invoice', 'deposit', 'settlement'])
 
 const child = (parent: string, column: string): Rule => ({ kind: 'child', parent, column })
 const bandWork: Rule = {
@@ -158,7 +162,11 @@ export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
     {
       kind: 'grant',
       entity: 'document',
-      inherit: (row, l) => row.owner_type === 'event' && l.has('deal_memo', row.owner_id)
+      // invoices and settlements filed at an event are money: they need a grant of their own
+      inherit: (row, l) =>
+        row.owner_type === 'event' &&
+        !MONEY_DOCUMENTS.has(String(row.document_type)) &&
+        l.has('deal_memo', row.owner_id)
     }
   ],
   ['document_link', child('document', 'document_id')],

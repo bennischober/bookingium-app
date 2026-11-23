@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Building2, CalendarRange, Upload } from 'lucide-react'
+import { Archive, Building2, CalendarRange, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ROUTES } from '@/lib/routing'
 import { TourImportDialog } from '@/components/tour-import/TourImportDialog'
 import { AgencyImportDialog } from '@/components/agency/AgencyImportDialog'
 import { ImportDialog } from '@/components/import/ImportDialog'
+import { ArchiveImportDialog } from '@/components/archive/ArchiveImportDialog'
 import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { TERMS } from '../../../../main/api/terms'
 import type { ImportTarget } from '../../../../main/api/schemas/import.schema'
@@ -15,6 +16,7 @@ import { t } from '../../../../main/i18n/translate'
 type Open =
   | { kind: 'tour' }
   | { kind: 'agency' }
+  | { kind: 'archive' }
   | { kind: 'list'; target: ImportTarget; venueKind?: VenueKind }
   | null
 
@@ -91,6 +93,18 @@ export function ImportMenu() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
               {t('Agenturbuchungen')}
             </button>
+            {/* old booking folders of a band, many shows at once; an admin's work like the lists */}
+            {!locked && (
+              <button
+                type="button"
+                role="menuitem"
+                className={itemClass}
+                onClick={() => choose({ kind: 'archive' })}
+              >
+                <Archive className="h-4 w-4 text-muted-foreground" />
+                {t('Booking-Archiv')}
+              </button>
+            )}
             {!locked && <div className="my-1 h-px bg-border" aria-hidden />}
             {(locked ? [] : LIST_ITEMS).map((item) => (
               <button
@@ -112,6 +126,7 @@ export function ImportMenu() {
 
       <TourImportDialog open={open?.kind === 'tour'} onOpenChange={closeOn} />
       <AgencyImportDialog open={open?.kind === 'agency'} onOpenChange={closeOn} />
+      <ArchiveImportDialog open={open?.kind === 'archive'} onOpenChange={closeOn} />
       {open?.kind === 'list' && (
         <ImportDialog
           key={`${open.target}-${open.venueKind ?? ''}`}

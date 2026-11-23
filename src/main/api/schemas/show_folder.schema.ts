@@ -99,7 +99,12 @@ export const ShowFolderAction = z.discriminatedUnion('type', [
     phone: z.string(),
     vatId: z.string(),
     /** Entered as the event's promoter (LoPro) */
-    lopro: z.boolean()
+    lopro: z.boolean(),
+    /** #262: entered as the event's billing company (from an invoice we wrote) */
+    invoiceCompany: z.boolean().default(false),
+    countryCode: z.string().default(''),
+    taxNumber: z.string().default(''),
+    kskNumber: z.string().default('')
   }),
   z.object({ type: z.literal('settlement'), path: z.string().min(1) })
 ])

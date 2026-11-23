@@ -1,7 +1,9 @@
 import { inject, injectable } from 'tsyringe'
 import { readdir, readFile, stat } from 'fs/promises'
-import { basename, extname, join } from 'path'
-import { simpleParser } from 'mailparser'
+import { basename, dirname, extname, join } from 'path'
+import { createHash } from 'crypto'
+import { fileText } from '../showfolder/fileText'
+import { extractOwnInvoice } from '../showfolder/ownInvoice'
 import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { DocumentService } from './DocumentService'
 import { PersonService } from './PersonService'
@@ -10,7 +12,7 @@ import { VenueService } from './VenueService'
 import { CompanyService } from './CompanyService'
 import { CreateCompanyInput } from '../api/schemas/company.schema'
 import { DocumentLinkService } from './DocumentLinkService'
-import { extractContractParty } from '../showfolder/contractParty'
+import { extractContractEvent, extractContractParty } from '../showfolder/contractParty'
 import type { DocumentOwnerType } from '../api/schemas/document.schema'
 import { ItineraryService } from './ItineraryService'
 import { SettlementService } from './SettlementService'
@@ -19,6 +21,7 @@ import { readXlsx } from '../import/xlsx'
 import { readSettlementSheet } from '../settlement/readSettlementSheet'
 import {
   classifyShowFile,
+  emptyFacts,
   extractShowFacts,
   mergeShowFacts,
   type ShowFacts,
@@ -46,62 +49,18 @@ const MAX_FILES = 60
 /** Larger files are filed but not read */
 const MAX_READ_BYTES = 25 * 1024 * 1024
 
-type TextItem = { str?: string; hasEOL?: boolean }
-
-/** A PDF's text and its link targets (mailto: and web links survive broken ligatures) */
-async function pdfTextAndLinks(bytes: Uint8Array): Promise<{ text: string; links: string[] }> {
-  try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const task = pdfjs.getDocument({
-      data: new Uint8Array(bytes),
-      isEvalSupported: false,
-      useSystemFonts: false,
-      verbosity: 0
-    })
-    const pdf = await task.promise
-    const pages: string[] = []
-    const links: string[] = []
-    for (let number = 1; number <= Math.min(pdf.numPages, 10); number++) {
-      const page = await pdf.getPage(number)
-      const content = await page.getTextContent()
-      pages.push(
-        (content.items as TextItem[])
-          .map((item) => (item.str ?? '') + (item.hasEOL ? '\n' : ' '))
-          .join('')
-      )
-      for (const annotation of (await page.getAnnotations()) as Array<{ url?: string }>)
-        if (annotation.url) links.push(annotation.url)
-    }
-    await task.destroy()
-    return { text: pages.join('\n'), links }
-  } catch {
-    return { text: '', links: [] }
-  }
-}
-
-/** A mail as text: the header lines the extraction reads ("Von:", "An:"), then the body */
-async function mailText(bytes: Buffer): Promise<{ text: string; links: string[] }> {
-  try {
-    const mail = await simpleParser(bytes)
-    const addresses = (value: typeof mail.to): string =>
-      (Array.isArray(value) ? value : value ? [value] : []).map((entry) => entry.text).join(', ')
-    const header = [
-      mail.from ? `Von: ${mail.from.text}` : '',
-      mail.to ? `An: ${addresses(mail.to)}` : '',
-      mail.subject ? `Betreff: ${mail.subject}` : ''
-    ].filter(Boolean)
-    const links = [...(mail.text ?? '').matchAll(/mailto:[^\s>"]+/gi)].map((match) => match[0])
-    return { text: [...header, '', mail.text ?? ''].join('\n'), links }
-  } catch {
-    return { text: '', links: [] }
-  }
-}
-
-/** Dropped paths to files: folders are read two levels deep, hidden and temporary files skipped */
-export async function expandPaths(paths: string[], depth = 2): Promise<string[]> {
+/**
+ * Dropped paths to files: folders are read two levels deep (the archive import reads deeper),
+ * hidden and temporary files skipped
+ */
+export async function expandPaths(
+  paths: string[],
+  depth = 2,
+  maxFiles = MAX_FILES
+): Promise<string[]> {
   const files: string[] = []
   const visit = async (path: string, level: number): Promise<void> => {
-    if (files.length >= MAX_FILES) return
+    if (files.length >= maxFiles) return
     const name = basename(path)
     if (name.startsWith('.') || name.startsWith('~$') || name === 'desktop.ini') return
     let info
@@ -137,11 +96,18 @@ export class ShowFolderService {
     @inject(DocumentLinkService) private documentLinks: DocumentLinkService
   ) {}
 
-  /** One file's text: PDF, mail, plain text; an Excel sheet only says whether it is a settlement */
-  private async readOne(path: string): Promise<{ input: ShowFileInput; settlement: boolean }> {
+  /**
+   * One file's text (fileText.ts: PDF, mail, Word, Pages, plain text); an Excel sheet only says
+   * whether it is a settlement. `sha` finds the same file twice; `dirs` are the folders it lies in.
+   */
+  private async readOne(
+    path: string
+  ): Promise<{ input: ShowFileInput; settlement: boolean; sha: string }> {
     const name = basename(path)
     const extension = extname(name).toLowerCase()
-    const empty = { input: { name, text: '', links: [] }, settlement: false }
+    const parent = dirname(path)
+    const dirs = [basename(parent), basename(dirname(parent))]
+    const empty = { input: { name, text: '', links: [], dirs }, settlement: false, sha: '' }
     let size = 0
     try {
       size = (await stat(path)).size
@@ -149,62 +115,94 @@ export class ShowFolderService {
       return empty
     }
     if (size > MAX_READ_BYTES) return empty
-    if (extension === '.pdf') {
-      const { text, links } = await pdfTextAndLinks(await readFile(path))
-      return { input: { name, text, links }, settlement: false }
+    let bytes: Buffer
+    try {
+      bytes = await readFile(path)
+    } catch {
+      return empty
     }
-    if (extension === '.eml') {
-      const { text, links } = await mailText(await readFile(path))
-      return { input: { name, text, links }, settlement: false }
-    }
-    if (extension === '.txt') {
-      return { input: { name, text: await readFile(path, 'utf-8'), links: [] }, settlement: false }
-    }
+    const sha = createHash('sha256').update(bytes).digest('hex')
     if (extension === '.xlsx') {
       try {
-        const { records } = readXlsx(await readFile(path))
+        const { records } = readXlsx(bytes)
         const settlement = readSettlementSheet(records) !== null
         return {
-          input: { name, text: settlement ? 'KONZERTABRECHNUNG' : '', links: [] },
-          settlement
+          input: { name, text: settlement ? 'KONZERTABRECHNUNG' : '', links: [], dirs },
+          settlement,
+          sha
         }
       } catch {
-        return empty
+        return { ...empty, sha }
       }
     }
-    return empty
+    const { text, links } = await fileText(extension, bytes)
+    return { input: { name, text, links, dirs }, settlement: false, sha }
   }
 
-  async analyze(input: ShowFolderAnalyzeInput): Promise<ShowFolderPlanDto> {
-    // callers inside main pass the input unparsed, without the default
-    const documentId = input.documentId ?? null
-    const event = this.repository.event(input.eventId)
-    if (!event) throw new Error('Event nicht gefunden')
-    let paths = await expandPaths(input.paths)
-    if (documentId !== null) {
-      const filed = await this.documents.getFullPath(documentId)
-      if (!filed) throw new Error('Dokument nicht gefunden')
-      paths = [filed.filePath]
-    }
-    if (paths.length === 0) throw new Error('Keine Dateien gefunden.')
+  /**
+   * Reads the files of a show and merges what they say. `asContract`: a filed contract is read as
+   * one, whatever its name says. Also used by the archive import before an event exists.
+   */
+  async readFolder(
+    paths: string[],
+    bandName: string,
+    ownNames: string[],
+    asContract = false
+  ): Promise<{
+    read: Array<ShowFileRead & { facts: ShowFacts }>
+    facts: ShowFacts
+    settlementFile: { path: string; name: string } | null
+  }> {
     const names = paths.map((path) => basename(path))
-    const bandName = event.bandName ?? ''
-
     const read: Array<ShowFileRead & { facts: ShowFacts }> = []
     let settlementFile: { path: string; name: string } | null = null
-    for (const path of paths) {
-      const { input: file, settlement } = await this.readOne(path)
+    const seen = new Set<string>()
+    // of two equal files the original is kept, not its copy ("… [1].pdf", "… Kopie.pdf")
+    const isCopy = (path: string) => /(\[\d+\]|\(\d+\)|\bkopie\b|\bcopy\b)/i.test(basename(path))
+    const ordered = [...paths].sort((a, b) => Number(isCopy(a)) - Number(isCopy(b)))
+    for (const path of ordered) {
+      const { input: file, settlement, sha } = await this.readOne(path)
+      // the same file twice (a copy "[1]", or in two subfolders): read and filed once
+      if (sha && seen.has(sha)) {
+        read.push({
+          path,
+          name: file.name,
+          kind: 'duplicate',
+          readable: false,
+          sameContent: true,
+          facts: emptyFacts()
+        })
+        continue
+      }
+      if (sha) seen.add(sha)
       let kind: ShowFileKind = classifyShowFile(file, names)
+      // travel papers are personal: nothing is read from them
+      if (kind === 'travel') {
+        read.push({ path, name: file.name, kind, readable: true, facts: emptyFacts() })
+        continue
+      }
       if (extname(path).toLowerCase() === '.xlsx' && !settlement && kind === 'settlement')
         kind = 'other'
       if (settlement) {
         kind = 'settlement'
         settlementFile ??= { path, name: file.name }
       }
-      // a filed contract is read as one, whatever its name says
-      if (documentId !== null && kind !== 'settlement') kind = 'contract'
+      if (asContract && kind !== 'settlement') kind = 'contract'
       const facts = extractShowFacts(file, kind, bandName)
+      if (kind === 'invoice' || kind === 'other') {
+        facts.invoice = extractOwnInvoice(file.text, ownNames)
+        if (facts.invoice) kind = 'invoice'
+      }
       if (kind === 'contract') {
+        // a contract form names the show in a column of labels and values
+        const show = extractContractEvent(file.text)
+        if (show) facts.contractDate = show.date
+        if (show?.eventName && !facts.venue.name) {
+          facts.venue.name = show.eventName
+          facts.venue.zipCode ||= show.zipCode
+          facts.venue.city ||= show.city
+          if (show.location) facts.venue.notes.push(`Gelände: ${show.location}`)
+        }
         facts.promoter = extractContractParty(file.text, file.links)
         const party = facts.promoter
         if (party?.contactName && (party.email || party.phone))
@@ -217,16 +215,38 @@ export class ShowFolderService {
             onSite: false
           })
       }
-      read.push({
-        path,
-        name: file.name,
-        kind,
-        readable: file.text.trim().length > 0,
-        facts
-      })
+      read.push({ path, name: file.name, kind, readable: file.text.trim().length > 0, facts })
     }
-
     const facts = mergeShowFacts(read)
+    // the fee of our invoice when no contract names a guarantee
+    if (facts.deal.guaranteeCents === null && facts.invoice?.feeCents)
+      facts.deal.guaranteeCents = facts.invoice.feeCents
+    return { read, facts, settlementFile }
+  }
+
+  async analyze(
+    input: ShowFolderAnalyzeInput,
+    /** #262 archive import: a whole booking folder, read deeper */
+    options: { depth?: number; maxFiles?: number } = {}
+  ): Promise<ShowFolderPlanDto> {
+    // callers inside main pass the input unparsed, without the default
+    const documentId = input.documentId ?? null
+    const event = this.repository.event(input.eventId)
+    if (!event) throw new Error('Event nicht gefunden')
+    let paths = await expandPaths(input.paths, options.depth, options.maxFiles)
+    if (documentId !== null) {
+      const filed = await this.documents.getFullPath(documentId)
+      if (!filed) throw new Error('Dokument nicht gefunden')
+      paths = [filed.filePath]
+    }
+    if (paths.length === 0) throw new Error('Keine Dateien gefunden.')
+    const bandName = event.bandName ?? ''
+    const { read, facts, settlementFile } = await this.readFolder(
+      paths,
+      bandName,
+      this.repository.ownNames(input.eventId),
+      documentId !== null
+    )
     const firstOf = (...kinds: ShowFileKind[]) =>
       read.find((file) => kinds.includes(file.kind))?.name ?? ''
     const sources = {
@@ -234,14 +254,16 @@ export class ShowFolderService {
       venue: firstOf('venue_spec') || firstOf('daysheet'),
       mail: firstOf('mail') || firstOf('daysheet'),
       contract: firstOf('contract'),
-      settlement: settlementFile?.name ?? ''
+      settlement: settlementFile?.name ?? '',
+      invoice: firstOf('invoice')
     }
     const current = this.repository.current(
       input.eventId,
       facts.hotel.name,
       facts.contacts.map((contact) => contact.email),
       facts.venue.name,
-      facts.promoter?.name ?? ''
+      facts.promoter?.name ?? '',
+      facts.invoice?.recipient.name ?? ''
     )
     if (!current) throw new Error('Event nicht gefunden')
     const pending = pendingVenueOf(facts, current)
@@ -374,8 +396,22 @@ export class ShowFolderService {
           )
           id = created.id
         }
+        // a known company (or the one just made) gets what the files add to its empty fields
+        changes += this.repository.fillCompanyGaps(id, {
+          street: action.street,
+          streetNumber: action.streetNumber,
+          zipCode: action.zipCode,
+          city: action.city,
+          countryCode: action.countryCode,
+          email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email) ? action.email : '',
+          phone: action.phone,
+          vatId: action.vatId,
+          taxNumber: action.taxNumber,
+          kskNumber: action.kskNumber
+        })
         if (action.lopro) this.repository.setLoproCompany(input.eventId, id)
-        companyId = id
+        if (action.invoiceCompany) this.repository.setInvoiceCompany(input.eventId, id)
+        if (action.lopro || companyId === null) companyId = id
       })
     }
 

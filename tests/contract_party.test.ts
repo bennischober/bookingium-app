@@ -44,7 +44,9 @@ describe('contract party', () => {
       phone: '+49 40 000 0001',
       vatId: 'DE123456789',
       contactName: 'Max Beispiel',
-      contactRole: 'Geschäftsführung'
+      contactRole: 'Geschäftsführung',
+      kskNumber: '',
+      taxNumber: ''
     })
   })
 
