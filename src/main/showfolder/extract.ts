@@ -9,7 +9,7 @@ import { cleanText } from '../import/normalize'
 import { t } from '../i18n/translate'
 import type { ContractPartyFact } from './contractParty'
 import type { OwnInvoiceFact } from './ownInvoice'
-import { countryCodeOfName, parseAddress, zipCityOf } from './address'
+import { countryCodeOfName, isPlaceholder, isStreetLine, parseAddress, zipCityOf } from './address'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -114,6 +114,8 @@ export interface ShowFacts {
   invoice: OwnInvoiceFact | null
   /** The show's date as a contract names it (ISO), '' when none does */
   contractDate: string
+  /** The event as a contract names it ("Event/Veranstaltung: …"), '' when none does */
+  eventName?: string
 }
 
 export interface ShowFileInput {
@@ -620,7 +622,8 @@ function nameOf(raw: string): string {
   if (words.some((word) => /^(gmbh|ug|ag|kg|ohg|gbr|e\.?v\.?|ltd\.?|inc\.?|llc|mbh)$/i.test(word)))
     return ''
   const name = words.filter((word) => /^[\p{Lu}][\p{L}'.-]*$/u.test(word))
-  return name.length >= 2 && name.length === words.length ? mendWords(name.join(' ')) : ''
+  if (name.length < 2 || name.length > 4 || name.length !== words.length) return ''
+  return mendWords(name.join(' ')).replace(/\.+$/, '')
 }
 
 function addContact(facts: ShowFacts, contact: ContactFact): void {
@@ -686,25 +689,33 @@ export function extractShowFacts(
       placeKindOfName(segment) === 'festival'
         ? segment
         : ''
-    const name = heading || alone
+    const name = cleanPlaceName(heading || (isTitleCase(alone) ? alone : ''))
     if (name) {
-      facts.venue.name = mendWords(name)
+      facts.venue.name = name
       facts.venue.kind = 'festival'
       break
     }
   }
 
+  // lines left of the band's own block ("Beispielband GbR", street, town): its address
+  let ownLines = 0
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]
     const key = keyOf(segment)
     const pair = labelled(segment)
+
+    if (bandKey && mentions(key, bandKey) && !TIME.test(segment)) ownLines = 4
+    else if (ownLines > 0) {
+      ownLines--
+      if (!pair && (isStreetLine(segment) || zipCity(segment))) continue
+    }
 
     if (venueLines > 0) {
       // "(Zufahrt über den Beispielring)" between the street and the town: skipped
       if (!pair && /^\(.*\)$/.test(segment)) continue
       venueLines--
       if (!pair && section !== 'hotel') {
-        if (STREET_LINE.test(segment) && !facts.venue.street) {
+        if (STREET_LINE.test(stripRemark(segment)) && !facts.venue.street) {
           facts.venue.street = stripRemark(segment)
           continue
         }
@@ -721,7 +732,8 @@ export function extractShowFacts(
     // sections
     if (/^hotel\s*:/i.test(segment)) {
       section = 'hotel'
-      facts.hotel.name = stripRemark(segment.replace(/^hotel\s*:/i, ''))
+      const hotel = stripRemark(segment.replace(/^hotel\s*:/i, '')).replace(/[.,;:]+$/, '')
+      facts.hotel.name = isPlaceholder(hotel) || hotel.split(' ').length > 8 ? '' : hotel
       continue
     }
     if (/^(contacts?|kontakte?|ansprechpartner)\s*:?$/i.test(segment)) {
@@ -799,7 +811,7 @@ export function extractShowFacts(
           facts.venue.city = parsed.city
         }
         facts.venue.countryCode ||= parsed.countryCode
-      } else if (pair[1] && !facts.venue.street && !/\d/.test(pair[1])) {
+      } else if (pair[1] && !facts.venue.street && !/\d/.test(pair[1]) && !isPlaceholder(pair[1])) {
         // a street without a number, the town on the lines below
         facts.venue.street = stripRemark(pair[1])
       }
@@ -822,18 +834,66 @@ export function extractShowFacts(
           'auffuehrungsort'
         ]) &&
         value &&
-        !/http/.test(value)
+        !/http/.test(value) &&
+        !isPlaceholder(value)
       ) {
-        // a festival's site ("Veranstaltungsort: Sportgelände Musterdorf") is no name of it
+        const placeLabel = startsWithAny(label, [
+          'veranstaltungsort',
+          'spielort',
+          'auffuehrungsort',
+          'location',
+          'spielstaette'
+        ])
+        // "Veranstaltungsort: 12345 Musterstadt" is the town, not a name; "Musterweg 5 12345
+        // Musterstadt" its address
+        const full = placeLabel ? parseAddress(value) : null
+        if (full?.zipCode && full.streetNumber) {
+          if (!facts.venue.zipCode) {
+            facts.venue.street ||= `${full.street} ${full.streetNumber}`
+            facts.venue.zipCode = full.zipCode
+            facts.venue.city = full.city
+            facts.venue.countryCode ||= full.countryCode
+          }
+          venueLines = 0
+          continue
+        }
+        const town = placeLabel ? zipCityOf(value) : null
+        // a festival's site ("Veranstaltungsort: Sportgelände Musterdorf") is no name of it, and
+        // in a contract the place lines name the town and the site; the event names the show
         const site =
-          startsWithAny(label, ['veranstaltungsort', 'spielort', 'auffuehrungsort', 'location']) &&
-          SITE.test(keyOf(value)) &&
-          placeKindOfName(value) !== 'festival'
-        if (site) {
-          const note = `Gelände: ${stripRemark(value)}`
-          if (!facts.venue.notes.includes(note)) facts.venue.notes.push(note)
-          facts.venue.kind ??= 'festival'
-        } else facts.venue.name ||= stripRemark(value)
+          placeLabel &&
+          !town &&
+          ((SITE.test(keyOf(value)) && placeKindOfName(value) !== 'festival') ||
+            (kind === 'contract' && placeKindOfName(value) !== 'festival'))
+        if (town) {
+          if (!facts.venue.zipCode) {
+            facts.venue.zipCode = town.zipCode
+            facts.venue.city = town.city
+            facts.venue.countryCode ||= town.countryCode
+          }
+        } else if (site) {
+          const name = cleanPlaceName(value) || stripRemark(value)
+          // a contract's "Veranstaltungsort: Musterstadt" (a town alone) is no site
+          const isTown = kind === 'contract' && startsWithAny(label, ['veranstaltungsort'])
+          if (isTown) facts.venue.city ||= name
+          else {
+            const note = `Gelände: ${name}`
+            if (!facts.venue.notes.includes(note)) facts.venue.notes.push(note)
+          }
+          if (SITE.test(keyOf(value))) facts.venue.kind ??= 'festival'
+        } else {
+          facts.venue.name ||= cleanPlaceName(value)
+          // "Open Air am Berg, Musterweg 1, 12345 Musterstadt": the address behind the name
+          const behind = value.includes(',')
+            ? parseAddress(value.slice(value.indexOf(',') + 1))
+            : null
+          if (behind?.zipCode && !facts.venue.zipCode) {
+            facts.venue.street ||= `${behind.street} ${behind.streetNumber}`.trim()
+            facts.venue.zipCode = behind.zipCode
+            facts.venue.city = behind.city
+            facts.venue.countryCode ||= behind.countryCode
+          }
+        }
         venueLines = 2
         if (startsWithAny(label, ['festival', 'festivalgelaende'])) facts.venue.kind ??= 'festival'
         else if (startsWithAny(label, ['club'])) facts.venue.kind ??= 'venue'
@@ -845,12 +905,14 @@ export function extractShowFacts(
         placeKindOfName(mendWords(value)) === 'festival'
       ) {
         // "Event: Muster Open Air" names the festival, whatever a venue line said
-        if (placeKindOfName(facts.venue.name) !== 'festival') facts.venue.name = mendWords(value)
+        const name = cleanPlaceName(value)
+        if (name && placeKindOfName(facts.venue.name) !== 'festival') facts.venue.name = name
         facts.venue.kind ??= 'festival'
       } else if (startsWithAny(label, ['street', 'strasse', 'str', 'adresse', 'address'])) {
         // "Musterweg 11 // 12345 Musterstadt", "Musterweg 11, 12345 Musterstadt"
         const [street, rest] = stripRemark(value).split(/\s*(?:\/\/|,)\s*(?=\d{4,5}\s)/)
-        target.street ||= street
+        if (!value && section !== 'hotel' && !facts.venue.street) venueLines = 2
+        if (!isPlaceholder(street)) target.street ||= street
         const place = rest ? zipCity(rest) : null
         if (place && !target.zipCode) Object.assign(target, place)
       } else if (
@@ -882,7 +944,7 @@ export function extractShowFacts(
       )
       if (spec) {
         const label = keyOf(spec[1])
-        if (label === 'name') facts.venue.name ||= stripRemark(spec[2])
+        if (label === 'name') facts.venue.name ||= cleanPlaceName(spec[2])
         if (label === 'address') facts.venue.street ||= stripRemark(spec[2])
         if (/^(zip ?code city|plz ort)$/.test(label)) {
           const place = zipCity(spec[2])
@@ -1053,6 +1115,19 @@ export function extractShowFacts(
     if (split) parts.push(`${split[1]} % ${cleanText(split[2])}`)
     facts.deal.text = parts.join(' vs. ')
   }
+  // "POSTWEG" named as the place and as its street: a street, no name
+  if (facts.venue.name && keyOf(facts.venue.name) === keyOf(facts.venue.street))
+    facts.venue.name = ''
+  // a settlement or an invoice names the parties (the band, the promoter), never the venue
+  if (kind === 'settlement' || kind === 'invoice') {
+    Object.assign(facts.venue, { street: '', zipCode: '', city: '', countryCode: '' })
+    Object.assign(facts.hotel, { street: '', zipCode: '', city: '', countryCode: '' })
+  }
+  // "Tour Manager Beispielband …" is the band's own person
+  if (bandKey)
+    for (const contact of facts.contacts)
+      if (mentions(keyOf(contact.name), bandKey) || mentions(keyOf(contact.role), bandKey))
+        contact.side = 'band'
   settleAddress(facts.venue)
   settleAddress(facts.hotel)
   // "Auftrittsbeginn 18:50" … "Auftrittsende 19:35": the length of the show
@@ -1071,23 +1146,71 @@ export function extractShowFacts(
  * folder "Musterstadt - Seepark Biker Days" give "Biker Days". With no name in the files, the
  * folder's own when it names a festival ("… Open Air").
  */
-export function placeNameOf(found: string, folder: string): string {
+export function placeNameOf(found: string, folder: string, eventName = ''): string {
   const title =
     folder
       .split(/\s[-–]\s/)
       .pop()
       ?.trim() ?? ''
-  if (!found) return placeKindOfName(title) === 'festival' ? title : ''
   const tight = (value: string) => keyOf(value).replace(/ /g, '')
-  const want = tight(found)
-  const words = title.split(/\s+/).filter(Boolean)
-  for (let start = 0; start < words.length; start++)
-    for (let end = start + 1; end <= words.length; end++) {
-      const part = words.slice(start, end).join(' ')
-      if (tight(part) === want) return part
-    }
-  return found
+  /** The words of `text` that spell `want` (spaces aside), '' when none do */
+  const spelled = (text: string, want: string): string => {
+    // words only: a dash between town and name is none
+    const words = text.split(/\s+/).filter((word) => /[\p{L}\d]/u.test(word))
+    for (let start = 0; start < words.length; start++)
+      for (let end = start + 1; end <= words.length; end++) {
+        const part = words.slice(start, end).join(' ')
+        if (tight(part) === want) return part
+      }
+    return ''
+  }
+  // "Musterdorf Rock im Beispiel" and a contract's "Event: Rock im Beispiel": the event, as the
+  // folder spells it, beats a site a sheet named ("Acker Musterdorf")
+  const event = tight(eventName)
+  if (event.length >= 4) {
+    const part = spelled(folder, event)
+    if (part) return part
+  }
+  if (!found) return placeKindOfName(title) === 'festival' ? title : ''
+  return spelled(title, tight(found)) || found
 }
+
+/** Small words a title-case name keeps in lower case ("Rock am Beispielsee", "Just for Fun") */
+const NAME_SMALL_WORDS =
+  /^(am|an|im|in|auf|bei|zum|zur|der|die|das|den|dem|des|und|vom|von|for|of|and|the|at|on|de|la|le|du)$/
+
+/**
+ * A club's or festival's name as files write it, cleaned: no quotes, no remark in brackets, no
+ * label left in front ("FES TIVAL: …"), no edition number or year ("33. Muster Open Air 2024"),
+ * no address behind it. '' when it is no name: a placeholder, a lower-case phrase ("head of
+ * festival"), a sentence or a slogan.
+ */
+export function cleanPlaceName(raw: string): string {
+  let value = cleanText(raw.replace(/[„“”"«»]/g, ' ').replace(/\([^)]*\)/g, ' '))
+  value = value.replace(/^[\p{L} ]{1,24}:\s*/u, '')
+  if (/www\.|https?:|@|\.(de|com|at|ch|eu|net|org)\b/i.test(value)) return ''
+  value = value.replace(/^(?:\d\s?){1,3}\.\s*/, '').replace(/\s+(?:1\s?9|2\s?0)\s?\d\s?\d$/, '')
+  // "Muster Open Air, Musterweg, 12345 Musterstadt": the name before the address
+  value = value.split(/\s*,\s*/)[0] ?? ''
+  value = mendWords(value)
+    .replace(/[.,;:!-]+$/, '')
+    .trim()
+  if (!value || isPlaceholder(value) || /^\d{4,5}\s/.test(value)) return ''
+  if (value.split(' ').length > 7 || !/^[\p{Lu}\d]/u.test(value)) return ''
+  // "32", "FESTIVAL", "Location": no name
+  if (!/\p{L}/u.test(value) || value.length < 2) return ''
+  if (
+    /^(festival|open air|openair|club|venue|location|halle|stage|buehne|gelaende|konzert|event)$/.test(
+      keyOf(value)
+    )
+  )
+    return ''
+  return value
+}
+
+/** Title case: every word capitalised but the small ones ("Germany's biggest … Festival" is none) */
+const isTitleCase = (value: string): boolean =>
+  value.split(' ').every((word) => !/^\p{Ll}/u.test(word) || NAME_SMALL_WORDS.test(word))
 
 /** Two spellings of one name, apart from the spaces a PDF put in */
 export const sameName = (a: string, b: string): boolean =>
@@ -1107,19 +1230,34 @@ export function mergeShowFacts(
   }
   const sorted = [...items].sort((a, b) => rank(a.kind) - rank(b.kind))
   const merged = emptyFacts()
+  // the kind of file the venue's address was taken from
+  let mergedFrom: ShowFileKind | null = null
   for (const { kind, facts } of sorted) {
     for (const key of ITINERARY_KEYS)
       if (!merged.itinerary[key] && facts.itinerary[key])
         merged.itinerary[key] = facts.itinerary[key]
     merged.start ||= facts.start
-    // the address of a venue sheet beats the day sheet's (it is the venue's own)
-    const placeKeys = ['name', 'street', 'zipCode', 'city', 'countryCode'] as const
-    for (const key of placeKeys) {
-      if (kind === 'venue_spec' && facts.venue[key] && key !== 'name')
-        merged.venue[key] = facts.venue[key]
-      else merged.venue[key] ||= facts.venue[key]
-      merged.hotel[key] ||= facts.hotel[key]
+    // the address is one piece: street, zip, town and country come from the same file - a venue
+    // sheet's (the venue's own) beats the rest, else the first file with a street and a zip
+    const venueFacts = facts.venue
+    const complete = venueFacts.street !== '' && venueFacts.zipCode !== ''
+    const mergedComplete = merged.venue.street !== '' && merged.venue.zipCode !== ''
+    if (
+      (complete && (!mergedComplete || (kind === 'venue_spec' && mergedFrom !== 'venue_spec'))) ||
+      (!merged.venue.street && !merged.venue.zipCode)
+    ) {
+      if (complete || venueFacts.street || venueFacts.zipCode) {
+        merged.venue.street = venueFacts.street
+        merged.venue.zipCode = venueFacts.zipCode
+        merged.venue.city = venueFacts.city
+        merged.venue.countryCode = venueFacts.countryCode
+        mergedFrom = kind
+      }
     }
+    merged.venue.name ||= venueFacts.name
+    if (!merged.venue.city && !merged.venue.zipCode) merged.venue.city = venueFacts.city
+    for (const key of ['name', 'street', 'zipCode', 'city', 'countryCode'] as const)
+      merged.hotel[key] ||= facts.hotel[key]
     merged.venue.kind ??= facts.venue.kind
     merged.venue.capacity ??= facts.venue.capacity
     merged.venue.merchFeeCents ??= facts.venue.merchFeeCents
@@ -1151,8 +1289,11 @@ export function mergeShowFacts(
     }
     merged.invoice ??= facts.invoice
     merged.contractDate ||= facts.contractDate
+    merged.eventName ||= facts.eventName ?? ''
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
+  if (merged.venue.name && keyOf(merged.venue.name) === keyOf(merged.venue.street))
+    merged.venue.name = ''
   // values the service added after the files were read (a contract's town) get their country too
   settleAddress(merged.venue)
   settleAddress(merged.hotel)

@@ -8,7 +8,8 @@
 // its company, the own company); an invoice someone sent us is left alone.
 // Pure: no Electron, no database (tests/booking_archive.test.ts).
 import { cleanText } from '../import/normalize'
-import { keyOf, moneyOf, segmentsOf } from './extract'
+import { keyOf, mendWords, moneyOf, segmentsOf } from './extract'
+import { countryOfZip } from './address'
 
 export interface OwnInvoiceFact {
   /** "019-2023" */
@@ -115,6 +116,8 @@ export function extractOwnInvoice(
     if (!recipient.street && STREET.test(line)) recipient.street = line
   }
   if (!recipient.name) return null
+  recipient.name = mendWords(recipient.name)
+  recipient.countryCode ||= countryOfZip(recipient.zipCode)
 
   const number =
     /(?:rechnung|invoice)\s*(?:nr|nummer|no|number|#)\.?\s*:?\s*([A-Z0-9][A-Z0-9/-]*)/i.exec(
