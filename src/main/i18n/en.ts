@@ -7,6 +7,7 @@
 import { agencyEn } from './en/agencyEn'
 import { appointmentsEn } from './en/appointmentsEn'
 import { bandEn } from './en/bandEn'
+import { agreementEn } from './en/agreementEn'
 import { companyEn } from './en/companyEn'
 import { contactListEn } from './en/contactListEn'
 import { dataTableEn } from './en/dataTableEn'
@@ -124,6 +125,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...agencyEn,
   ...appointmentsEn,
   ...bandEn,
+  ...agreementEn,
   ...companyEn,
   ...contactListEn,
   ...dataTableEn,

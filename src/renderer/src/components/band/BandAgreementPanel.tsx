@@ -406,50 +406,56 @@ function NumberInput({
   )
 }
 
-function useNumber(kit: FieldKit) {
-  return (
+/** Renders a number field of the terms (a plain helper, not a hook or component) */
+function numberFields(kit: FieldKit) {
+  return function numberField(
     key: string,
     label: string,
     options: { suffix?: string; optional?: boolean; max?: number; hint?: string } = {}
-  ) => (
-    <Field id={`ba-${key}`} label={label} hint={options.hint}>
-      <NumberInput
-        id={`ba-${key}`}
-        value={(kit.terms as Record<string, unknown>)[key] as number | null}
-        onChange={(value) => kit.setTerm(key, value)}
-        onInvalid={(bad) => kit.markInvalid(key, bad)}
-        optional={options.optional}
-        max={options.max}
-        suffix={options.suffix}
-      />
-    </Field>
-  )
+  ) {
+    return (
+      <Field id={`ba-${key}`} label={label} hint={options.hint}>
+        <NumberInput
+          id={`ba-${key}`}
+          value={(kit.terms as Record<string, unknown>)[key] as number | null}
+          onChange={(value) => kit.setTerm(key, value)}
+          onInvalid={(bad) => kit.markInvalid(key, bad)}
+          optional={options.optional}
+          max={options.max}
+          suffix={options.suffix}
+        />
+      </Field>
+    )
+  }
 }
 
-function useText(kit: FieldKit) {
-  return (
+/** Renders a text field of the terms (a plain helper, not a hook or component) */
+function textFields(kit: FieldKit) {
+  return function textField(
     key: string,
     label: string,
     options: { rows?: number; hint?: string; type?: string } = {}
-  ) => (
-    <Field id={`ba-${key}`} label={label} hint={options.hint}>
-      {options.rows ? (
-        <Textarea
-          id={`ba-${key}`}
-          rows={options.rows}
-          value={String((kit.terms as Record<string, unknown>)[key] ?? '')}
-          onChange={(e) => kit.setTerm(key, e.target.value)}
-        />
-      ) : (
-        <Input
-          id={`ba-${key}`}
-          type={options.type}
-          value={String((kit.terms as Record<string, unknown>)[key] ?? '')}
-          onChange={(e) => kit.setTerm(key, e.target.value)}
-        />
-      )}
-    </Field>
-  )
+  ) {
+    return (
+      <Field id={`ba-${key}`} label={label} hint={options.hint}>
+        {options.rows ? (
+          <Textarea
+            id={`ba-${key}`}
+            rows={options.rows}
+            value={String((kit.terms as Record<string, unknown>)[key] ?? '')}
+            onChange={(e) => kit.setTerm(key, e.target.value)}
+          />
+        ) : (
+          <Input
+            id={`ba-${key}`}
+            type={options.type}
+            value={String((kit.terms as Record<string, unknown>)[key] ?? '')}
+            onChange={(e) => kit.setTerm(key, e.target.value)}
+          />
+        )}
+      </Field>
+    )
+  }
 }
 
 function Check({
@@ -483,8 +489,8 @@ function Check({
 
 function PublishingFields(kit: FieldKit & { terms: PublishingTerms }) {
   const { terms, setTerm } = kit
-  const number = useNumber(kit)
-  const text = useText(kit)
+  const number = numberFields(kit)
+  const text = textFields(kit)
 
   const setWork = (index: number, key: string, value: string) =>
     setTerm(
@@ -749,8 +755,8 @@ function TierEditor({
 
 function LabelFields(kit: FieldKit & { terms: LabelTerms }) {
   const { terms, setTerm, markInvalid } = kit
-  const number = useNumber(kit)
-  const text = useText(kit)
+  const number = numberFields(kit)
+  const text = textFields(kit)
   const royalties = (tiers: LabelRoyaltyTier[]) =>
     tiers.map((tier) => ({ from: tier.from, value: tier.percent }))
 
