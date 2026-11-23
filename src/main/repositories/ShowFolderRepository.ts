@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
+import { sqlTimestamp } from '../db/timestamps'
 import { keyOf, type PlaceKind } from '../showfolder/extract'
 import type { ShowFolderCurrent } from '../showfolder/plan'
 
@@ -220,8 +221,18 @@ export class ShowFolderRepository {
    */
   ownNames(eventId: number): string[] {
     const event = this.event(eventId)
-    if (!event) return []
-    const names = [event.bandName ?? '']
+    return event ? this.ownNamesOfBand(event.bandId) : []
+  }
+
+  /** The same for a band, before its event exists (archive import) */
+  ownNamesOfBand(bandId: number): string[] {
+    const band = db
+      .select({ name: schema.band.name, companyId: schema.band.company_id })
+      .from(schema.band)
+      .where(eq(schema.band.id, bandId))
+      .get()
+    if (!band) return []
+    const names = [band.name]
     const companies = db
       .select({
         id: schema.company.id,
@@ -231,8 +242,54 @@ export class ShowFolderRepository {
       .from(schema.company)
       .all()
     for (const company of companies)
-      if (company.own || company.id === event.bandCompanyId) names.push(company.name)
+      if (company.own || company.id === band.companyId) names.push(company.name)
     return names.filter(Boolean)
+  }
+
+  /** A club or festival by its name as keyOf compares it */
+  venueByName(name: string): { id: number; name: string; kind: PlaceKind } | null {
+    const key = keyOf(name)
+    if (!key) return null
+    const row = db
+      .select({ id: schema.venue.id, name: schema.venue.name, kind: schema.venue.kind })
+      .from(schema.venue)
+      .all()
+      .find((venue) => keyOf(venue.name) === key)
+    return row ? { ...row, kind: placeKind(row.kind) } : null
+  }
+
+  /** The band's event on a day (the first, when there are two) */
+  eventOn(bandId: number, date: string): { id: number; name: string } | null {
+    return (
+      db
+        .select({ id: schema.deal_memo.id, name: schema.deal_memo.name })
+        .from(schema.deal_memo)
+        .where(and(eq(schema.deal_memo.band_id, bandId), eq(schema.deal_memo.date, date)))
+        .orderBy(schema.deal_memo.id)
+        .get() ?? null
+    )
+  }
+
+  /** A new event from the archive: confirmed, archived when it lies in the past */
+  createArchivedEvent(input: {
+    bandId: number
+    name: string
+    date: string
+    notes: string
+    archived: boolean
+  }): number {
+    return db
+      .insert(schema.deal_memo)
+      .values({
+        name: input.name,
+        date: input.date,
+        band_id: input.bandId,
+        status: 'confirmed',
+        notes: input.notes,
+        archived_at: input.archived ? sqlTimestamp() : null
+      })
+      .returning({ id: schema.deal_memo.id })
+      .get().id
   }
 
   setInvoiceCompany(eventId: number, companyId: number): void {

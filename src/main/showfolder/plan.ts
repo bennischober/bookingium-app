@@ -191,7 +191,14 @@ function splitName(name: string): { firstName: string; lastName: string } {
 export function planSuggestions(
   facts: ShowFacts,
   current: ShowFolderCurrent,
-  sources: { sheet: string; venue: string; mail: string; contract: string; settlement: string }
+  sources: {
+    sheet: string
+    venue: string
+    mail: string
+    contract: string
+    settlement: string
+    invoice?: string
+  }
 ): ShowFolderSuggestionDto[] {
   const out: ShowFolderSuggestionDto[] = []
   const add = (
@@ -350,6 +357,26 @@ export function planSuggestions(
   const companySuggestion = promoterSuggestion(facts, current, sources.contract || sources.mail)
   if (companySuggestion) out.push(companySuggestion)
 
+  // #262 archive import: the recipient of our invoice is the event's billing company
+  const billing = invoiceCompanySuggestion(facts, current, sources.invoice ?? '')
+  if (billing && billing.action.type === 'company') {
+    const promoterAction = companySuggestion?.action
+    if (
+      promoterAction?.type === 'company' &&
+      keyOf(promoterAction.name) === keyOf(billing.action.name)
+    ) {
+      // the same company: one suggestion enters it as promoter and billing company
+      promoterAction.invoiceCompany = true
+      promoterAction.vatId ||= billing.action.vatId
+      promoterAction.countryCode ||= billing.action.countryCode
+      promoterAction.street ||= billing.action.street
+      promoterAction.streetNumber ||= billing.action.streetNumber
+      promoterAction.zipCode ||= billing.action.zipCode
+      promoterAction.city ||= billing.action.city
+      companySuggestion!.label += ' (auch als Rechnungsempfänger)'
+    } else out.push(billing)
+  }
+
   // the hotel
   const hotel = facts.hotel
   if (hotel.name && (!current.hotel || keyOf(current.hotel.name) !== keyOf(hotel.name))) {
@@ -507,6 +534,60 @@ function promoterSuggestion(
       countryCode: '',
       taxNumber: promoter.taxNumber,
       kskNumber: promoter.kskNumber
+    }
+  }
+}
+
+/** Create or pick the company our invoice went to and enter it as the event's billing company */
+function invoiceCompanySuggestion(
+  facts: ShowFacts,
+  current: ShowFolderCurrent,
+  source: string
+): ShowFolderSuggestionDto | null {
+  const recipient = facts.invoice?.recipient
+  if (!recipient?.name) return null
+  const known =
+    current.invoiceCompany && keyOf(current.invoiceCompany.name) === keyOf(recipient.name)
+      ? current.invoiceCompany
+      : current.invoiceCompanyByName
+  // already the event's billing company: nothing to set (gaps are filled with the promoter)
+  if (known && current.invoiceCompany?.id === known.id && !recipient.vatId) return null
+  const { street, streetNumber } = splitStreet(recipient.street)
+  const name = known?.name ?? recipient.name
+  return {
+    id: 'company.invoice',
+    group: 'Vertragspartner',
+    label: known
+      ? `Rechnungsempfänger ${name} eintragen (schon angelegt)`
+      : `Rechnungsempfänger ${name} anlegen und eintragen`,
+    current: current.invoiceCompany?.name ?? '',
+    proposed: [
+      name,
+      [recipient.street, `${recipient.zipCode} ${recipient.city}`.trim()]
+        .filter(Boolean)
+        .join(', '),
+      recipient.vatId ? `USt-IdNr. ${recipient.vatId}` : ''
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    include: current.invoiceCompany === null || current.invoiceCompany.id === known?.id,
+    source,
+    action: {
+      type: 'company',
+      companyId: known?.id ?? null,
+      name,
+      street,
+      streetNumber,
+      zipCode: recipient.zipCode,
+      city: recipient.city,
+      email: '',
+      phone: '',
+      vatId: recipient.vatId,
+      lopro: false,
+      invoiceCompany: true,
+      countryCode: recipient.countryCode,
+      taxNumber: '',
+      kskNumber: ''
     }
   }
 }

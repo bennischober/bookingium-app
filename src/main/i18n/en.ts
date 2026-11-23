@@ -5,6 +5,7 @@
 // code uses any more, and on placeholders that differ between key and translation.
 
 import { agencyEn } from './en/agencyEn'
+import { archiveEn } from './en/archiveEn'
 import { appointmentsEn } from './en/appointmentsEn'
 import { bandEn } from './en/bandEn'
 import { companyEn } from './en/companyEn'
@@ -122,6 +123,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...COMMON,
   ...SETTINGS,
   ...agencyEn,
+  ...archiveEn,
   ...appointmentsEn,
   ...bandEn,
   ...companyEn,

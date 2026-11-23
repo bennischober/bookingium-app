@@ -92,12 +92,15 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
     }
     const vat = /ust|vat|steuer/.test(label) || /ust-?id|vat/i.test(line) ? VAT.exec(line) : null
     if (vat && !fact.vatId) fact.vatId = vat[0].replace(/[\s-]/g, '')
-    if (/kuenstlersozialkass|\bksk\b/.test(label) && !fact.kskNumber) {
-      const number = /[0-9][0-9A-Z]{5,}/.exec(value.replace(/\s/g, ''))
+    // long labels ("Künstlersozialkassen-Nummer des örtlichen Veranstalters: …") are no pair
+    const head = pair ? label : keyOf(line.split(':')[0])
+    const tail = pair ? value : line.includes(':') ? line.slice(line.lastIndexOf(':') + 1) : ''
+    if (/kuenstlersozialkass|\bksk\b/.test(head) && !fact.kskNumber) {
+      const number = /[0-9][0-9A-Z]{5,}/.exec(tail.replace(/\s/g, ''))
       if (number) fact.kskNumber = number[0]
     }
-    if (/steuernummer|steuer nr/.test(label) && !vat && !fact.taxNumber) {
-      const number = /\d[\d/ ]{5,}\d/.exec(value)
+    if (/steuernummer|steuer nr/.test(head) && !vat && !fact.taxNumber) {
+      const number = /\d[\d/ ]{5,}\d/.exec(tail)
       if (number) fact.taxNumber = number[0].replace(/\s/g, '')
     }
     if (!pair && !fact.zipCode) {
@@ -251,8 +254,7 @@ export function extractContractEvent(text: string): ContractEventFact | null {
     if (!value) return
     if (/datum|date/.test(key) && !fact.date) {
       const match = DATE.exec(value)
-      if (match)
-        fact.date = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+      if (match) fact.date = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
     } else if (/^(event|veranstaltung|event veranstaltung|veranstaltungsname)$/.test(key))
       fact.eventName ||= value
     else if (/^(veranstaltungsort|ort|place|city)$/.test(key) && !fact.zipCode) {

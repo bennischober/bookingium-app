@@ -107,6 +107,8 @@ export interface ShowFacts {
   promoter: ContractPartyFact | null
   /** An invoice we wrote for the show (ownInvoice.ts); null when there is none */
   invoice: OwnInvoiceFact | null
+  /** The show's date as a contract names it (ISO), '' when none does */
+  contractDate: string
 }
 
 export interface ShowFileInput {
@@ -137,7 +139,8 @@ export const emptyFacts = (): ShowFacts => ({
   deal: { guaranteeCents: null, text: '' },
   contacts: [],
   promoter: null,
-  invoice: null
+  invoice: null,
+  contractDate: ''
 })
 
 // ----------------------------------------
@@ -320,7 +323,8 @@ const baseOf = (name: string): string => name.replace(/\.[^.]+$/, '').toLowerCas
 
 const TRAVEL_NAME =
   /reisepass|passport|\besta\b|\bvisa\b|visum|boarding|bordkarte|flugticket|\bflight\b|buchungsbestaetigung|booking confirmation|passenger|passagier|cruise ticket|ticket contract|crew daten|\bcbp\b|customs|\bzoll\b/
-const TRAVEL_DIR = /flugticket|\bflug\b|cruise tickets?|passenger|passport|reisepass|\bvisa\b|\besta\b/
+const TRAVEL_DIR =
+  /flugticket|\bflug\b|cruise tickets?|passenger|passport|reisepass|\bvisa\b|\besta\b/
 
 /**
  * What a file is, from its name and text. `siblings` are the other names of the folder: a Pages
@@ -351,8 +355,7 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
   if (FESTIVAL_SHEET.test(name)) return 'venue_spec'
   if (/licht|light|stage ?plot|buehnenplan|lichtplot|floor ?plan/.test(name)) return 'stage_plot'
   if (/vertrag|contract|agreement|gastspiel|\boffer\b|angebot/.test(name)) return 'contract'
-  if (/^rechnung|\brechnung\b|\binvoice\b/.test(name) || /^rechnung (nr|nummer)/.test(text))
-    return 'invoice'
+  if (/\brechnung\b|\binvoice\b/.test(name) || /^rechnung (nr|nummer)/.test(text)) return 'invoice'
   if (/rider/.test(name)) return 'rider'
   if (/abrechnung|settlement/.test(name)) return 'settlement'
   if (has(/haltverbot|verkehrsbehoerdlich|anordnung|genehmigung|permit|ordnungsamt/))
@@ -790,6 +793,7 @@ export function mergeShowFacts(
     merged.deal.text ||= facts.deal.text
     merged.promoter ??= facts.promoter
     merged.invoice ??= facts.invoice
+    merged.contractDate ||= facts.contractDate
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
   // a name that says festival ("… Open Air") decides; a club-like name ("Halle …") only fills in,

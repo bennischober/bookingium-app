@@ -57,7 +57,10 @@ const isoDate = (match: RegExpExecArray): string => {
 }
 
 /** The invoice, when `text` is one of ours; null otherwise */
-export function extractOwnInvoice(text: string, ownNames: readonly string[]): OwnInvoiceFact | null {
+export function extractOwnInvoice(
+  text: string,
+  ownNames: readonly string[]
+): OwnInvoiceFact | null {
   if (!INVOICE_HEAD.test(text.slice(0, 600))) return null
   const own = ownNames.map(keyOf).filter((key) => key.length >= 3)
   if (own.length === 0) return null
@@ -86,7 +89,9 @@ export function extractOwnInvoice(text: string, ownNames: readonly string[]): Ow
   for (const line of block) {
     const key = keyOf(line)
     if (/^(z h|z hd|zh|zu handen|attn|c o)\b/.test(key)) {
-      recipient.contactName = cleanText(line.replace(/^(z\.?\s?h(d)?\.?|zu handen|attn\.?|c\/o)\s*/i, ''))
+      recipient.contactName = cleanText(
+        line.replace(/^(z\.?\s?h(d)?\.?|zu handen|attn\.?|c\/o)\s*/i, '')
+      )
       continue
     }
     if (/^(kennwort|betreff|projekt|reference|ref)\b/.test(key)) continue
@@ -103,14 +108,18 @@ export function extractOwnInvoice(text: string, ownNames: readonly string[]): Ow
       continue
     }
     if (!recipient.name) {
-      recipient.name = line
+      // PDF fonts space punctuation apart: "Beispiel e.V ." → "Beispiel e.V."
+      recipient.name = line.replace(/\s+([.,])/g, '$1')
       continue
     }
     if (!recipient.street && STREET.test(line)) recipient.street = line
   }
   if (!recipient.name) return null
 
-  const number = /(?:rechnung|invoice)\s*(?:nr|nummer|no|number|#)\.?\s*:?\s*([A-Z0-9][A-Z0-9/-]*)/i.exec(text)?.[1] ?? ''
+  const number =
+    /(?:rechnung|invoice)\s*(?:nr|nummer|no|number|#)\.?\s*:?\s*([A-Z0-9][A-Z0-9/-]*)/i.exec(
+      text
+    )?.[1] ?? ''
   // the invoice date: the last date-only line (the letter's date stands alone)
   let date = ''
   for (const segment of segments) {
@@ -122,7 +131,7 @@ export function extractOwnInvoice(text: string, ownNames: readonly string[]): Ow
       if (!pattern.test(keyOf(segment))) continue
       const amounts = [...segment.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*€?/g)]
       const last = amounts[amounts.length - 1]
-      if (last) return moneyOf(last[1])
+      if (last) return moneyOf(`${last[1]} €`)
     }
     return null
   }
