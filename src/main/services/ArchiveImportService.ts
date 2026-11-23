@@ -2,7 +2,9 @@ import { inject, injectable } from 'tsyringe'
 import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { ShowFolderService, expandPaths } from './ShowFolderService'
 import { scheduleCalendarUpdate } from './CalendarFeedService'
-import { findShowFolders } from '../archive/showFolders'
+import { findShowFolders, parseShowFolderName } from '../archive/showFolders'
+import { placeNameOf } from '../showfolder/extract'
+import { basename } from 'path'
 import { localIsoDate } from './OpenItemsService'
 import type {
   ArchiveApplyInput,
@@ -16,6 +18,9 @@ import type {
 /** A booking folder is read this deep and up to this many files (a cruise has dozens) */
 const ARCHIVE_DEPTH = 5
 const ARCHIVE_MAX_FILES = 200
+
+/** The show as its folder is named ("2023-08-12 Musterdorf - Muster Open Air" → the part after the date) */
+const folderTitle = (path: string): string => parseShowFolderName(basename(path)).title
 
 /** The kinds of files the archive import files when asked to: the contract and our invoice */
 const FILED_KINDS = new Set(['contract', 'invoice'])
@@ -62,6 +67,7 @@ export class ArchiveImportService {
       this.repository.ownNamesOfBand(input.bandId)
     )
     const count = (kind: string) => read.filter((file) => file.kind === kind).length
+    facts.venue.name = placeNameOf(facts.venue.name, folderTitle(input.path))
     const place = facts.venue.name ? this.repository.venueByName(facts.venue.name) : null
     const named = (name: string | undefined) =>
       name ? { name, known: this.repository.companyByName(name) !== null } : null
@@ -108,7 +114,7 @@ export class ArchiveImportService {
     }
     const plan = await this.showFolders.analyze(
       { eventId, paths: [input.path], documentId: null },
-      { depth: ARCHIVE_DEPTH, maxFiles: ARCHIVE_MAX_FILES }
+      { depth: ARCHIVE_DEPTH, maxFiles: ARCHIVE_MAX_FILES, placeName: folderTitle(input.path) }
     )
     // only what fills something empty: a stored value is never changed by an old folder
     const actions = plan.suggestions

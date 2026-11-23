@@ -313,6 +313,7 @@ export class ShowFolderRepository {
       countryCode: string
       email: string
       phone: string
+      website?: string
       vatId: string
       taxNumber: string
       kskNumber: string
@@ -354,6 +355,7 @@ export class ShowFolderRepository {
       const contactValues: Partial<typeof schema.contact.$inferInsert> = {}
       if (!contact?.email && fields.email) contactValues.email = fields.email
       if (!contact?.phone && fields.phone) contactValues.phone = fields.phone
+      if (!contact?.homepage && fields.website) contactValues.homepage = fields.website
       if (Object.keys(contactValues).length > 0) {
         if (contact)
           tx.update(schema.contact)

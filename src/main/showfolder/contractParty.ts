@@ -5,7 +5,7 @@
 // (tests/contract_party.test.ts).
 
 import { cleanText } from '../import/normalize'
-import { emailOf, keyOf, segmentsOf } from './extract'
+import { emailOf, joinSpacedDomain, keyOf, mendWords, segmentsOf } from './extract'
 
 export interface ContractPartyFact {
   name: string
@@ -21,6 +21,8 @@ export interface ContractPartyFact {
   /** Künstlersozialkasse number and tax number, as a German contract form asks for them */
   kskNumber: string
   taxNumber: string
+  /** The promoter's website, as an info sheet names it ("Website: …") */
+  website: string
 }
 
 const PHONE = /(?:\+|\b0)\d[\d ./()-]{5,}\d/
@@ -63,22 +65,27 @@ const isCompanyLine = (segment: string): boolean =>
 function readBlock(fact: ContractPartyFact, lines: string[], links: readonly string[]): void {
   for (const line of lines) {
     const pair = labelOf(line)
-    const label = pair?.[0] ?? ''
+    // labels without the spaces a PDF puts in ("Adress e", "Firmenn ame")
+    const label = (pair?.[0] ?? '').replace(/ /g, '')
     const value = pair?.[1] ?? line
     if (
-      /vertreten durch|represented by|gesch(ae|ä)ftsf(ue|ü)hr|inhaber|ansprechpartner|contact|kontakt/.test(
+      /vertreten durch|represented by|gesch(ae|ä)ftsf(ue|ü)hr|inhaber|ansprechp|contact|kontakt/.test(
         keyOf(line)
       )
     ) {
-      const role = /ansprechpartner|contact|kontakt/.test(keyOf(line))
+      const role = /ansprechp|contact|kontakt/.test(keyOf(line))
         ? 'Ansprechpartner'
         : /gesch/.test(keyOf(line))
           ? 'Geschäftsführung'
           : 'Vertretung'
       const raw = pair
         ? value
-        : line.replace(/^.*?(vertreten durch|represented by)\s*(den |die |the )?/i, '')
-      const name = personName(raw.replace(/\b(geschaeftsfuehrer|geschäftsführer|inhaber)\b/gi, ''))
+        : line
+            .replace(/^.*?(vertreten durch|represented by)\s*(den |die |the )?/i, '')
+            .replace(/^\s*(ansprechp(artner)?(in)?|kontakt|contact)\.?\s*/i, '')
+      const name = personName(
+        mendWords(raw.replace(/\b(geschaeftsfuehrer|geschäftsführer|inhaber)\b/gi, ''))
+      )
       if (name && !fact.contactName) {
         fact.contactName = name
         fact.contactRole = role
@@ -135,7 +142,8 @@ const empty = (): ContractPartyFact => ({
   contactName: '',
   contactRole: '',
   kskNumber: '',
-  taxNumber: ''
+  taxNumber: '',
+  website: ''
 })
 
 /**
@@ -179,10 +187,12 @@ export function extractContractParty(
         continue
       }
       if (nextPair && (PROMOTER.test(nextPair[0]) || ARTIST_SIDE.test(nextPair[0]))) break
+      // the show's site and date follow the promoter on many forms: not its address
+      if (nextPair && SHEET_STOP.test(nextPair[0])) break
       lines.push(line)
     }
     if (!name || name.length > 120) continue
-    const fact = { ...empty(), name: cleanText(name) }
+    const fact = { ...empty(), name: mendWords(name) }
     readBlock(fact, lines, links)
     return fact
   }
@@ -287,4 +297,153 @@ export function extractContractEvent(text: string): ContractEventFact | null {
     if (pair && pair[1]) assign(segments[index].split(':')[0], pair[1])
   }
   return fact.date || fact.eventName || fact.city ? fact : null
+}
+
+/** Labels of a sheet that start something other than the promoter: the site, the show, the act */
+const SHEET_STOP =
+  /^(veranstaltungsort|spielort|spielstaette|location|venue|gelaende|festivalgelaende|auftrittsort|datum|veranstaltungsdatum|auftrittsdatum|bandname|buehne|stage|zeitplan|zeiten|anreise|anfahrt|hotel|technik|techniker|tontechniker|production|produktion)/
+
+/** "Adresse des Vereins", "Anschrift des Veranstalters", "Postanschrift" */
+const ADDRESS_HEAD =
+  /^(?:adresse|anschrift|postanschrift|vereinsadresse|vereinsanschrift)(?: (?:des|der) (?:vereins|veranstalters|veranstalter|veranstalterin))?\b/
+
+/** The promoter's own label, without spaces: "Veranstalter:", "Promoter:", "Ausrichter:" */
+const SHEET_PROMOTER =
+  /^(veranstalter|veranstalterin|promoter|organi[sz]er|ausrichter|ausrichtung)$/
+
+/** A heading of the promoter's block: "Veranstalter Details:", "Promoter / Veranstalter:" */
+const SHEET_PROMOTER_HEAD =
+  /^(veranstalter|promoter|organi[sz]er)(details|daten|infos?|kontakt|veranstalter|promoter)?$/
+
+/** The company's name inside that block: "Firmenname:", "Firma:" */
+const SHEET_COMPANY = /^(firmenname|firma|company|companyname|name|veranstalter|promoter)$/
+
+/** The person in charge on a sheet */
+const SHEET_PERSON =
+  /^(hauptverantwortliche?r?|verantwortliche?r?|ansprechpartner(in)?|ansprechp|kontakt|contact|leitung|festivalleitung|veranstaltungsleitung|veranstaltername|vertretendurch)$/
+
+const tightLabel = (segment: string): [string, string] | null => {
+  const pair = labelOf(segment)
+  return pair ? [pair[0].replace(/ /g, ''), pair[1]] : null
+}
+
+/** "Erika Muster & Max Beispiel" → the first one's name */
+const firstPerson = (value: string): string =>
+  personName(mendWords(value.split(/\s(?:&|und|and|\/|[-–])\s|,/)[0] ?? ''))
+
+/**
+ * The promoter of a festival's or club's info sheet: "Veranstalter: Muster e.V.", a block under
+ * "Veranstalter:" or "Veranstalter Details:" (company name, address, phone, e-mail), the
+ * promoter's own address under "Adresse des Vereins" (never the site's address under
+ * "Veranstaltungsort"), the sheet's e-mail, website and phone and the person in charge. Null
+ * when no label names one, or the label is a person's contact line ("Veranstalter: Erika Muster
+ * – 0151 …").
+ */
+export function extractSheetPromoter(
+  text: string,
+  links: readonly string[] = []
+): ContractPartyFact | null {
+  const segments = segmentsOf(text).filter(Boolean)
+  let at = -1
+  let name = ''
+  for (let index = 0; index < segments.length && at < 0; index++) {
+    const own = keyOf(segments[index]).replace(/ /g, '')
+    const pair =
+      tightLabel(segments[index]) ??
+      (/^(veranstalter|promoter|organi[sz]er)(infos?|details|daten)$/.test(own)
+        ? ([own, ''] as [string, string])
+        : null)
+    if (!pair) continue
+    const [label, value] = pair
+    if (value && SHEET_PROMOTER.test(label)) {
+      at = index
+      name = value
+    } else if (!value && SHEET_PROMOTER_HEAD.test(label)) {
+      // the block: a "Firmenname:" in it, else its first line (a person running the show)
+      for (let next = index + 1; next < Math.min(segments.length, index + 4); next++) {
+        const inner = tightLabel(segments[next])
+        if (inner && inner[1] && SHEET_COMPANY.test(inner[0])) {
+          at = next
+          name = inner[1]
+          break
+        }
+      }
+      if (at < 0 && index + 1 < segments.length && !labelOf(segments[index + 1])) {
+        const first = segments[index + 1]
+        if (!PHONE.test(first) && !/@/.test(first) && !/\d/.test(first)) {
+          at = index + 1
+          name = first
+        }
+      }
+    }
+  }
+  if (at < 0) return null
+  if (PHONE.test(name) || /@/.test(name) || name.length > 120) return null
+  const fact = { ...empty(), name: mendWords(name) }
+
+  // the block below the name, up to the next part of the sheet
+  const block: string[] = []
+  for (let next = at + 1; next < segments.length && block.length < 7; next++) {
+    const segment = segments[next]
+    const pair = tightLabel(segment)
+    if (SHEET_STOP.test(pair?.[0] ?? keyOf(segment).replace(/ /g, ''))) break
+    // another heading ("Venue Details:", "Techniker:") ends the block
+    if (pair && !pair[1] && !SHEET_PERSON.test(pair[0])) break
+    block.push(segment)
+  }
+  readBlock(fact, block, links)
+  if (!fact.contactName) {
+    const person = block.find((line) => !labelOf(line) && personName(line) !== '')
+    if (person && keyOf(person) !== keyOf(fact.name)) {
+      fact.contactName = personName(mendWords(person))
+      fact.contactRole = 'Ansprechpartner'
+    }
+  }
+
+  // the promoter's own address block
+  const head = segments.findIndex((segment) => {
+    const key = keyOf(segment)
+    return ADDRESS_HEAD.test(key) && !/gelaende|veranstaltungsort|rechnung|anfahrt/.test(key)
+  })
+  if (head >= 0 && !fact.street) {
+    const segment = segments[head]
+    const own = cleanText(
+      segment.includes(':')
+        ? segment.slice(segment.indexOf(':') + 1)
+        : segment.replace(
+            /^\s*(?:adresse|anschrift|postanschrift|vereinsadresse|vereinsanschrift)(?:\s+(?:des|der)\s+\S+)?/i,
+            ''
+          )
+    )
+    // "Muster e.V." under the address is the promoter's name without the town behind it
+    if (own && keyOf(fact.name).startsWith(keyOf(own)) && keyOf(own).length >= 4) fact.name = own
+    const lines: string[] = []
+    if (own && keyOf(own) !== keyOf(fact.name)) lines.push(own)
+    for (let next = head + 1; next < segments.length && lines.length < 3; next++) {
+      if (labelOf(segments[next])) break
+      lines.push(segments[next])
+    }
+    readBlock(fact, lines, links)
+  }
+
+  for (const segment of segments) {
+    const pair = tightLabel(segment)
+    if (!pair || !pair[1]) continue
+    const [label, value] = pair
+    if (/^(email|mail|emailadresse)$/.test(label) && !fact.email) fact.email = emailOf(value, links)
+    else if (/^(website|webseite|homepage|internet|web|url)$/.test(label) && !fact.website) {
+      const site = joinSpacedDomain(value).split(/\s/)[0] ?? ''
+      if (/\.[a-z]{2,}/i.test(site)) fact.website = site
+    } else if (/^(tel|telefon|phone|fon|mobil|handy)$/.test(label) && !fact.phone) {
+      const phone = PHONE.exec(value)?.[0]
+      if (phone) fact.phone = cleanText(phone)
+    } else if (SHEET_PERSON.test(label) && !fact.contactName) {
+      const person = firstPerson(value)
+      if (person && keyOf(person) !== keyOf(fact.name)) {
+        fact.contactName = person
+        fact.contactRole = /ansprech|kontakt|contact/.test(label) ? 'Ansprechpartner' : 'Leitung'
+      }
+    }
+  }
+  return fact
 }

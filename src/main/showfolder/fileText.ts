@@ -69,10 +69,26 @@ export function docxText(bytes: Buffer): FileText {
     const entries = zipEntries(bytes)
     const xml = zipPart(bytes, entries, 'word/document.xml')?.toString('utf-8')
     if (!xml) return NONE
-    // only the text runs (<w:t>) are taken, paragraph by paragraph; markup is never "stripped",
-    // so nothing of it can be left behind in the text
-    const paragraphs = xml
+    const text = docxBody(xml)
+    const links = [...xml.matchAll(/mailto:[^"<\s]+/g)].map((match) => match[0])
+    return { text, links }
+  } catch {
+    return NONE
+  }
+}
+
+/**
+ * The text of word/document.xml. Only the text runs (<w:t>) are taken, paragraph by paragraph;
+ * markup is never "stripped", so nothing of it can be left behind in the text. A table row is one
+ * line: a label cell beside its value reads "Label: value" (info sheets laid out as tables), other
+ * rows keep their cells apart by spaces, as a PDF does ("18:35 – 19:50   Beispielband").
+ */
+function docxBody(xml: string): string {
+  const paragraphs = (part: string): string[] =>
+    part
       .split(/<\/w:p>/)
+      // what follows the last paragraph is none
+      .filter((piece, at, all) => at < all.length - 1 || /<w:t[\s>]/.test(piece))
       .map((paragraph) =>
         [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:(tab|br)\s*\/>/g)]
           .map((match) =>
@@ -80,12 +96,39 @@ export function docxText(bytes: Buffer): FileText {
           )
           .join('')
       )
-    const text = paragraphs.join('\n')
-    const links = [...xml.matchAll(/mailto:[^"<\s]+/g)].map((match) => match[0])
-    return { text, links }
-  } catch {
-    return NONE
+      .map((line) => line.trim())
+  const lines: string[] = []
+  // tables are not nested in the sheets read here; a nested one is read as plain paragraphs
+  for (const [index, part] of xml.split(/<w:tbl>|<\/w:tbl>/).entries()) {
+    if (index % 2 === 0) {
+      lines.push(...paragraphs(part))
+      continue
+    }
+    for (const row of part.split(/<\/w:tr>/)) {
+      const cells = row
+        .split(/<\/w:tc>/)
+        .map((cell) => paragraphs(cell).filter(Boolean))
+        .filter((cell, at, all) => cell.length > 0 || at < all.length - 1)
+      const filled = cells.filter((cell) => cell.length > 0)
+      if (filled.length === 0) continue
+      const [first, second] = cells
+      const isLabel =
+        cells.length === 2 &&
+        first.length === 1 &&
+        first[0].length <= 40 &&
+        /\p{L}/u.test(first[0]) &&
+        !/^\d/.test(first[0]) &&
+        !/:$/.test(first[0])
+      if (isLabel && second.length > 0) {
+        lines.push(`${first[0]}: ${second[0]}`, ...second.slice(1))
+      } else if (isLabel) {
+        lines.push(first[0])
+      } else {
+        lines.push(filled.map((cell) => cell.join(' ')).join('   '))
+      }
+    }
   }
+  return lines.join('\n')
 }
 
 /** A Pages document: the preview PDF it carries (older versions), else nothing */

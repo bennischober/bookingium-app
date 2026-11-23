@@ -104,7 +104,8 @@ export const ShowFolderAction = z.discriminatedUnion('type', [
     invoiceCompany: z.boolean().default(false),
     countryCode: z.string().default(''),
     taxNumber: z.string().default(''),
-    kskNumber: z.string().default('')
+    kskNumber: z.string().default(''),
+    website: z.string().default('')
   }),
   z.object({ type: z.literal('settlement'), path: z.string().min(1) })
 ])

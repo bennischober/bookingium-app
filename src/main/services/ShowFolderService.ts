@@ -12,7 +12,11 @@ import { VenueService } from './VenueService'
 import { CompanyService } from './CompanyService'
 import { CreateCompanyInput } from '../api/schemas/company.schema'
 import { DocumentLinkService } from './DocumentLinkService'
-import { extractContractEvent, extractContractParty } from '../showfolder/contractParty'
+import {
+  extractContractEvent,
+  extractContractParty,
+  extractSheetPromoter
+} from '../showfolder/contractParty'
 import type { DocumentOwnerType } from '../api/schemas/document.schema'
 import { ItineraryService } from './ItineraryService'
 import { SettlementService } from './SettlementService'
@@ -23,7 +27,10 @@ import {
   classifyShowFile,
   emptyFacts,
   extractShowFacts,
+  mendWords,
   mergeShowFacts,
+  placeNameOf,
+  sameName,
   type ShowFacts,
   type ShowFileInput,
   type ShowFileKind
@@ -197,13 +204,30 @@ export class ShowFolderService {
         // a contract form names the show in a column of labels and values
         const show = extractContractEvent(file.text)
         if (show) facts.contractDate = show.date
-        if (show?.eventName && !facts.venue.name) {
-          facts.venue.name = show.eventName
+        // "Veranstaltungsort: Musterstadt" is the town; the event's own name names the place
+        const townOnly =
+          show !== null && facts.venue.name !== '' && sameName(facts.venue.name, show.city)
+        if (show?.eventName && (!facts.venue.name || townOnly)) {
+          facts.venue.name = mendWords(show.eventName)
           facts.venue.zipCode ||= show.zipCode
           facts.venue.city ||= show.city
           if (show.location) facts.venue.notes.push(`Gelände: ${show.location}`)
         }
         facts.promoter = extractContractParty(file.text, file.links)
+        const party = facts.promoter
+        if (party?.contactName && (party.email || party.phone))
+          facts.contacts.push({
+            role: party.contactRole,
+            name: party.contactName,
+            email: party.email,
+            phone: party.phone,
+            side: 'promoter',
+            onSite: false
+          })
+      }
+      // a festival's or club's info sheet names its promoter ("Veranstalter: …") too
+      if (kind === 'daysheet' || kind === 'venue_spec' || kind === 'other') {
+        facts.promoter = extractSheetPromoter(file.text, file.links)
         const party = facts.promoter
         if (party?.contactName && (party.email || party.phone))
           facts.contacts.push({
@@ -226,8 +250,11 @@ export class ShowFolderService {
 
   async analyze(
     input: ShowFolderAnalyzeInput,
-    /** #262 archive import: a whole booking folder, read deeper */
-    options: { depth?: number; maxFiles?: number } = {}
+    /**
+     * #262 archive import: a whole booking folder, read deeper; `placeName` is the festival as
+     * the folder is named, which spells a name the files tore apart
+     */
+    options: { depth?: number; maxFiles?: number; placeName?: string } = {}
   ): Promise<ShowFolderPlanDto> {
     // callers inside main pass the input unparsed, without the default
     const documentId = input.documentId ?? null
@@ -247,6 +274,7 @@ export class ShowFolderService {
       this.repository.ownNames(input.eventId),
       documentId !== null
     )
+    if (options.placeName) facts.venue.name = placeNameOf(facts.venue.name, options.placeName)
     const firstOf = (...kinds: ShowFileKind[]) =>
       read.find((file) => kinds.includes(file.kind))?.name ?? ''
     const sources = {
@@ -391,7 +419,7 @@ export class ShowFolderService {
                 country: '',
                 countryCode: ''
               },
-              contact: { email, phone: action.phone, mobilePhone: '', homepage: '' }
+              contact: { email, phone: action.phone, mobilePhone: '', homepage: action.website }
             })
           )
           id = created.id
@@ -405,6 +433,7 @@ export class ShowFolderService {
           countryCode: action.countryCode,
           email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(action.email) ? action.email : '',
           phone: action.phone,
+          website: action.website,
           vatId: action.vatId,
           taxNumber: action.taxNumber,
           kskNumber: action.kskNumber

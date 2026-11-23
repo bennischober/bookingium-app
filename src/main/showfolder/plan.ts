@@ -512,7 +512,8 @@ function promoterSuggestion(
       [promoter.street, `${promoter.zipCode} ${promoter.city}`.trim()].filter(Boolean).join(', '),
       promoter.vatId ? `USt-IdNr. ${promoter.vatId}` : '',
       promoter.email,
-      promoter.phone
+      promoter.phone,
+      promoter.website
     ]
       .filter(Boolean)
       .join(' · '),
@@ -533,7 +534,8 @@ function promoterSuggestion(
       invoiceCompany: false,
       countryCode: '',
       taxNumber: promoter.taxNumber,
-      kskNumber: promoter.kskNumber
+      kskNumber: promoter.kskNumber,
+      website: promoter.website
     }
   }
 }
@@ -587,7 +589,8 @@ function invoiceCompanySuggestion(
       invoiceCompany: true,
       countryCode: recipient.countryCode,
       taxNumber: '',
-      kskNumber: ''
+      kskNumber: '',
+      website: ''
     }
   }
 }
