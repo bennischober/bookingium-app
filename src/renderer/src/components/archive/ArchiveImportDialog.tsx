@@ -57,6 +57,10 @@ export function ArchiveImportDialog({
   const [bandId, setBandId] = useState<number | null>(null)
   const [root, setRoot] = useState('')
   const [fileDocuments, setFileDocuments] = useState(true)
+  // #262: correct the shows an earlier archive import entered
+  const [correct, setCorrect] = useState(false)
+  const correctable = (row: Pick<Row, 'eventId' | 'archiveEvent'>) =>
+    correct && row.eventId !== null && row.archiveEvent
   const [rows, setRows] = useState<Row[]>([])
   const [applying, setApplying] = useState(false)
   const cancelled = useRef(false)
@@ -108,7 +112,11 @@ export function ArchiveImportDialog({
                     preview: result,
                     useDate: item.useDate || result.contractDate,
                     include: item.include || (!item.useDate && result.contractDate !== ''),
-                    eventTitle: item.eventName ?? (result.place.name || item.eventTitle)
+                    // a show being corrected gets the name the files give, not its old one
+                    eventTitle:
+                      item.eventName !== null && !correctable(item)
+                        ? item.eventName
+                        : result.place.name || item.eventTitle
                   }
             )
           )
@@ -129,7 +137,10 @@ export function ArchiveImportDialog({
         ...show,
         include: show.date !== '',
         useDate: show.date,
-        eventTitle: show.eventName ?? (show.title || show.folderName),
+        eventTitle:
+          show.eventName !== null && !correctable(show)
+            ? show.eventName
+            : show.title || show.folderName,
         preview: null,
         previewError: null,
         result: null,
@@ -154,7 +165,8 @@ export function ArchiveImportDialog({
           endDate: row.endDate,
           eventName: row.eventTitle.trim() || row.folderName,
           eventId: row.eventId,
-          fileDocuments
+          fileDocuments,
+          correct
         })
         patch(row.path, { result })
       } catch (error) {
@@ -238,6 +250,19 @@ export function ArchiveImportDialog({
                     )}
               </p>
             </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <Switch id="archive-correct" checked={correct} onCheckedChange={setCorrect} />
+                <Label htmlFor="archive-correct">{t('Früher eingelesene Shows korrigieren')}</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {correct
+                  ? t(
+                      'Shows, die das Booking-Archiv schon einmal angelegt hat, werden neu gelesen: Festival, Veranstalter und Rechnungsfirma werden neu zugeordnet, wenn der Import sie angelegt hat, Name, Tagesablauf und Deal ersetzt. Was danach nichts mehr nutzt, wird entfernt. Eigene Einträge bleiben, auch Änderungen von Hand an diesen Shows werden aber überschrieben.'
+                    )
+                  : t('Bestehende Shows werden nur in leeren Feldern ergänzt.')}
+              </p>
+            </div>
           </div>
         )}
 
@@ -261,6 +286,7 @@ export function ArchiveImportDialog({
                   <ArchiveRow
                     key={row.path}
                     row={row}
+                    correcting={correctable(row)}
                     disabled={step === 'done' || applying}
                     onChange={(change) => patch(row.path, change)}
                   />
@@ -276,6 +302,11 @@ export function ArchiveImportDialog({
               done: done.length,
               created: done.filter((row) => row.result?.createdEvent).length
             })}
+            {done.some((row) => row.result?.corrected) &&
+              ` ${t('{{count}} korrigiert, {{removed}} alte Einträge entfernt.', {
+                count: done.filter((row) => row.result?.corrected).length,
+                removed: done.reduce((sum, row) => sum + (row.result?.removed ?? 0), 0)
+              })}`}
             {failed.length > 0 && ` ${t('{{count}} nicht übernommen.', { count: failed.length })}`}
           </p>
         )}
@@ -324,10 +355,13 @@ export function ArchiveImportDialog({
 
 function ArchiveRow({
   row,
+  correcting,
   disabled,
   onChange
 }: {
   row: Row
+  /** An earlier archive show that is corrected: its name can be changed again */
+  correcting: boolean
   disabled: boolean
   onChange: (change: Partial<Row>) => void
 }) {
@@ -368,7 +402,7 @@ function ArchiveRow({
         )}
       </td>
       <td className="px-2 py-2">
-        {row.eventId ? (
+        {row.eventId && !correcting ? (
           <span>{row.eventName}</span>
         ) : (
           <Input
@@ -380,7 +414,8 @@ function ArchiveRow({
           />
         )}
         <p className="mt-1 truncate text-xs text-muted-foreground" title={row.path}>
-          {row.eventId ? t('vorhanden') : t('wird angelegt')} · {row.folderName}
+          {correcting ? t('wird korrigiert') : row.eventId ? t('vorhanden') : t('wird angelegt')} ·{' '}
+          {row.folderName}
         </p>
         {row.result && (
           <p className="mt-1 flex items-center gap-1 text-xs text-green-700 dark:text-green-400">

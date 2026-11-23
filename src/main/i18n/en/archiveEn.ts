@@ -40,6 +40,14 @@ export const archiveEn: Record<string, string> = {
   '{{done}} Shows übernommen, davon {{created}} Events neu angelegt.':
     '{{done}} shows taken over, {{created}} of them as new events.',
   '{{count}} nicht übernommen.': '{{count}} not taken over.',
+  'Früher eingelesene Shows korrigieren': 'Correct shows read before',
+  'Shows, die das Booking-Archiv schon einmal angelegt hat, werden neu gelesen: Festival, Veranstalter und Rechnungsfirma werden neu zugeordnet, wenn der Import sie angelegt hat, Name, Tagesablauf und Deal ersetzt. Was danach nichts mehr nutzt, wird entfernt. Eigene Einträge bleiben, auch Änderungen von Hand an diesen Shows werden aber überschrieben.':
+    'Shows the booking archive created before are read again: festival, promoter and billing company are assigned anew when the import created them, name, schedule and deal are replaced. What nothing uses any more is removed. Your own records stay, but manual changes to these shows are overwritten too.',
+  'Bestehende Shows werden nur in leeren Feldern ergänzt.':
+    'Existing shows only get their empty fields filled.',
+  'wird korrigiert': 'will be corrected',
+  '{{count}} korrigiert, {{removed}} alte Einträge entfernt.':
+    '{{count}} corrected, {{removed}} old records removed.',
   // show file kinds (showfolder/extract.ts)
   'Reiseunterlagen (nicht abgelegt)': 'Travel papers (not filed)'
 }

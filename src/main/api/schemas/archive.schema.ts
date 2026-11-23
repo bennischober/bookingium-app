@@ -22,7 +22,9 @@ export const ArchiveShowDto = z.object({
   title: z.string(),
   /** The band's event on that date, null when one is to be created */
   eventId: z.number().nullable(),
-  eventName: z.string().nullable()
+  eventName: z.string().nullable(),
+  /** That event was created by an earlier archive import (it can be corrected) */
+  archiveEvent: z.boolean().default(false)
 })
 export type ArchiveShowDto = z.infer<typeof ArchiveShowDto>
 
@@ -66,7 +68,13 @@ export const ArchiveApplyInput = z.object({
   eventName: z.string().trim().min(1).max(200),
   eventId: z.number().int().positive().nullable(),
   /** File the contracts and invoices; false: only read the data */
-  fileDocuments: z.boolean()
+  fileDocuments: z.boolean(),
+  /**
+   * Correct what an earlier archive import entered: on an event the archive import created, its
+   * club, promoter and billing company are found anew when the import made them, its own values
+   * are replaced, and records the import made that nothing uses any more are removed
+   */
+  correct: z.boolean().default(false)
 })
 export type ArchiveApplyInput = z.infer<typeof ArchiveApplyInput>
 
@@ -75,6 +83,10 @@ export const ArchiveApplyResultDto = z.object({
   createdEvent: z.boolean(),
   changes: z.number(),
   documents: z.number(),
-  problems: z.array(z.string())
+  problems: z.array(z.string()),
+  /** The event was an archive event and was corrected */
+  corrected: z.boolean().default(false),
+  /** Clubs, festivals and companies the import had made that nothing uses any more, removed */
+  removed: z.number().default(0)
 })
 export type ArchiveApplyResultDto = z.infer<typeof ArchiveApplyResultDto>
