@@ -379,5 +379,43 @@ export const settingsEn: Record<string, string> = {
   'Installierte Version:': 'Installed version:',
   'Zuletzt gesucht:': 'Last checked:',
   'Nach Updates suchen': 'Check for updates',
-  'Jetzt neu starten und installieren': 'Restart and install now'
+  'Jetzt neu starten und installieren': 'Restart and install now',
+  Mitarbeiterzugang: 'Staff access',
+  'Sperrt auf diesem Computer die firmeninternen Bereiche: DATEV-Übergabe, eigene Firma und Rechnungseinstellungen, Import von Listen, Sicherung und Wiederherstellung sowie die Einrichtung des Abgleichs. Gilt nur auf diesem Computer.':
+    'Locks the company-internal areas on this computer: DATEV hand-over, own company and invoice settings, importing lists, backup and restore, and setting up the sync. Applies to this computer only.',
+  'Aus: Auf diesem Computer ist alles zugänglich.':
+    'Off: everything is accessible on this computer.',
+  'Mitarbeiterzugang einschalten…': 'Switch on staff access…',
+  'Eingeschaltet: Die firmeninternen Bereiche sind gesperrt.':
+    'On: the company-internal areas are locked.',
+  PIN: 'PIN',
+  Entsperren: 'Unlock',
+  'Ohne PIN kann jeder an diesem Computer die Bereiche entsperren.':
+    'Without a PIN, anyone at this computer can unlock the areas.',
+  'Entsperrt, bis Sie wieder sperren oder Bookingium beenden.':
+    'Unlocked until you lock again or quit Bookingium.',
+  'Wieder sperren': 'Lock again',
+  'PIN ändern…': 'Change PIN…',
+  'PIN festlegen…': 'Set PIN…',
+  'PIN entfernen': 'Remove PIN',
+  'Mitarbeiterzugang ausschalten': 'Switch off staff access',
+  'Die Daten selbst liegen weiterhin vollständig auf diesem Computer. Einzelne Verträge und Abrechnungen vor Mitarbeitern zu verbergen folgt in einem späteren Schritt.':
+    'The data itself is still entirely on this computer. Hiding individual contracts and settlements from staff follows in a later step.',
+  'Mitarbeiterzugang ausgeschaltet': 'Staff access switched off',
+  'Mitarbeiterzugang eingeschaltet': 'Staff access switched on',
+  'PIN entfernt': 'PIN removed',
+  'PIN gespeichert': 'PIN saved',
+  'Mitarbeiterzugang einschalten': 'Switch on staff access',
+  'PIN festlegen': 'Set PIN',
+  'Die firmeninternen Bereiche werden sofort gesperrt. Mit einer PIN kann nur entsperren, wer sie kennt; ohne PIN genügt ein Klick.':
+    'The company-internal areas are locked right away. With a PIN, only those who know it can unlock; without one, a click is enough.',
+  'Zum Entsperren fragt Bookingium ab jetzt nach dieser PIN.':
+    'From now on, Bookingium asks for this PIN to unlock.',
+  'PIN (optional, 4 bis 12 Ziffern)': 'PIN (optional, 4 to 12 digits)',
+  'PIN (4 bis 12 Ziffern)': 'PIN (4 to 12 digits)',
+  'PIN wiederholen': 'Repeat PIN',
+  Einschalten: 'Switch on',
+  'Bitte eine PIN eingeben.': 'Please enter a PIN.',
+  'Die PIN besteht aus 4 bis 12 Ziffern.': 'The PIN consists of 4 to 12 digits.',
+  'Die beiden PINs stimmen nicht überein.': 'The two PINs do not match.'
 }

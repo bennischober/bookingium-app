@@ -22,6 +22,7 @@ import { invoiceEmail, type Lang } from '../mail/invoiceEmail'
 import { invoiceComposes, type DocumentCompose } from '../mail/invoiceSend'
 import { mailClient } from '../mailclient/MailClientService'
 import { DatevService } from '../services/DatevService'
+import { AccessService } from '../services/AccessService'
 import { ContractService } from '../services/ContractService'
 import { DealMemoService } from '../services/DealMemoService'
 import { localIsoDate } from '../services/OpenItemsService'
@@ -152,6 +153,13 @@ export function registerDocumentMailIpc(): void {
       }: { invoiceId: number; fileName: string; category?: DatevCategory }
     ) => {
       try {
+        // #262: DATEV is company-internal, closed in staff access
+        if (!container.resolve(AccessService).isAdmin()) {
+          return {
+            success: false,
+            error: 'Die DATEV-Übergabe ist im Mitarbeiterzugang gesperrt.'
+          }
+        }
         if (!DatevCategory.safeParse(category).success) {
           return { success: false, error: 'Unbekannte DATEV-Belegkategorie' }
         }

@@ -9,8 +9,11 @@ import type {
   SyncJoinDto,
   SyncStatusDto
 } from '../schemas/sync.schema'
+import { adminOnly } from '../access'
 
 const t = initTRPC.create()
+// #262: setting up and leaving the sync is closed in staff access; status and "sync now" stay open
+const adminProcedure = t.procedure.use(t.middleware(adminOnly))
 const service = container.resolve(SyncService)
 
 const badRequest = (error: unknown, fallback: string) =>
@@ -29,7 +32,7 @@ export const syncRouter = t.router({
   brief: t.procedure.query((): Promise<SyncBriefDto> => service.brief()),
 
   /** Asks for the shared folder and says whether it starts a new sync or joins one */
-  chooseFolder: t.procedure.mutation(async (): Promise<SyncFolderDto | null> => {
+  chooseFolder: adminProcedure.mutation(async (): Promise<SyncFolderDto | null> => {
     const owner = BrowserWindow.getFocusedWindow()
     const options: Electron.OpenDialogOptions = {
       title: 'Gemeinsamen Ordner für den Abgleich wählen (z. B. in OneDrive oder Google Drive)',
@@ -48,16 +51,18 @@ export const syncRouter = t.router({
   }),
 
   /** The folder chosen before (the switch turned on again): set up there or join */
-  inspectFolder: t.procedure.input(Folder).mutation(async ({ input }): Promise<SyncFolderDto> => {
-    try {
-      return await service.inspectFolder(input)
-    } catch (error) {
-      throw badRequest(error, 'Ordner kann nicht verwendet werden')
-    }
-  }),
+  inspectFolder: adminProcedure
+    .input(Folder)
+    .mutation(async ({ input }): Promise<SyncFolderDto> => {
+      try {
+        return await service.inspectFolder(input)
+      } catch (error) {
+        throw badRequest(error, 'Ordner kann nicht verwendet werden')
+      }
+    }),
 
   /** The first computer */
-  setUp: t.procedure.input(Folder).mutation(async ({ input }): Promise<SyncStatusDto> => {
+  setUp: adminProcedure.input(Folder).mutation(async ({ input }): Promise<SyncStatusDto> => {
     try {
       return await service.setUp(input)
     } catch (error) {
@@ -66,7 +71,7 @@ export const syncRouter = t.router({
   }),
 
   /** A further computer: merges, backs up the current state, then restarts the app */
-  join: t.procedure.input(Folder).mutation(async ({ input }): Promise<SyncJoinDto> => {
+  join: adminProcedure.input(Folder).mutation(async ({ input }): Promise<SyncJoinDto> => {
     let result: SyncJoinDto
     try {
       result = await service.join(input)
@@ -86,10 +91,10 @@ export const syncRouter = t.router({
     return service.status()
   }),
 
-  leave: t.procedure.mutation((): Promise<SyncStatusDto> => service.leave()),
+  leave: adminProcedure.mutation((): Promise<SyncStatusDto> => service.leave()),
 
   // #243: an earlier entry of a computer that never wrote a change
-  removeDevice: t.procedure
+  removeDevice: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ input }): Promise<SyncStatusDto> => {
       try {
@@ -99,7 +104,7 @@ export const syncRouter = t.router({
       }
     }),
 
-  openFolder: t.procedure.mutation(async () => {
+  openFolder: adminProcedure.mutation(async () => {
     const { folder } = service.readState()
     if (!folder) throw badRequest(null, 'Kein Ordner gewählt')
     const error = await shell.openPath(folder)

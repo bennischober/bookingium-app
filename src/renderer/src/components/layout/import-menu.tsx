@@ -6,6 +6,7 @@ import { ROUTES } from '@/lib/routing'
 import { TourImportDialog } from '@/components/tour-import/TourImportDialog'
 import { AgencyImportDialog } from '@/components/agency/AgencyImportDialog'
 import { ImportDialog } from '@/components/import/ImportDialog'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { TERMS } from '../../../../main/api/terms'
 import type { ImportTarget } from '../../../../main/api/schemas/import.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
@@ -46,6 +47,8 @@ const itemClass =
 export function ImportMenu() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [open, setOpen] = useState<Open>(null)
+  // #262: the lists (CSV import) are closed in staff access; tour dates and agency bookings stay
+  const { locked } = useStaffAccess()
   const choose = (next: Open): void => {
     setMenuOpen(false)
     setOpen(next)
@@ -88,8 +91,8 @@ export function ImportMenu() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
               {t('Agenturbuchungen')}
             </button>
-            <div className="my-1 h-px bg-border" aria-hidden />
-            {LIST_ITEMS.map((item) => (
+            {!locked && <div className="my-1 h-px bg-border" aria-hidden />}
+            {(locked ? [] : LIST_ITEMS).map((item) => (
               <button
                 key={item.label}
                 type="button"

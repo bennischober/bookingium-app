@@ -17,6 +17,7 @@ import { StatusLine } from '@/components/detail/CompactParts'
 import { FollowUpsCard } from '@/components/follow-ups/FollowUpsCard'
 import { OverdueInvoicesCard } from '@/components/invoice/OverdueInvoicesCard'
 import { DatevPendingCard } from '@/components/invoice/DatevPendingCard'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { ReceiptPendingCard } from '@/components/receipts/ReceiptPendingCard'
 import { OpenItemsCard } from '@/components/open-items/OpenItemsCard'
 import { t } from '../../../main/i18n/translate'
@@ -33,6 +34,7 @@ function formatDate(iso: string): string {
  */
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { locked: staffLocked } = useStaffAccess()
   const openInvoice = useOpenInvoice()
 
   // One SQL-computed stats call (single IPC round-trip, tiny payload)
@@ -86,7 +88,8 @@ export default function DashboardPage() {
       <OpenItemsCard />
       <FollowUpsCard />
       <OverdueInvoicesCard />
-      <DatevPendingCard />
+      {/* #262: DATEV is company-internal */}
+      {!staffLocked && <DatevPendingCard />}
       <ReceiptPendingCard />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

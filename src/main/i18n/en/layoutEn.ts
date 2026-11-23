@@ -25,5 +25,10 @@ export const layoutEn: Record<string, string> = {
   '{{pendingChanges}} Änderungen gehen gleich an die anderen Computer':
     '{{pendingChanges}} changes are about to go to the other computers',
   'Abgeglichen {{sinceText}}': 'Synced {{sinceText}}',
-  'Noch nicht abgeglichen': 'Not synced yet'
+  'Noch nicht abgeglichen': 'Not synced yet',
+  'Mitarbeiterzugang: firmeninterne Bereiche gesperrt':
+    'Staff access: company-internal areas locked',
+  Entsperrt: 'Unlocked',
+  'Mitarbeiterzugang entsperrt – zum Sperren in die Einstellungen':
+    'Staff access unlocked – go to settings to lock'
 }

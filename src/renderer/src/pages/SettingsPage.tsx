@@ -18,7 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { isSettingsTab, SETTINGS_TAB_LABELS, SETTINGS_TABS } from '@/components/settings/constants'
+import {
+  isSettingsTab,
+  SETTINGS_TAB_LABELS,
+  SETTINGS_TABS,
+  STAFF_LOCKED_TABS
+} from '@/components/settings/constants'
 import {
   Select,
   SelectContent,
@@ -46,6 +51,8 @@ import { NotificationsCard } from '@/components/settings/NotificationsCard'
 import { BackupCard } from '@/components/settings/BackupCard'
 import { SyncCard } from '@/components/settings/SyncCard'
 import { UpdatesCard } from '@/components/settings/UpdatesCard'
+import { StaffAccessCard } from '@/components/settings/StaffAccessCard'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
 import { t, uiLocale } from '../../../main/i18n/translate'
@@ -55,6 +62,8 @@ const NONE = 'none'
 /** Default own company and default country */
 function GeneralCard() {
   const utils = trpcReact.useUtils()
+  // #262: the own company is company-internal
+  const { locked } = useStaffAccess()
   const settings = trpcReact.settings.get.useQuery()
 
   const updateSettings = trpcReact.settings.update.useMutation({
@@ -75,7 +84,7 @@ function GeneralCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <OwnCompanySettings />
+        {!locked && <OwnCompanySettings />}
 
         <div className="space-y-2">
           <Label htmlFor="settings-country">{t('Standardland')}</Label>
@@ -337,6 +346,8 @@ function DataCard() {
     onSuccess: showExport,
     onError: (error) => toast.error(t('Export fehlgeschlagen'), { description: error.message })
   })
+  // #262: import and backup are closed in staff access
+  const { locked } = useStaffAccess()
   const createBackup = trpcReact.settings.createBackup.useMutation({
     onSuccess: (result) => {
       if (result.canceled || !result.folder) return
@@ -358,17 +369,21 @@ function DataCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-medium">{t('Import')}</p>
-            <p className="text-sm text-muted-foreground">
-              {t('CSV-Listen übernehmen, etwa aus Excel; vorhandene Einträge werden nur ergänzt.')}
-            </p>
+        {!locked && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-medium">{t('Import')}</p>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  'CSV-Listen übernehmen, etwa aus Excel; vorhandene Einträge werden nur ergänzt.'
+                )}
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> {t('Daten importieren…')}
+            </Button>
           </div>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4" /> {t('Daten importieren…')}
-          </Button>
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -389,24 +404,26 @@ function DataCard() {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-medium">{t('Sicherung')}</p>
-            <p className="text-sm text-muted-foreground">
-              {t(
-                'Kopiert Datenbank und Dokumente einmalig in einen neuen Ordner. Solche Sicherungen werden nie automatisch gelöscht.'
-              )}
-            </p>
+        {!locked && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-medium">{t('Sicherung')}</p>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  'Kopiert Datenbank und Dokumente einmalig in einen neuen Ordner. Solche Sicherungen werden nie automatisch gelöscht.'
+                )}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => createBackup.mutate()}
+              disabled={createBackup.isPending}
+            >
+              <DatabaseBackup className="h-4 w-4" />
+              {createBackup.isPending ? t('Wird gesichert…') : t('Sicherung erstellen…')}
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => createBackup.mutate()}
-            disabled={createBackup.isPending}
-          >
-            <DatabaseBackup className="h-4 w-4" />
-            {createBackup.isPending ? t('Wird gesichert…') : t('Sicherung erstellen…')}
-          </Button>
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -438,7 +455,7 @@ function DataCard() {
         </div>
       </CardContent>
 
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      {!locked && <ImportDialog open={importOpen} onOpenChange={setImportOpen} />}
     </Card>
   )
 }
@@ -446,7 +463,10 @@ function DataCard() {
 export default function SettingsPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { tab?: string }
-  const activeTab = isSettingsTab(search.tab) ? search.tab : 'general'
+  // #262: in staff access the Rechnungen tab is company-internal and left out
+  const { locked } = useStaffAccess()
+  const tabs = SETTINGS_TABS.filter((tab) => !(locked && STAFF_LOCKED_TABS.includes(tab)))
+  const activeTab = isSettingsTab(search.tab) && tabs.includes(search.tab) ? search.tab : 'general'
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-8 p-6">
@@ -471,7 +491,7 @@ export default function SettingsPage() {
       >
         {/* Tabs wrap onto a second row in narrow windows */}
         <TabsList className="mb-6 h-auto max-w-full flex-wrap justify-start">
-          {SETTINGS_TABS.map((tab) => (
+          {tabs.map((tab) => (
             <TabsTrigger key={tab} value={tab}>
               {SETTINGS_TAB_LABELS[tab]}
             </TabsTrigger>
@@ -484,14 +504,17 @@ export default function SettingsPage() {
           <TipsCard />
           <MapPreviewSwitchCard />
           <NotificationsCard />
+          <StaffAccessCard />
         </TabsContent>
-        <TabsContent value="invoices" className="space-y-6">
-          <InvoiceNumberingCard />
-          <CustomerNumberCard />
-          <EInvoiceCard />
-          <PaymentQrCard />
-          <DatevCard />
-        </TabsContent>
+        {!locked && (
+          <TabsContent value="invoices" className="space-y-6">
+            <InvoiceNumberingCard />
+            <CustomerNumberCard />
+            <EInvoiceCard />
+            <PaymentQrCard />
+            <DatevCard />
+          </TabsContent>
+        )}
         <TabsContent value="email" className="space-y-6">
           <InvoiceEmailCard />
           <MailClientSwitchCard />
@@ -505,8 +528,8 @@ export default function SettingsPage() {
         <TabsContent value="data" className="space-y-6">
           <DataCard />
           <DuplicatesCard />
-          <SyncCard />
-          <BackupCard />
+          {!locked && <SyncCard />}
+          {!locked && <BackupCard />}
           <UpdatesCard />
         </TabsContent>
       </Tabs>
