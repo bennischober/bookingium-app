@@ -291,6 +291,148 @@ describe('archive import', () => {
   })
 })
 
+/** A contract that an earlier import read wrongly: the town as the festival, a scan's promoter */
+const correctedContract = `KONZERTVERTRAG vom 23.11.2025
+zwischen: Muster Band - Muster, Beispiel GbR, Musterweg 11, 12345 Musterstadt
+- nachfolgend „Artist“ genannt -
+und dem örtlichen Veranstalter: Beispiel 1920 Musterdorf e.V., Beispielweg 4c
+54321 Musterdorf
+vertreten durch: Erika Muster
+- nachfolgend „ÖV“ genannt -
+1. Engagement
+Veranstaltungsdatum: 03.02.26
+Event/Veranstaltung: Rocknacht Musterdorf
+Veranstaltungsort: 54321 Musterdorf
+Location: tba
+eine Garantiezahlung in Höhe von 3.300,00 Euro zzgl. 7% MwSt.
+`
+
+describe('archive import: correcting an earlier import', () => {
+  let root: string
+  let bandId: number
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'bookingium-archive-correct-'))
+    setStorageBasePath(join(root, 'storage'))
+    const own = db.insert(schema.company).values({ name: 'Muster Band GbR' }).returning().get()
+    bandId = db
+      .insert(schema.band)
+      .values({ name: 'Muster Band', company_id: own.id })
+      .returning()
+      .get().id
+    const show = join(root, 'Archiv', '2026-02-03 Musterdorf Rocknacht')
+    mkdirSync(show, { recursive: true })
+    writeFileSync(join(show, '2026-02-03 Vertrag Muster Band.txt'), correctedContract)
+  })
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+  /** What an earlier archive import left: its event, a wrong festival and a wrong company */
+  function earlierImport(options: { ownVenue?: boolean } = {}) {
+    const event = db
+      .insert(schema.deal_memo)
+      .values({
+        name: '54321 Musterdorf',
+        date: '2026-02-03',
+        band_id: bandId,
+        status: 'confirmed',
+        guarantee_cents: 100,
+        notes: 'Aus dem Booking-Archiv eingelesen.'
+      })
+      .returning()
+      .get()
+    const venue = db
+      .insert(schema.venue)
+      .values({
+        name: options.ownVenue ? 'Eigene Halle Musterdorf' : '54321 Musterdorf',
+        kind: 'festival',
+        // a club the user made long before is never the import's
+        ...(options.ownVenue ? { created_at: '2020-01-01 00:00:00' } : {})
+      })
+      .returning()
+      .get()
+    const company = db
+      .insert(schema.company)
+      .values({ name: 'örtlichen', notes: 'Angelegt aus dem Vertrag.' })
+      .returning()
+      .get()
+    db.update(schema.deal_memo)
+      .set({ venue_id: venue.id, lopro_company_id: company.id })
+      .where(eq(schema.deal_memo.id, event.id))
+      .run()
+    return { eventId: event.id, venueId: venue.id, companyId: company.id }
+  }
+
+  const apply = async (eventId: number, correct: boolean) => {
+    const service = container.resolve(ArchiveImportService)
+    const [show] = await service.scan({ root: join(root, 'Archiv'), bandId })
+    expect(show).toMatchObject({ eventId, archiveEvent: true })
+    return service.apply({
+      path: show.path,
+      bandId,
+      date: show.date,
+      endDate: '',
+      eventName: 'Rocknacht Musterdorf',
+      eventId,
+      fileDocuments: false,
+      correct
+    })
+  }
+
+  const eventRow = (id: number) =>
+    db.select().from(schema.deal_memo).where(eq(schema.deal_memo.id, id)).get()!
+
+  it('without the option only fills empty fields', async () => {
+    const earlier = earlierImport()
+    const result = await apply(earlier.eventId, false)
+    expect(result).toMatchObject({ corrected: false, removed: 0 })
+    expect(eventRow(earlier.eventId)).toMatchObject({
+      name: '54321 Musterdorf',
+      venue_id: earlier.venueId,
+      lopro_company_id: earlier.companyId,
+      guarantee_cents: 100
+    })
+    // tidy up for the next case
+    db.delete(schema.deal_memo).where(eq(schema.deal_memo.id, earlier.eventId)).run()
+    db.delete(schema.venue).where(eq(schema.venue.id, earlier.venueId)).run()
+    db.delete(schema.company).where(eq(schema.company.id, earlier.companyId)).run()
+  })
+
+  it("replaces the import's festival, promoter, name and deal and removes what nothing uses", async () => {
+    const earlier = earlierImport()
+    const result = await apply(earlier.eventId, true)
+    expect(result).toMatchObject({ corrected: true, removed: 2, problems: [] })
+    const event = eventRow(earlier.eventId)
+    expect(event).toMatchObject({ name: 'Rocknacht Musterdorf', guarantee_cents: 330000 })
+    const venue = db.select().from(schema.venue).where(eq(schema.venue.id, event.venue_id!)).get()!
+    expect(venue.name).toBe('Rocknacht Musterdorf')
+    const promoter = db
+      .select()
+      .from(schema.company)
+      .where(eq(schema.company.id, event.lopro_company_id!))
+      .get()!
+    expect(promoter.name).toBe('Beispiel 1920 Musterdorf e.V.')
+    // the wrong records are gone
+    expect(
+      db.select().from(schema.venue).where(eq(schema.venue.id, earlier.venueId)).get()
+    ).toBeUndefined()
+    expect(
+      db.select().from(schema.company).where(eq(schema.company.id, earlier.companyId)).get()
+    ).toBeUndefined()
+    db.delete(schema.deal_memo).where(eq(schema.deal_memo.id, earlier.eventId)).run()
+  })
+
+  it("keeps the user's own club on the event and never removes it", async () => {
+    const earlier = earlierImport({ ownVenue: true })
+    await apply(earlier.eventId, true)
+    const event = eventRow(earlier.eventId)
+    expect(event.venue_id).toBe(earlier.venueId)
+    expect(
+      db.select().from(schema.venue).where(eq(schema.venue.id, earlier.venueId)).get()
+    ).toBeDefined()
+  })
+})
+
 /** A zip with one uncompressed part, as Word writes it in essence */
 function storedZip(name: string, content: string): Buffer {
   const data = Buffer.from(content, 'utf-8')

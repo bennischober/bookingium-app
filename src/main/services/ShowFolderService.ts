@@ -5,7 +5,7 @@ import { createHash } from 'crypto'
 import { fileText } from '../showfolder/fileText'
 import { countryNameOf, isPlaceholder } from '../showfolder/address'
 import { extractOwnInvoice } from '../showfolder/ownInvoice'
-import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
+import { IMPORT_COMPANY_NOTE, ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { DocumentService } from './DocumentService'
 import { PersonService } from './PersonService'
 import { HotelService } from './HotelService'
@@ -260,12 +260,20 @@ export class ShowFolderService {
 
   async analyze(
     input: ShowFolderAnalyzeInput,
+    options: { depth?: number; maxFiles?: number; placeName?: string } = {}
+  ): Promise<ShowFolderPlanDto> {
+    return (await this.analyzeWithFacts(input, options)).plan
+  }
+
+  /** The plan and the facts it was made from (the archive import corrects records with them) */
+  async analyzeWithFacts(
+    input: ShowFolderAnalyzeInput,
     /**
      * #262 archive import: a whole booking folder, read deeper; `placeName` is the festival as
      * the folder is named, which spells a name the files tore apart
      */
     options: { depth?: number; maxFiles?: number; placeName?: string } = {}
-  ): Promise<ShowFolderPlanDto> {
+  ): Promise<{ plan: ShowFolderPlanDto; facts: ShowFacts }> {
     // callers inside main pass the input unparsed, without the default
     const documentId = input.documentId ?? null
     const event = this.repository.event(input.eventId)
@@ -334,7 +342,7 @@ export class ShowFolderService {
     if (suggestions.length === 0)
       hints.push('In den Dateien steht nichts, was nicht schon beim Event gespeichert ist.')
 
-    return {
+    const plan: ShowFolderPlanDto = {
       eventId: input.eventId,
       documentId,
       bandName,
@@ -345,6 +353,7 @@ export class ShowFolderService {
       suggestions,
       hints
     }
+    return { plan, facts }
   }
 
   /**
@@ -419,7 +428,7 @@ export class ShowFolderService {
             CreateCompanyInput.parse({
               name: action.name,
               vatId: action.vatId,
-              notes: 'Angelegt aus dem Vertrag.',
+              notes: IMPORT_COMPANY_NOTE,
               address: {
                 street: action.street,
                 streetNumber: action.streetNumber,

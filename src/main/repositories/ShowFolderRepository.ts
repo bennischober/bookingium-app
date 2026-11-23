@@ -2,12 +2,17 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { injectable } from 'tsyringe'
 import { db } from '../db'
 import { schema } from '../db/schema'
-import { sqlTimestamp } from '../db/timestamps'
+import { parseSqlTimestamp, sqlTimestamp } from '../db/timestamps'
 import { keyOf, type PlaceKind } from '../showfolder/extract'
 import { countryNameOf } from '../showfolder/address'
 import type { ShowFolderCurrent } from '../showfolder/plan'
 
 const now = sql`(datetime('now'))`
+
+/** The note of an event the booking archive import created (ArchiveImportService) */
+export const ARCHIVE_EVENT_NOTE = 'Aus dem Booking-Archiv eingelesen.'
+/** The note of a company the show folder or archive import created (ShowFolderService) */
+export const IMPORT_COMPANY_NOTE = 'Angelegt aus dem Vertrag.'
 
 /** venue.kind as stored ('venue' | 'festival', CHECK) */
 const placeKind = (kind: string): PlaceKind => (kind === 'festival' ? 'festival' : 'venue')
@@ -506,6 +511,197 @@ export class ShowFolderRepository {
   }
 
   /** The event's club or festival */
+  // ----------------------------------------
+  // #262 correcting what an earlier archive import entered
+  // ----------------------------------------
+
+  /** An event the archive import created: its note says so */
+  isArchiveEvent(eventId: number): boolean {
+    const row = db
+      .select({ notes: schema.deal_memo.notes })
+      .from(schema.deal_memo)
+      .where(eq(schema.deal_memo.id, eventId))
+      .get()
+    return row?.notes.includes(ARCHIVE_EVENT_NOTE) ?? false
+  }
+
+  /**
+   * A club or festival the import made: only archive events use it, it was made with or after
+   * the first of them (never before: then it was the user's), and no document hangs on it
+   */
+  isImportVenue(venueId: number): boolean {
+    const venue = db
+      .select({ createdAt: schema.venue.created_at })
+      .from(schema.venue)
+      .where(eq(schema.venue.id, venueId))
+      .get()
+    if (!venue) return false
+    const events = db
+      .select({ notes: schema.deal_memo.notes, createdAt: schema.deal_memo.created_at })
+      .from(schema.deal_memo)
+      .where(eq(schema.deal_memo.venue_id, venueId))
+      .all()
+    if (events.length === 0 || events.some((event) => !event.notes.includes(ARCHIVE_EVENT_NOTE)))
+      return false
+    const first = Math.min(...events.map((event) => parseSqlTimestamp(event.createdAt ?? '')))
+    // a minute of slack: the event and its club are written in the same import step
+    if (!(parseSqlTimestamp(venue.createdAt ?? '') >= first - 60_000)) return false
+    const documents = db
+      .select({ n: sql<number>`count(*)` })
+      .from(schema.document)
+      .where(and(eq(schema.document.owner_type, 'venue'), eq(schema.document.owner_id, venueId)))
+      .get()?.n
+    return !documents
+  }
+
+  /**
+   * A company the import made: its note says so, it is no band's company, no invoice uses it, and
+   * only archive events name it as promoter or billing company
+   */
+  isImportCompany(companyId: number): boolean {
+    const company = db
+      .select({ notes: schema.company.notes })
+      .from(schema.company)
+      .where(eq(schema.company.id, companyId))
+      .get()
+    if (!company?.notes?.includes(IMPORT_COMPANY_NOTE)) return false
+    const count = (rows: { n: number } | undefined) => rows?.n ?? 0
+    const bands = count(
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(schema.band)
+        .where(eq(schema.band.company_id, companyId))
+        .get()
+    )
+    const invoices = count(
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(schema.invoice)
+        .where(eq(schema.invoice.company_id, companyId))
+        .get()
+    )
+    if (bands > 0 || invoices > 0) return false
+    const events = this.eventsOfCompany(companyId)
+    return events.every((event) => event.notes.includes(ARCHIVE_EVENT_NOTE))
+  }
+
+  private eventsOfCompany(companyId: number) {
+    return db
+      .select({ notes: schema.deal_memo.notes })
+      .from(schema.deal_memo)
+      .where(
+        sql`${schema.deal_memo.lopro_company_id} = ${companyId} OR ${schema.deal_memo.invoice_company_id} = ${companyId} OR ${schema.deal_memo.representing_company_id} = ${companyId}`
+      )
+      .all()
+  }
+
+  /** Events that still name the club or festival */
+  venueInUse(venueId: number): boolean {
+    return (
+      db
+        .select({ id: schema.deal_memo.id })
+        .from(schema.deal_memo)
+        .where(eq(schema.deal_memo.venue_id, venueId))
+        .get() !== undefined
+    )
+  }
+
+  /** Events that still name the company */
+  companyInUse(companyId: number): boolean {
+    return this.eventsOfCompany(companyId).length > 0
+  }
+
+  /** Takes the import's club, promoter or billing company off the event */
+  unlinkEvent(eventId: number, links: { venue: boolean; lopro: boolean; invoice: boolean }): void {
+    const values: Partial<typeof schema.deal_memo.$inferInsert> = {}
+    if (links.venue) values.venue_id = null
+    if (links.lopro) values.lopro_company_id = null
+    if (links.invoice) values.invoice_company_id = null
+    if (Object.keys(values).length === 0) return
+    db.update(schema.deal_memo)
+      .set({ ...values, updated_at: now })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+  }
+
+  renameEvent(eventId: number, name: string): void {
+    db.update(schema.deal_memo)
+      .set({ name, updated_at: now })
+      .where(eq(schema.deal_memo.id, eventId))
+      .run()
+  }
+
+  /**
+   * Replaces a company's address and contact with what the files say (an import-made company
+   * only): what the files leave out is left as it is
+   */
+  replaceCompanyAddress(
+    companyId: number,
+    fields: {
+      street: string
+      streetNumber: string
+      zipCode: string
+      city: string
+      countryCode: string
+      email: string
+      phone: string
+    }
+  ): number {
+    const company = db.select().from(schema.company).where(eq(schema.company.id, companyId)).get()
+    if (!company) return 0
+    let changed = 0
+    db.transaction((tx) => {
+      if (fields.zipCode || fields.street) {
+        const values = {
+          street: fields.street,
+          street_number: fields.streetNumber,
+          zip_code: fields.zipCode,
+          city: fields.city,
+          country: fields.countryCode ? countryNameOf(fields.countryCode) : '',
+          country_code: fields.countryCode
+        }
+        if (company.address_id)
+          tx.update(schema.address)
+            .set(values)
+            .where(eq(schema.address.id, company.address_id))
+            .run()
+        else {
+          const id = tx
+            .insert(schema.address)
+            .values(values)
+            .returning({ id: schema.address.id })
+            .get().id
+          tx.update(schema.company)
+            .set({ address_id: id, updated_at: now })
+            .where(eq(schema.company.id, companyId))
+            .run()
+        }
+        changed++
+      }
+      const contact: Partial<typeof schema.contact.$inferInsert> = {}
+      if (fields.email) contact.email = fields.email
+      if (fields.phone) contact.phone = fields.phone
+      if (Object.keys(contact).length > 0 && company.contact_id) {
+        tx.update(schema.contact)
+          .set(contact)
+          .where(eq(schema.contact.id, company.contact_id))
+          .run()
+        changed++
+      }
+    })
+    return changed
+  }
+
+  /** Clears an address field holding a form's placeholder ("tba") or a wrong street */
+  clearVenueAddress(venueId: number): void {
+    const venue = this.venue(venueId)
+    if (!venue?.addressId) return
+    db.update(schema.address)
+      .set({ street: '', street_number: '', zip_code: '', city: '', country: '', country_code: '' })
+      .where(eq(schema.address.id, venue.addressId))
+      .run()
+  }
+
   setVenue(eventId: number, venueId: number): void {
     db.update(schema.deal_memo)
       .set({ venue_id: venueId, updated_at: now })
