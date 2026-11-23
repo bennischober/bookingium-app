@@ -67,7 +67,7 @@ export class ArchiveImportService {
       this.repository.ownNamesOfBand(input.bandId)
     )
     const count = (kind: string) => read.filter((file) => file.kind === kind).length
-    facts.venue.name = placeNameOf(facts.venue.name, folderTitle(input.path))
+    facts.venue.name = placeNameOf(facts.venue.name, folderTitle(input.path), facts.eventName)
     const place = facts.venue.name ? this.repository.venueByName(facts.venue.name) : null
     const named = (name: string | undefined) =>
       name ? { name, known: this.repository.companyByName(name) !== null } : null

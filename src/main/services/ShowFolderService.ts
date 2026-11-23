@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { createHash } from 'crypto'
 import { fileText } from '../showfolder/fileText'
-import { countryNameOf } from '../showfolder/address'
+import { countryNameOf, isPlaceholder } from '../showfolder/address'
 import { extractOwnInvoice } from '../showfolder/ownInvoice'
 import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { DocumentService } from './DocumentService'
@@ -27,8 +27,9 @@ import { readSettlementSheet } from '../settlement/readSettlementSheet'
 import {
   classifyShowFile,
   emptyFacts,
+  cleanPlaceName,
   extractShowFacts,
-  mendWords,
+  keyOf,
   mergeShowFacts,
   placeNameOf,
   sameName,
@@ -205,14 +206,22 @@ export class ShowFolderService {
         // a contract form names the show in a column of labels and values
         const show = extractContractEvent(file.text)
         if (show) facts.contractDate = show.date
+        if (show?.eventName) facts.eventName = cleanPlaceName(show.eventName)
         // "Veranstaltungsort: Musterstadt" is the town; the event's own name names the place
         const townOnly =
           show !== null && facts.venue.name !== '' && sameName(facts.venue.name, show.city)
         if (show?.eventName && (!facts.venue.name || townOnly)) {
-          facts.venue.name = mendWords(show.eventName)
+          facts.venue.name = cleanPlaceName(show.eventName)
           facts.venue.zipCode ||= show.zipCode
           facts.venue.city ||= show.city
-          if (show.location) facts.venue.notes.push(`Gelände: ${show.location}`)
+          if (show.location && !isPlaceholder(show.location))
+            facts.venue.notes.push(`Gelände: ${show.location}`)
+        }
+        // a club's contract: no festival named, the location is the club ("Location: Muster-Haus")
+        const club = show?.location ? cleanPlaceName(show.location) : ''
+        if (!facts.venue.name && club && !/gelaende|platz|wiese|stadion|park/.test(keyOf(club))) {
+          facts.venue.name = club
+          facts.venue.notes = facts.venue.notes.filter((note) => note !== `Gelände: ${club}`)
         }
         facts.promoter = extractContractParty(file.text, file.links)
         const party = facts.promoter
@@ -275,7 +284,8 @@ export class ShowFolderService {
       this.repository.ownNames(input.eventId),
       documentId !== null
     )
-    if (options.placeName) facts.venue.name = placeNameOf(facts.venue.name, options.placeName)
+    if (options.placeName)
+      facts.venue.name = placeNameOf(facts.venue.name, options.placeName, facts.eventName)
     const firstOf = (...kinds: ShowFileKind[]) =>
       read.find((file) => kinds.includes(file.kind))?.name ?? ''
     const sources = {

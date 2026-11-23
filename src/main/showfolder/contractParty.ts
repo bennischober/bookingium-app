@@ -5,7 +5,14 @@
 // (tests/contract_party.test.ts).
 
 import { cleanText } from '../import/normalize'
-import { countryCodeOfName, parseAddress, zipCityOf } from './address'
+import {
+  countryCodeOfName,
+  isPlaceholder,
+  isStreetLine,
+  mendAddressWords,
+  parseAddress,
+  zipCityOf
+} from './address'
 import { emailOf, joinSpacedDomain, keyOf, mendWords, segmentsOf } from './extract'
 
 export interface ContractPartyFact {
@@ -50,8 +57,15 @@ const labelOf = (segment: string): [string, string] | null => {
 }
 
 /** "Erika Muster", "Herrn Max Beispiel" → the name; null when the text is no person's name */
+/** Words of a role, not of a name ("Technical Production", "Tour Manager") */
+const ROLE_WORDS =
+  /^(technical|technische?r?|production|produktion|booking|manager|management|tour|contact|kontakt|venue|promoter|veranstalter|technik|leitung|ansprechp\.?|ansprechpartner(in)?|team|office|büro|buero|info|hospitality|artist|stage|foh|monitor|licht|ton|konzertbüro|konzertbuero|agentur|agency)$/i
+
 function personName(value: string): string {
-  const words = cleanText(value.replace(/^(herrn?|frau|mr\.?|mrs\.?|ms\.?)\s+/i, ''))
+  const stripped = value.replace(/^\s*(ansprechp(artner)?(in)?|kontakt|contact)\.?\s*:?\s*/i, '')
+  if (stripped.split(/\s+/).some((word) => ROLE_WORDS.test(word)) || isCompanyLine(stripped))
+    return ''
+  const words = cleanText(stripped.replace(/^(herrn?|frau|mr\.?|mrs\.?|ms\.?)\s+/i, ''))
     .replace(/[,;(].*$/, '')
     .trim()
     .split(' ')
@@ -59,10 +73,57 @@ function personName(value: string): string {
   return name.length >= 2 && name.length <= 4 && name.length === words.length ? name.join(' ') : ''
 }
 
-const isCompanyLine = (segment: string): boolean =>
-  /\b(gmbh|ug|ag|kg|ohg|gbr|e\.?\s?v\.?|ltd|inc|llc|mbh|co\.|e\.k\.|events?|konzerte?|concerts?|kultur|festival|veranstaltungs)\b/i.test(
+function isCompanyLine(segment: string): boolean {
+  return /\b(gmbh|ug|ag|kg|ohg|gbr|e\.?\s?v\.?|ltd|inc|llc|mbh|co\.|e\.k\.|events?|konzerte?|concerts?|kultur|festival|veranstaltungs)\b/i.test(
     segment
   )
+}
+
+/** Legal forms that end a company's name ("Muster Events GmbH", "Beispiel e.V.") */
+const LEGAL_FORM =
+  /^(.*?\b(?:gGmbH|GmbH(?:\s*&\s*Co\.?\s*KG)?|e\.\s?V\.?|GbR|UG(?:\s*\(haftungsbeschränkt\))?|AG|KG|OHG|e\.\s?K\.|Ltd\.?|a\.\s?s\.|s\.r\.o\.|Inc\.?|LLC|mbH))(?=\s|,|;|$)\s*[,.;]?\s*(.*)$/
+
+/**
+ * A promoter's name as a contract line writes it, apart from what follows it: "und dem örtlichen
+ * Veranstalter; Muster e.V." → "Muster e.V."; "Muster GmbH Musterweg 1 . 12345 Musterstadt" →
+ * the name and the address lines behind it. PDFs space hyphens ("Muster - Rock GmbH").
+ */
+export function splitPartyName(raw: string): { name: string; rest: string[] } {
+  let value = cleanText(raw.normalize('NFC'))
+  for (let i = 0; i < 3; i++)
+    value = value
+      .replace(/^(und|and|sowie)(\s+|$)/i, '')
+      .replace(/^(dem|der|den|die)(\s+|$)/i, '')
+      .replace(/^(örtlichen|oertlichen|lokalen|local)(\s+|$)/i, '')
+      .replace(/^(veranstalter|promoter)\s*([;:]\s*|$)/i, '')
+  value = value.replace(/(\p{L})\s+-\s+(\p{L})/gu, '$1-$2')
+  const legal = LEGAL_FORM.exec(value)
+  if (legal && !legal[2]) return { name: mendWords(legal[1]), rest: [] }
+  if (legal && legal[2]) {
+    const rest = legal[2]
+      .replace(/\s+in\s+(?=(?:[A-Z]{1,2}-)?\d{4,5}\s)/g, ', ')
+      .split(/\s*[,;]\s*|\s+\.\s+/)
+      .map((part) => part.replace(/[\s.]+$/, ''))
+      .filter(Boolean)
+      .flatMap((part) => {
+        // "Musterweg 5 12345 Musterstadt" → the street, then zip and town
+        const address = parseAddress(part)
+        return address.streetNumber && address.zipCode
+          ? [`${address.street} ${address.streetNumber}`, `${address.zipCode} ${address.city}`]
+          : [part]
+      })
+    return { name: mendWords(legal[1]), rest: rest.filter((part) => !part.startsWith('/')) }
+  }
+  const name = mendWords(value.replace(/[\s.,]+$/, ''))
+  if (isStreetLine(name) || /^\d{1,4}\s+\p{L}+$/u.test(name) || isPlaceholder(name))
+    return { name: '', rest: [] }
+  // "Muster Rock, Erika Muster": the name, then the person
+  if (name.includes(',')) {
+    const [first, ...rest] = name.split(/\s*,\s*/)
+    return { name: first, rest }
+  }
+  return { name, rest: [] }
+}
 
 /** Reads the facts of a party block (its lines after the name) into `fact` */
 function readBlock(fact: ContractPartyFact, lines: string[], links: readonly string[]): void {
@@ -100,7 +161,8 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
       const phone = PHONE.exec(line.replace(/[a-z0-9._%+-]+@\S+/gi, ' '))?.[0]
       if (phone && !fact.phone) fact.phone = cleanText(phone)
     }
-    const vat = /ust|vat|steuer/.test(label) || /ust-?id|vat/i.test(line) ? VAT.exec(line) : null
+    const vat =
+      /ust|vat|steuer/.test(label) || /ust\s*-?\s*id|vat/i.test(line) ? VAT.exec(line) : null
     if (vat && !fact.vatId) fact.vatId = vat[0].replace(/[\s-]/g, '')
     // long labels ("Künstlersozialkassen-Nummer des örtlichen Veranstalters: …") are no pair
     const head = pair ? label : keyOf(line.split(':')[0])
@@ -109,7 +171,7 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
       const number = /[0-9][0-9A-Z]{5,}/.exec(tail.replace(/\s/g, ''))
       if (number) fact.kskNumber = number[0]
     }
-    if (/steuernummer|steuer nr/.test(head) && !vat && !fact.taxNumber) {
+    if (/steuernummer|steuer nr|\bst nr\b/.test(head) && !vat && !fact.taxNumber) {
       const number = /\d[\d/ ]{5,}\d/.exec(tail)
       if (number) fact.taxNumber = number[0].replace(/\s/g, '')
     }
@@ -120,8 +182,18 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
         continue
       }
     }
+    if (!pair && !fact.street && !fact.zipCode) {
+      const address = parseAddress(line)
+      if (address.streetNumber && address.zipCode) {
+        fact.street = `${address.street} ${address.streetNumber}`
+        fact.zipCode = address.zipCode
+        fact.city = address.city
+        fact.countryCode ||= address.countryCode
+        continue
+      }
+    }
     if (!pair && !fact.zipCode) {
-      const place = ZIP_CITY.exec(line)
+      const place = ZIP_CITY.exec(line) ?? ZIP_CITY.exec(line.split(',')[0].trim())
       if (place) {
         const parsed = zipCityOf(place[0])
         fact.zipCode = place[1]
@@ -130,8 +202,14 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
         continue
       }
     }
-    if (!pair && !fact.street && STREET.test(line) && !PHONE.test(line)) fact.street = line
-    if (pair && /strasse|anschrift|adresse|address|street/.test(label) && !fact.street) {
+    if (!pair && !fact.street && STREET.test(line) && !PHONE.test(line) && !isPlaceholder(line))
+      fact.street = line
+    if (
+      pair &&
+      /strasse|anschrift|adresse|address|street/.test(label) &&
+      !/rechnung|billing|invoice/.test(label) &&
+      !fact.street
+    ) {
       // "Musterweg 11, 12345 Musterstadt" in one value
       const parsed = parseAddress(value)
       fact.street = parsed.street ? `${parsed.street} ${parsed.streetNumber}`.trim() : value
@@ -151,6 +229,12 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
       }
     }
   }
+}
+
+/** A party's street and town as the PDF tore them ("Saarbr ü cken") */
+function mendParty(fact: ContractPartyFact): void {
+  fact.street = fact.street && mendAddressWords(fact.street)
+  fact.city = fact.city && mendAddressWords(fact.city)
 }
 
 const empty = (): ContractPartyFact => ({
@@ -177,7 +261,11 @@ export function extractContractParty(
   text: string,
   links: readonly string[] = []
 ): ContractPartyFact | null {
-  const segments = segmentsOf(text).filter(Boolean)
+  const segments = segmentsOf(
+    text
+      .replace(/(veranstalter\w*|vertreten\s+durch|nummer)\s*;/gi, '$1:')
+      .replace(/\s+(?=vertreten\s+durch\s*:)/gi, '\n')
+  ).filter(Boolean)
 
   // 1. "Veranstalter: Muster Events GmbH" and the lines below it
   for (let index = 0; index < segments.length; index++) {
@@ -191,15 +279,23 @@ export function extractContractParty(
       .replace(/^(oertlichen|lokalen|local)\s+/, '')
     if (!PROMOTER.test(label) || ARTIST_SIDE.test(label) || label.split(' ').length > 3) continue
     const lines: string[] = []
-    let name = value
-    // the whole party on one line: "Stadt Musterstadt, Kulturamt, Musterweg 1, 12345 Musterstadt"
+    // the whole party on one line: "Stadt Musterstadt, Kulturamt, Musterweg 1, 12345 Musterstadt",
+    // "Muster GmbH Musterweg 1 . 12345 Musterstadt"
+    const party = splitPartyName(value)
+    if (!party.name && value) continue
+    let name = party.name
+    lines.push(...party.rest)
     if (name.includes(',')) {
       const parts = name.split(/\s*,\s*/).filter(Boolean)
       name = parts[0]
       lines.push(...parts.slice(1))
     }
     let next = index + 1
-    if (!name && next < segments.length) name = segments[next++]
+    if (!name && next < segments.length) {
+      const nextPair = labelOf(segments[next])
+      if (nextPair && PROMOTER.test(nextPair[0])) continue
+      name = segments[next++]
+    }
     for (; next < segments.length && lines.length < 7; next++) {
       const line = segments[next]
       const nextPair = labelOf(line)
@@ -217,6 +313,7 @@ export function extractContractParty(
     if (!name || name.length > 120) continue
     const fact = { ...empty(), name: mendWords(name) }
     readBlock(fact, lines, links)
+    mendParty(fact)
     return fact
   }
 
@@ -250,12 +347,17 @@ export function extractContractParty(
           ? lines[nameIndex]
           : (lines[0] ?? '')
     if (!name) continue
-    const fact = { ...empty(), name: cleanText(name.replace(/^(der |die |the )?(firma\s+)?/i, '')) }
+    const fact = {
+      ...empty(),
+      name: splitPartyName(name.replace(/^(der |die |the )?(firma\s+)?/i, '')).name
+    }
+    if (!fact.name) continue
     readBlock(
       fact,
       lines.filter((line) => line !== name),
       links
     )
+    mendParty(fact)
     return fact
   }
   return null
@@ -272,7 +374,7 @@ export interface ContractEventFact {
   location: string
 }
 
-const DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/
+const DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?!\d)/
 
 /**
  * The show a contract is about, from a form whose labels stand in one column and the values in
@@ -287,7 +389,8 @@ export function extractContractEvent(text: string): ContractEventFact | null {
     if (!value) return
     if (/datum|date/.test(key) && !fact.date) {
       const match = DATE.exec(value)
-      if (match) fact.date = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+      const year = match?.[3].length === 2 ? `20${match[3]}` : match?.[3]
+      if (match) fact.date = `${year}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
     } else if (/^(event|veranstaltung|event veranstaltung|veranstaltungsname)$/.test(key))
       fact.eventName ||= value
     else if (/^(veranstaltungsort|ort|place|city)$/.test(key) && !fact.zipCode) {
@@ -369,12 +472,15 @@ export function extractSheetPromoter(
   const segments = segmentsOf(text).filter(Boolean)
   let at = -1
   let name = ''
+  // the lines between a block's heading and the company found in it
+  let above: string[] = []
   for (let index = 0; index < segments.length && at < 0; index++) {
     const own = keyOf(segments[index]).replace(/ /g, '')
     const pair =
       tightLabel(segments[index]) ??
-      (/^(veranstalter|promoter|organi[sz]er)(infos?|details|daten)$/.test(own)
-        ? ([own, ''] as [string, string])
+      (/^(veranstalter|promoter|organi[sz]er)(infos?|details|daten|kontakt)/.test(own) &&
+      own.length <= 40
+        ? (['veranstalterdetails', ''] as [string, string])
         : null)
     if (!pair) continue
     const [label, value] = pair
@@ -391,6 +497,15 @@ export function extractSheetPromoter(
           break
         }
       }
+      // a company among the first lines ("Erika Muster", "Vorsitzende", "Muster e.V.")
+      for (let next = index + 1; at < 0 && next < Math.min(segments.length, index + 5); next++) {
+        const line = segments[next]
+        if (!labelOf(line) && isCompanyLine(line) && !/\d{4,5}\s/.test(line)) {
+          at = next
+          name = line
+          above = segments.slice(index + 1, next)
+        }
+      }
       if (at < 0 && index + 1 < segments.length && !labelOf(segments[index + 1])) {
         const first = segments[index + 1]
         if (!PHONE.test(first) && !/@/.test(first) && !/\d/.test(first)) {
@@ -402,7 +517,11 @@ export function extractSheetPromoter(
   }
   if (at < 0) return null
   if (PHONE.test(name) || /@/.test(name) || name.length > 120) return null
-  const fact = { ...empty(), name: mendWords(name) }
+  // "Ansprechp. Erika Muster" right below an empty "Promoter:" is a person, no promoter
+  if (/^(ansprechp|kontakt|contact|tel|mobil|email)/i.test(name.replace(/[\s.-]/g, ''))) return null
+  const party = splitPartyName(name.replace(/^(promoter|veranstalter)\s*:\s*/i, ''))
+  if (!party.name) return null
+  const fact = { ...empty(), name: party.name }
 
   // the block below the name, up to the next part of the sheet
   const block: string[] = []
@@ -410,13 +529,15 @@ export function extractSheetPromoter(
     const segment = segments[next]
     const pair = tightLabel(segment)
     if (SHEET_STOP.test(pair?.[0] ?? keyOf(segment).replace(/ /g, ''))) break
-    // another heading ("Venue Details:", "Techniker:") ends the block
+    // another heading ("Venue Details:", "Techniker:") or the act's side ends the block
     if (pair && !pair[1] && !SHEET_PERSON.test(pair[0])) break
+    if (pair && ARTIST_SIDE.test(pair[0])) break
     block.push(segment)
   }
+  block.unshift(...party.rest)
   readBlock(fact, block, links)
   if (!fact.contactName) {
-    const person = block.find((line) => !labelOf(line) && personName(line) !== '')
+    const person = [...above, ...block].find((line) => !labelOf(line) && personName(line) !== '')
     if (person && keyOf(person) !== keyOf(fact.name)) {
       fact.contactName = personName(mendWords(person))
       fact.contactRole = 'Ansprechpartner'
@@ -468,5 +589,13 @@ export function extractSheetPromoter(
       }
     }
   }
+  // "Erika Muster" named, "Muster Events" below: the company is the promoter, she its contact
+  const company = block.find((line) => !labelOf(line) && isCompanyLine(line) && !/\d/.test(line))
+  if (personName(fact.name) && company) {
+    fact.contactName ||= fact.name
+    fact.contactRole ||= 'Ansprechpartner'
+    fact.name = splitPartyName(company).name || fact.name
+  }
+  mendParty(fact)
   return fact
 }

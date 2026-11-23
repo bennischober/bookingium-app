@@ -35,11 +35,53 @@ const PREFIXES: Record<string, string> = {
   CZ: 'CZ'
 }
 
+/**
+ * Words a PDF tore apart in an address: "S choenstr." → "Schoenstr.", "Ka iserslautern" →
+ * "Kaiserslautern", "Saarbr ü cken" → "Saarbrücken", "Musterstad t" → "Musterstadt". Short
+ * words of their own ("Am", "An der") stay.
+ */
+export function mendAddressWords(value: string): string {
+  return (
+    cleanText(value)
+      // "Summer - Breeze - Weg 1"
+      .replace(/(\p{L})\s+-\s+(?=\p{L})/gu, '$1-')
+      .replace(/(\p{L}) ([äöüß]) (?=\p{Ll})/gu, '$1$2')
+      .replace(/(\p{L}) ([äöüß])(?=\p{Ll})/gu, '$1$2')
+      .replace(/(\p{L}{2,}) (\p{Ll})(?=[\s,.]|$)/gu, '$1$2')
+      .replace(
+        /(^|\s)(\p{Lu}\p{Ll}?) (\p{Ll}{2,})/gu,
+        (match, lead: string, head: string, tail: string) =>
+          /^(am|an|im|in|zu|um|ab|auf|de|la|le|el|of|on|at)$/i.test(head)
+            ? match
+            : `${lead}${head}${tail}`
+      )
+  )
+}
+
 /** "D-12345 Musterstadt", "12345 Musterstadt" */
 const ZIP_CITY = /^(?:([A-Z]{1,2})\s?-\s?)?(\d{4,5})\s+([\p{L}][\p{L}\d .()'/-]*)$/u
 
 /** A street with its number at the end ("Am Beispielsee 3a", "Musterstr. 11-13") */
 const STREET = /^[\p{L}][\p{L}\d .'’/-]*?\s\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+\s?[a-zA-Z]?)?$/u
+
+/**
+ * A value a form left open: "tba", "tbc", "bitte nachtragen", "----", "n/a". Compared without
+ * spaces, since PDFs tear these apart too ("bi tte nachtrag en").
+ */
+export function isPlaceholder(value: string): boolean {
+  const tight = value
+    .toLowerCase()
+    .replace(/[\s().:/_!*-]+/g, '')
+    .replace(/ä/g, 'ae')
+  return (
+    tight === '' ||
+    /^(tba|tbc|tbd|tbanochoffen|nn|na|offen|folgt|folgtnoch|bittenachtragen|bitteeintragen|bitteergaenzen|none|keine|kein|x|\?+)$/.test(
+      tight
+    ) ||
+    // "siehe Venue Specs", "see below"
+    /^(siehe|see|vgl)\b/i.test(value.trim())
+  )
+}
 
 /** A country written out ("Deutschland", "Germany", "Österreich"); codes alone are too short */
 export function countryCodeOfName(value: string): string {
@@ -78,12 +120,25 @@ export function zipCityOf(value: string): {
   const text = cleanText(value)
     .replace(/(\d)\s+(?=\d)/g, '$1')
     .replace(/[.,;]+$/, '')
+  // "7511 PG Musterstad": a Dutch zip
+  const dutch = /^(?:NL\s?-\s?)?(\d{4})\s?([A-Z]{2})\s+([\p{L}][\p{L} .'-]*)$/u.exec(text)
+  if (dutch)
+    return {
+      zipCode: `${dutch[1]} ${dutch[2]}`,
+      city: mendAddressWords(dutch[3]),
+      countryCode: 'NL'
+    }
   const match = ZIP_CITY.exec(text)
   if (!match) return null
-  // the town ends where a sentence starts ("Musterstadt. Zufahrt ist ausgeschildert.")
-  const city = cleanText(match[3].split(/\.\s/)[0].replace(/\s*\(.*\)\s*$/, ''))
-  if (!city || /^\d/.test(city)) return null
-  return { zipCode: match[2], city, countryCode: countryOfZip(match[2], match[1] ?? '') }
+  // the town ends where a sentence starts ("Musterstadt. Zufahrt ist ausgeschildert."); PDFs
+  // space hyphens ("Musterdorf - Ortsteil") and tear the last letter off ("Musterstad t")
+  const city = cleanText(match[3].split(/\.\s/)[0].replace(/\s*\(.*\)\s*$/, '')).replace(
+    /\s+-\s+/g,
+    '-'
+  )
+  const mended = mendAddressWords(city)
+  if (!mended || /^\d/.test(mended)) return null
+  return { zipCode: match[2], city: mended, countryCode: countryOfZip(match[2], match[1] ?? '') }
 }
 
 /** True when a line is a street with a house number */
@@ -98,7 +153,9 @@ export const isStreetLine = (value: string): boolean => STREET.test(cleanText(va
 export function parseAddress(value: string): AddressFact {
   const out: AddressFact = { street: '', streetNumber: '', zipCode: '', city: '', countryCode: '' }
   const parts = value
-    .split(/\r?\n|\s*\/\/\s*|\s+\|\s+|,/)
+    // "Musterweg 5 in 12345 Musterstadt"
+    .replace(/\s+in\s+(?=(?:[A-Z]{1,2}-)?\d{4,5}\s)/g, ', ')
+    .split(/\r?\n|\s*\/\/\s*|\s+\|\s+|\s+\.\s+|,/)
     .map((part) => cleanText(part.replace(/\([^)]*\)/g, ' ')))
     .filter(Boolean)
   let country = ''
@@ -126,7 +183,7 @@ export function parseAddress(value: string): AddressFact {
       continue
     }
     if (!out.street && isStreetLine(part)) {
-      const { street, streetNumber } = splitStreet(part)
+      const { street, streetNumber } = splitStreet(mendAddressWords(part))
       out.street = street
       out.streetNumber = streetNumber
     }
