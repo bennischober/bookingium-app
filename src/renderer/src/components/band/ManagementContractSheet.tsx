@@ -28,6 +28,7 @@ import type {
   UpdateManagementContractInput
 } from '../../../../main/api/schemas/management_contract.schema'
 import { t } from '../../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 function formatDate(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split('-')
@@ -98,7 +99,11 @@ export function ManagementContractPanel({ bandId }: { bandId: number }) {
         // The contract form reads best at a form's width
         <div className="max-w-3xl space-y-5">
           <div className="space-y-2">
-            <Label>{t('Vertrag')}</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>{t('Vertrag')}</Label>
+              {/* #262: management contracts are internal unless shared */}
+              <StaffShareButton entity="management_contract" entityId={selected.id} />
+            </div>
             <Select
               value={String(selected.id)}
               onValueChange={(value) => setSelectedId(Number(value))}

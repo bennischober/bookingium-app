@@ -37,6 +37,7 @@ describe('staff access', () => {
   it('is off on a new computer: everything is open', async () => {
     expect(await caller().status()).toEqual({
       staffMode: false,
+      staffDevice: false,
       hasPin: false,
       unlocked: false,
       locked: false,
@@ -120,9 +121,21 @@ describe('staff access', () => {
     await caller().unlock({ pin: '8642' })
     expect(await caller().disable()).toMatchObject({
       staffMode: false,
+      staffDevice: false,
       hasPin: false,
       locked: false
     })
     expect(storedPin()).toBe('""')
+  })
+  it("an employee's computer stays locked: it cannot be unlocked", async () => {
+    getTestDb()
+      .sqlite.prepare("INSERT INTO app_setting (key, value) VALUES ('staffDevice', 'true')")
+      .run()
+    try {
+      expect(await caller().status()).toMatchObject({ staffDevice: true, locked: true })
+      await expect(caller().unlock({ pin: '' })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    } finally {
+      getTestDb().sqlite.prepare("DELETE FROM app_setting WHERE key = 'staffDevice'").run()
+    }
   })
 })

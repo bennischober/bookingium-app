@@ -19,6 +19,8 @@ import {
   type Sqlite
 } from './store'
 import type { SyncTransport } from './transport'
+import { isLocalSettingKey } from './tables'
+import { clearBridgeTables } from '../staff/bridge'
 
 export type JoinOptions = {
   transport: SyncTransport
@@ -56,8 +58,10 @@ export const NEWER_SNAPSHOT_MESSAGE =
 export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
   const { transport, workDir } = options
   const now = options.now?.() ?? new Date()
-  if (!(await transport.readGroup()))
-    throw new Error('In diesem Ordner ist noch kein Abgleich eingerichtet.')
+  const group = await transport.readGroup()
+  if (!group) throw new Error('In diesem Ordner ist noch kein Abgleich eingerichtet.')
+  // #262: an employee's folder (served by an admin computer, staff/bridge.ts)
+  const staffPrefix = group.kind === 'staff' ? (group.staffPrefix ?? null) : null
   const snapshot = await transport.latestSnapshot()
   if (!snapshot)
     throw new Error(
@@ -77,7 +81,6 @@ export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
 
   const taken = (await transport.listDevices()).map((d) => d.prefix)
   const device = newDeviceId()
-  const prefix = randomPrefix(taken)
   const wasActive = rowIdsActive()
   if (wasActive) throw new Error('Auf diesem Computer ist der Abgleich schon eingerichtet.')
 
@@ -87,6 +90,10 @@ export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
     dropSyncTriggers(target)
     if (snapshot.info.schema < options.schema) options.migrate(target)
     createBookkeeping(target)
+    // the id ranges of the employees' computers are taken too (#262)
+    const prefix = staffPrefix ?? randomPrefix([...taken, ...employeePrefixes(target)])
+    // the other computer's staff bridges are its own
+    clearBridgeTables(target)
     target.transaction(() => {
       // the other computer's unsent work and notes are not this one's
       target.exec(
@@ -102,12 +109,15 @@ export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
     installSyncTriggers(target)
     configureRowIds({ prefix, highest: 0 })
     try {
-      stats = await mergeLocalData({
-        target,
-        localFile,
-        localStorage: options.liveStorage,
-        targetStorage
-      })
+      stats =
+        staffPrefix !== null
+          ? carryStaffComputer(target, localFile)
+          : await mergeLocalData({
+              target,
+              localFile,
+              localStorage: options.liveStorage,
+              targetStorage
+            })
     } finally {
       configureRowIds(null)
     }
@@ -134,4 +144,43 @@ export async function prepareJoin(options: JoinOptions): Promise<PreparedJoin> {
   )
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true })
   return { device, from: snapshot.info.device, snapshotCreatedAt: snapshot.info.createdAt, stats }
+}
+
+/** The id ranges given to employees' computers (#262), from the group's data */
+function employeePrefixes(target: Sqlite): number[] {
+  try {
+    return (
+      target.prepare('SELECT id_prefix FROM employee').all() as Array<{ id_prefix: number }>
+    ).map((row) => row.id_prefix)
+  } catch {
+    // a starting point from before employees existed
+    return []
+  }
+}
+
+/**
+ * #262: an employee's computer joining its folder. It brings nothing of its own into the
+ * company's data: only this computer's local settings stay, and it becomes a staff computer
+ * (AccessService: locked, cannot be unlocked).
+ */
+function carryStaffComputer(target: Sqlite, localFile: string): MergeStats {
+  target.prepare('ATTACH DATABASE ? AS loc').run(localFile)
+  try {
+    target.transaction(() => {
+      const rows = target.prepare('SELECT key, value FROM loc.app_setting').all() as Array<{
+        key: string
+        value: string
+      }>
+      const put = target.prepare(
+        'INSERT INTO main.app_setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+      )
+      for (const row of rows) if (isLocalSettingKey(row.key)) put.run(row.key, row.value)
+      put.run('staffMode', 'true')
+      put.run('staffDevice', 'true')
+      put.run('staffPin', '""')
+    })()
+  } finally {
+    target.exec('DETACH DATABASE loc')
+  }
+  return {}
 }

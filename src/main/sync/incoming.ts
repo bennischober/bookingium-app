@@ -55,12 +55,19 @@ export class BatchApplier {
     private now: () => Date = () => new Date()
   ) {}
 
-  /** Applies the batch in one transaction and records it as applied */
-  apply(batch: Batch): ApplyResult {
+  /**
+   * Applies the batch in one transaction and records it as applied.
+   *
+   * #262 `record`: an employee's change the staff bridge took (staff/bridge.ts). It is written
+   * with the change triggers on, so it goes to the other admin computers as this computer's own
+   * change; the employee's device is no peer of the group, and its files take another way.
+   */
+  apply(batch: Batch, options: { record?: boolean } = {}): ApplyResult {
     this.applied = 0
     this.conflicts = 0
+    const around = options.record ? <T>(_sqlite: Sqlite, work: () => T): T => work() : whileApplying
     this.sqlite.transaction(() => {
-      whileApplying(this.sqlite, () => {
+      around(this.sqlite, () => {
         for (const row of batch.rows) {
           this.clock.receive(row.h)
           try {
@@ -76,14 +83,14 @@ export class BatchApplier {
         const tombFile = this.sqlite.prepare(
           "INSERT INTO sync_file_pending (path, sha, hlc) VALUES (?, '', ?) ON CONFLICT(path) DO UPDATE SET sha = '', hlc = excluded.hlc WHERE excluded.hlc > sync_file_pending.hlc"
         )
-        for (const file of batch.files) {
+        for (const file of options.record ? [] : batch.files) {
           this.clock.receive(file.h)
           // sha '' marks a removal; the file step does the disk work after the transaction
           if (file.s) pending.run(file.p, file.s, file.h)
           else tombFile.run(file.p, file.h)
         }
       })
-      setPeer(this.sqlite, batch.device, batch.seq)
+      if (!options.record) setPeer(this.sqlite, batch.device, batch.seq)
       this.sqlite
         .prepare(
           "INSERT INTO sync_meta (key, value) VALUES ('hlc', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"

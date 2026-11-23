@@ -22,6 +22,7 @@ import { deleteQuestion } from '@/lib/recordCopy'
 import { isNotFound, type QueryError } from '@/lib/queryErrors'
 import type { DocumentOwnerType } from '../../../../main/api/schemas/document.schema'
 import { t } from '../../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 /**
  * #172: the skeleton every record detail page shares (band, company, person, venue).
@@ -204,6 +205,8 @@ export function RecordDetail<TTab extends string>({
             {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           </div>
           <div className="mt-1 flex shrink-0 items-center gap-2">
+            {/* #262: a band shared with employees passes on its booking work */}
+            {record.type === 'band' && <StaffShareButton entity="band" entityId={record.id} />}
             <FollowUpButton record={followUpRecord} />
             <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />

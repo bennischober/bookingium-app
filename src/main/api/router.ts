@@ -48,6 +48,7 @@ import { einvoicePartyRouter } from './routers/einvoice_party.router'
 import { receiptRouter } from './routers/receipt.router'
 import { tripRouter } from './routers/trip.router'
 import { accessRouter } from './routers/access.router'
+import { staffRouter } from './routers/staff.router'
 
 const ee = new EventEmitter()
 
@@ -106,7 +107,8 @@ export const router = t.router({
   einvoiceParty: einvoicePartyRouter,
   receipt: receiptRouter,
   trip: tripRouter,
-  access: accessRouter
+  access: accessRouter,
+  staff: staffRouter
 })
 
 export type AppRouter = typeof router

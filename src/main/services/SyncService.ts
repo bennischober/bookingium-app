@@ -21,7 +21,10 @@ import { FolderTransport } from '../sync/transport'
 import { latestOf } from '../sync/format'
 import { cloudRoots, findSyncFolders } from '../sync/findFolders'
 import { configureRowIds } from '../sync/ids'
-import { dropSyncTriggers, getMeta, hasBookkeeping } from '../sync/store'
+import { isLocalSettingKey } from '../sync/tables'
+import { dropSyncTriggers, getMeta, hasBookkeeping, syncedTables } from '../sync/store'
+import { listChannels, revokeChannel, runChannel, type BridgeEnv } from '../staff/bridge'
+import { readdirSync, rmSync } from 'fs'
 import { BackupService, backupLocations } from './BackupService'
 import type {
   SyncBriefDto,
@@ -489,7 +492,11 @@ export class SyncService {
         throw new Error(
           `Der Abgleich-Ordner ist nicht erreichbar: ${state.folder}. Läuft OneDrive bzw. Google Drive?`
         )
-      const { changedHere, ...result } = await engine.run()
+      // #262: an employee's computer whose access was taken away clears the company's data
+      if (await this.revokedHere(state.folder)) return
+      const { changedHere: changedBySync, ...result } = await engine.run()
+      const changedByStaff = await this.runBridges()
+      const changedHere = changedBySync || changedByStaff
       this.update({
         lastRunAt: at,
         lastSuccessAt: at,
@@ -503,6 +510,110 @@ export class SyncService {
     } catch (error) {
       this.update({ lastRunAt: at, lastError: errorMessage(error) })
     }
+  }
+
+  // ---------- employees (#262) ----------
+
+  /** What the staff bridges of this computer need; only while this computer syncs */
+  bridgeEnv(): BridgeEnv {
+    const engine = this.engine
+    if (!engine)
+      throw new Error(
+        'Für Mitarbeiter muss auf diesem Computer zuerst der Abgleich eingerichtet sein (Einstellungen › Daten › Abgleich). Das geht auch, wenn es nur dieser eine Computer ist.'
+      )
+    return {
+      sqlite: getSqlite(),
+      storageDir: getStorageBasePath(),
+      schema: latestMigrationMillis(),
+      appVersion: this.host.appVersion,
+      deviceName: this.host.deviceName,
+      adminDevice: engine.deviceId,
+      adminPrefix: engine.prefix,
+      workDir: backupLocations(this.userData()).workDir
+    }
+  }
+
+  /** The id prefixes of the group's computers, so an employee's range differs from them */
+  async takenPrefixes(): Promise<number[]> {
+    const { folder } = this.readState()
+    if (!folder) return []
+    return (await new FolderTransport(folder).listDevices()).map((d) => d.prefix)
+  }
+
+  /** Serves the employees' folders this computer bridges; true when data changed here */
+  private async runBridges(): Promise<boolean> {
+    let env: BridgeEnv
+    try {
+      env = this.bridgeEnv()
+    } catch {
+      return false
+    }
+    let changed = false
+    for (const channel of listChannels(env.sqlite)) {
+      const employee = env.sqlite
+        .prepare('SELECT id, name, id_prefix, revoked_at FROM employee WHERE id = ?')
+        .get(channel.employee_id) as
+        | { id: number; name: string; id_prefix: number; revoked_at: string | null }
+        | undefined
+      if (!employee || employee.revoked_at) {
+        // removed or revoked on another admin computer
+        await revokeChannel(env, channel.employee_id).catch(() => {})
+        continue
+      }
+      const result = await runChannel(env, {
+        id: employee.id,
+        name: employee.name,
+        idPrefix: employee.id_prefix
+      })
+      if (result.changedHere) changed = true
+    }
+    return changed
+  }
+
+  /**
+   * On an employee's computer: when the admin took the access away, syncing stops and the
+   * company's data (records and documents) is removed from this computer. Returns true then.
+   */
+  private async revokedHere(folder: string): Promise<boolean> {
+    const sqlite = getSqlite()
+    const row = sqlite.prepare("SELECT value FROM app_setting WHERE key = 'staffDevice'").get() as
+      | { value: string }
+      | undefined
+    if (row?.value !== 'true') return false
+    const revokedAt = await new FolderTransport(folder).readRevocation()
+    if (!revokedAt) return false
+    this.stopTimers()
+    this.engine = null
+    configureRowIds(null)
+    dropSyncTriggers(sqlite)
+    sqlite.pragma('foreign_keys = OFF')
+    try {
+      sqlite.pragma('secure_delete = ON')
+      sqlite.transaction(() => {
+        for (const table of syncedTables(sqlite)) {
+          if (table === 'app_setting') continue
+          sqlite.exec(`DELETE FROM "${table.replace(/"/g, '""')}"`)
+        }
+        // this computer's own settings (mail, calendar file) stay; it is no staff computer any more
+        const keys = sqlite.prepare('SELECT key FROM app_setting').all() as Array<{ key: string }>
+        const remove = sqlite.prepare('DELETE FROM app_setting WHERE key = ?')
+        for (const { key } of keys)
+          if (!isLocalSettingKey(key) || key.startsWith('staff')) remove.run(key)
+        sqlite.exec('DELETE FROM sync_meta')
+      })()
+    } finally {
+      sqlite.pragma('foreign_keys = ON')
+    }
+    sqlite.exec('VACUUM')
+    const storage = getStorageBasePath()
+    for (const name of existsSync(storage) ? readdirSync(storage) : [])
+      rmSync(join(storage, name), { recursive: true, force: true })
+    this.update({
+      enabled: false,
+      lastError: `Der Zugang dieses Computers wurde am ${new Date(revokedAt).toLocaleDateString('de-DE')} entzogen. Die Daten der Firma wurden von diesem Computer entfernt.`
+    })
+    this.host.onChanged()
+    return true
   }
 
   /** On quit: the last changes out, waiting a few seconds at most */

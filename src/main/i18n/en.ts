@@ -41,6 +41,7 @@ import { receiptsEn } from './en/receiptsEn'
 import { showFolderEn } from './en/showFolderEn'
 import { settingsEn } from './en/settingsEn'
 import { settlementEn } from './en/settlementEn'
+import { staffEn } from './en/staffEn'
 import { shortcutsHelpEn } from './en/shortcutsHelpEn'
 import { taxCodesEn } from './en/taxCodesEn'
 import { tipEn } from './en/tipEn'
@@ -157,6 +158,7 @@ export const EN: Readonly<Record<string, string>> = {
   ...showFolderEn,
   ...settingsEn,
   ...settlementEn,
+  ...staffEn,
   ...shortcutsHelpEn,
   ...taxCodesEn,
   ...tipEn,

@@ -37,6 +37,7 @@ import { DocumentEmailKind, DocumentEmailLang } from '../api/schemas/mailTemplat
 import { DatevCategory, DatevTransferStatus } from '../api/schemas/datev.schema'
 // Sync (src/main/sync): ids from this computer's range while sync is on, SQLite's otherwise
 import { nextRowId } from '../sync/ids'
+import { StaffGrantAccess, StaffGrantEntity } from '../api/schemas/staff.schema'
 
 /**
  * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
@@ -1765,6 +1766,64 @@ export const marketing_action = sqliteTable(
 )
 
 // ========================================
+// Employees (#262)
+// ========================================
+// An employee's computer syncs through a folder of its own, served by one admin computer
+// (src/main/staff). These rows are shared between the admin computers and never reach an
+// employee's computer (staff/policy.ts).
+
+export const employee = sqliteTable(
+  'employee',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    name: text('name').notNull(),
+    // The id range of the employee's computer (sync/ids.ts), chosen when the employee is added:
+    // a row in it was created by the employee
+    id_prefix: integer('id_prefix').notNull(),
+    // The sync device id of the admin computer serving the employee's folder
+    bridge_device: text('bridge_device').notNull().default(''),
+    // Access taken away: the folder is no longer served, the computer clears its data
+    revoked_at: text('revoked_at'),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [uniqueIndex('employee_id_prefix_idx').on(table.id_prefix)]
+)
+
+// A record shown to (shared) or hidden from (internal) an employee, against the rules of
+// staff/policy.ts; without an employee, for all of them
+export const staff_grant = sqliteTable(
+  'staff_grant',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    employee_id: integer('employee_id').references(() => employee.id, { onDelete: 'cascade' }),
+    entity: text('entity').notNull(),
+    entity_id: integer('entity_id').notNull(),
+    access: text('access').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    uniqueIndex('staff_grant_target_idx').on(
+      sql`coalesce(${table.employee_id}, 0)`,
+      table.entity,
+      table.entity_id
+    ),
+    index('staff_grant_entity_idx').on(table.entity, table.entity_id),
+    oneOf('staff_grant_entity_check', 'entity', StaffGrantEntity.options),
+    oneOf('staff_grant_access_check', 'access', StaffGrantAccess.options)
+  ]
+)
+
+// ========================================
 // Schema Export for Drizzle Utilities
 // ========================================
 
@@ -1823,5 +1882,7 @@ export const schema = {
   external_booking,
   mail_template,
   mail_rule,
-  mail_rule_hit
+  mail_rule_hit,
+  employee,
+  staff_grant
 }

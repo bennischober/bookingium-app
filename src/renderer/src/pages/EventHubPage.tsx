@@ -46,6 +46,7 @@ import { TabSection } from '@/components/detail/CompactParts'
 import { confirmDelete } from '@/lib/confirm'
 import { EventOpenItems } from '@/components/open-items/EventOpenItems'
 import { t } from '../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 export function EventHubPage() {
   const { eventId } = useParams({ strict: false }) as { eventId?: string }
@@ -218,6 +219,7 @@ export function EventHubPage() {
                   <FileSignature className="h-3.5 w-3.5" />
                   {t('Vertrag')}
                 </Button>
+                <StaffShareButton entity="deal_memo" entityId={event.id} />
                 <FollowUpButton record={{ type: 'event', id: event.id, name: event.name }} />
                 <Button size="sm" variant="outline" onClick={handleEdit} className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />

@@ -60,6 +60,8 @@ export type SaveSettlementInput = z.infer<typeof SaveSettlementInput>
 
 export const SettlementDto = z.object({
   eventId: z.number(),
+  // The stored row, null before the first save (#262: grants name it)
+  id: z.number().nullable(),
   /** null: no settlement yet */
   input: SettlementInputSchema.nullable(),
   sourceFileName: z.string(),

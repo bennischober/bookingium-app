@@ -81,7 +81,10 @@ export const MERGE_ORDER: readonly string[] = [
   'appointment',
   'external_booking',
   'mail_template',
-  'app_setting'
+  'app_setting',
+  // #262: employees and what is shared with them
+  'employee',
+  'staff_grant'
 ]
 
 /** Rows that belong to one owner record, by the owner's column */
@@ -194,6 +197,10 @@ export function keyOf(table: string, row: Row): string | null {
     case 'datev_transfer':
       // the send key is unique per upload
       return key(row.send_key)
+    case 'employee':
+      return key(row.id_prefix)
+    case 'staff_grant':
+      return key(row.employee_id, row.entity, row.entity_id)
     case 'management_contract':
       return key(row.band_id, row.start_date)
     case 'management_contract_member':
