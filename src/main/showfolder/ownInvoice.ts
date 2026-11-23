@@ -9,7 +9,7 @@
 // Pure: no Electron, no database (tests/booking_archive.test.ts).
 import { cleanText } from '../import/normalize'
 import { keyOf, mendWords, moneyOf, segmentsOf } from './extract'
-import { countryOfZip } from './address'
+import { countryOfZip, mendAddressWords } from './address'
 
 export interface OwnInvoiceFact {
   /** "019-2023" */
@@ -117,6 +117,8 @@ export function extractOwnInvoice(
   }
   if (!recipient.name) return null
   recipient.name = mendWords(recipient.name)
+  recipient.street = recipient.street && mendAddressWords(recipient.street)
+  recipient.city = recipient.city && mendAddressWords(recipient.city)
   recipient.countryCode ||= countryOfZip(recipient.zipCode)
 
   const number =

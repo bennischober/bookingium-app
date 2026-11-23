@@ -259,6 +259,18 @@ export class ShowFolderService {
       read.push({ path, name: file.name, kind, readable: file.text.trim().length > 0, facts })
     }
     const facts = mergeShowFacts(read)
+    // the contract names the promoter, our invoice to the same company has its address
+    const recipient = facts.invoice?.recipient
+    if (facts.promoter && recipient && sameName(facts.promoter.name, recipient.name)) {
+      const promoter = facts.promoter
+      if (!promoter.street && !promoter.zipCode) {
+        promoter.street = recipient.street
+        promoter.zipCode = recipient.zipCode
+        promoter.city = recipient.city
+        promoter.countryCode ||= recipient.countryCode
+      }
+      promoter.vatId ||= recipient.vatId
+    }
     // the fee of our invoice when no contract names a guarantee
     if (facts.deal.guaranteeCents === null && facts.invoice?.feeCents)
       facts.deal.guaranteeCents = facts.invoice.feeCents
