@@ -101,6 +101,7 @@ const MOVE_LABELS: Record<string, [string, string]> = {
   receipt: ['Beleg', 'Belege'],
   trip: ['Reise', 'Reisen'],
   management_contract: ['Management-Vertrag', 'Management-Verträge'],
+  band_agreement: ['Verlags-/Labelvertrag', 'Verlags-/Labelverträge'],
   event_advancing: ['Advancing', 'Advancing'],
   document: ['Dokument', 'Dokumente'],
   mail_link: ['E-Mail-Verknüpfung', 'E-Mail-Verknüpfungen']

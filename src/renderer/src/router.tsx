@@ -36,6 +36,7 @@ import InvoiceDetailPage from '@/pages/InvoiceDetailPage'
 import InvoicePrintPage from '@/pages/InvoicePrintPage'
 import ContractPrintPage from '@/pages/ContractPrintPage'
 import ManagementContractPrintPage from '@/pages/ManagementContractPrintPage'
+import BandAgreementPrintPage from '@/pages/BandAgreementPrintPage'
 import { ROUTES } from '@/lib/routing'
 import { trackNavigationHistory } from '@/lib/navigationHistory'
 import { validateListSearch } from '@/hooks/useListSearchActions'
@@ -307,6 +308,12 @@ const managementContractPrintRoute = createRoute({
   component: ManagementContractPrintPage
 })
 
+const bandAgreementPrintRoute = createRoute({
+  getParentRoute: () => printLayoutRoute,
+  path: '/band-agreements/$agreementId/print',
+  component: BandAgreementPrintPage
+})
+
 // A mail in its own window (double-click in the mail list), without the app chrome
 const mailWindowRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -347,7 +354,8 @@ const routeTree = rootRoute.addChildren([
   printLayoutRoute.addChildren([
     invoicePrintRoute,
     contractPrintRoute,
-    managementContractPrintRoute
+    managementContractPrintRoute,
+    bandAgreementPrintRoute
   ]),
   mailWindowRoute
 ])

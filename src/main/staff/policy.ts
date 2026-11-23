@@ -136,6 +136,8 @@ export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
   ['event_settlement', { kind: 'grant', entity: 'event_settlement' }],
   ['management_contract', { kind: 'grant', entity: 'management_contract' }],
   ['management_contract_member', child('management_contract', 'contract_id')],
+  // publishing and label agreements: like management, never inherited; only the employee's own
+  ['band_agreement', { kind: 'custom', visible: (row, l) => l.own(row.id) }],
   [
     'management_share',
     {

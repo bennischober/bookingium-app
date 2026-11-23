@@ -86,6 +86,10 @@ describe('enum columns', () => {
     [
       "insert into event_step_done (deal_memo_id, step) values (1, 'marketing')",
       'event_step_done_step_check'
+    ],
+    [
+      "insert into band_agreement (band_id, kind) values (1, 'merchandising')",
+      'band_agreement_kind_check'
     ]
   ])('%s', (sql, constraint) => {
     expect(run(sql)).toThrow(CHECK)

@@ -60,6 +60,8 @@ export const MERGE_ORDER: readonly string[] = [
   'management_contract_member',
   'management_share',
   'management_share_income',
+  // publishing and label agreements of a band
+  'band_agreement',
   // #228: one per event; its fee invoice is merged before it
   'event_settlement',
   // #232: advancing, ticket quota and sales reports of a show
@@ -203,6 +205,8 @@ export function keyOf(table: string, row: Row): string | null {
       return key(row.employee_id, row.entity, row.entity_id)
     case 'management_contract':
       return key(row.band_id, row.start_date)
+    case 'band_agreement':
+      return key(row.band_id, row.kind, row.start_date, row.created_at)
     case 'management_contract_member':
       return key(row.contract_id, row.person_id)
     case 'management_share':

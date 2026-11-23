@@ -13,3 +13,9 @@ export const CONTRACT_FILE_NAMES: Record<ContractDocument, Record<DocumentLang, 
   concert: { de: 'Auftrittsvertrag', en: 'Guest appearance contract' },
   management: { de: 'Managementvertrag', en: 'Management agreement' }
 }
+
+/** The words of a publishing or label agreement's PDF name, in the agreement's language */
+export const AGREEMENT_FILE_NAMES: Record<'publishing' | 'label', Record<DocumentLang, string>> = {
+  publishing: { de: 'Verlagsvertrag', en: 'Publishing contract' },
+  label: { de: 'Eckpunktevereinbarung Label', en: 'Label head of agreement' }
+}

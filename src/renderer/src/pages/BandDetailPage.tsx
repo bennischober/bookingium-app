@@ -10,6 +10,7 @@ import { BandForm } from '@/components/forms/BandForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
 import { MembersPanel } from '@/components/MembersSheet'
 import { ManagementContractPanel } from '@/components/band/ManagementContractSheet'
+import { BandAgreementPanel } from '@/components/band/BandAgreementPanel'
 import { BandDocumentsView } from '@/components/documents/BandDocumentsView'
 import { BAND_TAB_ALIASES, isBandTab } from '@/components/band/constants'
 import { FactSheet, LinkList, TabSection } from '@/components/detail/CompactParts'
@@ -151,13 +152,19 @@ function EventsTab({ bandId }: { bandId: number }) {
   )
 }
 
-/** Management contracts and the invoices for the band's events or addressed to the band */
+/** Management, publishing and label contracts and the invoices for the band's events or addressed to the band */
 function MoneyTab({ bandId }: { bandId: number }) {
   const invoices = trpcReact.invoice.listByBand.useQuery(bandId)
   return (
     <div className="space-y-10">
       <TabSection id="section-contracts" title={t('Managementverträge')}>
         <ManagementContractPanel bandId={bandId} />
+      </TabSection>
+      <TabSection title={t('Verlagsverträge')}>
+        <BandAgreementPanel bandId={bandId} kind="publishing" />
+      </TabSection>
+      <TabSection title={t('Labelverträge')}>
+        <BandAgreementPanel bandId={bandId} kind="label" />
       </TabSection>
       <TabSection title={t('Rechnungen')}>
         <RecordInvoicesTable
