@@ -48,6 +48,8 @@ export function filingOf(kind: ShowFileKind): { owner: ShowFileOwner; documentTy
       return { owner: 'event', documentType: 'settlement' }
     case 'rider':
       return { owner: 'event', documentType: 'rider' }
+    case 'invoice':
+      return { owner: 'event', documentType: 'invoice' }
     default:
       return { owner: 'event', documentType: 'other' }
   }
@@ -59,6 +61,8 @@ export interface ShowFileRead {
   kind: ShowFileKind
   /** The file had text (false: a scan, or a format that is not read) */
   readable: boolean
+  /** A duplicate because another file of the folder has the same content */
+  sameContent?: boolean
 }
 
 /** What is stored for the event now */
@@ -87,6 +91,10 @@ export interface ShowFolderCurrent {
   loproCompany: { id: number; name: string } | null
   /** A stored company with the contract's promoter name */
   companyByName: { id: number; name: string } | null
+  /** #262 archive import: the event's billing company (Rechnungsfirma) */
+  invoiceCompany: { id: number; name: string } | null
+  /** A stored company with the name of our invoice's recipient */
+  invoiceCompanyByName: { id: number; name: string } | null
   /** Persons already Ansprechpartner of that company (or of the LoPro company) */
   companyMemberIds: ReadonlySet<number>
   localContactId: number | null
@@ -148,7 +156,13 @@ export function planFiles(
     }
     if (file.kind === 'duplicate') {
       include = false
-      note = 'Dasselbe Blatt liegt auch als PDF bei.'
+      note = file.sameContent
+        ? 'Dieselbe Datei liegt schon bei.'
+        : 'Dasselbe Blatt liegt auch als PDF bei.'
+    } else if (file.kind === 'travel') {
+      // passports, tickets, visa: personal papers of the crew, never filed in Bookingium
+      include = false
+      note = 'Reiseunterlagen (Pässe, Tickets, Visa) werden nicht abgelegt.'
     } else if (
       (owner === 'event' ? current.eventDocuments : current.venueDocuments).has(file.name)
     ) {
@@ -488,7 +502,11 @@ function promoterSuggestion(
       email: promoter.email,
       phone: promoter.phone,
       vatId: promoter.vatId,
-      lopro: true
+      lopro: true,
+      invoiceCompany: false,
+      countryCode: '',
+      taxNumber: promoter.taxNumber,
+      kskNumber: promoter.kskNumber
     }
   }
 }

@@ -8,6 +8,7 @@ import { toCents } from '../einvoice/amounts'
 import { cleanText } from '../import/normalize'
 import { t } from '../i18n/translate'
 import type { ContractPartyFact } from './contractParty'
+import type { OwnInvoiceFact } from './ownInvoice'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -18,6 +19,9 @@ export const SHOW_FILE_KINDS = [
   'mail',
   'permit',
   'rider',
+  // #262 archive import: an invoice we wrote, and travel papers (never filed, never read)
+  'invoice',
+  'travel',
   'duplicate',
   'other'
 ] as const
@@ -32,6 +36,8 @@ export const SHOW_FILE_KIND_LABELS: Record<ShowFileKind, string> = {
   mail: t('E-Mail'),
   permit: t('Genehmigung'),
   rider: t('Rider'),
+  invoice: t('Rechnung'),
+  travel: t('Reiseunterlagen (nicht abgelegt)'),
   duplicate: t('Doppelt (gleiche Datei als PDF)'),
   other: t('Sonstiges')
 }
@@ -99,6 +105,8 @@ export interface ShowFacts {
   contacts: ContactFact[]
   /** The promoter of a contract (contractParty.ts); null when no contract names one */
   promoter: ContractPartyFact | null
+  /** An invoice we wrote for the show (ownInvoice.ts); null when there is none */
+  invoice: OwnInvoiceFact | null
 }
 
 export interface ShowFileInput {
@@ -107,6 +115,8 @@ export interface ShowFileInput {
   text: string
   /** Link targets in it (PDF link annotations, a mail's links): fix e-mails broken by ligatures */
   links: string[]
+  /** The folders it lies in, nearest first ("Cruise Tickets", "70000 Tons US"); for its kind */
+  dirs?: readonly string[]
 }
 
 export const emptyFacts = (): ShowFacts => ({
@@ -126,7 +136,8 @@ export const emptyFacts = (): ShowFacts => ({
   tickets: { presaleCents: null, baseCents: null, extraCents: null, wkzCents: null },
   deal: { guaranteeCents: null, text: '' },
   contacts: [],
-  promoter: null
+  promoter: null,
+  invoice: null
 })
 
 // ----------------------------------------
@@ -307,6 +318,10 @@ const startsWithAny = (key: string, words: readonly string[]): boolean =>
 const extensionOf = (name: string): string => name.split('.').pop()?.toLowerCase() ?? ''
 const baseOf = (name: string): string => name.replace(/\.[^.]+$/, '').toLowerCase()
 
+const TRAVEL_NAME =
+  /reisepass|passport|\besta\b|\bvisa\b|visum|boarding|bordkarte|flugticket|\bflight\b|buchungsbestaetigung|booking confirmation|passenger|passagier|cruise ticket|ticket contract|crew daten|\bcbp\b|customs|\bzoll\b/
+const TRAVEL_DIR = /flugticket|\bflug\b|cruise tickets?|passenger|passport|reisepass|\bvisa\b|\besta\b/
+
 /**
  * What a file is, from its name and text. `siblings` are the other names of the folder: a Pages
  * or Word file next to a PDF of the same name is the same sheet twice.
@@ -315,6 +330,9 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
   const extension = extensionOf(file.name)
   const name = keyOf(file.name)
   const text = keyOf(file.text.slice(0, 4000))
+  // travel papers: passports, visa/ESTA, flight and cruise tickets, passenger lists, customs
+  const dirs = (file.dirs ?? []).map(keyOf).join(' ')
+  if (TRAVEL_NAME.test(name) || TRAVEL_DIR.test(dirs)) return 'travel'
   if (['eml'].includes(extension)) return 'mail'
   if (['pages', 'numbers', 'key', 'docx', 'doc', 'odt'].includes(extension)) {
     const hasPdf = siblings.some(
@@ -332,7 +350,9 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
     return 'venue_spec'
   if (FESTIVAL_SHEET.test(name)) return 'venue_spec'
   if (/licht|light|stage ?plot|buehnenplan|lichtplot|floor ?plan/.test(name)) return 'stage_plot'
-  if (/vertrag|contract|agreement|gastspiel/.test(name)) return 'contract'
+  if (/vertrag|contract|agreement|gastspiel|\boffer\b|angebot/.test(name)) return 'contract'
+  if (/^rechnung|\brechnung\b|\binvoice\b/.test(name) || /^rechnung (nr|nummer)/.test(text))
+    return 'invoice'
   if (/rider/.test(name)) return 'rider'
   if (/abrechnung|settlement/.test(name)) return 'settlement'
   if (has(/haltverbot|verkehrsbehoerdlich|anordnung|genehmigung|permit|ordnungsamt/))
@@ -769,6 +789,7 @@ export function mergeShowFacts(
     merged.deal.guaranteeCents ??= facts.deal.guaranteeCents
     merged.deal.text ||= facts.deal.text
     merged.promoter ??= facts.promoter
+    merged.invoice ??= facts.invoice
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
   // a name that says festival ("… Open Air") decides; a club-like name ("Halle …") only fills in,

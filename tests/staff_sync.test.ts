@@ -254,6 +254,19 @@ function seed(admin: Computer) {
       })
       .returning()
       .get()
+    const invoicePdf = d
+      .insert(schema.document)
+      .values({
+        owner_type: 'event',
+        owner_id: sharedEvent.id,
+        file_name: 'rechnung.pdf',
+        file_type: 'application/pdf',
+        file_path: 'documents/rechnung.pdf',
+        file_size: 10,
+        document_type: 'invoice'
+      })
+      .returning()
+      .get()
     const employee = d
       .insert(schema.employee)
       .values({ name: 'Erika Muster', id_prefix: STAFF_PREFIX })
@@ -281,6 +294,7 @@ function seed(admin: Computer) {
       invoice: invoice.id,
       rider: rider.id,
       calculation: calculation.id,
+      invoicePdf: invoicePdf.id,
       employee: { id: employee.id, name: employee.name, idPrefix: STAFF_PREFIX } as EmployeeRef
     }
   })
@@ -316,6 +330,8 @@ describe('staff policy', () => {
     expect(view.get('document')?.has(String(ids.rider))).toBe(true)
     expect(view.get('document')?.has(String(ids.calculation))).toBe(false)
     expect(view.get('employee')?.size).toBe(0)
+    // an invoice filed at the shared event as a PDF stays internal
+    expect(view.get('document')?.has(String(ids.invoicePdf))).toBe(false)
     expect(view.get('staff_grant')?.size).toBe(0)
   })
 })

@@ -6,56 +6,29 @@
 // supply chain) comes into the app. Formulas give their last computed value; dates come out as
 // DD.MM.YYYY (what parseShowDate and the list import read); numbers as Excel shows them without
 // grouping ("1500", "12,5" is kept as the stored 12.5 -> "12,5" in German).
-import { inflateRawSync } from 'zlib'
-
-type ZipEntry = { name: string; method: number; compressedSize: number; offset: number }
-
-const EOCD_SIGNATURE = 0x06054b50
-const CENTRAL_SIGNATURE = 0x02014b50
-const LOCAL_SIGNATURE = 0x04034b50
-/** A sheet part bigger than this is not a list someone imports by hand */
-const MAX_PART_BYTES = 64 * 1024 * 1024
+import { ZipError, zipEntries as readEntries, zipPart, type ZipEntry } from './zip'
 
 function zipEntries(zip: Buffer): Map<string, ZipEntry> {
-  let eocd = -1
-  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 65_557); i--) {
-    if (zip.readUInt32LE(i) === EOCD_SIGNATURE) {
-      eocd = i
-      break
-    }
+  try {
+    return readEntries(zip)
+  } catch (error) {
+    if (error instanceof ZipError) throw new Error('Die Datei ist keine Excel-Datei (.xlsx).')
+    throw error
   }
-  if (eocd < 0) throw new Error('Die Datei ist keine Excel-Datei (.xlsx).')
-  const count = zip.readUInt16LE(eocd + 10)
-  let pointer = zip.readUInt32LE(eocd + 16)
-  const entries = new Map<string, ZipEntry>()
-  for (let i = 0; i < count; i++) {
-    if (zip.readUInt32LE(pointer) !== CENTRAL_SIGNATURE) break
-    const method = zip.readUInt16LE(pointer + 10)
-    const compressedSize = zip.readUInt32LE(pointer + 20)
-    const nameLength = zip.readUInt16LE(pointer + 28)
-    const extraLength = zip.readUInt16LE(pointer + 30)
-    const commentLength = zip.readUInt16LE(pointer + 32)
-    const offset = zip.readUInt32LE(pointer + 42)
-    const name = zip.toString('utf-8', pointer + 46, pointer + 46 + nameLength)
-    entries.set(name, { name, method, compressedSize, offset })
-    pointer += 46 + nameLength + extraLength + commentLength
-  }
-  return entries
 }
 
 function readPart(zip: Buffer, entries: Map<string, ZipEntry>, name: string): string | null {
-  const entry = entries.get(name)
-  if (!entry) return null
-  if (zip.readUInt32LE(entry.offset) !== LOCAL_SIGNATURE)
-    throw new Error('Die Excel-Datei ist beschädigt.')
-  const nameLength = zip.readUInt16LE(entry.offset + 26)
-  const extraLength = zip.readUInt16LE(entry.offset + 28)
-  const start = entry.offset + 30 + nameLength + extraLength
-  const data = zip.subarray(start, start + entry.compressedSize)
-  if (entry.method === 0) return data.toString('utf-8')
-  if (entry.method !== 8)
-    throw new Error('Die Excel-Datei ist in einem unbekannten Format gepackt.')
-  return inflateRawSync(data, { maxOutputLength: MAX_PART_BYTES }).toString('utf-8')
+  try {
+    return zipPart(zip, entries, name)?.toString('utf-8') ?? null
+  } catch (error) {
+    if (error instanceof ZipError)
+      throw new Error(
+        error.message === 'unknown method'
+          ? 'Die Excel-Datei ist in einem unbekannten Format gepackt.'
+          : 'Die Excel-Datei ist beschädigt.'
+      )
+    throw error
+  }
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }

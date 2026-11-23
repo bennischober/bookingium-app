@@ -18,6 +18,9 @@ export interface ContractPartyFact {
   /** The person who represents or handles it ("vertreten durch", "Ansprechpartner") */
   contactName: string
   contactRole: string
+  /** Künstlersozialkasse number and tax number, as a German contract form asks for them */
+  kskNumber: string
+  taxNumber: string
 }
 
 const PHONE = /(?:\+|\b0)\d[\d ./()-]{5,}\d/
@@ -89,6 +92,14 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
     }
     const vat = /ust|vat|steuer/.test(label) || /ust-?id|vat/i.test(line) ? VAT.exec(line) : null
     if (vat && !fact.vatId) fact.vatId = vat[0].replace(/[\s-]/g, '')
+    if (/kuenstlersozialkass|\bksk\b/.test(label) && !fact.kskNumber) {
+      const number = /[0-9][0-9A-Z]{5,}/.exec(value.replace(/\s/g, ''))
+      if (number) fact.kskNumber = number[0]
+    }
+    if (/steuernummer|steuer nr/.test(label) && !vat && !fact.taxNumber) {
+      const number = /\d[\d/ ]{5,}\d/.exec(value)
+      if (number) fact.taxNumber = number[0].replace(/\s/g, '')
+    }
     if (!pair && !fact.zipCode) {
       const place = ZIP_CITY.exec(line)
       if (place) {
@@ -119,7 +130,9 @@ const empty = (): ContractPartyFact => ({
   phone: '',
   vatId: '',
   contactName: '',
-  contactRole: ''
+  contactRole: '',
+  kskNumber: '',
+  taxNumber: ''
 })
 
 /**
@@ -136,16 +149,32 @@ export function extractContractParty(
   for (let index = 0; index < segments.length; index++) {
     const pair = labelOf(segments[index])
     if (!pair) continue
-    const [label, value] = pair
+    const [rawLabel, value] = pair
+    // "und dem örtlichen Veranstalter: …" (a party line of the contract's head)
+    const label = rawLabel
+      .replace(/^(und|and|sowie)\s+/, '')
+      .replace(/^(dem|der|den|die|the)\s+/, '')
+      .replace(/^(oertlichen|lokalen|local)\s+/, '')
     if (!PROMOTER.test(label) || ARTIST_SIDE.test(label) || label.split(' ').length > 3) continue
     const lines: string[] = []
     let name = value
+    // the whole party on one line: "Stadt Musterstadt, Kulturamt, Musterweg 1, 12345 Musterstadt"
+    if (name.includes(',')) {
+      const parts = name.split(/\s*,\s*/).filter(Boolean)
+      name = parts[0]
+      lines.push(...parts.slice(1))
+    }
     let next = index + 1
     if (!name && next < segments.length) name = segments[next++]
     for (; next < segments.length && lines.length < 7; next++) {
       const line = segments[next]
       const nextPair = labelOf(line)
       if (BLOCK_END.test(keyOf(line))) break
+      // "Künstlersozialkassen-Nummer des örtlichen Veranstalters: …" belongs to the party
+      if (nextPair && /kuenstlersozialkass|\bksk\b|steuer|ust|vat/.test(nextPair[0])) {
+        lines.push(line)
+        continue
+      }
       if (nextPair && (PROMOTER.test(nextPair[0]) || ARTIST_SIDE.test(nextPair[0]))) break
       lines.push(line)
     }
@@ -194,4 +223,66 @@ export function extractContractParty(
     return fact
   }
   return null
+}
+
+export interface ContractEventFact {
+  /** ISO date, '' when not found */
+  date: string
+  /** The event as the contract names it ("Festival der kommunalen Jugendarbeit") */
+  eventName: string
+  zipCode: string
+  city: string
+  /** The location within the place ("Jahnstadion") */
+  location: string
+}
+
+const DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/
+
+/**
+ * The show a contract is about, from a form whose labels stand in one column and the values in
+ * the next ("Veranstaltungsdatum:", "Event/Veranstaltung:", "Veranstaltungsort:", "Location:"
+ * and below them the values in that order), or from labels with their value on the same line.
+ */
+export function extractContractEvent(text: string): ContractEventFact | null {
+  const segments = segmentsOf(text).filter(Boolean)
+  const fact: ContractEventFact = { date: '', eventName: '', zipCode: '', city: '', location: '' }
+  const assign = (label: string, value: string) => {
+    const key = keyOf(label)
+    if (!value) return
+    if (/datum|date/.test(key) && !fact.date) {
+      const match = DATE.exec(value)
+      if (match)
+        fact.date = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+    } else if (/^(event|veranstaltung|event veranstaltung|veranstaltungsname)$/.test(key))
+      fact.eventName ||= value
+    else if (/^(veranstaltungsort|ort|place|city)$/.test(key) && !fact.zipCode) {
+      const place = ZIP_CITY.exec(value)
+      if (place) {
+        fact.zipCode = place[1]
+        fact.city = cleanText(place[2])
+      } else fact.city ||= value
+    } else if (/^(location|spielstaette|halle|venue)$/.test(key)) fact.location ||= value
+  }
+  for (let index = 0; index < segments.length; index++) {
+    // a column of labels without values, then the values in the same order
+    const labels: string[] = []
+    let next = index
+    while (next < segments.length) {
+      const pair = labelOf(segments[next])
+      if (!pair || pair[1]) break
+      labels.push(segments[next].replace(/:\s*$/, ''))
+      next++
+    }
+    if (labels.length >= 3) {
+      for (let i = 0; i < labels.length && next + i < segments.length; i++) {
+        if (labelOf(segments[next + i])) break
+        assign(labels[i], cleanText(segments[next + i]))
+      }
+      index = next
+      continue
+    }
+    const pair = labelOf(segments[index])
+    if (pair && pair[1]) assign(segments[index].split(':')[0], pair[1])
+  }
+  return fact.date || fact.eventName || fact.city ? fact : null
 }
