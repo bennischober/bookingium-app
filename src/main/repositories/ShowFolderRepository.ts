@@ -4,6 +4,7 @@ import { db } from '../db'
 import { schema } from '../db/schema'
 import { sqlTimestamp } from '../db/timestamps'
 import { keyOf, type PlaceKind } from '../showfolder/extract'
+import { countryNameOf } from '../showfolder/address'
 import type { ShowFolderCurrent } from '../showfolder/plan'
 
 const now = sql`(datetime('now'))`
@@ -52,7 +53,8 @@ export class ShowFolderRepository {
         street: schema.address.street,
         streetNumber: schema.address.street_number,
         zipCode: schema.address.zip_code,
-        city: schema.address.city
+        city: schema.address.city,
+        countryCode: schema.address.country_code
       })
       .from(schema.venue)
       .leftJoin(schema.address, eq(schema.address.id, schema.venue.address_id))
@@ -165,6 +167,7 @@ export class ShowFolderRepository {
             streetNumber: venue.streetNumber ?? '',
             zipCode: venue.zipCode ?? '',
             city: venue.city ?? '',
+            countryCode: venue.countryCode ?? '',
             notes: venue.notes
           }
         : null,
@@ -313,6 +316,7 @@ export class ShowFolderRepository {
       countryCode: string
       email: string
       phone: string
+      website?: string
       vatId: string
       taxNumber: string
       kskNumber: string
@@ -336,6 +340,7 @@ export class ShowFolderRepository {
           street_number: fields.streetNumber,
           zip_code: fields.zipCode,
           city: fields.city,
+          country: countryNameOf(fields.countryCode),
           country_code: fields.countryCode
         }
         if (address)
@@ -354,6 +359,7 @@ export class ShowFolderRepository {
       const contactValues: Partial<typeof schema.contact.$inferInsert> = {}
       if (!contact?.email && fields.email) contactValues.email = fields.email
       if (!contact?.phone && fields.phone) contactValues.phone = fields.phone
+      if (!contact?.homepage && fields.website) contactValues.homepage = fields.website
       if (Object.keys(contactValues).length > 0) {
         if (contact)
           tx.update(schema.contact)
@@ -548,8 +554,18 @@ export class ShowFolderRepository {
   /** The club's address: its own row is updated, a club without one gets a new row */
   setVenueAddress(
     venueId: number,
-    address: { street: string; streetNumber: string; zipCode: string; city: string }
+    address: {
+      street: string
+      streetNumber: string
+      zipCode: string
+      city: string
+      countryCode?: string
+    }
   ): void {
+    // a stored country stays when the files name none
+    const country = address.countryCode
+      ? { country: countryNameOf(address.countryCode), country_code: address.countryCode }
+      : {}
     const venue = this.venue(venueId)
     if (!venue) return
     db.transaction((tx) => {
@@ -559,7 +575,8 @@ export class ShowFolderRepository {
             street: address.street,
             street_number: address.streetNumber,
             zip_code: address.zipCode,
-            city: address.city
+            city: address.city,
+            ...country
           })
           .where(eq(schema.address.id, venue.addressId))
           .run()
@@ -570,7 +587,8 @@ export class ShowFolderRepository {
             street: address.street,
             street_number: address.streetNumber,
             zip_code: address.zipCode,
-            city: address.city
+            city: address.city,
+            ...country
           })
           .returning({ id: schema.address.id })
           .get()

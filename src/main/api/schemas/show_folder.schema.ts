@@ -39,7 +39,9 @@ const Address = {
   street: z.string(),
   streetNumber: z.string(),
   zipCode: z.string(),
-  city: z.string()
+  city: z.string(),
+  /** ISO code ("DE"), '' when the files do not tell */
+  countryCode: z.string().default('')
 }
 
 /** One change a suggestion makes when it is ticked */
@@ -102,9 +104,9 @@ export const ShowFolderAction = z.discriminatedUnion('type', [
     lopro: z.boolean(),
     /** #262: entered as the event's billing company (from an invoice we wrote) */
     invoiceCompany: z.boolean().default(false),
-    countryCode: z.string().default(''),
     taxNumber: z.string().default(''),
-    kskNumber: z.string().default('')
+    kskNumber: z.string().default(''),
+    website: z.string().default('')
   }),
   z.object({ type: z.literal('settlement'), path: z.string().min(1) })
 ])

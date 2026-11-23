@@ -46,7 +46,9 @@ describe('contract party', () => {
       contactName: 'Max Beispiel',
       contactRole: 'Geschäftsführung',
       kskNumber: '',
-      taxNumber: ''
+      taxNumber: '',
+      website: '',
+      countryCode: 'DE'
     })
   })
 
