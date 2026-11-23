@@ -20,6 +20,7 @@ import { contractRouter } from './routers/contract.router'
 import { searchRouter } from './routers/search.router'
 import { dashboardRouter } from './routers/dashboard.router'
 import { managementContractRouter } from './routers/management_contract.router'
+import { bandAgreementRouter } from './routers/band_agreement.router'
 import { importRouter } from './routers/import.router'
 import { settingsRouter } from './routers/settings.router'
 import { mergeRouter } from './routers/merge.router'
@@ -80,6 +81,7 @@ export const router = t.router({
   search: searchRouter,
   dashboard: dashboardRouter,
   managementContract: managementContractRouter,
+  bandAgreement: bandAgreementRouter,
   dataImport: importRouter,
   settings: settingsRouter,
   merge: mergeRouter,

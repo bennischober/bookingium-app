@@ -38,6 +38,7 @@ import { DatevCategory, DatevTransferStatus } from '../api/schemas/datev.schema'
 // Sync (src/main/sync): ids from this computer's range while sync is on, SQLite's otherwise
 import { nextRowId } from '../sync/ids'
 import { StaffGrantAccess, StaffGrantEntity } from '../api/schemas/staff.schema'
+import { BandAgreementKind } from '../api/schemas/band_agreement.schema'
 
 /**
  * #151: a CHECK that a text column holds one of a zod enum's values, so the database and
@@ -1474,6 +1475,34 @@ export const management_contract_member = sqliteTable(
   ]
 )
 
+// Publishing and label agreements of a band: the counterparty (publisher or label) and the
+// terms as JSON per kind (band_agreement.schema.ts); the legal text is in the documents
+export const band_agreement = sqliteTable(
+  'band_agreement',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }).$defaultFn(nextRowId),
+    band_id: integer('band_id')
+      .notNull()
+      .references(() => band.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
+    // Contract start (date of the last signature), once known
+    start_date: text('start_date'),
+    terms: text('terms').default('{}').notNull(),
+    special_clauses: text('special_clauses').default('').notNull(),
+    created_at: text('created_at')
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updated_at: text('updated_at')
+      .default(sql`(datetime('now'))`)
+      .notNull()
+  },
+  (table) => [
+    index('band_agreement_band_idx').on(table.band_id),
+    oneOf('band_agreement_kind_check', 'kind', BandAgreementKind.options)
+  ]
+)
+
 // Quarterly management share ("Managementbeteiligung"): the invoice billed
 // to the band for one quarter, with the % applied and the band's reported
 // net income it was computed from. Deleting the (draft) invoice removes it.
@@ -1863,6 +1892,7 @@ export const schema = {
   datev_transfer,
   management_contract,
   management_contract_member,
+  band_agreement,
   management_share,
   management_share_income,
   event_settlement,

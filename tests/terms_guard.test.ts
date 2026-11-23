@@ -14,7 +14,9 @@ const ROOT = join(__dirname, '..')
 const LEGAL_TEXT = new Set([
   'src/renderer/src/components/contract/ContractDocument.tsx',
   'src/renderer/src/components/contract/ContractDocumentEn.tsx',
-  'src/renderer/src/components/contract/ManagementContractDocument.tsx'
+  'src/renderer/src/components/contract/ManagementContractDocument.tsx',
+  'src/renderer/src/components/contract/PublishingAgreementDocument.tsx',
+  'src/renderer/src/components/contract/LabelAgreementDocument.tsx'
 ])
 
 const WORD = new RegExp(
