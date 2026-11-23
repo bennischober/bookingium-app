@@ -36,7 +36,8 @@ export interface ContractPartyFact {
 }
 
 const PHONE = /(?:\+|\b0)\d[\d ./()-]{5,}\d/
-const VAT = /\b(?:DE|AT|CH[EU]?|NL|BE|FR|LU|IT|ES|PL|CZ|DK)[\s-]?[0-9A-Z]{8,12}\b/
+const VAT =
+  /\b(?:DE|AT|CH[EU]?|NL|BE|FR|LU|IT|ES|PL|CZ|DK|SE|FI|IE|PT|GB|NO|HU|SK|SI|HR|RO|BG|GR|EL|EE|LV|LT|MT|CY)[\s-]?[0-9A-Z]{8,12}\b/
 
 /** The promoter's role words; the act's side ("Künstler", "Agentur") is never the promoter */
 const PROMOTER =
@@ -81,7 +82,7 @@ function isCompanyLine(segment: string): boolean {
 
 /** Legal forms that end a company's name ("Muster Events GmbH", "Beispiel e.V.") */
 const LEGAL_FORM =
-  /^(.*?\b(?:gGmbH|GmbH(?:\s*&\s*Co\.?\s*KG)?|e\.\s?V\.?|GbR|UG(?:\s*\(haftungsbeschränkt\))?|AG|KG|OHG|e\.\s?K\.|Ltd\.?|a\.\s?s\.|s\.r\.o\.|Inc\.?|LLC|mbH))(?=\s|,|;|$)\s*[,.;]?\s*(.*)$/
+  /^(.*?\b(?:gGmbH|GmbH(?:\s*&\s*Co\.?\s*KG)?|e\.\s?V\.?|GbR|UG(?:\s*\(haftungsbeschränkt\))?|AG|KG|OHG|e\.\s?K\.|Ltd\.?|a\.\s?s\.|s\.r\.o\.|Inc\.?|LLC|mbH|S\.\s?L\s?\.|S\.\s?A\s?\.|S\.\s?r\.\s?l\.|SARL|SAS|B\.\s?V\.|N\.\s?V\.|BVBA|AB|AS|ApS|Oy))(?=\s|,|;|$)\s*[,.;]?\s*(.*)$/
 
 /**
  * A promoter's name as a contract line writes it, apart from what follows it: "und dem örtlichen
@@ -96,7 +97,9 @@ export function splitPartyName(raw: string): { name: string; rest: string[] } {
       .replace(/^(dem|der|den|die)(\s+|$)/i, '')
       .replace(/^(örtlichen|oertlichen|lokalen|local)(\s+|$)/i, '')
       .replace(/^(veranstalter|promoter)\s*([;:]\s*|$)/i, '')
-  value = value.replace(/(\p{L})\s+-\s+(\p{L})/gu, '$1-$2')
+  value = value
+    .replace(/(\p{L})\s+-\s+(\p{L})/gu, '$1-$2')
+    .replace(/\b([A-Z])\s?\.\s?([A-Za-z])\s?\.(?=\s|,|$)/g, '$1.$2.')
   const legal = LEGAL_FORM.exec(value)
   if (legal && !legal[2]) return { name: mendWords(legal[1]), rest: [] }
   if (legal && legal[2]) {
@@ -127,6 +130,16 @@ export function splitPartyName(raw: string): { name: string; rest: string[] } {
 
 /** Reads the facts of a party block (its lines after the name) into `fact` */
 function readBlock(fact: ContractPartyFact, lines: string[], links: readonly string[]): void {
+  // the unlabelled lines as one address: foreign forms spread street, number, zip and town over
+  // commas and lines
+  const plain = lines.filter((line) => !labelOf(line) && !/@|vertreten|represented/i.test(line))
+  const whole = parseAddress(plain.join('\n'))
+  if (whole.streetNumber && whole.zipCode && !fact.street && !fact.zipCode) {
+    fact.street = `${whole.street} ${whole.streetNumber}`
+    fact.zipCode = whole.zipCode
+    fact.city = whole.city
+    fact.countryCode ||= whole.countryCode
+  }
   for (const line of lines) {
     const pair = labelOf(line)
     // labels without the spaces a PDF puts in ("Adress e", "Firmenn ame")
@@ -352,11 +365,11 @@ export function extractContractParty(
       name: splitPartyName(name.replace(/^(der |die |the )?(firma\s+)?/i, '')).name
     }
     if (!fact.name) continue
-    readBlock(
-      fact,
-      lines.filter((line) => line !== name),
-      links
-    )
+    // "VAT No. of the Promoter: …" right below the "hereinafter" line
+    const below = segments
+      .slice(index + 1, index + 4)
+      .filter((line) => /ust|vat|steuer|tax|ksk|kuenstlersozial/i.test(keyOf(line)))
+    readBlock(fact, [...lines.filter((line) => line !== name), ...below], links)
     mendParty(fact)
     return fact
   }
@@ -374,7 +387,43 @@ export interface ContractEventFact {
   location: string
 }
 
-const DATE = /\b(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?!\d)/
+const DATE = /\b(\d{1,2})[./](\d{1,2})[./](\d{4}|\d{2})(?!\d)/
+
+const MONTHS = [
+  ['jan', 'januar', 'january', 'janvier', 'enero'],
+  ['feb', 'februar', 'february', 'fevrier', 'febrero'],
+  ['mar', 'maerz', 'märz', 'march', 'mars', 'marzo'],
+  ['apr', 'april', 'avril', 'abril'],
+  ['mai', 'may', 'mayo'],
+  ['jun', 'juni', 'june', 'juin', 'junio'],
+  ['jul', 'juli', 'july', 'juillet', 'julio'],
+  ['aug', 'august', 'aout', 'agosto'],
+  ['sep', 'sept', 'september', 'septembre', 'septiembre'],
+  ['okt', 'oct', 'oktober', 'october', 'octobre', 'octubre'],
+  ['nov', 'november', 'novembre', 'noviembre'],
+  ['dez', 'dec', 'dezember', 'december', 'decembre', 'diciembre']
+]
+
+/** "12 th August 2023", "12. August 2023", "August 12, 2023" → ISO; '' when none */
+export function englishDate(value: string): string {
+  const text = value
+    .toLowerCase()
+    .replace(/(\d)\s*(st|nd|rd|th)\b/g, '$1')
+    .replace(/[.,]/g, ' ')
+  const monthOf = (word: string) => MONTHS.findIndex((names) => names.includes(word)) + 1
+  const dayFirst = /\b(\d{1,2})\s+([a-zäéû]+)\s+(\d{4})\b/.exec(text)
+  const monthFirst = /\b([a-zäéû]+)\s+(\d{1,2})\s+(\d{4})\b/.exec(text)
+  const iso = (year: string, month: number, day: string) =>
+    month > 0 && Number(day) >= 1 && Number(day) <= 31
+      ? `${year}-${String(month).padStart(2, '0')}-${day.padStart(2, '0')}`
+      : ''
+  if (dayFirst) {
+    const found = iso(dayFirst[3], monthOf(dayFirst[2]), dayFirst[1])
+    if (found) return found
+  }
+  if (monthFirst) return iso(monthFirst[3], monthOf(monthFirst[1]), monthFirst[2])
+  return ''
+}
 
 /**
  * The show a contract is about, from a form whose labels stand in one column and the values in
@@ -387,10 +436,17 @@ export function extractContractEvent(text: string): ContractEventFact | null {
   const assign = (label: string, value: string) => {
     const key = keyOf(label)
     if (!value) return
-    if (/datum|date/.test(key) && !fact.date) {
+    if (
+      /datum|date/.test(key) &&
+      !/issue|ausstell|vertrag|contract|erstell|unterzeichn|signed|faellig|due|zahlung|payment|bis/.test(
+        key
+      ) &&
+      !fact.date
+    ) {
       const match = DATE.exec(value)
       const year = match?.[3].length === 2 ? `20${match[3]}` : match?.[3]
       if (match) fact.date = `${year}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+      else fact.date = englishDate(value)
     } else if (/^(event|veranstaltung|event veranstaltung|veranstaltungsname)$/.test(key))
       fact.eventName ||= value
     else if (/^(veranstaltungsort|ort|place|city)$/.test(key) && !fact.zipCode) {

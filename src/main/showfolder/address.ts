@@ -149,7 +149,7 @@ const FOREIGN_STREET_WORDS: Array<[string, RegExp]> = [
     /^(rue|boulevard|bd|bvd|blvd|avenue|av|quai|chemin|allée|allee|impasse|cours|place|route|cité|cite)$/i
   ],
   ['IT', /^(via|viale|piazza|piazzale|corso|vicolo|largo)$/i],
-  ['ES', /^(calle|c\/|avenida|avda|plaza|paseo|carrer|camino)$/i],
+  ['ES', /^(calle|c\/|avenida|avda|plaza|paseo|carrer|camino|cmno|ctra|carretera)$/i],
   [
     'GB',
     /^(road|rd|street|st|lane|ln|way|drive|dr|square|sq|close|crescent|terrace|row|hill|park|gardens)$/i
@@ -207,11 +207,41 @@ export function parseAddress(value: string): AddressFact {
     // "Musterweg 5 in 12345 Musterstadt"
     .replace(/\s+in\s+(?=(?:[A-Z]{1,2}-)?\d{4,5}\s)/g, ', ')
     .split(/\r?\n|\s*\/\/\s*|\s+\|\s+|\s+\.\s+|,/)
-    .map((part) => cleanText(part.replace(/\([^)]*\)/g, ' ')))
+    .flatMap((part) => {
+      // "35200 Musterville (France)": the country in brackets is a part of its own
+      const bracket = /\(([^)]*)\)/.exec(part)
+      const country = bracket && countryCodeOfName(bracket[1]) ? [bracket[1]] : []
+      return [cleanText(part.replace(/\([^)]*\)/g, ' ')), ...country]
+    })
     .filter(Boolean)
   let country = ''
   let streetCountry = ''
   const rest: string[] = []
+  // "Calle Ejemplo, 49": a house number on its own goes to the street before it; "30818, Murcia":
+  // a zip on its own to the town after it
+  const startsWithStreetWord = (part: string) =>
+    FOREIGN_STREET_WORDS.some(([, pattern]) =>
+      pattern.test(part.split(/\s+/)[0].replace(/\.$/, ''))
+    )
+  const isStreetName = (part: string) =>
+    startsWithStreetWord(part) ||
+    /(straße|strasse|str\.?|weg|gasse|platz|allee|ring|damm|ufer|steig|pfad)$/i.test(part)
+  for (let at = parts.length - 1; at >= 0; at--) {
+    if (!/^\d{1,4}[a-zA-Z]?$/.test(parts[at])) continue
+    if (at + 1 < parts.length && startsWithStreetWord(parts[at + 1]))
+      parts.splice(at, 2, `${parts[at]} ${parts[at + 1]}`)
+    else if (at > 0 && isStreetName(parts[at - 1]))
+      parts.splice(at - 1, 2, `${parts[at - 1]} ${parts[at]}`)
+  }
+  for (let at = 0; at < parts.length - 1; at++) {
+    if (
+      /^\d{4,5}$/.test(parts[at]) &&
+      /^\p{L}[\p{L} .'-]*$/u.test(parts[at + 1]) &&
+      !countryCodeOfName(parts[at + 1])
+    ) {
+      parts.splice(at, 2, `${parts[at]} ${parts[at + 1]}`)
+    }
+  }
   for (const part of parts) {
     // "PL21 9QE": a British postcode on its own, or behind the town ("London N19 5QQ")
     if (UK_POSTCODE.test(part) && !out.zipCode) {

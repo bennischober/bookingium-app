@@ -9,7 +9,15 @@ import { cleanText } from '../import/normalize'
 import { t } from '../i18n/translate'
 import type { ContractPartyFact } from './contractParty'
 import type { OwnInvoiceFact } from './ownInvoice'
-import { countryCodeOfName, isPlaceholder, isStreetLine, parseAddress, zipCityOf } from './address'
+import {
+  countryCodeOfName,
+  countryNameOf as countryByIso,
+  isPlaceholder,
+  isStreetLine,
+  mendAddressWords,
+  parseAddress,
+  zipCityOf
+} from './address'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -445,6 +453,18 @@ export function classifyShowFile(file: ShowFileInput, siblings: readonly string[
   if (FESTIVAL_SHEET.test(name)) return 'venue_spec'
   if (/licht|light|stage ?plot|buehnenplan|lichtplot|floor ?plan/.test(name)) return 'stage_plot'
   if (/vertrag|contract|agreement|gastspiel|\boffer\b|angebot/.test(name)) return 'contract'
+  // in a "Vertrag"/"Contracts" folder, or a text that calls itself one (PDFs tear the word:
+  // "CONT R ACT") and names the parties as contracts do
+  const head = text.slice(0, 600).replace(/ /g, '')
+  const parties =
+    /hereinafter|nachfolgend|im folgenden|promoter engages|veranstalter verpflichtet/.test(text)
+  if (
+    (/\b(vertrag|vertraege|vertrage|contracts?|agreements?)\b/.test(dirs) ||
+      /contract|agreement|vertrag/.test(head)) &&
+    parties &&
+    !/\brechnung\b|\binvoice\b/.test(name)
+  )
+    return 'contract'
   if (/\brechnung\b|\binvoice\b/.test(name) || /^rechnung (nr|nummer)/.test(text)) return 'invoice'
   if (/rider/.test(name)) return 'rider'
   if (/abrechnung|settlement/.test(name)) return 'settlement'
@@ -756,6 +776,24 @@ export function extractShowFacts(
       continue
     }
 
+    // a contract's slot: "SHOWTIME/SLOT: … / 23:05 / 00:05 - Beispielband showtime (60')"
+    if (
+      kind === 'contract' &&
+      /\b(showtime|show time|slot|stage ?time|spielzeit|auftrittszeit)\b/.test(key)
+    ) {
+      const times = [...segment.matchAll(new RegExp(TIME.source, 'g'))]
+      if (times.length > 0 && !facts.itinerary.showTimeMainAct) {
+        facts.itinerary.showTimeMainAct = pad(times[0][1], times[0][2])
+        const length = /\((\d{2,3})\s*['’´]|(\d{2,3})\s*min/i.exec(segment)
+        if (length) facts.itinerary.showLength = length[1] ?? length[2]
+        else if (times.length > 1) {
+          const toMin = (match: RegExpMatchArray) => Number(match[1]) * 60 + Number(match[2])
+          const minutes = (toMin(times[1]) - toMin(times[0]) + 24 * 60) % (24 * 60)
+          if (minutes > 0 && minutes <= 300) facts.itinerary.showLength = String(minutes)
+        }
+      }
+    }
+
     // times (sheets and mails)
     if (kind === 'daysheet' || kind === 'mail' || kind === 'other') {
       if (section !== 'hotel' && kind !== 'mail') readRunningOrder(facts, segment, bandKey)
@@ -971,6 +1009,19 @@ export function extractShowFacts(
         // "PLZ: 12345" on a line before: the town is the one that follows it
         else if (!place && target.zipCode && !target.city && /^[\p{L}][\p{L} .-]+$/u.test(value))
           target.city = cleanText(value)
+        else if (!place && !target.zipCode && !target.city && section !== 'hotel') {
+          const prefix = /^([A-Z]{2})\s*-\s*(?=\p{L})/u.exec(value)
+          if (prefix && countryByIso(prefix[1])) target.countryCode ||= prefix[1]
+          const words = mendAddressWords(
+            stripRemark(prefix ? value.slice(prefix[0].length) : value)
+          ).split(' ')
+          const country = words.length > 1 ? countryCodeOfName(words[words.length - 1]) : ''
+          const town = (country ? words.slice(0, -1) : words).join(' ').replace(/[,]+$/, '')
+          if (/^\p{L}[\p{L} .'-]+$/u.test(town) && town.split(' ').length <= 4) {
+            target.city = town
+            if (country) target.countryCode ||= country
+          }
+        }
       } else if (/^(land|country|staat)$/.test(label)) {
         const code = /^[A-Z]{2}$/.test(value) ? value : countryCodeOfName(value)
         if (code) target.countryCode ||= code
@@ -1159,6 +1210,13 @@ export function extractShowFacts(
         text
       )
     if (guarantee) facts.deal.guaranteeCents = moneyOf(`${guarantee[2]} €`)
+    else {
+      const before =
+        /(garantie\w*|festgage|mindestgage|guarantee|gage|fee)[^\n€]{0,40}?(?:€|eur)\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+)/i.exec(
+          text
+        )
+      if (before) facts.deal.guaranteeCents = moneyOf(`${before[2]} €`)
+    }
     const split =
       /(\d{1,3})\s*%\s*(?:der|des|vom|of the|of)?\s*([\p{L} -]{0,40}?(?:einnahmen|netto\w*|door|box ?office|ueberschuss|überschuss|gross|net))/iu.exec(
         text
@@ -1241,7 +1299,9 @@ const NAME_SMALL_WORDS =
  */
 export function cleanPlaceName(raw: string): string {
   let value = cleanText(raw.replace(/[„“”"«»]/g, ' ').replace(/\([^)]*\)/g, ' '))
-  value = value.replace(/^[\p{L} ]{1,24}:\s*/u, '')
+  for (let i = 0; i < 3; i++) value = value.replace(/^[\p{L} ]{1,24}:\s*/u, '')
+  // "Muster Festival XVI": no edition in roman numerals
+  value = value.replace(/\s+[IVXLC]{1,6}$/, '')
   if (/www\.|https?:|@|\.(de|com|at|ch|eu|net|org)\b/i.test(value)) return ''
   value = value.replace(/^(?:\d\s?){1,3}\.\s*/, '').replace(/\s+(?:1\s?9|2\s?0)\s?\d\s?\d$/, '')
   // "Muster Open Air, Musterweg, 12345 Musterstadt": the name before the address
@@ -1309,7 +1369,10 @@ export function mergeShowFacts(
       }
     }
     merged.venue.name ||= venueFacts.name
-    if (!merged.venue.city && !merged.venue.zipCode) merged.venue.city = venueFacts.city
+    if (!merged.venue.city && !merged.venue.zipCode && venueFacts.city) {
+      merged.venue.city = venueFacts.city
+      merged.venue.countryCode ||= venueFacts.countryCode
+    }
     for (const key of ['name', 'street', 'zipCode', 'city', 'countryCode'] as const)
       merged.hotel[key] ||= facts.hotel[key]
     merged.venue.kind ??= facts.venue.kind
