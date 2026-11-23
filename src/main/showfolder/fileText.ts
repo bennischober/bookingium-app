@@ -69,12 +69,20 @@ export function docxText(bytes: Buffer): FileText {
     const entries = zipEntries(bytes)
     const xml = zipPart(bytes, entries, 'word/document.xml')?.toString('utf-8')
     if (!xml) return NONE
-    const text = xml
-      .replace(/<w:tab\/>/g, '\t')
-      .replace(/<w:br\/>|<\/w:p>/g, '\n')
-      .replace(/<[^>]+>/g, '')
+    // only the text runs (<w:t>) are taken, paragraph by paragraph; markup is never "stripped",
+    // so nothing of it can be left behind in the text
+    const paragraphs = xml
+      .split(/<\/w:p>/)
+      .map((paragraph) =>
+        [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:(tab|br)\s*\/>/g)]
+          .map((match) =>
+            match[2] === 'tab' ? '\t' : match[2] === 'br' ? '\n' : decodeXml(match[1])
+          )
+          .join('')
+      )
+    const text = paragraphs.join('\n')
     const links = [...xml.matchAll(/mailto:[^"<\s]+/g)].map((match) => match[0])
-    return { text: decodeXml(text), links }
+    return { text, links }
   } catch {
     return NONE
   }

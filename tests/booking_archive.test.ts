@@ -50,7 +50,7 @@ Garantie 500 € vs. 100 % netto
 `
 
 /** The band's own invoice: sender line, recipient block, fee */
-const invoice = `Rechnung Nr.: 025-2024
+const invoice = `Rechnung Nr.: 117-2024
 Sehr geehrte Damen und Herren,
 hiermit stellen wir unser Honorar für unseren Live Auftritt am 21.06.2024 auf dem Beispiel Flair in Rechnung:
 Nr. Anzahl Artikel Preis
@@ -110,7 +110,7 @@ describe('recognition', () => {
 
   it('reads our own invoice: recipient with country and VAT id, fee and total', () => {
     expect(extractOwnInvoice(invoice, ['Muster Band'])).toEqual({
-      number: '025-2024',
+      number: '117-2024',
       date: '2024-06-03',
       recipient: {
         name: 'Beispiel Flair GmbH',
@@ -168,8 +168,8 @@ describe('archive import', () => {
     const flair = join(archive, '2024', '2024-06-21 I-Beispieldorf  Beispiel Flair')
     mkdirSync(join(flair, 'Rechnung'), { recursive: true })
     mkdirSync(join(flair, 'Flugtickets'), { recursive: true })
-    writeFileSync(join(flair, 'Rechnung', 'Rechnung_025-2024_Beispiel Flair.txt'), invoice)
-    writeFileSync(join(flair, 'Rechnung', 'Rechnung_025-2024_Beispiel Flair [1].txt'), invoice)
+    writeFileSync(join(flair, 'Rechnung', 'Rechnung_117-2024_Beispiel Flair.txt'), invoice)
+    writeFileSync(join(flair, 'Rechnung', 'Rechnung_117-2024_Beispiel Flair [1].txt'), invoice)
     writeFileSync(join(flair, 'Flugtickets', 'Buchung Muster.txt'), 'Flug LH 123, Passagier Max')
     // a folder without a date in its name: the contract tells
     const youth = join(archive, '2023', 'Festival der Beispieljugend')
@@ -236,7 +236,7 @@ describe('archive import', () => {
       .where(eq(schema.document.owner_id, first.eventId))
       .all()
     expect(documents.map((d) => [d.file_name, d.document_type])).toEqual([
-      ['Rechnung_025-2024_Beispiel Flair.txt', 'invoice']
+      ['Rechnung_117-2024_Beispiel Flair.txt', 'invoice']
     ])
 
     const second = await service.apply({
