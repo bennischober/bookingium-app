@@ -9,6 +9,7 @@ import { trpcReact } from '@/lib/trpc'
 import { parseRecordId } from '@/lib/recordId'
 import { Button } from '@/components/ui/button'
 import { InvoiceDatevCreatedCard } from '@/components/invoice/InvoiceDatevCreatedCard'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { InvoiceStatusBadge } from '@/components/invoice/InvoiceStatusBadge'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceMailsCard } from '@/components/invoice/InvoiceMailsCard'
@@ -56,6 +57,7 @@ export default function InvoiceDetailPage() {
   const { invoiceId } = useParams({ strict: false }) as { invoiceId?: string }
   const id = parseRecordId(invoiceId)
   const navigate = useNavigate()
+  const { locked: staffLocked } = useStaffAccess()
   const invoiceQuery = trpcReact.invoice.getById.useQuery(id ?? 0, {
     enabled: id !== null
   })
@@ -208,7 +210,9 @@ export default function InvoiceDetailPage() {
         </div>
         <div className="min-w-0 space-y-4">
           <InvoiceMailsCard invoiceId={invoice.id} />
-          {invoice.kind === 'invoice' && <InvoiceDatevCreatedCard invoice={invoice} />}
+          {invoice.kind === 'invoice' && !staffLocked && (
+            <InvoiceDatevCreatedCard invoice={invoice} />
+          )}
           <History invoice={invoice} />
         </div>
       </div>

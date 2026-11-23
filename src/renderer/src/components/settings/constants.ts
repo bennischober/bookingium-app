@@ -7,6 +7,9 @@ export function isSettingsTab(value: unknown): value is SettingsTab {
   return typeof value === 'string' && (SETTINGS_TABS as readonly string[]).includes(value)
 }
 
+/** #262: tabs left out while this computer is in staff access and locked */
+export const STAFF_LOCKED_TABS: readonly SettingsTab[] = ['invoices']
+
 export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
   general: t('Allgemein'),
   invoices: t('Rechnungen'),

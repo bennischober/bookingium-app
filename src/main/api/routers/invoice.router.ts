@@ -19,8 +19,11 @@ import {
   type InvoiceMailDto
 } from '../schemas/invoice.schema'
 import { PaginationInput } from '../schemas/base.schema'
+import { adminOnly } from '../access'
 
 const t = initTRPC.create()
+// #262: invoice numbering and DATEV/tax data of the own companies are closed in staff access
+const adminProcedure = t.procedure.use(t.middleware(adminOnly))
 const invoiceService = container.resolve(InvoiceService)
 const eInvoiceService = container.resolve(EInvoiceService)
 
@@ -197,7 +200,7 @@ export const invoiceRouter = t.router({
     }
   }),
 
-  setCreatedInDatev: t.procedure
+  setCreatedInDatev: adminProcedure
     .input(SetInvoiceCreatedInDatevInput)
     .mutation(async ({ input }) => {
       try {
@@ -242,7 +245,7 @@ export const invoiceRouter = t.router({
     return settings ? InvoiceMapper.toSettingsDto(settings) : null
   }),
 
-  upsertCompanySettings: t.procedure
+  upsertCompanySettings: adminProcedure
     .input(UpsertCompanyInvoiceSettingsInput)
     .mutation(async ({ input }) => {
       const settings = await invoiceService.upsertCompanyInvoiceSettings(input)
@@ -250,7 +253,7 @@ export const invoiceRouter = t.router({
     }),
 
   /** How the company's invoice numbers are built (plain or year + running number) */
-  setNumbering: t.procedure.input(SetInvoiceNumberingInput).mutation(async ({ input }) => {
+  setNumbering: adminProcedure.input(SetInvoiceNumberingInput).mutation(async ({ input }) => {
     const settings = await invoiceService.setNumberingFormat(input)
     return InvoiceMapper.toSettingsDto(settings)
   })

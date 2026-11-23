@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ImportDialog } from './ImportDialog'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import type { ImportTarget } from '../../../../main/api/schemas/import.schema'
 import type { VenueKind } from '../../../../main/api/schemas/venue.schema'
 import { t } from '../../../../main/i18n/translate'
@@ -9,6 +10,9 @@ import { t } from '../../../../main/i18n/translate'
 /** "Importieren" on a list page: the import dialog with that list's type (and venue kind) */
 export function ImportButton({ target, kind }: { target: ImportTarget; kind?: VenueKind }) {
   const [open, setOpen] = useState(false)
+  // #262: importing lists is closed in staff access
+  const { locked } = useStaffAccess()
+  if (locked) return null
   return (
     <>
       <Button

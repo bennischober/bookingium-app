@@ -3,6 +3,7 @@ import { CloudAlert, CloudCheck, CloudUpload, RefreshCw } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { t, uiLocale } from '../../../../main/i18n/translate'
 
 /** "vor 12 s", "vor 3 min", "um 14:30" */
@@ -21,12 +22,14 @@ function sinceText(iso: string, now = Date.now()): string {
 export function SyncStatus() {
   const navigate = useNavigate()
   const brief = trpcReact.sync.brief.useQuery(undefined, { refetchInterval: 5000 })
+  // #262: joining a sync group is closed in staff access
+  const { locked } = useStaffAccess()
   const data = brief.data
   if (!data) return null
   const open = (): void => void navigate({ to: '/settings', search: { tab: 'data' } })
 
   if (!data.enabled) {
-    if (!data.suggestedFolder) return null
+    if (!data.suggestedFolder || locked) return null
     return (
       <Button
         size="sm"

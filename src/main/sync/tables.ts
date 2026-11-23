@@ -18,7 +18,11 @@ export const LOCAL_TABLES: ReadonlySet<string> = new Set([
   'invoice_email_pending'
 ])
 
-/** app_setting keys that describe this computer, not the shared data */
+/**
+ * app_setting keys that describe this computer, not the shared data. #262: staffMode and
+ * staffPin are the staff access of one computer; carried along, one employee computer would
+ * lock all the others.
+ */
 export const LOCAL_SETTING_KEYS: readonly string[] = [
   'calendarFeedPath',
   'invoiceMailAccountId',
@@ -27,7 +31,9 @@ export const LOCAL_SETTING_KEYS: readonly string[] = [
   'mailCloseToTray',
   'reminderNotifications',
   'followUpSummaryDay',
-  'mailAccountAddresses'
+  'mailAccountAddresses',
+  'staffMode',
+  'staffPin'
 ]
 /** app_setting key prefixes of per-mail-account cursors (local accounts) */
 export const LOCAL_SETTING_PREFIXES: readonly string[] = [

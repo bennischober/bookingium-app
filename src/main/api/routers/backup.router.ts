@@ -6,8 +6,11 @@ import { BackupService } from '../../services/BackupService'
 import { MIN_BACKUP_PASSWORD_LENGTH } from '../../backup/policy'
 import type { RestoreManifest } from '../../backup/files'
 import type { BackupStatusDto, PreparedRestoreDto } from '../schemas/backup.schema'
+import { adminOnly } from '../access'
 
 const t = initTRPC.create()
+// #262: backup and restore are closed in staff access (the status stays readable)
+const adminProcedure = t.procedure.use(t.middleware(adminOnly))
 const service = container.resolve(BackupService)
 
 const badRequest = (error: unknown, fallback: string) =>
@@ -42,7 +45,7 @@ export const backupRouter = t.router({
   status: t.procedure.query((): BackupStatusDto => service.status()),
 
   /** Asks for the target folder; choosing one switches automatic backups on */
-  chooseFolder: t.procedure.mutation(async (): Promise<BackupStatusDto> => {
+  chooseFolder: adminProcedure.mutation(async (): Promise<BackupStatusDto> => {
     const current = service.status().folder
     const folder = await pickFolder(
       'Ordner für automatische Sicherungen wählen',
@@ -59,7 +62,7 @@ export const backupRouter = t.router({
     return service.status()
   }),
 
-  setEnabled: t.procedure.input(z.boolean()).mutation(({ input }): BackupStatusDto => {
+  setEnabled: adminProcedure.input(z.boolean()).mutation(({ input }): BackupStatusDto => {
     try {
       service.setEnabled(input)
       if (input) void service.runIfDue()
@@ -70,13 +73,13 @@ export const backupRouter = t.router({
   }),
 
   /** "Jetzt sichern"; the outcome is in the returned status */
-  runNow: t.procedure.mutation(async (): Promise<BackupStatusDto> => {
+  runNow: adminProcedure.mutation(async (): Promise<BackupStatusDto> => {
     await service.run()
     return service.status()
   }),
 
   /** #54: encrypts every backup from now on; a new password does not touch older backups */
-  setPassword: t.procedure
+  setPassword: adminProcedure
     .input(z.string().min(MIN_BACKUP_PASSWORD_LENGTH).max(1024))
     .mutation(async ({ input }): Promise<BackupStatusDto> => {
       try {
@@ -86,9 +89,9 @@ export const backupRouter = t.router({
       }
     }),
 
-  removePassword: t.procedure.mutation((): BackupStatusDto => service.disableEncryption()),
+  removePassword: adminProcedure.mutation((): BackupStatusDto => service.disableEncryption()),
 
-  openFolder: t.procedure.mutation(async () => {
+  openFolder: adminProcedure.mutation(async () => {
     const { folder } = service.status()
     if (!folder) throw badRequest(null, 'Kein Ordner gewählt')
     const error = await shell.openPath(folder)
@@ -96,7 +99,7 @@ export const backupRouter = t.router({
   }),
 
   /** Asks for a backup folder, copies and checks it; nothing is replaced yet */
-  pickRestore: t.procedure.mutation(async (): Promise<PreparedRestoreDto> => {
+  pickRestore: adminProcedure.mutation(async (): Promise<PreparedRestoreDto> => {
     const folder = await pickFolder(
       'Sicherung zum Wiederherstellen wählen',
       service.status().folder || app.getPath('documents')
@@ -126,7 +129,7 @@ export const backupRouter = t.router({
   }),
 
   /** #54: the encrypted backup pickRestore chose, with its password; then as a plain one */
-  unlockRestore: t.procedure
+  unlockRestore: adminProcedure
     .input(z.string().max(1024))
     .mutation(async ({ input }): Promise<PreparedRestoreDto> => {
       try {
@@ -136,13 +139,13 @@ export const backupRouter = t.router({
       }
     }),
 
-  cancelRestore: t.procedure.mutation(() => service.cancelRestore()),
+  cancelRestore: adminProcedure.mutation(() => service.cancelRestore()),
 
   /**
    * After the user confirmed: backs up the current state, stages the restore and restarts the
    * app, which applies it before the database opens
    */
-  confirmRestore: t.procedure.mutation(async () => {
+  confirmRestore: adminProcedure.mutation(async () => {
     let result: { beforeRestoreFolder: string }
     try {
       result = await service.confirmRestore()

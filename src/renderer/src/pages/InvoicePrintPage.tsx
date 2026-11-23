@@ -28,6 +28,7 @@ import type { InvoicePrintDto, ReminderKind } from '../../../main/api/schemas/in
 import { suggestDocumentLang } from '../../../main/invoice/taxSummary'
 import { EInvoiceStatus } from '@/components/invoice/EInvoiceStatus'
 import { InvoiceDatevButton } from '@/components/invoice/InvoiceDatevButton'
+import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { InvoiceEmailButton } from '@/components/invoice/InvoiceEmailButton'
 import { t } from '../../../main/i18n/translate'
 
@@ -67,6 +68,7 @@ export default function InvoicePrintPage() {
   // Opened to send a Zahlungserinnerung or Mahnung (from the invoice page or Dashboard)
   const { email: reminder } = useSearch({ strict: false }) as { email?: ReminderKind }
   const navigate = useNavigate()
+  const { locked: staffLocked } = useStaffAccess()
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const id = Number(invoiceId)
@@ -196,7 +198,7 @@ export default function InvoicePrintPage() {
               {t('In DATEV erstellt')}
             </span>
           )}
-          {invoice.status !== 'draft' && !invoice.createdInDatev && (
+          {invoice.status !== 'draft' && !invoice.createdInDatev && !staffLocked && (
             <InvoiceDatevButton
               invoiceId={invoice.id}
               companyId={invoice.companyId}
