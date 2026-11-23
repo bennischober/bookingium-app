@@ -13,6 +13,7 @@ const ROOT = join(__dirname, '..')
 /** Legal text of the printed contracts, worded as a whole, not UI copy */
 const LEGAL_TEXT = new Set([
   'src/renderer/src/components/contract/ContractDocument.tsx',
+  'src/renderer/src/components/contract/ContractDocumentEn.tsx',
   'src/renderer/src/components/contract/ManagementContractDocument.tsx'
 ])
 

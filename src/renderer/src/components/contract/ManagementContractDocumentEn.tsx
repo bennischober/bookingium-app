@@ -7,10 +7,11 @@ import { englishNumberWithWord, englishQuantity } from '@/lib/englishNumbers'
 // English management agreement
 // ========================================
 
-// Wording from the English VUT management agreement sample (2016) the user provided, with
-// every clause matched to the German contract (ManagementContractDocument.tsx): same
-// sections, same terms, the same choice where the sample offers alternatives. Passages
-// changed to match the German contract are marked "Adapted:" and listed in
+// Wording from the English model management agreement (2016) the user provided, whose German
+// twin the German contract (ManagementContractDocument.tsx) is based on: same sections, same
+// terms, the same choice where the model offers alternatives. Where the German contract keeps
+// the German model's wording, the English model's counterpart is used ("Template:"); passages
+// the German contract changed against the model are marked "Adapted:" and listed in
 // docs/CONTRACT_TRANSLATIONS.md for legal review.
 
 function formatPercent(value: number): string {
@@ -179,11 +180,13 @@ export function ManagementContractDocumentEn({
           form part of the contractual subject matter and to allow ARTIST to peruse these records
           during business hours upon demand.
         </p>
-        {/* Adapted: delegation only without extra costs or with agreed costs (German § 5) */}
+        {/* Template: the English model's counterpart of the German model's sentence, which the
+            German contract keeps */}
         <p>
           MANAGEMENT may delegate the performance of the contractual duties and services to third
-          parties, provided that this causes no additional costs for ARTIST or that any additional
-          costs have been agreed upon by mutual consent.
+          parties. In case such third party involvement in the performance of MANAGEMENT’s services
+          causes additional costs, any obligation of ARTIST to reimburse MANAGEMENT for such costs
+          requires ARTIST’s approval (email to suffice).
         </p>
       </Section>
 
