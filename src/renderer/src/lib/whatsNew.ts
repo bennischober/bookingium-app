@@ -3,6 +3,29 @@ import { t } from '../../../main/i18n/translate'
 
 /** Highlights per minor version ("1.6"); a patch release shows its minor's list */
 export const WHATS_NEW: Record<string, string[]> = {
+  '1.9': [
+    t(
+      'Mitarbeiterzugang: Einstellungen › Allgemein sperrt auf einem Computer die firmeninternen Bereiche (DATEV, eigene Firma und Rechnungseinstellungen, Import von Listen, Sicherung, Abgleich-Einrichtung), auf Wunsch mit PIN zum Entsperren.'
+    ),
+    t(
+      'Mitarbeiter: Einstellungen › Daten › Mitarbeiter gibt jedem Mitarbeiter einen eigenen Abgleich-Ordner mit nur freigegebenen Daten – alle Kontakte, die Events freigegebener Bands und was einzeln freigegeben ist. Rechnungen legt er nur als Entwurf an.'
+    ),
+    t(
+      '„Mitarbeiter“ an Band, Event, Rechnung, Managementvertrag, Abrechnung und Dokument: pro Mitarbeiter freigeben oder als intern markieren. Managementverträge, Rechnungen und Abrechnungen bleiben intern, bis sie freigegeben werden.'
+    ),
+    t(
+      'Booking-Archiv einlesen (Import-Menü): alte Booking-Ordner einer Band auf einmal. Events, Festivals und Firmen werden gefunden oder angelegt, bestehende nur in leeren Feldern ergänzt; wahlweise werden Verträge und Rechnungen abgelegt.'
+    ),
+    t(
+      'Show-Ordner und Vertrag lesen auch eigene Rechnungen (Rechnungsempfänger mit USt-IdNr. wird Rechnungsfirma), Word- und Pages-Dateien sowie KSK- und Steuernummer. Pässe, Tickets und Visa werden nie abgelegt.'
+    ),
+    t(
+      'Verlags- und Labelverträge je Band (Band › Geld), auf Deutsch und Englisch, nach Mustervorlagen.'
+    ),
+    t(
+      'Der englische Auftrittsvertrag folgt jetzt geprüften englischen Vorlagen (Concert Performance Agreement).'
+    )
+  ],
   '1.8': [
     t(
       'Vertrag einlesen: Einen Vertrag beim Event hochladen, und Veranstalter (Firma, Adresse, USt-IdNr.), Ansprechpartner mit Telefon und E-Mail sowie die Gage werden zum Übernehmen vorgeschlagen. Neue Firmen und Personen werden angelegt und mit dem Event verbunden.'
