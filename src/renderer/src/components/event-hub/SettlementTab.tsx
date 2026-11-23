@@ -42,6 +42,7 @@ import {
 } from './settlementForm'
 import { SETTLEMENT_REPORT_NOTE } from '../../../../main/advancing/advancing'
 import { t, uiLocale } from '../../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 // #228: the promoter's settlement of the show (Konzertabrechnung) - read from the agency's Excel
 // or typed in - with the live result, and the management fee invoice made from it.
@@ -298,6 +299,10 @@ export function SettlementTab({ eventId }: { eventId: number }) {
           <ExternalDoneToggle eventId={eventId} step="settlement" className="mt-2" />
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* #262: settlements are internal unless shared */}
+          {query.data?.id != null && (
+            <StaffShareButton entity="event_settlement" entityId={query.data.id} />
+          )}
           <Button
             variant="outline"
             onClick={() => void importExcel()}

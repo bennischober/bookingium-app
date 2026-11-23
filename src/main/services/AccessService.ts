@@ -21,6 +21,8 @@ import type { AccessStatusDto } from '../api/schemas/access.schema'
 
 export const STAFF_MODE_KEY = 'staffMode'
 export const STAFF_PIN_KEY = 'staffPin'
+/** An employee's computer (joined an employee folder, #262): always locked */
+export const STAFF_DEVICE_KEY = 'staffDevice'
 
 /** 4 to 12 digits, like a phone PIN */
 export const PIN_PATTERN = /^\d{4,12}$/
@@ -66,22 +68,26 @@ export class AccessService {
 
   constructor(@inject(SettingsRepository) private settingsRepository: SettingsRepository) {}
 
-  private stored(): { staffMode: boolean; pin: string | null } {
+  private stored(): { staffMode: boolean; pin: string | null; staffDevice: boolean } {
     const all = this.settingsRepository.getAll()
     const pin = parse(all[STAFF_PIN_KEY])
+    const staffDevice = parse(all[STAFF_DEVICE_KEY]) === true
     return {
-      staffMode: parse(all[STAFF_MODE_KEY]) === true,
-      pin: typeof pin === 'string' && pin !== '' ? pin : null
+      staffMode: staffDevice || parse(all[STAFF_MODE_KEY]) === true,
+      pin: typeof pin === 'string' && pin !== '' ? pin : null,
+      staffDevice
     }
   }
 
   status(now = Date.now()): AccessStatusDto {
-    const { staffMode, pin } = this.stored()
+    const { staffMode, pin, staffDevice } = this.stored()
+    const unlocked = staffMode && !staffDevice && this.unlocked
     return {
       staffMode,
+      staffDevice,
       hasPin: pin !== null,
-      unlocked: staffMode && this.unlocked,
-      locked: staffMode && !this.unlocked,
+      unlocked,
+      locked: staffMode && !unlocked,
       retryAfterSeconds: this.lockedUntil > now ? Math.ceil((this.lockedUntil - now) / 1000) : 0
     }
   }
@@ -137,8 +143,12 @@ export class AccessService {
 
   /** Opens the internal areas for this session; asks for the PIN when one is set */
   unlock(pin: string, now = Date.now()): AccessStatusDto {
-    const { staffMode, pin: stored } = this.stored()
+    const { staffMode, pin: stored, staffDevice } = this.stored()
     if (!staffMode) return this.status(now)
+    if (staffDevice)
+      throw new AccessError(
+        'Dieser Computer ist als Mitarbeiter-Computer angebunden und bekommt nur freigegebene Daten; er lässt sich nicht entsperren.'
+      )
     if (this.lockedUntil > now) {
       throw new AccessError(
         `Zu viele falsche Versuche. Bitte in ${Math.ceil((this.lockedUntil - now) / 1000)} Sekunden noch einmal.`

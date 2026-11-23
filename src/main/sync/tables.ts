@@ -20,7 +20,7 @@ export const LOCAL_TABLES: ReadonlySet<string> = new Set([
 
 /**
  * app_setting keys that describe this computer, not the shared data. #262: staffMode and
- * staffPin are the staff access of one computer; carried along, one employee computer would
+ * staffPin are the staff access of one computer, staffDevice marks an employee's computer; carried along, one employee computer would
  * lock all the others.
  */
 export const LOCAL_SETTING_KEYS: readonly string[] = [
@@ -33,7 +33,8 @@ export const LOCAL_SETTING_KEYS: readonly string[] = [
   'followUpSummaryDay',
   'mailAccountAddresses',
   'staffMode',
-  'staffPin'
+  'staffPin',
+  'staffDevice'
 ]
 /** app_setting key prefixes of per-mail-account cursors (local accounts) */
 export const LOCAL_SETTING_PREFIXES: readonly string[] = [
@@ -98,7 +99,10 @@ export const ALIAS_KEYS: Readonly<Record<string, readonly AliasKey[]>> = {
   ticket_report: [{ columns: ['deal_memo_id', 'report_date'] }],
   event_step_done: [{ columns: ['deal_memo_id', 'step'] }],
   marketing_atlas: [{ columns: ['band_id'] }],
-  marketing_item: [{ columns: ['band_id', 'item_key'] }]
+  marketing_item: [{ columns: ['band_id', 'item_key'] }],
+  // #262: one grant per employee (or for all) and record
+  staff_grant: [{ columns: ['employee_id', 'entity', 'entity_id'] }],
+  employee: [{ columns: ['id_prefix'] }]
 }
 
 /**

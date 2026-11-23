@@ -52,6 +52,7 @@ import { BackupCard } from '@/components/settings/BackupCard'
 import { SyncCard } from '@/components/settings/SyncCard'
 import { UpdatesCard } from '@/components/settings/UpdatesCard'
 import { StaffAccessCard } from '@/components/settings/StaffAccessCard'
+import { EmployeesCard } from '@/components/settings/EmployeesCard'
 import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -529,6 +530,7 @@ export default function SettingsPage() {
           <DataCard />
           <DuplicatesCard />
           {!locked && <SyncCard />}
+          {!locked && <EmployeesCard />}
           {!locked && <BackupCard />}
           <UpdatesCard />
         </TabsContent>

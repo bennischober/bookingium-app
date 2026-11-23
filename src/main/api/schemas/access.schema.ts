@@ -20,6 +20,8 @@ export type UnlockStaffAccessInput = z.infer<typeof UnlockStaffAccessInput>
 export const AccessStatusDto = z.object({
   // This computer is switched to staff access
   staffMode: z.boolean(),
+  // #262: an employee's computer, joined to an employee folder: locked for good
+  staffDevice: z.boolean(),
   // A PIN is needed to unlock
   hasPin: z.boolean(),
   // Staff access, but unlocked for this session

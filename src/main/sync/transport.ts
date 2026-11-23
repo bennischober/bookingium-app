@@ -15,7 +15,19 @@ import { randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 import { parseBatch, type Batch, type DeviceInfo, type SnapshotInfo } from './format'
 
-export type GroupInfo = { app: 'bookingium'; format: number; id: string; createdAt: string }
+export type GroupInfo = {
+  app: 'bookingium'
+  format: number
+  id: string
+  createdAt: string
+  /**
+   * #262: 'staff' for an employee's folder, served by an admin computer (staff/bridge.ts). The
+   * employee's computer joins it with the id range chosen for it and as a staff computer.
+   */
+  kind?: 'group' | 'staff'
+  staffPrefix?: number
+  employeeName?: string
+}
 
 export type SnapshotRef = { info: SnapshotInfo; id: string }
 
@@ -41,6 +53,10 @@ export interface SyncTransport {
   latestSnapshot(): Promise<SnapshotRef | null>
   /** Copies the snapshot's database (bookingum.db) and storage/ into `target` */
   fetchSnapshot(ref: SnapshotRef, target: string): Promise<void>
+  /** #262: marks an employee's folder as no longer served (access taken away) */
+  writeRevocation(at: string): Promise<void>
+  /** When the folder's access was taken away, null while it is served */
+  readRevocation(): Promise<string | null>
 }
 
 export const GROUP_FILE = 'bookingium-abgleich.json'
@@ -54,6 +70,7 @@ const SNAPSHOT_DB = 'bookingum.db'
 const SNAPSHOT_STORAGE = 'storage'
 const SAFE_NAME = /^[a-z0-9-]+$/
 const SHA = /^[0-9a-f]{64}$/
+const REVOCATION_FILE = 'zugang-entzogen.json'
 
 const NOTE = `Bookingium – Abgleich
 
@@ -262,6 +279,15 @@ export class FolderTransport implements SyncTransport {
       if (!latest || info.createdAt > latest.info.createdAt) latest = { info, id: name }
     }
     return latest
+  }
+
+  async writeRevocation(at: string): Promise<void> {
+    await writeAtomic(join(this.location, REVOCATION_FILE), JSON.stringify({ revokedAt: at }))
+  }
+
+  async readRevocation(): Promise<string | null> {
+    const file = await readJson<{ revokedAt?: string }>(join(this.location, REVOCATION_FILE))
+    return typeof file?.revokedAt === 'string' ? file.revokedAt : null
   }
 
   async fetchSnapshot(ref: SnapshotRef, target: string): Promise<void> {

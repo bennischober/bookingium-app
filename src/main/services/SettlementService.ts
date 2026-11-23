@@ -36,6 +36,7 @@ export class SettlementService {
     const parsed = row ? SettlementInputSchema.safeParse(JSON.parse(row.data)) : null
     return {
       eventId,
+      id: row?.id ?? null,
       input: parsed?.success ? parsed.data : null,
       sourceFileName: row?.source_file_name ?? '',
       updatedAt: row?.updated_at ?? null,

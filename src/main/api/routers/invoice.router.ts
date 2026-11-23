@@ -217,7 +217,8 @@ export const invoiceRouter = t.router({
         })
       }
     }),
-  setStatus: t.procedure.input(SetInvoiceStatusInput).mutation(async ({ input }) => {
+  // #262: issuing (and every later status) is for admins; in staff access invoices stay drafts
+  setStatus: adminProcedure.input(SetInvoiceStatusInput).mutation(async ({ input }) => {
     try {
       const entity = await invoiceService.setInvoiceStatus(input.id, input.status)
       return InvoiceMapper.toDto(entity)

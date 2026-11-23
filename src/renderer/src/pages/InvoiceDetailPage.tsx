@@ -36,6 +36,7 @@ import {
   type InvoiceStatus
 } from '../../../main/api/schemas/invoice.schema'
 import { t } from '../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 const STATUS_ACTION_LABELS: Partial<Record<InvoiceStatus, string>> = {
   issued: t('Wieder offen (gestellt)'),
@@ -143,6 +144,7 @@ export default function InvoiceDetailPage() {
             </p>
           </div>
           <div className="mt-1 flex shrink-0 flex-wrap items-center gap-2">
+            <StaffShareButton entity="invoice" entityId={invoice.id} />
             <FollowUpButton record={record} />
             {reminder && (
               <Button
@@ -315,7 +317,18 @@ function StatusActions({ invoice }: { invoice: InvoiceDto }) {
       toast.error(t('Status konnte nicht geändert werden'), { description: error.message })
   })
 
+  // #262: issuing and every later status are for admins; in staff access invoices stay drafts
+  const { locked } = useStaffAccess()
   const nextStatuses = nextInvoiceStatuses(invoice.status, invoice.kind)
+  if (locked) {
+    return invoice.status === 'draft' ? (
+      <p className="pt-2 text-sm text-muted-foreground">
+        {t(
+          'Im Mitarbeiterzugang bleiben Rechnungen Entwürfe; gestellt werden sie von einem Admin.'
+        )}
+      </p>
+    ) : null
+  }
   if (nextStatuses.length === 0) return null
 
   return (

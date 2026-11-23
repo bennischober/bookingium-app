@@ -48,6 +48,7 @@ import {
   type DocumentSortKey
 } from './documentSort'
 import { t } from '../../../../main/i18n/translate'
+import { StaffShareButton } from '@/components/staff/StaffShareButton'
 
 /**
  * Where a document lies when it is not the record's own (null): one of a band's gigs, or the
@@ -342,6 +343,10 @@ export function DocumentTable({
                   >
                     <Link2 className="h-4 w-4" />
                   </Button>
+                  {/* #262: a document filed at an event goes with it; mark it internal here */}
+                  {!readOnly && (
+                    <StaffShareButton entity="document" entityId={doc.id} size="icon" />
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
