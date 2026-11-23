@@ -4,6 +4,7 @@
 // replaces; one that matches what is stored is left out. Pure (tests/show_folder_plan.test.ts).
 
 import { splitStreet } from '../einvoice/readParty'
+import { countryLabelOf } from './address'
 import type { DocumentType } from '../api/schemas/document.schema'
 import type {
   ShowFileOwner,
@@ -79,6 +80,7 @@ export interface ShowFolderCurrent {
     streetNumber: string
     zipCode: string
     city: string
+    countryCode: string
     notes: string
   } | null
   /** A stored club or festival with the files' venue name, for an event without one */
@@ -318,15 +320,41 @@ export function planSuggestions(
       ]
         .filter(Boolean)
         .join(', ')
-      const proposed =
+      const address =
         `${street} ${streetNumber}`.trim() + `, ${facts.venue.zipCode} ${facts.venue.city}`
-      if (keyOf(stored) !== keyOf(proposed)) {
-        add(group, 'venue.address', `Adresse ${venue.name}`, stored, proposed, sources.venue, {
-          type: 'venueAddress',
-          street,
-          streetNumber,
-          zipCode: facts.venue.zipCode,
-          city: facts.venue.city
+      // the same address, but the stored one lacks its country
+      const countryMissing = facts.venue.countryCode !== '' && venue.countryCode === ''
+      const action = {
+        type: 'venueAddress' as const,
+        street,
+        streetNumber,
+        zipCode: facts.venue.zipCode,
+        city: facts.venue.city,
+        countryCode: facts.venue.countryCode
+      }
+      const country = countryLabelOf(facts.venue.countryCode)
+      const proposed = country ? `${address}, ${country}` : address
+      if (keyOf(stored) !== keyOf(address)) {
+        add(
+          group,
+          'venue.address',
+          `Adresse ${venue.name}`,
+          stored,
+          proposed,
+          sources.venue,
+          action
+        )
+      } else if (countryMissing) {
+        // only the country is new: it fills an empty field, so it is ticked
+        out.push({
+          id: 'venue.address',
+          group,
+          label: `Land ${venue.name}`,
+          current: '',
+          proposed: countryLabelOf(facts.venue.countryCode),
+          include: true,
+          source: sources.venue,
+          action
         })
       }
     }
@@ -404,6 +432,7 @@ export function planSuggestions(
         streetNumber,
         zipCode: hotel.zipCode,
         city: hotel.city,
+        countryCode: hotel.countryCode,
         notes: hotel.notes.join('\n')
       }
     })
@@ -463,6 +492,7 @@ function venueAssignSuggestion(
       streetNumber,
       zipCode: facts.venue.zipCode,
       city: facts.venue.city,
+      countryCode: facts.venue.countryCode,
       capacity: facts.venue.capacity,
       notes:
         notes.length > 0
@@ -510,6 +540,7 @@ function promoterSuggestion(
     proposed: [
       company.name,
       [promoter.street, `${promoter.zipCode} ${promoter.city}`.trim()].filter(Boolean).join(', '),
+      countryLabelOf(promoter.countryCode),
       promoter.vatId ? `USt-IdNr. ${promoter.vatId}` : '',
       promoter.email,
       promoter.phone,
@@ -532,7 +563,7 @@ function promoterSuggestion(
       vatId: promoter.vatId,
       lopro: true,
       invoiceCompany: false,
-      countryCode: '',
+      countryCode: promoter.countryCode,
       taxNumber: promoter.taxNumber,
       kskNumber: promoter.kskNumber,
       website: promoter.website

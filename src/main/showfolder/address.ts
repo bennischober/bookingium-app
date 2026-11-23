@@ -1,0 +1,141 @@
+// ========================================
+// An address as files write it
+// ========================================
+// "Musterweg 11, 12345 Musterstadt", "Musterweg 11 // 12345 Musterstadt, Germany",
+// "D-12345 Musterstadt", "Musterweg 11 12345 Musterstadt" → street, number, zip, town, country.
+// German addresses are the rule: a five-digit zip without a country means Germany. A four-digit
+// zip says nothing on its own (Austria, Switzerland, …): only a prefix ("A-1010", "CH-8001") or a
+// country name decides. Pure: no Electron, no database (tests/show_address.test.ts).
+
+import { splitStreet } from '../einvoice/readParty'
+import { cleanText, countryByCode, findCountry } from '../import/normalize'
+
+export interface AddressFact {
+  street: string
+  streetNumber: string
+  zipCode: string
+  city: string
+  /** ISO code ("DE"), '' when the address does not tell */
+  countryCode: string
+}
+
+const PREFIXES: Record<string, string> = {
+  D: 'DE',
+  DE: 'DE',
+  A: 'AT',
+  AT: 'AT',
+  CH: 'CH',
+  NL: 'NL',
+  B: 'BE',
+  L: 'LU',
+  F: 'FR',
+  I: 'IT',
+  DK: 'DK',
+  PL: 'PL',
+  CZ: 'CZ'
+}
+
+/** "D-12345 Musterstadt", "12345 Musterstadt" */
+const ZIP_CITY = /^(?:([A-Z]{1,2})\s?-\s?)?(\d{4,5})\s+([\p{L}][\p{L}\d .()'/-]*)$/u
+
+/** A street with its number at the end ("Am Beispielsee 3a", "Musterstr. 11-13") */
+const STREET = /^[\p{L}][\p{L}\d .'’/-]*?\s\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+\s?[a-zA-Z]?)?$/u
+
+/** A country written out ("Deutschland", "Germany", "Österreich"); codes alone are too short */
+export function countryCodeOfName(value: string): string {
+  const name = cleanText(value).replace(/[.]$/, '')
+  if (name.length < 4) return ''
+  return findCountry(name)?.code ?? ''
+}
+
+/** The English name stored beside the code ("DE" → "Germany") */
+export function countryNameOf(code: string): string {
+  return countryByCode(code)?.name ?? ''
+}
+
+/** The country for a suggestion, in German ("DE" → "Deutschland") */
+export function countryLabelOf(code: string): string {
+  if (!/^[A-Z]{2}$/.test(code)) return ''
+  try {
+    return new Intl.DisplayNames(['de'], { type: 'region' }).of(code) ?? code
+  } catch {
+    return code
+  }
+}
+
+/** The country of a zip: five digits are German unless the address says otherwise */
+export function countryOfZip(zipCode: string, prefix = ''): string {
+  if (prefix && PREFIXES[prefix.toUpperCase()]) return PREFIXES[prefix.toUpperCase()]
+  return /^\d{5}$/.test(zipCode) ? 'DE' : ''
+}
+
+/** "12345 Musterstadt" or "D-12345 Musterstadt" → zip, town, country; null when it is none */
+export function zipCityOf(value: string): {
+  zipCode: string
+  city: string
+  countryCode: string
+} | null {
+  const text = cleanText(value)
+    .replace(/(\d)\s+(?=\d)/g, '$1')
+    .replace(/[.,;]+$/, '')
+  const match = ZIP_CITY.exec(text)
+  if (!match) return null
+  // the town ends where a sentence starts ("Musterstadt. Zufahrt ist ausgeschildert.")
+  const city = cleanText(match[3].split(/\.\s/)[0].replace(/\s*\(.*\)\s*$/, ''))
+  if (!city || /^\d/.test(city)) return null
+  return { zipCode: match[2], city, countryCode: countryOfZip(match[2], match[1] ?? '') }
+}
+
+/** True when a line is a street with a house number */
+export const isStreetLine = (value: string): boolean => STREET.test(cleanText(value))
+
+/**
+ * An address from one line or several: the parts are split at commas, "//", " | " and line
+ * breaks; the street is the part with a house number, the zip and town the part that starts with
+ * a zip, the country a part that names one. A street and a zip without anything between them
+ * ("Musterweg 11 12345 Musterstadt") are split too. Empty fields when a part is missing.
+ */
+export function parseAddress(value: string): AddressFact {
+  const out: AddressFact = { street: '', streetNumber: '', zipCode: '', city: '', countryCode: '' }
+  const parts = value
+    .split(/\r?\n|\s*\/\/\s*|\s+\|\s+|,/)
+    .map((part) => cleanText(part.replace(/\([^)]*\)/g, ' ')))
+    .filter(Boolean)
+  let country = ''
+  const rest: string[] = []
+  for (const part of parts) {
+    // "Musterweg 11 12345 Musterstadt": street and town on one line
+    const joined = /^(.*?\d+\s?[a-zA-Z]?)\s+((?:[A-Z]{1,2}-)?\d{5}\s+\p{L}.*)$/u.exec(part)
+    if (joined && isStreetLine(joined[1])) {
+      rest.push(joined[1], joined[2])
+      continue
+    }
+    const named = countryCodeOfName(part)
+    if (named && !/\d/.test(part)) {
+      country ||= named
+      continue
+    }
+    rest.push(part)
+  }
+  for (const part of rest) {
+    const place = !out.zipCode ? zipCityOf(part) : null
+    if (place) {
+      out.zipCode = place.zipCode
+      out.city = place.city
+      out.countryCode = place.countryCode
+      continue
+    }
+    if (!out.street && isStreetLine(part)) {
+      const { street, streetNumber } = splitStreet(part)
+      out.street = street
+      out.streetNumber = streetNumber
+    }
+  }
+  // a street without a number ("Am Königshügel") when nothing else is one
+  if (!out.street) {
+    const first = rest.find((part) => !zipCityOf(part) && /^[\p{L}]/u.test(part))
+    if (first && first.length <= 60) out.street = first
+  }
+  if (country) out.countryCode = country
+  return out
+}

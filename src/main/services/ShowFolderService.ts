@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { createHash } from 'crypto'
 import { fileText } from '../showfolder/fileText'
+import { countryNameOf } from '../showfolder/address'
 import { extractOwnInvoice } from '../showfolder/ownInvoice'
 import { ShowFolderRepository } from '../repositories/ShowFolderRepository'
 import { DocumentService } from './DocumentService'
@@ -385,8 +386,8 @@ export class ShowFolderService {
               zipCode: action.zipCode,
               city: action.city,
               state: '',
-              country: '',
-              countryCode: ''
+              country: countryNameOf(action.countryCode),
+              countryCode: action.countryCode
             }
           })
           id = created.id
@@ -416,8 +417,8 @@ export class ShowFolderService {
                 zipCode: action.zipCode,
                 city: action.city,
                 state: '',
-                country: '',
-                countryCode: ''
+                country: countryNameOf(action.countryCode),
+                countryCode: action.countryCode
               },
               contact: { email, phone: action.phone, mobilePhone: '', homepage: action.website }
             })
@@ -507,8 +508,8 @@ export class ShowFolderService {
                   zipCode: action.zipCode,
                   city: action.city,
                   state: '',
-                  country: '',
-                  countryCode: ''
+                  country: countryNameOf(action.countryCode),
+                  countryCode: action.countryCode
                 }
               })
               hotelId = created.id

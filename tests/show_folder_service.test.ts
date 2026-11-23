@@ -179,7 +179,7 @@ describe('show folder service', { timeout: 60_000 }, () => {
     // the stored address differs: offered, but not ticked
     expect(byId.get('venue.address')).toMatchObject({
       current: 'Musterallee 1, 12345 Musterstadt',
-      proposed: 'Musterweg 11, 12345 Musterstadt',
+      proposed: 'Musterweg 11, 12345 Musterstadt, Deutschland',
       include: false
     })
     expect(byId.get('event.presale')?.proposed).toMatch(/^38,70 €/)

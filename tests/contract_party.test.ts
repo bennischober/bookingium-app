@@ -47,7 +47,8 @@ describe('contract party', () => {
       contactRole: 'Geschäftsführung',
       kskNumber: '',
       taxNumber: '',
-      website: ''
+      website: '',
+      countryCode: 'DE'
     })
   })
 

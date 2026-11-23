@@ -9,6 +9,7 @@ import { cleanText } from '../import/normalize'
 import { t } from '../i18n/translate'
 import type { ContractPartyFact } from './contractParty'
 import type { OwnInvoiceFact } from './ownInvoice'
+import { countryCodeOfName, parseAddress, zipCityOf } from './address'
 
 export const SHOW_FILE_KINDS = [
   'daysheet',
@@ -79,6 +80,8 @@ export interface PlaceFact {
   street: string
   zipCode: string
   city: string
+  /** ISO code ("DE"); a five-digit zip without a country is German */
+  countryCode: string
 }
 
 export interface ShowFacts {
@@ -131,12 +134,13 @@ export const emptyFacts = (): ShowFacts => ({
     street: '',
     zipCode: '',
     city: '',
+    countryCode: '',
     capacity: null,
     merchFeeCents: null,
     notes: [],
     kind: null
   },
-  hotel: { name: '', street: '', zipCode: '', city: '', notes: [] },
+  hotel: { name: '', street: '', zipCode: '', city: '', countryCode: '', notes: [] },
   tickets: { presaleCents: null, baseCents: null, extraCents: null, wkzCents: null },
   deal: { guaranteeCents: null, text: '' },
   contacts: [],
@@ -289,9 +293,28 @@ const stripRemark = (value: string): string =>
   cleanText(value.replace(/\([^)]*\)/g, ' ').replace(/[!]+/g, ''))
 
 /** "12345 Musterstadt" → zip and city */
-function zipCity(value: string): { zipCode: string; city: string } | null {
-  const match = /\b(\d{4,5})\s+([A-Za-zÄÖÜäöüß][\p{L} .-]+)/u.exec(joinDigits(value))
-  return match ? { zipCode: match[1], city: cleanText(match[2]) } : null
+function zipCity(value: string): { zipCode: string; city: string; countryCode: string } | null {
+  const match = /(?:\b([A-Z]{1,2})-)?\b(\d{4,5})\s+([A-Za-zÄÖÜäöüß][\p{L} .-]+)/u.exec(
+    joinDigits(value)
+  )
+  return match ? zipCityOf(`${match[1] ? `${match[1]}-` : ''}${match[2]} ${match[3]}`) : null
+}
+
+/**
+ * A place's address in order: "Musterweg 11, 12345 Musterstadt" written into the street is split,
+ * the country taken from the zip (five digits: Germany) when no line names one
+ */
+function settleAddress(place: PlaceFact): void {
+  if (!place.street && !place.zipCode) return
+  const parsed = parseAddress(
+    [place.street, `${place.zipCode} ${place.city}`.trim()].filter(Boolean).join('\n')
+  )
+  if (parsed.street) place.street = `${parsed.street} ${parsed.streetNumber}`.trim()
+  if (parsed.zipCode) {
+    place.zipCode = parsed.zipCode
+    place.city = parsed.city
+  }
+  place.countryCode ||= parsed.countryCode
 }
 
 /** "Label: value" → [label key, value]; null without a colon */
@@ -677,6 +700,8 @@ export function extractShowFacts(
     const pair = labelled(segment)
 
     if (venueLines > 0) {
+      // "(Zufahrt über den Beispielring)" between the street and the town: skipped
+      if (!pair && /^\(.*\)$/.test(segment)) continue
       venueLines--
       if (!pair && section !== 'hotel') {
         if (STREET_LINE.test(segment) && !facts.venue.street) {
@@ -722,8 +747,65 @@ export function extractShowFacts(
       }
     }
 
+    // a full address on a line of its own, below "Anreise zum Festivalgelände", "Location:" …
+    // (only on sheets: a contract names the act's own address in running text)
+    if (
+      !pair &&
+      kind !== 'contract' &&
+      section !== 'hotel' &&
+      !facts.venue.street &&
+      /\d/.test(segment) &&
+      segment.length <= 90
+    ) {
+      // "Gelände hinter Musterweg 33, 12345 Musterstadt"
+      const parsed = parseAddress(segment.replace(/^gel(ä|ae)nde\s+(hinter|neben|vor)\s+/i, ''))
+      const before = segments
+        .slice(Math.max(0, index - 2), index)
+        .map((line) => keyOf(line))
+        .join(' ')
+      if (
+        parsed.streetNumber &&
+        parsed.zipCode &&
+        /gelaende|anfahrt|anreise|venue|location|veranstaltungsort|spielort|anschrift|adresse|navi|google/.test(
+          before
+        ) &&
+        !/veranstalter|verein|rechnung|hotel|unterkunft/.test(before)
+      ) {
+        facts.venue.street = `${parsed.street} ${parsed.streetNumber}`
+        facts.venue.zipCode = parsed.zipCode
+        facts.venue.city = parsed.city
+        facts.venue.countryCode ||= parsed.countryCode
+        continue
+      }
+    }
+
     // places
     const target = section === 'hotel' ? facts.hotel : facts.venue
+    // "Venueadresse:", "Adresse der Location:", "Veranstaltungsgelände Adresse:": the venue's address
+    const placeAddress =
+      pair !== null &&
+      section !== 'hotel' &&
+      /(adresse|address|anschrift)$|^(adresse|anschrift) (der|des) (location|venue|gelaende|veranstaltungsorts?)/.test(
+        pair[0].replace(/ (der|des) (location|venue|gelaende|veranstaltungsorts?)$/, '')
+      ) &&
+      /venue|location|gelaende|veranstaltungsort|spielort|buehne|club|halle/.test(pair[0])
+    if (placeAddress && pair) {
+      const parsed = parseAddress(pair[1])
+      if (parsed.zipCode || parsed.streetNumber) {
+        if (!facts.venue.street && parsed.street)
+          facts.venue.street = `${parsed.street} ${parsed.streetNumber}`.trim()
+        if (!facts.venue.zipCode && parsed.zipCode) {
+          facts.venue.zipCode = parsed.zipCode
+          facts.venue.city = parsed.city
+        }
+        facts.venue.countryCode ||= parsed.countryCode
+      } else if (pair[1] && !facts.venue.street && !/\d/.test(pair[1])) {
+        // a street without a number, the town on the lines below
+        facts.venue.street = stripRemark(pair[1])
+      }
+      venueLines = 2
+      continue
+    }
     if (pair) {
       const [label, value] = pair
       if (
@@ -779,6 +861,9 @@ export function extractShowFacts(
         // "PLZ: 12345" on a line before: the town is the one that follows it
         else if (!place && target.zipCode && !target.city && /^[\p{L}][\p{L} .-]+$/u.test(value))
           target.city = cleanText(value)
+      } else if (/^(land|country|staat)$/.test(label)) {
+        const code = /^[A-Z]{2}$/.test(value) ? value : countryCodeOfName(value)
+        if (code) target.countryCode ||= code
       } else if (/^(plz|zip|zip code|postleitzahl)$/.test(label) && /^\d{4,5}$/.test(value)) {
         if (!target.zipCode) {
           target.zipCode = value
@@ -968,6 +1053,8 @@ export function extractShowFacts(
     if (split) parts.push(`${split[1]} % ${cleanText(split[2])}`)
     facts.deal.text = parts.join(' vs. ')
   }
+  settleAddress(facts.venue)
+  settleAddress(facts.hotel)
   // "Auftrittsbeginn 18:50" … "Auftrittsende 19:35": the length of the show
   const begin = facts.itinerary.showTimeMainAct
   if (begin && state.showEnd && !facts.itinerary.showLength) {
@@ -1026,7 +1113,7 @@ export function mergeShowFacts(
         merged.itinerary[key] = facts.itinerary[key]
     merged.start ||= facts.start
     // the address of a venue sheet beats the day sheet's (it is the venue's own)
-    const placeKeys = ['name', 'street', 'zipCode', 'city'] as const
+    const placeKeys = ['name', 'street', 'zipCode', 'city', 'countryCode'] as const
     for (const key of placeKeys) {
       if (kind === 'venue_spec' && facts.venue[key] && key !== 'name')
         merged.venue[key] = facts.venue[key]
@@ -1066,6 +1153,9 @@ export function mergeShowFacts(
     merged.contractDate ||= facts.contractDate
     for (const contact of facts.contacts) addContact(merged, { ...contact })
   }
+  // values the service added after the files were read (a contract's town) get their country too
+  settleAddress(merged.venue)
+  settleAddress(merged.hotel)
   // a name that says festival ("… Open Air") decides; a club-like name ("Halle …") only fills in,
   // since festivals take place in halls too
   const byName = placeKindOfName(merged.venue.name)

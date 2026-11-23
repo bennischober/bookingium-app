@@ -5,6 +5,7 @@
 // (tests/contract_party.test.ts).
 
 import { cleanText } from '../import/normalize'
+import { countryCodeOfName, parseAddress, zipCityOf } from './address'
 import { emailOf, joinSpacedDomain, keyOf, mendWords, segmentsOf } from './extract'
 
 export interface ContractPartyFact {
@@ -23,6 +24,8 @@ export interface ContractPartyFact {
   taxNumber: string
   /** The promoter's website, as an info sheet names it ("Website: …") */
   website: string
+  /** ISO code ("DE"); a five-digit zip without a country is German */
+  countryCode: string
 }
 
 const PHONE = /(?:\+|\b0)\d[\d ./()-]{5,}\d/
@@ -110,17 +113,36 @@ function readBlock(fact: ContractPartyFact, lines: string[], links: readonly str
       const number = /\d[\d/ ]{5,}\d/.exec(tail)
       if (number) fact.taxNumber = number[0].replace(/\s/g, '')
     }
+    if (!pair && !fact.countryCode && !/\d/.test(line)) {
+      const country = countryCodeOfName(line)
+      if (country) {
+        fact.countryCode = country
+        continue
+      }
+    }
     if (!pair && !fact.zipCode) {
       const place = ZIP_CITY.exec(line)
       if (place) {
+        const parsed = zipCityOf(place[0])
         fact.zipCode = place[1]
         fact.city = cleanText(place[2])
+        fact.countryCode ||= parsed?.countryCode ?? ''
         continue
       }
     }
     if (!pair && !fact.street && STREET.test(line) && !PHONE.test(line)) fact.street = line
-    if (pair && /strasse|anschrift|adresse|address|street/.test(label) && !fact.street)
-      fact.street = value
+    if (pair && /strasse|anschrift|adresse|address|street/.test(label) && !fact.street) {
+      // "Musterweg 11, 12345 Musterstadt" in one value
+      const parsed = parseAddress(value)
+      fact.street = parsed.street ? `${parsed.street} ${parsed.streetNumber}`.trim() : value
+      if (parsed.zipCode && !fact.zipCode) {
+        fact.zipCode = parsed.zipCode
+        fact.city = parsed.city
+      }
+      fact.countryCode ||= parsed.countryCode
+    }
+    if (pair && /^(land|country|staat)$/.test(label) && !fact.countryCode)
+      fact.countryCode = /^[A-Z]{2}$/.test(value) ? value : countryCodeOfName(value)
     if (pair && /^(plz|ort|stadt|city|zip)/.test(label) && !fact.zipCode) {
       const place = ZIP_CITY.exec(value)
       if (place) {
@@ -143,7 +165,8 @@ const empty = (): ContractPartyFact => ({
   contactRole: '',
   kskNumber: '',
   taxNumber: '',
-  website: ''
+  website: '',
+  countryCode: ''
 })
 
 /**

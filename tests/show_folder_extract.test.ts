@@ -208,6 +208,7 @@ describe('show folder: facts', () => {
       street: 'Beispielstraße 77',
       zipCode: '54321',
       city: 'Nebenort',
+      countryCode: 'DE',
       notes: ['Gebuchte Zimmer: 7 EZ. 2 DZ (ohne Frühstück)', 'Check In: 15:00 - Check Out: 11:00']
     })
     // the venue address is not overwritten by the hotel's
