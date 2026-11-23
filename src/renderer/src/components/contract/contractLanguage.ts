@@ -10,7 +10,7 @@ import type { DocumentLang } from '../print/DocumentLanguageSelect'
 
 /** The words of the contract PDF's file name, in the contract's language */
 export const CONTRACT_FILE_NAMES: Record<ContractDocument, Record<DocumentLang, string>> = {
-  concert: { de: 'Auftrittsvertrag', en: 'Guest appearance contract' },
+  concert: { de: 'Auftrittsvertrag', en: 'Concert performance agreement' },
   management: { de: 'Managementvertrag', en: 'Management agreement' }
 }
 

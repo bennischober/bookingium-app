@@ -1,33 +1,39 @@
 # English contracts: sources and passages to review
 
-The English contracts print the same sections, numbering and data as the German ones.
-Their wording comes from two sources:
+The English contracts are worded from legally reviewed English templates the user provided
+(kept outside git). Nothing on a printed contract points to where a template came from: the
+templates' parties, agencies, addresses, places of jurisdiction and deal-specific numbers are
+left out, and the code and docs describe the templates only by kind.
 
-- **Template**: the English templates the user provided (kept outside git in
-  `sample_data/contract-templates/`): the English VUT management agreement sample (2016) and
-  an English booking contract ("Guest Appearance Contract") from another agency.
-- **Translated**: passages of the German contract with no matching clause in the template,
-  translated for this app. These are not lawyer-reviewed and should be checked before use.
+In the code, every passage carries a `Template:`, `Adapted:` or `Translated:` comment:
 
-In the code, every adapted or translated passage carries an `Adapted:`, `Template:` or
-`Translated:` comment. A change to a German clause needs the same change in its English twin.
+- **Template**: the template's wording, with the parties' data filled in.
+- **Adapted**: a template clause whose fixed value gave way to the German contract's
+  (a number, a period) or to data from the app.
+- **Translated**: a German clause with no template counterpart, translated for this app. These
+  are not lawyer-reviewed and should be checked before use.
+
+A change to a German clause needs a look at the English version.
 
 ## Management agreement (`ManagementContractDocumentEn.tsx`)
 
-Wording from the VUT sample. Where the sample offers alternatives, the English version uses
-the same option as the German contract: power of attorney per case (§ 6), accounting by the
-ARTIST (§ 9), group clause covering each member individually (§ 15). Left out because the
-German contract does not have them: the conflict-of-interest paragraph, earnings of
-third-party entities, the audit clause, deduction of expenses, the notices paragraph, and the
-§ 627 BGB addendum.
+Source: the English model management agreement (2016), whose German twin the German contract
+is based on. Same sections and numbering as the German contract. Where the model offers
+alternatives, the English version uses the German contract's choice: power of attorney per
+case (§ 6), accounting by the ARTIST (§ 9), group clause covering each member individually
+(§ 15). Left out because the German contract does not have them: the conflict-of-interest
+paragraph, earnings of third-party entities, the audit clause, deduction of expenses, the
+notices paragraph, and the § 627 BGB addendum.
 
-Adapted to match the German contract (check these):
+Where the German contract keeps the German model's wording, the English model's counterpart is
+used, including § 5's delegation sentence (costs of third parties need the ARTIST's approval).
 
-| §   | Passage            | Change against the VUT sample                                                                                                       |
+Adapted where the German contract differs from the German model (check these):
+
+| §   | Passage            | Change against the model                                                                                                            |
 | --- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Activities         | "musician, composer and lyricist" only (sample: also producer, DJ, host, actor)                                                     |
+| 1   | Activities         | "musician, composer and lyricist" only (model: also producer, DJ, host, actor)                                                      |
 | 2   | Territory          | stored German values read as English ("örtlich unbeschränkt" → "without restrictions as to territory"); other values print as typed |
-| 5   | Delegation         | only without extra costs for ARTIST or with agreed costs (sample: costs need ARTIST's approval)                                     |
 | 7   | Delegation         | adds "this shall be done in consultation with ARTIST"                                                                               |
 | 8   | Earnings           | no separate "neighbouring rights" item; sentence for excluded income; "only earnings generated under the name …"                    |
 | 9   | Accounting         | quarterly instead of monthly; objection within one month instead of twelve                                                          |
@@ -37,27 +43,49 @@ Adapted to match the German contract (check these):
 
 ## Concert contract (`ContractDocumentEn.tsx`)
 
-Structure of the German Konzertvertrag. From the template: the title, "on behalf and on
-account of", the opening sentence, the guarantee sentence (§ 2 of the template), overnight
-accommodation (§ 4), helpers carrying the backline (§ 10), the stage "firmly fixed" (§ 11),
-numbered tickets and costs that cannot be evidenced (§§ 2, 7), changes in writing (§ 23),
-"act of God" (§ 22), "Signature/Stamp". The template's agency details (name, address, place
-of jurisdiction, fixed numbers such as catering for 30 people or a 10 × 8 m stage) are not
-used.
+Sources: an English "Concert Performance Agreement" (title, parties with Artist, Promoter and
+Agent, the deal sheet, the general terms) and a shorter English guest appearance contract
+(tickets and show costs, helpers, the stage "firmly fixed", open-air protection, set-up and
+dressing room, merchandise). Its layout follows the first template, not the German contract's
+numbering: a deal sheet with the event's data (show, schedule, deal, terms of payment,
+production, guest list), then numbered general terms, then the special agreements.
 
-Translated from the German contract (check all of these):
+From the templates, unchanged apart from the parties' names: rider, PA/lights/stage,
+hospitality/catering, parking/vehicles, staff, permits and collecting societies, tickets/show
+costs, security/safety with set-up and dressing room, promotion, merchandise, payments/
+settlement, presentation/performance, concert failure/cancellation with force majeure,
+filming/broadcasting/streaming, taxes with the withholding-tax certificate, injury/property
+damage, sponsoring, miscellaneous (German law, written form, severability, no ordinary
+termination by the Promoter, confidentiality).
 
-- Parties: "Contracting Party 1 (CP1)" / "Contracting Party 2 (CP2)" for VP1/VP2; the KSK
-  number line
-- Engagement, Fee (apart from the guarantee sentence), Accounting, Advance Payment
-- Registrations, GEMA, KSK and Taxes
-- Technical Equipment / Personnel, Stage (roofed stage, horizontally even surface)
-- Arrival / Access / Parking, Accommodation (with breakfast), Catering, Artistic Freedom
-- Associations, Sponsoring, Presentation; Organisation and Security (incl. liability under
-  § 823 (1) BGB)
-- Advertising
-- Cancellation: "Vertragsstrafe" kept as **contractual penalty** (the template's "liquidated
-  damage" is a different legal concept); "weitergehender Schaden" as "further damage"
-- Merchandising, Recordings, Guest List, Stage Rider, Legal Relationship, General Provisions
-- Free text from the event (deal, programme notes, room information, special agreements)
-  prints as typed in the app
+Left out of the templates: their parties and agencies, the place of jurisdiction, the fixed
+penalty per vehicle without parking, fixed numbers (catering for 30 people, a 10 × 8 m stage,
+four helpers), ground transport and visas.
+
+Adapted (check these):
+
+- "e.g. GEMA in Germany" added to the collecting-society clause
+- Guest list: at least 10 (ten) people, as in the German contract
+- Helpers: at least two (2), as in the German contract
+- Accommodation: number of persons, rooms and hotel from the event
+- Backline: "Provided by Artist", as in the German contract
+
+Translated from the German contract, collected under **Additional Terms** (check all of these):
+
+- Late advance payment: only the Artist may withdraw; claims for damages remain
+- Disclosure if the Promoter is a party or association; Promoter's sponsors need written
+  agreement; no advertising in the stage area; backdrop 4 m × 3 m
+- Merchandise stand when there is no central seller (two tables, chair, 220 V, within 30 m)
+- Further guest list places for promoters, labels, media and endorsement partners
+- No weapons; sign about the risk to hearing; no liability for consequential damage
+- Release for a film, radio or TV engagement known only after signing
+- Return of the signed contract within two weeks; deemed accepted after 21 days
+
+Dropped against the German contract, because the templates cover the subject differently or it
+only applies in Germany: the KSK clause and KSK number, the Artist's liability limited under
+§ 823 (1) BGB (the template's indemnity applies instead), the contractual penalty in the
+amount of the fee on cancellation (the template's full payment obligation applies instead),
+directions eight days before the show, and the correspondence address.
+
+Free text from the event (deal, programme notes, room information, special agreements) prints
+as typed in the app.

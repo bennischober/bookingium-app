@@ -1,6 +1,7 @@
 // Contracts print in German or English, picked on the print page. Each contract has an
-// English version with the same sections and data as the German one; rendered to static
-// markup, both languages are checked for their words and the contract's values.
+// English version worded from the English templates, with the same data as the German one;
+// rendered to static markup, both languages are checked for their words and the contract's
+// values.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
@@ -132,7 +133,7 @@ describe('contract language', () => {
   it('names the PDF in the contract’s language', () => {
     expect(CONTRACT_FILE_NAMES.concert).toEqual({
       de: 'Auftrittsvertrag',
-      en: 'Guest appearance contract'
+      en: 'Concert performance agreement'
     })
     expect(CONTRACT_FILE_NAMES.management).toEqual({
       de: 'Managementvertrag',
@@ -160,30 +161,42 @@ describe('concert contract', () => {
     expect(sheet).toContain('zzgl. 19 % MwSt.')
   })
 
-  it('prints the English contract with the same sections and values', () => {
-    const de = text(renderToStaticMarkup(createElement(ContractDocument, { data: concertData() })))
+  it('prints the English contract from the templates with the event’s values', () => {
     const en = text(
       renderToStaticMarkup(createElement(ContractDocument, { data: concertData(), lang: 'en' }))
     )
-    expect(en).toContain('GUEST APPEARANCE CONTRACT')
-    expect(en).toContain('21 October 2026')
+    expect(en).toContain('CONCERT PERFORMANCE AGREEMENT')
+    expect(en).toContain('(hereinafter referred to as “Artist”)')
+    expect(en).toContain('(hereinafter referred to as “Agent”)')
+    expect(en).toContain('Date of Performance: 21 October 2026')
+    expect(en).toContain('Venue: Example Hall')
     expect(en).toContain(
-      'CP2 will pay CP1 a guarantee of €2,000.00 plus 19% VAT (total: €2,380.00)'
+      'The Promoter agrees to pay for this performance a guarantee of €2,000.00 plus 19% VAT (total: €2,380.00)'
     )
-    expect(en).toContain('Advance payment: €500.00 plus 19% VAT, due by 1 September 2026')
-    expect(en).toContain("at the venue 'Example Hall'")
-    expect(en).toContain('but not between the promoter and Example Agency GmbH')
+    expect(en).toContain('Advance Payment: €500.00 plus 19% VAT, due by 1 September 2026')
+    expect(en).toContain('for 6 persons: 3 twin rooms')
+    expect(en).toContain('IBAN: DE02 1203 0000 0000 2020 51')
     expect(en).toContain('p.p. Example Agency GmbH')
     for (const word of GERMAN_WORDS) expect(en, word).not.toContain(word)
-    expect(en).not.toMatch(/Künstler(?!sozialkasse)/)
-    // Same numbered sections in both languages
-    const numbers = (sheet: string) => sheet.match(/\b\d{1,2}(?=\. [A-ZÄÖÜ])/g)
-    expect(numbers(en)).toEqual(numbers(de))
-    // 21 sections plus the sub-clauses 15.1 and 15.2
-    expect(numbers(en)).toHaveLength(23)
+    expect(en).not.toMatch(/Künstler/)
+    // General terms numbered without gaps, the special agreements left out when empty
+    const terms = en.match(/\b\d{1,2}(?=\) [A-Z])/g) ?? []
+    expect(terms).toEqual(terms.map((_, index) => String(index + 1)))
+    expect(terms).toHaveLength(19)
+    expect(en).not.toContain('SPECIAL AGREEMENTS')
   })
 
-  it('leaves the optional sections out in English as well, numbering without gaps', () => {
+  it('names nobody from the templates', () => {
+    const en = text(
+      renderToStaticMarkup(createElement(ContractDocument, { data: concertData(), lang: 'en' }))
+    )
+    // The templates' places of jurisdiction, offices and fixed amounts
+    for (const word of ['Ulm', 'Dortmund', 'Mengen', 'Frankfurt', '200,-', '30 persons']) {
+      expect(en, word).not.toContain(word)
+    }
+  })
+
+  it('leaves the advance payment out and adds the special agreements', () => {
     const en = text(
       renderToStaticMarkup(
         createElement(ContractDocument, {
@@ -193,7 +206,7 @@ describe('concert contract', () => {
       )
     )
     expect(en).not.toContain('Advance Payment')
-    expect(en).toContain('Special Agreements')
+    expect(en).toContain('20) SPECIAL AGREEMENTS')
     expect(en).toContain('Extra drum riser')
   })
 })

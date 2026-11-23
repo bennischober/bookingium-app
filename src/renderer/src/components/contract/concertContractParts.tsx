@@ -1,6 +1,6 @@
 import type { ContractParty } from '../../../../main/api/schemas/contract.schema'
 
-// Building blocks shared by the German and English concert contract
+// Building blocks of the German concert contract
 
 // ========================================
 // Section primitives

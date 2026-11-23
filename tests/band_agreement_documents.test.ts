@@ -59,8 +59,9 @@ const text = (markup: string) =>
   markup
     .replace(/<[^>]+>/g, ' ')
     .replace(/&#x27;|&apos;/g, "'")
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
+    // last, so an escaped "&amp;quot;" does not turn into a quote
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
 
 function publishing(terms: Partial<PublishingTerms>, lang: 'de' | 'en', specialClauses = '') {
