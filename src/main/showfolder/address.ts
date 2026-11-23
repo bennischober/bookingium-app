@@ -142,7 +142,58 @@ export function zipCityOf(value: string): {
 }
 
 /** True when a line is a street with a house number */
-export const isStreetLine = (value: string): boolean => STREET.test(cleanText(value))
+/** Street words of countries that write the number first: French, Italian, Spanish, English */
+const FOREIGN_STREET_WORDS: Array<[string, RegExp]> = [
+  [
+    'FR',
+    /^(rue|boulevard|bd|bvd|blvd|avenue|av|quai|chemin|allée|allee|impasse|cours|place|route|cité|cite)$/i
+  ],
+  ['IT', /^(via|viale|piazza|piazzale|corso|vicolo|largo)$/i],
+  ['ES', /^(calle|c\/|avenida|avda|plaza|paseo|carrer|camino)$/i],
+  [
+    'GB',
+    /^(road|rd|street|st|lane|ln|way|drive|dr|square|sq|close|crescent|terrace|row|hill|park|gardens)$/i
+  ]
+]
+
+/**
+ * "92 boulevard de Musterville", "4 Muster Road", "via Esempio 3": a street as other countries
+ * write it, with the country its words tell
+ */
+export function foreignStreetOf(
+  value: string
+): { street: string; streetNumber: string; countryCode: string } | null {
+  const text = mendAddressWords(value).replace(/,$/, '')
+  // number first: "92 boulevard de …", "4 Muster Road", "12, rue …"
+  const first = /^(\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+[a-zA-Z]?)?),?\s+(\p{L}[\p{L}\d .'’-]+)$/u.exec(
+    text
+  )
+  if (first) {
+    const words = first[2].split(/\s+/)
+    for (const [code, pattern] of FOREIGN_STREET_WORDS)
+      if (words.some((word) => pattern.test(word.replace(/\.$/, ''))))
+        return { street: first[2], streetNumber: first[1].replace(/\s+/g, ''), countryCode: code }
+    return null
+  }
+  // "via Esempio 3", "calle Ejemplo 12": the street word first, the number last
+  const last = /^(\p{L}+)\s.*\s(\d+[a-zA-Z]?)$/u.exec(text)
+  if (last) {
+    for (const [code, pattern] of FOREIGN_STREET_WORDS)
+      if (code !== 'GB' && code !== 'FR' && pattern.test(last[1]))
+        return {
+          street: text.slice(0, text.length - last[2].length).trim(),
+          streetNumber: last[2],
+          countryCode: code
+        }
+  }
+  return null
+}
+
+/** A British postcode ("PL21 9QE", "SW1A 1AA") */
+const UK_POSTCODE = /^([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/
+
+export const isStreetLine = (value: string): boolean =>
+  STREET.test(cleanText(value)) || foreignStreetOf(value) !== null
 
 /**
  * An address from one line or several: the parts are split at commas, "//", " | " and line
@@ -159,8 +210,29 @@ export function parseAddress(value: string): AddressFact {
     .map((part) => cleanText(part.replace(/\([^)]*\)/g, ' ')))
     .filter(Boolean)
   let country = ''
+  let streetCountry = ''
   const rest: string[] = []
   for (const part of parts) {
+    // "PL21 9QE": a British postcode on its own, or behind the town ("London N19 5QQ")
+    if (UK_POSTCODE.test(part) && !out.zipCode) {
+      out.zipCode = part
+      country ||= 'GB'
+      continue
+    }
+    const postcodeTown = /^([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\s+(\p{L}[\p{L} .'-]*)$/u.exec(part)
+    if (postcodeTown && !out.zipCode) {
+      out.zipCode = postcodeTown[1]
+      out.city = postcodeTown[2]
+      country ||= 'GB'
+      continue
+    }
+    const townPostcode = /^(\p{L}[\p{L} .'-]*?)\s+([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/u.exec(part)
+    if (townPostcode && !out.zipCode) {
+      out.zipCode = townPostcode[2]
+      out.city = townPostcode[1]
+      country ||= 'GB'
+      continue
+    }
     // "Musterweg 11 12345 Musterstadt": street and town on one line
     const joined = /^(.*?\d+\s?[a-zA-Z]?)\s+((?:[A-Z]{1,2}-)?\d{5}\s+\p{L}.*)$/u.exec(part)
     if (joined && isStreetLine(joined[1])) {
@@ -183,16 +255,33 @@ export function parseAddress(value: string): AddressFact {
       continue
     }
     if (!out.street && isStreetLine(part)) {
-      const { street, streetNumber } = splitStreet(mendAddressWords(part))
+      const foreign = foreignStreetOf(part)
+      const { street, streetNumber } = foreign ?? splitStreet(mendAddressWords(part))
       out.street = street
       out.streetNumber = streetNumber
+      streetCountry = foreign?.countryCode ?? ''
     }
   }
-  // a street without a number ("Am Königshügel") when nothing else is one
-  if (!out.street) {
-    const first = rest.find((part) => !zipCityOf(part) && /^[\p{L}]/u.test(part))
-    if (first && first.length <= 60) out.street = first
+  // the town of a British address is the part before its postcode
+  if (country === 'GB' && out.zipCode && !out.city) {
+    const at = parts.indexOf(out.zipCode)
+    const town = at > 0 ? parts[at - 1] : ''
+    if (/^\p{L}[\p{L} .'-]+$/u.test(town) && !isStreetLine(town)) out.city = town
   }
+  // a street without a number ("Am Königshügel") when nothing else is one - not for a British
+  // address, whose unnumbered parts are names and towns
+  if (!out.street && country !== 'GB') {
+    const first = rest.find((part) => !zipCityOf(part) && /^[\p{L}]/u.test(part))
+    if (first && first.length <= 60) {
+      out.street = first
+      const word = first.split(/\s+/)[0].replace(/\.$/, '')
+      for (const [code, pattern] of FOREIGN_STREET_WORDS)
+        if (code !== 'GB' && pattern.test(word)) streetCountry = code
+    }
+  }
+  // a five-digit zip is German unless the street is written the way another country writes it
+  if (streetCountry && (!out.countryCode || out.countryCode === 'DE'))
+    out.countryCode = streetCountry
   if (country) out.countryCode = country
   return out
 }
