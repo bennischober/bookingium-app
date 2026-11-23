@@ -197,6 +197,13 @@ export class ShowFolderService {
         settlementFile ??= { path, name: file.name }
       }
       if (asContract && kind !== 'settlement') kind = 'contract'
+      // a rider that never names the band is the venue's or festival's own (tech specs, house
+      // rules): read like a venue sheet; the band's own rider says who it is for
+      if (kind === 'rider') {
+        const band = keyOf(bandName).replace(/ /g, '')
+        const named = keyOf(`${file.name} ${file.text.slice(0, 3000)}`).replace(/ /g, '')
+        if (band.length >= 3 && !named.includes(band)) kind = 'venue_spec'
+      }
       const facts = extractShowFacts(file, kind, bandName)
       if (kind === 'invoice' || kind === 'other') {
         facts.invoice = extractOwnInvoice(file.text, ownNames)

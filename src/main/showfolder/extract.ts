@@ -312,11 +312,17 @@ function settleAddress(place: PlaceFact): void {
     [place.street, `${place.zipCode} ${place.city}`.trim()].filter(Boolean).join('\n')
   )
   if (parsed.street) place.street = `${parsed.street} ${parsed.streetNumber}`.trim()
+  // a street that only repeats the zip and the town is none ("PL4 6LA Plymouth")
+  else if (parsed.zipCode && place.street.includes(parsed.zipCode)) place.street = ''
   if (parsed.zipCode) {
     place.zipCode = parsed.zipCode
     place.city = parsed.city
   }
+  if (parsed.countryCode && parsed.countryCode !== 'DE' && place.countryCode === 'DE')
+    place.countryCode = parsed.countryCode
   place.countryCode ||= parsed.countryCode
+  // the number in front ("92 boulevard …") is never a German street: no guess from the zip
+  if (place.countryCode === 'DE' && /^\d/.test(place.street)) place.countryCode = ''
 }
 
 /** "Label: value" → [label key, value]; null without a colon */
@@ -598,6 +604,8 @@ const STAGE_LABELS: Record<string, string> = {
 function sideOf(role: string, kind: ShowFileKind, bandKey: string): ContactSide {
   const key = keyOf(role)
   if (/promoter|veranstalter|lopro|local promoter|ticketing/.test(key)) return 'promoter'
+  // "Advancing contact / Venue Manager": the venue's own person, whatever else the role says
+  if (/\b(venue|house|club) manager\b|\bhausleitung\b/.test(key)) return 'venue'
   if (
     /tour ?manager|\btm\b|advancing|management|crew|foh|licht|merch|backline|vorproduktion/.test(
       key
@@ -617,7 +625,7 @@ function sideOf(role: string, kind: ShowFileKind, bandKey: string): ContactSide 
 /** "Elisa Beispiel", the words before a phone or an e-mail */
 function nameOf(raw: string): string {
   const value = raw.replace(/[<>"]/g, ' ')
-  const cut = value.split(/\s[-–]\s|(?=\+?\d[\d ]{5,})|[\w.%+-]+@/)[0] ?? ''
+  const cut = value.split(/\s[-–/]\s|(?=\+?\d[\d ]{5,})|[\w.%+-]+@/)[0] ?? ''
   const words = cleanText(cut.replace(/[,;]/g, ' ')).split(' ')
   if (words.some((word) => /^(gmbh|ug|ag|kg|ohg|gbr|e\.?v\.?|ltd\.?|inc\.?|llc|mbh)$/i.test(word)))
     return ''
@@ -756,6 +764,46 @@ export function extractShowFacts(
         const uhr = uhrOf(segment)
         if (uhr && /einlass|doors/.test(key) && !facts.itinerary.doors) facts.itinerary.doors = uhr
         if (uhr && /beginn|start/.test(key) && !facts.start) facts.start = uhr
+      }
+    }
+
+    // a venue sheet's own block: "MUSTER HALLE" / "92 boulevard de Musterville" / "75018 MUSTERVILLE"
+    if (
+      kind === 'venue_spec' &&
+      !pair &&
+      !facts.venue.street &&
+      ownLines === 0 &&
+      isStreetLine(segment) &&
+      index + 1 < segments.length &&
+      zipCity(segments[index + 1])
+    ) {
+      const parsed = parseAddress(`${segment}\n${segments[index + 1]}`)
+      if (parsed.zipCode) {
+        const above = index > 0 ? segments[index - 1] : ''
+        const name = above && !labelled(above) ? cleanPlaceName(above) : ''
+        const venueLike =
+          /halle|haus|hall|club|arena|theat|kultur|zentrum|bühne|buehne|stage|werk|keller|fabrik|room|bar|pub|mill/i
+        // "Presse", "ADDRESS", "Tech Specs": a heading; "Muster Licht Service GmbH": a supplier's
+        // letterhead, not the venue - neither block is the venue's address
+        const heading =
+          !name ||
+          /^(presse|press|address|adresse|anschrift|kontakt|contact|tech specs|technik|info|impressum)$/i.test(
+            name
+          ) ||
+          (name.split(' ').length === 1 && name === name.toUpperCase() && name.length > 3)
+        const company =
+          /\b(gmbh|ug|ag|kg|gbr|e\.?\s?v\.?|ltd|service|services|events?|verleih|rental)\b/i.test(
+            name
+          )
+        if (!heading && (!company || venueLike.test(name))) {
+          facts.venue.street = `${parsed.street} ${parsed.streetNumber}`.trim()
+          facts.venue.zipCode = parsed.zipCode
+          facts.venue.city = parsed.city
+          facts.venue.countryCode = parsed.countryCode
+          facts.venue.name ||= name
+          index++
+          continue
+        }
       }
     }
 
@@ -926,7 +974,12 @@ export function extractShowFacts(
       } else if (/^(land|country|staat)$/.test(label)) {
         const code = /^[A-Z]{2}$/.test(value) ? value : countryCodeOfName(value)
         if (code) target.countryCode ||= code
-      } else if (/^(plz|zip|zip code|postleitzahl)$/.test(label) && /^\d{4,5}$/.test(value)) {
+      } else if (
+        /^(plz|zip|zip code|postleitzahl|postcode|post code|postal code|code postal|cp)$/.test(
+          label
+        ) &&
+        /^(\d{4,5}|\d{4}\s?[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/.test(value)
+      ) {
         if (!target.zipCode) {
           target.zipCode = value
           target.city = ''
@@ -1047,8 +1100,9 @@ export function extractShowFacts(
     if (pendingRole) {
       const name = nameOf(segment)
       if (name) {
-        let mail = ''
-        let tel = ''
+        // "Erika Muster / erika@muster.example": on the name's own line, else on the lines below
+        let mail = emailOf(segment, file.links)
+        let tel = phoneOf(segment)
         // the mail and phone lines right below, up to the next role or name
         for (let next = index + 1; next < Math.min(segments.length, index + 4); next++) {
           const line = segments[next]

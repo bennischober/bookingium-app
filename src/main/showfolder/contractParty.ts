@@ -435,7 +435,7 @@ const ADDRESS_HEAD =
 
 /** The promoter's own label, without spaces: "Veranstalter:", "Promoter:", "Ausrichter:" */
 const SHEET_PROMOTER =
-  /^(veranstalter|veranstalterin|promoter|organi[sz]er|ausrichter|ausrichtung)$/
+  /^(veranstalter|veranstalterin|promoter|organi[sz]er|ausrichter|ausrichtung|promoterscompany|promotercompany|veranstalterfirma)$/
 
 /** A heading of the promoter's block: "Veranstalter Details:", "Promoter / Veranstalter:" */
 const SHEET_PROMOTER_HEAD =
