@@ -1,0 +1,1 @@
+ALTER TABLE `marketing_item` ADD `picked` integer DEFAULT false NOT NULL;

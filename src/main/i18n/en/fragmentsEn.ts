@@ -7,9 +7,6 @@ export const fragmentsEn: Record<string, string> = {
   ' · {{skipped}} übersprungen': ' · {{skipped}} skipped',
   '{{label}}: bitte eine ganze Zahl ≥ 0': '{{label}}: please enter a whole number ≥ 0',
   '. Quartal': '. Quarter',
-  '. Ein neuer Stand aktualisiert die Einträge; Status, Notizen und Verknüpfungen bleiben.':
-    '. A new version updates the entries; status, notes and links stay.',
-  ' – „Alle“ zeigt auch die übrigen Prioritäten.': ' – “All” also shows the other priorities.',
   'Aus den Daten der E-Rechnung.': 'From the e-invoice data.',
   'Aus dem Text der Rechnung gelesen – bitte kurz prüfen.':
     'Read from the invoice text – please check briefly.',

@@ -1729,6 +1729,8 @@ export const marketing_item = sqliteTable(
     company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
     venue_id: integer('venue_id').references(() => venue.id, { onDelete: 'set null' }),
     in_atlas: integer('in_atlas', { mode: 'boolean' }).default(true).notNull(),
+    // on the band's working list; the rest of the atlas waits in the pool
+    picked: integer('picked', { mode: 'boolean' }).default(false).notNull(),
     created_at: text('created_at')
       .default(sql`(datetime('now'))`)
       .notNull(),

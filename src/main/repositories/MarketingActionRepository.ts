@@ -93,6 +93,7 @@ export class MarketingActionRepository {
   }
 
   create(fields: MarketingActionFields): number {
+    this.pickItem(fields.marketingItemId)
     return db.insert(action).values(this.columns(fields)).returning({ id: action.id }).get().id
   }
 
@@ -103,6 +104,16 @@ export class MarketingActionRepository {
       .where(eq(action.id, id))
       .run().changes
     if (changed === 0) throw new Error('Diese Maßnahme gibt es nicht mehr.')
+    this.pickItem(fields.marketingItemId)
+  }
+
+  /** An atlas entry a measure is booked for belongs on the working list */
+  private pickItem(itemId: number | null | undefined): void {
+    if (!itemId) return
+    db.update(schema.marketing_item)
+      .set({ picked: true, updated_at: sql`datetime('now')` })
+      .where(and(eq(schema.marketing_item.id, itemId), eq(schema.marketing_item.picked, false)))
+      .run()
   }
 
   delete(id: number): void {

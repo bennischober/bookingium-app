@@ -48,7 +48,6 @@ const items = [
 ]
 const base = {
   category: 'radios' as const,
-  level: 'all' as const,
   status: null,
   query: '',
   showDropped: false
@@ -64,9 +63,7 @@ describe('marketing filters', () => {
     ])
   })
 
-  it('narrows by level and status, and shows dropped entries only on request', () => {
-    expect(filterItems(items, { ...base, level: 'A' })).toHaveLength(2)
-    expect(filterItems(items, { ...base, level: 'AB' })).toHaveLength(3)
+  it('narrows by status, and shows dropped entries only on request', () => {
     expect(filterItems(items, { ...base, status: 'contacted' }).map((i) => i.name)).toEqual([
       'Gamma FM'
     ])

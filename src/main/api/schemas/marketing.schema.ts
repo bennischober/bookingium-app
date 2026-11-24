@@ -92,6 +92,8 @@ export const MarketingItemDto = z.object({
   venueName: z.string().nullable(),
   /** false once a newer atlas no longer lists it */
   inAtlas: z.boolean(),
+  /** On the band's working list; false: waits in the pool of the atlas */
+  picked: z.boolean(),
   /** The furthest measure booked for it (Maßnahmen), null for none */
   actionStatus: z.enum(['planned', 'booked', 'running', 'done']).nullable()
 })
@@ -119,15 +121,14 @@ export const MarketingOverviewDto = z.object({
 })
 export type MarketingOverviewDto = z.infer<typeof MarketingOverviewDto>
 
-/** Which researched contacts the import adds to the address book */
-export const MarketingContactScope = z.enum(['ab', 'all', 'none'])
-export type MarketingContactScope = z.infer<typeof MarketingContactScope>
-
 export const MarketingImportInput = z.object({
   bandId: z.number().int().positive(),
   /** The file picked with pickAtlas */
   path: z.string().min(1),
-  contacts: MarketingContactScope.default('ab'),
+  /** Keys of the entries that go on the working list; the rest waits in the pool */
+  picked: z.array(z.string()).max(20000),
+  /** Media companies and clubs/festivals for the picked entries that have none yet */
+  createContacts: z.boolean().default(true),
   /** One member list (Verteiler) per tab with the linked contacts */
   contactLists: z.boolean().default(false)
 })
@@ -138,12 +139,32 @@ export const MarketingImportResultDto = z.object({
   updated: z.number(),
   /** Entries a newer atlas no longer lists; kept with their status */
   dropped: z.number(),
+  /** Entries on the working list after the import */
+  picked: z.number(),
   companiesCreated: z.number(),
   venuesCreated: z.number(),
   linked: z.number(),
   lists: z.number()
 })
 export type MarketingImportResultDto = z.infer<typeof MarketingImportResultDto>
+
+/** One entry of a picked file, for choosing what goes on the working list */
+export const MarketingFileEntryDto = z.object({
+  key: z.string(),
+  category: MarketingCategory,
+  group: z.string(),
+  name: z.string(),
+  country: z.string(),
+  type: z.string(),
+  priority: MarketingPriority,
+  quality: MarketingQuality,
+  reason: z.string(),
+  /** Not in the band's atlas yet (only set when there is one) */
+  isNew: z.boolean(),
+  /** Suggested: already on the list, worked on, or new with priority A */
+  picked: z.boolean()
+})
+export type MarketingFileEntryDto = z.infer<typeof MarketingFileEntryDto>
 
 /** What a picked file holds, before it is imported */
 export const MarketingFileDto = z.object({
@@ -152,9 +173,26 @@ export const MarketingFileDto = z.object({
   band: z.string(),
   stand: z.string(),
   counts: z.array(z.object({ category: MarketingCategory, count: z.number() })),
-  total: z.number()
+  total: z.number(),
+  entries: z.array(MarketingFileEntryDto)
 })
 export type MarketingFileDto = z.infer<typeof MarketingFileDto>
+
+/** Moves entries between the working list and the pool */
+export const SetMarketingPickedInput = z.object({
+  bandId: z.number().int().positive(),
+  ids: z.array(z.number().int().positive()).max(20000),
+  picked: z.boolean(),
+  /** Media companies and clubs/festivals for newly picked entries */
+  createContacts: z.boolean().default(false)
+})
+export type SetMarketingPickedInput = z.infer<typeof SetMarketingPickedInput>
+
+export const SetMarketingPickedResultDto = z.object({
+  changed: z.number(),
+  contactsCreated: z.number()
+})
+export type SetMarketingPickedResultDto = z.infer<typeof SetMarketingPickedResultDto>
 
 export const UpdateMarketingItemInput = z.object({
   id: z.number().int().positive(),

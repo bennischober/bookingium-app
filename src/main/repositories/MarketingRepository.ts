@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { schema } from '../db/schema'
 import type { Tx } from './tx'
@@ -8,7 +8,7 @@ import { contactKindOf, itemKey, type Atlas, type AtlasItem } from '../marketing
 import {
   MARKETING_CATEGORY_LABELS,
   type MarketingCategory,
-  type MarketingContactScope,
+  type MarketingFileEntryDto,
   type MarketingImportResultDto,
   type MarketingStatus,
   type UpdateMarketingItemInput
@@ -22,11 +22,14 @@ export type MarketingItemRow = ItemRow & { companyName: string | null; venueName
  * Marketing-Atlas of a band (#marketing): its head data and entries, the import of a newer atlas,
  * and the links to the address book.
  *
+ * The atlas is research with hundreds of entries; the band works with a part of it. Picked
+ * entries are the working list, the others wait in the pool and can be picked later.
+ *
  * An import keeps what the team did: an entry found again (same category and name) gets the new
  * texts but keeps status, note and links; an entry the new atlas drops stays with in_atlas off.
- * Radios, podcasts and press become media companies, clubs and festivals become venues: an
- * existing record of that name is used when exactly one matches, else a new one is created
- * (for priority A and B by default).
+ * Radios, podcasts and press become media companies, clubs and festivals become venues, for
+ * picked entries only: an existing record of that name is used when exactly one matches, else a
+ * new one is created when asked for.
  */
 @injectable()
 export class MarketingRepository {
@@ -82,7 +85,7 @@ export class MarketingRepository {
       })
       .from(schema.marketing_item)
       .innerJoin(schema.band, eq(schema.band.id, schema.marketing_item.band_id))
-      .where(where)
+      .where(and(where, eq(schema.marketing_item.picked, true)))
       .orderBy(asc(schema.band.name))
       .all()
   }
@@ -92,6 +95,8 @@ export class MarketingRepository {
     if (input.status !== undefined) {
       values.status = input.status
       values.status_date = new Date().toISOString().slice(0, 10)
+      // what the team works on is on the working list
+      if (input.status !== 'open') values.picked = true
     }
     if (input.statusNote !== undefined) values.status_note = input.statusNote.trim()
     if (Object.keys(values).length === 0) return
@@ -117,9 +122,89 @@ export class MarketingRepository {
       const link = this.contactFor(tx, rowAsItem(row), bandName, true, counts)
       if (!link) throw new Error('Für diese Art Eintrag wird kein Kontakt angelegt.')
       tx.update(schema.marketing_item)
-        .set({ ...link, updated_at: sql`datetime('now')` })
+        .set({ ...link, picked: true, updated_at: sql`datetime('now')` })
         .where(eq(schema.marketing_item.id, id))
         .run()
+    })
+  }
+
+  /**
+   * The entries of a file before the import: which are new, and the suggested working list
+   * (what is on it or was worked on stays; new entries with priority A or a running relationship
+   * join)
+   */
+  preview(bandId: number, atlas: Atlas): MarketingFileEntryDto[] {
+    const stored = new Map(
+      db
+        .select({
+          key: schema.marketing_item.item_key,
+          picked: schema.marketing_item.picked,
+          status: schema.marketing_item.status
+        })
+        .from(schema.marketing_item)
+        .where(eq(schema.marketing_item.band_id, bandId))
+        .all()
+        .map((row) => [row.key, row])
+    )
+    const seen = new Set<string>()
+    const entries: MarketingFileEntryDto[] = []
+    for (const item of atlas.items) {
+      const key = itemKey(item)
+      if (seen.has(key)) continue
+      seen.add(key)
+      const row = stored.get(key)
+      entries.push({
+        key,
+        category: item.category,
+        group: item.group,
+        name: item.name,
+        country: item.country,
+        type: item.type,
+        priority: item.priority,
+        quality: item.quality,
+        reason: item.reason,
+        isNew: stored.size > 0 && !row,
+        picked: row
+          ? row.picked || row.status !== 'open'
+          : item.priority === 'A' || item.activeNote !== ''
+      })
+    }
+    return entries
+  }
+
+  /** Moves entries of the band between working list and pool; contacts for picked ones */
+  setPicked(
+    bandId: number,
+    ids: number[],
+    picked: boolean,
+    createContacts: boolean
+  ): { changed: number; contactsCreated: number } {
+    if (ids.length === 0) return { changed: 0, contactsCreated: 0 }
+    const bandName = this.bandName(bandId) ?? ''
+    return db.transaction((tx) => {
+      const rows = tx
+        .select()
+        .from(schema.marketing_item)
+        .where(
+          and(
+            eq(schema.marketing_item.band_id, bandId),
+            inArray(schema.marketing_item.id, ids),
+            eq(schema.marketing_item.picked, !picked)
+          )
+        )
+        .all()
+      const counts = { companies: 0, venues: 0 }
+      for (const row of rows) {
+        const link =
+          picked && row.company_id === null && row.venue_id === null
+            ? this.contactFor(tx, rowAsItem(row), bandName, createContacts, counts)
+            : null
+        tx.update(schema.marketing_item)
+          .set({ ...(link ?? {}), picked, updated_at: sql`datetime('now')` })
+          .where(eq(schema.marketing_item.id, row.id))
+          .run()
+      }
+      return { changed: rows.length, contactsCreated: counts.companies + counts.venues }
     })
   }
 
@@ -127,7 +212,12 @@ export class MarketingRepository {
     bandId: number,
     atlas: Atlas,
     sourceName: string,
-    options: { contacts: MarketingContactScope; contactLists: boolean }
+    options: {
+      /** Keys of the working list; without it the suggestion of `preview` */
+      picked?: string[]
+      createContacts: boolean
+      contactLists: boolean
+    }
   ): MarketingImportResultDto {
     const bandName = this.bandName(bandId)
     if (bandName === null) throw new Error('Diese Band gibt es nicht mehr.')
@@ -136,6 +226,7 @@ export class MarketingRepository {
         created: 0,
         updated: 0,
         dropped: 0,
+        picked: 0,
         companiesCreated: 0,
         venuesCreated: 0,
         linked: 0,
@@ -178,6 +269,12 @@ export class MarketingRepository {
       )
       const seen = new Set<string>()
       const counts = { companies: 0, venues: 0 }
+      const picks = new Set(
+        options.picked ??
+          this.preview(bandId, atlas)
+            .filter((entry) => entry.picked)
+            .map((entry) => entry.key)
+      )
       for (const item of atlas.items) {
         const key = itemKey(item)
         if (seen.has(key)) continue
@@ -200,25 +297,25 @@ export class MarketingRepository {
           active_note: item.activeNote,
           in_atlas: true
         }
-        const wanted =
-          options.contacts === 'all' || (options.contacts === 'ab' && item.priority !== 'C')
+        const picked = picks.has(key)
+        if (picked) result.picked++
+        // only the working list reaches the address book
+        const contact = () =>
+          picked ? this.contactFor(tx, item, bandName, options.createContacts, counts) : null
         const row = stored.get(key)
         if (row) {
-          const link =
-            row.company_id === null && row.venue_id === null
-              ? this.contactFor(tx, item, bandName, wanted, counts)
-              : null
+          const link = row.company_id === null && row.venue_id === null ? contact() : null
           if (link) result.linked++
           // an existing relationship the atlas names is a status, unless the team set one
           const status: MarketingStatus =
             row.status === 'open' && item.activeNote ? 'active' : (row.status as MarketingStatus)
           tx.update(schema.marketing_item)
-            .set({ ...texts, ...(link ?? {}), status, updated_at: sql`datetime('now')` })
+            .set({ ...texts, ...(link ?? {}), status, picked, updated_at: sql`datetime('now')` })
             .where(eq(schema.marketing_item.id, row.id))
             .run()
           result.updated++
         } else {
-          const link = this.contactFor(tx, item, bandName, wanted, counts)
+          const link = contact()
           if (link) result.linked++
           tx.insert(schema.marketing_item)
             .values({
@@ -226,6 +323,7 @@ export class MarketingRepository {
               item_key: key,
               ...texts,
               ...(link ?? {}),
+              picked,
               status: item.activeNote ? 'active' : 'open'
             })
             .run()
@@ -328,13 +426,17 @@ export class MarketingRepository {
       .get().id
   }
 
-  /** One member list per tab: "Marketing-Atlas <Band> – Radios" with the linked contacts */
+  /** One member list per tab: "Marketing-Atlas <Band> – Radios" with the linked picked contacts */
   private fillLists(tx: Tx, bandId: number, bandName: string): number {
     const rows = tx
       .select()
       .from(schema.marketing_item)
       .where(
-        and(eq(schema.marketing_item.band_id, bandId), eq(schema.marketing_item.in_atlas, true))
+        and(
+          eq(schema.marketing_item.band_id, bandId),
+          eq(schema.marketing_item.in_atlas, true),
+          eq(schema.marketing_item.picked, true)
+        )
       )
       .all()
     const byCategory = new Map<string, ItemRow[]>()
