@@ -153,17 +153,29 @@ export type LabelCopyPlanDto = z.infer<typeof LabelCopyPlanDto>
 
 // ---------- Inputs ----------
 
-const FilePath = z.string().min(1)
+/** Where the label copy comes from: a picked or dropped file, or a mail attachment */
+export const LabelCopyOrigin = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('file'), path: z.string().min(1) }),
+  z.object({
+    kind: z.literal('attachment'),
+    accountId: z.string().min(1),
+    messageId: z.number().int().positive(),
+    partId: z.string().min(1),
+    /** the mail's Message-ID header, kept with the stored document */
+    storeMessageId: z.string().nullable().optional()
+  })
+])
+export type LabelCopyOrigin = z.infer<typeof LabelCopyOrigin>
 
 export const PlanLabelCopyInput = z.object({
-  path: FilePath,
+  source: LabelCopyOrigin,
   /** undefined: find the release by its codes; null: a new release; a number: that release */
   releaseId: z.number().int().positive().nullable().optional()
 })
 export type PlanLabelCopyInput = z.infer<typeof PlanLabelCopyInput>
 
 export const ApplyLabelCopyInput = z.object({
-  path: FilePath,
+  source: LabelCopyOrigin,
   releaseId: z.number().int().positive().nullable(),
   /** For a new release */
   bandId: z.number().int().positive().nullable().default(null),

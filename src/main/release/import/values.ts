@@ -97,6 +97,23 @@ export function splitNames(value: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * Writers in one cell, with their share if it is named: "A/B", "A (50%); B (50%)", "A, B & C"
+ * -> [{ name: "A", percent: 50 }, …]
+ */
+export function splitWriters(value: string): Array<{ name: string; percent: number | null }> {
+  return value
+    .split(/\s*[,;/\n]\s*|\s+&\s+|\s+und\s+|\s+and\s+/i)
+    .map((part) => {
+      const share = /\(\s*(\d{1,3}(?:[.,]\d+)?)\s*%\s*\)/.exec(part)
+      return {
+        name: clean(part.replace(/\(\s*\d{1,3}(?:[.,]\d+)?\s*%\s*\)/, '')),
+        percent: share ? parsePercent(share[1]) : null
+      }
+    })
+    .filter((writer) => writer.name)
+}
+
 /** A share as "25.0%", "25,5 %" or "25" -> number; null when there is none */
 export function parsePercent(value: string): number | null {
   const text = clean(value).replace('%', '').trim()

@@ -27,8 +27,16 @@ import type {
   ParsedLabelCopy
 } from '../api/schemas/release_import.schema'
 
-/** The bytes of a picked label copy, read by the router */
-export type LabelCopyFile = { bytes: Uint8Array; fileName: string; path: string }
+/**
+ * The bytes of a label copy, read by the router: a picked file (its path) or a mail attachment
+ * (the account and the mail's Message-ID, kept with the stored document)
+ */
+export type LabelCopyFile = {
+  bytes: Uint8Array
+  fileName: string
+  path: string | null
+  mail: { accountId: string; messageId: string | null } | null
+}
 
 /** Thrown for a file that is no label copy this app reads; the router answers BAD_REQUEST */
 export class LabelCopyError extends Error {}
@@ -218,11 +226,24 @@ export class ReleaseImportService {
       (doc) => doc.file_size === file.bytes.length && doc.file_name.toLowerCase().startsWith(name)
     )
     if (known) return false
-    await this.documents.upload({
+    if (file.path) {
+      await this.documents.upload({
+        ownerType: 'release',
+        ownerId: releaseId,
+        sourcePath: file.path,
+        documentType: 'label_copy'
+      })
+      return true
+    }
+    if (!file.mail) return false
+    await this.documents.saveFromMail({
       ownerType: 'release',
       ownerId: releaseId,
-      sourcePath: file.path,
-      documentType: 'label_copy'
+      fileName: file.fileName,
+      documentType: 'label_copy',
+      bytes: file.bytes,
+      messageId: file.mail.messageId,
+      mailAccountId: file.mail.accountId
     })
     return true
   }

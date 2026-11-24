@@ -15,6 +15,7 @@ import {
   parseLooseDate,
   parseTrackDuration,
   splitNames,
+  splitWriters,
   workRoles
 } from '../src/main/release/import/values'
 import { mergeHead, mergeTrack, planLabelCopy } from '../src/main/release/import/plan'
@@ -231,6 +232,14 @@ describe('values', () => {
     expect(parseTrackDuration('2:47:00')).toEqual({ seconds: 167, shifted: true })
     expect(parseTrackDuration('0:02:47')).toEqual({ seconds: 167, shifted: false })
     expect(splitNames('A, B; C & D, ')).toEqual(['A', 'B', 'C', 'D'])
+    expect(splitWriters('Erika Muster (50%); Max Beispiel (50 %)')).toEqual([
+      { name: 'Erika Muster', percent: 50 },
+      { name: 'Max Beispiel', percent: 50 }
+    ])
+    expect(splitWriters('Erika Muster/Max Beispiel').map((w) => w.name)).toEqual([
+      'Erika Muster',
+      'Max Beispiel'
+    ])
     expect(workRoles('Writer')).toEqual(['lyricist'])
     expect(workRoles('Composer/Lyricist')).toEqual(['lyricist', 'composer'])
   })
@@ -356,6 +365,125 @@ describe('Excel label copy', () => {
       ['digital', 'online_ad', 'Youtube „Erster Song“', 50000, false],
       ['pr', 'other', 'PR Probe', 30050, false]
     ])
+  })
+
+  it('reads a template with the tracklist on the info sheet and links below it', () => {
+    const copy = parseExcelLabelCopy(
+      readXlsxSheets(
+        buildXlsxSheets([
+          {
+            name: 'GENERAL INFO',
+            rows: [
+              ['ARTIST', 'Probeband'],
+              ['TITLE', 'Probesingle'],
+              ['CATALOGUE NO', 'PROBE200'],
+              [
+                'RECORDED By / At',
+                'Drums: Ton Meister - Studio Eins | Gesang: Erika Muster / Studio Zwei'
+              ],
+              ['ARTWORK By', 'Kunst Beispiel'],
+              ['COVER ARTWORK By', 'Kunst Beispiel'],
+              [],
+              [
+                'PERFORMING ARTISTS (ALBUM PRODUCTION)',
+                'Real Name',
+                'Artist Name',
+                'Instrument',
+                'Facebook Profile'
+              ],
+              ['', 'Erika Muster', 'Eri M', 'Vocals', 'https://example.com/erika'],
+              ['', 'Max Beispiel', '-', 'Drums', ''],
+              [],
+              ['PERFORMING GUESTS', 'Name', 'Instrument', 'Track'],
+              ['', 'Gast Beispiel', 'Cello', 'Zweiter Song'],
+              [],
+              ['COMPOSER / TEXTER', 'Name', 'Copyright Society', 'IPI Number'],
+              ['', 'Max Beispiel', 'GEMA', '00987654321'],
+              [],
+              ['Album infos:'],
+              [
+                'Track No.',
+                'Track Title',
+                'Track Version / Featuring',
+                'Track Composer',
+                'Track Lyricist/Texter',
+                'Duration',
+                'Track ISRC',
+                'Publisher',
+                'Explicit',
+                'Snippet Start Timecode'
+              ],
+              [
+                '1',
+                'Erster Song',
+                '',
+                'Erika Muster (50%); Max Beispiel (50%)',
+                'Erika Muster (100%)',
+                '03:57',
+                'XX0AA2600011',
+                'Copyright Control',
+                'no',
+                'Bitte Startpunkt eintragen'
+              ],
+              [
+                '2',
+                'Zweiter Song',
+                '',
+                'Erika Muster/Max Beispiel',
+                'Erika Muster/Max Beispiel',
+                '0:03:22',
+                'XX0AA2600012',
+                'Copyright Control',
+                'no',
+                ''
+              ],
+              [],
+              ['BAND PAGES', 'Link', 'Follower/Fans', 'Date'],
+              ['WEBSITE', 'https://example.com/'],
+              ['FACEBOOK', 'https://example.com/probeband', '1234', '30.05.2024'],
+              ['TIKTOK', '']
+            ]
+          },
+          {
+            name: 'Album Lyrics',
+            rows: [['ERSTER SONG', 'Zweiter Song (Edit)'], [], ['La la', 'Lu lu'], ['', 'Lu lu lu']]
+          }
+        ])
+      )
+    )!
+    expect(copy.tracks.map((t) => [t.title, t.durationSeconds, t.isrc])).toEqual([
+      ['Erster Song', 237, 'XX0AA2600011'],
+      ['Zweiter Song', 202, 'XX0AA2600012']
+    ])
+    // the tracklist on the info sheet is no product of its own
+    expect(copy.products).toEqual([])
+    expect(copy.head).toMatchObject({ catalogNumber: 'PROBE200', releaseType: 'single' })
+    expect(copy.credits.map((c) => `${c.name}/${c.role}/${c.instrument}`)).toEqual([
+      'Ton Meister/Recording Engineer/Drums · Studio Eins',
+      'Erika Muster/Recording Engineer/Gesang · Studio Zwei',
+      'Kunst Beispiel/Artwork/',
+      'Erika Muster (Eri M)/Band Member/Vocals',
+      'Max Beispiel/Band Member/Drums'
+    ])
+    const [first, second] = copy.tracks
+    expect(first.workShares.map((s) => [s.name, s.role, s.sharePercent, s.ipi])).toEqual([
+      ['Erika Muster', 'lyricist', 100, ''],
+      ['Erika Muster', 'composer', 50, ''],
+      ['Max Beispiel', 'composer', 50, '00987654321']
+    ])
+    expect(second.workShares.map((s) => s.name)).toEqual([
+      'Erika Muster',
+      'Max Beispiel',
+      'Erika Muster',
+      'Max Beispiel'
+    ])
+    expect(second.contributors.map((c) => `${c.name}/${c.instrument}`)).toEqual([
+      'Probeband/',
+      'Gast Beispiel/Cello'
+    ])
+    // lyrics under the titles; a head spelled differently by its place
+    expect(first.lyrics).toBe('La la')
+    expect(second.lyrics).toBe('Lu lu\nLu lu lu')
   })
 
   it('is not taken for any other workbook', () => {
@@ -530,7 +658,8 @@ describe('import service', () => {
     const file = (path: string, name: string) => ({
       bytes: new Uint8Array(readFileSync(path)),
       fileName: name,
-      path
+      path,
+      mail: null
     })
 
     const plan = await service.plan(file(xlsxPath, 'Probealbum LC.xlsx'))
@@ -541,7 +670,7 @@ describe('import service', () => {
     expect(plan.budget).toHaveLength(1)
 
     const result = await service.apply(file(xlsxPath, 'Probealbum LC.xlsx'), {
-      path: xlsxPath,
+      source: { kind: 'file', path: xlsxPath },
       releaseId: null,
       bandId: band.id,
       takeFields: [],
@@ -587,7 +716,11 @@ describe('import service', () => {
     expect(again.budget[0].exists).toBe(true)
     const second = await service.apply(
       file(xlsxPath, 'Probealbum LC.xlsx'),
-      ApplyLabelCopyInput.parse({ path: xlsxPath, releaseId: release.id, budget: [0] })
+      ApplyLabelCopyInput.parse({
+        source: { kind: 'file', path: xlsxPath },
+        releaseId: release.id,
+        budget: [0]
+      })
     )
     expect(second).toMatchObject({
       tracksAdded: 0,
@@ -599,6 +732,31 @@ describe('import service', () => {
     })
   })
 
+  it('keeps a label copy from a mail attachment with the mail it came from', async () => {
+    const service = container.resolve(ReleaseImportService)
+    const result = await service.apply(
+      {
+        bytes: new Uint8Array(templateWorkbook()),
+        fileName: 'LC aus Mail.xlsx',
+        path: null,
+        mail: { accountId: 'konto-1', messageId: '<lc@example.test>' }
+      },
+      ApplyLabelCopyInput.parse({
+        source: { kind: 'attachment', accountId: 'konto-1', messageId: 7, partId: '2' },
+        releaseId: null
+      })
+    )
+    expect(result.documentStored).toBe(true)
+    const docs = await container.resolve(DocumentService).listByOwner('release', result.releaseId)
+    expect(docs).toHaveLength(1)
+    expect(docs[0]).toMatchObject({
+      document_type: 'label_copy',
+      source_mail_account_id: 'konto-1',
+      source_message_id: '<lc@example.test>'
+    })
+    expect(docs[0].file_name).toMatch(/^LC aus Mail.*\.xlsx$/)
+  })
+
   it('refuses a file it cannot read', async () => {
     const path = join(dir, 'liste.xlsx')
     writeFileSync(path, buildXlsxSheets([{ name: 'Tour', rows: [['Datum', 'Ort']] }]))
@@ -606,7 +764,8 @@ describe('import service', () => {
       container.resolve(ReleaseImportService).plan({
         bytes: new Uint8Array(readFileSync(path)),
         fileName: 'liste.xlsx',
-        path
+        path,
+        mail: null
       })
     ).rejects.toThrow('kennt Bookingium noch nicht')
   })
