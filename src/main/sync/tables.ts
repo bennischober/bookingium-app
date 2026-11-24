@@ -10,12 +10,14 @@
  * - mail_link: the linker of each computer builds the links from its own mail store
  * - mail_rule, mail_rule_hit: rules act on a local mail account and track its messages
  * - invoice_email_pending: a send this computer's mail client is doing right now
+ * - calendar_subscription_cache: #53, what this computer fetched of a subscribed calendar
  */
 export const LOCAL_TABLES: ReadonlySet<string> = new Set([
   'mail_link',
   'mail_rule',
   'mail_rule_hit',
-  'invoice_email_pending'
+  'invoice_email_pending',
+  'calendar_subscription_cache'
 ])
 
 /**
@@ -25,6 +27,7 @@ export const LOCAL_TABLES: ReadonlySet<string> = new Set([
  */
 export const LOCAL_SETTING_KEYS: readonly string[] = [
   'calendarFeedPath',
+  'calendarFeedShareUrl',
   'invoiceMailAccountId',
   'mailNotifications',
   'mailInAppNotifications',

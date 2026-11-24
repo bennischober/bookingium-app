@@ -26,6 +26,7 @@ let root: string
 const DEFAULTS = {
   defaultCountry: 'DE',
   calendarFeedPath: '',
+  calendarFeedShareUrl: '',
   calendarFeedFollowUps: false,
   calendarFeedAppointments: false,
   eInvoiceEmbed: true,

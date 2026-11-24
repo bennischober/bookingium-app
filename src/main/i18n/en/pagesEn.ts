@@ -377,8 +377,8 @@ export const pagesEn: Record<string, string> = {
   'Eigene Termine mit aufnehmen': 'Include own appointments',
   'Mit Titel, Zeit, Ort und Notizen. Wer die Datei abonniert, sieht dann auch diese Angaben; ohne den Schalter bleiben Termine nur in Bookingium.':
     'With title, time, place and notes. Anyone subscribing to the file then also sees these details; without the switch, appointments stay in Bookingium only.',
-  'Abonnieren: Thunderbird kann die Datei direkt abonnieren. Outlook und Google Kalender brauchen eine Web-Adresse – z. B. die Datei in einem OneDrive- oder Dropbox-Ordner ablegen und deren direkten Download-Link abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum Importieren (ohne spätere Aktualisierung).':
-    'Subscribing: Thunderbird can subscribe to the file directly. Outlook and Google Calendar need a web address – e.g. put the file into a OneDrive or Dropbox folder and subscribe to its direct download link. “Export once” creates a file to import (without later updates).',
+  'Thunderbird kann die Datei auch direkt abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum Importieren (ohne spätere Aktualisierung).':
+    'Thunderbird can also subscribe to the file directly. “Export once” creates a file to import (without later updates).',
   'Fehlerprotokoll konnte nicht geöffnet werden': 'Error log could not be opened',
   'Listen importieren und exportieren, Daten sichern und Speicherort.':
     'Import and export lists, back up data and storage location.',

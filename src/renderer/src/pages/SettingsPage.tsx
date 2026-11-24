@@ -53,6 +53,8 @@ import { SyncCard } from '@/components/settings/SyncCard'
 import { UpdatesCard } from '@/components/settings/UpdatesCard'
 import { StaffAccessCard } from '@/components/settings/StaffAccessCard'
 import { EmployeesCard } from '@/components/settings/EmployeesCard'
+import { CalendarShareLink } from '@/components/settings/CalendarShareLink'
+import { CalendarSubscriptionsCard } from '@/components/settings/CalendarSubscriptionsCard'
 import { useStaffAccess } from '@/hooks/useStaffAccess'
 import { IMPORT_COUNTRY_OPTIONS } from '../../../main/api/schemas/import.schema'
 import type { CalendarFeedStatusDto } from '../../../main/api/schemas/settings.schema'
@@ -319,9 +321,11 @@ function CalendarCard() {
           </p>
         </div>
 
+        {active && feed && <CalendarShareLink key={feed.path} feed={feed} />}
+
         <p className="text-xs text-muted-foreground">
           {t(
-            'Abonnieren: Thunderbird kann die Datei direkt abonnieren. Outlook und Google Kalender brauchen eine Web-Adresse – z. B. die Datei in einem OneDrive- oder Dropbox-Ordner ablegen und deren direkten Download-Link abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum Importieren (ohne spätere Aktualisierung).'
+            'Thunderbird kann die Datei auch direkt abonnieren. „Einmalig exportieren“ erzeugt eine Datei zum Importieren (ohne spätere Aktualisierung).'
           )}
         </p>
       </CardContent>
@@ -525,6 +529,7 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="calendar" className="space-y-6">
           <CalendarCard />
+          <CalendarSubscriptionsCard />
         </TabsContent>
         <TabsContent value="data" className="space-y-6">
           <DataCard />

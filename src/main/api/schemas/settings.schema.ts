@@ -109,6 +109,9 @@ export const AppSettings = z.object({
   defaultCountry: z.string().default('DE'),
   // .ics file kept up to date with all events, '' for off
   calendarFeedPath: z.string().default(''),
+  // #53: the share link of that file (OneDrive, Dropbox, ...), '' for none; calendar apps
+  // subscribe to its direct download address
+  calendarFeedShareUrl: z.string().default(''),
   // #52: open follow-ups (Wiedervorlagen) in that file too. Off by default: the file is
   // often shared by link, and follow-up notes are the user's own.
   calendarFeedFollowUps: z.boolean().default(false),
@@ -156,6 +159,7 @@ export const UpdateAppSettingsInput = z
   .object({
     defaultCountry: shape.defaultCountry.unwrap(),
     calendarFeedPath: shape.calendarFeedPath.unwrap(),
+    calendarFeedShareUrl: shape.calendarFeedShareUrl.unwrap(),
     calendarFeedFollowUps: shape.calendarFeedFollowUps.unwrap(),
     calendarFeedAppointments: shape.calendarFeedAppointments.unwrap(),
     eInvoiceEmbed: shape.eInvoiceEmbed.unwrap(),
@@ -186,7 +190,12 @@ export const CalendarFeedStatusDto = z.object({
   // #71: the same for own appointments
   includeAppointments: z.boolean(),
   appointments: z.number(),
-  error: z.string().nullable()
+  error: z.string().nullable(),
+  // #53: the share link as entered and the address to subscribe to ('' for none)
+  shareUrl: z.string(),
+  subscribeUrl: z.string(),
+  // #53: whether the file is in a OneDrive, Google Drive or Dropbox folder of this computer
+  inCloudFolder: z.boolean()
 })
 export type CalendarFeedStatusDto = z.infer<typeof CalendarFeedStatusDto>
 

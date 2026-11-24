@@ -30,6 +30,7 @@ import { mailClient } from './mailclient/MailClientService'
 import { TILE_REQUEST_URLS, tileUserAgent } from './map/tileRequests'
 import { BackupService } from './services/BackupService'
 import { CalendarFeedService } from './services/CalendarFeedService'
+import { CalendarSubscriptionService } from './services/CalendarSubscriptionService'
 import { DocumentService } from './services/DocumentService'
 import { SyncService } from './services/SyncService'
 
@@ -112,6 +113,8 @@ app.whenReady().then(async () => {
     .catch((error) => console.error('Relocating documents failed:', error))
   // Calendar file (Einstellungen › Kalender): refresh with the current events
   void container.resolve(CalendarFeedService).update()
+  // #53: subscribed calendars, fetched now and every half hour
+  container.resolve(CalendarSubscriptionService).start()
   // Demo data belongs to development and the e2e app, which both run unpackaged.
   // An installed app starts with an empty database.
   if (!app.isPackaged) {
