@@ -29,6 +29,11 @@ export class ReleaseService {
     return this.releases.listByBand(bandId)
   }
 
+  /** The releases a company put out as their label */
+  listByLabelCompany(companyId: number) {
+    return this.releases.listByLabelCompany(companyId)
+  }
+
   getDetail(id: number) {
     return this.releases.getDetail(id)
   }

@@ -12,6 +12,7 @@ import { readXlsxSheets, excelSerialToTime } from '../src/main/import/xlsx'
 import { parseExcelLabelCopy } from '../src/main/release/import/excelTemplate'
 import { parseOpenPlayLabelCopy } from '../src/main/release/import/openplayPdf'
 import {
+  companyNameKey,
   parseLooseDate,
   parseTrackDuration,
   splitNames,
@@ -241,6 +242,8 @@ describe('values', () => {
       'Max Beispiel'
     ])
     expect(workRoles('Writer')).toEqual(['lyricist'])
+    expect(companyNameKey('Beispiel Records Handels GmbH')).toBe(companyNameKey('Beispiel Records'))
+    expect(companyNameKey('Beispiel Records')).not.toBe(companyNameKey('Beispiel Music'))
     expect(workRoles('Composer/Lyricist')).toEqual(['lyricist', 'composer'])
   })
 
@@ -639,9 +642,9 @@ describe('import service', () => {
     const owner = await container
       .resolve(CompanyService)
       .createCompany(CreateCompanyInput.parse({ name: 'Probe Management GmbH' }))
-    await container
+    const labelCompany = await container
       .resolve(CompanyService)
-      .createCompany(CreateCompanyInput.parse({ name: 'Beispiel Records' }))
+      .createCompany(CreateCompanyInput.parse({ name: 'Beispiel Records GmbH' }))
     const band = await container
       .resolve(BandService)
       .createBand({ name: 'Probeband', companyId: owner.id, genre: '', notes: '' })
@@ -688,6 +691,8 @@ describe('import service', () => {
       (await container.resolve(ReleaseService).getDetail(result.releaseId))!
     )
     expect(release.bandId).toBe(band.id)
+    // the label "Beispiel Records" is the company "Beispiel Records GmbH"
+    expect(release.labelCompanyId).toBe(labelCompany.id)
     expect(release.products.find((p) => p.format === 'vinyl')!.tracks.map((t) => t.side)).toEqual([
       'A',
       'B'
@@ -698,7 +703,7 @@ describe('import service', () => {
     expect(measures).toHaveLength(1)
     expect(measures[0]).toMatchObject({
       payer: 'label',
-      companyName: 'Beispiel Records',
+      companyName: 'Beispiel Records GmbH',
       costCents: 80000,
       releaseTitle: 'Probealbum',
       kind: 'print_ad'

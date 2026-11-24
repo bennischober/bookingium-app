@@ -79,7 +79,10 @@ export const ReleaseFields = z.object({
   preorderD2cDate: IsoDate.default(null),
   preorderRetailDate: IsoDate.default(null),
   preorderDigitalDate: IsoDate.default(null),
+  /** The label as printed; empty means the name of the label's company */
   label: Text,
+  /** The label as a company of the address book */
+  labelCompanyId: Id.nullable().default(null),
   catalogNumber: Text,
   pLine: Text,
   cLine: Text,
@@ -119,6 +122,10 @@ export const ReleaseDto = z
     preorderRetailDate: z.string().nullable(),
     preorderDigitalDate: z.string().nullable(),
     label: z.string(),
+    labelCompanyId: z.number().nullable(),
+    labelCompanyName: z.string().nullable(),
+    /** label, or the company's name when it is empty */
+    labelShown: z.string(),
     catalogNumber: z.string(),
     pLine: z.string(),
     cLine: z.string(),

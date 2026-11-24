@@ -752,7 +752,13 @@ whole release and performers of a track are `release_contributor`
 `release_work_share`. `release.band_id` is `SET NULL`: deleting a band keeps
 its releases. A release owns documents (`owner_type = 'release'`) but is no
 `LINKABLE_RECORD_TYPES` record: no follow-ups, appointments, mail links or
-document links.
+document links. The label is `release.label_company_id` (a company, `SET
+NULL`) next to `release.label`, the label as printed; the DTO's `labelShown`
+is the printed label or else the company's name, like `artist` for the band.
+The company page lists its releases in a "Releases" tab. A label copy links
+the company found by the file's label name (`companyIdByName`: exact, else
+the same name without legal forms like "Handels GmbH", only if one fits) when
+the release has none, and budget measures take it as their partner.
 
 Label copies are read by pure parsers in `main/release/import/`:
 `excelTemplate.ts` (a label's workbook, sheets recognised by content: general

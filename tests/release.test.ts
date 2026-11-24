@@ -234,6 +234,35 @@ describe('releases', () => {
     ).toBe(false)
   })
 
+  it('links the label to a company, shown when the printed label is empty', async () => {
+    const label = await container
+      .resolve(CompanyService)
+      .createCompany(CreateCompanyInput.parse({ name: 'Beispiel Label' }))
+    const created = await release({ title: 'Mit Label', labelCompanyId: label.id })
+    const dto = ReleaseMapper.toDto((await service().getDetail(created.id))!)
+    expect(dto).toMatchObject({
+      label: '',
+      labelCompanyId: label.id,
+      labelCompanyName: 'Beispiel Label',
+      labelShown: 'Beispiel Label'
+    })
+    const printed = await service().update(
+      UpdateReleaseInput.parse({
+        id: created.id,
+        title: 'Mit Label',
+        label: 'Beispiel Label Handels GmbH',
+        labelCompanyId: label.id
+      })
+    )
+    expect(ReleaseMapper.toDto(printed).labelShown).toBe('Beispiel Label Handels GmbH')
+    expect((await service().listByLabelCompany(label.id)).map((r) => r.id)).toEqual([created.id])
+
+    // deleting the company keeps the release and its printed label
+    await container.resolve(CompanyService).deleteCompany(label.id)
+    const row = db().select().from(schema.release).where(eq(schema.release.id, created.id)).get()
+    expect(row).toMatchObject({ label_company_id: null, label: 'Beispiel Label Handels GmbH' })
+  })
+
   it('updates the head data', async () => {
     const created = await release({ title: 'Alt' })
     const updated = await service().update(

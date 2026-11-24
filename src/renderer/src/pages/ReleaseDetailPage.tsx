@@ -118,7 +118,20 @@ function OverviewTab({
           {
             title: t('Label und Rechte'),
             facts: [
-              [t('Label'), release.label],
+              [
+                t('Label'),
+                release.labelCompanyId !== null && release.labelCompanyName ? (
+                  <Link
+                    to="/companies/$companyId"
+                    params={{ companyId: String(release.labelCompanyId) }}
+                    className="font-medium hover:underline"
+                  >
+                    {release.labelShown}
+                  </Link>
+                ) : (
+                  release.labelShown
+                )
+              ],
               [t('Katalognummer'), release.catalogNumber],
               [t('℗-Zeile'), release.pLine],
               [t('©-Zeile'), release.cLine],
@@ -579,7 +592,7 @@ export default function ReleaseDetailPage() {
             release.artist,
             RELEASE_TYPE_LABELS[release.releaseType],
             release.releaseDate && formatShortDate(release.releaseDate),
-            release.label
+            release.labelShown
           ]
             .filter(Boolean)
             .join(' · ')}

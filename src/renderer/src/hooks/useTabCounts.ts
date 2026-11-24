@@ -24,6 +24,7 @@ export function useCompanyTabCounts(id: number | null) {
   const venues = trpcReact.venue.listByCompany.useQuery(companyId, on)
   const events = trpcReact.dealMemo.listByCompany.useQuery(companyId, on)
   const invoices = trpcReact.invoice.listByCompany.useQuery(companyId, on)
+  const releases = trpcReact.release.listByLabelCompany.useQuery(companyId, on)
   const documents = trpcReact.document.listByOwner.useQuery(
     {
       ownerType: 'company',
@@ -37,6 +38,7 @@ export function useCompanyTabCounts(id: number | null) {
     venues: lengthOf(venues.data),
     events: lengthOf(events.data),
     invoices: lengthOf(invoices.data),
+    releases: lengthOf(releases.data),
     documents: lengthOf(documents.data)
   } satisfies Counts<string>
 }

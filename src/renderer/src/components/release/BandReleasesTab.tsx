@@ -81,7 +81,7 @@ export function BandReleasesTab({ bandId }: { bandId: number }) {
             sortValue: (release) => release.title.toLowerCase()
           },
           { header: t('Art'), cell: (release) => RELEASE_TYPE_LABELS[release.releaseType] },
-          { header: t('Label'), cell: (release) => release.label || '-' },
+          { header: t('Label'), cell: (release) => release.labelShown || '-' },
           { header: t('Katalognr.'), cell: (release) => release.catalogNumber || '-' },
           { header: t('Tracks'), cell: (release) => release.trackCount || '-' }
         ]}

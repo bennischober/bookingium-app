@@ -6,6 +6,7 @@ import { sqlTimestamp } from '../db/timestamps'
 import { listOrder, listPage } from './listQuery'
 import type { Tx } from './tx'
 import type { PaginationInput } from '../api/schemas/base.schema'
+import { companyNameKey } from '../release/import/values'
 import type {
   ContributorInput,
   CreateReleaseInput,
@@ -30,6 +31,7 @@ type ProductTrackRow = typeof schema.release_product_track.$inferSelect
 /** A release row with what the list shows next to it */
 export type ReleaseListRow = ReleaseRow & {
   band_name: string | null
+  label_company_name: string | null
   product_count: number
   track_count: number
   upcs: string
@@ -45,11 +47,17 @@ const r = schema.release
 
 const productCount = sql<number>`(SELECT count(*) FROM release_product p WHERE p.release_id = ${r.id})`
 const trackCount = sql<number>`(SELECT count(*) FROM release_track t WHERE t.release_id = ${r.id})`
+const labelCompanyName = sql<
+  string | null
+>`(SELECT c.name FROM company c WHERE c.id = ${r.label_company_id})`
+/** The label as printed, else its company's name */
+const labelShown = sql`coalesce(nullif(${r.label}, ''), ${labelCompanyName}, '')`
 const upcList = sql<string>`coalesce((SELECT group_concat(p.upc, ', ') FROM (SELECT upc FROM release_product WHERE release_id = ${r.id} AND upc <> '' ORDER BY position, id) p), '')`
 
 const listColumns = {
   release: r,
   band_name: schema.band.name,
+  label_company_name: labelCompanyName,
   product_count: productCount,
   track_count: trackCount,
   upcs: upcList
@@ -58,6 +66,7 @@ const listColumns = {
 type ListSelect = {
   release: ReleaseRow
   band_name: string | null
+  label_company_name: string | null
   product_count: number
   track_count: number
   upcs: string
@@ -67,6 +76,7 @@ function toListRow(row: ListSelect): ReleaseListRow {
   return {
     ...row.release,
     band_name: row.band_name,
+    label_company_name: row.label_company_name ?? null,
     product_count: Number(row.product_count),
     track_count: Number(row.track_count),
     upcs: row.upcs ?? ''
@@ -84,6 +94,7 @@ function searchCondition(search: string): SQL | undefined {
     like(r.artist_name, pattern),
     like(schema.band.name, pattern),
     like(r.label, pattern),
+    like(labelCompanyName, pattern),
     like(r.catalog_number, pattern),
     exists(
       db
@@ -129,6 +140,7 @@ function releaseValues(input: ReleaseFields) {
     preorder_retail_date: input.preorderRetailDate,
     preorder_digital_date: input.preorderDigitalDate,
     label: input.label,
+    label_company_id: input.labelCompanyId,
     catalog_number: input.catalogNumber,
     p_line: input.pLine,
     c_line: input.cLine,
@@ -215,7 +227,7 @@ export class ReleaseRepository {
             title: [r.title],
             releaseType: [r.release_type],
             releaseDate: [r.release_date],
-            label: [r.label],
+            label: [labelShown],
             catalogNumber: [r.catalog_number],
             upcs: [upcList],
             trackCount: [trackCount]
@@ -244,6 +256,18 @@ export class ReleaseRepository {
       .from(r)
       .leftJoin(schema.band, eq(r.band_id, schema.band.id))
       .where(eq(r.band_id, bandId))
+      .orderBy(sql`${r.release_date} IS NULL`, sql`${r.release_date} DESC`, asc(r.title))
+      .all()
+      .map(toListRow)
+  }
+
+  /** The releases a company put out as their label, newest first */
+  async listByLabelCompany(companyId: number): Promise<ReleaseListRow[]> {
+    return db
+      .select(listColumns)
+      .from(r)
+      .leftJoin(schema.band, eq(r.band_id, schema.band.id))
+      .where(eq(r.label_company_id, companyId))
       .orderBy(sql`${r.release_date} IS NULL`, sql`${r.release_date} DESC`, asc(r.title))
       .all()
       .map(toListRow)
@@ -595,7 +619,11 @@ export class ReleaseRepository {
     return rows.length === 1 ? rows[0].id : null
   }
 
-  /** The company with exactly this name (case-insensitive): the label, as a measure's partner */
+  /**
+   * The label's company by name: the one with exactly this name (case-insensitive), else the
+   * one whose name differs only in its legal form ("… Handels GmbH" for "…"); null unless
+   * exactly one fits
+   */
   async companyIdByName(name: string): Promise<number | null> {
     if (!name.trim()) return null
     const rows = db
@@ -604,7 +632,15 @@ export class ReleaseRepository {
       .where(sql`lower(trim(${schema.company.name})) = lower(trim(${name}))`)
       .limit(2)
       .all()
-    return rows.length === 1 ? rows[0].id : null
+    if (rows.length > 0) return rows.length === 1 ? rows[0].id : null
+    const key = companyNameKey(name)
+    if (!key) return null
+    const fits = db
+      .select({ id: schema.company.id, name: schema.company.name })
+      .from(schema.company)
+      .all()
+      .filter((company) => companyNameKey(company.name) === key)
+    return fits.length === 1 ? fits[0].id : null
   }
 
   async deleteProduct(id: number, releaseId: number): Promise<void> {

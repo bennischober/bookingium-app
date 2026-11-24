@@ -373,7 +373,9 @@ export function mergeHead(
   release: ReleaseDetailDto | null,
   parsed: ParsedReleaseHead,
   take: readonly string[],
-  bandId: number | null
+  bandId: number | null,
+  /** The company the file's label names; links a release that has no label company yet */
+  labelCompanyId: number | null = null
 ): ReleaseFields {
   const pick = <K extends HeadField>(field: K): string | null => {
     const incoming = parsed[field] as string | null
@@ -397,6 +399,7 @@ export function mergeHead(
     preorderRetailDate: pick('preorderRetailDate'),
     preorderDigitalDate: pick('preorderDigitalDate'),
     label: text('label'),
+    labelCompanyId: release?.labelCompanyId ?? labelCompanyId,
     catalogNumber: text('catalogNumber'),
     pLine: text('pLine'),
     cLine: text('cLine'),

@@ -6,6 +6,7 @@ export const COMPANY_TABS = [
   'venues',
   'events',
   'invoices',
+  'releases',
   'documents',
   'mails'
 ] as const
