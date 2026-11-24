@@ -3,6 +3,17 @@ import { t } from '../../../main/i18n/translate'
 
 /** Highlights per minor version ("1.6"); a patch release shows its minor's list */
 export const WHATS_NEW: Record<string, string[]> = {
+  '1.11': [
+    t(
+      'Releases (Menü Planung): die Labelcopy jedes Releases an einem Ort – Produkte mit UPC/EAN und Katalognummer, Tracks mit ISRC und Dauer, Credits und die Urheber mit ihren Anteilen. Jede Band hat dazu einen Tab „Releases“.'
+    ),
+    t(
+      'Labelcopy einlesen: Excel-Vorlagen von Labels und der PDF-Report von OpenPlay werden gelesen. Eine Vorschau zeigt, was neu ist und was abweicht; das passende Release wird über UPC, Katalognummer oder ISRC gefunden und die Datei am Release abgelegt.'
+    ),
+    t(
+      'Das Budget aus der Labelcopy wird auf Wunsch zu Marketing-Maßnahmen des Releases – mit „Zahlt: Label“. Die Kosten im Marketing-Tab zeigen eigene Ausgaben und extern Bezahltes jetzt getrennt.'
+    )
+  ],
   '1.10': [
     t(
       'Abonnierte Kalender: Einstellungen › Kalender nimmt die ICS- oder webcal-Adresse eines Google-, iCloud- oder Outlook-Kalenders. Seine Termine erscheinen im Bookingium-Kalender, nur zum Ansehen, mit eigener Farbe und auch als Serie.'
