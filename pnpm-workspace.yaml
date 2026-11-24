@@ -12,3 +12,8 @@ allowBuilds:
   canvas: true
   core-js: false
   es5-ext: false
+
+# Security: esbuild < 0.28.1 has published advisories; drizzle-kit and electron-vite pin older
+# ranges, so every copy is lifted to the patched line (build-time only, nothing ships in the app).
+overrides:
+  esbuild: ^0.28.2
