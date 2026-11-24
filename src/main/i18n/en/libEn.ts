@@ -1,6 +1,10 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Abonnierte Kalender: Einstellungen › Kalender nimmt die ICS- oder webcal-Adresse eines Google-, iCloud- oder Outlook-Kalenders. Seine Termine erscheinen im Bookingium-Kalender, nur zum Ansehen, mit eigener Farbe und auch als Serie.':
+    'Subscribed calendars: Settings › Calendar takes the ICS or webcal address of a Google, iCloud or Outlook calendar. Its entries show in the Bookingium calendar, read-only, in a color of their own and as series too.',
+  'Bookingium in Outlook, Google oder Apple abonnieren: Die Kalender-Datei in einem OneDrive- oder Dropbox-Ordner teilen und den Link einfügen – Bookingium macht daraus die Abo-Adresse und prüft, ob die Datei darüber erreichbar und aktuell ist.':
+    'Subscribe to Bookingium in Outlook, Google or Apple: share the calendar file in a OneDrive or Dropbox folder and paste the link – Bookingium turns it into the subscription address and checks that the file is reachable and current through it.',
   'Mitarbeiterzugang: Einstellungen › Allgemein sperrt auf einem Computer die firmeninternen Bereiche (DATEV, eigene Firma und Rechnungseinstellungen, Import von Listen, Sicherung, Abgleich-Einrichtung), auf Wunsch mit PIN zum Entsperren.':
     'Staff access: Settings › General locks the company-internal areas on a computer (DATEV, own company and invoice settings, list import, backup, sync setup), optionally with a PIN to unlock.',
   'Mitarbeiter: Einstellungen › Daten › Mitarbeiter gibt jedem Mitarbeiter einen eigenen Abgleich-Ordner mit nur freigegebenen Daten – alle Kontakte, die Events freigegebener Bands und was einzeln freigegeben ist. Rechnungen legt er nur als Entwurf an.':
