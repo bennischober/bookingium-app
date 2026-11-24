@@ -47,6 +47,7 @@ export const releaseEn: Record<string, string> = {
   'Kopfdaten des Releases. Tracks und Produkte folgen auf seiner Seite.':
     'The release’s main data. Tracks and products follow on its page.',
   Instrument: 'Instrument',
+  'Instrument / Studio': 'Instrument / studio',
   'Anteil an': 'Share in',
   'Anteil in Prozent': 'Share in percent',
   Verwertungsgesellschaft: 'Collecting society',

@@ -109,7 +109,7 @@ export function ContributorEditor({
           />
           <Input
             aria-label={t('Instrument')}
-            placeholder={t('Instrument')}
+            placeholder={t('Instrument / Studio')}
             className="max-w-36"
             value={row.instrument}
             onChange={(e) => update(index, { instrument: e.target.value })}

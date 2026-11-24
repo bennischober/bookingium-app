@@ -205,6 +205,7 @@ export const mailEn: Record<string, string> = {
   'Als Dokument speichern…': 'Save as document…',
   'Firma aus E-Rechnung…': 'Company from e-invoice…',
   'Als Beleg speichern…': 'Save as receipt…',
+  'Als Labelcopy einlesen…': 'Read as label copy…',
   'Link-Adresse kopiert': 'Link address copied',
   Link: 'Link',
   Links: 'Links',

@@ -1,4 +1,4 @@
-import { Building2, ChevronDown, Download, FilePlus, Paperclip, Receipt } from 'lucide-react'
+import { Building2, ChevronDown, Disc3, Download, FilePlus, Paperclip, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -20,6 +20,10 @@ const mayBeReceipt = (a: Attachments[number]): boolean =>
   /\.(jpe?g|png)$/i.test(a.filename ?? '') ||
   /image\/(jpeg|png)/i.test(a.contentType)
 
+/** #289: what can be a label copy: an Excel workbook or a PDF report */
+const mayBeLabelCopy = (a: { filename: string | null }): boolean =>
+  /\.(xlsx|pdf)$/i.test(a.filename ?? '')
+
 /** "Save all" for several attachments, then one chip per attachment */
 export function MessageAttachments({
   message,
@@ -30,6 +34,7 @@ export function MessageAttachments({
   toDocuments,
   toCompany,
   toReceipt,
+  toLabelCopy,
   accountId
 }: {
   message: MessageDetail
@@ -44,6 +49,8 @@ export function MessageAttachments({
   toCompany?: (partId: string) => Promise<void>
   /** #225: opens "Beleg speichern" for the attachment */
   toReceipt?: (partId: string) => Promise<void>
+  /** #289: reads the attachment as a release's label copy */
+  toLabelCopy?: (partId: string) => Promise<void>
   /** #236: the account, to check invoice attachments against the companies */
   accountId?: string
 }) {
@@ -166,6 +173,16 @@ export function MessageAttachments({
                       >
                         <Receipt className="size-4 shrink-0 text-muted-foreground" />
                         {t('Als Beleg speichern…')}
+                      </button>
+                    )}
+                    {toLabelCopy && mayBeLabelCopy(a) && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => void toLabelCopy(a.partId)}
+                      >
+                        <Disc3 className="size-4 shrink-0 text-muted-foreground" />
+                        {t('Als Labelcopy einlesen…')}
                       </button>
                     )}
                   </PopoverContent>

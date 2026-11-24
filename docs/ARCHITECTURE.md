@@ -758,7 +758,14 @@ Label copies are read by pure parsers in `main/release/import/`:
 `excelTemplate.ts` (a label's workbook, sheets recognised by content: general
 info, one sheet per product with its tracklist, singles, colour variants,
 lyrics, budget) and `openplayPdf.ts` (the distributor's PDF report via
-`einvoice/pdfText`). Both produce a `ParsedLabelCopy`; `plan.ts` compares it
+`einvoice/pdfText`). Some templates keep the tracklist on the info sheet with
+other blocks below it (band pages, one link per row): a tracklist row needs a
+number, an ISRC or a duration, and a labelled row without them ends the list.
+A tracklist with nothing that makes it a product (no format, codes or
+packaging) only gives the tracks. Columns of the line-up, guest and writer
+tables come from their title row; writers in one cell are split on `/ , ;`
+with "(50%)" read as their share; lyrics columns are found by "Track 1" or by
+the track titles. Both produce a `ParsedLabelCopy`; `plan.ts` compares it
 with a release and merges it. `ReleaseImportService` finds the release by its
 codes (UPC, catalogue number, ISRC), builds the preview and applies it:
 
@@ -766,7 +773,10 @@ codes (UPC, catalogue number, ISRC), builds the preview and applies it:
   ticks it, differing tracks/products only with "abweichende Angaben
   übernehmen"; performers, writers and tracklists are taken when the release
   has none;
-- the original file is filed at the release as `label_copy` (once);
+- the original file is filed at the release as `label_copy` (once). The copy
+  comes from a picked file or a mail attachment (`LabelCopyOrigin`, read in
+  main through `api/sourceFiles.ts`; "Als Labelcopy einlesen…" on an Excel or
+  PDF attachment), and an attachment's document keeps the mail's Message-ID;
 - budget lines with an amount (or marked done) become marketing measures with
   `release_id`, `payer = 'label'` and the label company as partner. The
   marketing totals count only `payer = 'us'` as our cost, the rest as

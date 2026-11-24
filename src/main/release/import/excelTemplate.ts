@@ -27,6 +27,7 @@ import {
   parseTrackDuration,
   releaseTypeOf,
   splitNames,
+  splitWriters,
   trackKey,
   workShare
 } from './values'
@@ -114,6 +115,28 @@ const CREDIT_ROWS: Array<[RegExp, string]> = [
   [/^ARTWORK|^COVER|^DESIGN/, 'Artwork']
 ]
 
+/**
+ * One credit cell, "By / At" in many templates: "Name / Studio", "Name - Studio",
+ * "Drums: Name - Studio | Vocals, Keys: Name - Studio". The names become contributors; what
+ * they recorded and where goes into the instrument field ("Drums · Kohlekeller Studio").
+ */
+function readCredit(value: string, role: string): ContributorInput[] {
+  const out: ContributorInput[] = []
+  for (const segment of value.split(/\s*\|\s*/)) {
+    const part = clean(segment)
+    if (!part) continue
+    const labelled = /^([^:]{1,40}):\s*(.+)$/.exec(part)
+    const what = labelled ? clean(labelled[1]) : ''
+    const rest = labelled ? labelled[2] : part
+    const at = /\s+[-–/]\s+/.exec(rest)
+    const who = at ? rest.slice(0, at.index) : rest
+    const where = at ? clean(rest.slice(at.index + at[0].length)) : ''
+    const detail = [what, where].filter(Boolean).join(' · ')
+    for (const name of splitNames(who)) out.push(contributor(name, role, detail))
+  }
+  return out
+}
+
 /** The general info sheet: head, credits, line-up, guests and the writers' societies */
 function readGeneral(rows: Row[]) {
   const label = labelled(rows, /^LABEL$/)
@@ -144,13 +167,23 @@ function readGeneral(rows: Row[]) {
     const rowLabel = labelOf(row)
     const role = CREDIT_ROWS.find(([pattern]) => pattern.test(rowLabel))?.[1]
     if (!role) continue
-    for (const name of splitNames(cell(row, 1))) credits.push(contributor(name, role))
+    for (const credit of readCredit(cell(row, 1), role)) {
+      // "ARTWORK By" and "COVER ARTWORK By" often name the same person
+      const same = credits.some(
+        (c) =>
+          keyText(c.name) === keyText(credit.name) &&
+          c.role === credit.role &&
+          keyText(c.instrument) === keyText(credit.instrument)
+      )
+      if (!same) credits.push(credit)
+    }
   }
 
-  // tables: a title row ("BAND MEMBERS | Name | Instrument(s)") and rows below until a gap
-  const table = (title: RegExp): Row[] => {
+  // tables: a title row ("BAND MEMBERS | Name | Instrument(s)") and rows below until a gap; the
+  // title row names the columns
+  const table = (title: RegExp): { header: Row; rows: Row[] } => {
     const start = rows.findIndex((row) => title.test(labelOf(row)))
-    if (start < 0) return []
+    if (start < 0) return { header: [], rows: [] }
     const out: Row[] = []
     for (let i = start + 1; i < rows.length; i++) {
       const row = rows[i]
@@ -166,22 +199,53 @@ function readGeneral(rows: Row[]) {
         break
       out.push(row)
     }
-    return out
+    return { header: rows[start], rows: out }
   }
-  for (const row of table(/^BAND MEMBERS|^LINE-?UP|^MEMBERS/)) {
-    const name = cell(row, 1)
-    if (name) credits.push(contributor(name, 'Band Member', cell(row, 2)))
+  /** A column by its title, searched from column B; the fallback when the title row has none */
+  const column = (header: Row, pattern: RegExp, fallback: number) => {
+    const index = header.slice(1).findIndex((c) => pattern.test(clean(c)))
+    return index < 0 ? fallback : index + 1
   }
-  const guests = table(/^GUESTS?/)
-    .filter((row) => cell(row, 1))
-    .map((row) => ({ name: cell(row, 1), instrument: cell(row, 2), track: cell(row, 3) }))
+
+  const members = table(/^BAND MEMBERS|^LINE-?UP|^MEMBERS|^PERFORMING ARTISTS/)
+  const memberName = column(members.header, /^(real )?name$/i, 1)
+  const memberAlias = column(members.header, /artist ?name|stage ?name|künstlername/i, -1)
+  const memberInstrument = column(members.header, /instrument/i, 2)
+  for (const row of members.rows) {
+    const name = cell(row, memberName)
+    const alias = memberAlias >= 0 ? cell(row, memberAlias) : ''
+    if (!name) continue
+    const shown = alias && keyText(alias) !== keyText(name) ? `${name} (${alias})` : name
+    credits.push(contributor(shown, 'Band Member', cell(row, memberInstrument)))
+  }
+
+  const guestTable = table(/^GUESTS?|^PERFORMING GUESTS?/)
+  const guestName = column(guestTable.header, /name/i, 1)
+  const guestInstrument = column(guestTable.header, /instrument/i, 2)
+  const guestTrack = column(guestTable.header, /track|song|titel/i, 3)
+  const guests = guestTable.rows
+    .filter((row) => cell(row, guestName))
+    .map((row) => ({
+      name: cell(row, guestName),
+      instrument: cell(row, guestInstrument),
+      track: cell(row, guestTrack)
+    }))
+
+  const writerTable = table(/^COMPOSER|^WRITERS?|^TEXTER|^LYRICIST/)
+  const writerName = column(writerTable.header, /name/i, 1)
+  const writerSociety = column(writerTable.header, /society|gesellschaft|pro\b/i, 2)
+  const writerIpi = column(writerTable.header, /ipi|cae/i, 3)
   const societies = new Map<string, { society: string; ipi: string }>()
-  for (const row of table(/^COMPOSER|^WRITERS?|^TEXTER|^LYRICIST/)) {
-    const name = cell(row, 1)
-    if (name) societies.set(keyText(name), { society: cell(row, 2), ipi: cell(row, 3) })
+  for (const row of writerTable.rows) {
+    const name = cell(row, writerName)
+    if (name)
+      societies.set(keyText(name), { society: cell(row, writerSociety), ipi: cell(row, writerIpi) })
   }
   return { head, credits, guests, societies }
 }
+
+type Writer = { name: string; percent: number | null }
+type Writers = { composers: Writer[]; lyricists: Writer[] }
 
 type ProductSheet = {
   product: ParsedProduct
@@ -196,7 +260,7 @@ type ProductSheet = {
     videoIsrc: string
   }>
   publisherByKey: Map<string, string>
-  composers: Map<string, { composers: string[]; lyricists: string[] }>
+  composers: Map<string, Writers>
   shifted: boolean
   productType: string
 }
@@ -256,12 +320,12 @@ function readProductSheet(sheet: XlsxSheet): ProductSheet | null {
       !/^UPC/.test(first)
     ) {
       columns = {
-        no: columnOf(row, /^no\.?$|^#$|^track$/i),
+        no: columnOf(row, /^no\.?$|^#$|^track$|^track ?(no\.?|nr\.?|#)$|^nr\.?$/i),
         title: columnOf(row, /^track title$|^title$/i),
         version: columnOf(row, /version|featuring/i),
         composer: columnOf(row, /composer|komponist/i),
         lyricist: columnOf(row, /lyricist|texter|writer/i),
-        duration: columnOf(row, /duration|length|dauer|time/i),
+        duration: columnOf(row, /duration|length|dauer|laufzeit|^(track |playing )?time$/i),
         isrc: columnOf(row, /isrc/i),
         publisher: columnOf(row, /publisher|verlag/i),
         explicit: columnOf(row, /explicit/i),
@@ -321,6 +385,14 @@ function readProductSheet(sheet: XlsxSheet): ProductSheet | null {
       const isrc = normalizeCode(cell(row, columns.isrc))
       if (!title) continue
       const duration = parseTrackDuration(cell(row, columns.duration))
+      const number = columns.no >= 0 ? cell(row, columns.no) : ''
+      // a track has a number, an ISRC or a duration; a block below the tracklist that the
+      // template puts on the same sheet ("BAND PAGES | Link …", one link per row) has none
+      if (!(/^\d+$/.test(number) || isrc || duration.seconds !== null)) {
+        if (first && columns.title !== 0) section = null
+        continue
+      }
+      if (/^(https?:\/\/|www\.)/i.test(title)) continue
       result.shifted ||= duration.shifted
       const key = trackKey(isrc, title)
       result.tracks.push({
@@ -339,8 +411,8 @@ function readProductSheet(sheet: XlsxSheet): ProductSheet | null {
         workShares: []
       })
       result.composers.set(key, {
-        composers: columns.composer >= 0 ? splitNames(cell(row, columns.composer)) : [],
-        lyricists: columns.lyricist >= 0 ? splitNames(cell(row, columns.lyricist)) : []
+        composers: columns.composer >= 0 ? splitWriters(cell(row, columns.composer)) : [],
+        lyricists: columns.lyricist >= 0 ? splitWriters(cell(row, columns.lyricist)) : []
       })
       const publisher = columns.publisher >= 0 ? cell(row, columns.publisher) : ''
       if (publisher) result.publisherByKey.set(key, publisher)
@@ -383,20 +455,50 @@ function readProductSheet(sheet: XlsxSheet): ProductSheet | null {
   return result
 }
 
-/** Lyrics: one column per track ("Track 1", "Track 2" …), the text below */
-function readLyrics(rows: Row[]): Map<number, string> {
+/** A title for matching a lyrics column: "The Veins of this Town" = "Veins Of This Town" */
+const titleKey = (title: string) => keyText(title).replace(/^the /, '')
+
+/**
+ * Lyrics: one column per track, the text below. The column is named "Track 1", "Track 2" … or
+ * by the track's title; returns the text by track number (1-based).
+ */
+function readLyrics(rows: Row[], titles: string[], sheetName: string): Map<number, string> {
   const lyrics = new Map<number, string>()
-  const header = rows.findIndex((row) => row.some((c) => /^track\s*\d+$/i.test(clean(c))))
-  if (header < 0) return lyrics
-  rows[header].forEach((c, column) => {
-    const number = /^track\s*(\d+)$/i.exec(clean(c))?.[1]
-    if (!number) return
-    const text = rows
+  const textBelow = (header: number, column: number) =>
+    rows
       .slice(header + 1)
       .map((row) => (row[column] ?? '').trim())
       .join('\n')
       .trim()
-    if (text) lyrics.set(Number(number), text)
+
+  const numbered = rows.findIndex((row) => row.some((c) => /^track\s*\d+$/i.test(clean(c))))
+  if (numbered >= 0) {
+    rows[numbered].forEach((c, column) => {
+      const number = /^track\s*(\d+)$/i.exec(clean(c))?.[1]
+      const text = number ? textBelow(numbered, column) : ''
+      if (text) lyrics.set(Number(number), text)
+    })
+    return lyrics
+  }
+
+  // the titles as column heads, in one of the first rows: two of them, or one on a sheet named
+  // for lyrics (a single title alone also stands in the info sheet's "TITLE" row)
+  const keys = titles.map(titleKey)
+  const needed = /lyric|songtext|texte\b/i.test(sheetName) ? 1 : 2
+  if (keys.length < needed) return lyrics
+  const header = rows
+    .slice(0, 5)
+    .findIndex((row) => row.filter((c) => clean(c) && keys.includes(titleKey(c))).length >= needed)
+  if (header < 0) return lyrics
+  const heads = rows[header].map((c) => clean(c))
+  const filled = heads.filter(Boolean).length
+  heads.forEach((head, column) => {
+    if (!head) return
+    const index = keys.indexOf(titleKey(head))
+    // a head spelled differently: by its place, when there is one column per track
+    const number = index >= 0 ? index + 1 : filled === keys.length ? column + 1 : 0
+    const text = number ? textBelow(header, column) : ''
+    if (text && !lyrics.has(number)) lyrics.set(number, text)
   })
   return lyrics
 }
@@ -496,7 +598,7 @@ export function parseExcelLabelCopy(sheets: XlsxSheet[]): ParsedLabelCopy | null
   const tracks: ParsedTrack[] = []
   const byKey = new Map<string, ParsedTrack>()
   const byTitle = new Map<string, ParsedTrack>()
-  const writers = new Map<string, { composers: string[]; lyricists: string[] }>()
+  const writers = new Map<string, Writers>()
   const publishers = new Map<string, string>()
   for (const sheet of productSheets) {
     for (const track of sheet.tracks) {
@@ -525,24 +627,25 @@ export function parseExcelLabelCopy(sheets: XlsxSheet[]): ParsedLabelCopy | null
       'Die Dauern standen als Stunden:Minuten in der Datei und wurden als Minuten:Sekunden gelesen.'
     )
 
-  // writers: one share per name and part, without percentages (the template has none)
+  // writers: one share per name and part, with the percentage where the cell names one
   for (const track of tracks) {
     const names = writers.get(track.key)
     if (!names) continue
     const publisher = publishers.get(track.key) ?? ''
     const shares: WorkShareInput[] = []
-    const add = (name: string, role: WorkShareInput['role']) => {
-      const known = general.societies.get(keyText(name))
+    const add = (writer: Writer, role: WorkShareInput['role']) => {
+      const known = general.societies.get(keyText(writer.name))
       shares.push(
-        workShare(name, role, {
+        workShare(writer.name, role, {
+          sharePercent: writer.percent,
           society: known?.society ?? '',
           ipi: known?.ipi ?? '',
           publisher
         })
       )
     }
-    names.lyricists.forEach((name) => add(name, 'lyricist'))
-    names.composers.forEach((name) => add(name, 'composer'))
+    names.lyricists.forEach((writer) => add(writer, 'lyricist'))
+    names.composers.forEach((writer) => add(writer, 'composer'))
     track.workShares = shares
   }
 
@@ -565,14 +668,28 @@ export function parseExcelLabelCopy(sheets: XlsxSheet[]): ParsedLabelCopy | null
 
   // lyrics by track number
   for (const sheet of sheets) {
-    const lyrics = readLyrics(sheet.records)
+    const lyrics = readLyrics(
+      sheet.records,
+      tracks.map((track) => track.title),
+      sheet.sheetName
+    )
     for (const [number, text] of lyrics) if (tracks[number - 1]) tracks[number - 1].lyrics = text
   }
 
   // products: each sheet's own, its variants with the same tracklist, the singles
   const products: ParsedProduct[] = []
   for (const sheet of productSheets) {
-    products.push(sheet.product)
+    // a tracklist without anything that makes it a product of its own (the album's tracklist on
+    // the info sheet, a sheet just called "Album") only gives the tracks
+    const product = sheet.product
+    const bare =
+      product.format === 'other' &&
+      !product.upc &&
+      !product.packaging &&
+      !product.color &&
+      (!product.catalogNumber ||
+        keyText(product.catalogNumber) === keyText(general.head.catalogNumber))
+    if (!bare || sheet.variants.length > 0) products.push(product)
     for (const variant of sheet.variants)
       products.push({ ...variant, tracks: sheet.product.tracks.map((pt) => ({ ...pt })) })
     for (const single of sheet.singles) {

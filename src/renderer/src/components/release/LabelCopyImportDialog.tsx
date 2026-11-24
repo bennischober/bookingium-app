@@ -21,6 +21,7 @@ import {
 import {
   LABEL_COPY_SOURCE_LABELS,
   type ImportStatus,
+  type LabelCopyOrigin,
   type LabelCopyPlanDto,
   type RowPlan
 } from '../../../../main/api/schemas/release_import.schema'
@@ -97,15 +98,19 @@ function Rows({ rows }: { rows: RowPlan[] }) {
  * label's budget lines as measures.
  */
 export function LabelCopyImportDialog({
-  path,
+  source,
   initialPlan,
   defaultBandId = null,
+  openRelease = true,
   onClose
 }: {
-  path: string
+  /** The picked file or the mail attachment, read again by main for each step */
+  source: LabelCopyOrigin
   initialPlan: LabelCopyPlanDto
   /** A band page starts a new release with its band */
   defaultBandId?: number | null
+  /** Opens the release afterwards; false where that would leave the work (a mail) */
+  openRelease?: boolean
   onClose: () => void
 }) {
   const navigate = useNavigate()
@@ -133,10 +138,11 @@ export function LabelCopyImportDialog({
       void utils.document.invalidate()
       toast.success(t('Labelcopy übernommen'), { description: importSummary(result) })
       onClose()
-      void navigate({
-        to: '/releases/$releaseId',
-        params: { releaseId: String(result.releaseId) }
-      })
+      if (openRelease)
+        void navigate({
+          to: '/releases/$releaseId',
+          params: { releaseId: String(result.releaseId) }
+        })
     },
     onError: (error) => toast.error(t('Labelcopy nicht übernommen'), { description: error.message })
   })
@@ -194,7 +200,7 @@ export function LabelCopyImportDialog({
                 value={plan.releaseId ?? NEW_RELEASE}
                 onChange={(value) =>
                   replan.mutate({
-                    path,
+                    source,
                     releaseId: value === null || value === NEW_RELEASE ? null : value
                   })
                 }
@@ -368,7 +374,7 @@ export function LabelCopyImportDialog({
             disabled={busy}
             onClick={() =>
               apply.mutate({
-                path,
+                source,
                 releaseId: plan.releaseId,
                 bandId: isNew ? bandId : null,
                 takeFields,

@@ -7,8 +7,12 @@ import {
   ReleaseImportService,
   type LabelCopyFile
 } from '../../services/ReleaseImportService'
-import { readSourceFile } from '../sourceFiles'
-import { ApplyLabelCopyInput, PlanLabelCopyInput } from '../schemas/release_import.schema'
+import { attachmentFileName, readSourceFile } from '../sourceFiles'
+import {
+  ApplyLabelCopyInput,
+  PlanLabelCopyInput,
+  type LabelCopyOrigin
+} from '../schemas/release_import.schema'
 import { ReleaseMapper } from '../mappers/release.mapper'
 import { PaginationInput } from '../schemas/base.schema'
 import {
@@ -24,14 +28,22 @@ const t = initTRPC.create()
 const releaseService = container.resolve(ReleaseService)
 const importService = container.resolve(ReleaseImportService)
 
-/** The picked label copy, read here so the service never touches a path it was not given */
-async function labelCopyFile(path: string): Promise<LabelCopyFile> {
-  const { bytes, fileName } = await readSourceFile(
-    { kind: 'file', path },
-    ['xlsx', 'pdf'],
-    'Bitte eine Excel-Datei (.xlsx) oder PDF wählen.'
-  )
-  return { bytes, fileName, path }
+/**
+ * The label copy, read here so the service never touches a path it was not given: a picked
+ * file, or a mail attachment straight from the mail worker under its stored name
+ */
+async function labelCopyFile(source: LabelCopyOrigin): Promise<LabelCopyFile> {
+  const wrongType = 'Bitte eine Excel-Datei (.xlsx) oder PDF wählen.'
+  const { bytes, fileName } = await readSourceFile(source, ['xlsx', 'pdf'], wrongType)
+  if (source.kind === 'file') return { bytes, fileName, path: source.path, mail: null }
+  const name = await attachmentFileName(source)
+  if (!/\.(xlsx|pdf)$/i.test(name)) throw new TRPCError({ code: 'BAD_REQUEST', message: wrongType })
+  return {
+    bytes,
+    fileName: name,
+    path: null,
+    mail: { accountId: source.accountId, messageId: source.storeMessageId ?? null }
+  }
 }
 
 /** A file the import cannot read is the user's input, not a server fault */
@@ -105,13 +117,13 @@ export const releaseRouter = t.router({
 
   /** #289: what a label copy would change; a mutation, as it reads a file */
   planLabelCopy: t.procedure.input(PlanLabelCopyInput).mutation(async ({ input }) => {
-    const file = await labelCopyFile(input.path)
+    const file = await labelCopyFile(input.source)
     return readable(() => importService.plan(file, input.releaseId))
   }),
 
   /** Merges the label copy into the release (or a new one) as confirmed in the preview */
   applyLabelCopy: t.procedure.input(ApplyLabelCopyInput).mutation(async ({ input }) => {
-    const file = await labelCopyFile(input.path)
+    const file = await labelCopyFile(input.source)
     return readable(() => importService.apply(file, input))
   })
 })

@@ -14,6 +14,7 @@ import { LinkMailDialog } from '@/components/mail/LinkMailDialog'
 import { EInvoiceCompanyDialog } from '@/components/company/EInvoiceCompanyDialog'
 import type { EInvoicePartySource } from '../../../../main/api/schemas/einvoice_party.schema'
 import { ReceiptDialog } from '@/components/receipts/ReceiptDialog'
+import { useLabelCopyImport } from '@/components/release/useLabelCopyImport'
 import type { ReceiptSource } from '../../../../main/api/schemas/receipt.schema'
 import type { MessageDetail } from '../../../../main/mailclient/core/types'
 import { parseInvitation } from '../../../../main/calendar/invitation'
@@ -82,6 +83,8 @@ export function MessageView({
   const [toCompany, setToCompany] = useState<EInvoicePartySource | null>(null)
   // #225: the attachment "Als Beleg speichern" stores
   const [toReceipt, setToReceipt] = useState<ReceiptSource | null>(null)
+  // #289: "Als Labelcopy einlesen" reads the attachment into a release; the mail stays open
+  const labelCopy = useLabelCopyImport({ openRelease: false })
   // "Zuordnen…" and "Kontakt anlegen": both change the app's data, never the mailbox, so
   // they work on read-only accounts too
   const [linking, setLinking] = useState(false)
@@ -225,6 +228,16 @@ export function MessageView({
       })
     ).catch(failed(t('Anhang konnte nicht geladen werden')))
 
+  /** #289: the attachment as a label copy; the stored copy keeps the mail's Message-ID */
+  const labelCopyFromAttachment = (partId: string) =>
+    whole(() =>
+      labelCopy.read({
+        kind: 'attachment',
+        ...attachmentInput(partId),
+        storeMessageId: message.messageId ?? null
+      })
+    ).catch(failed(t('Anhang konnte nicht geladen werden')))
+
   /** A forward carries the files: offline it stops here, never a forward without them */
   const forward = (compose: NonNullable<typeof onCompose>) =>
     whole((done) => compose(done, 'forward')).catch(
@@ -310,6 +323,7 @@ export function MessageView({
           toDocuments={toDocuments}
           toCompany={companyFromAttachment}
           toReceipt={receiptFromAttachment}
+          toLabelCopy={labelCopyFromAttachment}
           accountId={accountId}
         />
 
@@ -363,6 +377,7 @@ export function MessageView({
           source={toCompany}
         />
       )}
+      {labelCopy.dialog}
       {toReceipt && (
         <ReceiptDialog
           open

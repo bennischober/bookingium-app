@@ -108,6 +108,19 @@ export function matchProduct(products: ProductDto[], incoming: ParsedProduct): P
     )
     if (byCatalog) return byCatalog
   }
+  // a product without codes on both sides: the same format and name, so a second import of the
+  // same file does not add it again
+  if (!upc && !catalog) {
+    const label = keyText(productLabel(incoming))
+    return (
+      products.find(
+        (product) =>
+          !normalizeCode(product.upc) &&
+          !keyText(product.catalogNumber) &&
+          keyText(productLabel(product)) === label
+      ) ?? null
+    )
+  }
   return null
 }
 
@@ -542,4 +555,3 @@ export function labelCopyCodes(parsed: ParsedLabelCopy) {
     isrcs: parsed.tracks.map((tr) => normalizeCode(tr.isrc)).filter(Boolean)
   }
 }
-
