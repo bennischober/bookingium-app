@@ -96,7 +96,7 @@ export default function ReleasePage() {
     {
       id: 'label',
       header: t('Label'),
-      cell: ({ row }) => row.original.label || '-'
+      cell: ({ row }) => row.original.labelShown || '-'
     },
     {
       id: 'catalogNumber',

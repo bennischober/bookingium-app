@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Separator } from '@/components/ui/separator'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CompanyQuickCreateDialog } from '@/components/quick-create/CompanyQuickCreateDialog'
 import { trpcReact } from '@/lib/trpc'
 import { FormFooter } from './FormActions'
 import { FormBody } from './FormFields'
@@ -44,6 +45,13 @@ export function ReleaseForm({
     () => (bands.data ?? []).map((band) => ({ value: band.id, label: band.name })),
     [bands.data]
   )
+  const companies = trpcReact.company.getListItems.useQuery()
+  const companyOptions = useMemo(
+    () => (companies.data ?? []).map((company) => ({ value: company.id, label: company.name })),
+    [companies.data]
+  )
+  // "Neue Firma anlegen" from the label picker: the name typed into its search
+  const [newCompany, setNewCompany] = useState<string | null>(null)
 
   const form = useAppForm({
     defaultValues: {
@@ -58,6 +66,7 @@ export function ReleaseForm({
       preorderRetailDate: initialData?.preorderRetailDate ?? null,
       preorderDigitalDate: initialData?.preorderDigitalDate ?? null,
       label: initialData?.label ?? '',
+      labelCompanyId: initialData?.labelCompanyId ?? null,
       catalogNumber: initialData?.catalogNumber ?? '',
       pLine: initialData?.pLine ?? '',
       cLine: initialData?.cLine ?? '',
@@ -80,129 +89,163 @@ export function ReleaseForm({
   })
 
   return (
-    <FormBody form={form} disabled={isSubmitting}>
-      <form.AppField name="bandId">
-        {(field) => (
-          <field.FieldRow
-            label={t('Band')}
-            hint={t('Leer lassen für ein Release ohne eigene Band.')}
-          >
-            <SearchableSelect
-              id={field.name}
-              value={field.state.value}
-              onChange={(value) => field.handleChange(value)}
-              options={bandOptions}
-              noneLabel={t('Keine eigene Band')}
-              placeholder={t('Band auswählen')}
-              searchPlaceholder={t('Band suchen…')}
-              emptyText={t('Keine Band gefunden.')}
-              disabled={isSubmitting}
-            />
-          </field.FieldRow>
-        )}
-      </form.AppField>
-
-      <form.AppField name="artistName">
-        {(field) => (
-          <field.TextField
-            label={t('Artist')}
-            hint={t('Wie auf dem Release angegeben; leer bedeutet der Name der Band.')}
-          />
-        )}
-      </form.AppField>
-
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="title" validators={{ onChange: required(t('Titel')) }}>
-          {(field) => <field.TextField label={t('Titel')} required />}
-        </form.AppField>
-        <form.AppField name="version">
+    <>
+      <FormBody form={form} disabled={isSubmitting}>
+        <form.AppField name="bandId">
           {(field) => (
-            <field.TextField label={t('Version')} placeholder={t('z. B. Deluxe Edition')} />
+            <field.FieldRow
+              label={t('Band')}
+              hint={t('Leer lassen für ein Release ohne eigene Band.')}
+            >
+              <SearchableSelect
+                id={field.name}
+                value={field.state.value}
+                onChange={(value) => field.handleChange(value)}
+                options={bandOptions}
+                noneLabel={t('Keine eigene Band')}
+                placeholder={t('Band auswählen')}
+                searchPlaceholder={t('Band suchen…')}
+                emptyText={t('Keine Band gefunden.')}
+                disabled={isSubmitting}
+              />
+            </field.FieldRow>
           )}
         </form.AppField>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="releaseType">
-          {(field) => <field.SelectField label={t('Art')} options={TYPE_OPTIONS} />}
-        </form.AppField>
-        <form.AppField name="releaseDate">
-          {(field) => <field.TextField label={t('VÖ-Datum')} type="date" nullIfEmpty />}
-        </form.AppField>
-      </div>
-
-      <Separator />
-      <h3 className="text-lg font-semibold">{t('Label und Rechte')}</h3>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="label">
-          {(field) => <field.TextField label={t('Label')} />}
-        </form.AppField>
-        <form.AppField name="catalogNumber">
-          {(field) => <field.TextField label={t('Katalognummer')} />}
-        </form.AppField>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="pLine">
-          {(field) => <field.TextField label={t('℗-Zeile')} placeholder="℗ 2027 …" />}
-        </form.AppField>
-        <form.AppField name="cLine">
-          {(field) => <field.TextField label={t('©-Zeile')} placeholder="© 2027 …" />}
-        </form.AppField>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="genre">
-          {(field) => <field.TextField label={t('Genre')} />}
-        </form.AppField>
-        <form.AppField name="subGenre">
-          {(field) => <field.TextField label={t('Subgenre')} />}
-        </form.AppField>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="metadataLanguage">
-          {(field) => <field.TextField label={t('Sprache der Metadaten')} />}
-        </form.AppField>
-        <form.AppField name="recordingCountry">
-          {(field) => <field.TextField label={t('Aufnahmeland')} />}
-        </form.AppField>
-      </div>
-      <form.AppField name="projectNumber">
-        {(field) => <field.TextField label={t('Projektnummer')} />}
-      </form.AppField>
-
-      <Separator />
-      <h3 className="text-lg font-semibold">{t('Weitere Termine')}</h3>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="originalReleaseDate">
+        <form.AppField name="artistName">
           {(field) => (
             <field.TextField
-              label={t('Erst-VÖ (Re-Issue)')}
-              type="date"
-              nullIfEmpty
-              hint={t('Nur bei einer Wiederveröffentlichung.')}
+              label={t('Artist')}
+              hint={t('Wie auf dem Release angegeben; leer bedeutet der Name der Band.')}
             />
           )}
         </form.AppField>
-        <form.AppField name="preorderD2cDate">
-          {(field) => <field.TextField label={t('Pre-Order D2C')} type="date" nullIfEmpty />}
-        </form.AppField>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <form.AppField name="preorderRetailDate">
-          {(field) => <field.TextField label={t('Pre-Order Handel')} type="date" nullIfEmpty />}
-        </form.AppField>
-        <form.AppField name="preorderDigitalDate">
-          {(field) => <field.TextField label={t('Pre-Order digital')} type="date" nullIfEmpty />}
-        </form.AppField>
-      </div>
 
-      <Separator />
-      <form.AppField name="notes">
-        {(field) => <field.TextareaField label={t('Anmerkungen')} rows={4} />}
-      </form.AppField>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="title" validators={{ onChange: required(t('Titel')) }}>
+            {(field) => <field.TextField label={t('Titel')} required />}
+          </form.AppField>
+          <form.AppField name="version">
+            {(field) => (
+              <field.TextField label={t('Version')} placeholder={t('z. B. Deluxe Edition')} />
+            )}
+          </form.AppField>
+        </div>
 
-      <FormFooter onCancel={onCancel} submitting={isSubmitting}>
-        {mode === 'create' ? t('Anlegen') : t('Speichern')}
-      </FormFooter>
-    </FormBody>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="releaseType">
+            {(field) => <field.SelectField label={t('Art')} options={TYPE_OPTIONS} />}
+          </form.AppField>
+          <form.AppField name="releaseDate">
+            {(field) => <field.TextField label={t('VÖ-Datum')} type="date" nullIfEmpty />}
+          </form.AppField>
+        </div>
+
+        <Separator />
+        <h3 className="text-lg font-semibold">{t('Label und Rechte')}</h3>
+        <form.AppField name="labelCompanyId">
+          {(field) => (
+            <field.FieldRow label={t('Label')} hint={t('Die Firma des Labels aus den Kontakten.')}>
+              <SearchableSelect
+                id={field.name}
+                value={field.state.value}
+                onChange={(value) => field.handleChange(value)}
+                options={companyOptions}
+                noneLabel={t('Keine Firma')}
+                placeholder={t('Firma auswählen')}
+                searchPlaceholder={t('Firma suchen…')}
+                emptyText={t('Keine Firma gefunden.')}
+                onCreateNew={(name) => setNewCompany(name)}
+                createNewLabel={t('Neue Firma anlegen')}
+                disabled={isSubmitting}
+              />
+            </field.FieldRow>
+          )}
+        </form.AppField>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="label">
+            {(field) => (
+              <field.TextField
+                label={t('Label wie angegeben')}
+                hint={t('Leer bedeutet der Name der Firma.')}
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="catalogNumber">
+            {(field) => <field.TextField label={t('Katalognummer')} />}
+          </form.AppField>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="pLine">
+            {(field) => <field.TextField label={t('℗-Zeile')} placeholder="℗ 2027 …" />}
+          </form.AppField>
+          <form.AppField name="cLine">
+            {(field) => <field.TextField label={t('©-Zeile')} placeholder="© 2027 …" />}
+          </form.AppField>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="genre">
+            {(field) => <field.TextField label={t('Genre')} />}
+          </form.AppField>
+          <form.AppField name="subGenre">
+            {(field) => <field.TextField label={t('Subgenre')} />}
+          </form.AppField>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="metadataLanguage">
+            {(field) => <field.TextField label={t('Sprache der Metadaten')} />}
+          </form.AppField>
+          <form.AppField name="recordingCountry">
+            {(field) => <field.TextField label={t('Aufnahmeland')} />}
+          </form.AppField>
+        </div>
+        <form.AppField name="projectNumber">
+          {(field) => <field.TextField label={t('Projektnummer')} />}
+        </form.AppField>
+
+        <Separator />
+        <h3 className="text-lg font-semibold">{t('Weitere Termine')}</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="originalReleaseDate">
+            {(field) => (
+              <field.TextField
+                label={t('Erst-VÖ (Re-Issue)')}
+                type="date"
+                nullIfEmpty
+                hint={t('Nur bei einer Wiederveröffentlichung.')}
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="preorderD2cDate">
+            {(field) => <field.TextField label={t('Pre-Order D2C')} type="date" nullIfEmpty />}
+          </form.AppField>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <form.AppField name="preorderRetailDate">
+            {(field) => <field.TextField label={t('Pre-Order Handel')} type="date" nullIfEmpty />}
+          </form.AppField>
+          <form.AppField name="preorderDigitalDate">
+            {(field) => <field.TextField label={t('Pre-Order digital')} type="date" nullIfEmpty />}
+          </form.AppField>
+        </div>
+
+        <Separator />
+        <form.AppField name="notes">
+          {(field) => <field.TextareaField label={t('Anmerkungen')} rows={4} />}
+        </form.AppField>
+
+        <FormFooter onCancel={onCancel} submitting={isSubmitting}>
+          {mode === 'create' ? t('Anlegen') : t('Speichern')}
+        </FormFooter>
+      </FormBody>
+
+      {/* Outside the form: its submit would bubble into this one through the portal */}
+      <CompanyQuickCreateDialog
+        isOpen={newCompany !== null}
+        prefillName={newCompany ?? ''}
+        onClose={() => setNewCompany(null)}
+        onCreated={(id) => form.setFieldValue('labelCompanyId', id)}
+      />
+    </>
   )
 }

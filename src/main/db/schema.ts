@@ -1857,7 +1857,12 @@ export const release = sqliteTable(
     preorder_d2c_date: text('preorder_d2c_date'),
     preorder_retail_date: text('preorder_retail_date'),
     preorder_digital_date: text('preorder_digital_date'),
+    // the label as printed; empty means the name of the label's company
     label: text('label').default('').notNull(),
+    // set null: deleting the label's company keeps the release with its printed label
+    label_company_id: integer('label_company_id').references(() => company.id, {
+      onDelete: 'set null'
+    }),
     catalog_number: text('catalog_number').default('').notNull(),
     p_line: text('p_line').default('').notNull(),
     c_line: text('c_line').default('').notNull(),
@@ -1876,6 +1881,7 @@ export const release = sqliteTable(
   },
   (table) => [
     index('release_band_idx').on(table.band_id),
+    index('release_label_company_idx').on(table.label_company_id),
     index('release_title_idx').on(table.title),
     index('release_catalog_number_idx').on(table.catalog_number),
     index('release_date_idx').on(table.release_date),

@@ -73,6 +73,10 @@ export const releaseRouter = t.router({
     return ReleaseMapper.toDtoList(await releaseService.listByBand(input))
   }),
 
+  listByLabelCompany: t.procedure.input(Id).query(async ({ input }) => {
+    return ReleaseMapper.toDtoList(await releaseService.listByLabelCompany(input))
+  }),
+
   getById: t.procedure.input(Id).query(async ({ input }) => {
     const release = await releaseService.getDetail(input)
     if (!release) throw new TRPCError({ code: 'NOT_FOUND', message: 'Release nicht gefunden' })

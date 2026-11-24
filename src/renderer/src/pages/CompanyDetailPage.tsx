@@ -6,6 +6,7 @@ import { useCompanyTabCounts } from '@/hooks/useTabCounts'
 import { RecordInvoicesTable } from '@/components/invoice/RecordInvoicesTable'
 import { RecordDetail, RecordDetailPage } from '@/components/detail/RecordDetailPage'
 import { RelatedEventsTable } from '@/components/detail/RelatedTables'
+import { LabelReleasesTable } from '@/components/release/LabelReleasesTable'
 import { FormSheet } from '@/components/form-sheet'
 import { CompanyForm } from '@/components/forms/CompanyForm'
 import { useFormSheet } from '@/hooks/useFormSheet'
@@ -275,6 +276,13 @@ export default function CompanyDetailPage() {
               count: counts.invoices,
               hideWhenEmpty: true,
               content: <InvoicesTab companyId={company.id} />
+            },
+            {
+              id: 'releases',
+              label: t('Releases'),
+              count: counts.releases,
+              hideWhenEmpty: true,
+              content: <LabelReleasesTable companyId={company.id} />
             }
           ]}
           documents={{ count: counts.documents, title: t('Dokumente der Firma') }}

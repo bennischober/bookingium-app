@@ -120,7 +120,11 @@ export class ReleaseImportService {
 
     // the head: a new release, or the existing one with empty fields filled
     const created = release === null
-    const head = mergeHead(release, parsed.head, input.takeFields, input.bandId)
+    // the label's company, found by the file's label name, for a release without one
+    const labelCompanyId = release?.labelCompanyId
+      ? null
+      : await this.releases.companyIdByName(parsed.head.label || release?.label || '')
+    const head = mergeHead(release, parsed.head, input.takeFields, input.bandId, labelCompanyId)
     if (release) await this.releases.update({ ...head, id: release.id })
     const releaseId = release ? release.id : await this.releases.create(head)
     release = (await this.detail(releaseId))!
@@ -188,7 +192,7 @@ export class ReleaseImportService {
         .list({ releaseId: release.id })
         .map((row) => budgetKey({ kind: row.action.kind, title: row.action.title }))
     )
-    const companyId = await this.releases.companyIdByName(release.label)
+    const companyId = release.labelCompanyId ?? (await this.releases.companyIdByName(release.label))
     let added = 0
     for (const index of indices) {
       const line = parsed.budget[index]

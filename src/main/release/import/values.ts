@@ -28,6 +28,15 @@ export function keyText(value: string): string {
     .trim()
 }
 
+/** Legal forms and trade words that a label's name carries in one place and not in another */
+const COMPANY_NOISE =
+  /\b(gmbh|mbh|ag|kg|ohg|ug|e ?k|gbr|co|ltd|limited|llc|inc|corp|corporation|sa|sarl|srl|bv|nv|ab|as|oy|handels(gesellschaft)?|haftungsbeschraenkt)\b/g
+
+/** "Napalm Records Handels GmbH" and "Napalm Records" -> the same key */
+export function companyNameKey(name: string): string {
+  return keyText(name).replace(COMPANY_NOISE, ' ').replace(/\s+/g, ' ').trim()
+}
+
 /** How tracks are matched: by ISRC, else by title */
 export function trackKey(isrc: string, title: string): string {
   const code = normalizeCode(isrc)
