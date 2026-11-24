@@ -277,6 +277,8 @@ export const MarketingActionFields = z.object({
   dealMemoId: z.number().int().positive().nullable().default(null),
   tour: z.string().trim().default(''),
   release: z.string().trim().default(''),
+  /** #289: the release of the band it is for */
+  releaseId: z.number().int().positive().nullable().default(null),
   /** The station, magazine or company it runs with */
   companyId: z.number().int().positive().nullable().default(null),
   /** The atlas entry it comes from */
@@ -313,6 +315,9 @@ export const MarketingActionDto = z.object({
   showDate: z.string().nullable(),
   tour: z.string(),
   release: z.string(),
+  releaseId: z.number().nullable(),
+  /** The linked release's title, else null */
+  releaseTitle: z.string().nullable(),
   companyId: z.number().nullable(),
   companyName: z.string().nullable(),
   marketingItemId: z.number().nullable(),
@@ -335,7 +340,8 @@ export type MarketingActionDto = z.infer<typeof MarketingActionDto>
 export const MarketingActionScope = z.object({
   bandId: z.number().int().optional(),
   dealMemoId: z.number().int().optional(),
-  companyId: z.number().int().optional()
+  companyId: z.number().int().optional(),
+  releaseId: z.number().int().optional()
 })
 export type MarketingActionScope = z.infer<typeof MarketingActionScope>
 

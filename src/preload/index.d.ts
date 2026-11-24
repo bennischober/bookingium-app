@@ -139,6 +139,8 @@ export interface DocumentAPI {
   }>
   /** #222: open dialog for a received e-invoice (PDF or XML); its path, null if canceled */
   pickEInvoiceFile: () => Promise<string | null>
+  /** #289: a label copy (.xlsx or .pdf); null when cancelled */
+  pickLabelCopyFile: () => Promise<string | null>
   /** #228: open dialog for a promoter settlement (.xlsx); its path, null if canceled */
   pickSettlementFile: () => Promise<string | null>
   /** #225: open dialog for receipts (PDF, XML, JPG, PNG), several at once; [] if canceled */

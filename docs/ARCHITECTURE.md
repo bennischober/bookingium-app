@@ -742,6 +742,40 @@ already exist (matched by name) only get their empty fields filled.
   second import of the same file adds only the new ones. A filter list
   can't take members, and the whole import is rolled back then.
 
+## Releases and label copies (#289)
+
+A release (`release`) comes out as products (`release_product`, each with its
+own UPC and catalogue number) that share tracks (`release_track`, one ISRC
+each) through `release_product_track` (position, disc, side). Credits of the
+whole release and performers of a track are `release_contributor`
+(`track_id` null for the release), the work behind a track is
+`release_work_share`. `release.band_id` is `SET NULL`: deleting a band keeps
+its releases. A release owns documents (`owner_type = 'release'`) but is no
+`LINKABLE_RECORD_TYPES` record: no follow-ups, appointments, mail links or
+document links.
+
+Label copies are read by pure parsers in `main/release/import/`:
+`excelTemplate.ts` (a label's workbook, sheets recognised by content: general
+info, one sheet per product with its tracklist, singles, colour variants,
+lyrics, budget) and `openplayPdf.ts` (the distributor's PDF report via
+`einvoice/pdfText`). Both produce a `ParsedLabelCopy`; `plan.ts` compares it
+with a release and merges it. `ReleaseImportService` finds the release by its
+codes (UPC, catalogue number, ISRC), builds the preview and applies it:
+
+- empty fields are filled; a differing head field only changes when the user
+  ticks it, differing tracks/products only with "abweichende Angaben
+  übernehmen"; performers, writers and tracklists are taken when the release
+  has none;
+- the original file is filed at the release as `label_copy` (once);
+- budget lines with an amount (or marked done) become marketing measures with
+  `release_id`, `payer = 'label'` and the label company as partner. The
+  marketing totals count only `payer = 'us'` as our cost, the rest as
+  "extern bezahlt".
+
+Durations: labels type "2:47" into hh:mm cells (2 h 47 min). `xlsx.ts` reads
+time formats as times, and `parseTrackDuration` takes a value longer than any
+track as one unit down (minutes:seconds), with a warning in the preview.
+
 ## Agency bookings (Agenturbuchungen, #103)
 
 Shows of the user's bands that another agency booked. They live in

@@ -8,7 +8,9 @@ import {
 } from '@/hooks/useListQuery'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useNavigate } from '@tanstack/react-router'
-import { Pencil, Trash2 } from 'lucide-react'
+import { FileUp, Pencil, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useLabelCopyImport } from '@/components/release/useLabelCopyImport'
 import { trpcReact } from '@/lib/trpc'
 import { DataTable } from '@/components/data-table'
 import { FormSheet } from '@/components/form-sheet'
@@ -37,6 +39,7 @@ export default function ReleasePage() {
   })
   const [search, setSearch] = useListSearch('releases')
   const formSheet = useFormSheet<ReleaseDto>()
+  const labelCopy = useLabelCopyImport()
   const utils = trpcReact.useUtils()
 
   useListSearchActions({
@@ -165,9 +168,21 @@ export default function ReleasePage() {
           void navigate({ to: '/releases/$releaseId', params: { releaseId: String(release.id) } })
         }
         actionButton={
-          <ListToolbar createLabel={t('+ Neues Release')} onCreate={formSheet.openCreate} />
+          <ListToolbar createLabel={t('+ Neues Release')} onCreate={formSheet.openCreate}>
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              disabled={labelCopy.reading}
+              onClick={labelCopy.start}
+            >
+              <FileUp className="h-4 w-4" />
+              {labelCopy.reading ? t('Wird gelesen…') : t('Labelcopy einlesen')}
+            </Button>
+          </ListToolbar>
         }
       />
+
+      {labelCopy.dialog}
 
       <FormSheet
         isOpen={formSheet.isOpen}

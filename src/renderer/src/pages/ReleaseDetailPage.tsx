@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, FileUp, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useLabelCopyImport } from '@/components/release/useLabelCopyImport'
+import { MarketingActions } from '@/components/band/marketing/MarketingActions'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { confirmDelete } from '@/lib/confirm'
@@ -56,8 +58,27 @@ function OverviewTab({
   onEditCredits: () => void
 }) {
   const total = totalDuration(release.tracks)
+  const labelCopy = useLabelCopyImport({ releaseId: release.id })
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-sm">
+        <span className="text-muted-foreground">
+          {t(
+            'Labelcopy als Excel oder PDF einlesen: leere Felder werden ergänzt, Tracks und Produkte über ISRC und UPC zugeordnet.'
+          )}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 gap-1.5"
+          disabled={labelCopy.reading}
+          onClick={labelCopy.start}
+        >
+          <FileUp className="h-3.5 w-3.5" />
+          {labelCopy.reading ? t('Wird gelesen…') : t('Labelcopy einlesen')}
+        </Button>
+      </div>
+      {labelCopy.dialog}
       <FactSheet
         groups={[
           {
@@ -487,6 +508,24 @@ function RightsTab({
   )
 }
 
+/** #289: the measures for this release (from its label copy's budget, or added here) */
+function MarketingTab({ release }: { release: ReleaseDetailDto }) {
+  if (release.bandId === null)
+    return (
+      <EmptyState>
+        {t('Maßnahmen gehören zu einer Band. Ordne das Release einer Band zu (Bearbeiten).')}
+      </EmptyState>
+    )
+  return (
+    <MarketingActions
+      scope={{ releaseId: release.id }}
+      bandId={release.bandId}
+      preset={{ releaseId: release.id, release: release.title }}
+      compact
+    />
+  )
+}
+
 /** What dialog is open; the key makes a dialog start fresh for each track or product */
 type Editing =
   | { kind: 'track'; track: TrackDto | null; key: number }
@@ -590,7 +629,8 @@ export default function ReleaseDetailPage() {
                   onEdit={(track) => open({ kind: 'track', track, key: Date.now() })}
                 />
               )
-            }
+            },
+            { id: 'marketing', label: t('Marketing'), content: <MarketingTab release={release} /> }
           ]}
           documents={{
             count: documents.data?.length,

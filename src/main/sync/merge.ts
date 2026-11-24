@@ -70,17 +70,18 @@ export const MERGE_ORDER: readonly string[] = [
   'ticket_report',
   // steps of a show done outside the program ("extern erledigt")
   'event_step_done',
-  // Marketing-Atlas of a band; items name a company or venue
-  'marketing_atlas',
-  'marketing_item',
-  'marketing_action',
-  // #289: releases with their tracks, products, tracklists, credits and work shares
+  // #289: releases with their tracks, products, tracklists, credits and work shares (before the
+  // measures that name a release)
   'release',
   'release_track',
   'release_product',
   'release_product_track',
   'release_contributor',
   'release_work_share',
+  // Marketing-Atlas of a band; items name a company or venue
+  'marketing_atlas',
+  'marketing_item',
+  'marketing_action',
   'document',
   // further records a document belongs to; after the document and every record it names
   'document_link',

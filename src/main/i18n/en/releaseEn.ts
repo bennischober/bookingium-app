@@ -137,5 +137,65 @@ export const releaseEn: Record<string, string> = {
   'Die Labelcopy jedes Releases an einem Ort: Produkte, Tracks, Credits und Rechte.':
     'The label copy of every release in one place: products, tracks, credits and rights.',
   'Titel, Artist, UPC oder ISRC suchen…': 'Search title, performer, UPC or ISRC…',
-  '+ Neues Release': '+ New release'
+  '+ Neues Release': '+ New release',
+  Labelcopy: 'Label copy',
+  'Excel-Labelcopy': 'Excel label copy',
+  'Labelcopy-Report (OpenPlay)': 'Label copy report (OpenPlay)',
+  Explicit: 'Explicit',
+  Urheber: 'Writers',
+  'Keins aus der Liste': 'None from the list',
+  'Release wählen': 'Choose release',
+  'Release suchen…': 'Search release…',
+  'Kein Release gefunden.': 'No release found.',
+  'Release als Text': 'Release as text',
+  '{{value}} netto': '{{value}} net',
+  'extern bezahlt {{value}}': 'paid by others {{value}}',
+  'Labelcopy einlesen': 'Read label copy',
+  'weicht ab': 'differs',
+  '{{count}} ergänzt': '{{count}} completed',
+  Track: 'Track',
+  Produkt: 'Product',
+  '1 Maßnahme': '1 measure',
+  '{{count}} Maßnahmen': '{{count}} measures',
+  'Datei abgelegt': 'File stored',
+  'Es gab nichts zu ändern.': 'There was nothing to change.',
+  'weicht ab: {{fields}}': 'differs: {{fields}}',
+  'Unveränderte ausblenden': 'Hide unchanged',
+  '{{count}} unverändert': '{{count}} unchanged',
+  'Labelcopy nicht gelesen': 'Label copy not read',
+  'Labelcopy übernommen': 'Label copy imported',
+  'Labelcopy nicht übernommen': 'Label copy not imported',
+  'Labelcopy übernehmen': 'Import label copy',
+  'Übernehmen in': 'Import into',
+  'Gefunden über {{value}}.': 'Found by {{value}}.',
+  'Kein Release mit diesen Codes gefunden.': 'No release with these codes found.',
+  Kopfdaten: 'Main data',
+  Feld: 'Field',
+  Jetzt: 'Now',
+  'Aus der Datei': 'From the file',
+  '{{label}} aus der Datei übernehmen': 'Take {{label}} from the file',
+  übernehmen: 'take',
+  'Abweichende Angaben bleiben, wie sie sind, bis du sie zum Übernehmen markierst.':
+    'Differing values stay as they are until you mark them to be taken.',
+  'Tracks ({{count}})': 'Tracks ({{count}})',
+  'Produkte ({{count}})': 'Products ({{count}})',
+  'Abweichende Angaben bei Tracks und Produkten aus der Datei übernehmen':
+    'Take differing values of tracks and products from the file',
+  'Sonst werden dort nur leere Felder ergänzt; Mitwirkende, Urheber und Tracklisten bleiben, wie sie sind.':
+    'Otherwise only empty fields are filled there; contributors, writers and tracklists stay as they are.',
+  'Credits: {{count}} in der Datei, davon {{added}} neu.':
+    'Credits: {{count}} in the file, {{added}} of them new.',
+  'Budget als Marketing-Maßnahmen': 'Budget as marketing measures',
+  'Was aus der Labelcopy kommt, bezahlt das Label: die Maßnahmen bekommen „Zahlt: Label“ und das Label als Partner.':
+    'What comes from the label copy is paid by the label: the measures get “Paid by: label” and the label as partner.',
+  'Maßnahmen brauchen eine Band. Wähle oben die Band des Releases.':
+    'Measures need a band. Choose the release’s band above.',
+  '{{title}} als Maßnahme anlegen': 'Create {{title}} as a measure',
+  erledigt: 'done',
+  'schon angelegt': 'already created',
+  'Release anlegen': 'Create release',
+  'Labelcopy als Excel oder PDF einlesen: leere Felder werden ergänzt, Tracks und Produkte über ISRC und UPC zugeordnet.':
+    'Read a label copy as Excel or PDF: empty fields are filled, tracks and products matched by ISRC and UPC.',
+  'Maßnahmen gehören zu einer Band. Ordne das Release einer Band zu (Bearbeiten).':
+    'Measures belong to a band. Assign the release to a band (Edit).'
 }

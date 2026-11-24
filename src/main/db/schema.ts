@@ -1799,6 +1799,10 @@ export const marketing_action = sqliteTable(
     deal_memo_id: integer('deal_memo_id').references(() => deal_memo.id, { onDelete: 'set null' }),
     tour: text('tour').default('').notNull(),
     release: text('release').default('').notNull(),
+    // #289: the release it is for; the text above stays for a release not kept in the app
+    release_id: integer('release_id').references((): AnySQLiteColumn => release.id, {
+      onDelete: 'set null'
+    }),
     company_id: integer('company_id').references(() => company.id, { onDelete: 'set null' }),
     marketing_item_id: integer('marketing_item_id').references(() => marketing_item.id, {
       onDelete: 'set null'
@@ -1825,6 +1829,7 @@ export const marketing_action = sqliteTable(
     index('marketing_action_item_idx').on(table.marketing_item_id),
     index('marketing_action_receipt_idx').on(table.receipt_id),
     index('marketing_action_invoice_idx').on(table.invoice_id),
+    index('marketing_action_release_idx').on(table.release_id),
     oneOf('marketing_action_kind_check', 'kind', MarketingActionKind.options),
     oneOf('marketing_action_status_check', 'status', MarketingActionStatus.options),
     oneOf('marketing_action_payer_check', 'payer', MarketingPayer.options)

@@ -30,6 +30,7 @@ export const DocumentType = z.enum([
   'invoice',
   'deposit', // receipt or invoice of a prepayment (Vorkasse)
   'settlement', // show settlement, provided by the Veranstalter
+  'label_copy', // #289: a release's label copy (PDF report or Excel template)
   'other'
 ])
 export type DocumentType = z.infer<typeof DocumentType>
@@ -44,6 +45,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   invoice: t('Rechnung'),
   deposit: t('Vorkasse'),
   settlement: t('Abrechnung'),
+  label_copy: t('Labelcopy'),
   other: t('Sonstiges')
 }
 

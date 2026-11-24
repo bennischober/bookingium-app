@@ -196,3 +196,37 @@ describe('helpers', () => {
     expect(totalDuration([{ durationSeconds: null }])).toBeNull()
   })
 })
+
+describe('label copy import texts and marketing totals', () => {
+  it('sums the import result in one line', async () => {
+    const { importSummary } = await import('../src/renderer/src/components/release/labelCopyImport')
+    expect(
+      importSummary({
+        releaseId: 1,
+        created: true,
+        tracksAdded: 2,
+        tracksUpdated: 1,
+        productsAdded: 1,
+        productsUpdated: 0,
+        measuresAdded: 2,
+        documentStored: true
+      })
+    ).toBe('Tracks: 2 neu, 1 ergänzt · Produkt: 1 neu · 2 Maßnahmen · Datei abgelegt')
+  })
+
+  it('keeps what others pay (the label) out of our own marketing cost', async () => {
+    const { costTotals } =
+      await import('../src/renderer/src/components/band/marketing/marketingFilters')
+    const action = (payer: string, costCents: number | null, status = 'planned') =>
+      ({ payer, costCents, status }) as never
+    expect(
+      costTotals([
+        action('us', 10000),
+        action('label', 80000),
+        action('band', 500),
+        action('us', 3000, 'cancelled'),
+        action('us', null)
+      ])
+    ).toEqual({ own: 10000, external: 80500 })
+  })
+})

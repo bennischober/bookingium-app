@@ -19,6 +19,7 @@ export class MarketingActionRepository {
     if (scope.bandId !== undefined) conditions.push(eq(action.band_id, scope.bandId))
     if (scope.dealMemoId !== undefined) conditions.push(eq(action.deal_memo_id, scope.dealMemoId))
     if (scope.companyId !== undefined) conditions.push(eq(action.company_id, scope.companyId))
+    if (scope.releaseId !== undefined) conditions.push(eq(action.release_id, scope.releaseId))
     return db
       .select({
         action,
@@ -29,7 +30,8 @@ export class MarketingActionRepository {
         companyName: schema.company.name,
         itemName: schema.marketing_item.name,
         receiptName: schema.receipt.file_name,
-        invoiceNumber: schema.invoice.invoice_number
+        invoiceNumber: schema.invoice.invoice_number,
+        releaseTitle: schema.release.title
       })
       .from(action)
       .innerJoin(schema.band, eq(schema.band.id, action.band_id))
@@ -39,6 +41,7 @@ export class MarketingActionRepository {
       .leftJoin(schema.marketing_item, eq(schema.marketing_item.id, action.marketing_item_id))
       .leftJoin(schema.receipt, eq(schema.receipt.id, action.receipt_id))
       .leftJoin(schema.invoice, eq(schema.invoice.id, action.invoice_id))
+      .leftJoin(schema.release, eq(schema.release.id, action.release_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(
         desc(sql`coalesce(${action.start_date}, ${schema.deal_memo.date}, ${action.created_at})`),
@@ -80,6 +83,7 @@ export class MarketingActionRepository {
       deal_memo_id: fields.dealMemoId,
       tour,
       release: fields.release,
+      release_id: fields.releaseId ?? null,
       company_id: fields.companyId,
       marketing_item_id: fields.marketingItemId,
       start_date: fields.startDate,

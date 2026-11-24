@@ -21,6 +21,10 @@ export class ReleaseService {
     return this.releases.getAllPaginated(pagination)
   }
 
+  listAll() {
+    return this.releases.listAll()
+  }
+
   listByBand(bandId: number) {
     return this.releases.listByBand(bandId)
   }

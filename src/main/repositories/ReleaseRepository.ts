@@ -249,6 +249,17 @@ export class ReleaseRepository {
       .map(toListRow)
   }
 
+  /** Every release, newest first, for pickers */
+  async listAll(): Promise<ReleaseListRow[]> {
+    return db
+      .select(listColumns)
+      .from(r)
+      .leftJoin(schema.band, eq(r.band_id, schema.band.id))
+      .orderBy(sql`${r.release_date} IS NULL`, sql`${r.release_date} DESC`, asc(r.title))
+      .all()
+      .map(toListRow)
+  }
+
   async getById(id: number): Promise<ReleaseListRow | null> {
     const row = db
       .select(listColumns)
@@ -524,6 +535,76 @@ export class ReleaseRepository {
       touch(tx, input.releaseId)
       return productId
     })
+  }
+
+  /**
+   * #289: the release a label copy belongs to, by its codes: a product's UPC first, then a
+   * catalogue number (release or product), then a track's ISRC. The first hit wins.
+   */
+  async findByCodes(codes: {
+    upcs: string[]
+    catalogNumbers: string[]
+    isrcs: string[]
+  }): Promise<{ id: number; title: string; via: string } | null> {
+    const p = schema.release_product
+    for (const upc of codes.upcs) {
+      const row = db
+        .select({ id: r.id, title: r.title })
+        .from(p)
+        .innerJoin(r, eq(r.id, p.release_id))
+        .where(eq(p.upc, upc))
+        .get()
+      if (row) return { ...row, via: `UPC ${upc}` }
+    }
+    for (const catalog of codes.catalogNumbers) {
+      const row =
+        db
+          .select({ id: r.id, title: r.title })
+          .from(r)
+          .where(sql`lower(${r.catalog_number}) = lower(${catalog})`)
+          .get() ??
+        db
+          .select({ id: r.id, title: r.title })
+          .from(p)
+          .innerJoin(r, eq(r.id, p.release_id))
+          .where(sql`lower(${p.catalog_number}) = lower(${catalog})`)
+          .get()
+      if (row) return { ...row, via: `Katalognummer ${catalog}` }
+    }
+    for (const isrc of codes.isrcs) {
+      const row = db
+        .select({ id: r.id, title: r.title })
+        .from(schema.release_track)
+        .innerJoin(r, eq(r.id, schema.release_track.release_id))
+        .where(eq(schema.release_track.isrc, isrc))
+        .get()
+      if (row) return { ...row, via: `ISRC ${isrc}` }
+    }
+    return null
+  }
+
+  /** The band of ours with exactly this name (case-insensitive), for a new release's artist */
+  async bandIdByName(name: string): Promise<number | null> {
+    if (!name.trim()) return null
+    const rows = db
+      .select({ id: schema.band.id })
+      .from(schema.band)
+      .where(sql`lower(trim(${schema.band.name})) = lower(trim(${name}))`)
+      .limit(2)
+      .all()
+    return rows.length === 1 ? rows[0].id : null
+  }
+
+  /** The company with exactly this name (case-insensitive): the label, as a measure's partner */
+  async companyIdByName(name: string): Promise<number | null> {
+    if (!name.trim()) return null
+    const rows = db
+      .select({ id: schema.company.id })
+      .from(schema.company)
+      .where(sql`lower(trim(${schema.company.name})) = lower(trim(${name}))`)
+      .limit(2)
+      .all()
+    return rows.length === 1 ? rows[0].id : null
   }
 
   async deleteProduct(id: number, releaseId: number): Promise<void> {

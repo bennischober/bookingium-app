@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { FileUp, Plus } from 'lucide-react'
+import { useLabelCopyImport } from './useLabelCopyImport'
 import { trpcReact } from '@/lib/trpc'
 import { formatShortDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ export function BandReleasesTab({ bandId }: { bandId: number }) {
   const utils = trpcReact.useUtils()
   const releases = trpcReact.release.listByBand.useQuery(bandId)
   const sheet = useFormSheet<ReleaseDto>()
+  const labelCopy = useLabelCopyImport({ defaultBandId: bandId })
   const open = (release: ReleaseDto) =>
     void navigate({ to: '/releases/$releaseId', params: { releaseId: String(release.id) } })
   const mutations = useRecordMutations<
@@ -44,7 +46,17 @@ export function BandReleasesTab({ bandId }: { bandId: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          disabled={labelCopy.reading}
+          onClick={labelCopy.start}
+        >
+          <FileUp className="h-3.5 w-3.5" />
+          {labelCopy.reading ? t('Wird gelesen…') : t('Labelcopy einlesen')}
+        </Button>
         <Button size="sm" className="gap-1.5" onClick={sheet.openCreate}>
           <Plus className="h-3.5 w-3.5" />
           {t('Neues Release')}
@@ -74,6 +86,7 @@ export function BandReleasesTab({ bandId }: { bandId: number }) {
           { header: t('Tracks'), cell: (release) => release.trackCount || '-' }
         ]}
       />
+      {labelCopy.dialog}
       <FormSheet
         isOpen={sheet.isOpen}
         onClose={sheet.close}

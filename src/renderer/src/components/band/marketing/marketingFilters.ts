@@ -85,9 +85,18 @@ export function groupItems(items: MarketingItemDto[]): Array<[string, MarketingI
   return [...groups.entries()].sort((a, b) => b[1].length - a[1].length)
 }
 
-/** Net cost of the measures that count (not cancelled) */
-export function totalCents(actions: MarketingActionDto[]): number {
-  return actions
-    .filter((action) => action.status !== 'cancelled')
-    .reduce((sum, action) => sum + (action.costCents ?? 0), 0)
+/**
+ * Net cost of the measures that count (not cancelled), split by who pays: `own` is ours,
+ * `external` what the band, the label (#289: everything from a label copy), a promoter or
+ * someone else pays, so a label's budget never shows as our spending.
+ */
+export function costTotals(actions: MarketingActionDto[]): { own: number; external: number } {
+  let own = 0
+  let external = 0
+  for (const action of actions) {
+    if (action.status === 'cancelled' || !action.costCents) continue
+    if (action.payer === 'us') own += action.costCents
+    else external += action.costCents
+  }
+  return { own, external }
 }

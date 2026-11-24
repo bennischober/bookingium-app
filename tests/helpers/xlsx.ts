@@ -53,7 +53,7 @@ export function zip(files: Record<string, string>): Buffer {
 }
 
 /** A cell: text (shared string), a number, or a date serial with the date style */
-export type Cell = string | number | { date: number } | { zip: number } | null
+export type Cell = string | number | { date: number } | { zip: number } | { time: number } | null
 
 /** A workbook with one sheet named `sheetName` holding `rows` */
 export function buildXlsx(rows: Cell[][], sheetName = 'Tour'): Buffer {
@@ -89,6 +89,7 @@ export function buildXlsxSheets(sheets: Array<{ name: string; rows: Cell[][] }>)
             }
             if (typeof cell === 'number') return `<c r="${ref}"><v>${cell}</v></c>`
             if ('date' in cell) return `<c r="${ref}" s="1"><v>${cell.date}</v></c>`
+            if ('time' in cell) return `<c r="${ref}" s="3"><v>${cell.time}</v></c>`
             return `<c r="${ref}" s="2"><v>${cell.zip}</v></c>`
           })
           .join('')
@@ -118,6 +119,6 @@ export function buildXlsxSheets(sheets: Array<{ name: string; rows: Cell[][] }>)
     ...files,
     'xl/sharedStrings.xml': `<?xml version="1.0"?><sst>${strings.map((s) => `<si><t>${esc(s)}</t></si>`).join('')}</sst>`,
     'xl/styles.xml':
-      '<?xml version="1.0"?><styleSheet><numFmts count="1"><numFmt numFmtId="164" formatCode="00000"/></numFmts><cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/></cellXfs></styleSheet>'
+      '<?xml version="1.0"?><styleSheet><numFmts count="2"><numFmt numFmtId="164" formatCode="00000"/><numFmt numFmtId="165" formatCode="hh\\:mm"/></numFmts><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/><xf numFmtId="165"/></cellXfs></styleSheet>'
   })
 }
