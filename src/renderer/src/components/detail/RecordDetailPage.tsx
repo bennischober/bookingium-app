@@ -206,7 +206,12 @@ export function RecordDetail<TTab extends string>({
           </div>
           <div className="mt-1 flex shrink-0 items-center gap-2">
             {/* #262: a band shared with employees passes on its booking work */}
-            {record.type === 'band' && <StaffShareButton entity="band" entityId={record.id} />}
+            {(record.type === 'band' ||
+              record.type === 'person' ||
+              record.type === 'company' ||
+              record.type === 'venue') && (
+              <StaffShareButton entity={record.type} entityId={record.id} />
+            )}
             <FollowUpButton record={followUpRecord} />
             <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />

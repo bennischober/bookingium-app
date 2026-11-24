@@ -17,18 +17,24 @@ import { t } from '../../../../main/i18n/translate'
 
 /** What a record does without a grant, in the words of the popover */
 const DEFAULT_LABELS: Record<StaffGrantEntity, string> = {
-  band: t('Standard: nur die Band als Kontakt'),
+  band: t('Standard: nur wenn ein freigegebener Eintrag darauf verweist'),
   deal_memo: t('Standard: wie die Band'),
   document: t('Standard: wie das Event'),
   management_contract: t('Standard: intern'),
   invoice: t('Standard: intern'),
   event_settlement: t('Standard: intern'),
   receipt: t('Standard: intern'),
-  trip: t('Standard: intern')
+  trip: t('Standard: intern'),
+  person: t('Standard: nur wenn ein freigegebener Eintrag darauf verweist'),
+  company: t('Standard: nur wenn ein freigegebener Eintrag darauf verweist'),
+  venue: t('Standard: nur wenn ein freigegebener Eintrag darauf verweist'),
+  hotel: t('Standard: nur wenn ein freigegebener Eintrag darauf verweist'),
+  contact_list: t('Standard: intern')
 }
 
 const SHARED_LABELS: Partial<Record<StaffGrantEntity, string>> = {
-  band: t('Freigegeben, mit Events und Booking')
+  band: t('Freigegeben, mit Events und Booking'),
+  contact_list: t('Freigegeben, mit allen Kontakten der Liste')
 }
 
 /**

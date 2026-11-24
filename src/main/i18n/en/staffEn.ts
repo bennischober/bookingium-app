@@ -16,7 +16,9 @@ export const staffEn: Record<string, string> = {
   'sieht es': 'sees it',
   'sieht es nicht': 'does not see it',
   'Standard: intern': 'Default: internal',
-  'Standard: nur die Band als Kontakt': 'Default: only the band as a contact',
+  'Standard: nur wenn ein freigegebener Eintrag darauf verweist':
+    'Default: only when a shared entry refers to it',
+  'Freigegeben, mit allen Kontakten der Liste': 'Shared, with every contact on the list',
   'Standard: wie das Event': 'Default: like the event',
   'Standard: wie die Band': 'Default: like the band',
   'Wie für alle': 'Same as for all',
@@ -24,8 +26,16 @@ export const staffEn: Record<string, string> = {
   'Im Mitarbeiterzugang bleiben Rechnungen Entwürfe; gestellt werden sie von einem Admin.':
     'In staff access, invoices stay drafts; an admin issues them.',
   // Einstellungen › Daten › Mitarbeiter
-  'Jeder Mitarbeiter bekommt einen eigenen Abgleich-Ordner, den dieser Computer nur mit freigegebenen Daten füllt: alle Kontakte, die Events freigegebener Bands und was einzeln freigegeben ist. Rechnungen legt er nur als Entwurf an, löschen kann er nur Eigenes.':
-    'Each staff member gets a sync folder of their own, which this computer fills with shared data only: all contacts, the events of shared bands and whatever is shared individually. They create invoices as drafts only and can only delete their own entries.',
+  'Jeder Mitarbeiter bekommt einen eigenen Abgleich-Ordner, den dieser Computer nur mit freigegebenen Daten füllt: die für ihn freigegebenen Kontakte, die Events freigegebener Bands mit Club, Veranstalter und Hotel, und was einzeln freigegeben ist. Was er anlegt oder ändert, kommt in die Datenbank der Firma. Rechnungen legt er nur als Entwurf an, löschen kann er nur Eigenes.':
+    "Each staff member gets a sync folder of their own, which this computer fills with shared data only: the contacts shared with them, the events of shared bands with club, promoter and hotel, and whatever is shared individually. What they create or change goes into the company's database. They create invoices as drafts only and can only delete their own entries.",
+  'Kontakte aus Liste freigeben…': 'Share contacts from a list…',
+  'Eine Excel- oder CSV-Liste mit Kontakten: vorhandene werden erkannt, fehlende angelegt, alle für den Mitarbeiter freigegeben.':
+    'An Excel or CSV list of contacts: existing ones are recognised, missing ones created, all shared with the staff member.',
+  'Kontakte für {{name}} freigeben': 'Share contacts with {{name}}',
+  'Alle Kontakte der Liste werden für {{name}} freigegeben. Vorhandene erkennt Bookingium am Namen und werden nicht doppelt angelegt, fehlende kommen neu in die Kontakte der Firma.':
+    "Every contact on the list is shared with {{name}}. Bookingium recognises existing ones by name and does not create them twice; missing ones are added to the company's contacts.",
+  '{{count}} Kontakte für {{name}} freigegeben. Sie kommen mit dem nächsten Abgleich auf seinen Computer.':
+    '{{count}} contacts shared with {{name}}. They reach their computer with the next sync.',
   'Noch keine Mitarbeiter.': 'No staff yet.',
   'Mitarbeiter hinzufügen': 'Add staff member',
   'Mitarbeiter hinzufügen…': 'Add staff member…',

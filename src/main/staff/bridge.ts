@@ -35,6 +35,7 @@ import {
 } from '../sync/store'
 import { LOCAL_TABLES } from '../sync/tables'
 import { FolderTransport, type SyncTransport } from '../sync/transport'
+import { DEDUPE_TABLES, type TouchedRow } from './dedupe'
 import {
   checkStaffChange,
   computeStaffView,
@@ -127,6 +128,11 @@ export type BridgeEnv = {
   workDir: string
   now?: () => Date
   transportFor?: (folder: string) => SyncTransport
+  /**
+   * After the employee's changes are taken: the contacts they created or changed, to merge the
+   * duplicates among them (dedupe.ts). Returns how many were merged.
+   */
+  afterImport?: (employee: EmployeeRef, touched: TouchedRow[]) => number
 }
 
 export type EmployeeRef = { id: number; name: string; idPrefix: number }
@@ -142,6 +148,10 @@ export type ChannelRunResult = {
   exported: number
   /** Something changed here (the windows refresh) */
   changedHere: boolean
+  /** Contact rows the employee created or changed (dedupe.ts) */
+  touched: TouchedRow[]
+  /** Duplicates of theirs merged into the company's records */
+  merged: number
 }
 
 const nowOf = (env: BridgeEnv) => (env.now ?? (() => new Date()))()
@@ -410,7 +420,9 @@ export async function runChannel(env: BridgeEnv, employee: EmployeeRef): Promise
     applied: 0,
     refused: 0,
     exported: 0,
-    changedHere: false
+    changedHere: false,
+    touched: [],
+    merged: 0
   }
   let channel = getChannel(sqlite, employee.id)
   if (!channel) return result
@@ -422,6 +434,10 @@ export async function runChannel(env: BridgeEnv, employee: EmployeeRef): Promise
     channel = await catchUp(env, channel, transport)
     await flushOutbox(env, channel, transport)
     await importChanges(env, employee, channel, transport, result)
+    if (env.afterImport && result.touched.length > 0) {
+      result.merged = env.afterImport(employee, result.touched)
+      if (result.merged > 0) result.changedHere = true
+    }
     channel = getChannel(sqlite, employee.id)!
     packChanges(env, employee, channel)
     channel = getChannel(sqlite, employee.id)!
@@ -560,6 +576,8 @@ function applyBatch(
       const outcome = applier.apply({ ...batch, rows: [check.row], files: [] }, { record: true })
       result.applied += outcome.applied
       if (outcome.applied > 0) result.changedHere = true
+      if (outcome.applied > 0 && check.row.o !== 'd' && DEDUPE_TABLES.has(row.t))
+        result.touched.push({ table: row.t, key: row.k })
       if (check.row.o === 'd') {
         sqlite
           .prepare('DELETE FROM sync_staff_shadow WHERE employee_id = ? AND tbl = ? AND pk = ?')

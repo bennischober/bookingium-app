@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderOpen, UserMinus, UserPlus, Users } from 'lucide-react'
+import { FileSpreadsheet, FolderOpen, UserMinus, UserPlus, Users } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { trpcReact } from '@/lib/trpc'
 import { confirmAction } from '@/lib/confirm'
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ImportDialog } from '@/components/import/ImportDialog'
 import type { EmployeeDto } from '../../../../main/api/schemas/staff.schema'
 import { t } from '../../../../main/i18n/translate'
 
@@ -31,6 +32,8 @@ export function EmployeesCard() {
   const utils = trpcReact.useUtils()
   const list = trpcReact.staff.list.useQuery(undefined, { refetchInterval: 20_000 })
   const [adding, setAdding] = useState(false)
+  // #262: the employee whose contacts come from an uploaded list
+  const [sharingWith, setSharingWith] = useState<EmployeeDto | null>(null)
   const refresh = () => {
     void utils.staff.list.invalidate()
     void utils.staff.hasEmployees.invalidate()
@@ -58,7 +61,7 @@ export function EmployeesCard() {
         </CardTitle>
         <CardDescription>
           {t(
-            'Jeder Mitarbeiter bekommt einen eigenen Abgleich-Ordner, den dieser Computer nur mit freigegebenen Daten füllt: alle Kontakte, die Events freigegebener Bands und was einzeln freigegeben ist. Rechnungen legt er nur als Entwurf an, löschen kann er nur Eigenes.'
+            'Jeder Mitarbeiter bekommt einen eigenen Abgleich-Ordner, den dieser Computer nur mit freigegebenen Daten füllt: die für ihn freigegebenen Kontakte, die Events freigegebener Bands mit Club, Veranstalter und Hotel, und was einzeln freigegeben ist. Was er anlegt oder ändert, kommt in die Datenbank der Firma. Rechnungen legt er nur als Entwurf an, löschen kann er nur Eigenes.'
           )}
         </CardDescription>
       </CardHeader>
@@ -98,25 +101,39 @@ export function EmployeesCard() {
                       {t('Entfernen')}
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={revoke.isPending}
-                      onClick={() =>
-                        void confirmAction({
-                          title: t('Zugang von {{name}} entziehen?', { name: employee.name }),
-                          description: t(
-                            'Der Ordner wird nicht mehr befüllt, und Bookingium entfernt die Daten der Firma beim nächsten Abgleich vom Computer des Mitarbeiters. Was er angelegt hat, bleibt hier erhalten.'
-                          ),
-                          confirmLabel: t('Zugang entziehen'),
-                          destructive: true
-                        }).then((ok) => ok && revoke.mutate(employee.id))
-                      }
-                    >
-                      <UserMinus className="h-3.5 w-3.5" />
-                      {t('Zugang entziehen')}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        title={t(
+                          'Eine Excel- oder CSV-Liste mit Kontakten: vorhandene werden erkannt, fehlende angelegt, alle für den Mitarbeiter freigegeben.'
+                        )}
+                        onClick={() => setSharingWith(employee)}
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                        {t('Kontakte aus Liste freigeben…')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={revoke.isPending}
+                        onClick={() =>
+                          void confirmAction({
+                            title: t('Zugang von {{name}} entziehen?', { name: employee.name }),
+                            description: t(
+                              'Der Ordner wird nicht mehr befüllt, und Bookingium entfernt die Daten der Firma beim nächsten Abgleich vom Computer des Mitarbeiters. Was er angelegt hat, bleibt hier erhalten.'
+                            ),
+                            confirmLabel: t('Zugang entziehen'),
+                            destructive: true
+                          }).then((ok) => ok && revoke.mutate(employee.id))
+                        }
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                        {t('Zugang entziehen')}
+                      </Button>
+                    </>
                   )}
                 </div>
               </li>
@@ -128,6 +145,17 @@ export function EmployeesCard() {
           {t('Mitarbeiter hinzufügen…')}
         </Button>
       </CardContent>
+      {sharingWith && (
+        <ImportDialog
+          open
+          onOpenChange={(open) => {
+            if (open) return
+            setSharingWith(null)
+            refresh()
+          }}
+          shareWith={{ id: sharingWith.id, name: sharingWith.name }}
+        />
+      )}
       {adding && (
         <AddEmployeeDialog
           onClose={() => setAdding(false)}

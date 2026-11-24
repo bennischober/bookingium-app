@@ -315,13 +315,14 @@ describe('staff policy', () => {
     expect(tablesWithoutRule(admin.sqlite)).toEqual([])
   })
 
-  it('shows contacts and the booking work of shared bands, nothing of money or management', async () => {
+  it('shows the booking work of shared bands, nothing of money or management', async () => {
     const { admin, ids } = await setUpAdmin()
     const view = computeStaffView(admin.sqlite, {
       employeeId: ids.employee.id,
       idPrefix: STAFF_PREFIX
     })
-    expect(view.get('band')?.size).toBe(2)
+    // the other band is a contact that is neither shared nor linked
+    expect(view.get('band')?.size).toBe(1)
     expect(view.get('deal_memo')?.has(String(ids.sharedEvent))).toBe(true)
     expect(view.get('deal_memo')?.has(String(ids.otherEvent))).toBe(false)
     expect(view.get('itinerary')?.size).toBe(1)
@@ -333,6 +334,85 @@ describe('staff policy', () => {
     // an invoice filed at the shared event as a PDF stays internal
     expect(view.get('document')?.has(String(ids.invoicePdf))).toBe(false)
     expect(view.get('staff_grant')?.size).toBe(0)
+  })
+
+  it('shows only shared contacts and the ones visible records need', async () => {
+    const { admin, ids } = await setUpAdmin()
+    const c = as(admin, () => {
+      const d = admin.db
+      const person = (first: string, street = '') =>
+        d
+          .insert(schema.person)
+          .values({
+            first_name: first,
+            last_name: 'Muster',
+            address_id: street
+              ? d.insert(schema.address).values({ street }).returning().get().id
+              : null
+          })
+          .returning()
+          .get().id
+      const promoter = d
+        .insert(schema.company)
+        .values({ name: 'Beispiel Konzerte' })
+        .returning()
+        .get().id
+      const club = d
+        .insert(schema.venue)
+        .values({ name: 'Musterclub', company_id: promoter })
+        .returning()
+        .get().id
+      const clubContact = person('Clara', 'Clubweg')
+      d.insert(schema.venue_member).values({ venue_id: club, person_id: clubContact }).run()
+      d.update(schema.deal_memo)
+        .set({ venue_id: club })
+        .where(eq(schema.deal_memo.id, ids.sharedEvent))
+        .run()
+      const stranger = person('Fremd', 'Geheimweg')
+      const sharedPerson = person('Gabi')
+      const secretMember = person('Intern')
+      d.insert(schema.band_member).values({ band_id: ids.shared, person_id: secretMember }).run()
+      const list = d
+        .insert(schema.contact_list)
+        .values({ name: 'Presse', kind: 'members' })
+        .returning()
+        .get().id
+      const listPerson = person('Petra')
+      d.insert(schema.contact_list_member)
+        .values({ contact_list_id: list, person_id: listPerson })
+        .run()
+      const grant = (entity: string, entityId: number, access: 'shared' | 'internal') =>
+        d
+          .insert(schema.staff_grant)
+          .values({ employee_id: ids.employee.id, entity, entity_id: entityId, access })
+          .run()
+      grant('person', sharedPerson, 'shared')
+      grant('person', secretMember, 'internal')
+      grant('contact_list', list, 'shared')
+      return { promoter, club, clubContact, stranger, sharedPerson, secretMember, list, listPerson }
+    })
+    const view = computeStaffView(admin.sqlite, {
+      employeeId: ids.employee.id,
+      idPrefix: STAFF_PREFIX
+    })
+    const sees = (table: string, id: number) => view.get(table)?.has(String(id)) ?? false
+    // linked: the club of the shared event, its promoter and contact person, the band's company
+    expect(sees('venue', c.club)).toBe(true)
+    expect(sees('company', c.promoter)).toBe(true)
+    expect(sees('person', c.clubContact)).toBe(true)
+    expect(sees('company', ids.agency)).toBe(true)
+    // shared one by one, or as the records of a shared mailing list
+    expect(sees('person', c.sharedPerson)).toBe(true)
+    expect(sees('contact_list', c.list)).toBe(true)
+    expect(sees('person', c.listPerson)).toBe(true)
+    // neither shared nor linked, or internal although a member of the shared band
+    expect(sees('person', c.stranger)).toBe(false)
+    expect(sees('person', c.secretMember)).toBe(false)
+    expect(view.get('band_member')?.size).toBe(0)
+    // addresses go with their contact only
+    const streets = [...(view.get('address')?.values() ?? [])].map((row) => row.street)
+    expect(streets).toContain('Clubweg')
+    expect(streets).not.toContain('Geheimweg')
   })
 })
 
@@ -354,7 +434,7 @@ describe('staff bridge', { timeout: 60_000 }, () => {
 
     const staff = await joinStaff(openComputer('Laptop Erika'))
     expect(staff.engine!.prefix).toBe(STAFF_PREFIX)
-    expect(count(staff, 'band')).toBe(2)
+    expect(count(staff, 'band')).toBe(1)
     expect(has(staff, 'deal_memo', ids.sharedEvent)).toBe(true)
     expect(has(staff, 'deal_memo', ids.otherEvent)).toBe(false)
     expect(count(staff, 'management_contract')).toBe(0)
@@ -411,7 +491,7 @@ describe('staff bridge', { timeout: 60_000 }, () => {
     const staff = await joinStaff(openComputer('Laptop Erika'))
     await run(staff)
 
-    // edit a shared event, create an own event at the not shared band, an own document
+    // edit a shared event, create an own event, an own document
     as(staff, () =>
       staff.db
         .update(schema.deal_memo)
@@ -422,7 +502,7 @@ describe('staff bridge', { timeout: 60_000 }, () => {
     const own = as(staff, () =>
       staff.db
         .insert(schema.deal_memo)
-        .values({ name: 'Neues Konzert', date: '2027-05-01', band_id: ids.other })
+        .values({ name: 'Neues Konzert', date: '2027-05-01', band_id: ids.shared })
         .returning()
         .get()
     )

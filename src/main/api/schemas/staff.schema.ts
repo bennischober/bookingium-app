@@ -20,7 +20,13 @@ export const StaffGrantEntity = z.enum([
   'event_settlement',
   'document',
   'receipt',
-  'trip'
+  'trip',
+  // contacts: hidden unless shared or needed by a visible record
+  'person',
+  'company',
+  'venue',
+  'hotel',
+  'contact_list'
 ])
 export type StaffGrantEntity = z.infer<typeof StaffGrantEntity>
 
