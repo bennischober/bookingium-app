@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import { container } from 'tsyringe'
 import { ImportService } from '../../services/ImportService'
+import { SyncService } from '../../services/SyncService'
 import { ImportRequest } from '../schemas/import.schema'
 import { adminOnly } from '../access'
 
@@ -16,7 +17,10 @@ export const importRouter = t.router({
 
   commit: adminProcedure.input(ImportRequest).mutation(({ input }) => {
     try {
-      return service.commit(input)
+      const result = service.commit(input)
+      // #262: the employee's bridge sends the shared records with the next sync run
+      if (input.shareWith !== null) container.resolve(SyncService).nudge()
+      return result
     } catch (error) {
       throw new TRPCError({
         code: 'BAD_REQUEST',

@@ -58,7 +58,8 @@ export class ImportService {
     const result = this.importRepository.apply(
       plan,
       request.contactList,
-      request.options.overwrite === true
+      request.options.overwrite === true,
+      request.shareWith
     )
     this.settingsRepository.setMany({
       [mappingKey(request.headers)]: JSON.stringify({

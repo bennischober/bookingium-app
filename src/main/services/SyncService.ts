@@ -1,4 +1,4 @@
-import { singleton, inject } from 'tsyringe'
+import { container, singleton, inject } from 'tsyringe'
 import {
   existsSync,
   mkdirSync,
@@ -11,7 +11,7 @@ import {
 } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
-import { getSqlite } from '../db'
+import { db, getSqlite } from '../db'
 import { latestMigrationMillis, migrateOtherDatabase } from '../db/migrate'
 import { getStorageBasePath } from '../utils/fileStorage'
 import { isInsideFolder } from '../backup/files'
@@ -24,6 +24,10 @@ import { configureRowIds } from '../sync/ids'
 import { isLocalSettingKey } from '../sync/tables'
 import { dropSyncTriggers, getMeta, hasBookkeeping, syncedTables } from '../sync/store'
 import { listChannels, revokeChannel, runChannel, type BridgeEnv } from '../staff/bridge'
+import { mergeStaffDuplicates } from '../staff/dedupe'
+import { shareRecords } from '../repositories/staffGrants'
+import { MergeService } from './MergeService'
+import type { StaffGrantEntity } from '../api/schemas/staff.schema'
 import { readdirSync, rmSync } from 'fs'
 import { BackupService, backupLocations } from './BackupService'
 import type {
@@ -529,7 +533,23 @@ export class SyncService {
       deviceName: this.host.deviceName,
       adminDevice: engine.deviceId,
       adminPrefix: engine.prefix,
-      workDir: backupLocations(this.userData()).workDir
+      workDir: backupLocations(this.userData()).workDir,
+      afterImport: (employee, touched) => {
+        const merge = container.resolve(MergeService)
+        return mergeStaffDuplicates(
+          getSqlite(),
+          { employeeId: employee.id, idPrefix: employee.idPrefix },
+          touched,
+          {
+            candidates: (kind, id) => merge.candidates(kind, id),
+            merge: (input) => merge.merge(input),
+            share: (kind, id) =>
+              db.transaction((tx) => {
+                shareRecords(tx, employee.id, kind as StaffGrantEntity, [id])
+              })
+          }
+        )
+      }
     }
   }
 

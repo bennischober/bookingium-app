@@ -37,6 +37,8 @@ interface ImportDialogProps {
   target?: ImportTarget
   /** Clubs or festivals, when opened from one of those lists (else detected); still changeable */
   kind?: VenueKind
+  /** #262: every record of the list is shared with this employee (Einstellungen › Mitarbeiter) */
+  shareWith?: { id: number; name: string }
 }
 
 /**
@@ -50,7 +52,8 @@ export function ImportDialog({
   open,
   onOpenChange,
   target: fixedTarget,
-  kind: fixedKind
+  kind: fixedKind,
+  shareWith
 }: ImportDialogProps) {
   const utils = trpcReact.useUtils()
   const [step, setStep] = useState<Step>('file')
@@ -137,8 +140,9 @@ export function ImportDialog({
         mapping,
         options: { kind, companyKind, genres, defaultCountry, overwrite },
         excludedRows: [...excluded],
-        // Set on commit only: the preview does not depend on it
-        contactList: null
+        // Set on commit only: the preview does not depend on them
+        contactList: null,
+        shareWith: null
       }
     : null
 
@@ -165,6 +169,7 @@ export function ImportDialog({
       void utils.relation.invalidate()
       void utils.search.invalidate()
       void utils.contactList.invalidate()
+      if (shareWith) void utils.staff.invalidate()
     },
     onError: (error) => {
       toast.error(t('Import fehlgeschlagen'), { description: error.message })
@@ -207,8 +212,18 @@ export function ImportDialog({
     >
       <DialogContent className="flex h-[calc(100vh-4rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col">
         <DialogHeader>
-          <DialogTitle>{t('Daten importieren')}</DialogTitle>
+          <DialogTitle>
+            {shareWith
+              ? t('Kontakte für {{name}} freigeben', { name: shareWith.name })
+              : t('Daten importieren')}
+          </DialogTitle>
           <DialogDescription>
+            {shareWith &&
+              step !== 'done' &&
+              t(
+                'Alle Kontakte der Liste werden für {{name}} freigegeben. Vorhandene erkennt Bookingium am Namen und werden nicht doppelt angelegt, fehlende kommen neu in die Kontakte der Firma.',
+                { name: shareWith.name }
+              )}{' '}
             {step === 'file' &&
               t('Eine CSV-Liste mit Clubs, Festivals, Bands, Firmen oder Personen übernehmen.')}
             {step === 'mapping' && IMPORT_TARGET_DESCRIPTIONS[target]}
@@ -264,7 +279,20 @@ export function ImportDialog({
         )}
 
         {step === 'done' && result && (
-          <ImportDoneStep target={target} kind={kind} companyKind={companyKind} result={result} />
+          <>
+            <ImportDoneStep target={target} kind={kind} companyKind={companyKind} result={result} />
+            {shareWith && result.shared !== undefined && (
+              <p className="text-sm">
+                {t(
+                  '{{count}} Kontakte für {{name}} freigegeben. Sie kommen mit dem nächsten Abgleich auf seinen Computer.',
+                  {
+                    count: result.shared,
+                    name: shareWith.name
+                  }
+                )}
+              </p>
+            )}
+          </>
         )}
 
         <DialogFooter className="gap-2 sm:justify-between">
@@ -295,7 +323,8 @@ export function ImportDialog({
                           id: listTarget === 'new' ? null : Number(listTarget),
                           name: listName.trim()
                         }
-                      : null
+                      : null,
+                    shareWith: shareWith?.id ?? null
                   })
                 }
                 disabled={

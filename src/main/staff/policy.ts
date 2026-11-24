@@ -5,7 +5,11 @@
 // computed here into the employee's folder and checks every change coming back against it.
 //
 // Decided with the user:
-// - Contacts (bands, persons, companies, clubs, festivals, hotels, mailing lists) all go.
+// - Contacts (bands, persons, companies, clubs, festivals, hotels, mailing lists) only go when
+//   shared with the employee (one by one, or from an uploaded contact list), or when a visible
+//   record needs them: the club, promoter and hotel of a visible event, the company of a visible
+//   band, the members of a visible band, company or club, the records of a shared mailing list.
+//   A contact marked internal never goes, not even linked.
 // - A band shared with the employee passes on its booking work: the events (with the contract
 //   that is printed from them), their itinerary, advancing and tickets, agency bookings,
 //   marketing. Money and management do not inherit: invoices, settlements (Abrechnungen),
@@ -60,6 +64,12 @@ type Rule =
   /** visible with its parent row */
   | { kind: 'child'; parent: string; column: string }
   | { kind: 'custom'; visible: (row: Row, l: Lookup) => boolean }
+  /** a contact: own or shared, or needed by a visible record (decided after the others) */
+  | { kind: 'contact'; entity: StaffGrantEntity }
+  /** the members of a contact (band, company, club, mailing list): they go with it */
+  | { kind: 'member'; parent: string; column: string }
+  /** address, phone/mail, bank account: visible when a visible row refers to it */
+  | { kind: 'linked' }
 
 /** Document types that never come with a visible event (an invoice or settlement as PDF) */
 const MONEY_DOCUMENTS: ReadonlySet<string> = new Set(['invoice', 'deposit', 'settlement'])
@@ -84,25 +94,25 @@ const attached: Rule = {
  * tables above it.
  */
 export const TABLE_RULES: ReadonlyArray<[string, Rule]> = [
-  // contacts and shared master data
-  ['address', { kind: 'all' }],
-  ['contact', { kind: 'all' }],
-  ['contact_email', { kind: 'all' }],
-  ['bank', { kind: 'all' }],
-  ['person', { kind: 'all' }],
-  ['company', { kind: 'all' }],
-  ['company_member', { kind: 'all' }],
-  ['band', { kind: 'all' }],
-  ['band_member', { kind: 'all' }],
-  ['venue', { kind: 'all' }],
-  ['venue_member', { kind: 'all' }],
+  // contacts: shared or linked (decided after the records that link them)
+  ['address', { kind: 'linked' }],
+  ['contact', { kind: 'linked' }],
+  ['contact_email', child('contact', 'contact_id')],
+  ['bank', { kind: 'linked' }],
+  ['person', { kind: 'contact', entity: 'person' }],
+  ['company', { kind: 'contact', entity: 'company' }],
+  ['company_member', { kind: 'member', parent: 'company', column: 'company_id' }],
+  ['band', { kind: 'contact', entity: 'band' }],
+  ['band_member', { kind: 'member', parent: 'band', column: 'band_id' }],
+  ['venue', { kind: 'contact', entity: 'venue' }],
+  ['venue_member', { kind: 'member', parent: 'venue', column: 'venue_id' }],
   ['genre', { kind: 'all' }],
-  ['venue_genre', { kind: 'all' }],
-  ['company_genre', { kind: 'all' }],
-  ['band_genre', { kind: 'all' }],
-  ['hotel', { kind: 'all' }],
-  ['contact_list', { kind: 'all' }],
-  ['contact_list_member', { kind: 'all' }],
+  ['venue_genre', child('venue', 'venue_id')],
+  ['company_genre', child('company', 'company_id')],
+  ['band_genre', child('band', 'band_id')],
+  ['hotel', { kind: 'contact', entity: 'hotel' }],
+  ['contact_list', { kind: 'contact', entity: 'contact_list' }],
+  ['contact_list_member', { kind: 'member', parent: 'contact_list', column: 'contact_list_id' }],
   ['mail_template', { kind: 'all' }],
   ['app_setting', { kind: 'custom', visible: (row) => !isLocalSettingKey(String(row.key)) }],
   // company-internal
@@ -228,10 +238,33 @@ function facts(sqlite: Sqlite, table: string): TableFacts {
   }
 }
 
+/** Tables decided after the closure over contacts (they depend on which contacts go) */
+function deferredTables(): Set<string> {
+  const deferred = new Set<string>()
+  for (const [table, rule] of TABLE_RULES) {
+    if (
+      rule.kind === 'contact' ||
+      rule.kind === 'member' ||
+      rule.kind === 'linked' ||
+      (rule.kind === 'child' && deferred.has(rule.parent))
+    )
+      deferred.add(table)
+  }
+  return deferred
+}
+const DEFERRED = deferredTables()
+
+type MemberRule = Extract<Rule, { kind: 'member' }>
+
 /**
- * Everything the employee gets, as rows. A visible row pointing at a hidden one loses that
- * reference (or, where the column is required, goes hidden too), so the employee's database
- * stays consistent.
+ * Everything the employee gets, as rows. Decided in three steps:
+ * 1. the records with rules of their own (events, invoices, documents …) in TABLE_RULES order;
+ *    of the contacts only the own and shared ones;
+ * 2. the contacts the visible rows need (repeated: a club brings its promoter), with the members
+ *    of every visible band, company, club and mailing list;
+ * 3. addresses, phone/mail, bank accounts and genres of what is visible.
+ * A visible row pointing at a hidden one loses that reference (or, where the column is required,
+ * goes hidden too), so the employee's database stays consistent.
  */
 export function computeStaffView(sqlite: Sqlite, ctx: StaffContext): StaffView {
   const synced = new Set(syncedTables(sqlite))
@@ -246,16 +279,46 @@ export function computeStaffView(sqlite: Sqlite, ctx: StaffContext): StaffView {
     bandShared: (id) => id != null && grantAccess(grants, 'band', id) === 'shared'
   }
 
+  const allRows = new Map<string, Row[]>()
+  const rowsOf = (table: string): Row[] => {
+    let rows = allRows.get(table)
+    if (!rows) {
+      rows = sqlite.prepare(`SELECT * FROM ${q(table)}`).all() as Row[]
+      allRows.set(table, rows)
+    }
+    return rows
+  }
+
+  /** A grantable record: true for own or shared, false for internal, null without a grant */
+  const granted = (entity: StaffGrantEntity, id: unknown): boolean | null => {
+    if (lookup.own(id)) return true
+    const access = lookup.access(entity, id)
+    return access === 'shared' ? true : access === 'internal' ? false : null
+  }
+
+  // ---- 1. records with rules of their own; the own and shared contacts ----
+  // contact table -> all its rows by key, to bring them in later
+  const contactPool = new Map<string, Map<string, Row>>()
+  const contactEntity = new Map<string, StaffGrantEntity>()
   for (const [table, rule] of TABLE_RULES) {
     if (!synced.has(table)) continue
     const f = facts(sqlite, table)
     tableFacts.set(table, f)
     const rows = view.set(table, new Map()).get(table)!
     if (rule.kind === 'never') continue
-    const all = sqlite.prepare(`SELECT * FROM ${q(table)}`).all() as Row[]
-    for (const row of all) {
-      const pk = String(row[f.key])
-      let visible: boolean
+    if (rule.kind === 'contact') {
+      const pool = new Map<string, Row>()
+      contactPool.set(table, pool)
+      contactEntity.set(table, rule.entity)
+      for (const row of rowsOf(table)) {
+        pool.set(String(row[f.key]), row)
+        if (granted(rule.entity, row[f.key]) === true) rows.set(String(row[f.key]), row)
+      }
+      continue
+    }
+    if (DEFERRED.has(table)) continue
+    for (const row of rowsOf(table)) {
+      let visible = false
       switch (rule.kind) {
         case 'all':
           visible = true
@@ -266,21 +329,85 @@ export function computeStaffView(sqlite: Sqlite, ctx: StaffContext): StaffView {
         case 'custom':
           visible = rule.visible(row, lookup)
           break
-        case 'grant': {
-          if (lookup.own(row[f.key])) {
-            visible = true
-            break
-          }
-          const access = lookup.access(rule.entity, row[f.key])
-          visible =
-            access === 'shared'
-              ? true
-              : access === 'internal'
-                ? false
-                : !!rule.inherit?.(row, lookup)
+        case 'grant':
+          visible = granted(rule.entity, row[f.key]) ?? !!rule.inherit?.(row, lookup)
           break
+      }
+      if (visible) rows.set(String(row[f.key]), row)
+    }
+  }
+
+  // ---- 2. the contacts visible rows need, with the members of visible contacts ----
+  const members = new Map<string, Array<[string, MemberRule]>>()
+  for (const [table, rule] of TABLE_RULES) {
+    if (rule.kind !== 'member' || !synced.has(table)) continue
+    const list = members.get(rule.parent) ?? []
+    list.push([table, rule])
+    members.set(rule.parent, list)
+  }
+  /** A contact the employee may get: it exists and is not internal for them */
+  const allowed = (table: string, id: string): boolean =>
+    contactPool.get(table)?.has(id) === true && granted(contactEntity.get(table)!, id) !== false
+
+  const queue: Array<[string, Row]> = []
+  for (const [table, rows] of view) for (const row of rows.values()) queue.push([table, row])
+  const bringIn = (table: string, id: string): void => {
+    const rows = view.get(table)!
+    if (rows.has(id) || !allowed(table, id)) return
+    const row = contactPool.get(table)!.get(id)!
+    rows.set(id, row)
+    queue.push([table, row])
+  }
+  const done = new Set<string>()
+  while (queue.length > 0) {
+    const [table, row] = queue.pop()!
+    const f = tableFacts.get(table)
+    if (!f) continue
+    const mark = `${table}:${String(row[f.key])}`
+    if (done.has(mark)) continue
+    done.add(mark)
+    for (const fk of f.fks) {
+      const value = row[fk.from]
+      if (value != null && contactPool.has(fk.table)) bringIn(fk.table, String(value))
+    }
+    // the members go with a visible contact, unless a contact they name is internal
+    for (const [memberTable, rule] of members.get(table) ?? []) {
+      const mf = tableFacts.get(memberTable)!
+      const visibleMembers = view.get(memberTable)!
+      for (const member of rowsOf(memberTable)) {
+        if (String(member[rule.column]) !== String(row[f.key])) continue
+        const named = mf.fks.filter(
+          (fk) => fk.from !== rule.column && member[fk.from] != null && contactPool.has(fk.table)
+        )
+        if (named.some((fk) => !allowed(fk.table, String(member[fk.from])))) continue
+        visibleMembers.set(String(member[mf.key]), member)
+        queue.push([memberTable, member])
+      }
+    }
+  }
+
+  // ---- 3. addresses, phone/mail, bank accounts and genres of what is visible ----
+  for (const [table, rule] of TABLE_RULES) {
+    if (!synced.has(table) || !DEFERRED.has(table)) continue
+    if (rule.kind !== 'linked' && rule.kind !== 'child') continue
+    const f = tableFacts.get(table)!
+    const rows = view.get(table)!
+    const wanted = new Set<string>()
+    if (rule.kind === 'linked') {
+      for (const [other, otherRows] of view) {
+        for (const fk of tableFacts.get(other)?.fks ?? []) {
+          if (fk.table !== table) continue
+          for (const row of otherRows.values())
+            if (row[fk.from] != null) wanted.add(String(row[fk.from]))
         }
       }
+    }
+    for (const row of rowsOf(table)) {
+      const pk = String(row[f.key])
+      const visible =
+        rule.kind === 'linked'
+          ? wanted.has(pk) || lookup.own(row[f.key])
+          : lookup.has(rule.parent, row[rule.column])
       if (visible) rows.set(pk, row)
     }
   }
@@ -294,7 +421,7 @@ export function computeStaffView(sqlite: Sqlite, ctx: StaffContext): StaffView {
       if (invoice.recipient_snapshot_id != null) wanted.add(String(invoice.recipient_snapshot_id))
     }
     const key = keyColumn('invoice_party_snapshot')
-    for (const row of sqlite.prepare('SELECT * FROM invoice_party_snapshot').all() as Row[]) {
+    for (const row of rowsOf('invoice_party_snapshot')) {
       if (wanted.has(String(row[key])) || isOwnKey(ctx, row[key]))
         snapshots.set(String(row[key]), row)
     }

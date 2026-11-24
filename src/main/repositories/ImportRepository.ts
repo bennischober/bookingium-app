@@ -13,6 +13,7 @@ import type {
 } from '../import/plan/drafts'
 import { contactAddressEvents, normalizeEmail } from './contactEmails'
 import { genresByOwner, writeGenres, type GenreOwner } from './genres'
+import { assertActiveEmployee, shareRecords } from './staffGrants'
 
 type AddressRow = typeof schema.address.$inferSelect
 type ContactRow = typeof schema.contact.$inferSelect
@@ -178,12 +179,13 @@ export class ImportRepository {
   apply(
     plan: ImportPlan,
     contactList: ImportContactList | null = null,
-    overwrite = false
+    overwrite = false,
+    shareWith: number | null = null
   ): ImportResult {
     session = { overwrite, current: null, changes: new Map() }
     let result: ImportResult
     try {
-      result = this.write(plan, contactList)
+      result = this.write(plan, contactList, false, shareWith)
     } finally {
       session = null
     }
@@ -215,7 +217,8 @@ export class ImportRepository {
   private write(
     plan: ImportPlan,
     contactList: ImportContactList | null,
-    dryRun = false
+    dryRun = false,
+    shareWith: number | null = null
   ): ImportResult {
     return db.transaction((tx) => {
       const outcome = () => ({ created: 0, updated: 0 })
@@ -447,6 +450,14 @@ export class ImportRepository {
           company: companyIds,
           venue: venueIds
         })
+      }
+      if (shareWith !== null) {
+        // #262: every person, company and club/festival of the list, found or created
+        assertActiveEmployee(tx, shareWith)
+        result.shared =
+          shareRecords(tx, shareWith, 'person', personIds.values()) +
+          shareRecords(tx, shareWith, 'company', companyIds.values()) +
+          shareRecords(tx, shareWith, 'venue', venueIds.values())
       }
       if (dryRun) throw new DryRunDone()
       return result

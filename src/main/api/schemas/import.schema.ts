@@ -262,7 +262,9 @@ export const ImportRequest = z.object({
   // Row numbers the user unticked in the preview
   excludedRows: z.array(z.number()).default([]),
   // null: no Verteiler
-  contactList: ImportContactList.nullable().default(null)
+  contactList: ImportContactList.nullable().default(null),
+  // #262: an employee who gets every record of the list shared (null: nobody)
+  shareWith: z.number().int().nullable().default(null)
 })
 export type ImportRequest = z.infer<typeof ImportRequest>
 
@@ -323,6 +325,8 @@ export const ImportResult = z.object({
   companies: ImportOutcome,
   persons: ImportOutcome,
   // The Verteiler the import filled (#154); added: records new to the list
-  contactList: z.object({ id: z.number(), name: z.string(), added: z.number() }).nullable()
+  contactList: z.object({ id: z.number(), name: z.string(), added: z.number() }).nullable(),
+  // #262: records shared with the employee of `shareWith`
+  shared: z.number().optional()
 })
 export type ImportResult = z.infer<typeof ImportResult>
