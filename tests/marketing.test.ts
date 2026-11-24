@@ -128,7 +128,7 @@ describe('importing an atlas', () => {
   const atlasOf = (items: unknown[]): Atlas =>
     parseAtlasText(JSON.stringify({ meta: { stand: '1.1.2027' }, items }))
 
-  it('creates contacts for A and B, links an existing one, and leaves C alone', async () => {
+  it('creates contacts for the picked entries, links an existing one, and leaves the pool alone', async () => {
     const band = await newBand('Atlasband')
     const existing = await container
       .resolve(CompanyService)
@@ -145,10 +145,15 @@ describe('importing an atlas', () => {
         item('Beispielfall', 'inspiration', 'A')
       ]),
       'atlas.json',
-      { contacts: 'ab', contactLists: true }
+      {
+        picked: ['radios:neues radio', 'radios:vorhanden radio', 'festivals:atlas festival'],
+        createContacts: true,
+        contactLists: true
+      }
     )
     expect(result).toMatchObject({
       created: 5,
+      picked: 3,
       companiesCreated: 1,
       venuesCreated: 1,
       linked: 3,
@@ -189,10 +194,7 @@ describe('importing an atlas', () => {
       band.id,
       atlasOf([item('Bleibt FM', 'radios'), item('Geht FM', 'radios')]),
       'a.json',
-      {
-        contacts: 'none',
-        contactLists: false
-      }
+      { createContacts: false, contactLists: false }
     )
     const first = repo()
       .items(band.id)
@@ -203,7 +205,7 @@ describe('importing an atlas', () => {
       band.id,
       atlasOf([item('Bleibt FM', 'radios', 'B', { why: 'Neue Begründung.' })]),
       'b.json',
-      { contacts: 'none', contactLists: false }
+      { createContacts: false, contactLists: false }
     )
     expect(result).toMatchObject({ created: 0, updated: 1, dropped: 1 })
     const items = repo().items(band.id)
@@ -217,16 +219,98 @@ describe('importing an atlas', () => {
     expect(items.find((i) => i.name === 'Geht FM')?.in_atlas).toBe(false)
   })
 
+  it('suggests A, what is on the list and what was worked on; marks new entries', async () => {
+    const band = await newBand('Vorschlagband')
+    const first = atlasOf([
+      item('A FM', 'radios', 'A'),
+      item('B FM', 'radios', 'B'),
+      item('C FM', 'radios', 'C'),
+      item('Partner FM', 'radios', 'C', { aktiv: 'Album der Woche' })
+    ])
+    expect(
+      repo()
+        .preview(band.id, first)
+        .map((e) => [e.name, e.picked, e.isNew])
+    ).toEqual([
+      ['A FM', true, false],
+      ['B FM', false, false],
+      ['C FM', false, false],
+      ['Partner FM', true, false]
+    ])
+    // without explicit keys the import takes the suggestion
+    expect(
+      repo().importAtlas(band.id, first, 'a.json', { createContacts: false, contactLists: false })
+    ).toMatchObject({ created: 4, picked: 2 })
+    const c = repo()
+      .items(band.id)
+      .find((i) => i.name === 'C FM')!
+    repo().update({ id: c.id, status: 'contacted' })
+    expect(
+      repo()
+        .items(band.id)
+        .find((i) => i.name === 'C FM')?.picked
+    ).toBe(true)
+
+    const next = atlasOf([
+      item('A FM', 'radios', 'A'),
+      item('B FM', 'radios', 'B'),
+      item('C FM', 'radios', 'C'),
+      item('Neu FM', 'radios', 'B')
+    ])
+    expect(
+      repo()
+        .preview(band.id, next)
+        .map((e) => [e.name, e.picked, e.isNew])
+    ).toEqual([
+      ['A FM', true, false],
+      ['B FM', false, false],
+      ['C FM', true, false],
+      ['Neu FM', false, true]
+    ])
+  })
+
+  it('moves entries between list and pool, contacts only for picked ones', async () => {
+    const band = await newBand('Poolband')
+    repo().importAtlas(
+      band.id,
+      atlasOf([item('Pool Radio', 'radios', 'B'), item('Listen Radio', 'radios', 'A')]),
+      'a.json',
+      { picked: ['radios:listen radio'], createContacts: false, contactLists: false }
+    )
+    const by = (name: string) =>
+      repo()
+        .items(band.id)
+        .find((i) => i.name === name)!
+    expect(by('Pool Radio')).toMatchObject({ picked: false, company_id: null })
+
+    expect(repo().setPicked(band.id, [by('Pool Radio').id], true, true)).toEqual({
+      changed: 1,
+      contactsCreated: 1
+    })
+    expect(by('Pool Radio').picked).toBe(true)
+    expect(by('Pool Radio').company_id).not.toBeNull()
+    // the company page names only entries on a list
+    const companyId = by('Pool Radio').company_id!
+    expect(repo().linksOf({ companyId })).toHaveLength(1)
+
+    expect(repo().setPicked(band.id, [by('Pool Radio').id], false, false)).toEqual({
+      changed: 1,
+      contactsCreated: 0
+    })
+    expect(by('Pool Radio')).toMatchObject({ picked: false, company_id: companyId })
+    expect(repo().linksOf({ companyId })).toHaveLength(0)
+    // another band's ids are left alone
+    const other = await newBand('Fremdband')
+    expect(repo().setPicked(other.id, [by('Listen Radio').id], false, false).changed).toBe(0)
+  })
+
   it('an existing relationship the atlas names starts as "Läuft schon"', async () => {
     const band = await newBand('Aktivband')
     repo().importAtlas(
       band.id,
       atlasOf([item('Partner FM', 'radios', 'A', { aktiv: 'Album der Woche' })]),
       'a.json',
-      {
-        contacts: 'none',
-        contactLists: false
-      }
+      { createContacts: false, contactLists: false }
     )
     expect(repo().items(band.id)[0]).toMatchObject({
       status: 'active',

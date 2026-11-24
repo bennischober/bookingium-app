@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, ExternalLink, Megaphone, UserPlus } from 'lucide-react'
+import { ChevronRight, ExternalLink, ListX, Megaphone, UserPlus } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -70,6 +70,13 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
   const refresh = () => utils.marketing.overview.invalidate(item.bandId)
   const update = trpcReact.marketing.update.useMutation({
     onSuccess: refresh,
+    onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
+  })
+  const unpick = trpcReact.marketing.setPicked.useMutation({
+    onSuccess: async () => {
+      await refresh()
+      toast.success(t('„{{name}}“ von der Liste genommen', { name: item.name }))
+    },
     onError: (error) => toast.error(t('Nicht gespeichert'), { description: error.message })
   })
   const link = trpcReact.marketing.linkContact.useMutation({
@@ -272,6 +279,18 @@ export function MarketingItemRow({ item }: { item: MarketingItemDto }) {
                 {t('Status seit')} {item.statusDate.split('-').reverse().join('.')}
               </span>
             )}
+          </dd>
+          <dd className="col-start-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+              disabled={unpick.isPending}
+              onClick={() => unpick.mutate({ bandId: item.bandId, ids: [item.id], picked: false })}
+            >
+              <ListX className="h-3.5 w-3.5" />
+              {t('Von der Liste nehmen')}
+            </Button>
           </dd>
         </dl>
       )}

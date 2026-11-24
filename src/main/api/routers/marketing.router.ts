@@ -14,7 +14,9 @@ import {
   type MarketingActionDto,
   type MarketingItemDto,
   MarketingImportInput,
+  SetMarketingPickedInput,
   UpdateMarketingItemInput,
+  type SetMarketingPickedResultDto,
   type MarketingCategory,
   type MarketingFileDto,
   type MarketingImportResultDto,
@@ -73,24 +75,26 @@ export const marketingRouter = t.router({
   }),
 
   /** Asks for an atlas file and says what it holds; null when the dialog was cancelled */
-  pickAtlas: t.procedure.mutation(async (): Promise<MarketingFileDto | null> => {
-    const owner = BrowserWindow.getFocusedWindow()
-    const options: Electron.OpenDialogOptions = {
-      title: 'Marketing-Atlas wählen',
-      defaultPath: app.getPath('documents'),
-      filters: [{ name: 'Marketing-Atlas', extensions: ['json', 'html', 'htm'] }],
-      properties: ['openFile']
-    }
-    const result = owner
-      ? await dialog.showOpenDialog(owner, options)
-      : await dialog.showOpenDialog(options)
-    if (result.canceled || result.filePaths.length === 0) return null
-    try {
-      return await service.inspect(result.filePaths[0])
-    } catch (error) {
-      throw badRequest(error, 'Die Datei ist kein Marketing-Atlas')
-    }
-  }),
+  pickAtlas: t.procedure
+    .input(z.number().int().positive())
+    .mutation(async ({ input: bandId }): Promise<MarketingFileDto | null> => {
+      const owner = BrowserWindow.getFocusedWindow()
+      const options: Electron.OpenDialogOptions = {
+        title: 'Marketing-Atlas wählen',
+        defaultPath: app.getPath('documents'),
+        filters: [{ name: 'Marketing-Atlas', extensions: ['json', 'html', 'htm'] }],
+        properties: ['openFile']
+      }
+      const result = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options)
+      if (result.canceled || result.filePaths.length === 0) return null
+      try {
+        return await service.inspect(bandId, result.filePaths[0])
+      } catch (error) {
+        throw badRequest(error, 'Die Datei ist kein Marketing-Atlas')
+      }
+    }),
 
   importAtlas: t.procedure
     .input(MarketingImportInput)
@@ -99,6 +103,17 @@ export const marketingRouter = t.router({
         return await service.importAtlas(input)
       } catch (error) {
         throw badRequest(error, 'Import fehlgeschlagen')
+      }
+    }),
+
+  /** Moves entries between the working list and the pool of the atlas */
+  setPicked: t.procedure
+    .input(SetMarketingPickedInput)
+    .mutation(({ input }): SetMarketingPickedResultDto => {
+      try {
+        return service.setPicked(input)
+      } catch (error) {
+        throw badRequest(error, 'Nicht gespeichert')
       }
     }),
 

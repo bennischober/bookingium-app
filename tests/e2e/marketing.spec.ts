@@ -1,5 +1,6 @@
-// E2E: a band's Marketing-Atlas imported from a file, filtered, a status set, and the created
-// media company showing the band's entry. Fictitious data only.
+// E2E: a band's Marketing-Atlas imported from a file with a chosen working list, an entry taken
+// from the pool and back, a status set, and the created media company showing the band's entry.
+// Fictitious data only.
 import { test, expect } from '@playwright/test'
 import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -77,19 +78,40 @@ test('imports a Marketing-Atlas into a band and links its contacts', async () =>
   const dialog = page.getByRole('dialog', { name: 'Marketing-Atlas importieren' })
   await dialog.getByRole('button', { name: 'Datei wählen…' }).click()
   await expect(dialog.getByText('5 Einträge')).toBeVisible()
+  // A entries (and the running relationship) are suggested; B and C wait in the pool
+  await expect(dialog.getByText('3 von 5 ausgewählt')).toBeVisible()
+  await expect(dialog.getByRole('checkbox', { name: /Probe Rock FM/ })).toBeChecked()
+  await expect(dialog.getByRole('checkbox', { name: /Kleines Probe-Radio/ })).not.toBeChecked()
+  await dialog.getByRole('checkbox', { name: /Probe Classic Radio/ }).check()
+  await expect(dialog.getByText('4 von 5 ausgewählt')).toBeVisible()
   await dialog.getByLabel('Je Reiter einen Verteiler anlegen').check()
+  await page.screenshot({ path: join(shots, 'marketing-import-pick.png') })
   await dialog.getByRole('button', { name: 'Importieren' }).click()
   await expect(dialog).toBeHidden()
 
-  // Top picks of the first tab; the C entry only under "Alle"
-  await expect(page.getByText('Stand 18.11.2026 · Lauf 3 · 5 Einträge')).toBeVisible()
+  // Only the working list is shown; the C entry waits in the atlas
+  await expect(
+    page.getByText('Stand 18.11.2026 · Lauf 3 · 4 auf der Liste · 1 weitere im Atlas')
+  ).toBeVisible()
   await expect(page.getByRole('button', { name: /^Probe Rock FM/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Probe Classic Radio/ })).toBeHidden()
-  await page.getByRole('button', { name: 'Alle', exact: true }).click()
-  await expect(page.getByRole('button', { name: /^Kleines Probe-Radio/ })).toBeVisible()
-  // A and B became media companies; C stays without a contact
+  await expect(page.getByRole('button', { name: /^Probe Classic Radio/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Kleines Probe-Radio/ })).toBeHidden()
+  // the picked radios became media companies
   await expect(page.getByRole('link', { name: 'Probe Rock FM' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Als Kontakt anlegen' })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Als Kontakt anlegen' })).toHaveCount(0)
+
+  // Taken from the pool later, and back off the list
+  await page.getByRole('button', { name: 'Auswahl bearbeiten…' }).click()
+  const pick = page.getByRole('dialog', { name: 'Auswahl bearbeiten' })
+  await pick.getByRole('checkbox', { name: /Kleines Probe-Radio/ }).check()
+  await expect(pick.getByText('5 von 5 ausgewählt · 1 dazu')).toBeVisible()
+  await pick.getByRole('button', { name: 'Speichern' }).click()
+  await expect(pick).toBeHidden()
+  await expect(page.getByRole('link', { name: 'Kleines Probe-Radio' })).toBeVisible()
+  await page.getByRole('button', { name: /^Kleines Probe-Radio/ }).click()
+  await page.getByRole('button', { name: 'Von der Liste nehmen' }).click()
+  await expect(page.getByRole('button', { name: /^Kleines Probe-Radio/ })).toBeHidden()
+  await expect(page.getByText(/1 weitere im Atlas/)).toBeVisible()
 
   // The existing relationship starts as "Läuft schon"
   await page.getByRole('tab', { name: /Podcasts/ }).click()

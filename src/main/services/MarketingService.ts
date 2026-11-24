@@ -8,6 +8,7 @@ import {
   type MarketingFileDto,
   type MarketingImportInput,
   type MarketingImportResultDto,
+  type SetMarketingPickedInput,
   type UpdateMarketingItemInput
 } from '../api/schemas/marketing.schema'
 
@@ -31,8 +32,8 @@ export class MarketingService {
     return parseAtlasText(buffer.toString('utf8'))
   }
 
-  /** What a picked file holds: band, stand and entries per tab */
-  async inspect(path: string): Promise<MarketingFileDto> {
+  /** What a picked file holds: band, stand, entries per tab and the suggested working list */
+  async inspect(bandId: number, path: string): Promise<MarketingFileDto> {
     const atlas = await this.readAtlas(path)
     const counts = MarketingCategory.options
       .map((category) => ({
@@ -46,16 +47,22 @@ export class MarketingService {
       band: atlas.band,
       stand: atlas.stand,
       counts,
-      total: atlas.items.length
+      total: atlas.items.length,
+      entries: this.repository.preview(bandId, atlas)
     }
   }
 
   async importAtlas(input: MarketingImportInput): Promise<MarketingImportResultDto> {
     const atlas = await this.readAtlas(input.path)
     return this.repository.importAtlas(input.bandId, atlas, basename(input.path), {
-      contacts: input.contacts,
+      picked: input.picked,
+      createContacts: input.createContacts,
       contactLists: input.contactLists
     })
+  }
+
+  setPicked(input: SetMarketingPickedInput) {
+    return this.repository.setPicked(input.bandId, input.ids, input.picked, input.createContacts)
   }
 
   update(input: UpdateMarketingItemInput): void {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FileUp, Megaphone } from 'lucide-react'
+import { FileUp, ListChecks, Megaphone } from 'lucide-react'
 import { trpcReact } from '@/lib/trpc'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,23 +19,12 @@ import {
   type MarketingAtlasDto
 } from '../../../../../main/api/schemas/marketing.schema'
 import { MarketingImportDialog } from './MarketingImportDialog'
+import { MarketingPickDialog } from './MarketingPickDialog'
 import { MarketingItemRow } from './MarketingItemRow'
 import { MarketingActions } from './MarketingActions'
 import { Tip } from '@/components/Tip'
-import {
-  countByCategory,
-  countByStatus,
-  filterItems,
-  groupItems,
-  type MarketingLevel
-} from './marketingFilters'
+import { countByCategory, countByStatus, filterItems, groupItems } from './marketingFilters'
 import { t } from '../../../../../main/i18n/translate'
-
-const LEVELS: Array<[MarketingLevel, string]> = [
-  ['A', t('Top-Auswahl (A)')],
-  ['AB', t('A und B')],
-  ['all', t('Alle')]
-]
 
 const ALL = 'all'
 
@@ -87,25 +76,30 @@ export function MarketingTab({ bandId, bandName }: { bandId: number; bandName: s
   )
 }
 
-/** The band's Marketing-Atlas: head data, tabs, filters and the entries with their status */
+/**
+ * The band's Marketing-Atlas: head data, tabs, filters and the working list with its status.
+ * Entries not picked wait in the pool ("Auswahl bearbeiten…").
+ */
 function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
   const overview = trpcReact.marketing.overview.useQuery(bandId)
   const [importOpen, setImportOpen] = useState(false)
+  const [pickOpen, setPickOpen] = useState(false)
   const [category, setCategory] = useState<MarketingCategory | null>(null)
-  const [level, setLevel] = useState<MarketingLevel>('A')
   const [status, setStatus] = useState<MarketingStatus | null>(null)
   const [query, setQuery] = useState('')
   const [showDropped, setShowDropped] = useState(false)
 
-  const items = useMemo(() => overview.data?.items ?? [], [overview.data])
+  const allItems = useMemo(() => overview.data?.items ?? [], [overview.data])
+  const items = useMemo(() => allItems.filter((item) => item.picked), [allItems])
+  const pool = allItems.filter((item) => !item.picked && item.inAtlas).length
   const categories = useMemo(() => countByCategory(items), [items])
   const statuses = useMemo(() => countByStatus(items), [items])
   // the first tab with entries until one is picked
   const active =
     category ?? MarketingCategory.options.find((option) => categories.has(option)) ?? null
   const shown = useMemo(
-    () => filterItems(items, { category: active, level, status, query, showDropped }),
-    [items, active, level, status, query, showDropped]
+    () => filterItems(items, { category: active, status, query, showDropped }),
+    [items, active, status, query, showDropped]
   )
   const dropped = items.filter((item) => !item.inAtlas).length
   const atlas = overview.data?.atlas ?? null
@@ -118,10 +112,19 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
       onOpenChange={setImportOpen}
     />
   )
+  const pickButton = (
+    <Button variant="outline" size="sm" className="gap-2" onClick={() => setPickOpen(true)}>
+      <ListChecks className="h-4 w-4" />
+      {t('Auswahl bearbeiten…')}
+    </Button>
+  )
+  const pickDialog = pickOpen && (
+    <MarketingPickDialog bandId={bandId} items={allItems} open onOpenChange={setPickOpen} />
+  )
 
   if (overview.isLoading) return <p className="text-muted-foreground">{t('Wird geladen…')}</p>
 
-  if (!atlas && items.length === 0) {
+  if (!atlas && allItems.length === 0) {
     return (
       <div className="max-w-xl space-y-3 rounded-lg border border-dashed p-6">
         <Megaphone className="h-6 w-6 text-muted-foreground" />
@@ -150,7 +153,8 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
             {[
               atlas?.stand && t('Stand {{stand}}', { stand: atlas.stand }),
               atlas?.run && t('Lauf {{run}}', { run: atlas.run }),
-              t('{{value}} Einträge', { value: items.length - dropped })
+              t('{{value}} auf der Liste', { value: items.length - dropped }),
+              pool > 0 && t('{{value}} weitere im Atlas', { value: pool })
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -166,13 +170,28 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
               ))}
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportOpen(true)}>
-          <FileUp className="h-4 w-4" />
-          {t('Atlas aktualisieren…')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {pickButton}
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4" />
+            {t('Atlas aktualisieren…')}
+          </Button>
+        </div>
       </div>
 
       {atlas && <AtlasFacts atlas={atlas} />}
+
+      {items.length === 0 && (
+        <div className="max-w-xl space-y-3 rounded-lg border border-dashed p-6">
+          <p className="font-medium">{t('Noch nichts auf der Arbeitsliste')}</p>
+          <p className="text-sm text-muted-foreground">
+            {t(
+              'Wähle aus dem Atlas, womit ihr arbeiten wollt. Nur diese Einträge stehen hier mit Status, der Rest bleibt im Atlas.'
+            )}
+          </p>
+          {pickButton}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('Reiter des Atlas')}>
         {MarketingCategory.options
@@ -200,66 +219,51 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
           ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded-md border" role="group">
-          {LEVELS.map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={level === value}
-              className={cn(
-                'border-r px-3 py-1.5 text-sm last:border-r-0',
-                level === value ? 'bg-foreground text-background' : 'hover:bg-muted'
-              )}
-              onClick={() => setLevel(value)}
-            >
-              {label}
-            </button>
-          ))}
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            value={status ?? ALL}
+            onValueChange={(value) => setStatus(value === ALL ? null : (value as MarketingStatus))}
+          >
+            <SelectTrigger className="h-9 w-44" aria-label={t('Status filtern')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t('Jeder Status')}</SelectItem>
+              {MarketingStatus.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {MARKETING_STATUS_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            className="h-9 w-64"
+            type="search"
+            placeholder={t('Suche über alle Reiter')}
+            aria-label={t('Suche im Marketing-Atlas')}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {dropped > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={showDropped}
+                onChange={(event) => setShowDropped(event.target.checked)}
+              />
+              {dropped} {t('nicht mehr im Atlas zeigen')}
+            </label>
+          )}
+          <span className="ml-auto text-sm text-muted-foreground">
+            {t('{{count}} angezeigt', { count: shown.length })}
+          </span>
         </div>
-        <Select
-          value={status ?? ALL}
-          onValueChange={(value) => setStatus(value === ALL ? null : (value as MarketingStatus))}
-        >
-          <SelectTrigger className="h-9 w-44" aria-label={t('Status filtern')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('Jeder Status')}</SelectItem>
-            {MarketingStatus.options.map((option) => (
-              <SelectItem key={option} value={option}>
-                {MARKETING_STATUS_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          className="h-9 w-64"
-          type="search"
-          placeholder={t('Suche über alle Reiter')}
-          aria-label={t('Suche im Marketing-Atlas')}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        {dropped > 0 && (
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-primary"
-              checked={showDropped}
-              onChange={(event) => setShowDropped(event.target.checked)}
-            />
-            {dropped} {t('nicht mehr im Atlas zeigen')}
-          </label>
-        )}
-        <span className="ml-auto text-sm text-muted-foreground">{shown.length} angezeigt</span>
-      </div>
+      )}
 
-      {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t('Keine Einträge mit diesen Filtern')}
-          {level !== 'all' ? t(' – „Alle“ zeigt auch die übrigen Prioritäten.') : '.'}
-        </p>
+      {items.length === 0 ? null : shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('Keine Einträge mit diesen Filtern')}.</p>
       ) : (
         groupItems(shown).map(([group, entries]) => (
           <section key={group} className="space-y-1">
@@ -275,6 +279,7 @@ function AtlasView({ bandId, bandName }: { bandId: number; bandName: string }) {
         ))
       )}
       {dialog}
+      {pickDialog}
     </div>
   )
 }

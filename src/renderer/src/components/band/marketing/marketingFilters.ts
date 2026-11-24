@@ -7,12 +7,8 @@ import type {
 } from '../../../../../main/api/schemas/marketing.schema'
 import { t } from '../../../../../main/i18n/translate'
 
-/** A: the top picks; AB: A and B; all: everything */
-export type MarketingLevel = 'A' | 'AB' | 'all'
-
 export type MarketingFilters = {
   category: MarketingCategory | null
-  level: MarketingLevel
   status: MarketingStatus | null
   query: string
   /** Entries a newer atlas no longer lists */
@@ -41,8 +37,6 @@ export function filterItems(
       if (!filters.showDropped && !item.inAtlas) return false
       // a search looks through every tab
       if (!needle && filters.category && item.category !== filters.category) return false
-      if (filters.level === 'A' && item.priority !== 'A') return false
-      if (filters.level === 'AB' && item.priority === 'C') return false
       if (filters.status && item.status !== filters.status) return false
       if (!needle) return true
       return [

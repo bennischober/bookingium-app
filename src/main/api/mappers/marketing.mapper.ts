@@ -52,7 +52,8 @@ export class MarketingMapper {
       companyName: row.companyName,
       venueId: row.venue_id,
       venueName: row.venueName,
-      inAtlas: row.in_atlas
+      inAtlas: row.in_atlas,
+      picked: row.picked
     }
   }
 
