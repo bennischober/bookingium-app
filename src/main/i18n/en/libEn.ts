@@ -1,6 +1,12 @@
 // #254: English UI texts of lib, keyed by the German source string (see ../translate.ts)
 
 export const libEn: Record<string, string> = {
+  'Releases (Menü Planung): die Labelcopy jedes Releases an einem Ort – Produkte mit UPC/EAN und Katalognummer, Tracks mit ISRC und Dauer, Credits und die Urheber mit ihren Anteilen. Jede Band hat dazu einen Tab „Releases“.':
+    'Releases (Planning menu): the label copy of every release in one place – products with UPC/EAN and catalogue number, tracks with ISRC and duration, credits and the writers with their shares. Every band has a “Releases” tab for it.',
+  'Labelcopy einlesen: Excel-Vorlagen von Labels und der PDF-Report von OpenPlay werden gelesen. Eine Vorschau zeigt, was neu ist und was abweicht; das passende Release wird über UPC, Katalognummer oder ISRC gefunden und die Datei am Release abgelegt.':
+    'Read label copy: Excel templates from labels and the OpenPlay PDF report are read. A preview shows what is new and what differs; the matching release is found by UPC, catalogue number or ISRC, and the file is filed at the release.',
+  'Das Budget aus der Labelcopy wird auf Wunsch zu Marketing-Maßnahmen des Releases – mit „Zahlt: Label“. Die Kosten im Marketing-Tab zeigen eigene Ausgaben und extern Bezahltes jetzt getrennt.':
+    'On request, the budget from the label copy becomes marketing measures of the release – “Paid by: label”. The costs in the Marketing tab now show our own spending apart from what others pay.',
   'Abonnierte Kalender: Einstellungen › Kalender nimmt die ICS- oder webcal-Adresse eines Google-, iCloud- oder Outlook-Kalenders. Seine Termine erscheinen im Bookingium-Kalender, nur zum Ansehen, mit eigener Farbe und auch als Serie.':
     'Subscribed calendars: Settings › Calendar takes the ICS or webcal address of a Google, iCloud or Outlook calendar. Its entries show in the Bookingium calendar, read-only, in a color of their own and as series too.',
   'Bookingium in Outlook, Google oder Apple abonnieren: Die Kalender-Datei in einem OneDrive- oder Dropbox-Ordner teilen und den Link einfügen – Bookingium macht daraus die Abo-Adresse und prüft, ob die Datei darüber erreichbar und aktuell ist.':
